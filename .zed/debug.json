@@ -1,0 +1,11 @@
+[
+  {
+    "adapter": "Debugpy",
+    "label": "Run workflow",
+    "request": "launch",
+    "command": "uv",
+    "module": "main",
+    "args": ["--project-name", "odin"],
+    "cwd": "$ZED_WORKTREE_ROOT"
+  }
+]
