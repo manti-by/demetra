@@ -1,27 +1,8 @@
 query GetTodoIssues($teamId: String!) {
-  team(id: $teamId) {
-    states {
-      nodes {
-        id
-        name
-        issues {
-          nodes {
-            id
-            title
-            description
-            priority
-            createdAt
-            project {
-              id
-              name
-            }
-            state {
-              id
-              name
-            }
-          }
-        }
-      }
+  issues(filter: { state: { name: { eq: "Todo" } } }) {
+    nodes {
+      id
+      title
     }
   }
 }
