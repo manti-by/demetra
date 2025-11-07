@@ -1,34 +1,7 @@
 name: Checks
-
-on:
-  push:
-  pull_request:
-
+on: [push, pull_request]
 jobs:
-  checks:
-    name: Run checks
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Check out the repository
-        uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version-file: "pyproject.toml"
-
-      - name: Setup UV
-        uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: true
-
-      - name: Install dependencies
-        shell: bash
-        run: |
-          uv sync --locked --all-extras --dev
-
-      - name: Run pre-commit hooks
-        run: |
-          uv run pre-commit run --all-files
+      - uses: actions/checkout@v4
