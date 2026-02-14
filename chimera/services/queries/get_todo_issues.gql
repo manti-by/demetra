@@ -1,8 +1,0 @@
-query GetTodoIssues($teamId: String!) {
-  issues(filter: { state: { name: { eq: "Todo" } } }) {
-    nodes {
-      id
-      title
-    }
-  }
-}

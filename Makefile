@@ -1,4 +1,5 @@
 run:
-	python main.py
+	uv run main.py
+
 check:
-	pre-commit run --all-files
+	uv run pre-commit run --all-files

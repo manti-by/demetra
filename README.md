@@ -1,6 +1,6 @@
-# Chimera
+# Demetra
 
-AI-powered coding workflow orchestration tool.
+Coding workflow orchestration tool.
 
 ## Features
 - Linear integration

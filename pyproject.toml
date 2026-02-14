@@ -1,13 +1,130 @@
 [project]
-name = "chimera"
+name = "demetra"
 version = "0.1.0"
+readme = "README.md"
+description = "Coding workflow orchestration tool"
+requires-python = ">=3.13.6,<3.14.0"
 dependencies = [
-    "httpx>=0.27.0",
-    "python-dotenv>=1.0.0",
-    "ty>=0.1.0",
-    "ruff>=0.4.0",
-    "bandit>=1.7.0",
+    "aiofiles>=24.1.0",
+    "aiohttp>=3.13.3",
+    "asyncio>=4.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "debugpy>=1.8.20",
+    "ipython>=9.10.0",
+    "ty>=0.0.17",
+    "pre-commit>=4.5.1",
+    "uv-bump>=0.4.2",
+]
+[tool.pytest.ini_options]
+log_cli = true
+log_cli_format = "%(levelname)s %(asctime)s %(message)s"
+django_find_project = true
+addopts = '-p no:warnings --color=yes --ds=odin.settings.test'
+norecursedirs = '''
+.git
+.github
+.pytest_cache
+.ruff_cache
+.venv
+'''
+
+[tool.bandit]
+exclude_dirs = [
+    "odin/settings/",
+    "odin/tests/"
+]
+skips = ["B101", "B308", "B703"]
+
+[tool.curlylint.rules]
+indent = 2
+html_has_lang = true
 
 [tool.ruff]
 line-length = 120
+indent-width = 4
+target-version = "py313"
+exclude = [
+    "odin/settings/"
+]
+
+[tool.ruff.lint]
+select = [
+    "E",  # pycodestyle
+    "F",  # Pyflakes
+    "N",  # pep8-naming
+    "UP",  # pyupgrade
+    "B",  # flake8-bugbear
+    "S",  # flake8-bandit
+    "BLE",  # flake8-blind-except
+    "A",  # flake8-builtins
+    "DJ",  # flake8-django
+    "I",  # isort
+    "INP",  # flake8-no-pep420
+    "RUF"  # Ruff-specific rules
+]
+exclude = [
+    ".git",
+    ".idea",
+    ".vscode",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+]
+ignore = [
+    "DJ001", # Null values for model char fields
+    "ERA001",  # Disable eradicate (commented code removal)
+    # Disable Conflicting lint rules,
+    # see https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191",
+    "E501",
+    "E111",
+    "E117",
+    "D206",
+    "D300",
+    "Q000",
+    "Q001",
+    "Q002",
+    "Q003",
+    "COM812",
+    "COM819",
+    "ISC001",
+    "ISC002",
+    "S603",
+    # Disable unused `noqa` directive
+    "RUF100",
+    "RUF012",  # Mutable class attributes should be annotated with `typing.ClassVar`
+    "N806",  # Variable `CONSTANT_NAME` in function should be lowercase
+]
+
+[tool.ruff.lint.pycodestyle]
+ignore-overlong-task-comments = true
+
+[tool.ruff.lint.isort]
+section-order = ["future", "standard-library", "third-party", "first-party", "django", "demetra", "local-folder"]
+lines-after-imports = 2
+
+[tool.ruff.lint.isort.sections]
+"demetra" = ["demetra"]
+
+[tool.ruff.lint.per-file-ignores]
+# Ignore "E402", "F403", "F405" (import violations) in __init__.py files.
+# Ignore "S" (flake8-bandit) and "N802" (function name should be lowercase) in tests and docs.
+# Ignore "RUF" (Ruff-specific rules) and "I" (isort) in migrations.
+"__init__.py" = ["E402", "F403", "F405"]
+"**/{tests,docs}/*" = ["E402", "F403", "F405", "S", "N802", "N815"]
+"**/*test*.py" = ["E402", "F403", "F405", "S", "N802"]
+"**/{settings}/*" = ["E402", "F403", "F405"]
+"**/migrations/*" = ["RUF", "I"]
+
+[tool.ty.src]
+exclude = [
+    ".git",
+    ".idea",
+    ".vscode",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".venv",
+]

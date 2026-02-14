@@ -1,0 +1,33 @@
+query GetTodoIssues($teamId: String!) {
+  team(id: $teamId) {
+    states {
+      nodes {
+        id
+        name
+        issues {
+          nodes {
+            id
+            identifier
+            title
+            description
+            priority
+            createdAt
+            branchName
+            project {
+              id
+              name
+            }
+            state {
+              id
+              name
+            }
+            assignee {
+              id
+              name
+            }
+          }
+        }
+      }
+    }
+  }
+}
