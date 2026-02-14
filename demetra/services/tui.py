@@ -16,8 +16,10 @@ def print_message(message: str, style: str | None = None):
         console.print("→ ", style="bold bright_green", end="")
         console.print(message, style="white")
     elif style == "info":
+        console.print()
         console.print(message, style="bright_black")
     elif style == "error":
+        console.print()
         console.print(message, style="red")
     else:
         console.print(message)

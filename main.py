@@ -1,7 +1,7 @@
 import argparse
 import asyncio
 
-from demetra.services.coderabbit import review_agent
+from demetra.services.cursor import review_agent
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.linear import get_linear_task
@@ -43,12 +43,15 @@ async def main(project_name: str):
             plan_output = await plan_agent(target_path=worktree_path, task=current_task, repeat=repeat)
 
             print_message("Plan step is completed", style="heading")
-            print_message("Options: approve (default) | reject | comment")
+            print_message(f"Plan output:\n{plan_output}")
+
+            print_message("Options: approve - default | comment | exit")
             user_input = input("Action: ").strip().lower()
 
-            if user_input == "reject":
-                print_message("Rejected. Exiting.", style="error")
+            if user_input == "exit":
+                print_message("Cancelled, exiting the workflow.", style="error")
                 return
+
             elif user_input == "comment":
                 comment = input("Enter comment: ").strip()
                 if comment:
@@ -56,28 +59,33 @@ async def main(project_name: str):
                     current_task = comment
                     repeat = True
                 continue
+
             else:
                 break
 
+        repeat = False
+        current_task = plan_output
         while True:
             print_message("Running BUILD agent", style="heading")
-            await build_agent(target_path=worktree_path, task=plan_output, repeat=True)
+            await build_agent(target_path=worktree_path, task=current_task, repeat=repeat)
 
             print_message("Running CODE REVIEW agent", style="heading")
             review_comments = await review_agent(target_path=worktree_path)
-
             if not review_comments:
-                print_message("No comments from review", style="result")
+                print_message("No comments from review agent, continuing the workflow.", style="result")
                 break
-            plan_output = review_comments
 
-            print_message("Options: approve (default) | reject")
+            print_message("Options: approve (apply comments) - default | continue")
             user_input = input("Action: ").strip().lower()
 
-            if user_input == "reject":
-                print_message("Rejected. Exiting.")
-                return
+            if user_input == "continue":
+                print_message("Continuing the workflow.", style="result")
+                break
+
             elif user_input == "approve":
+                print_message("Applying proposed changes.")
+                current_task = review_comments
+                repeat = True
                 continue
 
         print_message("Commiting changes", style="heading")
