@@ -8,6 +8,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 - **Linear Integration**: Retrieves and prioritizes tasks from Linear issue tracker
 - **OpenCode Integration**: Plans and builds features using OpenCode plan/build agents
 - **Cursor Integration**: Reviews code changes with AI-powered feedback
+- **CodeRabbit Integration** (Optional): A more powerful alternative to Cursor for code review but more expensive
 - **Git Worktree Management**: Isolates feature work using git worktrees
 - **Terminal UI**: Rich console output with styled messages and ASCII header
 
@@ -149,4 +150,4 @@ This project uses GitHub Actions for continuous integration. The workflow is def
 
 ## License
 
-MIT License
+BSD 3-Clause License

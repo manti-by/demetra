@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.0.1"
+version = "1.1.0"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.6,<3.14.0"
@@ -20,11 +20,13 @@ dev = [
     "pre-commit>=4.5.1",
     "uv-bump>=0.4.2",
     "pytest>=9.0.2",
+    "pytest-asyncio>=0.26.0",
 ]
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_format = "%(levelname)s %(asctime)s %(message)s"
 django_find_project = true
+asyncio_mode = "auto"
 addopts = '-p no:warnings --color=yes'
 norecursedirs = '''
 .git

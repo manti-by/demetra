@@ -9,7 +9,7 @@ from demetra.services.opencode import build_agent, plan_agent
 from demetra.services.tui import print_heading, print_message
 
 
-parser = argparse.ArgumentParser(prog="chimera", description="Run AI workflow.", add_help=True)
+parser = argparse.ArgumentParser(prog="chimera", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
 
 
