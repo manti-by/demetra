@@ -1,13 +1,13 @@
 # Demetra
 
-Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and CodeRabbit (code review) to create a seamless development workflow.
+Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and Cursor (code review) to create a seamless development workflow.
 
 ## Features
 
 - **Workflow Orchestration**: Coordinates the entire development lifecycle from task retrieval to code review
 - **Linear Integration**: Retrieves and prioritizes tasks from Linear issue tracker
 - **OpenCode Integration**: Plans and builds features using OpenCode plan/build agents
-- **CodeRabbit Integration**: Reviews code changes with AI-powered feedback
+- **Cursor Integration**: Reviews code changes with AI-powered feedback
 - **Git Worktree Management**: Isolates feature work using git worktrees
 - **Terminal UI**: Rich console output with styled messages and ASCII header
 
@@ -29,7 +29,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
               ▼            ▼            ▼
        ┌─────────────┐ ┌────────────┐ ┌────────────┐
        │  Plan Agent │ │ Build Agent│ │Review Agent│
-       │ (OpenCode)  │ │ (OpenCode) │ │(CodeRabbit)│
+       │ (OpenCode)  │ │ (OpenCode) │ │  (Cursor)  │
        └─────────────┘ └────────────┘ └────────────┘
 ```
 
@@ -40,7 +40,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 3. **Planning**: Create an implementation plan using OpenCode's plan agent
 4. **User Approval**: Wait for user input (approve / reject / comment) before proceeding
 5. **Building**: Implement the feature using OpenCode's build agent
-6. **Review**: Check the implementation using CodeRabbit
+6. **Review**: Check the implementation using Cursor
 7. **Iteration**: If review finds issues, re-run build with review feedback
 8. **Commit & Push**: Commit changes and push the feature branch
 9. **Cleanup**: Remove the git worktree
@@ -50,7 +50,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 - Python >=3.13.6, <3.14.0
 - Linear API key and Team ID
 - OpenCode CLI
-- CodeRabbit CLI
+- Cursor CLI
 
 ## Installation
 
@@ -70,6 +70,7 @@ Configure the following environment variables (via `.env` or shell):
 | `OPENCODE_PATH` | Path to OpenCode binary | `$HOME/.opencode/bin/opencode` |
 | `OPENCODE_MODEL` | OpenCode model to use | `opencode/minimax-m2.5-free` |
 | `CODERABBIT_PATH` | Path to CodeRabbit binary | `$HOME/.local/bin/coderabbit` |
+| `CURSOR_PATH` | Path to Cursor binary | `$HOME/.cursor/bin/cursor` |
 | `GIT_PATH` | Path to git binary | `/usr/bin/git` |
 | `GIT_WORKTREE_PATH` | Path for git worktrees | `$HOME/.local/demetra/worktrees/` |
 
@@ -105,6 +106,7 @@ demetra/
 └── services/
     ├── __init__.py
     ├── coderabbit.py              # CodeRabbit review agent integration
+    ├── cursor.py                  # Cursor review agent integration
     ├── filesystem.py              # Project filesystem utilities
     ├── git.py                     # Git worktree, commit, and push operations
     ├── graphql.py                 # GraphQL client for Linear API

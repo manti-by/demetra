@@ -2,14 +2,14 @@
 
 ## Project Overview
 
-Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and CodeRabbit (code review) to create a seamless development workflow.
+Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and Cursor (code review) to create a seamless development workflow.
 
 ## Project Structure
 
 - `demetra/settings.py`: Core configuration and environment variables
 - `demetra/models.py`: LinearIssue dataclass for task state management
 - `demetra/services/opencode.py`: OpenCode plan and build agent integrations
-- `demetra/services/coderabbit.py`: CodeRabbit review agent integration
+- `demetra/services/cursor.py`: Cursor review agent integration
 - `demetra/services/linear.py`: Linear GraphQL API integration
 - `demetra/services/filesystem.py`: Project filesystem utilities
 - `demetra/services/graphql.py`: GraphQL client utilities
@@ -133,7 +133,7 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`:
 - `LINEAR_TEAM_ID`: Linear team ID
 - `OPENCODE_PATH`: Path to OpenCode CLI binary (default: `$HOME/.opencode/bin/opencode`)
 - `OPENCODE_MODEL`: OpenCode model to use (default: `opencode/minimax-m2.5-free`)
-- `CODERABBIT_PATH`: Path to CodeRabbit CLI binary (default: `$HOME/.local/bin/coderabbit`)
+- `CURSOR_PATH`: Path to Cursor CLI binary (default: `$HOME/.cursor/bin/cursor`)
 - `GIT_PATH`: Path to git binary (default: `/usr/bin/git`)
 - `GIT_WORKTREE_PATH`: Path for git worktrees (default: `$HOME/.local/demetra/worktrees/`)
 
@@ -142,7 +142,7 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`:
 Demetra coordinates the following external tools:
 
 - **OpenCode**: AI coding assistant for planning and building features
-- **CodeRabbit**: AI-powered code review tool
+- **Cursor**: AI-powered code review tool
 - **Linear**: Issue tracking via GraphQL API
 
 ## Security Guidelines
