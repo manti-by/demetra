@@ -9,6 +9,7 @@ dependencies = [
     "aiohttp>=3.13.3",
     "asyncio>=4.0.0",
     "python-slugify>=8.0.4",
+    "rich>=14.3.2",
 ]
 
 [dependency-groups]

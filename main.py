@@ -3,9 +3,10 @@ import asyncio
 
 from demetra.services.coderabbit import review_agent
 from demetra.services.filesystem import get_project_root
-from demetra.services.git import git_commit_and_push, git_worktree_create, git_worktree_remove
+from demetra.services.git import git_commit, git_push, git_worktree_create, git_worktree_remove
 from demetra.services.linear import get_linear_task
 from demetra.services.opencode import build_agent, plan_agent
+from demetra.services.tui import print_heading, print_message
 
 
 parser = argparse.ArgumentParser(prog="chimera", description="Run AI workflow.", add_help=True)
@@ -13,78 +14,80 @@ parser.add_argument("-p", "--project-name", help="Project name to run workflow o
 
 
 async def main(project_name: str):
-    print("\n--- Running workflow ---\n")
+    await print_heading()
+
+    print_message("Running workflow", style="heading")
 
     project_path = get_project_root(project_name=project_name)
-    print(f"Project root: {project_path}")
+    print_message(f"Project root: {project_path}", style="result")
 
-    print("\n--- Retrieving latest linear task ---\n")
+    print_message("Retrieving latest linear task", style="heading")
     task = await get_linear_task(project_name=project_name)
     if not task:
-        print("No TODO tasks found")
+        print_message("No TODO tasks found", style="error")
         return
-    print(f"Retrieved task: {task.identifier} - {task.title}")
+    print_message(f"Retrieved task: {task.identifier} - {task.title}", style="result")
 
-    print("\n--- Creating feature worktree ---\n")
+    print_message("Creating feature worktree", style="heading")
     branch_name = f"opencode/feature/{task.slug}"
-    stdout, stderr, worktree_path = await git_worktree_create(target_path=project_path, branch_name=branch_name)
-    print(stdout, stderr)
-    print(f"Created worktree at: {worktree_path}")
+    worktree_path = await git_worktree_create(target_path=project_path, branch_name=branch_name)
+    print_message(f"Created worktree at: {worktree_path}", style="result")
 
+    repeat = False
     plan_output = None
+    current_task = task.text
     while True:
-        print("\n--- Running PLAN agent ---\n")
-        result = await plan_agent(target_path=worktree_path, task=task.text)
-        print(*result)
+        print_message("Running PLAN agent", style="heading")
+        plan_output = await plan_agent(target_path=worktree_path, task=current_task, repeat=repeat)
 
-        print("\n--- Plan step is completed ---\n")
-        print("Options: approve (default) | reject | comment")
+        print_message("Plan step is completed", style="heading")
+        print_message("Options: approve (default) | reject | comment")
         user_input = input("Action: ").strip().lower()
 
         if user_input == "reject":
-            print("Rejected. Exiting.")
+            print_message("Rejected. Exiting.", style="error")
             return
         elif user_input == "comment":
             comment = input("Enter comment: ").strip()
             if comment:
                 task.comments.append(comment)
+                current_task = comment
+                repeat = True
             continue
         else:
-            plan_output = stderr
             break
 
     while True:
-        print("\n--- Running BUILD agent ---\n")
-        result = await build_agent(target_path=worktree_path, task=plan_output)
-        print(*result)
+        print_message("Running BUILD agent", style="heading")
+        await build_agent(target_path=worktree_path, task=plan_output, repeat=True)
 
-        print("\n--- Running CODE REVIEW agent ---\n")
-        stdout, stderr = await review_agent(target_path=worktree_path)
-        print(stdout, stderr)
+        print_message("Running CODE REVIEW agent", style="heading")
+        review_comments = await review_agent(target_path=worktree_path)
 
-        if not stderr.strip():
-            print("\n--- No comments from review ---\n")
+        if not review_comments:
+            print_message("No comments from review", style="result")
             break
-        plan_output = stderr
+        plan_output = review_comments
 
-        print("\nOptions: approve (default) | reject")
+        print_message("Options: approve (default) | reject")
         user_input = input("Action: ").strip().lower()
 
         if user_input == "reject":
-            print("Rejected. Exiting.")
+            print_message("Rejected. Exiting.")
             return
         elif user_input == "approve":
             continue
 
-    print("\n--- Commiting changes ---\n")
-    result = await git_commit_and_push(target_path=worktree_path, message=f"{task.identifier}: {task.title}")
-    print(*result)
+    print_message("Commiting changes", style="heading")
+    await git_commit(target_path=worktree_path, message=f"{task.identifier}: {task.title}")
 
-    print("\n--- Removing worktree ---\n")
-    result = await git_worktree_remove(target_path=project_path, worktree_path=worktree_path)
-    print(*result)
+    print_message("Pushing changes", style="heading")
+    await git_push(target_path=worktree_path)
 
-    print("\n--- Workflow complete ---\n")
+    print_message("Removing worktree", style="heading")
+    await git_worktree_remove(target_path=project_path, worktree_path=worktree_path)
+
+    print_message("Workflow complete", style="heading")
 
 
 if __name__ == "__main__":
