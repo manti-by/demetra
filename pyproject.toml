@@ -8,6 +8,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     "aiohttp>=3.13.3",
     "asyncio>=4.0.0",
+    "python-slugify>=8.0.4",
 ]
 
 [dependency-groups]
@@ -17,12 +18,13 @@ dev = [
     "ty>=0.0.17",
     "pre-commit>=4.5.1",
     "uv-bump>=0.4.2",
+    "pytest>=9.0.2",
 ]
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_format = "%(levelname)s %(asctime)s %(message)s"
 django_find_project = true
-addopts = '-p no:warnings --color=yes --ds=odin.settings.test'
+addopts = '-p no:warnings --color=yes'
 norecursedirs = '''
 .git
 .github

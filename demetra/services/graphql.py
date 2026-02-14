@@ -3,11 +3,11 @@ from typing import Any
 import aiofiles
 import aiohttp
 
-from demetra.settings import BASE_DIR, LINEAR_API_KEY, LINEAR_API_URL
+from demetra.settings import BASE_PATH, LINEAR_API_KEY, LINEAR_API_URL
 
 
 async def get_todo_issues_query() -> str:
-    async with aiofiles.open(BASE_DIR / "chimera" / "services" / "queries" / "get_todo_issues.gql") as file:
+    async with aiofiles.open(BASE_PATH / "chimera" / "services" / "queries" / "get_todo_issues.gql") as file:
         content = await file.read()
     return content
 
