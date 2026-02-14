@@ -10,7 +10,6 @@ class LinearIssue:
     title: str
     description: str
     priority: str
-    state: str
     created_at: str
     branch_name: str
     comments: list[str] = field(default_factory=list)
@@ -23,4 +22,4 @@ class LinearIssue:
 
     @property
     def slug(self) -> str:
-        return self.branch_name or slugify(f"{self.identifier}-{self.title}")
+        return slugify(f"{self.identifier}-{self.title}")

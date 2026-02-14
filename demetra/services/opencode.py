@@ -2,7 +2,7 @@ import asyncio
 import shlex
 from pathlib import Path
 
-from demetra.settings import OPENCODE_PATH
+from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
 
 
 async def plan_agent(target_path: Path, task: str, repeat: bool = False) -> tuple[str, str]:
@@ -16,7 +16,7 @@ async def build_agent(target_path: Path, task: str, repeat: bool = False) -> tup
 async def run_opencode_agent(
     target_path: Path, task: str, repeat: bool = False, agent: str = "plan"
 ) -> tuple[str, str]:
-    call = [OPENCODE_PATH, "run", "--agent", agent, "--model", "opencode/minimax-m2.5-free"]
+    call = [OPENCODE_PATH, "run", "--model", OPENCODE_MODEL, "--agent", agent]
     if repeat:
         call.append("--continue")
     call.append(shlex.quote(task))

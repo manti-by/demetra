@@ -17,14 +17,6 @@ query GetTodoIssues($teamId: String!) {
               id
               name
             }
-            state {
-              id
-              name
-            }
-            assignee {
-              id
-              name
-            }
           }
         }
       }
