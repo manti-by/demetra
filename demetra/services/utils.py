@@ -9,7 +9,7 @@ async def live_stream(stream: asyncio.StreamReader, result: list[str] | None = N
             break
 
         decoded = line.decode()
-        if result:
+        if result is not None:
             result.append(decoded)
 
         sys.stdout.write(decoded)
