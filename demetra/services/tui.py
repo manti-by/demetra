@@ -13,7 +13,7 @@ def print_message(message: str, style: str | None = None):
         console.print("\n\u25cf ", style="bold bright_green", end="")
         console.print(message, style="bold bright_white")
     elif style == "result":
-        console.print(" > ", style="bold bright_green", end="")
+        console.print("→ ", style="bold bright_green", end="")
         console.print(message, style="white")
     elif style == "info":
         console.print(message, style="bright_black")
@@ -31,6 +31,6 @@ async def print_heading():
     text.stylize("magenta", 0, 150)
     text.stylize("cyan", 150, 250)
     text.stylize("blue", 250, 350)
-    console.print(text)
 
-    console.print("\n")
+    console.print()
+    console.print(text, end="")

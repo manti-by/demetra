@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from pathlib import Path
 
 from demetra.services.utils import live_stream
@@ -20,9 +19,6 @@ async def run_coderabbit_agent(target_path: Path) -> str:
         raise AttributeError("stdout/stderr is None")
 
     result = []
-    await asyncio.gather(
-        live_stream(process.stdout, sys.stdout),
-        live_stream(process.stderr, sys.stderr, result=result),
-    )
+    await asyncio.gather(live_stream(process.stdout, result=result), live_stream(process.stderr))
     await process.wait()
     return "".join(result)

@@ -1,5 +1,4 @@
 import asyncio
-import sys
 from pathlib import Path
 
 from demetra.services.utils import live_stream
@@ -16,11 +15,7 @@ async def git_worktree_create(target_path: Path, branch_name: str) -> Path:
         process.kill()
         raise AttributeError("stdout/stderr is None")
 
-    await asyncio.gather(
-        live_stream(process.stdout, sys.stdout),
-        live_stream(process.stderr, sys.stderr),
-    )
-
+    await asyncio.gather(live_stream(process.stdout), live_stream(process.stderr))
     return worktree_path
 
 
@@ -33,10 +28,7 @@ async def git_worktree_remove(target_path: Path, worktree_path: Path):
         process.kill()
         raise AttributeError("stdout/stderr is None")
 
-    await asyncio.gather(
-        live_stream(process.stdout, sys.stdout),
-        live_stream(process.stderr, sys.stderr),
-    )
+    await asyncio.gather(live_stream(process.stdout), live_stream(process.stderr))
 
 
 async def git_commit(target_path: Path, message: str):
@@ -53,10 +45,7 @@ async def git_commit(target_path: Path, message: str):
         process.kill()
         raise AttributeError("stdout/stderr is None")
 
-    await asyncio.gather(
-        live_stream(process.stdout, sys.stdout),
-        live_stream(process.stderr, sys.stderr),
-    )
+    await asyncio.gather(live_stream(process.stdout), live_stream(process.stderr))
 
 
 async def git_push(target_path: Path):
@@ -67,7 +56,4 @@ async def git_push(target_path: Path):
         process.kill()
         raise AttributeError("stdout/stderr is None")
 
-    await asyncio.gather(
-        live_stream(process.stdout, sys.stdout),
-        live_stream(process.stderr, sys.stderr),
-    )
+    await asyncio.gather(live_stream(process.stdout), live_stream(process.stderr))

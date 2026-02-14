@@ -1,14 +1,16 @@
 import asyncio
-from typing import TextIO
+import sys
 
 
-async def live_stream(stream: asyncio.StreamReader, dest: TextIO, result: list[str] | None = None) -> None:
+async def live_stream(stream: asyncio.StreamReader, result: list[str] | None = None) -> None:
     while True:
         line = await stream.readline()
         if not line:
             break
+
         decoded = line.decode()
         if result:
             result.append(decoded)
-        dest.write(decoded)
-        dest.flush()
+
+        sys.stdout.write(decoded)
+        sys.stdout.flush()

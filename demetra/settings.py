@@ -12,7 +12,7 @@ LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
 LINEAR_TEAM_ID = os.environ.get("LINEAR_TEAM_ID")
 
 OPENCODE_PATH = Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"))
-OPENCODE_MODEL = os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free")
+OPENCODE_MODEL = os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5")
 
 CODERABBIT_PATH = Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit"))
 
