@@ -2,7 +2,8 @@ import aiofiles
 
 from demetra.models import LinearIssue
 from demetra.services.graphql import get_todo_issues_query, graphql_request
-from demetra.settings import BASE_PATH, LINEAR_TEAM_ID
+from demetra.services.tui import print_message
+from demetra.settings import BASE_PATH, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
 
 
 async def get_todo_issues(project_name: str) -> list[LinearIssue]:
@@ -31,7 +32,7 @@ async def get_todo_issues(project_name: str) -> list[LinearIssue]:
 
 async def get_linear_task(project_name: str) -> LinearIssue | None:
     issues = await get_todo_issues(project_name=project_name)
-    issues = sorted(issues, key=lambda x: (x.priority or 10, x.created_at or ""))
+    issues = sorted(issues, key=lambda x: (-x.priority or 0, x.created_at or ""), reverse=True)
     if issues:
         return issues[0]
     return None
@@ -47,3 +48,9 @@ async def update_ticket_status(task_id: str, state_id: str) -> bool:
     query = await get_update_issue_mutation()
     result = await graphql_request(query, {"issueId": task_id, "stateId": state_id})
     return result.get("data", {}).get("issueUpdate", {}).get("success", False)
+
+
+async def linear_cleanup(task_id: str, is_error: bool):
+    if is_error:
+        print_message("Moving back a ticket in TODO column", style="heading")
+        await update_ticket_status(task_id=task_id, state_id=LINEAR_STATE_TODO_ID)

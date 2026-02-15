@@ -6,7 +6,7 @@ from demetra.services.cursor import review_agent
 from demetra.services.database import create_session, get_session
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
-from demetra.services.linear import get_linear_task, update_ticket_status
+from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
 from demetra.services.tui import print_heading, print_message
 from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
@@ -60,14 +60,22 @@ async def main(project_name: str):
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
 
-            print_message("Options: approve - default | comment | exit")
-            user_input = input("Action: ").strip().lower()
+            print_message("How would you like to proceed?")
+            print_message("  [1] approve - default")
+            print_message("  [2] comment")
+            print_message("  [3] exit")
 
-            if user_input == "exit":
+            while True:
+                user_input = input("Action: ").strip().lower()
+                if user_input in ["1", "2", "3", "approve", "comment", "exit"]:
+                    break
+                print_message("Invalid choice. Please try again.")
+
+            if user_input in ["3", "exit"]:
                 print_message("Cancelled, exiting the workflow.", style="error")
                 return
 
-            elif user_input == "comment":
+            elif user_input in ["2", "comment"]:
                 comment = input("Enter comment: ").strip()
                 if comment:
                     current_task = comment
@@ -89,14 +97,21 @@ async def main(project_name: str):
                 print_message("No comments from review agent, continuing the workflow.", style="result")
                 break
 
-            print_message("Options: approve (apply comments) - default | continue")
-            user_input = input("Action: ").strip().lower()
+            print_message("How would you like to proceed?")
+            print_message("  [1] approve (apply comments) - default")
+            print_message("  [2] skip (go to next task)")
 
-            if user_input == "continue":
+            while True:
+                user_input = input("Action: ").strip().lower()
+                if user_input in ["1", "2", "approve", "skip"]:
+                    break
+                print_message("Invalid choice. Please try again.")
+
+            if user_input == "skip":
                 print_message("Continuing the workflow.", style="result")
                 break
 
-            elif user_input == "approve":
+            else:
                 print_message("Applying proposed changes.")
                 current_task = review_comments
                 continue
@@ -119,6 +134,7 @@ async def main(project_name: str):
         await git_cleanup(
             target_path=project_path, worktree_path=worktree_path, branch_name=branch_name, is_error=is_error
         )
+        await linear_cleanup(task_id=task.id, is_error=is_error)
 
 
 if __name__ == "__main__":
