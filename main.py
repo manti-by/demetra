@@ -9,7 +9,7 @@ from demetra.services.opencode import build_agent, plan_agent
 from demetra.services.tui import print_heading, print_message
 
 
-parser = argparse.ArgumentParser(prog="chimera", description="Run implementation workflow.", add_help=True)
+parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
 
 
@@ -35,12 +35,11 @@ async def main(project_name: str):
 
     is_error = True
     try:
-        repeat = False
         plan_output = None
         current_task = task.text
         while True:
             print_message("Running PLAN agent", style="heading")
-            plan_output = await plan_agent(target_path=worktree_path, task=current_task, repeat=repeat)
+            plan_output = await plan_agent(session_id=task.id, target_path=worktree_path, task=current_task)
 
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
@@ -55,22 +54,19 @@ async def main(project_name: str):
             elif user_input == "comment":
                 comment = input("Enter comment: ").strip()
                 if comment:
-                    task.comments.append(comment)
                     current_task = comment
-                    repeat = True
                 continue
 
             else:
                 break
 
-        repeat = False
         current_task = plan_output
         while True:
             print_message("Running BUILD agent", style="heading")
-            await build_agent(target_path=worktree_path, task=current_task, repeat=repeat)
+            await build_agent(session_id=task.id, target_path=worktree_path, task=current_task)
 
             print_message("Running CODE REVIEW agent", style="heading")
-            review_comments = await review_agent(target_path=worktree_path)
+            review_comments = await review_agent(session_id=task.id, target_path=worktree_path)
             if not review_comments:
                 print_message("No comments from review agent, continuing the workflow.", style="result")
                 break
@@ -85,7 +81,6 @@ async def main(project_name: str):
             elif user_input == "approve":
                 print_message("Applying proposed changes.")
                 current_task = review_comments
-                repeat = True
                 continue
 
         print_message("Commiting changes", style="heading")
