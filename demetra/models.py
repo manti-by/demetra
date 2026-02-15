@@ -15,8 +15,8 @@ class LinearIssue:
     comments: list[str] = field(default_factory=list)
 
     @property
-    def session_id(self) -> str:
-        return f"ses_{self.id}"
+    def full_title(self) -> str:
+        return f"{self.identifier}: {self.title}"
 
     @property
     def text(self) -> str:
@@ -31,7 +31,7 @@ class LinearIssue:
 
 @dataclass
 class Session:
-    ticket_id: str
+    task_id: str
     session_id: str
     created_at: str
     updated_at: str

@@ -24,7 +24,7 @@ class TestDatabaseService:
         from demetra.services.database import create_session, get_session
 
         record = create_session("TICKET-1", "session-123")
-        assert record.ticket_id == "TICKET-1"
+        assert record.task_id == "TICKET-1"
         assert record.session_id == "session-123"
 
         found = get_session("TICKET-1")

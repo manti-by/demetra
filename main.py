@@ -2,10 +2,11 @@ import argparse
 import asyncio
 
 from demetra.services.cursor import review_agent
+from demetra.services.database import create_session, get_session
 from demetra.services.filesystem import get_project_root
-from demetra.services.git import git_cleanup, git_commit, git_push, git_worktree_create
+from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.linear import get_linear_task
-from demetra.services.opencode import build_agent, plan_agent
+from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
 from demetra.services.tui import print_heading, print_message
 
 
@@ -34,12 +35,20 @@ async def main(project_name: str):
     print_message(f"Created worktree at: {worktree_path}", style="result")
 
     is_error = True
+    session = get_session(task_id=task.id)
+    session_id = session.session_id if session else None
     try:
         plan_output = None
         current_task = task.text
         while True:
             print_message("Running PLAN agent", style="heading")
-            plan_output = await plan_agent(session_id=task.session_id, target_path=worktree_path, task=current_task)
+            plan_output = await plan_agent(
+                target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
+            )
+
+            if session_id is None:
+                if session_id := await get_opencode_session_id(target_path=worktree_path, task_title=task.full_title):
+                    session = create_session(task_id=task.id, session_id=session_id)
 
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
@@ -63,10 +72,12 @@ async def main(project_name: str):
         current_task = plan_output
         while True:
             print_message("Running BUILD agent", style="heading")
-            await build_agent(session_id=task.session_id, target_path=worktree_path, task=current_task)
+            await build_agent(
+                target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
+            )
 
             print_message("Running CODE REVIEW agent", style="heading")
-            review_comments = await review_agent(session_id=task.session_id, target_path=worktree_path)
+            review_comments = await review_agent(target_path=worktree_path, session_id=session_id)
             if not review_comments:
                 print_message("No comments from review agent, continuing the workflow.", style="result")
                 break
@@ -84,7 +95,8 @@ async def main(project_name: str):
                 continue
 
         print_message("Commiting changes", style="heading")
-        await git_commit(target_path=worktree_path, message=f"{task.identifier}: {task.title}")
+        await git_add_all(target_path=worktree_path)
+        await git_commit(target_path=worktree_path, message=task.full_title)
 
         print_message("Pushing changes", style="heading")
         await git_push(target_path=worktree_path)

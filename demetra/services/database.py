@@ -17,39 +17,36 @@ def init_db() -> None:
         conn.execute(
             """
             CREATE TABLE IF NOT EXISTS sessions (
-                ticket_id TEXT NOT NULL,
+                task_id TEXT NOT NULL,
                 session_id TEXT NOT NULL,
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                PRIMARY KEY (ticket_id, session_id)
+                PRIMARY KEY (task_id, session_id)
             )
             """
         )
         conn.commit()
 
 
-def create_session(ticket_id: str, session_id: str) -> Session:
+def create_session(task_id: str, session_id: str) -> Session:
     from datetime import datetime
 
     now = datetime.now(UTC).isoformat()
     with get_connection() as conn:
         conn.execute(
-            "INSERT INTO sessions (ticket_id, session_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
-            (ticket_id, session_id, now, now),
+            "INSERT INTO sessions (task_id, session_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
+            (task_id, session_id, now, now),
         )
         conn.commit()
-    return Session(ticket_id=ticket_id, session_id=session_id, created_at=now, updated_at=now)
+    return Session(task_id=task_id, session_id=session_id, created_at=now, updated_at=now)
 
 
-def get_session(ticket_id: str) -> Session | None:
+def get_session(task_id: str) -> Session | None:
     with get_connection() as conn:
-        row = conn.execute(
-            "SELECT * FROM sessions WHERE ticket_id = ?",
-            (ticket_id,),
-        ).fetchone()
+        row = conn.execute("SELECT * FROM sessions WHERE task_id = ?", (task_id,)).fetchone()
     if row:
         return Session(
-            ticket_id=row["ticket_id"],
+            task_id=row["task_id"],
             session_id=row["session_id"],
             created_at=row["created_at"],
             updated_at=row["updated_at"],

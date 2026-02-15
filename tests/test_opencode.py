@@ -11,9 +11,17 @@ class TestOpencodeService:
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "plan result"
-            result = await plan_agent("session-123", Path("/test/path"), "do something")
+            result = await plan_agent(
+                Path("/test/path"), "do something", session_id="session-123", task_title="do something"
+            )
 
-        mock_run.assert_called_once_with("session-123", Path("/test/path"), "do something", agent="plan")
+        mock_run.assert_called_once_with(
+            target_path=Path("/test/path"),
+            task="do something",
+            session_id="session-123",
+            task_title="do something",
+            agent="plan",
+        )
         assert result == "plan result"
 
     @pytest.mark.asyncio
@@ -22,12 +30,11 @@ class TestOpencodeService:
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "build result"
-            await build_agent("session-123", Path("/test/path"), "implement feature")
+            await build_agent(Path("/test/path"), "implement feature", session_id="session-123")
 
         mock_run.assert_called_once()
-        call_args = mock_run.call_args
-        args, kwargs = call_args
-        task = args[2] if len(args) > 2 else kwargs.get("task")
+        call_kwargs = mock_run.call_args.kwargs
+        task = call_kwargs.get("task")
         assert task is not None
         assert "DO NOT commit or push any changes" in task
         assert "implement feature" in task
@@ -42,7 +49,7 @@ class TestOpencodeService:
             patch("demetra.services.opencode.OPENCODE_MODEL", "test-model"),
         ):
             mock_run.return_value = "output"
-            await run_opencode_agent("session-123", Path("/test"), "task", agent="plan")
+            await run_opencode_agent(Path("/test"), "task", "plan", session_id="session-123")
 
         call_args = mock_run.call_args
         command = call_args.kwargs["command"]
