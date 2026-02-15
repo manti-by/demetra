@@ -65,3 +65,27 @@ class TestOpencodeService:
         assert "test-model" in command
         assert "--agent" in command
         assert "plan" in command
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_creates_file_when_not_exists(self, tmp_path):
+        from demetra.services.opencode import PLAN_FILE_NAME, extract_plan
+
+        result = await extract_plan(tmp_path, "plan content here")
+
+        assert result == f"@{PLAN_FILE_NAME}"
+        plan_file = tmp_path / PLAN_FILE_NAME
+        assert plan_file.exists()
+        assert plan_file.read_text() == "plan content here"
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_returns_existing_file(self, tmp_path):
+        from demetra.services.opencode import PLAN_FILE_NAME, extract_plan
+
+        plan_file = tmp_path / PLAN_FILE_NAME
+        plan_file.parent.mkdir(parents=True, exist_ok=True)
+        plan_file.write_text("existing plan")
+
+        result = await extract_plan(tmp_path, "new plan content")
+
+        assert result == f"@{PLAN_FILE_NAME}"
+        assert plan_file.read_text() == "existing plan"
