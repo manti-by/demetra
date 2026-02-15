@@ -1,13 +1,15 @@
 import argparse
 import asyncio
+import logging
 
 from demetra.services.cursor import review_agent
 from demetra.services.database import create_session, get_session
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
-from demetra.services.linear import get_linear_task
+from demetra.services.linear import get_linear_task, update_ticket_status
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
 from demetra.services.tui import print_heading, print_message
+from demetra.settings import LINEAR_STATE_IN_PROGRESS, LINEAR_STATE_IN_REVIEW
 
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
@@ -38,6 +40,12 @@ async def main(project_name: str):
     session = get_session(task_id=task.id)
     session_id = session.session_id if session else None
     try:
+        if LINEAR_STATE_IN_PROGRESS:
+            try:
+                await update_ticket_status(task.id, LINEAR_STATE_IN_PROGRESS)
+            except BaseException:  # noqa: BLE001
+                logging.warning("Failed to update ticket status to In Progress")
+
         plan_output = None
         current_task = task.text
         while True:
@@ -100,6 +108,12 @@ async def main(project_name: str):
 
         print_message("Pushing changes", style="heading")
         await git_push(target_path=worktree_path)
+
+        if LINEAR_STATE_IN_REVIEW:
+            try:
+                await update_ticket_status(task.id, LINEAR_STATE_IN_REVIEW)
+            except BaseException:  # noqa: BLE001
+                logging.warning("Failed to update ticket status to In Review")
 
         is_error = False
         print_message("Workflow complete", style="heading")

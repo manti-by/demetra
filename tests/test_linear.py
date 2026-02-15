@@ -173,3 +173,65 @@ class TestLinearService:
                 task = await get_linear_task("demetra")
 
         assert task is None
+
+    @pytest.mark.asyncio
+    async def test_update_ticket_status_returns_true_on_success(self):
+        from demetra.services.linear import update_ticket_status
+
+        mock_data = {
+            "data": {
+                "issueUpdate": {
+                    "success": True,
+                    "issue": {
+                        "id": "issue-1",
+                        "state": {"id": "state-1", "name": "In Progress"},
+                    },
+                }
+            }
+        }
+
+        with (
+            patch("demetra.services.linear.get_update_issue_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_mutation.return_value = "mutation"
+            mock_request.return_value = mock_data
+            result = await update_ticket_status("issue-1", "state-1")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_update_ticket_status_returns_false_on_failure(self):
+        from demetra.services.linear import update_ticket_status
+
+        mock_data = {
+            "data": {
+                "issueUpdate": {
+                    "success": False,
+                }
+            }
+        }
+
+        with (
+            patch("demetra.services.linear.get_update_issue_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_mutation.return_value = "mutation"
+            mock_request.return_value = mock_data
+            result = await update_ticket_status("issue-1", "state-1")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_update_ticket_status_returns_false_on_exception(self):
+        from demetra.services.linear import update_ticket_status
+
+        with (
+            patch("demetra.services.linear.get_update_issue_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_mutation.return_value = "mutation"
+            mock_request.side_effect = Exception("API error")
+            result = await update_ticket_status("issue-1", "state-1")
+
+        assert result is False

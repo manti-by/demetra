@@ -12,6 +12,8 @@ PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 LINEAR_API_URL = "https://api.linear.app/graphql"
 LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
 LINEAR_TEAM_ID = os.environ.get("LINEAR_TEAM_ID")
+LINEAR_STATE_IN_PROGRESS = os.environ.get("LINEAR_STATE_IN_PROGRESS")
+LINEAR_STATE_IN_REVIEW = os.environ.get("LINEAR_STATE_IN_REVIEW")
 
 OPENCODE_PATH = Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"))
 OPENCODE_MODEL = os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free")
