@@ -1,5 +1,5 @@
 mutation UpdateIssue($issueId: String!, $stateId: String!) {
-  issueUpdate(input: {id: $issueId, stateId: $stateId}) {
+  issueUpdate(input: { id: $issueId, stateId: $stateId }) {
     success
     issue {
       id
