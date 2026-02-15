@@ -31,7 +31,7 @@ class TestSettings:
     def test_git_worktree_path_default(self):
         from demetra import settings
 
-        assert ".local/demetra/worktrees" in str(settings.GIT_WORKTREE_PATH)
+        assert ".demetra/worktrees" in str(settings.GIT_WORKTREE_PATH)
 
     def test_settings_can_be_overridden_via_env(self, monkeypatch):
         monkeypatch.setenv("PROJECTS_PATH", "/custom/projects")

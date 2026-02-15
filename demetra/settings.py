@@ -5,6 +5,8 @@ from pathlib import Path
 BASE_PATH = Path(__file__).resolve().parent.parent
 HOME_PATH = Path.home()
 
+DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".demetra/demetra.sqlite3"))
+
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
 LINEAR_API_URL = "https://api.linear.app/graphql"
@@ -19,6 +21,4 @@ CURSOR_PATH = Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-
 CODERABBIT_PATH = Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit"))
 
 GIT_PATH = Path(os.environ.get("GIT_PATH", "/usr/bin/git"))
-GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".local/demetra/worktrees/"))
-
-DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".local/demetra/demetra.sqlite3"))
+GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"))
