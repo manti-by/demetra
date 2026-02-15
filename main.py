@@ -39,7 +39,7 @@ async def main(project_name: str):
         current_task = task.text
         while True:
             print_message("Running PLAN agent", style="heading")
-            plan_output = await plan_agent(session_id=task.id, target_path=worktree_path, task=current_task)
+            plan_output = await plan_agent(session_id=task.session_id, target_path=worktree_path, task=current_task)
 
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
@@ -63,10 +63,10 @@ async def main(project_name: str):
         current_task = plan_output
         while True:
             print_message("Running BUILD agent", style="heading")
-            await build_agent(session_id=task.id, target_path=worktree_path, task=current_task)
+            await build_agent(session_id=task.session_id, target_path=worktree_path, task=current_task)
 
             print_message("Running CODE REVIEW agent", style="heading")
-            review_comments = await review_agent(session_id=task.id, target_path=worktree_path)
+            review_comments = await review_agent(session_id=task.session_id, target_path=worktree_path)
             if not review_comments:
                 print_message("No comments from review agent, continuing the workflow.", style="result")
                 break

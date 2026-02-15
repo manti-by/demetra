@@ -108,7 +108,7 @@ ignore = [
 ignore-overlong-task-comments = true
 
 [tool.ruff.lint.isort]
-section-order = ["future", "standard-library", "third-party", "first-party", "django", "demetra", "local-folder"]
+section-order = ["future", "standard-library", "third-party", "first-party", "demetra", "local-folder"]
 lines-after-imports = 2
 
 [tool.ruff.lint.isort.sections]

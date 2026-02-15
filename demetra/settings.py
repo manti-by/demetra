@@ -20,3 +20,5 @@ CODERABBIT_PATH = Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin
 
 GIT_PATH = Path(os.environ.get("GIT_PATH", "/usr/bin/git"))
 GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".local/demetra/worktrees/"))
+
+DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".local/demetra/demetra.db"))

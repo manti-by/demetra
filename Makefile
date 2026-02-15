@@ -1,3 +1,9 @@
+run-chimera:
+	uv run main.py --project-name chimera
+
+run-demetra:
+	uv run main.py --project-name demetra
+
 run-odin:
 	uv run main.py --project-name odin
 
