@@ -3,11 +3,18 @@ from typing import Any
 import aiofiles
 import aiohttp
 
+from demetra.exceptions import LinearError
 from demetra.settings import BASE_PATH, LINEAR_API_KEY, LINEAR_API_URL
 
 
 async def get_todo_issues_query() -> str:
     async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "get_todo_issues.gql") as file:
+        content = await file.read()
+    return content
+
+
+async def list_states_query() -> str:
+    async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "list_states.gql") as file:
         content = await file.read()
     return content
 
@@ -24,7 +31,7 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
                 LINEAR_API_URL,
                 json=payload,
                 headers={
-                    "Authorization": f"{LINEAR_API_KEY}",
+                    "Authorization": LINEAR_API_KEY,
                     "Content-Type": "application/json",
                 },
                 timeout=aiohttp.ClientTimeout(total=10),
@@ -32,4 +39,4 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
                 response.raise_for_status()
                 return await response.json()
     except aiohttp.ClientError as e:
-        raise Exception(f"Linear API error: {e}") from e
+        raise LinearError(f"Linear API error: {e}") from e

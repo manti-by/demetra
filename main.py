@@ -1,7 +1,7 @@
 import argparse
 import asyncio
-import logging
 
+from demetra.exceptions import DemetraError
 from demetra.services.cursor import review_agent
 from demetra.services.database import create_session, get_session
 from demetra.services.filesystem import get_project_root
@@ -9,7 +9,7 @@ from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push,
 from demetra.services.linear import get_linear_task, update_ticket_status
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
 from demetra.services.tui import print_heading, print_message
-from demetra.settings import LINEAR_STATE_IN_PROGRESS, LINEAR_STATE_IN_REVIEW
+from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
 
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
@@ -40,11 +40,10 @@ async def main(project_name: str):
     session = get_session(task_id=task.id)
     session_id = session.session_id if session else None
     try:
-        if LINEAR_STATE_IN_PROGRESS:
-            try:
-                await update_ticket_status(task.id, LINEAR_STATE_IN_PROGRESS)
-            except BaseException:  # noqa: BLE001
-                logging.warning("Failed to update ticket status to In Progress")
+        try:
+            await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
+        except DemetraError:
+            print_message("Failed to update ticket status to In Progress", style="error")
 
         plan_output = None
         current_task = task.text
@@ -109,11 +108,10 @@ async def main(project_name: str):
         print_message("Pushing changes", style="heading")
         await git_push(target_path=worktree_path)
 
-        if LINEAR_STATE_IN_REVIEW:
-            try:
-                await update_ticket_status(task.id, LINEAR_STATE_IN_REVIEW)
-            except BaseException:  # noqa: BLE001
-                logging.warning("Failed to update ticket status to In Review")
+        try:
+            await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
+        except DemetraError:
+            print_message("Failed to update ticket status to In Review", style="error")
 
         is_error = False
         print_message("Workflow complete", style="heading")

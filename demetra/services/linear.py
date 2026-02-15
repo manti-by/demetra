@@ -43,10 +43,10 @@ async def get_update_issue_mutation() -> str:
     return content
 
 
-async def update_ticket_status(issue_id: str, state_id: str) -> bool:
+async def update_ticket_status(task_id: str, state_id: str) -> bool:
     try:
         query = await get_update_issue_mutation()
-        result = await graphql_request(query, {"issueId": issue_id, "stateId": state_id})
+        result = await graphql_request(query, {"issueId": task_id, "stateId": state_id})
         return result.get("data", {}).get("issueUpdate", {}).get("success", False)
     except BaseException:  # noqa: BLE001
         return False
