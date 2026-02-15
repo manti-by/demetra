@@ -1,0 +1,14 @@
+query {
+  teams {
+    nodes {
+      id
+      name
+      states {
+        nodes {
+          id
+          name
+        }
+      }
+    }
+  }
+}

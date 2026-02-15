@@ -14,25 +14,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 
 ## Architecture
 
-```
-                    ┌──────────────┐
-                    │    Linear    │
-                    │  (Tasks API) │
-                    └──────┬───────┘
-                           │
-                           ▼
-                    ┌──────────────┐
-                    │    Demetra   │
-                    │ (Supervisor) │
-                    └──┬───┬───┬───┘
-                       │   │   │
-              ┌────────┘   │   └────────┐
-              ▼            ▼            ▼
-       ┌─────────────┐ ┌────────────┐ ┌────────────┐
-       │  Plan Agent │ │ Build Agent│ │Review Agent│
-       │ (OpenCode)  │ │ (OpenCode) │ │  (Cursor)  │
-       └─────────────┘ └────────────┘ └────────────┘
-```
+![DAG Diagram](/media/diagram.jpg)
 
 ## Workflow
 

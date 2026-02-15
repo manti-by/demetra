@@ -1,6 +1,8 @@
+import aiofiles
+
 from demetra.models import LinearIssue
 from demetra.services.graphql import get_todo_issues_query, graphql_request
-from demetra.settings import LINEAR_TEAM_ID
+from demetra.settings import BASE_PATH, LINEAR_TEAM_ID
 
 
 async def get_todo_issues(project_name: str) -> list[LinearIssue]:
@@ -33,3 +35,15 @@ async def get_linear_task(project_name: str) -> LinearIssue | None:
     if issues:
         return issues[0]
     return None
+
+
+async def get_update_issue_mutation() -> str:
+    async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "update_issue_status.gql") as file:
+        content = await file.read()
+    return content
+
+
+async def update_ticket_status(task_id: str, state_id: str) -> bool:
+    query = await get_update_issue_mutation()
+    result = await graphql_request(query, {"issueId": task_id, "stateId": state_id})
+    return result.get("data", {}).get("issueUpdate", {}).get("success", False)
