@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.2.2"
+version = "1.2.3"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.6,<3.14.0"
@@ -22,6 +22,7 @@ dev = [
     "pytest>=9.0.2",
     "pytest-asyncio>=0.26.0",
 ]
+
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_format = "%(levelname)s %(asctime)s %(message)s"
@@ -37,10 +38,7 @@ norecursedirs = '''
 '''
 
 [tool.bandit]
-exclude_dirs = [
-    "odin/settings/",
-    "odin/tests/"
-]
+exclude_dirs = []
 skips = ["B101", "B308", "B703"]
 
 [tool.curlylint.rules]
@@ -51,9 +49,7 @@ html_has_lang = true
 line-length = 120
 indent-width = 4
 target-version = "py313"
-exclude = [
-    "odin/settings/"
-]
+exclude = []
 
 [tool.ruff.lint]
 select = [
