@@ -1,5 +1,4 @@
 import json
-import shlex
 from pathlib import Path
 
 from demetra.services.subprocess import run_command
@@ -25,17 +24,17 @@ async def build_agent(
 async def run_opencode_agent(
     target_path: Path, task: str, agent: str, session_id: str | None = None, task_title: str | None = None
 ) -> str:
-    command = [OPENCODE_PATH, "run", "--model", OPENCODE_MODEL, "--agent", agent]
+    command = [str(OPENCODE_PATH), "run", "--model", OPENCODE_MODEL, "--agent", agent]
     if session_id is not None:
         command.extend(["--session", session_id])
     if task_title is not None:
         command.extend(["--title", task_title])
-    command.append(shlex.quote(task))
+    command.append(task)
     return await run_command(command=command, target_path=target_path)
 
 
 async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
-    command = [OPENCODE_PATH, "session", "list", "--format", "json"]
+    command = [str(OPENCODE_PATH), "session", "list", "--format", "json"]
     result = await run_command(command=command, target_path=target_path)
     return json.loads(result)
 

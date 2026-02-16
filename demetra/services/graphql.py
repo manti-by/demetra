@@ -20,7 +20,9 @@ async def list_states_query() -> str:
 
 
 async def graphql_request(query: str, variables: dict[str, Any] | None = None) -> dict:
-    """Make a GraphQL request to Linear API."""
+    if not LINEAR_API_KEY:
+        raise LinearError("LINEAR_API_KEY is not set")
+
     payload = {"query": query}
     if variables:
         payload["variables"] = variables

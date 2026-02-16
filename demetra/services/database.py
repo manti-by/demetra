@@ -1,20 +1,28 @@
-import sqlite3
-from datetime import UTC
+from collections.abc import AsyncGenerator
+from contextlib import asynccontextmanager
+from datetime import UTC, datetime
+
+import aiosqlite
+from aiosqlite import Connection
 
 from demetra.models import Session
 from demetra.settings import DB_PATH
 
 
-def get_connection() -> sqlite3.Connection:
+@asynccontextmanager
+async def get_connection() -> AsyncGenerator[Connection]:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+    connection = await aiosqlite.connect(DB_PATH)
+    connection.row_factory = aiosqlite.Row
+    try:
+        yield connection
+    finally:
+        await connection.close()
 
 
-def init_db() -> None:
-    with get_connection() as conn:
-        conn.execute(
+async def init_db() -> None:
+    async with get_connection() as connection:
+        await connection.execute(
             """
             CREATE TABLE IF NOT EXISTS sessions (
                 task_id TEXT NOT NULL,
@@ -25,25 +33,24 @@ def init_db() -> None:
             )
             """
         )
-        conn.commit()
+        await connection.commit()
 
 
-def create_session(task_id: str, session_id: str) -> Session:
-    from datetime import datetime
-
+async def create_session(task_id: str, session_id: str) -> Session:
     now = datetime.now(UTC).isoformat()
-    with get_connection() as conn:
-        conn.execute(
+    async with get_connection() as connection:
+        await connection.execute(
             "INSERT INTO sessions (task_id, session_id, created_at, updated_at) VALUES (?, ?, ?, ?)",
             (task_id, session_id, now, now),
         )
-        conn.commit()
+        await connection.commit()
     return Session(task_id=task_id, session_id=session_id, created_at=now, updated_at=now)
 
 
-def get_session(task_id: str) -> Session | None:
-    with get_connection() as conn:
-        row = conn.execute("SELECT * FROM sessions WHERE task_id = ?", (task_id,)).fetchone()
+async def get_session(task_id: str) -> Session | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute("SELECT * FROM sessions WHERE task_id = ?", (task_id,))
+        row = await cursor.fetchone()
     if row:
         return Session(
             task_id=row["task_id"],

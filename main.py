@@ -3,7 +3,7 @@ import asyncio
 
 from demetra.exceptions import DemetraError
 from demetra.services.cursor import review_agent
-from demetra.services.database import create_session, get_session
+from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
@@ -17,6 +17,7 @@ parser.add_argument("-p", "--project-name", help="Project name to run workflow o
 
 
 async def main(project_name: str):
+    await init_db()
     await print_heading()
 
     print_message("Running workflow", style="heading")
@@ -32,12 +33,14 @@ async def main(project_name: str):
     print_message(f"Retrieved task: {task.identifier} - {task.title}", style="result")
 
     print_message("Creating feature worktree", style="heading")
+    print_message("")
     branch_name = f"opencode/feature/{task.slug}"
     worktree_path = await git_worktree_create(target_path=project_path, branch_name=branch_name)
+    print_message("")
     print_message(f"Created worktree at: {worktree_path}", style="result")
 
     is_error = True
-    session = get_session(task_id=task.id)
+    session = await get_session(task_id=task.id)
     session_id = session.session_id if session else None
     try:
         try:
@@ -55,7 +58,7 @@ async def main(project_name: str):
 
             if session_id is None:
                 if session_id := await get_opencode_session_id(target_path=worktree_path, task_title=task.full_title):
-                    session = create_session(task_id=task.id, session_id=session_id)
+                    session = await create_session(task_id=task.id, session_id=session_id)
 
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
@@ -107,7 +110,7 @@ async def main(project_name: str):
                     break
                 print_message("Invalid choice. Please try again.")
 
-            if user_input == "skip":
+            if user_input in ["2", "skip"]:
                 print_message("Continuing the workflow.", style="result")
                 break
 

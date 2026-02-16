@@ -16,7 +16,7 @@ async def review_agent(target_path: Path, session_id: str | None = None) -> str:
 
 
 async def run_cursor_agent(target_path: Path, task: str, session_id: str | None = None) -> str:
-    command = [CURSOR_PATH, "--plan", "--print", task, "--force"]
+    command = [str(CURSOR_PATH), "--plan", "--print", task, "--force"]
     if session_id is not None:
         command.extend(["--session", session_id])
     return await run_command(command=command, target_path=target_path)

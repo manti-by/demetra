@@ -9,5 +9,5 @@ async def review_agent(target_path: Path) -> str:
 
 
 async def run_coderabbit_agent(target_path: Path) -> str:
-    command = [CODERABBIT_PATH, "review", "--prompt-only", "--no-color", "--type", "uncommitted"]
+    command = [str(CODERABBIT_PATH), "review", "--prompt-only", "--no-color", "--type", "uncommitted"]
     return await run_command(command=command, target_path=target_path)

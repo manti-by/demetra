@@ -32,7 +32,7 @@ async def get_todo_issues(project_name: str) -> list[LinearIssue]:
 
 async def get_linear_task(project_name: str) -> LinearIssue | None:
     issues = await get_todo_issues(project_name=project_name)
-    issues = sorted(issues, key=lambda x: (-x.priority or 0, x.created_at or ""), reverse=True)
+    issues = sorted(issues, key=lambda x: (-(x.priority or 0), x.created_at or ""), reverse=True)
     if issues:
         return issues[0]
     return None
