@@ -129,7 +129,3 @@ tests/
 This project uses GitHub Actions for continuous integration. The workflow is defined in `.github/workflows/checks.yml` and runs:
 - Dependency installation (with `uv sync --locked`)
 - Pre-commit hooks on all files
-
-## License
-
-BSD 3-Clause License
