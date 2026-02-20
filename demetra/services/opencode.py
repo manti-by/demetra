@@ -5,7 +5,9 @@ from demetra.services.subprocess import run_command
 from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
 
 
-async def plan_agent(target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None) -> str:
+async def plan_agent(
+    target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
+) -> tuple[int, str, str]:
     return await run_opencode_agent(
         target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="plan"
     )
@@ -13,7 +15,7 @@ async def plan_agent(target_path: Path, task: str, session_id: str | None = None
 
 async def build_agent(
     target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
-) -> str:
+) -> tuple[int, str, str]:
     # Override agents settings in the target repository
     task += "\nDO NOT commit or push any changes, just stage them"
     return await run_opencode_agent(
@@ -23,7 +25,7 @@ async def build_agent(
 
 async def run_opencode_agent(
     target_path: Path, task: str, agent: str, session_id: str | None = None, task_title: str | None = None
-) -> str:
+) -> tuple[int, str, str]:
     command = [str(OPENCODE_PATH), "run", "--model", OPENCODE_MODEL, "--agent", agent]
     if session_id is not None:
         command.extend(["--session", session_id])
@@ -35,7 +37,7 @@ async def run_opencode_agent(
 
 async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
     command = [str(OPENCODE_PATH), "session", "list", "--format", "json"]
-    result = await run_command(command=command, target_path=target_path)
+    _, result, _ = await run_command(command=command, target_path=target_path)
     return json.loads(result)
 
 

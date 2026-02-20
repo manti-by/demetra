@@ -4,7 +4,7 @@ from demetra.services.subprocess import run_command
 from demetra.settings import CURSOR_PATH
 
 
-async def review_agent(target_path: Path, session_id: str | None = None) -> str:
+async def review_agent(target_path: Path, session_id: str | None = None) -> tuple[int, str, str]:
     task = """
         1. Check git staged changes in the current directory
         2. Review diff and flag only clear, high-severity issues
@@ -15,7 +15,7 @@ async def review_agent(target_path: Path, session_id: str | None = None) -> str:
     return await run_cursor_agent(target_path=target_path, task=task, session_id=session_id)
 
 
-async def run_cursor_agent(target_path: Path, task: str, session_id: str | None = None) -> str:
+async def run_cursor_agent(target_path: Path, task: str, session_id: str | None = None) -> tuple[int, str, str]:
     command = [str(CURSOR_PATH), "--plan", "--print", task, "--force"]
     if session_id is not None:
         command.extend(["--session", session_id])

@@ -29,16 +29,19 @@ class TestSubprocessService:
         mock_process.stdout = mock_stdout
         mock_process.stderr = mock_stderr
         mock_process.kill = MagicMock()
+        mock_process.wait = AsyncMock(return_value=0)
 
         with (
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
             patch("demetra.services.subprocess.live_stream", side_effect=capture_stream),
         ):
             mock_create.return_value = mock_process
-            result = await run_command(["cmd"], Path("/test"))
+            exit_code, stdout, stderr = await run_command(["cmd"], Path("/test"))
 
-        assert "line 1" in result
-        assert "line 2" in result
+        assert "line 1" in stdout
+        assert "line 2" in stdout
+        assert exit_code == 0
+        assert stderr == "error 1\n"
 
     @pytest.mark.asyncio
     async def test_run_command_uses_correct_cwd(self):
@@ -53,6 +56,7 @@ class TestSubprocessService:
         mock_process = MagicMock()
         mock_process.stdout = mock_stdout
         mock_process.stderr = mock_stderr
+        mock_process.wait = AsyncMock(return_value=0)
 
         with (
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
@@ -77,6 +81,7 @@ class TestSubprocessService:
         mock_process = MagicMock()
         mock_process.stdout = mock_stdout
         mock_process.stderr = mock_stderr
+        mock_process.wait = AsyncMock(return_value=0)
 
         with (
             patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
