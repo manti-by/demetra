@@ -1,9 +1,10 @@
-import pytest
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
-from demetra.services.precommit import precommit_agent
-from demetra.services.test import test_agent
+import pytest
+
+from demetra.services.precommit import run_ruff_checks
+from demetra.services.test import run_tests
 
 
 @pytest.mark.asyncio
@@ -16,26 +17,16 @@ async def test_precommit_and_test_integration():
         patch("demetra.services.precommit.run_command", new_callable=AsyncMock) as mock_precommit,
         patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
     ):
-        # Mock successful executions
-        mock_precommit.side_effect = [
-            "ty check output",  # ty check
-            "pre-commit run output",  # pre-commit run
-        ]
+        mock_precommit.return_value = "ruff check output"
         mock_test.return_value = "pytest output"
 
-        # Run precommit agent
-        precommit_result = await precommit_agent(target_path=target_path, session_id=session_id)
+        precommit_result = await run_ruff_checks(target_path=target_path, session_id=session_id)
+        test_result = await run_tests(target_path=target_path, session_id=session_id)
 
-        # Run test agent
-        test_result = await test_agent(target_path=target_path, session_id=session_id)
-
-        # Verify both agents succeeded
-        assert "ty check passed" in precommit_result
-        assert "pre-commit run passed" in precommit_result
+        assert precommit_result == "ruff check output"
         assert test_result == "pytest output"
 
-        # Verify all commands were called
-        assert mock_precommit.call_count == 2
+        assert mock_precommit.call_count == 1
         mock_test.assert_called_once()
 
 
@@ -46,9 +37,7 @@ async def test_precommit_failure_stops_test():
     session_id = "test-session"
 
     with patch("demetra.services.precommit.run_command", new_callable=AsyncMock) as mock_precommit:
-        # Mock precommit failure
-        mock_precommit.side_effect = Exception("ty check failed")
+        mock_precommit.side_effect = Exception("ruff check failed")
 
-        # Precommit should fail
-        with pytest.raises(RuntimeError, match="ty check failed"):
-            await precommit_agent(target_path=target_path, session_id=session_id)
+        with pytest.raises(Exception, match="ruff check failed"):
+            await run_ruff_checks(target_path=target_path, session_id=session_id)

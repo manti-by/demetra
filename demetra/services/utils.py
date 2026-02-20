@@ -4,8 +4,7 @@ import sys
 
 async def live_stream(stream: asyncio.StreamReader, result: list[str] | None = None) -> None:
     while True:
-        line = await stream.readline()
-        if not line:
+        if not (line := await stream.readline()):
             break
 
         decoded = line.decode()
