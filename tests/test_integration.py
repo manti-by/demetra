@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.precommit import run_ruff_checks
+from demetra.services.lint import run_ruff_checks
 from demetra.services.test import run_tests
 
 
@@ -14,7 +14,7 @@ async def test_precommit_and_test_integration():
     session_id = "test-session"
 
     with (
-        patch("demetra.services.precommit.run_command", new_callable=AsyncMock) as mock_precommit,
+        patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
         patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
     ):
         mock_precommit.return_value = "ruff check output"
@@ -36,7 +36,7 @@ async def test_precommit_failure_stops_test():
     target_path = Path("/test/path")
     session_id = "test-session"
 
-    with patch("demetra.services.precommit.run_command", new_callable=AsyncMock) as mock_precommit:
+    with patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit:
         mock_precommit.side_effect = Exception("ruff check failed")
 
         with pytest.raises(Exception, match="ruff check failed"):

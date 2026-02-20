@@ -1,7 +1,9 @@
+import asyncio
+
 from demetra.services.tui import print_message
 
 
-def interruption(options: list[tuple[str, str]]) -> tuple[str, str | None]:
+async def user_input(options: list[tuple[str, str]]) -> tuple[str, str | None]:
     print_message("How would you like to proceed?")
 
     choices = []
@@ -11,8 +13,11 @@ def interruption(options: list[tuple[str, str]]) -> tuple[str, str | None]:
         choice_map[index] = option
         print_message(f"  [{index}] {option}{' - default' if index == '1' else ''}")
 
+    loop = asyncio.get_event_loop()
     while True:
-        action = input("Action: ").strip().lower()
+        action = await loop.run_in_executor(None, lambda: input("Action: ").strip().lower())
+        if not action:
+            action = choice_map.get("1", "")
         if action in choices:
             break
         print_message("Invalid choice. Please try again.")

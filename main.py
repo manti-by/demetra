@@ -5,11 +5,11 @@ from demetra.exceptions import DemetraError
 from demetra.services.cursor import review_agent
 from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
-from demetra.services.flow import interruption
+from demetra.services.flow import user_input
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
+from demetra.services.lint import run_ruff_checks, run_ty_checks
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
-from demetra.services.precommit import run_ruff_checks, run_ty_checks
 from demetra.services.test import check_pytest_support, run_tests
 from demetra.services.tui import print_heading, print_message
 from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
@@ -69,7 +69,7 @@ async def main(project_name: str):
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{plan_output}")
 
-            result, comment = interruption([("1", "approve"), ("2", "comment"), ("3", "exit")])
+            result, comment = await user_input([("1", "approve"), ("2", "comment"), ("3", "exit")])
             if result == "exit":
                 print_message("Cancelled, exiting the workflow.", style="error")
                 return
@@ -89,7 +89,7 @@ async def main(project_name: str):
             print_message("Running CODE REVIEW agent", style="heading")
             _, review_comments, _ = await review_agent(target_path=worktree_path, session_id=session_id)
             if review_comments:
-                result, _ = interruption([("1", "approve"), ("2", "skip")])
+                result, _ = await user_input([("1", "approve"), ("2", "skip")])
                 if result == "approve":
                     print_message("Applying proposed changes.")
                     current_task = review_comments
@@ -122,7 +122,7 @@ async def main(project_name: str):
 
             break
 
-        print_message("Commiting changes", style="heading")
+        print_message("Committing changes", style="heading")
         await git_add_all(target_path=worktree_path)
         await git_commit(target_path=worktree_path, message=task.full_title)
 

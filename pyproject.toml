@@ -11,7 +11,6 @@ dependencies = [
     "asyncio>=4.0.0",
     "python-slugify>=8.0.4",
     "rich>=14.3.2",
-    "ruff>=0.15.2",
 ]
 
 [dependency-groups]
