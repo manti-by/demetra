@@ -39,23 +39,21 @@ async def test_user_input_default_choice():
 
 @pytest.mark.asyncio
 async def test_user_input_comment_choice():
-    """Test user input with comment choice - enters 'comment' (lowercase) to trigger comment prompt."""
-    options = [("1", "Continue"), ("comment", "Comment")]
+    """Test user input with comment choice - uses lowercase to match production check."""
+    options = [("1", "Continue"), ("comment", "comment")]
 
     with (
         patch("demetra.services.flow.print_message"),
         patch("asyncio.get_event_loop") as mock_loop,
-        patch("demetra.services.flow.input") as mock_input,
     ):
         mock_loop_instance = AsyncMock()
         mock_loop.return_value = mock_loop_instance
-        mock_loop_instance.run_in_executor = AsyncMock(side_effect=["comment"])
-
-        mock_input.return_value = "test comment"
+        mock_loop_instance.run_in_executor = AsyncMock(side_effect=["comment", "test comment"])
 
         result = await user_input(options)
 
-        assert result[0] == "Comment"
+        assert result[0] == "comment"
+        assert result[1] == "test comment"
 
 
 @pytest.mark.asyncio

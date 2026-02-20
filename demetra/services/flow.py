@@ -27,7 +27,7 @@ async def user_input(options: list[tuple[str, str]]) -> tuple[str, str | None]:
     comment = None
     if action == "comment":
         while True:
-            comment = input("Enter comment: ").strip()
+            comment = await loop.run_in_executor(None, lambda: input("Enter comment: ").strip().lower())
             if comment:
                 break
 
