@@ -130,8 +130,7 @@ async def main(project_name: str):
         await git_push(target_path=worktree_path, branch_name=branch_name)
 
         print_message("Creating GitHub PR", style="heading")
-        pr_url = await create_pull_request(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
-        print_message(f"PR created: {pr_url}", style="result")
+        await create_pull_request(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
 
         try:
             await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
