@@ -70,3 +70,21 @@ async def extract_plan(plan_output: str) -> str:
             break
 
     return plan_output.strip()
+
+
+async def extract_questions(plan_output: str, build_plan: str) -> str:
+    """Extract questions from plan output between build plan end and trigger string."""
+    if PLAN_HAS_QUESTIONS not in plan_output:
+        return ""
+
+    trigger_pos = plan_output.find(PLAN_HAS_QUESTIONS)
+    build_plan_end_in_output = plan_output.find(build_plan)
+
+    if build_plan_end_in_output == -1:
+        return ""
+
+    questions_start = build_plan_end_in_output + len(build_plan)
+
+    if questions_start < trigger_pos:
+        return plan_output[questions_start:trigger_pos].strip()
+    return ""

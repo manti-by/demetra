@@ -10,15 +10,24 @@ from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push,
 from demetra.services.github import create_pull_request
 from demetra.services.linear import get_linear_task, linear_cleanup, post_comment, update_ticket_status
 from demetra.services.lint import run_ruff_checks, run_ruff_format
-from demetra.services.opencode import build_agent, extract_plan, get_opencode_session_id, plan_agent
+from demetra.services.opencode import (
+    PLAN_HAS_QUESTIONS,
+    PLAN_IS_READY_STRING,
+    build_agent,
+    extract_plan,
+    extract_questions,
+    get_opencode_session_id,
+    plan_agent,
+)
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import is_package_installed
-from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
+from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID, LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
 
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
+parser.add_argument("--auto", help="Automatic mode - post questions and exit", action="store_true")
 
 
 async def main(project_name: str):
@@ -69,6 +78,23 @@ async def main(project_name: str):
 
             print_message("Plan step is completed", style="heading")
             print_message(f"Plan output:\n{build_plan}")
+
+            if PLAN_IS_READY_STRING in plan_output:
+                print_message("Plan is ready, proceeding to build automatically.", style="heading")
+                break
+            elif PLAN_HAS_QUESTIONS in plan_output:
+                questions = await extract_questions(plan_output=plan_output, build_plan=build_plan)
+                print_message(f"Questions detected:\n{questions}", style="heading")
+
+                if args.auto:
+                    print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
+                    await post_comment(task_id=task.id, body=f"## Questions\n{questions}")
+                    await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
+                    print_message("Task moved to Awaiting Input state.", style="result")
+                    is_error = False
+                    return
+                else:
+                    print_message("Waiting for user input.", style="heading")
 
             result, comment = await user_input([("1", "approve"), ("2", "comment"), ("3", "exit")])
             if result == "exit":
