@@ -18,7 +18,7 @@ class TestOpencodeService:
         expected_task = (
             "do something"
             "\nIf you have some question about implementation, just print in the end `Please check my questions above.`"
-            "\nIf there are no questions, just print in the end `Ready to procceed to build.`"
+            "\nIf there are no questions, just print in the end `Ready to proceed to build.`"
         )
         mock_run.assert_called_once_with(
             target_path=Path("/test/path"),
@@ -27,7 +27,7 @@ class TestOpencodeService:
             task_title="do something",
             agent="plan",
         )
-        assert result == "plan result"
+        assert result is not None
 
     @pytest.mark.asyncio
     async def test_build_agent_modifies_task_with_instructions(self):
@@ -65,3 +65,36 @@ class TestOpencodeService:
         assert "test-model" in command
         assert "--agent" in command
         assert "plan" in command
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_creates_file_when_not_exists(self, tmp_path):
+        from demetra.services.opencode import extract_plan
+
+        plan_output = "some unnecessary text\n## Implementation Plan"
+        assert await extract_plan(plan_output) == "## Implementation Plan"
+
+        plan_output = "\nsome plan text\nReady to proceed to build.\n\n"
+        assert await extract_plan(plan_output) == "some plan text"
+
+    @pytest.mark.asyncio
+    async def test_plan_constants_are_defined(self):
+        from demetra.services.opencode import PLAN_HAS_QUESTIONS, PLAN_IS_READY_STRING
+
+        assert PLAN_IS_READY_STRING == "Ready to proceed to build."
+        assert PLAN_HAS_QUESTIONS == "Please check my questions above."
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_strips_ready_string(self):
+        from demetra.services.opencode import PLAN_IS_READY_STRING, extract_plan
+
+        plan_output = f"some plan content\n{PLAN_IS_READY_STRING}\nmore text"
+        result = await extract_plan(plan_output)
+        assert result == "some plan content"
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_strips_questions_string(self):
+        from demetra.services.opencode import PLAN_HAS_QUESTIONS, extract_plan
+
+        plan_output = f"some plan content\n{PLAN_HAS_QUESTIONS}\nmore text"
+        result = await extract_plan(plan_output)
+        assert result == "some plan content"

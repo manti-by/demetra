@@ -10,7 +10,7 @@ from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push,
 from demetra.services.github import create_pull_request
 from demetra.services.linear import get_linear_task, linear_cleanup, post_comment, update_ticket_status
 from demetra.services.lint import run_ruff_checks, run_ruff_format
-from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
+from demetra.services.opencode import build_agent, extract_plan, get_opencode_session_id, plan_agent
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import is_package_installed
@@ -57,7 +57,9 @@ async def main(project_name: str):
             _, plan_output, _ = await plan_agent(
                 target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
             )
-            if not plan_output:
+
+            build_plan = await extract_plan(plan_output=plan_output)
+            if not build_plan:
                 print_message("Plan is empty, exiting the workflow.", style="error")
                 return
 
@@ -66,7 +68,7 @@ async def main(project_name: str):
                     session = await create_session(task_id=task.id, session_id=session_id)
 
             print_message("Plan step is completed", style="heading")
-            print_message(f"Plan output:\n{plan_output}")
+            print_message(f"Plan output:\n{build_plan}")
 
             result, comment = await user_input([("1", "approve"), ("2", "comment"), ("3", "exit")])
             if result == "exit":
@@ -79,9 +81,9 @@ async def main(project_name: str):
                 break
 
         print_message("Posting build plan to Linear ticket", style="heading")
-        await post_comment(task_id=task.id, body=plan_output)
+        await post_comment(task_id=task.id, body=build_plan)
 
-        current_task = plan_output
+        current_task = build_plan
         for build_attempt in range(3):
             build_attempt += 1
             if build_attempt == 3:
