@@ -7,6 +7,7 @@ from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
+from demetra.services.github import create_pull_request
 from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
 from demetra.services.lint import run_ruff_checks, run_ruff_format
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
@@ -127,6 +128,9 @@ async def main(project_name: str):
 
         print_message("Pushing changes", style="heading")
         await git_push(target_path=worktree_path, branch_name=branch_name)
+
+        print_message("Creating GitHub PR", style="heading")
+        await create_pull_request(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
 
         try:
             await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
