@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.3.1"
+version = "1.3.2"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.6,<3.14.0"

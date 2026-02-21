@@ -9,6 +9,10 @@ from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
 async def plan_agent(
     target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
+    task += (
+        "\nIf you have some question about implementation, just print in the end `Please check my questions above.`"
+        "\nIf there are no questions, just print in the end `Ready to procceed to build.`"
+    )
     return await run_opencode_agent(
         target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="plan"
     )

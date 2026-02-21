@@ -15,9 +15,14 @@ class TestOpencodeService:
                 Path("/test/path"), "do something", session_id="session-123", task_title="do something"
             )
 
+        expected_task = (
+            "do something"
+            "\nIf you have some question about implementation, just print in the end `Please check my questions above.`"
+            "\nIf there are no questions, just print in the end `Ready to procceed to build.`"
+        )
         mock_run.assert_called_once_with(
             target_path=Path("/test/path"),
-            task="do something",
+            task=expected_task,
             session_id="session-123",
             task_title="do something",
             agent="plan",

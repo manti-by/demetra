@@ -47,10 +47,7 @@ async def main(project_name: str):
     session = await get_session(task_id=task.id)
     session_id = session.session_id if session else None
     try:
-        try:
-            await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
-        except DemetraError:
-            print_message("Failed to update ticket status to In Progress", style="error")
+        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
 
         plan_output = None
         current_task: str = task.text
@@ -129,7 +126,7 @@ async def main(project_name: str):
         await git_commit(target_path=worktree_path, message=task.full_title)
 
         print_message("Pushing changes", style="heading")
-        await git_push(target_path=worktree_path)
+        await git_push(target_path=worktree_path, branch_name=branch_name)
 
         try:
             await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
@@ -138,8 +135,16 @@ async def main(project_name: str):
 
         is_error = False
         print_message("Workflow complete", style="heading")
+
     except InfiniteLoopError:
         print_message("Infinite loop detected, exiting.", style="error")
+
+    except DemetraError:
+        print_message("Failed to update ticket status to In Progress", style="error")
+
+    except OSError as e:
+        print_message(f"OS Error: {e}", style="error")
+
     finally:
         await git_cleanup(
             target_path=project_path, worktree_path=worktree_path, branch_name=branch_name, is_error=is_error

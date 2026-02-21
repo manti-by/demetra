@@ -40,8 +40,6 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 ## Installation
 
 ```bash
-curl -fsSL https://opencode.ai/install | bash
-
 uv sync --all-extras --dev
 ```
 
