@@ -16,4 +16,4 @@ async def run_command(command: list, target_path: Path) -> tuple[int, str, str]:
     await asyncio.gather(live_stream(process.stdout, result=result), live_stream(process.stderr, result=error))
 
     exit_code = await process.wait()
-    return exit_code, "\n".join(result), "\n".join(error)
+    return exit_code, "\n".join(result) if result else "", "\n".join(error) if error else ""

@@ -2,6 +2,8 @@
 
 Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and Cursor (code review) to create a seamless development workflow.
 
+![DAG Diagram](/media/interface.jpg)
+
 ## Features
 
 - **Workflow Orchestration**: Coordinates the entire development lifecycle from task retrieval to code review
@@ -52,10 +54,14 @@ Configure the following environment variables (via `.env` or shell):
 | `LINEAR_TEAM_ID` | Linear team ID | - |
 | `OPENCODE_PATH` | Path to OpenCode binary | `$HOME/.opencode/bin/opencode` |
 | `OPENCODE_MODEL` | OpenCode model to use | `opencode/minimax-m2.5-free` |
+| `DB_PATH` | Path to SQLite database | `$HOME/.demetra/demetra.sqlite3` |
 | `CODERABBIT_PATH` | Path to CodeRabbit binary | `$HOME/.local/bin/coderabbit` |
-| `CURSOR_PATH` | Path to Cursor binary | `$HOME/.cursor/bin/cursor` |
+| `CURSOR_PATH` | Path to Cursor binary | `$HOME/.local/bin/cursor-agent` |
 | `GIT_PATH` | Path to git binary | `/usr/bin/git` |
-| `GIT_WORKTREE_PATH` | Path for git worktrees | `$HOME/.local/demetra/worktrees/` |
+| `GIT_WORKTREE_PATH` | Path for git worktrees | `$HOME/.demetra/worktrees/` |
+| `LINEAR_STATE_TODO_ID` | Linear TODO state ID | *(project-specific)* |
+| `LINEAR_STATE_IN_PROGRESS_ID` | Linear In Progress state ID | *(project-specific)* |
+| `LINEAR_STATE_IN_REVIEW_ID` | Linear In Review state ID | *(project-specific)* |
 
 `LINEAR_API_URL` is hardcoded to `https://api.linear.app/graphql`.
 
@@ -70,6 +76,8 @@ uv run main.py --project-name <project_name>
 Available make commands:
 
 ```bash
+make run-chimera    # Run workflow on 'chimera' project
+make run-demetra    # Run workflow on 'demetra' project
 make run-odin       # Run workflow on 'odin' project
 make run-coruscant  # Run workflow on 'coruscant' project
 make check          # Run type checking and pre-commit checks
@@ -84,27 +92,33 @@ make ci             # Shorthand: pip check test
 ```
 demetra/
 ├── __init__.py
+├── exceptions.py                  # Custom exception classes
 ├── models.py                      # LinearIssue dataclass for task state
 ├── settings.py                    # Settings and configuration
 └── services/
     ├── __init__.py
     ├── coderabbit.py              # CodeRabbit review agent integration
     ├── cursor.py                  # Cursor review agent integration
+    ├── database.py                # SQLite database operations
     ├── filesystem.py              # Project filesystem utilities
+    ├── flow.py                    # Workflow orchestration logic
     ├── git.py                     # Git worktree, commit, and push operations
     ├── graphql.py                 # GraphQL client for Linear API
     ├── linear.py                  # Linear task retrieval and prioritization
+    ├── lint.py                    # Code linting operations
     ├── opencode.py                # OpenCode plan/build agents
+    ├── subprocess.py              # Subprocess execution utilities
+    ├── test.py                    # Test runner utilities
     ├── tui.py                     # Terminal UI (Rich console) output helpers
     ├── utils.py                   # Async stream utilities
     ├── queries/
-    │   └── get_todo_issues.gql    # GraphQL query for Linear issues
+    │   ├── get_todo_issues.gql    # GraphQL query for Linear issues
+    │   ├── list_states.gql        # GraphQL query for Linear states
+    │   └── update_issue_status.gql # GraphQL mutation for issue status
     └── tui/
         └── header.txt             # ASCII art header
 main.py                            # Entry point and supervisor orchestration
-tests/
-├── __init__.py
-└── test_basic.py
+tests/                             # Comprehensive test suite
 ```
 
 ## Dependencies
@@ -113,6 +127,7 @@ tests/
 - `asyncio` - Asynchronous programming
 - `aiofiles` - Async file operations
 - `aiohttp` - Async HTTP client
+- `aiosqlite` - Async SQLite database
 - `python-slugify` - Slug generation for branch names
 - `rich` - Terminal UI formatting
 
@@ -123,6 +138,7 @@ tests/
 - `pre-commit` - Git hooks
 - `uv-bump` - Version bumping
 - `pytest` - Testing framework
+- `pytest-asyncio` - Async test support
 
 ## CI/CD
 

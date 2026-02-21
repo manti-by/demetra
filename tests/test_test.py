@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.test import run_tests
+from demetra.services.test import run_pytests
 
 
 @pytest.mark.asyncio
@@ -15,7 +15,7 @@ async def test_test_agent_success():
     with patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = (0, "pytest output", "")
 
-        result = await run_tests(target_path=target_path, session_id=session_id)
+        result = await run_pytests(target_path=target_path, session_id=session_id)
 
         mock_run.assert_called_once_with(
             command=["uv", "run", "pytest", "--lf", "--quiet", "--color=no"], target_path=target_path
@@ -34,7 +34,7 @@ async def test_test_agent_failure():
         mock_run.side_effect = Exception("pytest failed")
 
         with pytest.raises(Exception, match="pytest failed"):
-            await run_tests(target_path=target_path, session_id=session_id)
+            await run_pytests(target_path=target_path, session_id=session_id)
 
 
 @pytest.mark.asyncio
@@ -46,7 +46,7 @@ async def test_test_agent_no_session():
     with patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_run:
         mock_run.return_value = (0, "pytest output", "")
 
-        result = await run_tests(target_path=target_path, session_id=session_id)
+        result = await run_pytests(target_path=target_path, session_id=session_id)
 
         mock_run.assert_called_once_with(
             command=["uv", "run", "pytest", "--lf", "--quiet", "--color=no"], target_path=target_path

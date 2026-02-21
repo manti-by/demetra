@@ -8,19 +8,28 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 
 - `demetra/settings.py`: Core configuration and environment variables
 - `demetra/models.py`: LinearIssue dataclass for task state management
+- `demetra/exceptions.py`: Custom exception classes
 - `demetra/services/opencode.py`: OpenCode plan and build agent integrations
 - `demetra/services/cursor.py`: Cursor review agent integration
+- `demetra/services/coderabbit.py`: CodeRabbit review agent integration
 - `demetra/services/linear.py`: Linear GraphQL API integration
 - `demetra/services/filesystem.py`: Project filesystem utilities
 - `demetra/services/graphql.py`: GraphQL client utilities
 - `demetra/services/git.py`: Git worktree, commit, and push operations
+- `demetra/services/database.py`: SQLite database operations
+- `demetra/services/flow.py`: Workflow orchestration logic
+- `demetra/services/lint.py`: Code linting operations
+- `demetra/services/subprocess.py`: Subprocess execution utilities
+- `demetra/services/test.py`: Test runner utilities
 - `demetra/services/tui.py`: Terminal UI (Rich console) output helpers
 - `demetra/services/tui/header.txt`: ASCII art header for TUI
 - `demetra/services/utils.py`: Async stream utilities
 - `demetra/services/queries/get_todo_issues.gql`: GraphQL query for Linear issues
+- `demetra/services/queries/list_states.gql`: GraphQL query for Linear states
+- `demetra/services/queries/update_issue_status.gql`: GraphQL mutation for issue status
 - `main.py`: Entry point and supervisor orchestration
 - `opencode.json`: OpenCode LSP configuration
-- `tests/`: Test suite
+- `tests/`: Comprehensive test suite
 
 ## Git Workflow
 
@@ -71,6 +80,8 @@ uv run pre-commit autoupdate
 ### Makefile Targets
 
 ```bash
+make run-chimera    # Run workflow on 'chimera' project
+make run-demetra    # Run workflow on 'demetra' project
 make run-odin       # Run workflow on 'odin' project
 make run-coruscant  # Run workflow on 'coruscant' project
 make check          # Run type checking and pre-commit checks
@@ -128,14 +139,19 @@ uv run bandit -c pyproject.toml .
 Environment is controlled primarily via `demetra/settings.py` and `.env`:
 
 - `PROJECTS_PATH`: Base path for projects directory (default: `$HOME/www`)
+- `DB_PATH`: Path to SQLite database (default: `$HOME/.demetra/demetra.sqlite3`)
 - `LINEAR_API_KEY`: API key for Linear integration
 - `LINEAR_API_URL`: Linear GraphQL API URL (hardcoded: `https://api.linear.app/graphql`)
 - `LINEAR_TEAM_ID`: Linear team ID
+- `LINEAR_STATE_TODO_ID`: Linear TODO state ID
+- `LINEAR_STATE_IN_PROGRESS_ID`: Linear In Progress state ID
+- `LINEAR_STATE_IN_REVIEW_ID`: Linear In Review state ID
 - `OPENCODE_PATH`: Path to OpenCode CLI binary (default: `$HOME/.opencode/bin/opencode`)
 - `OPENCODE_MODEL`: OpenCode model to use (default: `opencode/minimax-m2.5-free`)
-- `CURSOR_PATH`: Path to Cursor CLI binary (default: `$HOME/.cursor/bin/cursor`)
+- `CURSOR_PATH`: Path to Cursor CLI binary (default: `$HOME/.local/bin/cursor-agent`)
+- `CODERABBIT_PATH`: Path to CodeRabbit CLI binary (default: `$HOME/.local/bin/coderabbit`)
 - `GIT_PATH`: Path to git binary (default: `/usr/bin/git`)
-- `GIT_WORKTREE_PATH`: Path for git worktrees (default: `$HOME/.local/demetra/worktrees/`)
+- `GIT_WORKTREE_PATH`: Path for git worktrees (default: `$HOME/.demetra/worktrees/`)
 
 ## External Dependencies
 
@@ -143,6 +159,7 @@ Demetra coordinates the following external tools:
 
 - **OpenCode**: AI coding assistant for planning and building features
 - **Cursor**: AI-powered code review tool
+- **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
 
 ## Security Guidelines

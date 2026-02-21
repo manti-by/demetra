@@ -1,17 +1,18 @@
 import argparse
 import asyncio
 
-from demetra.exceptions import DemetraError
+from demetra.exceptions import DemetraError, InfiniteLoopError
 from demetra.services.cursor import review_agent
 from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
-from demetra.services.lint import run_ruff_checks, run_ty_checks
+from demetra.services.lint import run_ruff_checks, run_ruff_format
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
-from demetra.services.test import check_pytest_support, run_tests
+from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
+from demetra.services.utils import is_package_installed
 from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
 
 
@@ -80,7 +81,11 @@ async def main(project_name: str):
                 break
 
         current_task = plan_output
-        while True:
+        for build_attempt in range(3):
+            build_attempt += 1
+            if build_attempt == 3:
+                raise InfiniteLoopError
+
             print_message("Running BUILD agent", style="heading")
             await build_agent(
                 target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
@@ -99,24 +104,21 @@ async def main(project_name: str):
             else:
                 print_message("No comments from review agent, continuing the workflow.", style="result")
 
-            print_message("Running linting checks", style="heading")
-            ty_exit_code, ty_result, _ = await run_ty_checks(target_path=worktree_path, session_id=session_id)
-            if ty_exit_code:
-                print_message("Processing TY comments.", style="heading")
-                current_task = ty_result
-                continue
+            if await is_package_installed(target_path=worktree_path, package_name="ruff"):
+                print_message("Running RUFF linter", style="heading")
+                await run_ruff_format(target_path=worktree_path, session_id=session_id)
 
-            ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=worktree_path, session_id=session_id)
-            if ruff_exit_code:
-                print_message("Processing RUFF comments.", style="heading")
-                current_task = ruff_result
-                continue
+                ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=worktree_path, session_id=session_id)
+                if ruff_exit_code:
+                    print_message("Processing RUFF comments.", style="result")
+                    current_task = ruff_result
+                    continue
 
-            if await check_pytest_support(target_path=worktree_path):
-                print_message("Running tests", style="heading")
-                pytest_exit_code, pytest_result, _ = await run_tests(target_path=worktree_path, session_id=session_id)
+            if await is_package_installed(target_path=worktree_path, package_name="pytest"):
+                print_message("Running PYTESTs", style="heading")
+                pytest_exit_code, pytest_result, _ = await run_pytests(target_path=worktree_path, session_id=session_id)
                 if pytest_exit_code:
-                    print_message("Processing PYTEST errors.", style="heading")
+                    print_message("Processing PYTEST errors.", style="result")
                     current_task = pytest_result
                     continue
 
@@ -136,6 +138,8 @@ async def main(project_name: str):
 
         is_error = False
         print_message("Workflow complete", style="heading")
+    except InfiniteLoopError:
+        print_message("Infinite loop detected, exiting.", style="error")
     finally:
         await git_cleanup(
             target_path=project_path, worktree_path=worktree_path, branch_name=branch_name, is_error=is_error

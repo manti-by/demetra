@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.services.lint import run_ruff_checks
-from demetra.services.test import run_tests
+from demetra.services.test import run_pytests
 
 
 @pytest.mark.asyncio
@@ -21,7 +21,7 @@ async def test_precommit_and_test_integration():
         mock_test.return_value = "pytest output"
 
         precommit_result = await run_ruff_checks(target_path=target_path, session_id=session_id)
-        test_result = await run_tests(target_path=target_path, session_id=session_id)
+        test_result = await run_pytests(target_path=target_path, session_id=session_id)
 
         assert precommit_result == "ruff check output"
         assert test_result == "pytest output"

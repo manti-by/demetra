@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.lint import run_ty_checks
-from demetra.services.test import run_tests
+from demetra.services.lint import run_ruff_checks
+from demetra.services.test import run_pytests
 
 
 @pytest.mark.asyncio
@@ -53,13 +53,13 @@ async def test_workflow_build_precommit_test_sequence():
             )
 
             try:
-                await run_ty_checks(target_path=target_path, session_id=session_id)
+                await run_ruff_checks(target_path=target_path, session_id=session_id)
             except Exception as e:  # noqa: BLE001
                 current_task = f"Fix pre-commit issues: {e}"
                 continue
 
             try:
-                await run_tests(target_path=target_path, session_id=session_id)
+                await run_pytests(target_path=target_path, session_id=session_id)
             except Exception as e:  # noqa: BLE001
                 current_task = f"Fix test failures: {e}"
                 continue
@@ -93,11 +93,11 @@ async def test_workflow_success_no_retry():
             target_path=target_path, task="Initial task", session_id=session_id, task_title="Test Task"
         )
 
-        precommit_result = await run_ty_checks(target_path=target_path, session_id=session_id)
-        test_result = await run_tests(target_path=target_path, session_id=session_id)
+        ruff_result = await run_ruff_checks(target_path=target_path, session_id=session_id)
+        test_result = await run_pytests(target_path=target_path, session_id=session_id)
 
         assert build_call_count == 1
         assert mock_precommit.call_count == 1
         assert mock_test.call_count == 1
-        assert precommit_result == "ty check output"
+        assert ruff_result == "ty check output"
         assert test_result == "pytest output"

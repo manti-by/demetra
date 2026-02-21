@@ -12,3 +12,7 @@ class ProjectDoesNotExistsError(DemetraError):
 
 class LinearError(DemetraError):
     pass
+
+
+class InfiniteLoopError(DemetraError):
+    pass
