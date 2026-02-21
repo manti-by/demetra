@@ -50,6 +50,18 @@ async def update_ticket_status(task_id: str, state_id: str) -> bool:
     return result.get("data", {}).get("issueUpdate", {}).get("success", False)
 
 
+async def get_create_comment_mutation() -> str:
+    async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "create_issue_comment.gql") as file:
+        content = await file.read()
+    return content
+
+
+async def post_comment(task_id: str, body: str) -> bool:
+    query = await get_create_comment_mutation()
+    result = await graphql_request(query, {"issueId": task_id, "body": body})
+    return result.get("data", {}).get("commentCreate", {}).get("success", False)
+
+
 async def linear_cleanup(task_id: str, is_error: bool):
     if is_error:
         print_message("Moving back a ticket in TODO column", style="heading")
