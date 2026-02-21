@@ -6,12 +6,17 @@ from demetra.services.subprocess import run_command
 from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
 
 
+PLAN_HEADER_STRING = "## Implementation Plan"
+PLAN_IS_READY_STRING = "Ready to proceed to build."
+PLAN_HAS_QUESTIONS = "Please check my questions above."
+
+
 async def plan_agent(
     target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
     task += (
-        "\nIf you have some question about implementation, just print in the end `Please check my questions above.`"
-        "\nIf there are no questions, just print in the end `Ready to procceed to build.`"
+        f"\nIf you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
+        f"\nIf there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
     )
     return await run_opencode_agent(
         target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="plan"
@@ -53,3 +58,16 @@ async def get_opencode_session_id(target_path: Path, task_title: str) -> str | N
         if session["title"] == task_title:
             return session["id"]
     return None
+
+
+async def extract_plan(plan_output: str) -> str:
+    start_index = None
+    if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
+        plan_output = plan_output[start_index:]
+
+    end_index = None
+    for end_string in (PLAN_IS_READY_STRING, PLAN_HAS_QUESTIONS):
+        if (end_index := plan_output.find(end_string)) != -1:
+            plan_output = plan_output[:end_index]
+
+    return plan_output.strip()
