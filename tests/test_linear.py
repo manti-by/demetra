@@ -221,3 +221,51 @@ class TestLinearService:
             result = await update_ticket_status("issue-1", "state-1")
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_post_comment_returns_true_on_success(self):
+        from demetra.services.linear import post_comment
+
+        mock_data = {
+            "data": {
+                "commentCreate": {
+                    "success": True,
+                    "comment": {
+                        "id": "comment-1",
+                        "body": "Test comment",
+                    },
+                }
+            }
+        }
+
+        with (
+            patch("demetra.services.linear.get_create_comment_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_mutation.return_value = "mutation"
+            mock_request.return_value = mock_data
+            result = await post_comment("issue-1", "Test comment")
+
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_post_comment_returns_false_on_failure(self):
+        from demetra.services.linear import post_comment
+
+        mock_data = {
+            "data": {
+                "commentCreate": {
+                    "success": False,
+                }
+            }
+        }
+
+        with (
+            patch("demetra.services.linear.get_create_comment_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_mutation.return_value = "mutation"
+            mock_request.return_value = mock_data
+            result = await post_comment("issue-1", "Test comment")
+
+        assert result is False

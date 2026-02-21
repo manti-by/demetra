@@ -8,7 +8,7 @@ from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push, git_worktree_create
 from demetra.services.github import create_pull_request
-from demetra.services.linear import get_linear_task, linear_cleanup, update_ticket_status
+from demetra.services.linear import get_linear_task, linear_cleanup, post_comment, update_ticket_status
 from demetra.services.lint import run_ruff_checks, run_ruff_format
 from demetra.services.opencode import build_agent, get_opencode_session_id, plan_agent
 from demetra.services.test import run_pytests
@@ -77,6 +77,9 @@ async def main(project_name: str):
                 continue
             else:
                 break
+
+        print_message("Posting build plan to Linear ticket", style="heading")
+        await post_comment(task_id=task.id, body=plan_output)
 
         current_task = plan_output
         for build_attempt in range(3):
