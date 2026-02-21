@@ -66,6 +66,14 @@ source ~/.bashrc
 coderabbit auth login
 ```
 
+### Install and setup GitHub CLI
+
+Follow installation instructions [here](https://github.com/cli/cli?tab=readme-ov-file#installation) then login:
+
+```bash
+gh auth login
+```
+
 ## Configuration
 
 Configure the following environment variables (via `.env` or shell):

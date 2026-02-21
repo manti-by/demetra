@@ -10,7 +10,7 @@ class TestSubprocessService:
     async def test_run_command_returns_combined_output(self):
         from demetra.services.subprocess import run_command
 
-        async def capture_stream(stream, result=None):
+        async def capture_stream(stream, result=None, disable_stdio=False):
             while True:
                 line = await stream.readline()
                 if not line:

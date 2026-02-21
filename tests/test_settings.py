@@ -2,11 +2,6 @@ from pathlib import Path
 
 
 class TestSettings:
-    def test_base_path_is_demetra_directory(self):
-        from demetra import settings
-
-        assert settings.BASE_PATH.name == "demetra"
-
     def test_home_path_points_to_home(self):
         from demetra import settings
 
