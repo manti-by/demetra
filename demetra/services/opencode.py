@@ -61,13 +61,12 @@ async def get_opencode_session_id(target_path: Path, task_title: str) -> str | N
 
 
 async def extract_plan(plan_output: str) -> str:
-    start_index = None
     if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
         plan_output = plan_output[start_index:]
 
-    end_index = None
     for end_string in (PLAN_IS_READY_STRING, PLAN_HAS_QUESTIONS):
         if (end_index := plan_output.find(end_string)) != -1:
             plan_output = plan_output[:end_index]
+            break
 
     return plan_output.strip()
