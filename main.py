@@ -5,7 +5,7 @@ from demetra.build import run_build_step
 from demetra.cleanup import cleanup_workflow, commit_and_push
 from demetra.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
 from demetra.plan import run_plan_step
-from demetra.services.database import get_session, init_db
+from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID
@@ -33,14 +33,13 @@ async def main(project_name: str, auto_mode: bool = True):
     try:
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
 
-        build_plan = await run_plan_step(context=context)
-        if build_plan is None:
-            return
+        if not context.session:
+            if not (build_plan := await run_plan_step(context=context)):
+                return
 
-        if context.session_id is None and (session := await get_session(task_id=context.linear_task.id)):
-            context.session = session
-
-        await post_comment(task_id=context.linear_task.id, body=build_plan)
+        if context.session and not context.session.posted_to_linear:
+            if await post_comment(task_id=context.linear_task.id, body=build_plan):
+                await mark_session_posted(task_id=context.linear_task.id)
 
         await run_build_step(build_plan=build_plan, context=context)
 
