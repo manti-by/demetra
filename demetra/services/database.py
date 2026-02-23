@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import aiosqlite
 from aiosqlite import Connection
 
-from demetra.models import Session
+from demetra.models import BuildPlan, Session
 from demetra.settings import DB_PATH
 
 
@@ -40,6 +40,16 @@ async def init_db() -> None:
                 access_token TEXT NOT NULL,
                 refresh_token TEXT,
                 expires_at TEXT NOT NULL
+            )
+            """
+        )
+        await connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS build_plans (
+                task_id TEXT PRIMARY KEY,
+                plan_content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                posted_to_linear INTEGER NOT NULL DEFAULT 0
             )
             """
         )
@@ -95,3 +105,50 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
         if datetime.now(UTC).timestamp() < expires_at:
             return row["access_token"], str(expires_at)
     return None
+
+
+async def save_build_plan(task_id: str, plan_content: str) -> BuildPlan:
+    now = datetime.now(UTC).isoformat()
+    async with get_connection() as connection:
+        await connection.execute(
+            """
+            INSERT INTO build_plans (task_id, plan_content, created_at, posted_to_linear)
+            VALUES (?, ?, ?, 0)
+            ON CONFLICT(task_id) DO UPDATE SET plan_content = excluded.plan_content
+            """,
+            (task_id, plan_content, now),
+        )
+        await connection.commit()
+        cursor = await connection.execute("SELECT * FROM build_plans WHERE task_id = ?", (task_id,))
+        row = await cursor.fetchone()
+    if row:
+        return BuildPlan(
+            task_id=row["task_id"],
+            plan_content=row["plan_content"],
+            created_at=row["created_at"],
+            posted_to_linear=bool(row["posted_to_linear"]),
+        )
+    return BuildPlan(task_id=task_id, plan_content=plan_content, created_at=now, posted_to_linear=False)
+
+
+async def get_build_plan(task_id: str) -> BuildPlan | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute("SELECT * FROM build_plans WHERE task_id = ?", (task_id,))
+        row = await cursor.fetchone()
+    if row:
+        return BuildPlan(
+            task_id=row["task_id"],
+            plan_content=row["plan_content"],
+            created_at=row["created_at"],
+            posted_to_linear=bool(row["posted_to_linear"]),
+        )
+    return None
+
+
+async def mark_build_plan_posted(task_id: str) -> None:
+    async with get_connection() as connection:
+        await connection.execute(
+            "UPDATE build_plans SET posted_to_linear = 1 WHERE task_id = ?",
+            (task_id,),
+        )
+        await connection.commit()

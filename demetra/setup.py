@@ -1,5 +1,5 @@
 from demetra.models import Context
-from demetra.services.database import get_session
+from demetra.services.database import get_build_plan, get_session
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_worktree_create
 from demetra.services.linear import get_linear_task
@@ -17,6 +17,7 @@ async def setup_workflow(project_name: str, auto_mode: bool) -> Context | None:
     print_message(f"Retrieved task: {linear_task.identifier} - {linear_task.title}", style="result")
 
     session = await get_session(task_id=linear_task.id)
+    build_plan = await get_build_plan(task_id=linear_task.id)
 
     branch_name = f"demetra/{linear_task.slug}"
     print_message("Creating feature worktree", style="heading")
@@ -33,4 +34,5 @@ async def setup_workflow(project_name: str, auto_mode: bool) -> Context | None:
         project_path=project_path,
         worktree_path=worktree_path,
         session=session,
+        build_plan=build_plan,
     )

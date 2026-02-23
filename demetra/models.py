@@ -39,6 +39,14 @@ class Session:
 
 
 @dataclass
+class BuildPlan:
+    task_id: str
+    plan_content: str
+    created_at: str
+    posted_to_linear: bool
+
+
+@dataclass
 class Context:
     project_name: str
     auto_mode: bool
@@ -47,6 +55,7 @@ class Context:
     project_path: Path
     worktree_path: Path
     session: Session | None
+    build_plan: BuildPlan | None = None
 
     @property
     def session_id(self) -> str | None:
