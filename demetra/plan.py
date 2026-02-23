@@ -1,6 +1,6 @@
 from demetra.exceptions import UserCancelledError
 from demetra.models import Context
-from demetra.services.database import create_session, get_session
+from demetra.services.database import save_session
 from demetra.services.flow import user_input
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import (
@@ -16,9 +16,6 @@ from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID
 
 
 async def run_plan_step(context: Context) -> str | None:
-    if context.session is None:
-        context.session = await get_session(task_id=context.linear_task.id)
-
     plan_output = None
     current_task: str = context.linear_task.text
     while True:
@@ -39,7 +36,9 @@ async def run_plan_step(context: Context) -> str | None:
             if session_id := await get_opencode_session_id(
                 target_path=context.worktree_path, task_title=context.linear_task.full_title
             ):
-                context.session = await create_session(task_id=context.linear_task.id, session_id=session_id)
+                context.session = await save_session(
+                    task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
+                )
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")

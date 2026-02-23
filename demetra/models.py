@@ -34,16 +34,10 @@ class LinearIssue:
 class Session:
     task_id: str
     session_id: str
+    build_plan: str
+    posted_to_linear: bool
     created_at: str
     updated_at: str
-
-
-@dataclass
-class BuildPlan:
-    task_id: str
-    plan_content: str
-    created_at: str
-    posted_to_linear: bool
 
 
 @dataclass
@@ -55,8 +49,11 @@ class Context:
     project_path: Path
     worktree_path: Path
     session: Session | None
-    build_plan: BuildPlan | None = None
 
     @property
     def session_id(self) -> str | None:
         return self.session.session_id if self.session is not None else None
+
+    @property
+    def build_plan(self) -> str | None:
+        return self.session.build_plan if self.session is not None else None
