@@ -52,8 +52,8 @@ async def main(project_name: str, auto_mode: bool = True):
     except UserCancelledError:
         print_message("User cancelled, exiting the workflow.", style="error")
 
-    except DemetraError:
-        print_message("Failed to update ticket status", style="error")
+    except DemetraError as e:
+        print_message(f"Workflow error: {e}", style="error")
 
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")

@@ -7,6 +7,9 @@ from demetra.settings import GIT_PATH, GIT_WORKTREE_PATH
 
 async def git_worktree_create(target_path: Path, branch_name: str) -> Path:
     worktree_path = GIT_WORKTREE_PATH / branch_name
+    if worktree_path.exists():
+        raise RuntimeError(f"Worktree path already exists: {worktree_path}")
+
     command = [str(GIT_PATH), "worktree", "add", "-b", branch_name, str(worktree_path)]
     await run_command(command=command, target_path=target_path)
     return worktree_path

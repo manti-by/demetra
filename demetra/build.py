@@ -10,10 +10,7 @@ from demetra.settings import MAX_BUILD_ATTEMPTS
 
 async def run_build_step(build_plan: str, context: Context) -> None:
     current_task: str = build_plan
-    for build_attempt in range(1, MAX_BUILD_ATTEMPTS + 1):
-        if build_attempt == MAX_BUILD_ATTEMPTS:
-            raise InfiniteLoopError
-
+    for _ in range(1, MAX_BUILD_ATTEMPTS + 1):
         print_message("Running BUILD agent", style="heading")
         await opencode_build_agent(
             target_path=context.worktree_path,
@@ -45,3 +42,5 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             continue
 
         return
+
+    raise InfiniteLoopError
