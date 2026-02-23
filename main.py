@@ -4,14 +4,17 @@ import asyncio
 from demetra.build import run_build_agent
 from demetra.exceptions import DemetraError, InfiniteLoopError
 from demetra.finalize import cleanup, commit_and_push, create_pr
-from demetra.linear import get_linear_task, linear_cleanup, post_comment, update_ticket_status
+from demetra.linear import get_linear_task
 from demetra.lint import run_linter
 from demetra.plan import run_plan_agent
 from demetra.review import run_review_agents
 from demetra.services.database import get_session, init_db
 from demetra.services.filesystem import get_project_root
+from demetra.services.flow import user_input
+from demetra.services.linear import linear_cleanup, post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
+from demetra.worktree import create_worktree
 
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
@@ -34,9 +37,7 @@ async def main(project_name: str, auto_mode: bool = True):
     if not task:
         return
 
-    from demetra.worktree import create_worktree
-
-    branch_name = f"opencode/feature/{task.slug}"
+    branch_name = f"demetra/{task.slug}"
     worktree_path, _ = await create_worktree(target_path=project_path, branch_name=branch_name)
 
     is_error = True
@@ -56,7 +57,6 @@ async def main(project_name: str, auto_mode: bool = True):
         )
         if should_exit or build_plan is None:
             return
-        assert build_plan is not None
 
         if session_id is None:
             session = await get_session(task_id=task.id)
@@ -81,8 +81,6 @@ async def main(project_name: str, auto_mode: bool = True):
                 if auto_mode:
                     current_task = review_comments
                     continue
-
-                from demetra.services.flow import user_input
 
                 result, _ = await user_input([("1", "approve"), ("2", "skip")])
                 if result == "approve":

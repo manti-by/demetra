@@ -2,6 +2,7 @@ from pathlib import Path
 
 from demetra.services.database import create_session, get_session
 from demetra.services.flow import user_input
+from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
@@ -22,8 +23,9 @@ async def run_plan_agent(
     auto_mode: bool,
     session_id: str | None = None,
 ) -> tuple[str | None, bool]:
-    session = await get_session(task_id=task_id)
-    session_id = session.session_id if session else None
+    if session_id is None:
+        session = await get_session(task_id=task_id)
+        session_id = session.session_id if session else None
 
     plan_output = None
     current_task: str = task
@@ -54,8 +56,6 @@ async def run_plan_agent(
 
             if auto_mode:
                 print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
-                from demetra.services.linear import post_comment, update_ticket_status
-
                 await post_comment(task_id=task_id, body=f"## Questions\n{questions}")
                 await update_ticket_status(task_id=task_id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
                 print_message("Task moved to Awaiting Input state.", style="result")

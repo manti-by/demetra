@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from demetra.services.github import create_pull_request
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
+from demetra.services.github import create_pull_request
 from demetra.services.tui import print_message
 
 
