@@ -16,6 +16,9 @@ LINEAR_CLIENT_SECRET = os.environ.get("LINEAR_CLIENT_SECRET")
 LINEAR_OAUTH_SCOPE = os.environ.get("LINEAR_OAUTH_SCOPE", "read,write,comments:create")
 LINEAR_TEAM_ID = os.environ.get("LINEAR_TEAM_ID")
 
+LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token"  # noqa
+LINEAR_SERVICE_NAME = "linear"
+
 LINEAR_STATE_TODO_ID = os.environ.get("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5")
 LINEAR_STATE_IN_PROGRESS_ID = os.environ.get("LINEAR_STATE_IN_PROGRESS_ID", "ded08079-9ddf-43cb-8aa8-722ba107b691")
 LINEAR_STATE_IN_REVIEW_ID = os.environ.get("LINEAR_STATE_IN_REVIEW_ID", "34829892-5ab6-40a4-af4e-7a73636a78a4")

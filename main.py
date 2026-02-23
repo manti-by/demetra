@@ -27,7 +27,9 @@ from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID, LINEAR_STATE_IN_PRO
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
-parser.add_argument("--auto", help="Automatic mode - post questions and exit", action="store_true", default=True)
+parser.add_argument(
+    "--auto", help="Automatic mode - post questions and exit", action=argparse.BooleanOptionalAction, default=True
+)
 
 
 async def main(project_name: str, auto_mode: bool = True):
@@ -167,16 +169,16 @@ async def main(project_name: str, auto_mode: bool = True):
         print_message("Creating GitHub PR", style="heading")
         await create_pull_request(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
 
-        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
-
         is_error = False
         print_message("Workflow complete", style="heading")
+
+        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
 
     except InfiniteLoopError:
         print_message("Infinite loop detected, exiting.", style="error")
 
     except DemetraError:
-        print_message("Failed to update ticket status to In Progress", style="error")
+        print_message("Failed to update ticket status", style="error")
 
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")

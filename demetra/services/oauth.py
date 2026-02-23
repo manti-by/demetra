@@ -2,10 +2,13 @@ import aiohttp
 
 from demetra.exceptions import LinearError
 from demetra.services.database import get_oauth_token, save_oauth_token
-from demetra.settings import LINEAR_CLIENT_ID, LINEAR_CLIENT_SECRET, LINEAR_OAUTH_SCOPE
-
-LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token"
-LINEAR_SERVICE_NAME = "linear"
+from demetra.settings import (
+    LINEAR_CLIENT_ID,
+    LINEAR_CLIENT_SECRET,
+    LINEAR_OAUTH_SCOPE,
+    LINEAR_OAUTH_TOKEN_URL,
+    LINEAR_SERVICE_NAME,
+)
 
 
 async def get_valid_token() -> str:
@@ -43,7 +46,7 @@ async def fetch_new_token() -> str:
 
         access_token = data.get("access_token")
         refresh_token = data.get("refresh_token")
-        expires_in = data.get("expires_in", 2591999)
+        expires_in = int(data.get("expires_in", 2591999))
 
         if not access_token:
             raise LinearError("No access token in OAuth response")

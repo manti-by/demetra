@@ -35,7 +35,7 @@ async def opencode_build_agent(
 
 
 async def opencode_review_agent(
-    target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
+    target_path: Path, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
     task = await get_prompt(name="review_agent")
     return await run_opencode_agent(
