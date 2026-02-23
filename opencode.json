@@ -22,5 +22,31 @@
       "command": ["npx", "-y", "mcp-remote", "https://mcp.linear.app/sse"],
       "enabled": true
     }
+  },
+  "agent": {
+    "plan": {
+      "temperature": 0.3,
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": false
+      }
+    },
+    "build": {
+      "temperature": 0.3,
+      "tools": {
+        "write": true,
+        "edit": true,
+        "bash": true
+      }
+    },
+    "review": {
+      "temperature": 0.7,
+      "tools": {
+        "write": false,
+        "edit": false,
+        "bash": true
+      }
+    }
   }
 }

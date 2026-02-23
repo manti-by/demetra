@@ -37,7 +37,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_todo_issues_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_query.return_value = "query"
@@ -92,7 +92,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_todo_issues_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_query.return_value = "query"
@@ -146,7 +146,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_todo_issues_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_query.return_value = "query"
@@ -164,7 +164,7 @@ class TestLinearService:
         mock_data = {"data": {"team": {"states": {"nodes": []}}}}
 
         with (
-            patch("demetra.services.linear.get_todo_issues_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_query.return_value = "query"
@@ -191,7 +191,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_update_issue_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_mutation,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_mutation.return_value = "mutation"
@@ -213,7 +213,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_update_issue_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_mutation,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_mutation.return_value = "mutation"
@@ -239,7 +239,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_create_comment_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_mutation,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_mutation.return_value = "mutation"
@@ -261,7 +261,7 @@ class TestLinearService:
         }
 
         with (
-            patch("demetra.services.linear.get_create_comment_mutation", new_callable=AsyncMock) as mock_mutation,
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_mutation,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_mutation.return_value = "mutation"

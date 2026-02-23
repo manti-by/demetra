@@ -4,7 +4,7 @@ from demetra.services.subprocess import run_command
 from demetra.settings import CODERABBIT_PATH
 
 
-async def review_agent(target_path: Path) -> tuple[int, str, str]:
+async def coderabbit_review_agent(target_path: Path) -> tuple[int, str, str]:
     return await run_coderabbit_agent(target_path=target_path)
 
 

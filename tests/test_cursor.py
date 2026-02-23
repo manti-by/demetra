@@ -7,22 +7,22 @@ import pytest
 class TestCursorService:
     @pytest.mark.asyncio
     async def test_review_agent_calls_run_cursor_agent(self):
-        from demetra.services.cursor import review_agent
+        from demetra.services.cursor import cursor_review_agent
 
         with patch("demetra.services.cursor.run_cursor_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "review output"
-            result = await review_agent(Path("/test/path"), "session-123")
+            result = await cursor_review_agent(Path("/test/path"), "session-123")
 
         mock_run.assert_called_once()
         assert result == "review output"
 
     @pytest.mark.asyncio
     async def test_review_agent_task_contains_instructions(self):
-        from demetra.services.cursor import review_agent
+        from demetra.services.cursor import cursor_review_agent
 
         with patch("demetra.services.cursor.run_cursor_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ""
-            await review_agent(Path("/test"), "session-123")
+            await cursor_review_agent(Path("/test"), "session-123")
 
         call_kwargs = mock_run.call_args.kwargs
         task = call_kwargs["task"]

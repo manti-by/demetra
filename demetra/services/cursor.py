@@ -1,17 +1,12 @@
 from pathlib import Path
 
+from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.settings import CURSOR_PATH
 
 
-async def review_agent(target_path: Path, session_id: str | None = None) -> tuple[int, str, str]:
-    task = """
-        1. Check git staged changes in the current directory
-        2. Review diff and flag only clear, high-severity issues
-        3. Leave very short inline comments (1-2 sentences) on changed lines only
-        4. Leave a brief summary at the end if any issues were found
-        NOTE: Do not write anything if there are no issues found, just exit
-    """
+async def cursor_review_agent(target_path: Path, session_id: str | None = None) -> tuple[int, str, str]:
+    task = await get_prompt(name="review_agent")
     return await run_cursor_agent(target_path=target_path, task=task, session_id=session_id)
 
 

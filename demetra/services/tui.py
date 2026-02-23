@@ -26,7 +26,7 @@ def print_message(message: str, style: str | None = None):
 
 
 async def print_heading():
-    async with aiofiles.open(BASE_PATH / "demetra/services/tui/header.txt") as file:
+    async with aiofiles.open(BASE_PATH / "demetra/tui/header.txt") as file:
         text = await file.read()
 
     text = Text(text)

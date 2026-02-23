@@ -7,18 +7,19 @@ import pytest
 class TestOpencodeService:
     @pytest.mark.asyncio
     async def test_plan_agent_calls_run_opencode_agent(self):
-        from demetra.services.opencode import plan_agent
+        from demetra.services.opencode import opencode_plan_agent
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "plan result"
-            result = await plan_agent(
+            result = await opencode_plan_agent(
                 Path("/test/path"), "do something", session_id="session-123", task_title="do something"
             )
 
         expected_task = (
             "do something"
-            "\nIf you have some question about implementation, just print in the end `Please check my questions above.`"
-            "\nIf there are no questions, just print in the end `Ready to proceed to build.`"
+            "\nIMPORTANT:"
+            "\n- If you have some question about implementation, just print in the end `Please check my questions above.`"
+            "\n- If there are no questions, just print in the end `Ready to proceed to build.`"
         )
         mock_run.assert_called_once_with(
             target_path=Path("/test/path"),
@@ -31,11 +32,11 @@ class TestOpencodeService:
 
     @pytest.mark.asyncio
     async def test_build_agent_modifies_task_with_instructions(self):
-        from demetra.services.opencode import build_agent
+        from demetra.services.opencode import opencode_build_agent
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "build result"
-            await build_agent(Path("/test/path"), "implement feature", session_id="session-123")
+            await opencode_build_agent(Path("/test/path"), "implement feature", session_id="session-123")
 
         mock_run.assert_called_once()
         call_kwargs = mock_run.call_args.kwargs
