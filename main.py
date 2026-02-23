@@ -2,7 +2,7 @@ import argparse
 import asyncio
 
 from demetra.exceptions import DemetraError, InfiniteLoopError
-from demetra.services.cursor import review_agent
+from demetra.services.cursor import cursor_review_agent
 from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
@@ -13,11 +13,11 @@ from demetra.services.lint import run_ruff_checks, run_ruff_format
 from demetra.services.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
-    build_agent,
     extract_plan,
     extract_questions,
     get_opencode_session_id,
-    plan_agent,
+    opencode_build_agent,
+    opencode_plan_agent,
 )
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
@@ -63,7 +63,7 @@ async def main(project_name: str):
         current_task: str = task.text
         while True:
             print_message("Running PLAN agent", style="heading")
-            _, plan_output, _ = await plan_agent(
+            _, plan_output, _ = await opencode_plan_agent(
                 target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
             )
 
@@ -116,12 +116,12 @@ async def main(project_name: str):
                 raise InfiniteLoopError
 
             print_message("Running BUILD agent", style="heading")
-            await build_agent(
+            await opencode_build_agent(
                 target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
             )
 
             print_message("Running CODE REVIEW agent", style="heading")
-            _, review_comments, _ = await review_agent(target_path=worktree_path, session_id=session_id)
+            _, review_comments, _ = await cursor_review_agent(target_path=worktree_path, session_id=session_id)
             if review_comments:
                 result, _ = await user_input([("1", "approve"), ("2", "skip")])
                 if result == "approve":

@@ -2,6 +2,7 @@ import json
 import shlex
 from pathlib import Path
 
+from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
 
@@ -11,25 +12,34 @@ PLAN_IS_READY_STRING = "Ready to proceed to build."
 PLAN_HAS_QUESTIONS = "Please check my questions above."
 
 
-async def plan_agent(
+async def opencode_plan_agent(
     target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
     task += (
-        f"\nIf you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
-        f"\nIf there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
+        f"\nIMPORTANT:"
+        f"\n- If you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
+        f"\n- If there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
     )
     return await run_opencode_agent(
         target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="plan"
     )
 
 
-async def build_agent(
+async def opencode_build_agent(
     target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
-    # Override agents settings in the target repository
     task += "\nDO NOT commit or push any changes, just stage them"
     return await run_opencode_agent(
         target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="build"
+    )
+
+
+async def opencode_review_agent(
+    target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
+) -> tuple[int, str, str]:
+    task = await get_prompt(name="review_agent")
+    return await run_opencode_agent(
+        target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="review"
     )
 
 

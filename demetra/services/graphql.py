@@ -7,14 +7,8 @@ from demetra.exceptions import LinearError
 from demetra.settings import BASE_PATH, LINEAR_API_KEY, LINEAR_API_URL
 
 
-async def get_todo_issues_query() -> str:
-    async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "get_todo_issues.gql") as file:
-        content = await file.read()
-    return content
-
-
-async def list_states_query() -> str:
-    async with aiofiles.open(BASE_PATH / "demetra" / "services" / "queries" / "list_states.gql") as file:
+async def get_query(name: str) -> str:
+    async with aiofiles.open(BASE_PATH / f"demetra/queries/{name}.gql") as file:
         content = await file.read()
     return content
 
