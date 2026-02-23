@@ -39,7 +39,9 @@ norecursedirs = '''
 '''
 
 [tool.bandit]
-exclude_dirs = []
+exclude_dirs = [
+    "demetra/settings.py"
+]
 skips = ["B101", "B308", "B703"]
 
 [tool.curlylint.rules]

@@ -8,7 +8,7 @@ from demetra.services.tui import print_message
 
 async def run_review_agents(target_path: Path, session_id: str | None = None) -> str | None:
     print_message("Running OPENCODE REVIEW agent", style="heading")
-    _, opencode_comments, _ = await opencode_review_agent(target_path=target_path, task="", session_id=session_id)
+    _, opencode_comments, _ = await opencode_review_agent(target_path=target_path, session_id=session_id)
     if opencode_comments:
         print_message("OpenCode review agent returned comments", style="result")
         return opencode_comments
