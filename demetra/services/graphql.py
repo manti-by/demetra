@@ -5,7 +5,7 @@ import aiohttp
 
 from demetra.exceptions import LinearError
 from demetra.services.oauth import get_valid_token
-from demetra.settings import BASE_PATH, LINEAR_API_KEY, LINEAR_API_URL
+from demetra.settings import BASE_PATH, LINEAR_API_URL
 
 
 async def get_query(name: str) -> str:
@@ -15,10 +15,7 @@ async def get_query(name: str) -> str:
 
 
 async def graphql_request(query: str, variables: dict[str, Any] | None = None) -> dict:
-    if LINEAR_API_KEY:
-        token = LINEAR_API_KEY
-    else:
-        token = await get_valid_token()
+    token = await get_valid_token()
 
     payload = {"query": query}
     if variables:
