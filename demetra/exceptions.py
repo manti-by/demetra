@@ -16,3 +16,7 @@ class LinearError(DemetraError):
 
 class InfiniteLoopError(DemetraError):
     pass
+
+
+class UserCancelledError(DemetraError):
+    pass

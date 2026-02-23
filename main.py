@@ -1,20 +1,15 @@
 import argparse
 import asyncio
 
-from demetra.build import run_build_agent
-from demetra.exceptions import DemetraError, InfiniteLoopError
-from demetra.finalize import cleanup, commit_and_push, create_pr
-from demetra.linear import get_linear_task
-from demetra.lint import run_linter
-from demetra.plan import run_plan_agent
-from demetra.review import run_review_agents
+from demetra.build import run_build_step
+from demetra.cleanup import cleanup_workflow, commit_and_push
+from demetra.exceptions import DemetraError, InfiniteLoopError, UserCancelledError
+from demetra.plan import run_plan_step
 from demetra.services.database import get_session, init_db
-from demetra.services.filesystem import get_project_root
-from demetra.services.flow import user_input
-from demetra.services.linear import linear_cleanup, post_comment, update_ticket_status
+from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
-from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID, LINEAR_STATE_IN_REVIEW_ID
-from demetra.worktree import create_worktree
+from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID
+from demetra.setup import setup_workflow
 
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
@@ -29,87 +24,33 @@ async def main(project_name: str, auto_mode: bool = True):
     await print_heading()
 
     print_message("Running workflow", style="heading")
-
-    project_path = get_project_root(project_name=project_name)
-    print_message(f"Project root: {project_path}", style="result")
-
-    task = await get_linear_task(project_name=project_name)
-    if not task:
+    if not (context := await setup_workflow(project_name=project_name, auto_mode=auto_mode)):
+        print_message("No TODO tasks found", style="error")
         return
 
-    branch_name = f"demetra/{task.slug}"
-    worktree_path, _ = await create_worktree(target_path=project_path, branch_name=branch_name)
-
-    is_error = True
-    session = await get_session(task_id=task.id)
-    session_id = session.session_id if session else None
-
+    success = False
     try:
-        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
+        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
 
-        build_plan, should_exit = await run_plan_agent(
-            target_path=worktree_path,
-            task_id=task.id,
-            task=task.text,
-            task_title=task.full_title,
-            auto_mode=auto_mode,
-            session_id=session_id,
-        )
-        if should_exit or build_plan is None:
+        build_plan = await run_plan_step(context=context)
+        if build_plan is None:
             return
 
-        if session_id is None:
-            session = await get_session(task_id=task.id)
-            session_id = session.session_id if session else None
+        if context.session_id is None and (session := await get_session(task_id=context.linear_task.id)):
+            context.session = session
 
-        await post_comment(task_id=task.id, body=build_plan)
+        await post_comment(task_id=context.linear_task.id, body=build_plan)
 
-        current_task: str = build_plan
-        for build_attempt in range(3):
-            build_attempt += 1
-            if build_attempt == 3:
-                raise InfiniteLoopError
+        await run_build_step(build_plan=build_plan, context=context)
 
-            print_message("Running BUILD agent", style="heading")
-            await run_build_agent(
-                target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
-            )
-
-            print_message("Running CODE REVIEW agents", style="heading")
-            review_comments = await run_review_agents(target_path=worktree_path, session_id=session_id)
-            if review_comments:
-                if auto_mode:
-                    current_task = review_comments
-                    continue
-
-                result, _ = await user_input([("1", "approve"), ("2", "skip")])
-                if result == "approve":
-                    print_message("Applying proposed changes.")
-                    current_task = review_comments
-                    continue
-                else:
-                    print_message("Continuing the workflow.", style="result")
-            else:
-                print_message("There are no review comments, continuing the workflow.", style="result")
-
-            has_errors, lint_result = await run_linter(target_path=worktree_path, session_id=session_id)
-            if has_errors and lint_result:
-                current_task = lint_result
-                continue
-
-            break
-
-        await commit_and_push(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
-
-        await create_pr(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
-
-        is_error = False
-        print_message("Workflow complete", style="heading")
-
-        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
+        await commit_and_push(context=context)
+        success = True
 
     except InfiniteLoopError:
         print_message("Infinite loop detected, exiting.", style="error")
+
+    except UserCancelledError:
+        print_message("User cancelled, exiting the workflow.", style="error")
 
     except DemetraError:
         print_message("Failed to update ticket status", style="error")
@@ -118,10 +59,7 @@ async def main(project_name: str, auto_mode: bool = True):
         print_message(f"OS Error: {e}", style="error")
 
     finally:
-        await cleanup(
-            project_path=project_path, worktree_path=worktree_path, branch_name=branch_name, is_error=is_error
-        )
-        await linear_cleanup(task_id=task.id, is_error=is_error)
+        await cleanup_workflow(context=context, success=success)
 
 
 if __name__ == "__main__":

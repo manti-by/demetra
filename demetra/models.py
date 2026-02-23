@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from pathlib import Path
 
 from slugify import slugify
 
@@ -35,3 +36,18 @@ class Session:
     session_id: str
     created_at: str
     updated_at: str
+
+
+@dataclass
+class Context:
+    project_name: str
+    auto_mode: bool
+    linear_task: LinearIssue
+    branch_name: str
+    project_path: Path
+    worktree_path: Path
+    session: Session | None
+
+    @property
+    def session_id(self) -> str | None:
+        return self.session.session_id if self.session is not None else None

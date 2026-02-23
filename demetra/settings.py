@@ -9,6 +9,8 @@ DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".demetra/demetra.sqlite3")
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
+MAX_BUILD_ATTEMPTS = 5
+
 LINEAR_API_URL = "https://api.linear.app/graphql"
 LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
 LINEAR_CLIENT_ID = os.environ.get("LINEAR_CLIENT_ID")

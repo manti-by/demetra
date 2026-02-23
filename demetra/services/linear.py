@@ -1,7 +1,7 @@
 from demetra.models import LinearIssue
 from demetra.services.graphql import get_query, graphql_request
 from demetra.services.tui import print_message
-from demetra.settings import LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
+from demetra.settings import LINEAR_STATE_IN_REVIEW_ID, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
 
 
 async def get_todo_issues(project_name: str) -> list[LinearIssue]:
@@ -48,7 +48,11 @@ async def post_comment(task_id: str, body: str) -> bool:
     return result.get("data", {}).get("commentCreate", {}).get("success", False)
 
 
-async def linear_cleanup(task_id: str, is_error: bool):
-    if is_error:
-        print_message("Moving back a ticket in TODO column", style="heading")
-        await update_ticket_status(task_id=task_id, state_id=LINEAR_STATE_TODO_ID)
+async def linear_cleanup(task: LinearIssue, success: bool):
+    if success:
+        print_message("Workflow complete", style="heading")
+        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
+        return
+
+    print_message("Moving back a ticket in TODO column", style="heading")
+    await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_TODO_ID)

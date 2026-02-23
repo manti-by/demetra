@@ -12,9 +12,9 @@ async def git_worktree_create(target_path: Path, branch_name: str) -> Path:
     return worktree_path
 
 
-async def git_worktree_remove(target_path: Path, worktree_path: Path, is_error: bool = False):
+async def git_worktree_remove(target_path: Path, worktree_path: Path, force: bool = False):
     command = [str(GIT_PATH), "worktree", "remove", str(worktree_path)]
-    if is_error:
+    if force:
         command.append("--force")
     await run_command(command=command, target_path=target_path)
 
@@ -39,14 +39,14 @@ async def git_branch_delete(target_path: Path, branch_name: str):
     await run_command(command=command, target_path=target_path)
 
 
-async def git_cleanup(target_path: Path, worktree_path: Path, branch_name: str, *, is_error: bool):
+async def git_cleanup(target_path: Path, worktree_path: Path, branch_name: str, *, success: bool):
     try:
         print_message("Removing worktree", style="heading")
-        await git_worktree_remove(target_path=target_path, worktree_path=worktree_path, is_error=is_error)
+        await git_worktree_remove(target_path=target_path, worktree_path=worktree_path, force=not success)
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to remove worktree", style="error")
 
-    if not is_error:
+    if success:
         return
     try:
         print_message("Deleting branch", style="heading")

@@ -42,15 +42,15 @@ class TestGitCleanupFunction:
         assert "target_path" in params
         assert "worktree_path" in params
         assert "branch_name" in params
-        assert "is_error" in params
+        assert "success" in params
 
-    def test_git_cleanup_is_error_is_keyword_only(self):
+    def test_git_cleanup_success_is_keyword_only(self):
         import inspect
 
         from demetra.services.git import git_cleanup
 
         sig = inspect.signature(git_cleanup)
-        is_error_param = sig.parameters.get("is_error")
+        success_param = sig.parameters.get("success")
 
-        assert is_error_param is not None
-        assert is_error_param.kind == inspect.Parameter.KEYWORD_ONLY
+        assert success_param is not None
+        assert success_param.kind == inspect.Parameter.KEYWORD_ONLY
