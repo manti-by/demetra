@@ -1,8 +1,9 @@
 import argparse
 import asyncio
 
+from demetra.build import run_build_agent
 from demetra.exceptions import DemetraError, InfiniteLoopError
-from demetra.services.build import run_build_agent
+from demetra.review import run_review_agents
 from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
@@ -18,7 +19,6 @@ from demetra.services.opencode import (
     get_opencode_session_id,
     opencode_plan_agent,
 )
-from demetra.services.review import run_review_agents
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import is_package_installed
@@ -27,10 +27,10 @@ from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID, LINEAR_STATE_IN_PRO
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
-parser.add_argument("--auto", help="Automatic mode - post questions and exit", action="store_true")
+parser.add_argument("--auto", help="Automatic mode - post questions and exit", action="store_true", default=True)
 
 
-async def main(project_name: str):
+async def main(project_name: str, auto_mode: bool = True):
     await init_db()
     await print_heading()
 
@@ -86,7 +86,7 @@ async def main(project_name: str):
                 questions = await extract_questions(plan_output=plan_output, build_plan=build_plan)
                 print_message(f"Questions detected:\n{questions}", style="heading")
 
-                if args.auto:
+                if auto_mode:
                     print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
                     await post_comment(task_id=task.id, body=f"## Questions\n{questions}")
                     await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
@@ -123,6 +123,10 @@ async def main(project_name: str):
             print_message("Running CODE REVIEW agents", style="heading")
             review_comments = await run_review_agents(target_path=worktree_path, session_id=session_id)
             if review_comments:
+                if auto_mode:
+                    current_task = review_comments
+                    continue
+
                 result, _ = await user_input([("1", "approve"), ("2", "skip")])
                 if result == "approve":
                     print_message("Applying proposed changes.")
@@ -130,6 +134,8 @@ async def main(project_name: str):
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
+            else:
+                print_message("There are no review comments, continuing the workflow.", style="result")
 
             if await is_package_installed(target_path=worktree_path, package_name="ruff"):
                 print_message("Running RUFF linter", style="heading")
@@ -161,10 +167,7 @@ async def main(project_name: str):
         print_message("Creating GitHub PR", style="heading")
         await create_pull_request(target_path=worktree_path, branch_name=branch_name, title=task.full_title)
 
-        try:
-            await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
-        except DemetraError:
-            print_message("Failed to update ticket status to In Review", style="error")
+        await update_ticket_status(task_id=task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
 
         is_error = False
         print_message("Workflow complete", style="heading")
@@ -187,4 +190,9 @@ async def main(project_name: str):
 
 if __name__ == "__main__":
     args = parser.parse_args()
-    asyncio.run(main(project_name=args.project_name))
+    asyncio.run(
+        main(
+            project_name=args.project_name,
+            auto_mode=args.auto,
+        )
+    )
