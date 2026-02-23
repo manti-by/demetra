@@ -2,7 +2,7 @@ import argparse
 import asyncio
 
 from demetra.exceptions import DemetraError, InfiniteLoopError
-from demetra.services.cursor import cursor_review_agent
+from demetra.services.build import run_build_agent
 from demetra.services.database import create_session, get_session, init_db
 from demetra.services.filesystem import get_project_root
 from demetra.services.flow import user_input
@@ -16,9 +16,9 @@ from demetra.services.opencode import (
     extract_plan,
     extract_questions,
     get_opencode_session_id,
-    opencode_build_agent,
     opencode_plan_agent,
 )
+from demetra.services.review import run_review_agents
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import is_package_installed
@@ -116,12 +116,12 @@ async def main(project_name: str):
                 raise InfiniteLoopError
 
             print_message("Running BUILD agent", style="heading")
-            await opencode_build_agent(
+            await run_build_agent(
                 target_path=worktree_path, task=current_task, session_id=session_id, task_title=task.full_title
             )
 
-            print_message("Running CODE REVIEW agent", style="heading")
-            _, review_comments, _ = await cursor_review_agent(target_path=worktree_path, session_id=session_id)
+            print_message("Running CODE REVIEW agents", style="heading")
+            review_comments = await run_review_agents(target_path=worktree_path, session_id=session_id)
             if review_comments:
                 result, _ = await user_input([("1", "approve"), ("2", "skip")])
                 if result == "approve":
@@ -130,8 +130,6 @@ async def main(project_name: str):
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
-            else:
-                print_message("No comments from review agent, continuing the workflow.", style="result")
 
             if await is_package_installed(target_path=worktree_path, package_name="ruff"):
                 print_message("Running RUFF linter", style="heading")
