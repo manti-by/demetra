@@ -11,6 +11,9 @@ PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
 LINEAR_API_URL = "https://api.linear.app/graphql"
 LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
+LINEAR_CLIENT_ID = os.environ.get("LINEAR_CLIENT_ID")
+LINEAR_CLIENT_SECRET = os.environ.get("LINEAR_CLIENT_SECRET")
+LINEAR_OAUTH_SCOPE = os.environ.get("LINEAR_OAUTH_SCOPE", "read,write,comments:create")
 LINEAR_TEAM_ID = os.environ.get("LINEAR_TEAM_ID")
 
 LINEAR_STATE_TODO_ID = os.environ.get("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5")

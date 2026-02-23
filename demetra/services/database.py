@@ -33,6 +33,16 @@ async def init_db() -> None:
             )
             """
         )
+        await connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS oauth_tokens (
+                service TEXT PRIMARY KEY,
+                access_token TEXT NOT NULL,
+                refresh_token TEXT,
+                expires_at TEXT NOT NULL
+            )
+            """
+        )
         await connection.commit()
 
 
@@ -58,4 +68,30 @@ async def get_session(task_id: str) -> Session | None:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
         )
+    return None
+
+
+async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:
+    expires_at = datetime.now(UTC).timestamp() + expires_in
+    async with get_connection() as connection:
+        await connection.execute(
+            """
+            INSERT OR REPLACE INTO oauth_tokens (service, access_token, refresh_token, expires_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (service, access_token, refresh_token, expires_at),
+        )
+        await connection.commit()
+
+
+async def get_oauth_token(service: str) -> tuple[str, str] | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute(
+            "SELECT access_token, expires_at FROM oauth_tokens WHERE service = ?", (service,)
+        )
+        row = await cursor.fetchone()
+    if row:
+        expires_at = float(row["expires_at"])
+        if datetime.now(UTC).timestamp() < expires_at:
+            return row["access_token"], str(expires_at)
     return None
