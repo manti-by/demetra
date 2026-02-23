@@ -19,11 +19,7 @@ async def commit_and_push(context: Context) -> None:
     )
 
 
-async def cleanup_workflow(context: Context, success: bool) -> None:
-    await git_cleanup(
-        target_path=context.project_path,
-        worktree_path=context.worktree_path,
-        branch_name=context.branch_name,
-        success=success,
-    )
-    await linear_cleanup(task=context.linear_task, success=success)
+async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:
+    await git_cleanup(context=context, is_success=is_success)
+    if should_update_linear_status:
+        await linear_cleanup(context=context, is_success=is_success)

@@ -3,7 +3,7 @@ import asyncio
 
 from demetra.build import run_build_step
 from demetra.cleanup import cleanup_workflow, commit_and_push
-from demetra.exceptions import DemetraError, InfiniteLoopError, UserCancelledError
+from demetra.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
 from demetra.plan import run_plan_step
 from demetra.services.database import get_session, init_db
 from demetra.services.linear import post_comment, update_ticket_status
@@ -28,7 +28,8 @@ async def main(project_name: str, auto_mode: bool = True):
         print_message("No TODO tasks found", style="error")
         return
 
-    success = False
+    is_success = False
+    should_update_linear_status = True
     try:
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
 
@@ -44,13 +45,17 @@ async def main(project_name: str, auto_mode: bool = True):
         await run_build_step(build_plan=build_plan, context=context)
 
         await commit_and_push(context=context)
-        success = True
+        is_success = True
 
     except InfiniteLoopError:
         print_message("Infinite loop detected, exiting.", style="error")
 
     except UserCancelledError:
         print_message("User cancelled, exiting the workflow.", style="error")
+
+    except AutoCancelledError:
+        print_message("User cancelled, exiting the workflow.", style="error")
+        should_update_linear_status = False
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")
@@ -59,7 +64,9 @@ async def main(project_name: str, auto_mode: bool = True):
         print_message(f"OS Error: {e}", style="error")
 
     finally:
-        await cleanup_workflow(context=context, success=success)
+        await cleanup_workflow(
+            context=context, is_success=is_success, should_update_linear_status=should_update_linear_status
+        )
 
 
 if __name__ == "__main__":

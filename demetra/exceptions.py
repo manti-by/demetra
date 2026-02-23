@@ -20,3 +20,7 @@ class InfiniteLoopError(DemetraError):
 
 class UserCancelledError(DemetraError):
     pass
+
+
+class AutoCancelledError(DemetraError):
+    pass

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from demetra.models import Context
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
 from demetra.settings import GIT_PATH, GIT_WORKTREE_PATH
@@ -42,17 +43,20 @@ async def git_branch_delete(target_path: Path, branch_name: str):
     await run_command(command=command, target_path=target_path)
 
 
-async def git_cleanup(target_path: Path, worktree_path: Path, branch_name: str, *, success: bool):
+async def git_cleanup(context: Context, is_success: bool):
     try:
         print_message("Removing worktree", style="heading")
-        await git_worktree_remove(target_path=target_path, worktree_path=worktree_path, force=not success)
+        await git_worktree_remove(
+            target_path=context.project_path, worktree_path=context.worktree_path, force=(not is_success)
+        )
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to remove worktree", style="error")
 
-    if success:
+    if is_success:
         return
+
     try:
         print_message("Deleting branch", style="heading")
-        await git_branch_delete(target_path=target_path, branch_name=branch_name)
+        await git_branch_delete(target_path=context.project_path, branch_name=context.branch_name)
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to delete branch", style="error")

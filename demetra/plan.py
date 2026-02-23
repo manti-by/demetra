@@ -1,4 +1,4 @@
-from demetra.exceptions import UserCancelledError
+from demetra.exceptions import AutoCancelledError, UserCancelledError
 from demetra.models import Context
 from demetra.services.database import create_session, get_session
 from demetra.services.flow import user_input
@@ -58,14 +58,14 @@ async def run_plan_step(context: Context) -> str | None:
                 await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
                 print_message("Task moved to Awaiting Input state.", style="result")
 
-                raise UserCancelledError("Pausing workflow: questions require user input")
+                raise AutoCancelledError
 
             print_message("Waiting for user input.", style="heading")
 
         result, comment = await user_input([("1", "approve"), ("2", "comment"), ("3", "exit")])
         if result == "exit":
             print_message("Cancelled, exiting the workflow.", style="error")
-            raise UserCancelledError("User cancelled the workflow")
+            raise UserCancelledError
 
         elif result == "comment" and comment:
             current_task = comment

@@ -39,12 +39,22 @@ async def opencode_review_agent(
 ) -> tuple[int, str, str]:
     task = await get_prompt(name="review_agent")
     return await run_opencode_agent(
-        target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="review"
+        target_path=target_path,
+        task=task,
+        session_id=session_id,
+        task_title=task_title,
+        agent="review",
+        disable_stdio=True,
     )
 
 
 async def run_opencode_agent(
-    target_path: Path, task: str, agent: str, session_id: str | None = None, task_title: str | None = None
+    target_path: Path,
+    task: str,
+    agent: str,
+    session_id: str | None = None,
+    task_title: str | None = None,
+    disable_stdio: bool = False,
 ) -> tuple[int, str, str]:
     command = [str(OPENCODE_PATH), "run", "--model", OPENCODE_MODEL, "--agent", agent]
 
@@ -54,7 +64,7 @@ async def run_opencode_agent(
         command.extend(["--title", task_title])
 
     command.append(shlex.quote(task)[:4095])
-    return await run_command(command=command, target_path=target_path)
+    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio)
 
 
 async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:

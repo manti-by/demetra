@@ -33,8 +33,6 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 continue
             else:
                 print_message("Continuing the workflow.", style="result")
-        else:
-            print_message("There are no review comments, continuing the workflow.", style="result")
 
         has_errors, lint_result = await run_linter(target_path=context.worktree_path, session_id=context.session_id)
         if has_errors and lint_result:
