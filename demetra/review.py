@@ -1,6 +1,5 @@
 from pathlib import Path
 
-from demetra.services.coderabbit import coderabbit_review_agent
 from demetra.services.cursor import cursor_review_agent
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
