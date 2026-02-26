@@ -10,7 +10,8 @@ from demetra.settings import MAX_BUILD_ATTEMPTS
 
 async def run_build_step(build_plan: str, context: Context) -> None:
     current_task: str = build_plan
-    for _ in range(1, MAX_BUILD_ATTEMPTS + 1):
+    rerun_attempts = MAX_BUILD_ATTEMPTS
+    while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
         await opencode_build_agent(
             target_path=context.worktree_path,
@@ -24,19 +25,23 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         if review_comments:
             if context.auto_mode:
                 current_task = review_comments
+                rerun_attempts -= 1
                 continue
 
             result, _ = await user_input([("1", "approve"), ("2", "skip")])
             if result == "approve":
                 print_message("Applying proposed changes.")
                 current_task = review_comments
+                rerun_attempts -= 1
                 continue
             else:
                 print_message("Continuing the workflow.", style="result")
+                rerun_attempts = MAX_BUILD_ATTEMPTS
 
         has_errors, lint_result = await run_linter(target_path=context.worktree_path, session_id=context.session_id)
         if has_errors and lint_result:
             current_task = lint_result
+            rerun_attempts -= 1
             continue
 
         return

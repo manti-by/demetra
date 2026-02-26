@@ -33,7 +33,7 @@
       }
     },
     "build": {
-      "temperature": 0.3,
+      "temperature": 0.7,
       "tools": {
         "write": true,
         "edit": true,
@@ -41,7 +41,7 @@
       }
     },
     "review": {
-      "temperature": 0.7,
+      "temperature": 0.1,
       "tools": {
         "write": false,
         "edit": false,
