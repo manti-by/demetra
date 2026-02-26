@@ -84,21 +84,19 @@ async def get_session(task_id: str) -> Session | None:
 async def save_session(task_id: str, session_id: str, build_plan: str) -> Session:
     now = datetime.now(UTC).isoformat()
     async with get_connection() as connection:
-        cursor = await connection.execute("SELECT posted_to_linear FROM sessions WHERE task_id = ?", (task_id,))
+        cursor = await connection.execute(
+            "SELECT posted_to_linear, created_at FROM sessions WHERE task_id = ?", (task_id,)
+        )
         row = await cursor.fetchone()
         existing_posted = bool(row["posted_to_linear"]) if row else False
+        existing_created_at = row["created_at"] if row else now
 
         await connection.execute(
             """
-            INSERT INTO sessions (task_id, session_id, build_plan, posted_to_linear, created_at, updated_at)
+            INSERT OR REPLACE INTO sessions (task_id, session_id, build_plan, posted_to_linear, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(task_id) DO UPDATE SET
-                session_id = excluded.session_id,
-                build_plan = excluded.build_plan,
-                posted_to_linear = excluded.posted_to_linear,
-                updated_at = excluded.updated_at
             """,
-            (task_id, session_id, build_plan, int(existing_posted), now, now),
+            (task_id, session_id, build_plan, int(existing_posted), existing_created_at, now),
         )
         await connection.commit()
         cursor = await connection.execute("SELECT * FROM sessions WHERE task_id = ?", (task_id,))

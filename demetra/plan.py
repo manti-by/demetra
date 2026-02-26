@@ -2,15 +2,9 @@ from demetra.exceptions import AutoCancelledError, UserCancelledError
 from demetra.models import Context
 from demetra.services.database import save_session
 from demetra.services.flow import user_input
+from demetra.services.groq import extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.opencode import (
-    PLAN_HAS_QUESTIONS,
-    PLAN_IS_READY_STRING,
-    extract_plan,
-    extract_questions,
-    get_opencode_session_id,
-    opencode_plan_agent,
-)
+from demetra.services.opencode import extract_plan, get_opencode_session_id, opencode_plan_agent
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID
 
@@ -43,23 +37,23 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
 
-        if PLAN_IS_READY_STRING in plan_output:
+        questions = await extract_questions(plan_output=plan_output)
+        if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")
             return build_plan
-        elif PLAN_HAS_QUESTIONS in plan_output:
-            questions = await extract_questions(plan_output=plan_output, build_plan=build_plan)
-            print_message(f"Questions detected:\n{questions}", style="heading")
 
-            if context.auto_mode:
-                print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
-                await post_comment(task_id=context.linear_task.id, body=f"## Questions\n{questions}")
+        print_message(f"Questions detected:\n{questions}", style="heading")
 
-                await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
-                print_message("Task moved to Awaiting Input state.", style="result")
+        if context.auto_mode:
+            print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
+            await post_comment(task_id=context.linear_task.id, body=f"## Questions:\n- {'\n- '.join(questions)}")
 
-                raise AutoCancelledError
+            await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
+            print_message("Task moved to Awaiting Input state.", style="result")
 
-            print_message("Waiting for user input.", style="heading")
+            raise AutoCancelledError
+
+        print_message("Waiting for user input.", style="heading")
 
         result, comment = await user_input([("1", "approve"), ("2", "comment"), ("3", "exit")])
         if result == "exit":

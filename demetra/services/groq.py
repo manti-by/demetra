@@ -1,0 +1,19 @@
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
+
+from demetra.services.parser import NumberedListOutputParser
+from demetra.services.prompt import get_prompt
+
+
+async def extract_questions(plan_output: str) -> list[str]:
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1, max_tokens=1024, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="extract_questions")),
+            ("human", "Text: {input_text}"),
+        ]
+    )
+    output_parser = NumberedListOutputParser()
+
+    chain = prompt | llm | output_parser
+    return await chain.ainvoke({"input_text": plan_output})

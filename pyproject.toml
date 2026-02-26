@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.5.0"
+version = "1.5.1"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.9,<3.14.0"
@@ -9,6 +9,8 @@ dependencies = [
     "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
     "asyncio>=4.0.0",
+    "langchain-groq>=1.1.2",
+    "langchain-core>=1.2.15",
     "python-slugify>=8.0.4",
     "rich>=14.3.3",
     "ruff>=0.15.2",

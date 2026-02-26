@@ -34,14 +34,22 @@ async def main(project_name: str, auto_mode: bool = True):
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
 
         if not context.session:
-            if not (build_plan := await run_plan_step(context=context)):
+            if not await run_plan_step(context=context):
                 return
 
-        if context.session and not context.session.posted_to_linear:
-            if await post_comment(task_id=context.linear_task.id, body=build_plan):
+        if not context.session:
+            print_message("Empty session, exiting.", style="error")
+            return
+
+        if not context.session.build_plan:
+            print_message("Empty build plan, exiting.", style="error")
+            return
+
+        if not context.session.posted_to_linear:
+            if await post_comment(task_id=context.linear_task.id, body=context.session.build_plan):
                 await mark_session_posted(task_id=context.linear_task.id)
 
-        await run_build_step(build_plan=build_plan, context=context)
+        await run_build_step(build_plan=context.session.build_plan, context=context)
 
         await commit_and_push(context=context)
         is_success = True
