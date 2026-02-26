@@ -170,9 +170,13 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
 async def add_pending_task(task_id: str, project_name: str) -> None:
     now = datetime.now(UTC).isoformat()
     async with get_connection() as connection:
+        cursor = await connection.execute("SELECT created_at FROM task_status WHERE task_id = ?", (task_id,))
+        row = await cursor.fetchone()
+        created_at = row["created_at"] if row else now
+
         await connection.execute(
             "INSERT OR REPLACE INTO task_status (task_id, project_name, status, created_at, updated_at) VALUES (?, ?, 'pending', ?, ?)",
-            (task_id, project_name, now, now),
+            (task_id, project_name, created_at, now),
         )
         await connection.commit()
 
@@ -206,6 +210,6 @@ async def mark_task_failed(task_id: str) -> None:
 
 async def get_pending_task_ids() -> set[str]:
     async with get_connection() as connection:
-        cursor = await connection.execute("SELECT task_id FROM task_status WHERE status = 'pending'")
+        cursor = await connection.execute("SELECT task_id FROM task_status WHERE status NOT IN ('processed', 'failed')")
         rows = await cursor.fetchall()
     return {row["task_id"] for row in rows}

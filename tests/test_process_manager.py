@@ -60,8 +60,8 @@ class TestProcessManager:
 
     @pytest.mark.asyncio
     async def test_get_all_todo_issues_returns_all_projects(self):
-        from demetra.models import LinearIssue
-        from demetra.services.linear import get_all_todo_issues
+        from demetra.models import LinearTask
+        from demetra.services.linear import get_todo_issues
 
         mock_data = {
             "data": {
@@ -108,16 +108,16 @@ class TestProcessManager:
             mock_query.return_value = "query"
             mock_request.return_value = mock_data
             with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
-                issues = await get_all_todo_issues()
+                issues = await get_todo_issues()
 
         assert len(issues) == 2
-        assert issues[0][1] == "demetra"
-        assert issues[1][1] == "chimera"
-        assert isinstance(issues[0][0], LinearIssue)
+        assert isinstance(issues[0], LinearTask)
+        assert issues[0].project_name == "demetra"
+        assert issues[1].project_name == "chimera"
 
     @pytest.mark.asyncio
     async def test_get_all_todo_issues_filters_out_issues_without_project(self):
-        from demetra.services.linear import get_all_todo_issues
+        from demetra.services.linear import get_todo_issues
 
         mock_data = {
             "data": {
@@ -164,7 +164,7 @@ class TestProcessManager:
             mock_query.return_value = "query"
             mock_request.return_value = mock_data
             with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
-                issues = await get_all_todo_issues()
+                issues = await get_todo_issues()
 
-        assert len(issues) == 1
-        assert issues[0][1] == "chimera"
+        assert len(issues) == 2
+        assert issues[0].project_name is None

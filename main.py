@@ -14,17 +14,18 @@ from demetra.setup import setup_workflow
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
+parser.add_argument("-t", "--task-id", help="Specific Linear task ID to run", type=str)
 parser.add_argument(
     "--auto", help="Automatic mode - post questions and exit", action=argparse.BooleanOptionalAction, default=True
 )
 
 
-async def main(project_name: str, auto_mode: bool = True):
+async def main(project_name: str, auto_mode: bool = True, task_id: str | None = None):
     await init_db()
     await print_heading()
 
     print_message("Running workflow", style="heading")
-    if not (context := await setup_workflow(project_name=project_name, auto_mode=auto_mode)):
+    if not (context := await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)):
         print_message("No TODO tasks found", style="error")
         return
 
@@ -82,5 +83,6 @@ if __name__ == "__main__":
         main(
             project_name=args.project_name,
             auto_mode=args.auto,
+            task_id=args.task_id,
         )
     )
