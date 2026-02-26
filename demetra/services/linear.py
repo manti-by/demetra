@@ -36,6 +36,35 @@ async def get_linear_task(project_name: str) -> LinearIssue | None:
     return None
 
 
+async def get_all_todo_issues() -> list[tuple[LinearIssue, str]]:
+    query = await get_query(name="get_todo_issues")
+    result = await graphql_request(query, {"teamId": LINEAR_TEAM_ID})
+    states = result.get("data", {}).get("team", {}).get("states", {}).get("nodes", [])
+
+    issues = []
+    for state in states:
+        if state["name"].lower() == "todo":
+            for issue in state["issues"]["nodes"]:
+                project = issue.get("project") or {}
+                project_name = project.get("name", "")
+                if project_name:
+                    issues.append(
+                        (
+                            LinearIssue(
+                                id=issue["id"],
+                                identifier=issue["identifier"],
+                                title=issue["title"],
+                                description=issue.get("description", ""),
+                                priority=issue["priority"],
+                                created_at=issue["createdAt"],
+                                branch_name=issue["branchName"],
+                            ),
+                            project_name,
+                        )
+                    )
+    return issues
+
+
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
     query = await get_query(name="update_issue_status")
     result = await graphql_request(query, {"issueId": task_id, "stateId": state_id})
