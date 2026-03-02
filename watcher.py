@@ -1,6 +1,7 @@
 import asyncio
 import logging
 
+from demetra.services.database import init_db
 from demetra.services.linear import get_todo_issues
 from demetra.services.watcher import process_tasks
 
@@ -12,6 +13,7 @@ POLL_INTERVAL = 300
 
 
 async def main() -> None:
+    await init_db()
     logger.info("Process manager started, polling every 5 minutes")
 
     while True:
