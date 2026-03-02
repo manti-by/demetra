@@ -39,3 +39,6 @@ GIT_PATH = Path(os.environ.get("GIT_PATH", "/usr/bin/git"))
 GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"))
 
 GH_PATH = Path(os.environ.get("GH_PATH", "/usr/bin/gh"))
+
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+LINEAR_STATE_DONE_ID = os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6")

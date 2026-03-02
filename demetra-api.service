@@ -1,0 +1,19 @@
+[Unit]
+Description=Demetra API - FastAPI server for ticket creation
+After=network.target
+
+[Service]
+Type=simple
+User=manti
+WorkingDirectory=/home/manti/www/demetra
+Environment="PATH=/home/manti/.local/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="GROQ_API_KEY"
+Environment="LINEAR_API_KEY"
+Environment="LINEAR_TEAM_ID"
+Environment="LINEAR_STATE_TODO_ID"
+ExecStart=/home/manti/.local/bin/uv run uvicorn demetra.api:app --host 0.0.0.0 --port 8000 --workers 2
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

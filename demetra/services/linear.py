@@ -1,5 +1,8 @@
+from typing import Any
+
+from demetra.exceptions import LinearError
 from demetra.models import Context, LinearTask
-from demetra.services.graphql import get_query, graphql_request
+from demetra.services.graphql import get_query, graphql_request, graphql_request_with_api_key
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR_STATE_IN_REVIEW_ID, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
 
@@ -81,3 +84,45 @@ async def linear_cleanup(context: Context, is_success: bool):
 
     print_message("Moving back a ticket in TODO column", style="heading")
     await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_TODO_ID)
+
+
+async def create_linear_ticket(
+    title: str, description: str, tech_requirements: str, acceptance_criteria: str
+) -> dict[str, Any]:
+    full_description = (
+        f"{description}\n\n## Tech Requirements\n{tech_requirements}\n\n## Acceptance Criteria\n{acceptance_criteria}"
+    )
+
+    query = """
+    mutation IssueCreate($input: IssueCreateInput!) {
+        issueCreate(input: $input) {
+            success
+            issue {
+                id
+                identifier
+                title
+            }
+        }
+    }
+    """
+
+    variables = {
+        "input": {
+            "teamId": LINEAR_TEAM_ID,
+            "title": title,
+            "description": full_description,
+            "stateId": LINEAR_STATE_TODO_ID,
+        }
+    }
+
+    result = await graphql_request_with_api_key(query, variables)
+
+    if not result.get("data", {}).get("issueCreate", {}).get("success"):
+        raise LinearError("Failed to create Linear ticket")
+
+    issue = result["data"]["issueCreate"]["issue"]
+    return {
+        "ticket_id": issue["id"],
+        "identifier": issue["identifier"],
+        "title": issue["title"],
+    }
