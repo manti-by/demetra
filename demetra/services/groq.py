@@ -1,3 +1,4 @@
+from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 
@@ -17,3 +18,26 @@ async def extract_questions(plan_output: str) -> list[str]:
 
     chain = prompt | llm | output_parser
     return await chain.ainvoke({"input_text": plan_output})
+
+
+async def process_text_with_groq(text: str) -> dict[str, str]:
+    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.3, max_tokens=2048, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="analyze_ticket")),
+            ("human", "Text: {input_text}"),
+        ]
+    )
+    output_parser = JsonOutputParser()
+
+    chain = prompt | llm | output_parser
+    if result := await chain.ainvoke({"input_text": text}):
+        return result
+
+    return {
+        "title": text[:100] if len(text) > 100 else text,
+        "description": text,
+        "tech_requirements": "",
+        "acceptance_criteria": "",
+        "project_name": "",
+    }

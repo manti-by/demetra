@@ -108,7 +108,7 @@ uv run main.py --project-name <project_name>
 - Use list/dict/set comprehensions instead of `map`/`filter` where it improves readability
 - Prefer `pathlib.Path` over `os.path` for filesystem paths
 - Follow PEP 257 for docstrings where docstrings are used
-- Prefer EAFP (try/except) over LBYL (if checks) in Python code
+- Prefer to use keyword arguments instead of positional arguments in functions and methods
 
 ## Code Style & Tooling
 

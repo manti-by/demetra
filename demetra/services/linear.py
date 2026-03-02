@@ -1,7 +1,10 @@
+from typing import Any
+
+from demetra.exceptions import LinearError
 from demetra.models import Context, LinearTask
-from demetra.services.graphql import get_query, graphql_request
+from demetra.services.graphql import get_query, graphql_request, graphql_request_with_api_key
 from demetra.services.tui import print_message
-from demetra.settings import LINEAR_STATE_IN_REVIEW_ID, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
+from demetra.settings import LINEAR_DEFAULT_PROJECT_ID, LINEAR_STATE_IN_REVIEW_ID, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
 
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
@@ -81,3 +84,42 @@ async def linear_cleanup(context: Context, is_success: bool):
 
     print_message("Moving back a ticket in TODO column", style="heading")
     await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_TODO_ID)
+
+
+async def create_linear_ticket(
+    title: str,
+    description: str,
+    technical_requirements: str,
+    acceptance_criteria: str,
+    project_id: str | None = LINEAR_DEFAULT_PROJECT_ID,
+) -> dict[str, Any]:
+    full_description = (
+        f"## Description\n{description}\n\n"
+        f"## Tech Requirements\n{technical_requirements}\n\n"
+        f"## Acceptance Criteria\n{acceptance_criteria}"
+    )
+
+    query = await get_query(name="create_issue")
+    variables = {
+        "input": {
+            "teamId": LINEAR_TEAM_ID,
+            "title": title,
+            "description": full_description,
+            "stateId": LINEAR_STATE_TODO_ID,
+            "projectId": project_id,
+        }
+    }
+    result = await graphql_request_with_api_key(query=query, variables=variables)
+
+    if not result.get("data", {}).get("issueCreate", {}).get("success"):
+        raise LinearError("Failed to create Linear ticket")
+
+    issue = result.get("data", {}).get("issueCreate", {}).get("issue")
+    if not issue:
+        raise LinearError("Linear API returned success but no issue data")
+
+    return {
+        "ticket_id": issue["id"],
+        "identifier": issue["identifier"],
+        "title": issue["title"],
+    }

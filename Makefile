@@ -1,6 +1,3 @@
-run-chimera:
-	uv run main.py --project-name chimera
-
 run-demetra:
 	uv run main.py --project-name demetra
 
@@ -9,6 +6,14 @@ run-odin:
 
 run-coruscant:
 	uv run main.py --project-name coruscant
+
+deploy:
+	git pull --ff-only
+	uv sync
+	sudo systemctl daemon-reload
+	sudo systemctl restart demetra-api.service
+	sudo systemctl restart demetra-watcher.service
+	sudo service nginx reload
 
 check:
 	git add .
