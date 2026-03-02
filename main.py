@@ -25,7 +25,8 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     await print_heading()
 
     print_message("Running workflow", style="heading")
-    if not (context := await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)):
+    context = await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)
+    if not context:
         print_message("No TODO tasks found", style="error")
         return
 
@@ -72,9 +73,11 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
         print_message(f"OS Error: {e}", style="error")
 
     finally:
-        await cleanup_workflow(
-            context=context, is_success=is_success, should_update_linear_status=should_update_linear_status
-        )
+        # Only run cleanup if we successfully created a context (which means worktree was created)
+        if context:
+            await cleanup_workflow(
+                context=context, is_success=is_success, should_update_linear_status=should_update_linear_status
+            )
 
 
 if __name__ == "__main__":

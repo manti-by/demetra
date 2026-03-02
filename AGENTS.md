@@ -101,7 +101,7 @@ uv run main.py --project-name <project_name>
 
 ## Language & Environment
 
-- Python >=3.13.6, <3.14.0 (see `pyproject.toml`)
+- Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
 - Prefer f-strings over `.format()` or `%`
@@ -152,6 +152,11 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`:
 - `CODERABBIT_PATH`: Path to CodeRabbit CLI binary (default: `$HOME/.local/bin/coderabbit`)
 - `GIT_PATH`: Path to git binary (default: `/usr/bin/git`)
 - `GIT_WORKTREE_PATH`: Path for git worktrees (default: `$HOME/.demetra/worktrees/`)
+
+## Dependencies
+
+**Core**: asyncio, aiofiles, aiohttp, aiosqlite, python-slugify, rich, langchain-groq, langchain-core
+**Development**: pytest, pytest-asyncio, debugpy, ipython, pre-commit, ty, uv-bump
 
 ## External Dependencies
 

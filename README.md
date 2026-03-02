@@ -32,7 +32,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 
 ## Requirements
 
-- Python >=3.13.6, <3.14.0
+- Python >=3.13.9, <3.14.0
 - Linear API key and Team ID
 - OpenCode CLI
 - Cursor CLI
@@ -161,6 +161,8 @@ tests/                             # Comprehensive test suite
 - `aiosqlite` - Async SQLite database
 - `python-slugify` - Slug generation for branch names
 - `rich` - Terminal UI formatting
+- `langchain-groq` - LLM integration with Groq
+- `langchain-core` - LangChain core library
 
 ### Development
 - `debugpy` - Python debugger
@@ -170,6 +172,49 @@ tests/                             # Comprehensive test suite
 - `uv-bump` - Version bumping
 - `pytest` - Testing framework
 - `pytest-asyncio` - Async test support
+
+## Git Workflow
+
+This project adheres strictly to the Git Flow branching model:
+
+### Main Branch
+- The `master` branch always contains production-ready, stable code.
+- Never commit directly to `master`.
+- Do not use `git push --force` on the `master` branch.
+- Do not merge branches into `master` without explicit approval.
+
+### Feature Branches
+- Create feature branches using the naming convention `<agent-name>/feature/<issue-id>-<descriptive-name>`.
+- Use the [Conventional Commits](https://www.conventionalcommits.org) specification for commit messages.
+- Ensure all local tests pass before committing.
+
+### Pull Requests
+- Open a Pull Request for every completed feature branch.
+- PRs must be reviewed and pass all CI checks before merging.
+
+## Linear Workflow
+
+- When starting implementation of any issue from `TODO`, move it to `In Progress` column.
+- When feature is completed and PR is created, move it to `In Review` column.
+- After approval, merge the feature branch into `master` and move the issue to `Done` column.
+- If the feature branch is not merged into `master`, move it back to `In Progress` column.
+- If the feature branch is closed without merging, move it to `Closed` column.
+
+## Security Guidelines
+
+- Never commit secrets, passwords, or API tokens
+- Configure sensitive values via environment variables
+- Run `bandit` periodically or in CI
+- Validate any external input before using it in system calls or network operations
+
+## AI Behavior
+
+Response style -- concise and minimal:
+- Provide minimal, working code without unnecessary explanation
+- Omit comments unless essential for understanding
+- Skip boilerplate and obvious patterns unless requested
+- Use type inference and shorthand syntax where possible
+- Focus on the core solution, skip tangential suggestions
 
 ## CI/CD
 
