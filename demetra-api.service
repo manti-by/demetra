@@ -1,0 +1,39 @@
+[Unit]
+Description=Demetra FastAPI Ticket Creator
+After=network.target
+
+[Service]
+Type=exec
+User=manti
+Group=manti
+WorkingDirectory=/home/manti/www/demetra
+Environment=PATH=/home/manti/www/demetra/.venv/bin
+ExecStart=/home/manti/www/demetra/.venv/bin/uvicorn fastapi_app:app --host 0.0.0.0 --port 8000 --workers 4
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/home/manti/www/demetra
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+
+# Environment variables
+EnvironmentFile=-/home/manti/www/demetra/.env
+Environment=PYTHONPATH=/home/manti/www/demetra
+Environment=PYTHONUNBUFFERED=1
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=demetra-api
+
+[Install]
+WantedBy=multi-user.target

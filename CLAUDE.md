@@ -54,6 +54,24 @@ make update
 make ci  # equivalent to: pip check test
 ```
 
+### FastAPI Ticket Creation API
+```bash
+# Development mode
+make api              # Start the FastAPI server for ticket creation
+make api-dev          # Start in development mode (with auto-reload)
+make test-api         # Test the API
+make example          # Run example usage
+
+# Production systemd service
+make service-install  # Install systemd service (requires sudo)
+make service-start    # Start the service
+make service-stop     # Stop the service
+make service-restart  # Restart the service
+make service-status   # Check service status
+make service-logs     # View service logs
+make service-test     # Test service health
+```
+
 ### Code Quality
 ```bash
 # Linting and formatting (via pre-commit)
@@ -102,6 +120,7 @@ The application follows a structured workflow pipeline:
 Environment variables (via `.env` or shell):
 - `PROJECTS_PATH` - Path to projects directory (default: `$HOME/www`)
 - `LINEAR_API_KEY` - Linear API key (required)
+- `GROQ_API_KEY` - Groq API key for FastAPI ticket creation (required for API)
 <<<<<<< Updated upstream
 - `LINEAR_TEAM_ID` - Linear team ID (required)
 - `OPENCODE_PATH` - Path to OpenCode binary
@@ -138,6 +157,12 @@ The application uses git worktrees to isolate feature work:
 - Reviews implementation for quality and correctness
 - Provides feedback for iteration if needed
 - CodeRabbit is more powerful but more expensive alternative
+
+**FastAPI Ticket Creator**: HTTP API for creating Linear tickets from raw text
+- Uses Groq LLM to structure unstructured text into proper tickets
+- Automatically creates titles, descriptions, technical requirements, and acceptance criteria
+- Integrates with existing Linear workflow
+- Available at `/create-ticket` endpoint when API server is running
 
 ### Database Schema
 

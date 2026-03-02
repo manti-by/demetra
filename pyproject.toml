@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.5.1"
+version = "1.5.2"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.9,<3.14.0"
@@ -14,6 +14,9 @@ dependencies = [
     "python-slugify>=8.0.4",
     "rich>=14.3.3",
     "ruff>=0.15.2",
+    "fastapi>=0.115.0",
+    "uvicorn>=0.32.0",
+    "pydantic>=2.10.0",
 ]
 
 [dependency-groups]
@@ -45,7 +48,7 @@ norecursedirs = '''
 exclude_dirs = [
     "demetra/settings.py"
 ]
-skips = ["B101", "B308", "B703"]
+skips = ["B101", "B308", "B703", "B104"]
 
 [tool.curlylint.rules]
 indent = 2
@@ -123,6 +126,10 @@ lines-after-imports = 2
 "__init__.py" = ["E402", "F403", "F405"]
 "**/{tests,docs}/*" = ["E402", "F403", "F405", "S", "N802", "N815"]
 "**/*test*.py" = ["E402", "F403", "F405", "S", "N802"]
+"fastapi_app.py" = ["BLE001", "S104"]
+"run_api.py" = ["S104"]
+"test_api.py" = ["BLE001"]
+"example_usage.py" = ["BLE001", "RUF001"]
 "**/{settings}/*" = ["E402", "F403", "F405"]
 "**/migrations/*" = ["RUF", "I"]
 

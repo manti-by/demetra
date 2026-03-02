@@ -27,3 +27,37 @@ test:
 	uv run pytest tests/
 
 ci: pip check test
+
+api:
+	uv run python run_api.py
+
+api-dev:
+	uv run python run_api.py --reload
+
+test-api:
+	uv run python test_api.py
+
+example:
+	uv run python example_usage.py
+
+# Systemd service management
+service-install:
+	sudo ./setup_systemd.sh install
+
+service-start:
+	./manage_service.sh start
+
+service-stop:
+	./manage_service.sh stop
+
+service-restart:
+	./manage_service.sh restart
+
+service-status:
+	./manage_service.sh status
+
+service-logs:
+	./manage_service.sh logs
+
+service-test:
+	./manage_service.sh test
