@@ -2,6 +2,7 @@ import asyncio
 import logging
 import sys
 
+from demetra.models import LinearTask
 from demetra.services.database import (
     add_pending_task,
     get_pending_task_ids,
@@ -42,6 +43,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
         logger.error(f"Workflow timed out for task {task_id} after {TIMEOUT}s")
         if process:
             process.kill()
+            await process.wait()
 
     except (RuntimeError, OSError) as e:
         logger.error(f"Process creation/execution error for task {task_id}: {e}")
@@ -49,16 +51,20 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     return False
 
 
-async def process_tasks(tasks: list) -> None:
+async def process_tasks(tasks: list[LinearTask]) -> None:
     pending_ids = await get_pending_task_ids()
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
 
-    for task, project_name in tasks:
-        if task.id not in pending_ids:
-            await add_pending_task(task_id=task.id, project_name=project_name)
+    for task in tasks:
+        if not task.project_name:
+            logger.warning(f"Received task without project name: {task.full_title}")
+            continue
 
-        logger.info(f"Starting workflow for {project_name} (task: {task.id})")
-        if await run_workflow(project_name=project_name, task_id=task.id):
+        if task.id not in pending_ids:
+            await add_pending_task(task_id=task.id, project_name=task.project_name)
+
+        logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
+        if await run_workflow(project_name=task.project_name, task_id=task.id):
             await mark_task_processed(task_id=task.id)
         else:
             await mark_task_failed(task_id=task.id)
