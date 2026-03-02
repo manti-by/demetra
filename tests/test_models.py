@@ -1,9 +1,9 @@
-from demetra.models import LinearIssue
+from demetra.models import LinearTask
 
 
 class TestModels:
     def test_linear_issue_text_without_comments(self):
-        issue = LinearIssue(
+        issue = LinearTask(
             id="123",
             identifier="DEMETRA-1",
             title="Test Issue",
@@ -19,7 +19,7 @@ class TestModels:
         assert "Comments:" not in text
 
     def test_linear_issue_text_with_comments(self):
-        issue = LinearIssue(
+        issue = LinearTask(
             id="123",
             identifier="DEMETRA-1",
             title="Test Issue",
@@ -37,7 +37,7 @@ class TestModels:
         assert "Comment 2" in text
 
     def test_linear_issue_slug_generates_correctly(self):
-        issue = LinearIssue(
+        issue = LinearTask(
             id="123",
             identifier="DEMETRA-1",
             title="Add user authentication",
@@ -52,7 +52,7 @@ class TestModels:
         assert "add-user-authentication" in slug.lower()
 
     def test_linear_issue_default_comments_is_empty_list(self):
-        issue = LinearIssue(
+        issue = LinearTask(
             id="123",
             identifier="DEMETRA-1",
             title="Test",
@@ -64,7 +64,7 @@ class TestModels:
         assert issue.comments == []
 
     def test_linear_issue_fields_are_accessible(self):
-        issue = LinearIssue(
+        issue = LinearTask(
             id="issue-id-123",
             identifier="DEMETRA-42",
             title="My Task",

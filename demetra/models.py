@@ -5,7 +5,7 @@ from slugify import slugify
 
 
 @dataclass
-class LinearIssue:
+class LinearTask:
     id: str
     identifier: str
     title: str
@@ -13,6 +13,7 @@ class LinearIssue:
     priority: str
     created_at: str
     branch_name: str
+    project_name: str | None = None
     comments: list[str] = field(default_factory=list)
 
     @property
@@ -44,7 +45,7 @@ class Session:
 class Context:
     project_name: str
     auto_mode: bool
-    linear_task: LinearIssue
+    linear_task: LinearTask
     branch_name: str
     project_path: Path
     worktree_path: Path
