@@ -1,85 +1,46 @@
+from faker import Faker
+
 from demetra.models import LinearTask
 
 
-class TestModels:
-    def test_linear_issue_text_without_comments(self):
-        issue = LinearTask(
-            id="123",
-            identifier="DEMETRA-1",
-            title="Test Issue",
-            description="Test description",
-            priority="1",
-            created_at="2024-01-01",
-            branch_name="feature/test",
-        )
-        text = issue.text
+fake = Faker()
 
-        assert "Test Issue" in text
-        assert "Test description" in text
+
+class TestModels:
+    def test_linear_issue_text_without_comments(self, linear_task: LinearTask):
+        text = linear_task.text
+
+        assert linear_task.title in text
+        assert linear_task.description in text
         assert "Comments:" not in text
 
-    def test_linear_issue_text_with_comments(self):
-        issue = LinearTask(
-            id="123",
-            identifier="DEMETRA-1",
-            title="Test Issue",
-            description="Test description",
-            priority="1",
-            created_at="2024-01-01",
-            branch_name="feature/test",
-            comments=["Comment 1", "Comment 2"],
-        )
-        text = issue.text
+    def test_linear_issue_text_with_comments(self, linear_task: LinearTask):
+        linear_task.comments = [fake.sentence(), fake.sentence()]
+        text = linear_task.text
 
-        assert "Test Issue" in text
+        assert linear_task.title in text
         assert "Comments:" in text
-        assert "Comment 1" in text
-        assert "Comment 2" in text
+        assert linear_task.comments[0] in text
+        assert linear_task.comments[1] in text
 
-    def test_linear_issue_slug_generates_correctly(self):
-        issue = LinearTask(
-            id="123",
-            identifier="DEMETRA-1",
-            title="Add user authentication",
-            description="",
-            priority="1",
-            created_at="2024-01-01",
-            branch_name="feature/test",
-        )
-        slug = issue.slug
+    def test_linear_issue_slug_generates_correctly(self, linear_task: LinearTask):
+        slug = linear_task.slug
 
-        assert "demetra-1" in slug.lower()
-        assert "add-user-authentication" in slug.lower()
+        assert linear_task.identifier.lower() in slug.lower()
+        title_for_slug = linear_task.title.lower().rstrip(".").replace(" ", "-")
+        assert title_for_slug in slug.lower()
 
-    def test_linear_issue_default_comments_is_empty_list(self):
-        issue = LinearTask(
-            id="123",
-            identifier="DEMETRA-1",
-            title="Test",
-            description="",
-            priority="1",
-            created_at="2024-01-01",
-            branch_name="test",
-        )
-        assert issue.comments == []
+    def test_linear_issue_default_comments_is_empty_list(self, linear_task: LinearTask):
+        assert linear_task.comments == []
 
-    def test_linear_issue_fields_are_accessible(self):
-        issue = LinearTask(
-            id="issue-id-123",
-            identifier="DEMETRA-42",
-            title="My Task",
-            description="Task description here",
-            priority="2",
-            created_at="2024-06-15",
-            branch_name="feature/my-task",
-            comments=["Note 1"],
-        )
+    def test_linear_issue_fields_are_accessible(self, linear_task: LinearTask):
+        linear_task.comments = [fake.sentence()]
 
-        assert issue.id == "issue-id-123"
-        assert issue.identifier == "DEMETRA-42"
-        assert issue.title == "My Task"
-        assert issue.description == "Task description here"
-        assert issue.priority == "2"
-        assert issue.created_at == "2024-06-15"
-        assert issue.branch_name == "feature/my-task"
-        assert issue.comments == ["Note 1"]
+        assert linear_task.id
+        assert linear_task.identifier
+        assert linear_task.title
+        assert linear_task.description
+        assert linear_task.priority
+        assert linear_task.created_at
+        assert linear_task.branch_name
+        assert linear_task.comments

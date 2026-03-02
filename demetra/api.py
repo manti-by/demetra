@@ -24,7 +24,7 @@ async def create_ticket(request: TicketRequest):
         ticket = await create_linear_ticket(
             title=processed["title"],
             description=processed["description"],
-            tech_requirements=processed["tech_requirements"],
+            technical_requirements=processed["technical_requirements"],
             acceptance_criteria=processed["acceptance_criteria"],
             project_id=project_id,
         )

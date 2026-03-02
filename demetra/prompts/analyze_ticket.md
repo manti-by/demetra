@@ -14,14 +14,14 @@ You MUST respond with ONLY valid JSON in this exact format:
   "title": "Clear, actionable title here",
   "description": "Detailed description of the request or issue",
   "technical_requirements": "Specific technical requirements, constraints, and implementation details",
-  "acceptance_criteria": "Clear, testable criteria that define when this is complete"
+  "acceptance_criteria": "Clear, testable criteria that define when this is complete",
   "project_name": "A project name this ticket is belonging"
 }}
 
 Guidelines:
 - Make the title actionable and specific
 - Include all relevant details in the description
-- Break down technical requirements into clear bullet points using markdown
+- Break down technical requirements into clear list of requirements
 - Make acceptance criteria testable and specific using bullet points
 - If information is missing, make reasonable assumptions based on context
 - Focus on what needs to be built/implemented

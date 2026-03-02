@@ -8,7 +8,7 @@ run-coruscant:
 	uv run main.py --project-name coruscant
 
 deploy:
-	git pull
+	git pull --ff-only
 	uv sync
 	sudo systemctl daemon-reload
 	sudo systemctl restart demetra-api.service

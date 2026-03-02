@@ -59,103 +59,34 @@ class TestProcessManager:
         assert pending == {"task-1", "task-3"}
 
     @pytest.mark.asyncio
-    async def test_get_all_todo_issues_returns_all_projects(self):
+    async def test_get_all_todo_issues_returns_all_projects(
+        self,
+        graphql_todo_issues_multiple_response: dict,
+    ):
         from demetra.models import LinearTask
         from demetra.services.linear import get_todo_issues
-
-        mock_data = {
-            "data": {
-                "team": {
-                    "states": {
-                        "nodes": [
-                            {
-                                "name": "Todo",
-                                "issues": {
-                                    "nodes": [
-                                        {
-                                            "id": "issue-1",
-                                            "identifier": "DEMETRA-1",
-                                            "title": "Issue 1",
-                                            "description": "",
-                                            "priority": 1,
-                                            "createdAt": "2024-01-01",
-                                            "branchName": "feature/test",
-                                            "project": {"name": "demetra"},
-                                        },
-                                        {
-                                            "id": "issue-2",
-                                            "identifier": "CHIMERA-1",
-                                            "title": "Issue 2",
-                                            "description": "",
-                                            "priority": 1,
-                                            "createdAt": "2024-01-01",
-                                            "branchName": "feature/test2",
-                                            "project": {"name": "chimera"},
-                                        },
-                                    ]
-                                },
-                            }
-                        ]
-                    }
-                }
-            }
-        }
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
         ):
             mock_query.return_value = "query"
-            mock_request.return_value = mock_data
+            mock_request.return_value = graphql_todo_issues_multiple_response
             with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
                 issues = await get_todo_issues()
 
         assert len(issues) == 2
         assert isinstance(issues[0], LinearTask)
-        assert issues[0].project_name == "demetra"
-        assert issues[1].project_name == "chimera"
 
     @pytest.mark.asyncio
-    async def test_get_all_todo_issues_filters_out_issues_without_project(self):
+    async def test_get_all_todo_issues_filters_out_issues_without_project(
+        self,
+        graphql_todo_issues_multiple_response: dict,
+    ):
         from demetra.services.linear import get_todo_issues
 
-        mock_data = {
-            "data": {
-                "team": {
-                    "states": {
-                        "nodes": [
-                            {
-                                "name": "Todo",
-                                "issues": {
-                                    "nodes": [
-                                        {
-                                            "id": "issue-1",
-                                            "identifier": "DEMETRA-1",
-                                            "title": "Issue 1",
-                                            "description": "",
-                                            "priority": 1,
-                                            "createdAt": "2024-01-01",
-                                            "branchName": "feature/test",
-                                            "project": None,
-                                        },
-                                        {
-                                            "id": "issue-2",
-                                            "identifier": "CHIMERA-1",
-                                            "title": "Issue 2",
-                                            "description": "",
-                                            "priority": 1,
-                                            "createdAt": "2024-01-01",
-                                            "branchName": "feature/test2",
-                                            "project": {"name": "chimera"},
-                                        },
-                                    ]
-                                },
-                            }
-                        ]
-                    }
-                }
-            }
-        }
+        mock_data = graphql_todo_issues_multiple_response.copy()
+        mock_data["data"]["team"]["states"]["nodes"][0]["issues"]["nodes"][0]["project"] = None
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,

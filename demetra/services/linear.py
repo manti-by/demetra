@@ -89,12 +89,14 @@ async def linear_cleanup(context: Context, is_success: bool):
 async def create_linear_ticket(
     title: str,
     description: str,
-    tech_requirements: str,
+    technical_requirements: str,
     acceptance_criteria: str,
     project_id: str | None = LINEAR_DEFAULT_PROJECT_ID,
 ) -> dict[str, Any]:
     full_description = (
-        f"{description}\n\n## Tech Requirements\n{tech_requirements}\n\n## Acceptance Criteria\n{acceptance_criteria}"
+        f"## Description\n{description}\n\n"
+        f"## Tech Requirements\n{technical_requirements}\n\n"
+        f"## Acceptance Criteria\n{acceptance_criteria}"
     )
 
     query = await get_query(name="create_issue")
@@ -112,7 +114,10 @@ async def create_linear_ticket(
     if not result.get("data", {}).get("issueCreate", {}).get("success"):
         raise LinearError("Failed to create Linear ticket")
 
-    issue = result["data"]["issueCreate"]["issue"]
+    issue = result.get("data", {}).get("issueCreate", {}).get("issue")
+    if not issue:
+        raise LinearError("Linear API returned success but no issue data")
+
     return {
         "ticket_id": issue["id"],
         "identifier": issue["identifier"],

@@ -37,4 +37,4 @@ async def get_project_id_by_name(name: str) -> str | None:
         "odin": LINEAR_ODIN_PROJECT_ID,
         "demetra": LINEAR_DEMETRA_PROJECT_ID,
         "coruscant": LINEAR_CORUSCANT_PROJECT_ID,
-    }.get(name)
+    }.get(name.strip().lower())

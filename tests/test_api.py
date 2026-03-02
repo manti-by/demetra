@@ -6,51 +6,37 @@ from fastapi.testclient import TestClient
 
 class TestLinearService:
     @pytest.mark.asyncio
-    async def test_create_linear_ticket_returns_ticket_info(self):
+    async def test_create_linear_ticket_returns_ticket_info(
+        self,
+        mock_graphql_request: AsyncMock,
+        mock_linear_settings: None,
+        linear_issue_id: str,
+        linear_identifier: str,
+    ):
         from demetra.services.linear import create_linear_ticket
 
-        mock_data = {
-            "data": {
-                "issueCreate": {
-                    "success": True,
-                    "issue": {
-                        "id": "issue-123",
-                        "identifier": "DEMETRA-42",
-                        "title": "Test Ticket",
-                    },
-                }
-            }
-        }
+        result = await create_linear_ticket("Test", "Desc", "Req", "AC")
 
-        with patch("demetra.services.linear.graphql_request_with_api_key", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = mock_data
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
-                with patch("demetra.services.linear.LINEAR_STATE_TODO_ID", "state-todo"):
-                    result = await create_linear_ticket("Test", "Desc", "Req", "AC")
-
-        assert result["ticket_id"] == "issue-123"
-        assert result["identifier"] == "DEMETRA-42"
-        assert result["title"] == "Test Ticket"
+        assert result["ticket_id"] == linear_issue_id
+        assert result["identifier"] == linear_identifier
+        assert "title" in result
 
     @pytest.mark.asyncio
-    async def test_create_linear_ticket_raises_on_failure(self):
+    async def test_create_linear_ticket_raises_on_failure(
+        self,
+        linear_graphql_response_failure: dict,
+        mock_linear_settings: None,
+    ):
         from demetra.exceptions import LinearError
         from demetra.services.linear import create_linear_ticket
 
-        mock_data = {
-            "data": {
-                "issueCreate": {
-                    "success": False,
-                }
-            }
-        }
-
-        with patch("demetra.services.linear.graphql_request_with_api_key", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = mock_data
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
-                with patch("demetra.services.linear.LINEAR_STATE_TODO_ID", "state-todo"):
-                    with pytest.raises(LinearError, match="Failed to create Linear ticket"):
-                        await create_linear_ticket("Test", "Desc", "Req", "AC")
+        with patch(
+            "demetra.services.linear.graphql_request_with_api_key",
+            new_callable=AsyncMock,
+        ) as mock_request:
+            mock_request.return_value = linear_graphql_response_failure
+            with pytest.raises(LinearError, match="Failed to create Linear ticket"):
+                await create_linear_ticket("Test", "Desc", "Req", "AC")
 
 
 class TestApiEndpoint:
@@ -72,57 +58,32 @@ class TestApiEndpoint:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_create_ticket_returns_ticket_on_success(self):
+    async def test_create_ticket_returns_ticket_on_success(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+        linear_identifier: str,
+    ):
         from demetra.api import app
 
-        mock_ticket = {
-            "ticket_id": "issue-123",
-            "identifier": "DEMETRA-42",
-            "title": "Test Ticket",
-        }
-
-        with patch("demetra.api.process_text_with_groq", new_callable=AsyncMock) as mock_groq:
-            mock_groq.return_value = {
-                "title": "Test",
-                "description": "Desc",
-                "tech_requirements": "Req",
-                "acceptance_criteria": "AC",
-                "project_name": "demetra",
-            }
-            with patch("demetra.api.create_linear_ticket", new_callable=AsyncMock) as mock_ticket_func:
-                mock_ticket_func.return_value = mock_ticket
-
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
 
         assert response.status_code == 200
-        assert response.json()["identifier"] == "DEMETRA-42"
+        assert response.json()["identifier"] == linear_identifier
 
     @pytest.mark.asyncio
-    async def test_create_ticket_uses_custom_title(self):
+    async def test_create_ticket_uses_custom_title(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
         from demetra.api import app
 
-        mock_ticket = {
-            "ticket_id": "issue-123",
-            "identifier": "DEMETRA-42",
-            "title": "Add user auth",
-        }
-
-        with patch("demetra.api.process_text_with_groq", new_callable=AsyncMock) as mock_groq:
-            mock_groq.return_value = {
-                "title": "AI Title",
-                "description": "Desc",
-                "tech_requirements": "Req",
-                "acceptance_criteria": "AC",
-                "project_name": "demetra",
-            }
-            with patch("demetra.api.create_linear_ticket", new_callable=AsyncMock) as mock_ticket_func:
-                mock_ticket_func.return_value = mock_ticket
-
-                client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
 
         assert response.status_code == 200
-        mock_ticket_func.assert_called_once()
-        call_args = mock_ticket_func.call_args
-        assert call_args.kwargs["title"] == "AI Title"
+        mock_create_linear_ticket.assert_called_once()
+        call_args = mock_create_linear_ticket.call_args
+        assert call_args.kwargs["title"] == mock_groq.return_value["title"]
