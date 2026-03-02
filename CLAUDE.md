@@ -82,15 +82,7 @@ The application follows a structured workflow pipeline:
 **Main Entry Point**: `main.py` - Orchestrates the entire workflow with error handling
 
 **Core Modules**:
-<<<<<<< Updated upstream
-- `demetra/models.py` - Data structures (`LinearTask`, `Session`, `WorkflowContext`)
-=======
-<<<<<<< Updated upstream
-- `demetra/models.py` - Data structures (`LinearTask`, `Session`, `WorkflowContext`)
-=======
 - `demetra/models.py` - Data structures (`LinearTask`, `Session`, `Context`)
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 - `demetra/settings.py` - Configuration and environment variables
 - `demetra/exceptions.py` - Custom exception hierarchy
 
@@ -113,11 +105,6 @@ Environment variables (via `.env` or shell):
 <<<<<<< Updated upstream
 - `LINEAR_TEAM_ID` - Linear team ID (required)
 - `OPENCODE_PATH` - Path to OpenCode binary
-=======
-<<<<<<< Updated upstream
-- `LINEAR_TEAM_ID` - Linear team ID (required)
-- `OPENCODE_PATH` - Path to OpenCode binary
-=======
 - `LINEAR_API_URL` - Linear GraphQL API URL (hardcoded: `https://api.linear.app/graphql`)
 - `LINEAR_TEAM_ID` - Linear team ID (required)
 - `LINEAR_STATE_TODO_ID` - Linear TODO state ID
@@ -125,8 +112,6 @@ Environment variables (via `.env` or shell):
 - `LINEAR_STATE_IN_REVIEW_ID` - Linear In Review state ID
 - `OPENCODE_PATH` - Path to OpenCode binary
 - `OPENCODE_MODEL` - OpenCode model to use (default: `opencode/minimax-m2.5-free`)
->>>>>>> Stashed changes
->>>>>>> Stashed changes
 - `CURSOR_PATH` - Path to Cursor binary
 - `CODERABBIT_PATH` - Path to CodeRabbit binary
 - `DB_PATH` - SQLite database path (default: `$HOME/.demetra/demetra.sqlite3`)
