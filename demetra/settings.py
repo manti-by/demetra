@@ -27,6 +27,7 @@ LINEAR_STATE_IN_REVIEW_ID = os.environ.get("LINEAR_STATE_IN_REVIEW_ID", "3482989
 LINEAR_STATE_AWAITING_INPUT_ID = os.environ.get(
     "LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"
 )
+LINEAR_STATE_DONE_ID = os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6")
 
 LINEAR_ODIN_PROJECT_ID = os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff")
 LINEAR_DEMETRA_PROJECT_ID = os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c")
@@ -46,4 +47,4 @@ GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demet
 GH_PATH = Path(os.environ.get("GH_PATH", "/usr/bin/gh"))
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-LINEAR_STATE_DONE_ID = os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")

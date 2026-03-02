@@ -4,10 +4,11 @@ from langchain_groq import ChatGroq
 
 from demetra.services.parser import NumberedListOutputParser
 from demetra.services.prompt import get_prompt
+from demetra.settings import GROQ_MODEL
 
 
 async def extract_questions(plan_output: str) -> list[str]:
-    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.1, max_tokens=1024, max_retries=2)
+    llm = ChatGroq(model=GROQ_MODEL, temperature=0.1, max_tokens=1024, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", await get_prompt(name="extract_questions")),
@@ -21,7 +22,7 @@ async def extract_questions(plan_output: str) -> list[str]:
 
 
 async def process_text_with_groq(text: str) -> dict[str, str]:
-    llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0.3, max_tokens=2048, max_retries=2)
+    llm = ChatGroq(model=GROQ_MODEL, temperature=0.3, max_tokens=2048, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(
         [
             ("system", await get_prompt(name="analyze_ticket")),

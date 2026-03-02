@@ -10,6 +10,11 @@
       "template": "Check existing changes for potential bugs and security issues",
       "description": "Review existing changes",
       "agent": "review"
+    },
+    "fix-tags-history": {
+      "template": "Check version updates in pyproject.toml using git, create git tags that do not exists and push them to git",
+      "description": "Fix git tags history",
+      "agent": "build"
     }
   },
   "lsp": {
@@ -19,13 +24,6 @@
     "ty": {
       "command": ["uvx", "ty", "server"],
       "extensions": [".py", ".pyi"]
-    }
-  },
-  "mcp": {
-    "linear": {
-      "type": "local",
-      "command": ["npx", "-y", "mcp-remote", "https://mcp.linear.app/sse"],
-      "enabled": true
     }
   },
   "agent": {
