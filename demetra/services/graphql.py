@@ -39,9 +39,6 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
 
 
 async def graphql_request_with_api_key(query: str, variables: dict[str, Any] | None = None) -> dict:
-    if not LINEAR_API_KEY:
-        raise LinearError("LINEAR_API_KEY not configured")
-
     payload = {"query": query}
     if variables:
         payload["variables"] = variables

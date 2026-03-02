@@ -2,6 +2,8 @@ import asyncio
 import sys
 from pathlib import Path
 
+from demetra.settings import LINEAR_CORUSCANT_PROJECT_ID, LINEAR_DEMETRA_PROJECT_ID, LINEAR_ODIN_PROJECT_ID
+
 
 async def live_stream(
     stream: asyncio.StreamReader, result: list[str] | None = None, disable_stdio: bool = False
@@ -28,3 +30,11 @@ async def is_package_installed(target_path: Path, package_name: str) -> bool:
         disable_stdio=True,
     )
     return result != ""
+
+
+async def get_project_id_by_name(name: str) -> str | None:
+    return {
+        "odin": LINEAR_ODIN_PROJECT_ID,
+        "demetra": LINEAR_DEMETRA_PROJECT_ID,
+        "coruscant": LINEAR_CORUSCANT_PROJECT_ID,
+    }.get(name)

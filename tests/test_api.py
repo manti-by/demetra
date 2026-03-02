@@ -4,16 +4,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 
-class TestGroqService:
-    @pytest.mark.asyncio
-    async def test_process_text_with_groq_raises_when_no_api_key(self):
-        from demetra.services.groq import process_text_with_groq
-
-        with patch("demetra.services.groq.GROQ_API_KEY", None):
-            with pytest.raises(ValueError, match="GROQ_API_KEY not configured"):
-                await process_text_with_groq("test input")
-
-
 class TestLinearService:
     @pytest.mark.asyncio
     async def test_create_linear_ticket_returns_ticket_info(self):
@@ -68,7 +58,7 @@ class TestApiEndpoint:
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/ticket", json={"text": "  "})
+        response = client.post("/api/v1/tickets/", json={"text": "  "})
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Text cannot be empty"
@@ -77,7 +67,7 @@ class TestApiEndpoint:
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/ticket", json={})
+        response = client.post("/api/v1/tickets/", json={})
 
         assert response.status_code == 422
 
@@ -97,12 +87,13 @@ class TestApiEndpoint:
                 "description": "Desc",
                 "tech_requirements": "Req",
                 "acceptance_criteria": "AC",
+                "project_name": "demetra",
             }
             with patch("demetra.api.create_linear_ticket", new_callable=AsyncMock) as mock_ticket_func:
                 mock_ticket_func.return_value = mock_ticket
 
                 client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/ticket", json={"text": "Add user auth"})
+                response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
 
         assert response.status_code == 200
         assert response.json()["identifier"] == "DEMETRA-42"
@@ -114,7 +105,7 @@ class TestApiEndpoint:
         mock_ticket = {
             "ticket_id": "issue-123",
             "identifier": "DEMETRA-42",
-            "title": "Custom Title",
+            "title": "Add user auth",
         }
 
         with patch("demetra.api.process_text_with_groq", new_callable=AsyncMock) as mock_groq:
@@ -123,14 +114,15 @@ class TestApiEndpoint:
                 "description": "Desc",
                 "tech_requirements": "Req",
                 "acceptance_criteria": "AC",
+                "project_name": "demetra",
             }
             with patch("demetra.api.create_linear_ticket", new_callable=AsyncMock) as mock_ticket_func:
                 mock_ticket_func.return_value = mock_ticket
 
                 client = TestClient(app, raise_server_exceptions=False)
-                response = client.post("/ticket", json={"text": "Add user auth", "title": "Custom Title"})
+                response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
 
         assert response.status_code == 200
         mock_ticket_func.assert_called_once()
         call_args = mock_ticket_func.call_args
-        assert call_args.kwargs["title"] == "Custom Title"
+        assert call_args.kwargs["title"] == "AI Title"

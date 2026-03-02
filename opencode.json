@@ -5,6 +5,11 @@
       "template": "Retrieve a linear issue with the highest priority from the TODO column for the demetra project and implement it. Follow the instructions in the AGENTS.md for Git and Linear workflows.",
       "description": "Implement linear ticket",
       "agent": "build"
+    },
+    "review": {
+      "template": "Check existing changes for potential bugs and security issues",
+      "description": "Review existing changes",
+      "agent": "review"
     }
   },
   "lsp": {

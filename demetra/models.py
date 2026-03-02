@@ -58,3 +58,15 @@ class Context:
     @property
     def build_plan(self) -> str | None:
         return self.session.build_plan if self.session is not None else None
+
+
+@dataclass
+class TicketRequest:
+    text: str
+
+
+@dataclass
+class TicketResponse:
+    ticket_id: str
+    identifier: str
+    title: str
