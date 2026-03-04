@@ -13,6 +13,7 @@ deploy:
 	sudo systemctl daemon-reload
 	sudo systemctl restart demetra-api.service
 	sudo systemctl restart demetra-watcher.service
+	sudo systemctl restart demetra-worker.service
 	sudo service nginx reload
 
 check:
