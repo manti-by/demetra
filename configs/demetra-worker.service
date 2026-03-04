@@ -1,0 +1,20 @@
+[Unit]
+Description=Demetra Process Manager
+After=network.target
+
+[Service]
+Type=simple
+User=manti
+Group=manti
+Restart=always
+WorkingDirectory=/home/manti/www/demetra
+EnvironmentFile=/home/manti/www/demetra/.env
+ExecStart=/home/manti/www/demetra/.venv/bin/rq worker
+StandardOutput=file:/var/log/demetra/watcher-stdout.log
+StandardError=file:/var/log/demetra/watcher-stderr.log
+KillSignal=SIGINT
+TimeoutStopSec=300
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
