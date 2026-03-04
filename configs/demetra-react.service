@@ -1,0 +1,21 @@
+[Unit]
+Description=Demetra React Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=manti
+Group=manti
+Restart=always
+WorkingDirectory=/home/manti/www/demetra/react
+ExecStartPre=/home/manti/.bun/bin/bun run build
+ExecStart=/home/manti/.bun/bin/bun run preview
+StandardOutput=file:/var/log/demetra/react-stdout.log
+StandardError=file:/var/log/demetra/react-stderr.log
+KillSignal=SIGINT
+TimeoutStopSec=300
+RestartSec=10
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target
