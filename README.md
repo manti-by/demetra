@@ -107,15 +107,19 @@ uv run main.py --project-name <project_name>
 Available make commands:
 
 ```bash
-make run-chimera    # Run workflow on 'chimera' project
-make run-demetra    # Run workflow on 'demetra' project
-make run-odin       # Run workflow on 'odin' project
-make run-coruscant  # Run workflow on 'coruscant' project
-make check          # Run type checking and pre-commit checks
-make pip            # Install dependencies
-make update         # Upgrade dependencies and pre-commit hooks
-make test           # Run tests
-make ci             # Shorthand: pip check test
+make run-chimera     # Run workflow on 'chimera' project
+make run-demetra     # Run workflow on 'demetra' project
+make run-odin        # Run workflow on 'odin' project
+make run-coruscant   # Run workflow on 'coruscant' project
+make check           # Run type checking and pre-commit checks
+make pip             # Install dependencies
+make update          # Upgrade dependencies and pre-commit hooks
+make test            # Run tests
+make ci              # Shorthand: pip check test
+make react-install   # Install React app dependencies
+make react-build     # Build React app
+make react-dev       # Run React app in development mode
+make react-test      # Run React app tests
 ```
 
 ## Project Structure

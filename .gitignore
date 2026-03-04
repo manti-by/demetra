@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 .env
 .env.docker
+react/node_modules/
+react/dist/
+react/.vite/

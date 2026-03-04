@@ -1,0 +1,14 @@
+.app {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: var(--color-grey);
+}
+
+.app h1 {
+  color: var(--color-dark-green);
+  font-size: 3rem;
+  font-weight: 700;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+}

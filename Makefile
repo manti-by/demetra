@@ -43,3 +43,15 @@ worker:
 
 watcher:
 	uv run -m demetra.watcher
+
+react-install:
+	cd react && bun install
+
+react-build:
+	cd react && bun run build
+
+react-dev:
+	cd react && bun run dev
+
+react-test:
+	cd react && bun run test
