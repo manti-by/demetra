@@ -22,6 +22,28 @@ PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 5))
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s %(levelname)-6s: %(filename)-8s - %(message)s",
+            "datefmt": "%Y-%m-%d %H:%M:%S",
+        }
+    },
+    "handlers": {
+        "file": {
+            "level": "INFO",
+            "class": "logging.FileHandler",
+            "filename": os.getenv("LOG_PATH", "/var/log/demetra/demetra.log"),
+            "formatter": "standard",
+        },
+    },
+    "loggers": {
+        "": {"handlers": ["file"], "level": "INFO", "propagate": True},
+    },
+}
+
 LINEAR: LinearConfig = {
     "api_url": "https://api.linear.app/graphql",
     "client_id": os.environ.get("LINEAR_CLIENT_ID"),
