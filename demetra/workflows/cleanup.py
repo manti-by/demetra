@@ -1,4 +1,4 @@
-from demetra.models import Context
+from demetra.library.models import Context
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request
 from demetra.services.linear import linear_cleanup

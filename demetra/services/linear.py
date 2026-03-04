@@ -1,7 +1,7 @@
 from typing import Any
 
-from demetra.exceptions import LinearError
-from demetra.models import Context, LinearTask
+from demetra.library.exceptions import LinearError
+from demetra.library.models import Context, LinearTask
 from demetra.services.graphql import get_query, graphql_request
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR

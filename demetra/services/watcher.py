@@ -2,7 +2,10 @@ import asyncio
 import logging
 import sys
 
-from demetra.models import LinearTask
+from rq.job import Job
+
+from demetra.library.models import LinearTask
+from demetra.queue import queue
 from demetra.services.database import (
     add_pending_task,
     get_pending_task_ids,
@@ -15,7 +18,7 @@ from demetra.settings import BASE_PATH
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
 
-TIMEOUT = 600
+TIMEOUT = 60 * 60
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
@@ -51,6 +54,10 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     return False
 
 
+async def delay_run_workflow(project_name: str, task_id: str) -> Job:
+    return queue.enqueue(run_workflow, project_name=project_name, task_id=task_id)
+
+
 async def process_tasks(tasks: list[LinearTask]) -> None:
     pending_ids = await get_pending_task_ids()
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
@@ -64,7 +71,7 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             await add_pending_task(task_id=task.id, project_name=task.project_name)
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
-        if await run_workflow(project_name=task.project_name, task_id=task.id):
+        if await delay_run_workflow(project_name=task.project_name, task_id=task.id):
             await mark_task_processed(task_id=task.id)
         else:
             await mark_task_failed(task_id=task.id)

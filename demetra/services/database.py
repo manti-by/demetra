@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 import aiosqlite
 from aiosqlite import Connection
 
-from demetra.models import Session
+from demetra.library.models import Session
 from demetra.settings import DB_PATH
 
 

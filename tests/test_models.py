@@ -1,6 +1,6 @@
 from faker import Faker
 
-from demetra.models import LinearTask
+from demetra.library.models import LinearTask
 
 
 fake = Faker()

@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from demetra.exceptions import ProjectDoesNotExistsError, SettingsError
+from demetra.library.exceptions import ProjectDoesNotExistsError, SettingsError
 from demetra.settings import PROJECTS_PATH
 
 

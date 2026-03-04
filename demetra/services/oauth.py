@@ -1,6 +1,6 @@
 import aiohttp
 
-from demetra.exceptions import LinearError
+from demetra.library.exceptions import LinearError
 from demetra.services.database import get_oauth_token, save_oauth_token
 from demetra.settings import LINEAR
 

@@ -3,7 +3,7 @@ from typing import Any
 import aiofiles
 import aiohttp
 
-from demetra.exceptions import LinearError
+from demetra.library.exceptions import LinearError
 from demetra.services.oauth import get_valid_token
 from demetra.settings import BASE_PATH, LINEAR
 

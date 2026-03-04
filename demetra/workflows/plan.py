@@ -1,5 +1,5 @@
-from demetra.exceptions import AutoCancelledError, UserCancelledError
-from demetra.models import Context
+from demetra.library.exceptions import AutoCancelledError, UserCancelledError
+from demetra.library.models import Context
 from demetra.services.database import save_session
 from demetra.services.flow import user_input
 from demetra.services.groq import extract_questions

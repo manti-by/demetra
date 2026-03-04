@@ -42,7 +42,7 @@ class TestLinearService:
         self,
         linear_graphql_response_failure: dict,
     ):
-        from demetra.exceptions import LinearError
+        from demetra.library.exceptions import LinearError
         from demetra.services.linear import create_linear_ticket
 
         with patch(

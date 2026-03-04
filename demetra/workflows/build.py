@@ -1,11 +1,11 @@
-from demetra.exceptions import InfiniteLoopError
-from demetra.lint import run_linter
-from demetra.models import Context
-from demetra.review import run_review_agents
+from demetra.library.exceptions import InfiniteLoopError
+from demetra.library.models import Context
 from demetra.services.flow import user_input
 from demetra.services.opencode import opencode_build_agent
 from demetra.services.tui import print_message
 from demetra.settings import MAX_BUILD_ATTEMPTS
+from demetra.workflows.lint import run_linter
+from demetra.workflows.review import run_review_agents
 
 
 async def run_build_step(build_plan: str, context: Context) -> None:

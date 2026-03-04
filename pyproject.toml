@@ -18,6 +18,8 @@ dependencies = [
     "rich>=14.3.3",
     "ruff>=0.15.2",
     "pydantic>=2.10.0",
+    "rq>=2.7.0",
+    "redis>=5.0.0",
 ]
 
 [dependency-groups]

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 
-from demetra.models import TicketRequest, TicketResponse
+from demetra.library.models import TicketRequest, TicketResponse
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name

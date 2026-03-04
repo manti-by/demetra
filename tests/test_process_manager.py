@@ -63,7 +63,7 @@ class TestProcessManager:
         self,
         graphql_todo_issues_multiple_response: dict,
     ):
-        from demetra.models import LinearTask
+        from demetra.library.models import LinearTask
         from demetra.services.linear import get_todo_issues
 
         with (

@@ -161,7 +161,7 @@ def linear_task_data_demetra() -> dict:
 
 @pytest.fixture
 def linear_task(linear_task_data: dict):
-    from demetra.models import LinearTask
+    from demetra.library.models import LinearTask
 
     return LinearTask(
         id=linear_task_data["id"],

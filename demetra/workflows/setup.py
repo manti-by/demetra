@@ -1,4 +1,4 @@
-from demetra.models import Context
+from demetra.library.models import Context
 from demetra.services.database import get_session
 from demetra.services.filesystem import get_project_root
 from demetra.services.git import git_worktree_create

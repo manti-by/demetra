@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from demetra.types import (
+from demetra.library.types import (
     CodeRabbitConfig,
     CursorConfig,
     GitConfig,
@@ -43,6 +43,8 @@ LOGGING = {
         "": {"handlers": ["file"], "level": "INFO", "propagate": True},
     },
 }
+
+REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
 
 LINEAR: LinearConfig = {
     "api_url": "https://api.linear.app/graphql",

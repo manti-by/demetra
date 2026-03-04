@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from demetra.models import Context
+from demetra.library.models import Context
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
 from demetra.settings import GIT

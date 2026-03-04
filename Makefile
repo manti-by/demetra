@@ -32,3 +32,13 @@ test:
 	uv run pytest tests/
 
 ci: pip check test
+
+
+api:
+	uv run uvicorn demetra.api:app --port 8081 --workers 2
+
+worker:
+	uv run rq worker
+
+watcher:
+	uv run -m demetra.watcher
