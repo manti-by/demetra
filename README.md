@@ -74,6 +74,12 @@ Follow installation instructions [here](https://github.com/cli/cli?tab=readme-ov
 gh auth login
 ```
 
+### Install BUN for React app
+
+```bash
+curl -fsSL https://bun.com/install | bash
+```
+
 ## Configuration
 
 Configure the following environment variables (via `.env` or shell):
