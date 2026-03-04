@@ -51,8 +51,7 @@ class TestOpencodeService:
 
         with (
             patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.opencode.OPENCODE_PATH", Path("/bin/opencode")),
-            patch("demetra.services.opencode.OPENCODE_MODEL", "test-model"),
+            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
         ):
             mock_run.return_value = "output"
             await run_opencode_agent(Path("/test"), "task", "plan", session_id="session-123")

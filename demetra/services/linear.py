@@ -2,14 +2,14 @@ from typing import Any
 
 from demetra.exceptions import LinearError
 from demetra.models import Context, LinearTask
-from demetra.services.graphql import get_query, graphql_request, graphql_request_with_api_key
+from demetra.services.graphql import get_query, graphql_request
 from demetra.services.tui import print_message
-from demetra.settings import LINEAR_DEFAULT_PROJECT_ID, LINEAR_STATE_IN_REVIEW_ID, LINEAR_STATE_TODO_ID, LINEAR_TEAM_ID
+from demetra.settings import LINEAR
 
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_todo_issues")
-    result = await graphql_request(query, {"teamId": LINEAR_TEAM_ID})
+    result = await graphql_request(query, {"teamId": LINEAR["team_id"]})
     states = result.get("data", {}).get("team", {}).get("states", {}).get("nodes", [])
 
     issues = []
@@ -79,11 +79,11 @@ async def post_comment(task_id: str, body: str) -> bool:
 async def linear_cleanup(context: Context, is_success: bool):
     if is_success:
         print_message("Workflow complete", style="heading")
-        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_REVIEW_ID)
+        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_review"])
         return
 
     print_message("Moving back a ticket in TODO column", style="heading")
-    await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_TODO_ID)
+    await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["todo"])
 
 
 async def create_linear_ticket(
@@ -91,25 +91,30 @@ async def create_linear_ticket(
     description: str,
     technical_requirements: str,
     acceptance_criteria: str,
-    project_id: str | None = LINEAR_DEFAULT_PROJECT_ID,
+    team_id: str | None = None,
+    state_id: str | None = None,
+    project_id: str | None = None,
 ) -> dict[str, Any]:
     full_description = (
-        f"## Description\n{description}\n\n"
-        f"## Tech Requirements\n{technical_requirements}\n\n"
-        f"## Acceptance Criteria\n{acceptance_criteria}"
+        f"### Description\n{description}\n\n"
+        f"### Tech Requirements\n{technical_requirements}\n\n"
+        f"### Acceptance Criteria\n{acceptance_criteria}"
     )
 
     query = await get_query(name="create_issue")
     variables = {
         "input": {
-            "teamId": LINEAR_TEAM_ID,
             "title": title,
             "description": full_description,
-            "stateId": LINEAR_STATE_TODO_ID,
-            "projectId": project_id,
+            "teamId": team_id or LINEAR["team_id"],
+            "stateId": state_id or LINEAR["default_state"],
+            "projectId": project_id or LINEAR["default_project"],
+            "labelIds": [LINEAR["feature_label_id"]],
+            "createAsUser": "Demetra",
+            "priority": 3,
         }
     }
-    result = await graphql_request_with_api_key(query=query, variables=variables)
+    result = await graphql_request(query=query, variables=variables)
 
     if not result.get("data", {}).get("issueCreate", {}).get("success"):
         raise LinearError("Failed to create Linear ticket")

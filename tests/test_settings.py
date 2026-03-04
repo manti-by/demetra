@@ -10,7 +10,7 @@ class TestSettings:
     def test_linear_api_url_is_correct(self):
         from demetra import settings
 
-        assert settings.LINEAR_API_URL == "https://api.linear.app/graphql"
+        assert settings.LINEAR["api_url"] == "https://api.linear.app/graphql"
 
     def test_projects_path_uses_env_or_default(self):
         from demetra import settings
@@ -20,17 +20,16 @@ class TestSettings:
     def test_opencode_defaults(self):
         from demetra import settings
 
-        assert ".opencode" in str(settings.OPENCODE_PATH)
-        assert "opencode" in settings.OPENCODE_MODEL
+        assert ".opencode" in str(settings.OPENCODE["path"])
+        assert "opencode" in settings.OPENCODE["model"]
 
     def test_git_worktree_path_default(self):
         from demetra import settings
 
-        assert ".demetra/worktrees" in str(settings.GIT_WORKTREE_PATH)
+        assert ".demetra/worktrees" in str(settings.GIT["worktree_path"])
 
     def test_settings_can_be_overridden_via_env(self, monkeypatch):
         monkeypatch.setenv("PROJECTS_PATH", "/custom/projects")
-        monkeypatch.setenv("LINEAR_API_KEY", "test-key")
         monkeypatch.setenv("LINEAR_TEAM_ID", "test-team")
 
         import importlib
@@ -41,8 +40,7 @@ class TestSettings:
 
         try:
             assert "/custom/projects" in str(settings_module.PROJECTS_PATH)
-            assert settings_module.LINEAR_API_KEY == "test-key"
-            assert settings_module.LINEAR_TEAM_ID == "test-team"
+            assert settings_module.LINEAR["team_id"] == "test-team"
         finally:
             # Restore original module state for other tests
             monkeypatch.delenv("PROJECTS_PATH", raising=False)

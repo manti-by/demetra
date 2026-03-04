@@ -21,6 +21,7 @@ You MUST respond with ONLY valid JSON in this exact format:
 Guidelines:
 - Make the title actionable and specific
 - Include all relevant details in the description
+- Technical requirement and acceptance criteria should be a list of items with dashes, one item per line
 - Break down technical requirements into clear list of requirements
 - Make acceptance criteria testable and specific using bullet points
 - If information is missing, make reasonable assumptions based on context

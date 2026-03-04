@@ -17,7 +17,17 @@ class TestLinearService:
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_demetra
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
                 issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
@@ -36,7 +46,17 @@ class TestLinearService:
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_multiple_response_demetra
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
                 issues = await get_todo_issues("demetra")
 
         assert len(issues) == 2
@@ -54,7 +74,17 @@ class TestLinearService:
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_multiple_response_demetra
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
                 task = await get_linear_task("demetra")
 
         assert task is not None
@@ -72,7 +102,17 @@ class TestLinearService:
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_empty_response
-            with patch("demetra.services.linear.LINEAR_TEAM_ID", "team-123"):
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
                 task = await get_linear_task("demetra")
 
         assert task is None

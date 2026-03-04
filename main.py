@@ -8,7 +8,7 @@ from demetra.plan import run_plan_step
 from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
-from demetra.settings import LINEAR_STATE_IN_PROGRESS_ID
+from demetra.settings import LINEAR
 from demetra.setup import setup_workflow
 
 
@@ -33,7 +33,7 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     is_success = False
     should_update_linear_status = True
     try:
-        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_IN_PROGRESS_ID)
+        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_progress"])
 
         if not context.session:
             if not await run_plan_step(context=context):

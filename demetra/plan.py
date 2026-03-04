@@ -6,7 +6,7 @@ from demetra.services.groq import extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import extract_plan, get_opencode_session_id, opencode_plan_agent
 from demetra.services.tui import print_message
-from demetra.settings import LINEAR_STATE_AWAITING_INPUT_ID
+from demetra.settings import LINEAR
 
 
 async def run_plan_step(context: Context) -> str | None:
@@ -48,7 +48,7 @@ async def run_plan_step(context: Context) -> str | None:
             print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
             await post_comment(task_id=context.linear_task.id, body=f"## Questions:\n- {'\n- '.join(questions)}")
 
-            await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR_STATE_AWAITING_INPUT_ID)
+            await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
             print_message("Task moved to Awaiting Input state.", style="result")
 
             raise AutoCancelledError

@@ -35,7 +35,7 @@ class TestCursorService:
 
         with (
             patch("demetra.services.cursor.run_command", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.cursor.CURSOR_PATH", Path("/bin/cursor")),
+            patch("demetra.services.cursor.CURSOR", {"path": Path("/bin/cursor")}),
         ):
             mock_run.return_value = "output"
             await run_cursor_agent(Path("/test"), "custom task", "session-123")

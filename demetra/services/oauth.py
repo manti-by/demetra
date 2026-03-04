@@ -2,21 +2,15 @@ import aiohttp
 
 from demetra.exceptions import LinearError
 from demetra.services.database import get_oauth_token, save_oauth_token
-from demetra.settings import (
-    LINEAR_CLIENT_ID,
-    LINEAR_CLIENT_SECRET,
-    LINEAR_OAUTH_SCOPE,
-    LINEAR_OAUTH_TOKEN_URL,
-    LINEAR_SERVICE_NAME,
-)
+from demetra.settings import LINEAR
 
 
 async def get_valid_token() -> str:
-    token_data = await get_oauth_token(LINEAR_SERVICE_NAME)
+    token_data = await get_oauth_token(LINEAR["service_name"])
     if token_data:
         return token_data[0]
 
-    if not LINEAR_CLIENT_ID or not LINEAR_CLIENT_SECRET:
+    if not LINEAR["client_id"] or not LINEAR["client_secret"]:
         raise LinearError("LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET must be set")
 
     token = await fetch_new_token()
@@ -24,20 +18,20 @@ async def get_valid_token() -> str:
 
 
 async def fetch_new_token() -> str:
-    if not LINEAR_CLIENT_ID or not LINEAR_CLIENT_SECRET:
+    if not LINEAR["client_id"] or not LINEAR["client_secret"]:
         raise LinearError("LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET must be set")
 
     payload = {
         "grant_type": "client_credentials",
-        "scope": LINEAR_OAUTH_SCOPE,
-        "client_id": LINEAR_CLIENT_ID,
-        "client_secret": LINEAR_CLIENT_SECRET,
+        "scope": LINEAR["oauth_scope"],
+        "client_id": LINEAR["client_id"],
+        "client_secret": LINEAR["client_secret"],
     }
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                LINEAR_OAUTH_TOKEN_URL,
+                LINEAR["oauth_token_url"],
                 data=payload,
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
@@ -51,7 +45,7 @@ async def fetch_new_token() -> str:
         if not access_token:
             raise LinearError("No access token in OAuth response")
 
-        await save_oauth_token(LINEAR_SERVICE_NAME, access_token, refresh_token, expires_in)
+        await save_oauth_token(LINEAR["service_name"], access_token, refresh_token, expires_in)
         return access_token
     except aiohttp.ClientError as e:
         raise LinearError(f"OAuth token fetch error: {e}") from e

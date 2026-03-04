@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from demetra.services.subprocess import run_command
-from demetra.settings import CODERABBIT_PATH
+from demetra.settings import CODERABBIT
 
 
 async def coderabbit_review_agent(target_path: Path) -> tuple[int, str, str]:
@@ -9,5 +9,5 @@ async def coderabbit_review_agent(target_path: Path) -> tuple[int, str, str]:
 
 
 async def run_coderabbit_agent(target_path: Path) -> tuple[int, str, str]:
-    command = [str(CODERABBIT_PATH), "review", "--prompt-only", "--no-color", "--type", "uncommitted"]
+    command = [str(CODERABBIT["path"]), "review", "--prompt-only", "--no-color", "--type", "uncommitted"]
     return await run_command(command=command, target_path=target_path)

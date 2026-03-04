@@ -4,7 +4,7 @@ from demetra.models import TicketRequest, TicketResponse
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name
-from demetra.settings import LINEAR_DEFAULT_PROJECT_ID
+from demetra.settings import LINEAR
 
 
 app = FastAPI(title="Demetra Ticket API")
@@ -19,7 +19,7 @@ async def create_ticket(request: TicketRequest):
         processed = await process_text_with_groq(request.text)
 
         project_name = processed["project_name"]
-        project_id = await get_project_id_by_name(project_name) or LINEAR_DEFAULT_PROJECT_ID
+        project_id = await get_project_id_by_name(project_name) or LINEAR["default_project"]
 
         ticket = await create_linear_ticket(
             title=processed["title"],

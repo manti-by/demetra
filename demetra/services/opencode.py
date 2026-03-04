@@ -4,7 +4,7 @@ from pathlib import Path
 
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
-from demetra.settings import OPENCODE_MODEL, OPENCODE_PATH
+from demetra.settings import OPENCODE
 
 
 PLAN_HEADER_STRING = "## Implementation Plan"
@@ -56,7 +56,7 @@ async def run_opencode_agent(
     task_title: str | None = None,
     disable_stdio: bool = False,
 ) -> tuple[int, str, str]:
-    command = [str(OPENCODE_PATH), "run", "--model", OPENCODE_MODEL, "--agent", agent]
+    command = [str(OPENCODE["path"]), "run", "--model", OPENCODE["model"], "--agent", agent]
 
     if session_id is not None:
         command.extend(["--session", session_id])
@@ -68,7 +68,7 @@ async def run_opencode_agent(
 
 
 async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
-    command = [str(OPENCODE_PATH), "session", "list", "--format", "json"]
+    command = [str(OPENCODE["path"]), "session", "list", "--format", "json"]
     _, result, _ = await run_command(command=command, target_path=target_path)
     return json.loads(result)
 

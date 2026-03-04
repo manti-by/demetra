@@ -1,50 +1,76 @@
 import os
 from pathlib import Path
 
+from demetra.types import (
+    CodeRabbitConfig,
+    CursorConfig,
+    GitConfig,
+    GitHubConfig,
+    GroqConfig,
+    LinearConfig,
+    OpenCodeConfig,
+)
+
+
+HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
-HOME_PATH = Path.home()
 
 DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".demetra/demetra.sqlite3"))
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
-MAX_BUILD_ATTEMPTS = 5
+MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 5))
 
-LINEAR_API_URL = "https://api.linear.app/graphql"
-LINEAR_API_KEY = os.environ.get("LINEAR_API_KEY")
-LINEAR_CLIENT_ID = os.environ.get("LINEAR_CLIENT_ID")
-LINEAR_CLIENT_SECRET = os.environ.get("LINEAR_CLIENT_SECRET")
-LINEAR_OAUTH_SCOPE = os.environ.get("LINEAR_OAUTH_SCOPE", "read,write,comments:create")
-LINEAR_TEAM_ID = os.environ.get("LINEAR_TEAM_ID")
+LINEAR: LinearConfig = {
+    "api_url": "https://api.linear.app/graphql",
+    "client_id": os.environ.get("LINEAR_CLIENT_ID"),
+    "client_secret": os.environ.get("LINEAR_CLIENT_SECRET"),
+    "oauth_scope": os.environ.get("LINEAR_OAUTH_SCOPE", "read,write,comments:create"),
+    "team_id": os.environ.get("LINEAR_TEAM_ID"),
+    "oauth_token_url": "https://api.linear.app/oauth/token",
+    "service_name": "linear",
+    "feature_label_id": os.environ.get("LINEAR_FEATURE_LABEL_ID", "242cd332-e78c-42db-acc2-34441db373ab"),
+    "states": {
+        "prd": os.environ.get("LINEAR_STATE_PRD_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
+        "todo": os.environ.get("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5"),
+        "in_progress": os.environ.get("LINEAR_STATE_IN_PROGRESS_ID", "ded08079-9ddf-43cb-8aa8-722ba107b691"),
+        "in_review": os.environ.get("LINEAR_STATE_IN_REVIEW_ID", "34829892-5ab6-40a4-af4e-7a73636a78a4"),
+        "awaiting_input": os.environ.get("LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"),
+        "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
+    },
+    "projects": {
+        "odin": os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff"),
+        "demetra": os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),
+        "coruscant": os.environ.get("LINEAR_CORUSCANT_PROJECT_ID", "8ee7cd23-8fc9-4304-8ba3-997c76d06714"),
+    },
+    "default_state": os.environ.get("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
+    "default_project": os.environ.get("LINEAR_DEFAULT_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),
+}
 
-LINEAR_OAUTH_TOKEN_URL = "https://api.linear.app/oauth/token"  # noqa
-LINEAR_SERVICE_NAME = "linear"
+OPENCODE: OpenCodeConfig = {
+    "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")),
+    "model": os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free"),
+}
 
-LINEAR_STATE_TODO_ID = os.environ.get("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5")
-LINEAR_STATE_IN_PROGRESS_ID = os.environ.get("LINEAR_STATE_IN_PROGRESS_ID", "ded08079-9ddf-43cb-8aa8-722ba107b691")
-LINEAR_STATE_IN_REVIEW_ID = os.environ.get("LINEAR_STATE_IN_REVIEW_ID", "34829892-5ab6-40a4-af4e-7a73636a78a4")
-LINEAR_STATE_AWAITING_INPUT_ID = os.environ.get(
-    "LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"
-)
-LINEAR_STATE_DONE_ID = os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6")
+CURSOR: CursorConfig = {
+    "path": Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent")),
+}
 
-LINEAR_ODIN_PROJECT_ID = os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff")
-LINEAR_DEMETRA_PROJECT_ID = os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c")
-LINEAR_CORUSCANT_PROJECT_ID = os.environ.get("LINEAR_CORUSCANT_PROJECT_ID", "8ee7cd23-8fc9-4304-8ba3-997c76d06714")
-LINEAR_DEFAULT_PROJECT_ID = os.environ.get("LINEAR_DEFAULT_PROJECT_ID", LINEAR_DEMETRA_PROJECT_ID)
+CODERABBIT: CodeRabbitConfig = {
+    "path": Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit")),
+}
 
-OPENCODE_PATH = Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"))
-OPENCODE_MODEL = os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free")
+GIT: GitConfig = {
+    "path": Path(os.environ.get("GIT_PATH", "/usr/bin/git")),
+    "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")),
+}
 
-CURSOR_PATH = Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent"))
+GITHUB: GitHubConfig = {
+    "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")),
+}
 
-CODERABBIT_PATH = Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit"))
-
-GIT_PATH = Path(os.environ.get("GIT_PATH", "/usr/bin/git"))
-GIT_WORKTREE_PATH = Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"))
-
-GH_PATH = Path(os.environ.get("GH_PATH", "/usr/bin/gh"))
-
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")
+GROQ: GroqConfig = {
+    "api_key": os.environ.get("GROQ_API_KEY"),
+    "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+}

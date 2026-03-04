@@ -9,13 +9,29 @@ class TestLinearService:
     async def test_create_linear_ticket_returns_ticket_info(
         self,
         mock_graphql_request: AsyncMock,
-        mock_linear_settings: None,
         linear_issue_id: str,
         linear_identifier: str,
     ):
         from demetra.services.linear import create_linear_ticket
 
-        result = await create_linear_ticket("Test", "Desc", "Req", "AC")
+        with patch(
+            "demetra.services.linear.LINEAR",
+            {
+                "team_id": "team-123",
+                "default_state": "state-123",
+                "default_project": "project-123",
+                "feature_label_id": "label-123",
+                "states": {},
+                "projects": {},
+                "api_url": "",
+                "client_id": None,
+                "client_secret": None,
+                "oauth_scope": "",
+                "oauth_token_url": "",
+                "service_name": "",
+            },
+        ):
+            result = await create_linear_ticket("Test", "Desc", "Req", "AC")
 
         assert result["ticket_id"] == linear_issue_id
         assert result["identifier"] == linear_identifier
@@ -25,18 +41,34 @@ class TestLinearService:
     async def test_create_linear_ticket_raises_on_failure(
         self,
         linear_graphql_response_failure: dict,
-        mock_linear_settings: None,
     ):
         from demetra.exceptions import LinearError
         from demetra.services.linear import create_linear_ticket
 
         with patch(
-            "demetra.services.linear.graphql_request_with_api_key",
+            "demetra.services.linear.graphql_request",
             new_callable=AsyncMock,
         ) as mock_request:
             mock_request.return_value = linear_graphql_response_failure
-            with pytest.raises(LinearError, match="Failed to create Linear ticket"):
-                await create_linear_ticket("Test", "Desc", "Req", "AC")
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "state-123",
+                    "default_project": "project-123",
+                    "feature_label_id": "label-123",
+                    "states": {},
+                    "projects": {},
+                    "api_url": "",
+                    "client_id": None,
+                    "client_secret": None,
+                    "oauth_scope": "",
+                    "oauth_token_url": "",
+                    "service_name": "",
+                },
+            ):
+                with pytest.raises(LinearError, match="Failed to create Linear ticket"):
+                    await create_linear_ticket("Test", "Desc", "Req", "AC")
 
 
 class TestApiEndpoint:

@@ -86,7 +86,7 @@ async def mock_graphql_request(
     linear_graphql_response_success: dict,
 ) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.services.linear.graphql_request_with_api_key",
+        "demetra.services.linear.graphql_request",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = linear_graphql_response_success
@@ -118,16 +118,17 @@ async def mock_create_linear_ticket(
 @pytest.fixture
 def linear_settings(linear_team_id: str, linear_state_id: str):
     return {
-        "LINEAR_TEAM_ID": linear_team_id,
-        "LINEAR_STATE_TODO_ID": linear_state_id,
+        "team_id": linear_team_id,
+        "states": {
+            "todo": linear_state_id,
+        },
     }
 
 
 @pytest.fixture
 async def mock_linear_settings(linear_settings: dict):
-    with patch("demetra.services.linear.LINEAR_TEAM_ID", linear_settings["LINEAR_TEAM_ID"]):
-        with patch("demetra.services.linear.LINEAR_STATE_TODO_ID", linear_settings["LINEAR_STATE_TODO_ID"]):
-            yield
+    with patch("demetra.services.linear.LINEAR", linear_settings):
+        yield
 
 
 @pytest.fixture
