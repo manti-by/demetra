@@ -168,7 +168,7 @@ tests/                             # Comprehensive test suite
 - `asyncio` - Asynchronous programming
 - `aiofiles` - Async file operations
 - `aiohttp` - Async HTTP client
-- `aiosqlite` - Async SQLite database
+- `psycopg` - Async PostgreSQL database
 - `python-slugify` - Slug generation for branch names
 - `rich` - Terminal UI formatting
 - `langchain-groq` - LLM integration with Groq

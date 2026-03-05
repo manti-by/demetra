@@ -155,7 +155,7 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`:
 
 ## Dependencies
 
-**Core**: asyncio, aiofiles, aiohttp, aiosqlite, python-slugify, rich, langchain-groq, langchain-core
+**Core**: asyncio, aiofiles, aiohttp, psycopg, python-slugify, rich, langchain-groq, langchain-core
 **Development**: pytest, pytest-asyncio, debugpy, ipython, pre-commit, ty, uv-bump
 
 ## External Dependencies

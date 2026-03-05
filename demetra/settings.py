@@ -16,7 +16,11 @@ HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
 
-DB_PATH = Path(os.environ.get("DB_PATH", HOME_PATH / ".demetra/demetra.sqlite3"))
+DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_PORT = int(os.environ.get("DB_PORT", 5432))
+DB_USER = os.environ.get("DB_USER", "demetra")
+DB_NAME = os.environ.get("DB_NAME", "demetra")
+DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
