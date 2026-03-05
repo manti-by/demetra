@@ -61,6 +61,27 @@ async def init_db() -> None:
             )
             """
         )
+        await connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id TEXT PRIMARY KEY,
+                github_id TEXT UNIQUE NOT NULL,
+                github_username TEXT NOT NULL,
+                email TEXT,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        await connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS jwt_tokens (
+                token TEXT PRIMARY KEY,
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                expires_at TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
         await connection.commit()
 
 
@@ -232,3 +253,60 @@ async def get_pending_task_ids() -> set[str]:
         cursor = await connection.execute("SELECT task_id FROM task_status WHERE status NOT IN ('processed', 'failed')")
         rows: dict = await cursor.fetchall()  # ty: ignore[invalid-assignment]
     return {row["task_id"] for row in rows}
+
+
+async def create_user(github_id: str, github_username: str, email: str | None) -> str:
+    from uuid import uuid4
+
+    user_id = str(uuid4())
+    now = datetime.now(UTC).isoformat()
+    async with get_connection() as connection:
+        await connection.execute(
+            """
+            INSERT INTO users (id, github_id, github_username, email, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (user_id, github_id, github_username, email, now),
+        )
+        await connection.commit()
+    return user_id
+
+
+async def get_user_by_github_id(github_id: str) -> dict | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute("SELECT * FROM users WHERE github_id = %s", (github_id,))
+        row: dict = await cursor.fetchone()  # ty: ignore[invalid-assignment]
+    return dict(row) if row else None
+
+
+async def get_user_by_id(user_id: str) -> dict | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute("SELECT * FROM users WHERE id = %s", (user_id,))
+        row: dict = await cursor.fetchone()  # ty: ignore[invalid-assignment]
+    return dict(row) if row else None
+
+
+async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
+    now = datetime.now(UTC).isoformat()
+    async with get_connection() as connection:
+        await connection.execute(
+            """
+            INSERT INTO jwt_tokens (token, user_id, expires_at, created_at)
+            VALUES (%s, %s, %s, %s)
+            """,
+            (token, user_id, expires_at, now),
+        )
+        await connection.commit()
+
+
+async def get_jwt_token(token: str) -> dict | None:
+    async with get_connection() as connection:
+        cursor = await connection.execute("SELECT * FROM jwt_tokens WHERE token = %s", (token,))
+        row: dict = await cursor.fetchone()  # ty: ignore[invalid-assignment]
+    return dict(row) if row else None
+
+
+async def delete_jwt_token(token: str) -> None:
+    async with get_connection() as connection:
+        await connection.execute("DELETE FROM jwt_tokens WHERE token = %s", (token,))
+        await connection.commit()

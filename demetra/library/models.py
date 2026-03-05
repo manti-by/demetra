@@ -70,3 +70,29 @@ class TicketResponse:
     ticket_id: str
     identifier: str
     title: str
+
+
+@dataclass
+class GitHubUser:
+    id: str
+    login: str
+    email: str | None
+
+
+@dataclass
+class TokenData:
+    user_id: str
+    exp: int
+
+
+@dataclass
+class AuthResponse:
+    token: str
+    user: "UserResponse"
+
+
+@dataclass
+class UserResponse:
+    id: str
+    github_username: str
+    email: str | None
