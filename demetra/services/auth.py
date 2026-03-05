@@ -161,4 +161,12 @@ async def get_current_user(token: str) -> UserResponse | None:
         id=user_data["id"],
         github_username=user_data["github_username"],
         email=user_data["email"],
+        role=user_data.get("role", "user"),
     )
+
+
+def has_permission(user: UserResponse | dict, permission: str) -> bool:
+    if permission == "view_logs":
+        role = user.role if hasattr(user, "role") else user.get("role", "user")
+        return role == "admin"
+    return False

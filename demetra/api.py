@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import os
 from pathlib import Path
 
@@ -15,6 +16,7 @@ from demetra.services.auth import (
     get_current_user,
     get_github_auth_url,
     get_github_user,
+    has_permission,
     logout,
 )
 from demetra.services.groq import process_text_with_groq
@@ -118,6 +120,10 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
 
+    if not has_permission(user, "view_logs"):
+        await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
+        return
+
     log_path = Path(os.getenv("LOG_PATH", "/var/log/demetra/demetra.log"))
 
     if not log_path.exists():
@@ -135,6 +141,12 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
                 await asyncio.sleep(0.5)
 
                 async with aiofiles.open(log_path) as file:
+                    await file.seek(0, os.SEEK_END)
+                    file_size = await file.tell()
+
+                    if current_position > file_size:
+                        current_position = file_size
+
                     await file.seek(current_position)
                     new_content = await file.read()
                     current_position = await file.tell()
@@ -146,5 +158,7 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
                             await websocket.send_text(line)
     except WebSocketDisconnect:
         pass
-    except OSError:
-        pass
+    except OSError as e:
+        logging.exception("Error streaming logs: %s", e)
+        await websocket.close(code=4002, reason=f"Stream error: {e}")
+        return

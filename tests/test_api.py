@@ -160,7 +160,7 @@ class TestWatcherLogsWebSocket:
         try:
             with patch.dict(os.environ, {"LOG_PATH": temp_log_path}):
                 with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                    mock_get_user.return_value = {"id": "user-123", "github_username": "testuser"}
+                    mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
 
                     with TestClient(app).websocket_connect(
                         "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
