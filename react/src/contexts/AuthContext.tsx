@@ -13,10 +13,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getCurrentUser().then((user) => {
-      setUser(user);
-      setLoading(false);
-    });
+    let mounted = true;
+    async function fetchUser() {
+      try {
+        const user = await getCurrentUser();
+        if (mounted) {
+          setUser(user);
+        }
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    }
+    fetchUser();
+    return () => {
+      mounted = false;
+    };
   }, []);
 
   return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
