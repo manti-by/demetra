@@ -1,15 +1,44 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import App from './App'
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import App from './App';
+import * as api from './services/api';
+
+vi.mock('./services/api', () => ({
+  getCurrentUser: vi.fn(),
+  login: vi.fn(),
+  logout: vi.fn(),
+}));
 
 describe('App', () => {
-  it('renders heading', () => {
-    render(<App />)
-    expect(screen.getByRole('heading', { level: 1 })).toBeDefined()
-  })
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
-  it('renders Demetra text', () => {
-    render(<App />)
-    expect(screen.getByText('Demetra')).toBeDefined()
-  })
-})
+  it('shows loading initially', async () => {
+    vi.mocked(api.getCurrentUser).mockImplementation(
+      () => new Promise(() => {}) // Never resolves
+    );
+    render(<App />);
+    expect(screen.getByText('Loading...')).toBeDefined();
+  });
+
+  it('shows login button when not authenticated', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue(null);
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText('Sign in with GitHub')).toBeDefined();
+    });
+  });
+
+  it('shows Hello to Demetra when authenticated', async () => {
+    vi.mocked(api.getCurrentUser).mockResolvedValue({
+      id: '1',
+      github_username: 'testuser',
+      email: 'test@example.com',
+    });
+    render(<App />);
+    await waitFor(() => {
+      expect(screen.getByText('Hello to Demetra')).toBeDefined();
+    });
+  });
+});
