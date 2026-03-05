@@ -113,10 +113,7 @@ class TestDatabaseService:
         def execute_side_effect(*args, **kwargs):
             call_count[0] += 1
             mock_cursor = AsyncMock()
-            if call_count[0] == 1:
-                mock_cursor.fetchone = AsyncMock(return_value={"posted_to_linear": False, "created_at": "2024-01-01"})
-            else:
-                mock_cursor.fetchone = AsyncMock(return_value=None)
+            mock_cursor.fetchone = AsyncMock(return_value=None)
             return mock_cursor
 
         self.mock_conn.execute = AsyncMock(side_effect=execute_side_effect)
@@ -157,8 +154,6 @@ class TestDatabaseService:
         fetch_results = [
             None,
             None,
-            None,
-            MockRow({"posted_to_linear": False, "created_at": "2024-01-01"}),
             MockRow({"posted_to_linear": True, "created_at": "2024-01-01"}),
             None,
             None,
