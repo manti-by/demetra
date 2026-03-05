@@ -14,6 +14,7 @@ dependencies = [
     "langsmith>=0.7.12",
     "psycopg>=3.3.3",
     "pydantic>=2.12.5",
+    "python-jose[cryptography]>=3.3.0",
     "python-slugify>=8.0.4",
     "rich>=14.3.3",
     "ruff>=0.15.4",

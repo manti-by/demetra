@@ -54,6 +54,21 @@ class GitHubConfig(TypedDict):
     path: Path
 
 
+class GitHubOAuthConfig(TypedDict):
+    client_id: str | None
+    client_secret: str | None
+    redirect_uri: str
+    oauth_url: str
+    token_url: str
+    user_url: str
+
+
+class JWTConfig(TypedDict):
+    secret_key: str | None
+    algorithm: str
+    expiration_days: int
+
+
 class GroqConfig(TypedDict):
     api_key: str | None
     model: str

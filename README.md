@@ -74,6 +74,27 @@ Follow installation instructions [here](https://github.com/cli/cli?tab=readme-ov
 gh auth login
 ```
 
+### GitHub OAuth Setup
+
+To enable GitHub login for the API, you need to create a GitHub OAuth App:
+
+1. Go to GitHub Settings > Developer settings > OAuth Apps > New OAuth App
+2. Fill in the details:
+   - Application name: Demetra
+   - Homepage URL: `https://demeta.manti.by`
+   - Authorization callback URL: `https://demeta.manti.by/api/v1/github/callback`
+3. Copy the Client ID and generate a Client Secret
+4. Set the following environment variables:
+
+```bash
+export GITHUB_CLIENT_ID="your_client_id"
+export GITHUB_CLIENT_SECRET="your_client_secret"
+export GITHUB_REDIRECT_URI="https://demeta.manti.by/api/v1/github/callback"
+export JWT_SECRET_KEY="your_secure_random_key"
+```
+
+The JWT secret key should be a secure random string (at least 32 characters).
+
 ### Install BUN for React app
 
 ```bash
@@ -99,6 +120,10 @@ Configure the following environment variables (via `.env` or shell):
 | `LINEAR_STATE_TODO_ID` | Linear TODO state ID | *(project-specific)* |
 | `LINEAR_STATE_IN_PROGRESS_ID` | Linear In Progress state ID | *(project-specific)* |
 | `LINEAR_STATE_IN_REVIEW_ID` | Linear In Review state ID | *(project-specific)* |
+| `GITHUB_CLIENT_ID` | GitHub OAuth App client ID | - |
+| `GITHUB_CLIENT_SECRET` | GitHub OAuth App client secret | - |
+| `GITHUB_REDIRECT_URI` | GitHub OAuth callback URL | `https://demeta.manti.by/api/v1/github/callback` |
+| `JWT_SECRET_KEY` | Secret key for JWT token signing | - |
 
 `LINEAR_API_URL` is hardcoded to `https://api.linear.app/graphql`.
 

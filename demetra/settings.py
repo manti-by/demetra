@@ -6,7 +6,9 @@ from demetra.library.types import (
     CursorConfig,
     GitConfig,
     GitHubConfig,
+    GitHubOAuthConfig,
     GroqConfig,
+    JWTConfig,
     LinearConfig,
     OpenCodeConfig,
 )
@@ -96,6 +98,21 @@ GIT: GitConfig = {
 
 GITHUB: GitHubConfig = {
     "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")),
+}
+
+GITHUB_OAUTH: GitHubOAuthConfig = {
+    "client_id": os.environ.get("GITHUB_CLIENT_ID"),
+    "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
+    "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demeta.manti.by/api/v1/github/callback"),
+    "oauth_url": "https://github.com/login/oauth/authorize",
+    "token_url": "https://github.com/login/oauth/access_token",
+    "user_url": "https://api.github.com/user",
+}
+
+JWT: JWTConfig = {
+    "secret_key": os.environ.get("JWT_SECRET_KEY"),
+    "algorithm": "HS256",
+    "expiration_days": 14,
 }
 
 GROQ: GroqConfig = {
