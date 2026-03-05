@@ -19,7 +19,7 @@ from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR
 
 
-app = FastAPI(title="Demetra Ticket API")
+app = FastAPI(title="Demetra API")
 
 
 @app.get("/api/v1/github/login")
@@ -80,7 +80,10 @@ async def github_logout(response: Response, auth_token: str | None = Cookie(defa
 
 
 @app.post("/api/v1/tickets/", response_model=TicketResponse)
-async def create_ticket(request: TicketRequest):
+async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(default=None)):
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
 

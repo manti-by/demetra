@@ -5,13 +5,14 @@ import sys
 from rq.job import Job
 
 from demetra.library.models import LinearTask
-from demetra.queue import queue
 from demetra.services.database import (
     add_pending_task,
     get_pending_task_ids,
     mark_task_failed,
     mark_task_processed,
 )
+from demetra.services.queue import queue
+from demetra.services.utils import log_stream
 from demetra.settings import BASE_PATH
 
 
@@ -34,6 +35,12 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
+
+        if process.stdout and process.stderr:
+            await asyncio.gather(
+                log_stream(process.stdout, logger_callable=logger.info),
+                log_stream(process.stderr, logger_callable=logger.error),
+            )
 
         _, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT)
         if process.returncode == 0:

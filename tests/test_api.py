@@ -4,6 +4,31 @@ import pytest
 from fastapi.testclient import TestClient
 
 
+@pytest.fixture
+def auth_cookie() -> dict:
+    with patch(
+        "demetra.services.auth.JWT",
+        {
+            "secret_key": "test_secret_key",
+            "algorithm": "HS256",
+            "expiration_days": 14,
+        },
+    ):
+        with patch(
+            "demetra.services.auth.get_jwt_token",
+            new_callable=AsyncMock,
+            return_value={
+                "token": "test_token",
+                "user_id": "test_user_id",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            },
+        ):
+            from demetra.services.auth import create_jwt_token
+
+            token, _ = create_jwt_token("test_user_id")
+            return {"auth_token": token}
+
+
 class TestLinearService:
     @pytest.mark.asyncio
     async def test_create_linear_ticket_returns_ticket_info(
@@ -72,11 +97,11 @@ class TestLinearService:
 
 
 class TestApiEndpoint:
-    def test_create_ticket_returns_400_on_empty_text(self):
+    def test_create_ticket_returns_400_on_empty_text(self, auth_cookie: dict):
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "  "})
+        response = client.post("/api/v1/tickets/", json={"text": "  "}, cookies=auth_cookie)
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Text cannot be empty"
@@ -95,11 +120,12 @@ class TestApiEndpoint:
         mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
         linear_identifier: str,
+        auth_cookie: dict,
     ):
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
+        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"}, cookies=auth_cookie)
 
         assert response.status_code == 200
         assert response.json()["identifier"] == linear_identifier
@@ -109,11 +135,12 @@ class TestApiEndpoint:
         self,
         mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
+        auth_cookie: dict,
     ):
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"})
+        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"}, cookies=auth_cookie)
 
         assert response.status_code == 200
         mock_create_linear_ticket.assert_called_once()

@@ -1,5 +1,6 @@
 import asyncio
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 from demetra.settings import LINEAR
@@ -19,6 +20,15 @@ async def live_stream(
         if not disable_stdio:
             sys.stdout.write(decoded)
             sys.stdout.flush()
+
+
+async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) -> None:
+    while True:
+        if not (line := await stream.readline()):
+            break
+
+        decoded = line.decode()
+        logger_callable(decoded)
 
 
 async def is_package_installed(target_path: Path, package_name: str) -> bool:
