@@ -1,7 +1,10 @@
+import os
+import tempfile
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
+from starlette.testclient import WebSocketDisconnect
 
 
 @pytest.fixture
@@ -146,3 +149,68 @@ class TestApiEndpoint:
         mock_create_linear_ticket.assert_called_once()
         call_args = mock_create_linear_ticket.call_args
         assert call_args.kwargs["title"] == mock_groq.return_value["title"]
+
+
+class TestWatcherLogsWebSocket:
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_missing_auth_token(self):
+        from demetra.api import app
+
+        with pytest.raises((WebSocketDisconnect, Exception)):
+            with TestClient(app).websocket_connect("/api/v1/watcher/logs") as _:
+                pass
+
+    @pytest.mark.asyncio
+    async def test_websocket_rejects_invalid_auth_token(self):
+        from demetra.api import app
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = None
+
+            with pytest.raises((WebSocketDisconnect, Exception)):
+                with TestClient(app).websocket_connect(
+                    "/api/v1/watcher/logs", cookies={"auth_token": "invalid_token"}
+                ) as _:
+                    pass
+
+    @pytest.mark.asyncio
+    async def test_websocket_streams_logs(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
+        from demetra.api import app
+
+        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log") as f:
+            temp_log_path = f.name
+
+        try:
+            with patch.dict(os.environ, {"LOG_PATH": temp_log_path}):
+                with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                    mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+
+                    with TestClient(app).websocket_connect(
+                        "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
+                    ) as _:
+                        pass
+
+        finally:
+            os.unlink(temp_log_path)
+
+    @pytest.mark.asyncio
+    async def test_websocket_fails_on_missing_log_file(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
+        from demetra.api import app
+
+        with patch.dict(os.environ, {"LOG_PATH": "/nonexistent/path/logs.log"}):
+            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser"}
+
+                with pytest.raises((WebSocketDisconnect, Exception)):
+                    with TestClient(app).websocket_connect(
+                        "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
+                    ) as _:
+                        pass

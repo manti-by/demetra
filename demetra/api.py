@@ -1,6 +1,11 @@
+import asyncio
 import json
+import logging
+import os
+from pathlib import Path
 
-from fastapi import Cookie, FastAPI, HTTPException, Response
+import aiofiles
+from fastapi import Cookie, FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 
 from demetra.library.models import TicketRequest, TicketResponse, UserResponse
@@ -11,6 +16,7 @@ from demetra.services.auth import (
     get_current_user,
     get_github_auth_url,
     get_github_user,
+    has_permission,
     logout,
 )
 from demetra.services.groq import process_text_with_groq
@@ -104,3 +110,58 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
     return TicketResponse(**ticket)
+
+
+@app.websocket("/api/v1/watcher/logs")
+async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None)):
+    if not auth_token:
+        await websocket.close(code=4001, reason="Not authenticated")
+        return
+
+    user = await get_current_user(auth_token)
+    if not user:
+        await websocket.close(code=4001, reason="Invalid or expired token")
+        return
+
+    if not has_permission(user, "view_logs"):
+        await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
+        return
+
+    log_path = Path(os.getenv("LOG_PATH", "/var/log/demetra/demetra.log"))
+
+    if not log_path.exists():
+        await websocket.close(code=4004, reason="Log file not found")
+        return
+
+    await websocket.accept()
+
+    try:
+        async with aiofiles.open(log_path) as f:
+            await f.seek(0, os.SEEK_END)
+            current_position = await f.tell()
+
+            while True:
+                await asyncio.sleep(0.5)
+
+                async with aiofiles.open(log_path) as file:
+                    await file.seek(0, os.SEEK_END)
+                    file_size = await file.tell()
+
+                    if current_position > file_size:
+                        current_position = file_size
+
+                    await file.seek(current_position)
+                    new_content = await file.read()
+                    current_position = await file.tell()
+
+                if new_content:
+                    lines = new_content.strip().split("\n")
+                    for line in lines:
+                        if line:
+                            await websocket.send_text(line)
+    except WebSocketDisconnect:
+        pass
+    except OSError as e:
+        logging.exception("Error streaming logs: %s", e)
+        await websocket.close(code=4002, reason=f"Stream error: {e}")
+        return

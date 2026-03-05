@@ -96,3 +96,4 @@ class UserResponse:
     id: str
     github_username: str
     email: str | None
+    role: str = "user"
