@@ -112,14 +112,13 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
     return TicketResponse(**ticket)
 
 
-@app.websocket("/api/v1/watcher/logs")
-async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None), token: str | None = None):
-    actual_token = auth_token or token
-    if not actual_token:
+@app.websocket("/ws/v1/watcher/logs")
+async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None)):
+    if not auth_token:
         await websocket.close(code=4001, reason="Not authenticated")
         return
 
-    user = await get_current_user(actual_token)
+    user = await get_current_user(auth_token)
     if not user:
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
@@ -136,6 +135,14 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
     await websocket.accept()
 
     try:
+        async with aiofiles.open(log_path) as f:
+            content = await f.read()
+            lines = content.strip().split("\n")
+            last_10_lines = lines[-10:] if len(lines) > 10 else lines
+            for line in last_10_lines:
+                if line:
+                    await websocket.send_text(line)
+
         async with aiofiles.open(log_path) as f:
             await f.seek(0, os.SEEK_END)
             current_position = await f.tell()

@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
 
 interface LogMessage {
   timestamp: string;
   message: string;
-  type: 'info' | 'error' | 'success';
+  type: "info" | "error" | "success";
 }
 
 const formatTimestamp = (ts: string): string => {
   const date = new Date(ts);
-  const h = String(date.getHours()).padStart(2, '0');
-  const m = String(date.getMinutes()).padStart(2, '0');
-  const s = String(date.getSeconds()).padStart(2, '0');
+  const h = String(date.getHours()).padStart(2, "0");
+  const m = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
   return `${h}:${m}:${s}`;
 };
 
@@ -24,7 +24,9 @@ const LogLine = ({ log }: { log: LogMessage }) => (
   </div>
 );
 
-const EmptyLog = () => <div className="log-empty">Waiting for log events...</div>;
+const EmptyLog = () => (
+  <div className="log-empty">Waiting for log events...</div>
+);
 
 export function LogConsole() {
   const [logs, setLogs] = useState<LogMessage[]>([]);
@@ -35,11 +37,11 @@ export function LogConsole() {
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const cachedToken = localStorage.getItem('auth_token');
+    const cachedToken = localStorage.getItem("auth_token");
     tokenRef.current = cachedToken;
     if (!cachedToken) return;
 
-    const wsUrl = `${API_URL.replace(/^http/, 'ws')}/api/v1/watcher/logs?token=${cachedToken}`;
+    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?token=${cachedToken}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -54,9 +56,13 @@ export function LogConsole() {
 
       try {
         const data = JSON.parse(event.data);
-        addLog({ ...data, type: data.type || 'info' });
+        addLog({ ...data, type: data.type || "info" });
       } catch {
-        addLog({ message: event.data, type: 'info', timestamp: new Date().toISOString() });
+        addLog({
+          message: event.data,
+          type: "info",
+          timestamp: new Date().toISOString(),
+        });
       }
     };
 
@@ -66,7 +72,7 @@ export function LogConsole() {
   }, []);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [logs.length]);
 
   const clearLogs = useCallback((e: React.MouseEvent) => {
@@ -80,20 +86,24 @@ export function LogConsole() {
 
   const logElements = useMemo(
     () => logs.map((log, i) => <LogLine key={i} log={log} />),
-    [logs]
+    [logs],
   );
 
-  const indicatorClass = connected ? 'log-indicator connected' : 'log-indicator';
+  const indicatorClass = connected
+    ? "log-indicator connected"
+    : "log-indicator";
 
   return (
-    <div className={`log-console ${collapsed ? 'collapsed' : ''}`}>
+    <div className={`log-console ${collapsed ? "collapsed" : ""}`}>
       <div className="log-header" onClick={toggleCollapsed}>
         <span className="log-title">
           <span className={indicatorClass} />
           System Logs
         </span>
         <div className="log-actions">
-          <button className="log-btn" onClick={clearLogs}>Clear</button>
+          <button className="log-btn" onClick={clearLogs}>
+            Clear
+          </button>
         </div>
       </div>
       {!collapsed && (

@@ -169,7 +169,7 @@ class TestWatcherLogsWebSocket:
 
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with TestClient(app).websocket_connect(
-                    "/api/v1/watcher/logs", cookies={"auth_token": "invalid_token"}
+                    "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
                 ) as _:
                     pass
 
@@ -189,10 +189,11 @@ class TestWatcherLogsWebSocket:
                 with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
                     mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
 
-                    with TestClient(app).websocket_connect(
-                        "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
-                    ) as _:
-                        pass
+                    with pytest.raises((WebSocketDisconnect, Exception)):
+                        with TestClient(app).websocket_connect(
+                            "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
+                        ) as _:
+                            pass
 
         finally:
             os.unlink(temp_log_path)

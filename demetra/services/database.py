@@ -68,6 +68,7 @@ async def init_db() -> None:
                 github_id TEXT UNIQUE NOT NULL,
                 github_username TEXT NOT NULL,
                 email TEXT,
+                role TEXT NOT NULL DEFAULT 'user',
                 created_at TEXT NOT NULL
             )
             """
@@ -263,10 +264,10 @@ async def create_user(github_id: str, github_username: str, email: str | None) -
     async with get_connection() as connection:
         await connection.execute(
             """
-            INSERT INTO users (id, github_id, github_username, email, created_at)
-            VALUES (%s, %s, %s, %s, %s)
+            INSERT INTO users (id, github_id, github_username, email, role, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (user_id, github_id, github_username, email, now),
+            (user_id, github_id, github_username, email, "user", now),
         )
         await connection.commit()
     return user_id

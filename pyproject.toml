@@ -21,6 +21,7 @@ dependencies = [
     "rq>=2.7.0",
     "redis>=7.2.1",
     "uvicorn>=0.41.0",
+    "websockets>=16.0",
 ]
 
 [dependency-groups]

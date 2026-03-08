@@ -13,7 +13,7 @@ ExecStart=/home/manti/.bun/bin/bun run preview
 StandardOutput=file:/var/log/demetra/hera-stdout.log
 StandardError=file:/var/log/demetra/hera-stderr.log
 KillSignal=SIGINT
-TimeoutStopSec=300
+TimeoutStopSec=30
 RestartSec=10
 Environment=NODE_ENV=production
 

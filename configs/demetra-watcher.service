@@ -13,7 +13,7 @@ ExecStart=/home/manti/www/demetra/.venv/bin/python -m demetra.watcher
 StandardOutput=file:/var/log/demetra/watcher-stdout.log
 StandardError=file:/var/log/demetra/watcher-stderr.log
 KillSignal=SIGINT
-TimeoutStopSec=300
+TimeoutStopSec=30
 RestartSec=10
 
 [Install]
