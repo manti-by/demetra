@@ -104,7 +104,7 @@ class TestApiEndpoint:
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "  "}, cookies=auth_cookie)
+        response = client.post("/api/v1/tickets", json={"text": "  "}, cookies=auth_cookie)
 
         assert response.status_code == 400
         assert response.json()["detail"] == "Text cannot be empty"
@@ -128,7 +128,7 @@ class TestApiEndpoint:
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"}, cookies=auth_cookie)
+        response = client.post("/api/v1/tickets", json={"text": "Add user auth"}, cookies=auth_cookie)
 
         assert response.status_code == 200
         assert response.json()["identifier"] == linear_identifier
@@ -143,7 +143,7 @@ class TestApiEndpoint:
         from demetra.api import app
 
         client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={"text": "Add user auth"}, cookies=auth_cookie)
+        response = client.post("/api/v1/tickets", json={"text": "Add user auth"}, cookies=auth_cookie)
 
         assert response.status_code == 200
         mock_create_linear_ticket.assert_called_once()
