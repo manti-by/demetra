@@ -22,7 +22,7 @@ from demetra.services.auth import (
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name
-from demetra.settings import LINEAR
+from demetra.settings import LINEAR, LOGGING
 
 
 app = FastAPI(title="Demetra API")
@@ -85,7 +85,7 @@ async def github_logout(response: Response, auth_token: str | None = Cookie(defa
     return response
 
 
-@app.post("/api/v1/tickets/", response_model=TicketResponse)
+@app.post("/api/v1/tickets", response_model=TicketResponse)
 async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -113,12 +113,13 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
 
 
 @app.websocket("/api/v1/watcher/logs")
-async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None)):
-    if not auth_token:
+async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None), token: str | None = None):
+    actual_token = auth_token or token
+    if not actual_token:
         await websocket.close(code=4001, reason="Not authenticated")
         return
 
-    user = await get_current_user(auth_token)
+    user = await get_current_user(actual_token)
     if not user:
         await websocket.close(code=4001, reason="Invalid or expired token")
         return
@@ -127,8 +128,7 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
         await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
         return
 
-    log_path = Path(os.getenv("LOG_PATH", "/var/log/demetra/demetra.log"))
-
+    log_path = Path(LOGGING["handlers"]["file"]["filename"])
     if not log_path.exists():
         await websocket.close(code=4004, reason="Log file not found")
         return

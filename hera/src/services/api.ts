@@ -6,6 +6,11 @@ export interface User {
   email: string;
 }
 
+export interface AuthResponse {
+  token: string;
+  user: User;
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   try {
     const response = await fetch(`${API_URL}/api/v1/github/me`, {
@@ -21,7 +26,20 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
+export async function exchangeCodeForToken(code: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/github/callback?code=${code}`, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to exchange code');
+  }
+  return response.json();
+}
+
 export async function logout(): Promise<void> {
+  localStorage.removeItem('auth_token');
+  localStorage.removeItem('user');
   try {
     await fetch(`${API_URL}/api/v1/github/logout`, {
       method: 'POST',

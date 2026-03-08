@@ -1,12 +1,13 @@
 import asyncio
-import logging
+import logging.config
 
 from demetra.services.database import init_db
 from demetra.services.linear import get_todo_issues
 from demetra.services.watcher import process_tasks
+from demetra.settings import LOGGING
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
 POLL_INTERVAL = 300

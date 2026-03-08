@@ -28,7 +28,7 @@ PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 5))
 
-LOGGING = {
+LOGGING: dict = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
@@ -103,7 +103,7 @@ GITHUB: GitHubConfig = {
 GITHUB_OAUTH: GitHubOAuthConfig = {
     "client_id": os.environ.get("GITHUB_CLIENT_ID"),
     "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
-    "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demeta.manti.by/api/v1/github/callback"),
+    "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demetra.manti.by/github/callback"),
     "oauth_url": "https://github.com/login/oauth/authorize",
     "token_url": "https://github.com/login/oauth/access_token",
     "user_url": "https://api.github.com/user",
