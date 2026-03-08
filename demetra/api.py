@@ -3,9 +3,10 @@ import json
 import logging
 import os
 from pathlib import Path
+from typing import Annotated
 
 import aiofiles
-from fastapi import Cookie, FastAPI, HTTPException, Response, WebSocket, WebSocketDisconnect
+from fastapi import Cookie, FastAPI, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 
 from demetra.library.models import TicketRequest, TicketResponse, UserResponse
@@ -19,8 +20,10 @@ from demetra.services.auth import (
     has_permission,
     logout,
 )
+from demetra.services.database import get_sessions
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
+from demetra.services.session_logging import get_log_path_by_task_id
 from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR, LOGGING
 
@@ -112,8 +115,34 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
     return TicketResponse(**ticket)
 
 
+@app.get("/api/v1/sessions")
+async def list_sessions(
+    auth_token: str | None = Cookie(default=None),
+    status: Annotated[str | None, Query()] = None,
+):
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = await get_current_user(auth_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    if not has_permission(user, "view_logs"):
+        raise HTTPException(status_code=403, detail="Forbidden: insufficient permissions")
+
+    if status and status not in ("pending", "processed", "failed"):
+        raise HTTPException(status_code=400, detail="Invalid status. Must be one of: pending, processed, failed")
+
+    sessions = await get_sessions(status)
+    return sessions
+
+
 @app.websocket("/ws/v1/watcher/logs")
-async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(default=None)):
+async def watcher_logs(
+    websocket: WebSocket,
+    auth_token: str | None = Cookie(default=None),
+    session_id: Annotated[str | None, Query()] = None,
+):
     if not auth_token:
         await websocket.close(code=4001, reason="Not authenticated")
         return
@@ -127,10 +156,16 @@ async def watcher_logs(websocket: WebSocket, auth_token: str | None = Cookie(def
         await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
         return
 
-    log_path = Path(LOGGING["handlers"]["file"]["filename"])
-    if not log_path.exists():
-        await websocket.close(code=4004, reason="Log file not found")
-        return
+    if session_id:
+        log_path = get_log_path_by_task_id(session_id)
+        if not log_path or not log_path.exists():
+            await websocket.close(code=4004, reason="Session log file not found")
+            return
+    else:
+        log_path = Path(LOGGING["handlers"]["file"]["filename"])
+        if not log_path.exists():
+            await websocket.close(code=4004, reason="Log file not found")
+            return
 
     await websocket.accept()
 
