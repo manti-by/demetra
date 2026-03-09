@@ -2,6 +2,7 @@ import asyncio
 import json
 import logging
 import os
+import re
 from pathlib import Path
 from typing import Annotated
 
@@ -25,6 +26,9 @@ from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR, LOG_DIR, LOGGING
+
+
+UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
 
 
 app = FastAPI(title="Demetra API")
@@ -155,9 +159,11 @@ async def watcher_logs(
         await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
         return
 
+    if not UUID_PATTERN.match(str(task_id)):
+        raise ValueError(f"Invalid task_id format: {task_id}")
+
     log_path = Path(LOGGING["handlers"]["file"]["filename"])
-    if task_id:
-        log_path = LOG_DIR / f"sessions/{task_id}.log"
+    log_path = LOG_DIR / f"sessions/{task_id}.log"
 
     if not log_path.exists():
         await websocket.close(code=4004, reason="Session log file not found")

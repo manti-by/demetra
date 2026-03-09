@@ -52,7 +52,7 @@ async def get_project_id_by_name(name: str) -> str | None:
     }.get(name.strip().lower())
 
 
-async def setup_session_logging(logger: Logger, task_id: str):
+async def setup_session_logging(logger: Logger, task_id: str) -> None:
     session_log_path = str(LOG_DIR / f"sessions/{task_id}.log")
     if LOGGING["handlers"]["file"]["filename"] == session_log_path:
         return
