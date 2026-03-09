@@ -50,6 +50,8 @@ LOGGING: dict = {
     },
 }
 
+LOG_DIR = Path(os.getenv("LOG_DIR", "/var/log/demetra/sessions"))
+
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
 
 LINEAR: LinearConfig = {

@@ -171,6 +171,32 @@ async def mark_session_posted(task_id: str) -> None:
         await connection.commit()
 
 
+async def get_sessions(status: str | None = None) -> list[dict]:
+    async with get_connection() as connection:
+        if status:
+            cursor = await connection.execute(
+                """
+                SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                FROM sessions s
+                LEFT JOIN task_status t ON s.task_id = t.task_id
+                WHERE t.status = %s
+                ORDER BY s.created_at DESC
+                """,
+                (status,),
+            )
+        else:
+            cursor = await connection.execute(
+                """
+                SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                FROM sessions s
+                LEFT JOIN task_status t ON s.task_id = t.task_id
+                ORDER BY s.created_at DESC
+                """,
+            )
+        rows: dict = await cursor.fetchall()  # ty: ignore[invalid-assignment]
+    return [dict(row) for row in rows]
+
+
 async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:
     expires_at = datetime.now(UTC).timestamp() + expires_in
     async with get_connection() as connection:

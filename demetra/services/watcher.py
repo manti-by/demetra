@@ -1,5 +1,6 @@
 import asyncio
-import logging
+import logging.config
+import os
 import sys
 
 from rq.job import Job
@@ -13,18 +14,27 @@ from demetra.services.database import (
 )
 from demetra.services.queue import queue
 from demetra.services.utils import log_stream
-from demetra.settings import BASE_PATH
+from demetra.settings import BASE_PATH, LOG_DIR, LOGGING
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 60 * 60
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
+    if not task_id:
+        logger.error(f"Task ID is empty: {task_id}")
+        return False
+
     process = None
     try:
+        env = os.environ.copy()
+        log_path = LOG_DIR / f"sessions/{task_id}.log"
+        log_path.mkdir(parents=True, exist_ok=True)
+        env["LOG_PATH"] = str(log_path)
+
         process = await asyncio.create_subprocess_exec(
             sys.executable,
             str(BASE_PATH / "main.py"),
@@ -34,6 +44,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
             task_id,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            env=env,
         )
 
         if process.stdout and process.stderr:
