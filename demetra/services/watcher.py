@@ -1,5 +1,5 @@
 import asyncio
-import logging
+import logging.config
 import os
 import sys
 
@@ -13,23 +13,25 @@ from demetra.services.database import (
     mark_task_processed,
 )
 from demetra.services.queue import queue
-from demetra.services.session_logging import get_session_log_path, rename_temp_log
 from demetra.services.utils import log_stream
-from demetra.settings import BASE_PATH
+from demetra.settings import BASE_PATH, LOG_DIR, LOGGING
 
 
-logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 60 * 60
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
+    if not task_id:
+        logger.error(f"Task ID is empty: {task_id}")
+        return False
+
     process = None
-    temp_log_path = get_session_log_path(None)
     try:
         env = os.environ.copy()
-        env["LOG_PATH"] = str(temp_log_path)
+        env["LOG_PATH"] = str(LOG_DIR / f"sessions/{task_id}.log")
 
         process = await asyncio.create_subprocess_exec(
             sys.executable,
@@ -50,9 +52,6 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
             )
 
         _, stderr = await asyncio.wait_for(process.communicate(), timeout=TIMEOUT)
-
-        rename_temp_log(temp_log_path, task_id)
-
         if process.returncode == 0:
             logger.info(f"Workflow completed successfully for task: {task_id}")
             return True

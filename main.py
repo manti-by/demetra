@@ -1,16 +1,21 @@
 import argparse
 import asyncio
+import logging.config
 
 from demetra.library.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
 from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
-from demetra.settings import LINEAR
+from demetra.services.utils import setup_session_logging
+from demetra.settings import LINEAR, LOGGING
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.setup import setup_workflow
 
+
+logging.config.dictConfig(LOGGING)
+logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
@@ -29,6 +34,8 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     if not context:
         print_message("No TODO tasks found", style="error")
         return
+
+    await setup_session_logging(logger=logger, task_id=context.linear_task.id)
 
     is_success = False
     should_update_linear_status = True

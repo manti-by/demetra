@@ -23,9 +23,8 @@ from demetra.services.auth import (
 from demetra.services.database import get_sessions
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
-from demetra.services.session_logging import get_log_path_by_task_id
 from demetra.services.utils import get_project_id_by_name
-from demetra.settings import LINEAR, LOGGING
+from demetra.settings import LINEAR, LOG_DIR, LOGGING
 
 
 app = FastAPI(title="Demetra API")
@@ -141,7 +140,7 @@ async def list_sessions(
 async def watcher_logs(
     websocket: WebSocket,
     auth_token: str | None = Cookie(default=None),
-    session_id: Annotated[str | None, Query()] = None,
+    task_id: Annotated[str | None, Query()] = None,
 ):
     if not auth_token:
         await websocket.close(code=4001, reason="Not authenticated")
@@ -156,16 +155,13 @@ async def watcher_logs(
         await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
         return
 
-    if session_id:
-        log_path = get_log_path_by_task_id(session_id)
-        if not log_path or not log_path.exists():
-            await websocket.close(code=4004, reason="Session log file not found")
-            return
-    else:
-        log_path = Path(LOGGING["handlers"]["file"]["filename"])
-        if not log_path.exists():
-            await websocket.close(code=4004, reason="Log file not found")
-            return
+    log_path = Path(LOGGING["handlers"]["file"]["filename"])
+    if task_id:
+        log_path = LOG_DIR / f"sessions/{task_id}.log"
+
+    if not log_path.exists():
+        await websocket.close(code=4004, reason="Session log file not found")
+        return
 
     await websocket.accept()
 

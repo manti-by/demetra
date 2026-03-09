@@ -1,9 +1,11 @@
 import asyncio
+import logging
 import sys
 from collections.abc import Callable
+from logging import Logger
 from pathlib import Path
 
-from demetra.settings import LINEAR
+from demetra.settings import LINEAR, LOG_DIR, LOGGING
 
 
 async def live_stream(
@@ -48,3 +50,16 @@ async def get_project_id_by_name(name: str) -> str | None:
         "demetra": LINEAR["projects"]["demetra"],
         "coruscant": LINEAR["projects"]["coruscant"],
     }.get(name.strip().lower())
+
+
+async def setup_session_logging(logger: Logger, task_id: str):
+    session_log_path = str(LOG_DIR / f"sessions/{task_id}.log")
+    if LOGGING["handlers"]["file"]["filename"] == session_log_path:
+        return
+
+    file_handler = logging.FileHandler(session_log_path)
+    file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
+    file_handler.setFormatter(LOGGING["handlers"]["file"]["formatter"])
+
+    logger.handlers.clear()
+    logger.addHandler(file_handler)
