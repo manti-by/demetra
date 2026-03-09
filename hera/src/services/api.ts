@@ -66,3 +66,24 @@ export async function updateUserKeys(keys: Record<string, string>): Promise<void
     throw new Error(error.detail || 'Failed to update keys');
   }
 }
+
+export interface Session {
+  task_id: string;
+  session_id: string;
+  build_plan: string | null;
+  posted_to_linear: boolean;
+  created_at: string;
+  updated_at: string;
+  status: string | null;
+}
+
+export async function getSessions(status?: string): Promise<Session[]> {
+  const params = status ? `?status=${status}` : '';
+  const response = await fetch(`${API_URL}/api/v1/sessions${params}`, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch sessions');
+  }
+  return response.json();
+}

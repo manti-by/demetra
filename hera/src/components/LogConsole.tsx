@@ -28,7 +28,15 @@ const EmptyLog = () => (
   <div className="log-empty">Waiting for log events...</div>
 );
 
-export function LogConsole() {
+const SelectSession = () => (
+  <div className="log-empty">Select a session</div>
+);
+
+interface LogConsoleProps {
+  taskId?: string | null;
+}
+
+export function LogConsole({ taskId }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -37,11 +45,14 @@ export function LogConsole() {
   const tokenRef = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!taskId) return;
+
     const cachedToken = localStorage.getItem("auth_token");
     tokenRef.current = cachedToken;
     if (!cachedToken) return;
 
-    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?token=${cachedToken}`;
+    setLogs([]);
+    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?task_id=${taskId}&token=${cachedToken}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -69,7 +80,7 @@ export function LogConsole() {
     return () => {
       ws.close();
     };
-  }, []);
+  }, [taskId]);
 
   useEffect(() => {
     logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,12 +104,14 @@ export function LogConsole() {
     ? "log-indicator connected"
     : "log-indicator";
 
+  const logTitle = taskId ? `Session: ${taskId.slice(0, 8)}` : "Session Logs";
+
   return (
     <div className={`log-console ${collapsed ? "collapsed" : ""}`}>
       <div className="log-header" onClick={toggleCollapsed}>
         <span className="log-title">
           <span className={indicatorClass} />
-          System Logs
+          {logTitle}
         </span>
         <div className="log-actions">
           <button className="log-btn" onClick={clearLogs}>
@@ -108,7 +121,7 @@ export function LogConsole() {
       </div>
       {!collapsed && (
         <div className="log-content">
-          {logs.length === 0 ? <EmptyLog /> : logElements}
+          {!taskId ? <SelectSession /> : logs.length === 0 ? <EmptyLog /> : logElements}
           <div ref={logsEndRef} />
         </div>
       )}
