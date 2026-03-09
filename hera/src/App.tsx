@@ -1,8 +1,9 @@
-import { lazy, Suspense, useCallback } from 'react';
+import { lazy, Suspense, useCallback, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GitHubLoginButton } from './components/GitHubLoginButton';
 import { Header } from './components/Header';
+import { UserSettings } from './components/UserSettings';
 import './App.css';
 
 const GitHubCallback = lazy(() => import('./pages/GitHubCallback').then(m => ({ default: m.GitHubCallback })));
@@ -31,11 +32,20 @@ function LoginView() {
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const handleLogout = useCallback(async () => {
     await logout();
     window.location.reload();
   }, [logout]);
+
+  const handleOpenSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
+  const handleCloseSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
 
   if (loading) {
     return <LoadingSpinner />;
@@ -43,7 +53,7 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Header user={user} onLogout={handleLogout} />
+      <Header user={user} onLogout={handleLogout} onOpenSettings={handleOpenSettings} />
       <main className="main-content">
         {user ? (
           <Suspense fallback={<div className="loading-container"><div className="loading-spinner" /></div>}>
@@ -53,6 +63,7 @@ function AppContent() {
           <LoginView />
         )}
       </main>
+      <UserSettings isOpen={settingsOpen} onClose={handleCloseSettings} />
     </div>
   );
 }

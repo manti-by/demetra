@@ -53,3 +53,16 @@ export async function logout(): Promise<void> {
 export function login(): void {
   window.location.href = `${API_URL}/api/v1/github/login`;
 }
+
+export async function updateUserKeys(keys: Record<string, string>): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/users/me/keys`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ keys }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update keys');
+  }
+}
