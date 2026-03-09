@@ -121,3 +121,7 @@ GROQ: GroqConfig = {
     "api_key": os.environ.get("GROQ_API_KEY"),
     "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
 }
+
+SECRET_KEY = os.environ.get("SECRET_KEY")
+
+ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")

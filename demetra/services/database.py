@@ -69,6 +69,7 @@ async def init_db() -> None:
                 github_username TEXT NOT NULL,
                 email TEXT,
                 role TEXT NOT NULL DEFAULT 'user',
+                keys TEXT,
                 created_at TEXT NOT NULL
             )
             """
@@ -336,4 +337,16 @@ async def get_jwt_token(token: str) -> dict | None:
 async def delete_jwt_token(token: str) -> None:
     async with get_connection() as connection:
         await connection.execute("DELETE FROM jwt_tokens WHERE token = %s", (token,))
+        await connection.commit()
+
+
+async def update_user_keys(user_id: str, keys: dict) -> None:
+    from demetra.services.encryption import encrypt
+
+    encrypted_keys = encrypt(keys)
+    async with get_connection() as connection:
+        await connection.execute(
+            "UPDATE users SET keys = %s WHERE id = %s",
+            (encrypted_keys, user_id),
+        )
         await connection.commit()

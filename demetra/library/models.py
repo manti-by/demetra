@@ -97,3 +97,8 @@ class UserResponse:
     github_username: str
     email: str | None
     role: str = "user"
+
+
+@dataclass
+class UserKeysUpdateRequest:
+    keys: dict

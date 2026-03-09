@@ -10,7 +10,7 @@ import aiofiles
 from fastapi import Cookie, FastAPI, HTTPException, Query, Response, WebSocket, WebSocketDisconnect
 from fastapi.responses import RedirectResponse
 
-from demetra.library.models import TicketRequest, TicketResponse, UserResponse
+from demetra.library.models import TicketRequest, TicketResponse, UserKeysUpdateRequest, UserResponse
 from demetra.services.auth import (
     AuthError,
     authenticate_user,
@@ -21,7 +21,7 @@ from demetra.services.auth import (
     has_permission,
     logout,
 )
-from demetra.services.database import get_sessions
+from demetra.services.database import get_sessions, update_user_keys
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name
@@ -79,6 +79,23 @@ async def get_me(auth_token: str | None = Cookie(default=None)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     return user
+
+
+@app.patch("/api/v1/users/me/keys")
+async def update_user_keys_endpoint(
+    request: UserKeysUpdateRequest,
+    auth_token: str | None = Cookie(default=None),
+):
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = await get_current_user(auth_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    await update_user_keys(user.id, request.keys)
+
+    return {"message": "Keys updated successfully"}
 
 
 @app.post("/api/v1/github/logout")
