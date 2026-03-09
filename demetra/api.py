@@ -3,7 +3,6 @@ import json
 import logging
 import os
 import re
-from pathlib import Path
 from typing import Annotated
 
 import aiofiles
@@ -25,7 +24,7 @@ from demetra.services.database import get_sessions, update_user_keys
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
 from demetra.services.utils import get_project_id_by_name
-from demetra.settings import LINEAR, LOG_DIR, LOGGING
+from demetra.settings import LINEAR, LOG_DIR
 
 
 UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
@@ -180,12 +179,8 @@ async def watcher_logs(
         await websocket.close(code=4000, reason="Invalid or missing task_id")
         return
 
-    log_path = Path(LOGGING["handlers"]["file"]["filename"])
     log_path = LOG_DIR / f"sessions/{task_id}.log"
-
-    if not log_path.exists():
-        await websocket.close(code=4004, reason="Session log file not found")
-        return
+    log_path.mkdir(parents=True, exist_ok=True)
 
     await websocket.accept()
 

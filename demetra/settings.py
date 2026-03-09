@@ -24,9 +24,13 @@ DB_USER = os.environ.get("DB_USER", "demetra")
 DB_NAME = os.environ.get("DB_NAME", "demetra")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 
-PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www"))
+PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 5))
+
+LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
+
+LOG_DIR = LOG_PATH.parent
 
 LOGGING: dict = {
     "version": 1,
@@ -41,7 +45,7 @@ LOGGING: dict = {
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
-            "filename": os.getenv("LOG_PATH", "/var/log/demetra/demetra.log"),
+            "filename": LOG_PATH,
             "formatter": "standard",
         },
     },
@@ -49,8 +53,6 @@ LOGGING: dict = {
         "": {"handlers": ["file"], "level": "INFO", "propagate": True},
     },
 }
-
-LOG_DIR = Path(os.getenv("LOG_DIR", "/var/log/demetra/sessions"))
 
 REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
 
@@ -81,25 +83,25 @@ LINEAR: LinearConfig = {
 }
 
 OPENCODE: OpenCodeConfig = {
-    "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")),
+    "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
     "model": os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free"),
 }
 
 CURSOR: CursorConfig = {
-    "path": Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent")),
+    "path": Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent")).resolve(),
 }
 
 CODERABBIT: CodeRabbitConfig = {
-    "path": Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit")),
+    "path": Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit")).resolve(),
 }
 
 GIT: GitConfig = {
-    "path": Path(os.environ.get("GIT_PATH", "/usr/bin/git")),
-    "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")),
+    "path": Path(os.environ.get("GIT_PATH", "/usr/bin/git")).resolve(),
+    "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")).resolve(),
 }
 
 GITHUB: GitHubConfig = {
-    "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")),
+    "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")).resolve(),
 }
 
 GITHUB_OAUTH: GitHubOAuthConfig = {

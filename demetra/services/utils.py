@@ -53,11 +53,11 @@ async def get_project_id_by_name(name: str) -> str | None:
 
 
 async def setup_session_logging(logger: Logger, task_id: str) -> None:
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
     session_log_path = LOG_DIR / f"sessions/{task_id}.log"
+
     if LOGGING["handlers"]["file"]["filename"] == str(session_log_path):
         return
-
-    session_log_path.mkdir(parents=True, exist_ok=True)
 
     file_handler = logging.FileHandler(session_log_path)
     file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
