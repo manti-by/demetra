@@ -124,4 +124,4 @@ GROQ: GroqConfig = {
 
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
-ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT", "demetra_salt")
+ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")
