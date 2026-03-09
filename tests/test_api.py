@@ -215,3 +215,54 @@ class TestWatcherLogsWebSocket:
                         "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
                     ) as _:
                         pass
+
+
+class TestUserKeysEndpoint:
+    def test_update_keys_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.patch("/api/v1/users/me/keys", json={"keys": {"some_key": "some_value"}})
+
+        assert response.status_code == 401
+
+    def test_update_keys_returns_401_with_invalid_token(self):
+        from demetra.api import app
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = None
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.patch(
+                "/api/v1/users/me/keys",
+                json={"keys": {"some_key": "some_value"}},
+                cookies={"auth_token": "invalid_token"},
+            )
+
+            assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_update_keys_returns_success_on_valid_data(
+        self,
+        auth_cookie: dict,
+    ):
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = UserResponse(
+                id="test_user_id",
+                github_username="testuser",
+                email="test@example.com",
+            )
+            with patch("demetra.api.update_user_keys", new_callable=AsyncMock) as mock_update_keys:
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.patch(
+                    "/api/v1/users/me/keys",
+                    json={"keys": {"some_key": "some_value"}},
+                    cookies=auth_cookie,
+                )
+
+                assert response.status_code == 200
+                assert response.json()["message"] == "Keys updated successfully"
+                mock_update_keys.assert_called_once_with("test_user_id", {"some_key": "some_value"})
