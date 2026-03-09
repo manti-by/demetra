@@ -122,7 +122,7 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
 async def list_sessions(
     auth_token: str | None = Cookie(default=None),
     status: Annotated[str | None, Query()] = None,
-):
+) -> list[dict]:
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -145,7 +145,7 @@ async def watcher_logs(
     websocket: WebSocket,
     auth_token: str | None = Cookie(default=None),
     task_id: Annotated[str | None, Query()] = None,
-):
+) -> None:
     if not auth_token:
         await websocket.close(code=4001, reason="Not authenticated")
         return
@@ -159,8 +159,9 @@ async def watcher_logs(
         await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
         return
 
-    if not UUID_PATTERN.match(str(task_id)):
-        raise ValueError(f"Invalid task_id format: {task_id}")
+    if not task_id or not UUID_PATTERN.match(task_id):
+        await websocket.close(code=4000, reason="Invalid or missing task_id")
+        return
 
     log_path = Path(LOGGING["handlers"]["file"]["filename"])
     log_path = LOG_DIR / f"sessions/{task_id}.log"
