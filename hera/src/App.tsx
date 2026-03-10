@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { GitHubLoginButton } from './components/GitHubLoginButton';
 import { Header } from './components/Header';
 import { UserSettings } from './components/UserSettings';
+import { SessionSidebar } from './components/SessionSidebar';
 import './App.css';
 
 const GitHubCallback = lazy(() => import('./pages/GitHubCallback').then(m => ({ default: m.GitHubCallback })));
@@ -33,6 +34,8 @@ function LoginView() {
 function AppContent() {
   const { user, loading, logout } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [sidebarMinimized, setSidebarMinimized] = useState(false);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -47,6 +50,14 @@ function AppContent() {
     setSettingsOpen(false);
   }, []);
 
+  const handleSelectSession = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+  }, []);
+
+  const handleToggleSidebar = useCallback(() => {
+    setSidebarMinimized((prev) => !prev);
+  }, []);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -56,9 +67,17 @@ function AppContent() {
       <Header user={user} onLogout={handleLogout} onOpenSettings={handleOpenSettings} />
       <main className="main-content">
         {user ? (
-          <Suspense fallback={<div className="loading-container"><div className="loading-spinner" /></div>}>
-            <LogConsole />
-          </Suspense>
+          <div className="content-layout">
+            <SessionSidebar
+              onSelectSession={handleSelectSession}
+              selectedTaskId={selectedTaskId}
+              isMinimized={sidebarMinimized}
+              onToggleMinimize={handleToggleSidebar}
+            />
+            <Suspense fallback={<div className="loading-container"><div className="loading-spinner" /></div>}>
+              <LogConsole taskId={selectedTaskId} />
+            </Suspense>
+          </div>
         ) : (
           <LoginView />
         )}
