@@ -32,7 +32,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     try:
         env = os.environ.copy()
         log_path = LOG_DIR / f"sessions/{task_id}.log"
-        log_path.mkdir(parents=True, exist_ok=True)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         env["LOG_PATH"] = str(log_path)
 
         process = await asyncio.create_subprocess_exec(

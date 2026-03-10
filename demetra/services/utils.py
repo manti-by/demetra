@@ -53,8 +53,12 @@ async def get_project_id_by_name(name: str) -> str | None:
 
 
 async def setup_session_logging(logger: Logger, task_id: str) -> None:
-    LOG_DIR.mkdir(parents=True, exist_ok=True)
-    session_log_path = LOG_DIR / f"sessions/{task_id}.log"
+    if LOG_DIR.name == "sessions":
+        session_dir = LOG_DIR
+    else:
+        session_dir = LOG_DIR / "sessions"
+    session_dir.mkdir(parents=True, exist_ok=True)
+    session_log_path = session_dir / f"{task_id}.log"
 
     if LOGGING["handlers"]["file"]["filename"] == str(session_log_path):
         return

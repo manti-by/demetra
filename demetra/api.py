@@ -180,7 +180,9 @@ async def watcher_logs(
         return
 
     log_path = LOG_DIR / f"sessions/{task_id}.log"
-    log_path.mkdir(parents=True, exist_ok=True)
+    if LOG_DIR.name == "sessions":
+        log_path = LOG_DIR / f"{task_id}.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
     await websocket.accept()
 
