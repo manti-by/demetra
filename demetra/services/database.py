@@ -175,16 +175,27 @@ async def mark_session_posted(task_id: str) -> None:
 async def get_sessions(status: str | None = None) -> list[dict]:
     async with get_connection() as connection:
         if status:
-            cursor = await connection.execute(
-                """
-                SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
-                FROM sessions s
-                LEFT JOIN task_status t ON s.task_id = t.task_id
-                WHERE t.status = %s
-                ORDER BY s.created_at DESC
-                """,
-                (status,),
-            )
+            if status == "pending":
+                cursor = await connection.execute(
+                    """
+                    SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                    FROM sessions s
+                    LEFT JOIN task_status t ON s.task_id = t.task_id
+                    WHERE t.status = 'pending' OR t.status IS NULL
+                    ORDER BY s.created_at DESC
+                    """,
+                )
+            else:
+                cursor = await connection.execute(
+                    """
+                    SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                    FROM sessions s
+                    LEFT JOIN task_status t ON s.task_id = t.task_id
+                    WHERE t.status = %s
+                    ORDER BY s.created_at DESC
+                    """,
+                    (status,),
+                )
         else:
             cursor = await connection.execute(
                 """

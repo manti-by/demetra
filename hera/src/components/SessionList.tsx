@@ -41,10 +41,11 @@ export function SessionList({ onSelectSession, selectedTaskId }: SessionListProp
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<string>('');
 
   const fetchSessions = useCallback(async () => {
     try {
-      const data = await getSessions();
+      const data = await getSessions(statusFilter || undefined);
       setSessions(data);
       setError(null);
     } catch (err) {
@@ -52,36 +53,45 @@ export function SessionList({ onSelectSession, selectedTaskId }: SessionListProp
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [statusFilter]);
 
   useEffect(() => {
+    setLoading(true);
     fetchSessions();
     const interval = setInterval(fetchSessions, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
-  if (loading && sessions.length === 0) {
-    return <div className="session-list-loading">Loading sessions...</div>;
-  }
-
-  if (error) {
-    return <div className="session-list-error">{error}</div>;
-  }
-
-  if (sessions.length === 0) {
-    return <div className="session-list-empty">No sessions found</div>;
-  }
+  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    setStatusFilter(e.target.value);
+  };
 
   return (
     <div className="session-list">
-      {sessions.map((session) => (
-        <SessionItem
-          key={session.task_id}
-          session={session}
-          isSelected={selectedTaskId === session.task_id}
-          onClick={() => onSelectSession(session.task_id)}
-        />
-      ))}
+      <div className="session-list-filter">
+        <select value={statusFilter} onChange={handleStatusChange}>
+          <option value="">All statuses</option>
+          <option value="pending">Pending</option>
+          <option value="processed">Processed</option>
+          <option value="failed">Failed</option>
+        </select>
+      </div>
+      {loading && sessions.length === 0 ? (
+        <div className="session-list-loading">Loading sessions...</div>
+      ) : error ? (
+        <div className="session-list-error">{error}</div>
+      ) : sessions.length === 0 ? (
+        <div className="session-list-empty">No sessions found</div>
+      ) : (
+        sessions.map((session) => (
+          <SessionItem
+            key={session.task_id}
+            session={session}
+            isSelected={selectedTaskId === session.task_id}
+            onClick={() => onSelectSession(session.task_id)}
+          />
+        ))
+      )}
     </div>
   );
 }

@@ -838,6 +838,29 @@ body::before {
   padding: 0.5rem;
 }
 
+.session-list-filter {
+  padding: 0.5rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.session-list-filter select {
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: var(--font-body);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.session-list-filter select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
 .session-list::-webkit-scrollbar {
   width: 4px;
 }

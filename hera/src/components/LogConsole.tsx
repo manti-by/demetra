@@ -28,9 +28,7 @@ const EmptyLog = () => (
   <div className="log-empty">Waiting for log events...</div>
 );
 
-const SelectSession = () => (
-  <div className="log-empty">Select a session</div>
-);
+const SelectSession = () => <div className="log-empty">Select a session</div>;
 
 interface LogConsoleProps {
   taskId?: string | null;
@@ -52,7 +50,7 @@ export function LogConsole({ taskId }: LogConsoleProps) {
     if (!cachedToken) return;
 
     setLogs([]);
-    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?task_id=${taskId}&token=${cachedToken}`;
+    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?task_id=${taskId}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 
@@ -121,7 +119,13 @@ export function LogConsole({ taskId }: LogConsoleProps) {
       </div>
       {!collapsed && (
         <div className="log-content">
-          {!taskId ? <SelectSession /> : logs.length === 0 ? <EmptyLog /> : logElements}
+          {!taskId ? (
+            <SelectSession />
+          ) : logs.length === 0 ? (
+            <EmptyLog />
+          ) : (
+            logElements
+          )}
           <div ref={logsEndRef} />
         </div>
       )}
