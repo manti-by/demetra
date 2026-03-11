@@ -64,34 +64,8 @@ class TestOpencodeService:
         assert "plan" in command
 
     @pytest.mark.asyncio
-    async def test_extract_plan_creates_file_when_not_exists(self, tmp_path):
-        from demetra.services.opencode import extract_plan
-
-        plan_output = "some unnecessary text\n## Implementation Plan"
-        assert await extract_plan(plan_output) == "## Implementation Plan"
-
-        plan_output = "\nsome plan text\nReady to proceed to build.\n\n"
-        assert await extract_plan(plan_output) == "some plan text"
-
-    @pytest.mark.asyncio
     async def test_plan_constants_are_defined(self):
         from demetra.services.opencode import PLAN_HAS_QUESTIONS, PLAN_IS_READY_STRING
 
         assert PLAN_IS_READY_STRING == "Ready to proceed to build."
         assert PLAN_HAS_QUESTIONS == "Please check my questions above."
-
-    @pytest.mark.asyncio
-    async def test_extract_plan_strips_ready_string(self):
-        from demetra.services.opencode import PLAN_IS_READY_STRING, extract_plan
-
-        plan_output = f"some plan content\n{PLAN_IS_READY_STRING}\nmore text"
-        result = await extract_plan(plan_output)
-        assert result == "some plan content"
-
-    @pytest.mark.asyncio
-    async def test_extract_plan_strips_questions_string(self):
-        from demetra.services.opencode import PLAN_HAS_QUESTIONS, extract_plan
-
-        plan_output = f"some plan content\n{PLAN_HAS_QUESTIONS}\nmore text"
-        result = await extract_plan(plan_output)
-        assert result == "some plan content"

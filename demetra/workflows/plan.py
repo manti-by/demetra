@@ -2,9 +2,9 @@ from demetra.library.exceptions import AutoCancelledError, UserCancelledError
 from demetra.library.models import Context
 from demetra.services.database import save_session
 from demetra.services.flow import user_input
-from demetra.services.groq import extract_questions
+from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.opencode import extract_plan, get_opencode_session_id, opencode_plan_agent
+from demetra.services.opencode import get_opencode_session_id, opencode_plan_agent
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR
 
@@ -20,7 +20,11 @@ async def run_plan_step(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
         )
 
-        build_plan = await extract_plan(plan_output=plan_output)
+        build_plan = await extract_plan(
+            plan_output=plan_output,
+            task_description=context.linear_task.description,
+            comments=context.linear_task.comments,
+        )
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None

@@ -42,3 +42,21 @@ async def process_text_with_groq(text: str) -> dict[str, str]:
         "acceptance_criteria": "",
         "project_name": "",
     }
+
+
+async def extract_plan(plan_output: str, task_description: str, comments: list[str]) -> str:
+    task_description_full = (
+        f"{task_description}\n\nComments:\n{chr(10).join(comments)}" if comments else task_description
+    )
+
+    llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=2048, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="summarize_plan")),
+            ("human", "Task Description:\n{task_description}\n\nPlan Output:\n{plan_output}"),
+        ]
+    )
+
+    chain = prompt | llm
+    result = await chain.ainvoke({"task_description": task_description_full, "plan_output": plan_output})
+    return str(result.content)
