@@ -17,7 +17,6 @@ async def run_plan_step(context: Context) -> str | None:
         _, plan_output, _ = await opencode_plan_agent(
             target_path=context.worktree_path,
             task=current_task,
-            session_id=context.session_id,
             task_title=context.linear_task.full_title,
         )
 
@@ -26,13 +25,16 @@ async def run_plan_step(context: Context) -> str | None:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None
 
+        session_id = None
         if context.session_id is None:
-            if session_id := await get_opencode_session_id(
+            session_id = await get_opencode_session_id(
                 target_path=context.worktree_path, task_title=context.linear_task.full_title
-            ):
-                context.session = await save_session(
-                    task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
-                )
+            )
+
+        if session_id:
+            context.session = await save_session(
+                task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
+            )
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")

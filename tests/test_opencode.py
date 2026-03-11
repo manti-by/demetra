@@ -11,9 +11,7 @@ class TestOpencodeService:
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "plan result"
-            result = await opencode_plan_agent(
-                Path("/test/path"), "do something", session_id="session-123", task_title="do something"
-            )
+            result = await opencode_plan_agent(Path("/test/path"), "do something", task_title="do something")
 
         expected_task = (
             "do something"
@@ -24,7 +22,6 @@ class TestOpencodeService:
         mock_run.assert_called_once_with(
             target_path=Path("/test/path"),
             task=expected_task,
-            session_id="session-123",
             task_title="do something",
             agent="plan",
         )
