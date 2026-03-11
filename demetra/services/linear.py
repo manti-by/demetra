@@ -7,6 +7,11 @@ from demetra.services.tui import print_message
 from demetra.settings import LINEAR
 
 
+def _extract_comments(issue: dict) -> list[str]:
+    comments = issue.get("comments", {}).get("nodes", [])
+    return [comment.get("body", "") for comment in comments if comment.get("body")]
+
+
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
     result = await graphql_request(query, {"teamId": LINEAR["team_id"]})
@@ -30,6 +35,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
                             created_at=issue["createdAt"],
                             branch_name=issue["branchName"],
                             project_name=issue_project_name,
+                            comments=_extract_comments(issue),
                         )
                     )
     return issues
@@ -53,6 +59,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         created_at=issue["createdAt"],
         branch_name=issue["branchName"],
         project_name=project_name,
+        comments=_extract_comments(issue),
     )
 
 

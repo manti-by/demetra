@@ -11,5 +11,10 @@ query GetIssueById($issueId: String!) {
       id
       name
     }
+    comments {
+      nodes {
+        body
+      }
+    }
   }
 }
