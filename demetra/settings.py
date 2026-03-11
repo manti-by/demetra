@@ -21,6 +21,13 @@ DB_PORT = int(os.environ.get("DB_PORT", 5432))
 DB_USER = os.environ.get("DB_USER", "demetra")
 DB_NAME = os.environ.get("DB_NAME", "demetra")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
+DB_TEST_NAME = os.environ.get("DB_NAME", "demetra")
+if os.environ.get("DB_NAME", "").startswith("test_"):
+    DB_TEST_NAME = os.environ.get("DB_NAME", "test_demetra")
+elif os.environ.get("DB_NAME") == "test_demetra":
+    DB_TEST_NAME = "test_demetra"
+else:
+    DB_TEST_NAME = os.environ.get("DB_TEST_NAME", "test_demetra")
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 

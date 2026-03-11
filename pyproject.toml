@@ -7,6 +7,7 @@ requires-python = ">=3.13.9,<3.14.0"
 dependencies = [
     "aiofiles>=25.1.0",
     "aiohttp>=3.13.3",
+    "alembic>=1.15.2",
     "asyncio>=4.0.0",
     "fastapi>=0.135.1",
     "langchain-groq>=1.1.2",
@@ -20,6 +21,7 @@ dependencies = [
     "ruff>=0.15.5",
     "rq>=2.7.0",
     "redis>=7.3.0",
+    "sqlalchemy[asyncio]>=2.0.48,<2.1.0",
     "uvicorn>=0.41.0",
     "websockets>=16.0",
     "rq-dashboard>=0.8.6",
@@ -27,6 +29,7 @@ dependencies = [
 
 [dependency-groups]
 dev = [
+    "asyncpg>=0.30.0",
     "bandit>=1.9.4",
     "debugpy>=1.8.20",
     "faker>=40.8.0",
