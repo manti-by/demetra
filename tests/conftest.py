@@ -160,6 +160,61 @@ def linear_task_data_demetra() -> dict:
 
 
 @pytest.fixture
+def linear_task_data_with_comments() -> dict:
+    return {
+        "id": f"issue-{uuid4().hex[:8]}",
+        "identifier": f"MNT-{fake.random_int(min=1, max=999)}",
+        "title": fake.sentence(nb_words=4),
+        "description": fake.paragraph(nb_sentences=2),
+        "priority": fake.random_int(min=1, max=4),
+        "createdAt": fake.date_time().isoformat(),
+        "branchName": f"feature/{fake.slug()}",
+        "project": {"name": "demetra"},
+        "comments": {
+            "nodes": [
+                {"body": "First question from the team?"},
+                {"body": "Second question about the implementation?"},
+            ]
+        },
+    }
+
+
+@pytest.fixture
+def linear_task_data_empty_comments() -> dict:
+    return {
+        "id": f"issue-{uuid4().hex[:8]}",
+        "identifier": f"MNT-{fake.random_int(min=1, max=999)}",
+        "title": fake.sentence(nb_words=4),
+        "description": fake.paragraph(nb_sentences=2),
+        "priority": fake.random_int(min=1, max=4),
+        "createdAt": fake.date_time().isoformat(),
+        "branchName": f"feature/{fake.slug()}",
+        "project": {"name": "demetra"},
+        "comments": {"nodes": []},
+    }
+
+
+@pytest.fixture
+def graphql_todo_issues_response_with_comments(linear_task_data_with_comments: dict) -> dict:
+    return {
+        "data": {
+            "team": {
+                "states": {
+                    "nodes": [
+                        {
+                            "name": "Todo",
+                            "issues": {
+                                "nodes": [linear_task_data_with_comments],
+                            },
+                        }
+                    ]
+                }
+            }
+        }
+    }
+
+
+@pytest.fixture
 def linear_task(linear_task_data: dict):
     from demetra.library.models import LinearTask
 

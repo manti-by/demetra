@@ -184,3 +184,94 @@ class TestLinearService:
             result = await post_comment("issue-1", "Test comment")
 
         assert result is False
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_includes_comments(
+        self,
+        graphql_todo_issues_response_with_comments: dict,
+    ):
+        from demetra.services.linear import get_todo_issues
+
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_query.return_value = "query"
+            mock_request.return_value = graphql_todo_issues_response_with_comments
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert len(issues) == 1
+        assert len(issues[0].comments) == 2
+        assert "First question" in issues[0].comments[0]
+        assert "Second question" in issues[0].comments[1]
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_empty_comments(
+        self,
+        graphql_todo_issues_response_demetra: dict,
+    ):
+        from demetra.services.linear import get_todo_issues
+
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_query.return_value = "query"
+            mock_request.return_value = graphql_todo_issues_response_demetra
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert len(issues) == 1
+        assert issues[0].comments == []
+
+    @pytest.mark.asyncio
+    async def test_linear_task_text_includes_comments(
+        self,
+        graphql_todo_issues_response_with_comments: dict,
+    ):
+        from demetra.services.linear import get_todo_issues
+
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_query.return_value = "query"
+            mock_request.return_value = graphql_todo_issues_response_with_comments
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        task_text = issues[0].text
+        assert "Comments:" in task_text
+        assert "First question" in task_text
+        assert "Second question" in task_text

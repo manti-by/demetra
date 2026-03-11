@@ -52,7 +52,9 @@ async def run_plan_step(context: Context) -> str | None:
 
         if context.auto_mode:
             print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
-            await post_comment(task_id=context.linear_task.id, body=f"## Questions:\n- {'\n- '.join(questions)}")
+            for question in questions:
+                if not await post_comment(task_id=context.linear_task.id, body=f"## Question:\n{question}"):
+                    print_message("Failed to post question to Linear", style="error")
 
             await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
             print_message("Task moved to Awaiting Input state.", style="result")

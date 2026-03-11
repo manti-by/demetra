@@ -17,6 +17,11 @@ query GetTodoIssues($teamId: String!) {
               id
               name
             }
+            comments {
+              nodes {
+                body
+              }
+            }
           }
         }
       }
