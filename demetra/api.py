@@ -146,9 +146,6 @@ async def list_sessions(
     if not user:
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    if not has_permission(user, "view_logs"):
-        raise HTTPException(status_code=403, detail="Forbidden: insufficient permissions")
-
     if status and status not in ("pending", "processed", "failed"):
         raise HTTPException(status_code=400, detail="Invalid status. Must be one of: pending, processed, failed")
 

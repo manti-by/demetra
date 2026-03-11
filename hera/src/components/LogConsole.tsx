@@ -37,7 +37,6 @@ interface LogConsoleProps {
 export function LogConsole({ taskId }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
-  const [collapsed, setCollapsed] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef<string | null>(null);
@@ -89,10 +88,6 @@ export function LogConsole({ taskId }: LogConsoleProps) {
     setLogs([]);
   }, []);
 
-  const toggleCollapsed = useCallback(() => {
-    setCollapsed((prev) => !prev);
-  }, []);
-
   const logElements = useMemo(
     () => logs.map((log, i) => <LogLine key={i} log={log} />),
     [logs],
@@ -105,8 +100,8 @@ export function LogConsole({ taskId }: LogConsoleProps) {
   const logTitle = taskId ? `Session: ${taskId.slice(0, 8)}` : "Session Logs";
 
   return (
-    <div className={`log-console ${collapsed ? "collapsed" : ""}`}>
-      <div className="log-header" onClick={toggleCollapsed}>
+    <div className="log-console">
+      <div className="log-header">
         <span className="log-title">
           <span className={indicatorClass} />
           {logTitle}
@@ -117,18 +112,16 @@ export function LogConsole({ taskId }: LogConsoleProps) {
           </button>
         </div>
       </div>
-      {!collapsed && (
-        <div className="log-content">
-          {!taskId ? (
-            <SelectSession />
-          ) : logs.length === 0 ? (
-            <EmptyLog />
-          ) : (
-            logElements
-          )}
-          <div ref={logsEndRef} />
-        </div>
-      )}
+      <div className="log-content">
+        {!taskId ? (
+          <SelectSession />
+        ) : logs.length === 0 ? (
+          <EmptyLog />
+        ) : (
+          logElements
+        )}
+        <div ref={logsEndRef} />
+      </div>
     </div>
   );
 }

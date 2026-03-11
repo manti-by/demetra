@@ -32,26 +32,16 @@ class LinearConfig(TypedDict):
     default_project: str
 
 
-class OpenCodeConfig(TypedDict):
+class PathConfig(TypedDict):
     path: Path
+
+
+class OpenCodeConfig(PathConfig):
     model: str
 
 
-class CursorConfig(TypedDict):
-    path: Path
-
-
-class CodeRabbitConfig(TypedDict):
-    path: Path
-
-
-class GitConfig(TypedDict):
-    path: Path
+class GitConfig(PathConfig):
     worktree_path: Path
-
-
-class GitHubConfig(TypedDict):
-    path: Path
 
 
 class GitHubOAuthConfig(TypedDict):

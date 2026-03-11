@@ -19,7 +19,7 @@ async def test_ruff_checks_success():
 
         assert mock_run.call_count == 1
         call = mock_run.call_args
-        assert call[1]["command"] == ["uv", "run", "--active", "ruff", "check", "--quiet"]
+        assert call[1]["command"][1:] == ["run", "--active", "ruff", "check", "--quiet"]
         assert call[1]["target_path"] == target_path
         assert result == (0, "ruff check output", "")
 

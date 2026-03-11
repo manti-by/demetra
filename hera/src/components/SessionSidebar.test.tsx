@@ -13,86 +13,22 @@ vi.mock('./SessionList', () => ({
 }));
 
 describe('SessionSidebar', () => {
-  it('renders minimized state correctly', () => {
+  it('renders SessionList by default', () => {
     render(
       <SessionSidebar
         onSelectSession={vi.fn()}
         selectedTaskId={null}
-        isMinimized={true}
-        onToggleMinimize={vi.fn()}
-      />
-    );
-    
-    const sidebar = screen.getByRole('complementary');
-    expect(sidebar).toHaveClass('minimized');
-    expect(sidebar).not.toHaveClass('expanded');
-  });
-
-  it('renders expanded state correctly', () => {
-    render(
-      <SessionSidebar
-        onSelectSession={vi.fn()}
-        selectedTaskId={null}
-        isMinimized={false}
-        onToggleMinimize={vi.fn()}
-      />
-    );
-    
-    const sidebar = screen.getByRole('complementary');
-    expect(sidebar).toHaveClass('expanded');
-    expect(sidebar).not.toHaveClass('minimized');
-  });
-
-  it('hides SessionList when minimized', () => {
-    render(
-      <SessionSidebar
-        onSelectSession={vi.fn()}
-        selectedTaskId={null}
-        isMinimized={true}
-        onToggleMinimize={vi.fn()}
-      />
-    );
-    
-    expect(screen.queryByTestId('session-list')).not.toBeInTheDocument();
-  });
-
-  it('shows SessionList when expanded', () => {
-    render(
-      <SessionSidebar
-        onSelectSession={vi.fn()}
-        selectedTaskId={null}
-        isMinimized={false}
-        onToggleMinimize={vi.fn()}
       />
     );
     
     expect(screen.getByTestId('session-list')).toBeInTheDocument();
   });
 
-  it('calls onToggleMinimize when toggle button is clicked', async () => {
-    const onToggleMinimize = vi.fn();
+  it('shows Sessions title', () => {
     render(
       <SessionSidebar
         onSelectSession={vi.fn()}
         selectedTaskId={null}
-        isMinimized={false}
-        onToggleMinimize={onToggleMinimize}
-      />
-    );
-    
-    const toggleButton = screen.getByLabelText('Minimize sidebar');
-    toggleButton.click();
-    
-    expect(onToggleMinimize).toHaveBeenCalled();
-  });
-
-  it('shows Sessions title when expanded', () => {
-    render(
-      <SessionSidebar
-        onSelectSession={vi.fn()}
-        selectedTaskId={null}
-        isMinimized={false}
-        onToggleMinimize={vi.fn()}
       />
     );
     
@@ -104,37 +40,33 @@ describe('SessionSidebar', () => {
       <SessionSidebar
         onSelectSession={vi.fn()}
         selectedTaskId="test-task-123"
-        isMinimized={false}
-        onToggleMinimize={vi.fn()}
       />
     );
     
     expect(screen.getByTestId('selected-task')).toHaveTextContent('test-task-123');
   });
 
-  it('has toggle button with expand label when minimized', () => {
+  it('calls onSelectSession when SessionList triggers it', () => {
+    const onSelectSession = vi.fn();
     render(
       <SessionSidebar
-        onSelectSession={vi.fn()}
+        onSelectSession={onSelectSession}
         selectedTaskId={null}
-        isMinimized={true}
-        onToggleMinimize={vi.fn()}
       />
     );
     
-    expect(screen.getByLabelText('Expand sidebar')).toBeInTheDocument();
+    screen.getByText('Select Test Task').click();
+    expect(onSelectSession).toHaveBeenCalledWith('test-task-id');
   });
 
-  it('has toggle button with minimize label when expanded', () => {
+  it('has toggle button with Sessions label', () => {
     render(
       <SessionSidebar
         onSelectSession={vi.fn()}
         selectedTaskId={null}
-        isMinimized={false}
-        onToggleMinimize={vi.fn()}
       />
     );
     
-    expect(screen.getByLabelText('Minimize sidebar')).toBeInTheDocument();
+    expect(screen.getByLabelText('Sessions')).toBeInTheDocument();
   });
 });

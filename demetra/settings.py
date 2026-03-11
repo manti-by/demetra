@@ -2,15 +2,13 @@ import os
 from pathlib import Path
 
 from demetra.library.types import (
-    CodeRabbitConfig,
-    CursorConfig,
     GitConfig,
-    GitHubConfig,
     GitHubOAuthConfig,
     GroqConfig,
     JWTConfig,
     LinearConfig,
     OpenCodeConfig,
+    PathConfig,
 )
 
 
@@ -87,12 +85,16 @@ OPENCODE: OpenCodeConfig = {
     "model": os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free"),
 }
 
-CURSOR: CursorConfig = {
+CURSOR: PathConfig = {
     "path": Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent")).resolve(),
 }
 
-CODERABBIT: CodeRabbitConfig = {
+CODERABBIT: PathConfig = {
     "path": Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit")).resolve(),
+}
+
+UV: PathConfig = {
+    "path": Path(os.environ.get("UV_PATH", HOME_PATH / ".local/bin/uv")).resolve(),
 }
 
 GIT: GitConfig = {
@@ -100,7 +102,7 @@ GIT: GitConfig = {
     "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")).resolve(),
 }
 
-GITHUB: GitHubConfig = {
+GITHUB: PathConfig = {
     "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")).resolve(),
 }
 

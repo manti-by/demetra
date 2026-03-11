@@ -8,7 +8,7 @@ from demetra.settings import LINEAR
 
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
-    query = await get_query(name="get_todo_issues")
+    query = await get_query(name="get_all_issues")
     result = await graphql_request(query, {"teamId": LINEAR["team_id"]})
     states = result.get("data", {}).get("team", {}).get("states", {}).get("nodes", [])
 
