@@ -1,4 +1,5 @@
 import asyncio
+import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
@@ -18,14 +19,14 @@ from demetra.library.models import Session
 
 
 _engine_cache: dict[tuple[int, str], AsyncEngine] = {}
-_cache_lock = asyncio.Lock()
+_cache_lock = threading.Lock()
 
 
 async def _get_cached_engine(db_name: str | None = None) -> AsyncEngine:
     loop_id = id(asyncio.get_running_loop())
     key = (loop_id, db_name or "default")
     if key not in _engine_cache:
-        async with _cache_lock:
+        with _cache_lock:
             if key not in _engine_cache:
                 _engine_cache[key] = get_async_engine(db_name=db_name)
     return _engine_cache[key]
@@ -191,27 +192,44 @@ async def get_sessions(status: str | None = None) -> list[dict]:
 
 
 async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:
-
     expires_at = datetime.fromtimestamp(datetime.now(UTC).timestamp() + expires_in, tz=UTC)
     async with get_connection() as conn:
-        await conn.execute(
-            text(
-                """
-                INSERT INTO oauth_tokens (service, access_token, refresh_token, expires_at)
-                VALUES (:service, :access_token, :refresh_token, :expires_at)
-                ON CONFLICT (service) DO UPDATE SET
-                    access_token = EXCLUDED.access_token,
-                    refresh_token = EXCLUDED.refresh_token,
-                    expires_at = EXCLUDED.expires_at
-                """
-            ),
-            {
-                "service": service,
-                "access_token": access_token,
-                "refresh_token": refresh_token,
-                "expires_at": expires_at,
-            },
-        )
+        if refresh_token is not None:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO oauth_tokens (service, access_token, refresh_token, expires_at)
+                    VALUES (:service, :access_token, :refresh_token, :expires_at)
+                    ON CONFLICT (service) DO UPDATE SET
+                        access_token = EXCLUDED.access_token,
+                        refresh_token = EXCLUDED.refresh_token,
+                        expires_at = EXCLUDED.expires_at
+                    """
+                ),
+                {
+                    "service": service,
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "expires_at": expires_at,
+                },
+            )
+        else:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO oauth_tokens (service, access_token, expires_at)
+                    VALUES (:service, :access_token, :expires_at)
+                    ON CONFLICT (service) DO UPDATE SET
+                        access_token = EXCLUDED.access_token,
+                        expires_at = EXCLUDED.expires_at
+                    """
+                ),
+                {
+                    "service": service,
+                    "access_token": access_token,
+                    "expires_at": expires_at,
+                },
+            )
         await conn.commit()
 
 
@@ -229,30 +247,25 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
 async def add_pending_task(task_id: str, project_name: str) -> None:
     now = datetime.now(UTC)
     async with get_connection() as conn:
-        result = await conn.execute(select(task_status).where(task_status.c.task_id == task_id))
-        existing_row = result.fetchone()
-        created_at = existing_row.created_at if existing_row else now
-
-        if existing_row:
-            await conn.execute(
-                task_status.update()
-                .where(task_status.c.task_id == task_id)
-                .values(
-                    project_name=project_name,
-                    status="pending",
-                    updated_at=now,
-                )
-            )
-        else:
-            await conn.execute(
-                insert(task_status).values(
-                    task_id=task_id,
-                    project_name=project_name,
-                    status="pending",
-                    created_at=created_at,
-                    updated_at=now,
-                )
-            )
+        await conn.execute(
+            text(
+                """
+                INSERT INTO task_status (task_id, project_name, status, created_at, updated_at)
+                VALUES (:task_id, :project_name, :status, :created_at, :updated_at)
+                ON CONFLICT (task_id) DO UPDATE SET
+                    project_name = EXCLUDED.project_name,
+                    status = EXCLUDED.status,
+                    updated_at = EXCLUDED.updated_at
+                """
+            ),
+            {
+                "task_id": task_id,
+                "project_name": project_name,
+                "status": "pending",
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
         await conn.commit()
 
 
@@ -329,14 +342,19 @@ async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
     expires_at_dt = datetime.fromisoformat(expires_at)
     async with get_connection() as conn:
         await conn.execute(
-            insert(jwt_tokens)
-            .values(
-                token=token,
-                user_id=user_id,
-                expires_at=expires_at_dt,
-                created_at=now,
-            )
-            .on_conflict_do_nothing(index_elements=["token"])  # ty: ignore[unresolved-attribute]
+            text(
+                """
+                INSERT INTO jwt_tokens (token, user_id, expires_at, created_at)
+                VALUES (:token, :user_id, :expires_at, :created_at)
+                ON CONFLICT (token) DO NOTHING
+                """
+            ),
+            {
+                "token": token,
+                "user_id": user_id,
+                "expires_at": expires_at_dt,
+                "created_at": now,
+            },
         )
         await conn.commit()
 

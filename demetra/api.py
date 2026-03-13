@@ -179,6 +179,18 @@ async def watcher_logs(
     log_path = LOG_DIR / f"sessions/{task_id}.log"
     if LOG_DIR.name == "sessions":
         log_path = LOG_DIR / f"{task_id}.log"
+
+    try:
+        resolved_path = log_path.resolve()
+        log_dir_resolved = LOG_DIR.resolve()
+    except OSError:
+        await websocket.close(code=4000, reason="Invalid log path")
+        return
+
+    if not resolved_path.is_relative_to(log_dir_resolved):
+        await websocket.close(code=4000, reason="Invalid log path")
+        return
+
     log_path.parent.mkdir(parents=True, exist_ok=True)
 
     await websocket.accept()
