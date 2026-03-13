@@ -13,6 +13,7 @@ class LinearTask:
     priority: str
     created_at: str
     branch_name: str
+    state: str | None = None
     project_name: str | None = None
     comments: list[str] = field(default_factory=list)
 

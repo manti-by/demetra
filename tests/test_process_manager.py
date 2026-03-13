@@ -143,7 +143,7 @@ class TestProcessManager:
         from demetra.services.linear import get_todo_issues
 
         mock_data = graphql_todo_issues_multiple_response.copy()
-        mock_data["data"]["team"]["states"]["nodes"][0]["issues"]["nodes"][0]["project"] = None
+        mock_data["data"]["issues"]["nodes"][0]["project"] = None
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
@@ -160,6 +160,7 @@ class TestProcessManager:
                     "feature_label_id": "l1",
                     "states": {},
                     "projects": {},
+                    "comments": {},
                 },
             ):
                 issues = await get_todo_issues()

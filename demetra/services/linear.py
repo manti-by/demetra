@@ -7,7 +7,7 @@ from demetra.services.tui import print_message
 from demetra.settings import LINEAR
 
 
-def _extract_comments(issue: dict) -> list[str]:
+def extract_comments(issue: dict) -> list[str]:
     comments = issue.get("comments", {}).get("nodes", [])
     return [comment.get("body", "") for comment in comments if comment.get("body")]
 
@@ -15,30 +15,34 @@ def _extract_comments(issue: dict) -> list[str]:
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
     result = await graphql_request(query, {"teamId": LINEAR["team_id"]})
-    states = result.get("data", {}).get("team", {}).get("states", {}).get("nodes", [])
+    issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
-    issues = []
-    for state in states:
-        if state["name"].lower() == "todo":
-            for issue in state["issues"]["nodes"]:
-                issue_project_name = None
-                if project := issue.get("project", {}):
-                    issue_project_name = project.get("name", "").lower()
-                if project_name is None or project_name.lower() == issue_project_name:
-                    issues.append(
-                        LinearTask(
-                            id=issue["id"],
-                            identifier=issue["identifier"],
-                            title=issue["title"],
-                            description=issue.get("description", ""),
-                            priority=issue["priority"],
-                            created_at=issue["createdAt"],
-                            branch_name=issue["branchName"],
-                            project_name=issue_project_name,
-                            comments=_extract_comments(issue),
-                        )
-                    )
-    return issues
+    result = []
+    for issue in issues:
+        issue_state = issue.get("state", {}).get("name")
+        if not issue_state or issue_state.lower() != "todo":
+            continue
+
+        issue_project_name = None
+        if project := issue.get("project", {}):
+            issue_project_name = project.get("name", "").lower()
+
+        if project_name is None or project_name.lower() == issue_project_name:
+            result.append(
+                LinearTask(
+                    id=issue["id"],
+                    identifier=issue["identifier"],
+                    title=issue["title"],
+                    description=issue.get("description", ""),
+                    priority=issue["priority"],
+                    created_at=issue["createdAt"],
+                    branch_name=issue["branchName"],
+                    state=issue_state,
+                    project_name=issue_project_name,
+                    comments=extract_comments(issue),
+                )
+            )
+    return result
 
 
 async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
@@ -47,9 +51,11 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     issue = result.get("data", {}).get("issue", {})
     if not issue:
         return None
+
     project_name = None
     if project := issue.get("project", {}):
         project_name = project.get("name", "").lower()
+
     return LinearTask(
         id=issue["id"],
         identifier=issue["identifier"],
@@ -59,7 +65,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         created_at=issue["createdAt"],
         branch_name=issue["branchName"],
         project_name=project_name,
-        comments=_extract_comments(issue),
+        comments=extract_comments(issue),
     )
 
 

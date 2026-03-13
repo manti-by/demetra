@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, memo } from 'react';
 import { getSessions, type Session } from '../services/api';
 
 const POLL_INTERVAL = 60000;
@@ -22,7 +22,7 @@ const formatDate = (dateStr: string): string => {
   return `${days}d ago`;
 };
 
-const SessionItem = ({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: () => void }) => (
+const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: () => void }) => (
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
       <span className="session-id">{session.session_id.slice(0, 8)}</span>
@@ -35,7 +35,7 @@ const SessionItem = ({ session, isSelected, onClick }: { session: Session; isSel
       {session.build_plan && <span className="session-plan">{session.build_plan}</span>}
     </div>
   </div>
-);
+));
 
 export function SessionList({ onSelectSession, selectedTaskId }: SessionListProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -62,9 +62,13 @@ export function SessionList({ onSelectSession, selectedTaskId }: SessionListProp
     return () => clearInterval(interval);
   }, [fetchSessions]);
 
-  const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setStatusFilter(e.target.value);
-  };
+  }, []);
+
+  const handleSelectSession = useCallback((taskId: string) => {
+    onSelectSession(taskId);
+  }, [onSelectSession]);
 
   return (
     <div className="session-list">
@@ -88,7 +92,7 @@ export function SessionList({ onSelectSession, selectedTaskId }: SessionListProp
             key={session.task_id}
             session={session}
             isSelected={selectedTaskId === session.task_id}
-            onClick={() => onSelectSession(session.task_id)}
+            onClick={() => handleSelectSession(session.task_id)}
           />
         ))
       )}

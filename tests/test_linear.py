@@ -207,6 +207,7 @@ class TestLinearService:
                     "feature_label_id": "l1",
                     "states": {},
                     "projects": {},
+                    "comments": {},
                 },
             ):
                 issues = await get_todo_issues("demetra")
@@ -238,6 +239,7 @@ class TestLinearService:
                     "feature_label_id": "l1",
                     "states": {},
                     "projects": {},
+                    "comments": {},
                 },
             ):
                 issues = await get_todo_issues("demetra")

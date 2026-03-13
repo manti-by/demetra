@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
 
 interface LogMessage {
+  id: string;
   timestamp: string;
   message: string;
   type: "info" | "error" | "success";
@@ -17,12 +18,12 @@ const formatTimestamp = (ts: string): string => {
   return `${h}:${m}:${s}`;
 };
 
-const LogLine = ({ log }: { log: LogMessage }) => (
+const LogLine = memo(({ log }: { log: LogMessage }) => (
   <div className={`log-line ${log.type}`}>
     <span className="log-timestamp">[{formatTimestamp(log.timestamp)}]</span>
     <span className="log-message">{log.message}</span>
   </div>
-);
+));
 
 const EmptyLog = () => (
   <div className="log-empty">Waiting for log events...</div>
@@ -64,9 +65,14 @@ export function LogConsole({ taskId }: LogConsoleProps) {
 
       try {
         const data = JSON.parse(event.data);
-        addLog({ ...data, type: data.type || "info" });
+        addLog({ 
+          ...data, 
+          id: crypto.randomUUID(),
+          type: data.type || "info" 
+        });
       } catch {
         addLog({
+          id: crypto.randomUUID(),
           message: event.data,
           type: "info",
           timestamp: new Date().toISOString(),
@@ -76,11 +82,14 @@ export function LogConsole({ taskId }: LogConsoleProps) {
 
     return () => {
       ws.close();
+      wsRef.current = null;
     };
   }, [taskId]);
 
   useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {
+      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
   }, [logs.length]);
 
   const clearLogs = useCallback((e: React.MouseEvent) => {
@@ -89,7 +98,7 @@ export function LogConsole({ taskId }: LogConsoleProps) {
   }, []);
 
   const logElements = useMemo(
-    () => logs.map((log, i) => <LogLine key={i} log={log} />),
+    () => logs.map((log) => <LogLine key={log.id} log={log} />),
     [logs],
   );
 

@@ -1,28 +1,24 @@
-query GetTodoIssues($teamId: String!) {
-  team(id: $teamId) {
-    states {
-      nodes {
+query GetIssues {
+  issues(first: 100) {
+    nodes {
+      id
+      identifier
+      state {
         id
         name
-        issues {
-          nodes {
-            id
-            identifier
-            title
-            description
-            priority
-            createdAt
-            branchName
-            project {
-              id
-              name
-            }
-            comments {
-              nodes {
-                body
-              }
-            }
-          }
+      }
+      title
+      description
+      priority
+      createdAt
+      branchName
+      project {
+        id
+        name
+      }
+      comments(first: 10) {
+        nodes {
+          body
         }
       }
     }
