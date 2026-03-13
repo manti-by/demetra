@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.6.0"
+version = "1.6.1"
 readme = "README.md"
 description = "Coding workflow orchestration tool"
 requires-python = ">=3.13.9,<3.14.0"
@@ -9,6 +9,7 @@ dependencies = [
     "aiohttp>=3.13.3",
     "alembic>=1.15.2",
     "asyncio>=4.0.0",
+    "asyncpg>=0.30.0",
     "fastapi>=0.135.1",
     "langchain-groq>=1.1.2",
     "langchain-core>=1.2.18",
@@ -29,7 +30,6 @@ dependencies = [
 
 [dependency-groups]
 dev = [
-    "asyncpg>=0.30.0",
     "bandit>=1.9.4",
     "debugpy>=1.8.20",
     "faker>=40.8.0",

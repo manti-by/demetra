@@ -1,9 +1,10 @@
+import asyncio
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, insert, select, text
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from demetra.db import (
     get_async_engine,
@@ -16,14 +17,25 @@ from demetra.db import (
 from demetra.library.models import Session
 
 
+_engine_cache: dict[tuple[int, str], AsyncEngine] = {}
+_cache_lock = asyncio.Lock()
+
+
+async def _get_cached_engine(db_name: str | None = None) -> AsyncEngine:
+    loop_id = id(asyncio.get_running_loop())
+    key = (loop_id, db_name or "default")
+    if key not in _engine_cache:
+        async with _cache_lock:
+            if key not in _engine_cache:
+                _engine_cache[key] = get_async_engine(db_name=db_name)
+    return _engine_cache[key]
+
+
 @asynccontextmanager
 async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
-    engine = get_async_engine(db_name=db_name)
+    engine = await _get_cached_engine(db_name)
     async with AsyncSession(engine) as session:
-        try:
-            yield session
-        finally:
-            await session.close()
+        yield session
 
 
 async def init_db() -> None:
@@ -76,30 +88,26 @@ async def get_session(task_id: str) -> Session | None:
 async def save_session(task_id: str, session_id: str, build_plan: str) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as conn:
-        existing = await conn.execute(select(sessions).where(sessions.c.task_id == task_id))
-        existing_row = existing.fetchone()
-
-        if existing_row:
-            await conn.execute(
-                sessions.update()
-                .where(sessions.c.task_id == task_id)
-                .values(
-                    session_id=session_id,
-                    build_plan=build_plan,
-                    updated_at=now,
-                )
-            )
-        else:
-            await conn.execute(
-                insert(sessions).values(
-                    task_id=task_id,
-                    session_id=session_id,
-                    build_plan=build_plan,
-                    posted_to_linear=False,
-                    created_at=now,
-                    updated_at=now,
-                )
-            )
+        await conn.execute(
+            text(
+                """
+                INSERT INTO sessions (task_id, session_id, build_plan, posted_to_linear, created_at, updated_at)
+                VALUES (:task_id, :session_id, :build_plan, :posted_to_linear, :created_at, :updated_at)
+                ON CONFLICT (task_id) DO UPDATE SET
+                    session_id = EXCLUDED.session_id,
+                    build_plan = EXCLUDED.build_plan,
+                    updated_at = EXCLUDED.updated_at
+                """
+            ),
+            {
+                "task_id": task_id,
+                "session_id": session_id,
+                "build_plan": build_plan,
+                "posted_to_linear": False,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
         await conn.commit()
 
         result = await conn.execute(select(sessions).where(sessions.c.task_id == task_id))
@@ -321,12 +329,14 @@ async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
     expires_at_dt = datetime.fromisoformat(expires_at)
     async with get_connection() as conn:
         await conn.execute(
-            insert(jwt_tokens).values(
+            insert(jwt_tokens)
+            .values(
                 token=token,
                 user_id=user_id,
                 expires_at=expires_at_dt,
                 created_at=now,
             )
+            .on_conflict_do_nothing(index_elements=["token"])  # ty: ignore[unresolved-attribute]
         )
         await conn.commit()
 

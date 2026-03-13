@@ -10,7 +10,7 @@ from collections.abc import Sequence
 
 import sqlalchemy as sa
 
-from alembic import op
+from alembic import op  # ty: ignore[unresolved-import]
 
 
 # revision identifiers, used by Alembic.
