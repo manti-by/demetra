@@ -42,21 +42,15 @@ class TestSessionListingAPI:
     async def test_list_sessions_returns_sessions(self, auth_cookie: dict):
         from demetra.api import app
 
-        with patch("demetra.services.database.get_connection") as mock_conn:
-            mock_connection = AsyncMock()
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchall.return_value = []
-            mock_connection.execute.return_value = mock_cursor
-            mock_connection.__aenter__ = AsyncMock(return_value=mock_connection)
-            mock_connection.__aexit__ = AsyncMock(return_value=None)
-            mock_conn.return_value = mock_connection
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = {
+                "id": "user-123",
+                "github_username": "testuser",
+                "role": "admin",
+            }
 
-            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = {
-                    "id": "user-123",
-                    "github_username": "testuser",
-                    "role": "admin",
-                }
+            with patch("demetra.api.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
+                mock_get_sessions.return_value = []
 
                 client = TestClient(app, raise_server_exceptions=False)
                 response = client.get("/api/v1/sessions", cookies=auth_cookie)

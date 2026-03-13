@@ -1,109 +1,55 @@
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
 
 class TestProcessManager:
-    @pytest.fixture(autouse=True)
-    def setup(self):
-        import demetra.services.database as database
-
-        self.mock_conn = AsyncMock()
-        self.mock_cursor = AsyncMock()
-        self.mock_conn.execute = AsyncMock()
-        self.mock_conn.commit = AsyncMock()
-        self.mock_conn.close = AsyncMock()
-        self.mock_conn.__aenter__ = AsyncMock(return_value=self.mock_conn)
-        self.mock_conn.__aexit__ = AsyncMock(return_value=None)
-
-        self.patcher = patch.object(database, "get_connection")
-        self.mock_get_conn = self.patcher.start()
-        self.mock_get_conn.return_value.__aenter__ = AsyncMock(return_value=self.mock_conn)
-        self.mock_get_conn.return_value.__aexit__ = AsyncMock(return_value=None)
-        yield
-        self.patcher.stop()
-
-    def _reset_mocks(self):
-        self.mock_cursor.fetchone = AsyncMock(return_value=None)
-        self.mock_conn.execute = AsyncMock(return_value=self.mock_cursor)
-
     @pytest.mark.asyncio
     async def test_add_pending_task(self):
         from demetra.services.database import add_pending_task, get_task_status
 
-        self._reset_mocks()
-
-        await add_pending_task("task-123", "demetra")
-        self.mock_cursor.fetchone = AsyncMock(return_value={"status": "pending"})
-        status = await get_task_status("task-123")
+        task_id = f"task-add-{uuid4().hex[:8]}"
+        await add_pending_task(task_id, "demetra")
+        status = await get_task_status(task_id)
         assert status == "pending"
 
     @pytest.mark.asyncio
     async def test_mark_task_processed(self):
         from demetra.services.database import add_pending_task, get_task_status, mark_task_processed
 
-        self._reset_mocks()
-
-        await add_pending_task("task-456", "demetra")
-        await mark_task_processed("task-456")
-        self.mock_cursor.fetchone = AsyncMock(return_value={"status": "processed"})
-        status = await get_task_status("task-456")
+        task_id = f"task-process-{uuid4().hex[:8]}"
+        await add_pending_task(task_id, "demetra")
+        await mark_task_processed(task_id)
+        status = await get_task_status(task_id)
         assert status == "processed"
 
     @pytest.mark.asyncio
     async def test_mark_task_failed(self):
         from demetra.services.database import add_pending_task, get_task_status, mark_task_failed
 
-        self._reset_mocks()
-
-        await add_pending_task("task-789", "demetra")
-        await mark_task_failed("task-789")
-        self.mock_cursor.fetchone = AsyncMock(return_value={"status": "failed"})
-        status = await get_task_status("task-789")
+        task_id = f"task-fail-{uuid4().hex[:8]}"
+        await add_pending_task(task_id, "demetra")
+        await mark_task_failed(task_id)
+        status = await get_task_status(task_id)
         assert status == "failed"
 
     @pytest.mark.asyncio
     async def test_get_pending_task_ids(self):
         from demetra.services.database import add_pending_task, get_pending_task_ids, mark_task_processed
 
-        class MockRow(dict):
-            def __getattr__(self, key):
-                return self.get(key)
-
-        def create_mock_cursor(result):
-            mock_cursor = AsyncMock()
-            mock_cursor.fetchone = AsyncMock(return_value=result if isinstance(result, dict) else None)
-            mock_cursor.fetchall = AsyncMock(return_value=result if isinstance(result, list) else [])
-            return mock_cursor
-
-        call_results = [
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor(None),
-            create_mock_cursor([MockRow({"task_id": "task-1"}), MockRow({"task_id": "task-3"})]),
-        ]
-        call_index = [0]
-
-        async def mock_execute(*args, **kwargs):
-            idx = call_index[0]
-            call_index[0] += 1
-            if idx < len(call_results):
-                return call_results[idx]
-            return create_mock_cursor(None)
-
-        self.mock_conn.execute = mock_execute
-
-        await add_pending_task("task-1", "demetra")
-        await add_pending_task("task-2", "chimera")
-        await add_pending_task("task-3", "odin")
-        await mark_task_processed("task-2")
+        task_1 = f"task-1-{uuid4().hex[:8]}"
+        task_2 = f"task-2-{uuid4().hex[:8]}"
+        task_3 = f"task-3-{uuid4().hex[:8]}"
+        await add_pending_task(task_1, "demetra")
+        await add_pending_task(task_2, "chimera")
+        await add_pending_task(task_3, "odin")
+        await mark_task_processed(task_2)
 
         pending = await get_pending_task_ids()
-        assert pending == {"task-1", "task-3"}
+        assert task_1 in pending
+        assert task_3 in pending
+        assert task_2 not in pending
 
     @pytest.mark.asyncio
     async def test_get_all_todo_issues_returns_all_projects(
