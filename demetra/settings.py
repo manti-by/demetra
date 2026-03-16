@@ -72,9 +72,10 @@ LINEAR: LinearConfig = {
         "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
     },
     "projects": {
-        "odin": os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff"),
+        "athena": os.environ.get("LINEAR_ATHENA_PROJECT_ID", "90ae1d02-4596-4374-b48d-2f5abb343155"),
         "demetra": os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),
         "coruscant": os.environ.get("LINEAR_CORUSCANT_PROJECT_ID", "8ee7cd23-8fc9-4304-8ba3-997c76d06714"),
+        "odin": os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff"),
     },
     "default_state": os.environ.get("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
     "default_project": os.environ.get("LINEAR_DEFAULT_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),

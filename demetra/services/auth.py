@@ -107,8 +107,8 @@ async def verify_jwt_token(token: str) -> TokenData | None:
         if not token_data:
             return None
 
-        expires_at = datetime.fromisoformat(token_data["expires_at"])
-        if datetime.now(UTC) > expires_at:
+        expires_at = token_data["expires_at"]
+        if expires_at is None or datetime.now(UTC) > expires_at:
             return None
 
         return TokenData(user_id=payload["user_id"], exp=payload["exp"])

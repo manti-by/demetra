@@ -12,9 +12,10 @@ class LinearStates(TypedDict):
 
 
 class LinearProjects(TypedDict):
-    odin: str
+    athena: str
     demetra: str
     coruscant: str
+    odin: str
 
 
 class LinearConfig(TypedDict):

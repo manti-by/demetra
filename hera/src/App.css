@@ -780,6 +780,7 @@ body::before {
 .session-sidebar {
     display: flex;
     margin-right: 1rem;
+    min-width: 300px;
     flex-direction: column;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
