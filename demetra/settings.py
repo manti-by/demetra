@@ -83,7 +83,12 @@ LINEAR: LinearConfig = {
 
 OPENCODE: OpenCodeConfig = {
     "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
-    "model": os.environ.get("OPENCODE_MODEL", "opencode/minimax-m2.5-free"),
+    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode/gpt-5.4"),
+    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5"),
+    "review_models": os.environ.get(
+        "OPENCODE_REVIEW_MODELS",
+        "opencode/gpt-5.3-codex,opencode/claude-sonnet-4-6,opencode/kimi-k2.5",
+    ).split(","),
 }
 
 CURSOR: PathConfig = {

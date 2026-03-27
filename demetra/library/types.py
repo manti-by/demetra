@@ -38,7 +38,9 @@ class PathConfig(TypedDict):
 
 
 class OpenCodeConfig(PathConfig):
-    model: str
+    plan_model: str
+    build_model: str
+    review_models: list[str]
 
 
 class GitConfig(PathConfig):

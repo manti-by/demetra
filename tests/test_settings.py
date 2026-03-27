@@ -21,7 +21,7 @@ class TestSettings:
         from demetra import settings
 
         assert ".opencode" in str(settings.OPENCODE["path"])
-        assert "opencode" in settings.OPENCODE["model"]
+        assert "opencode" in settings.OPENCODE["plan_model"]
 
     def test_git_worktree_path_default(self):
         from demetra import settings

@@ -18,7 +18,10 @@ async def opencode_plan_agent(target_path: Path, task: str, task_title: str | No
         f"\n- If you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
         f"\n- If there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
     )
-    return await run_opencode_agent(target_path=target_path, task=task, task_title=task_title, agent="plan")
+
+    return await run_opencode_agent(
+        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan"
+    )
 
 
 async def opencode_build_agent(
@@ -26,12 +29,17 @@ async def opencode_build_agent(
 ) -> tuple[int, str, str]:
     task += "\nDO NOT commit or push any changes, just stage them"
     return await run_opencode_agent(
-        target_path=target_path, task=task, session_id=session_id, task_title=task_title, agent="build"
+        target_path=target_path,
+        task=task,
+        session_id=session_id,
+        task_title=task_title,
+        model=OPENCODE["build_model"],
+        agent="build",
     )
 
 
 async def opencode_review_agent(
-    target_path: Path, session_id: str | None = None, task_title: str | None = None
+    target_path: Path, model: str, session_id: str | None = None, task_title: str | None = None
 ) -> tuple[int, str, str]:
     task = await get_prompt(name="review_agent")
     return await run_opencode_agent(
@@ -39,6 +47,7 @@ async def opencode_review_agent(
         task=task,
         session_id=session_id,
         task_title=task_title,
+        model=model,
         agent="review",
         disable_stdio=True,
     )
@@ -47,12 +56,13 @@ async def opencode_review_agent(
 async def run_opencode_agent(
     target_path: Path,
     task: str,
+    model: str,
     agent: str,
     session_id: str | None = None,
     task_title: str | None = None,
     disable_stdio: bool = False,
 ) -> tuple[int, str, str]:
-    command = [str(OPENCODE["path"]), "run", "--model", OPENCODE["model"], "--agent", agent]
+    command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
 
     if session_id is not None:
         command.extend(["--session", session_id])

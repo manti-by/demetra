@@ -23,6 +23,7 @@ class TestOpencodeService:
             target_path=Path("/test/path"),
             task=expected_task,
             task_title="do something",
+            model="opencode/gpt-5.4",
             agent="plan",
         )
         assert result is not None
@@ -51,7 +52,9 @@ class TestOpencodeService:
             patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
         ):
             mock_run.return_value = "output"
-            await run_opencode_agent(Path("/test"), "task", "plan", session_id="session-123")
+            await run_opencode_agent(
+                Path("/test"), "task", model="opencode/minimax-m2.5-free", agent="plan", session_id="session-123"
+            )
 
         call_args = mock_run.call_args
         command = call_args.kwargs["command"]
@@ -59,7 +62,7 @@ class TestOpencodeService:
         assert "--session" in command
         assert "session-123" in command
         assert "--model" in command
-        assert "test-model" in command
+        assert "opencode/minimax-m2.5-free" in command
         assert "--agent" in command
         assert "plan" in command
 
