@@ -50,14 +50,23 @@ async def create_session(task_id: str, session_id: str) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as conn:
         await conn.execute(
-            insert(sessions).values(
-                task_id=task_id,
-                session_id=session_id,
-                build_plan="",
-                posted_to_linear=False,
-                created_at=now,
-                updated_at=now,
-            )
+            text(
+                """
+                INSERT INTO sessions (task_id, session_id, build_plan, posted_to_linear, created_at, updated_at)
+                VALUES (:task_id, :session_id, :build_plan, :posted_to_linear, :created_at, :updated_at)
+                ON CONFLICT (task_id) DO UPDATE SET
+                    session_id = EXCLUDED.session_id,
+                    updated_at = EXCLUDED.updated_at
+                """
+            ),
+            {
+                "task_id": task_id,
+                "session_id": session_id,
+                "build_plan": "",
+                "posted_to_linear": False,
+                "created_at": now,
+                "updated_at": now,
+            },
         )
         await conn.commit()
     return Session(

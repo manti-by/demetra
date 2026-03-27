@@ -1,6 +1,0 @@
-- pipeline.id: demetra-app
-  path.config: "/etc/logstash/conf.d/demetra-app.conf"
-  pipeline.workers: 1
-- pipeline.id: systemd-services
-  path.config: "/etc/logstash/conf.d/demetra-services.conf"
-  pipeline.workers: 1

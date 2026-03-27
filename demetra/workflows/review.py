@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from demetra.services.coderabbit import coderabbit_review_agent
 from demetra.services.cursor import cursor_review_agent
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
@@ -24,12 +25,12 @@ async def run_review_agents(target_path: Path, session_id: str | None = None) ->
         print_message(cursor_comments, style="result")
         return cursor_comments
 
-    # print_message("Running CODERABBIT REVIEW agent", style="heading")
-    # _, coderabbit_comments, _ = await coderabbit_review_agent(target_path=target_path)
-    # if coderabbit_comments:
-    #     print_message("CodeRabbit review agent returned comments", style="result")
-    #     print_message(coderabbit_comments, style="result")
-    #     return coderabbit_comments
+    print_message("Running CODERABBIT REVIEW agent", style="heading")
+    _, coderabbit_comments, _ = await coderabbit_review_agent(target_path=target_path)
+    if coderabbit_comments:
+        print_message("CodeRabbit review agent returned comments", style="result")
+        print_message(coderabbit_comments, style="result")
+        return coderabbit_comments
 
     print_message("No comments from any review agent, continuing the workflow.", style="result")
     return None
