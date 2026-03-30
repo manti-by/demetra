@@ -24,7 +24,8 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 
-MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 20))
+MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 30))
+MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 5))
 
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
 
@@ -87,7 +88,7 @@ OPENCODE: OpenCodeConfig = {
     "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5"),
     "review_models": os.environ.get(
         "OPENCODE_REVIEW_MODELS",
-        "opencode/gpt-5.3-codex,opencode/claude-sonnet-4-6,opencode/kimi-k2.5",
+        "opencode/claude-sonnet-4-6,opencode/kimi-k2.5,opencode/gpt-5.3-codex",
     ).split(","),
 }
 

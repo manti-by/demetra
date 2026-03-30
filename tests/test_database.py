@@ -1,5 +1,7 @@
 import pytest
 
+from demetra.services.database import create_session, get_session, mark_session_posted, save_session
+
 
 class TestDatabaseService:
     @pytest.mark.asyncio
@@ -8,8 +10,6 @@ class TestDatabaseService:
         db_task_id: str,
         db_session_id: str,
     ):
-        from demetra.services.database import create_session, get_session
-
         record = await create_session(db_task_id, db_session_id)
         assert record.task_id == db_task_id
         assert record.session_id == db_session_id
@@ -23,8 +23,6 @@ class TestDatabaseService:
 
     @pytest.mark.asyncio
     async def test_read_nonexistent(self):
-        from demetra.services.database import get_session
-
         result = await get_session("TICKET-999")
         assert result is None
 
@@ -35,8 +33,6 @@ class TestDatabaseService:
         db_session_id: str,
         db_build_plan: str,
     ):
-        from demetra.services.database import get_session, save_session
-
         session = await save_session(db_task_id, db_session_id, db_build_plan)
         assert session.task_id == db_task_id
         assert session.session_id == db_session_id
@@ -55,8 +51,6 @@ class TestDatabaseService:
         db_task_id: str,
         db_session_id: str,
     ):
-        from demetra.services.database import get_session, save_session
-
         await save_session(db_task_id, db_session_id, "Original plan")
         await save_session(db_task_id, f"session-{db_session_id}", "Updated plan")
 
@@ -72,8 +66,6 @@ class TestDatabaseService:
         db_task_id: str,
         db_session_id: str,
     ):
-        from demetra.services.database import get_session, mark_session_posted, save_session
-
         await save_session(db_task_id, db_session_id, "Plan A")
         await mark_session_posted(db_task_id)
         await save_session(db_task_id, f"session-{db_session_id}", "Plan B")
@@ -89,8 +81,6 @@ class TestDatabaseService:
         db_task_id: str,
         db_session_id: str,
     ):
-        from demetra.services.database import get_session, mark_session_posted, save_session
-
         await save_session(db_task_id, db_session_id, "My build plan")
 
         found = await get_session(db_task_id)

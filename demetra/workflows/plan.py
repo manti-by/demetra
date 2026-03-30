@@ -20,6 +20,8 @@ async def run_plan_step(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
         )
 
+        print_message(f"Plain plan agent output:\n{plan_output}", style="info")
+
         build_plan = await extract_plan(
             plan_output=plan_output,
             task_description=context.linear_task.description,
