@@ -266,3 +266,199 @@ class TestUserKeysEndpoint:
                 assert response.status_code == 200
                 assert response.json()["message"] == "Keys updated successfully"
                 mock_update_keys.assert_called_once_with("test_user_id", {"some_key": "some_value"})
+
+
+class TestProjectEndpoints:
+    def test_list_projects_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/api/v1/projects")
+
+        assert response.status_code == 401
+
+    def test_list_projects_returns_401_with_invalid_token(self):
+        from demetra.api import app
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = None
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/projects", cookies={"auth_token": "invalid_token"})
+
+            assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_list_projects_returns_projects_for_authenticated_user(
+        self,
+        auth_cookie: dict,
+    ):
+        from datetime import datetime
+
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch(
+                "demetra.api.get_projects_by_user",
+                new_callable=AsyncMock,
+            ) as mock_get_projects:
+                mock_get_user.return_value = UserResponse(
+                    id="test_user_id",
+                    github_username="testuser",
+                    email="test@example.com",
+                )
+                mock_get_projects.return_value = [
+                    {
+                        "id": "project-1",
+                        "user_id": "test_user_id",
+                        "linear_project_id": "linear-123",
+                        "name": "Test Project",
+                        "repository_url": "https://github.com/test/repo",
+                        "local_path": "/home/user/projects/test/repo",
+                        "created_at": datetime.now(),
+                        "updated_at": datetime.now(),
+                    }
+                ]
+
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.get("/api/v1/projects", cookies=auth_cookie)
+
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["name"] == "Test Project"
+
+    def test_create_project_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            "/api/v1/projects",
+            json={"name": "Test", "repository_url": "https://github.com/test/repo"},
+        )
+
+        assert response.status_code == 401
+
+    def test_create_project_returns_400_on_empty_name(self, auth_cookie: dict):
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = UserResponse(
+                id="test_user_id",
+                github_username="testuser",
+                email="test@example.com",
+            )
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/projects",
+                json={"name": "  ", "repository_url": "https://github.com/test/repo"},
+                cookies=auth_cookie,
+            )
+
+            assert response.status_code == 400
+            assert "name" in response.json()["detail"].lower()
+
+    def test_create_project_returns_400_on_empty_url(self, auth_cookie: dict):
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = UserResponse(
+                id="test_user_id",
+                github_username="testuser",
+                email="test@example.com",
+            )
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                "/api/v1/projects",
+                json={"name": "Test", "repository_url": "  "},
+                cookies=auth_cookie,
+            )
+
+            assert response.status_code == 400
+            assert "url" in response.json()["detail"].lower()
+
+    @pytest.mark.asyncio
+    async def test_create_project_creates_project_for_authenticated_user(
+        self,
+        auth_cookie: dict,
+    ):
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch(
+                "demetra.services.project.setup_project",
+                new_callable=AsyncMock,
+            ) as mock_setup_project:
+                with patch(
+                    "demetra.api.create_project",
+                    new_callable=AsyncMock,
+                ) as mock_create_project:
+                    mock_get_user.return_value = UserResponse(
+                        id="test_user_id",
+                        github_username="testuser",
+                        email="test@example.com",
+                    )
+                    mock_setup_project.return_value = {
+                        "local_path": "/home/user/projects/test/repo",
+                        "db_name": "test",
+                        "db_user": "test",
+                        "db_password": "test-password",
+                    }
+                    mock_create_project.return_value = {
+                        "id": "new-project-id",
+                        "user_id": "test_user_id",
+                        "linear_project_id": None,
+                        "name": "New Project",
+                        "repository_url": "https://github.com/test/repo",
+                        "local_path": "/home/user/projects/test/repo",
+                        "created_at": "2026-01-01T00:00:00",
+                        "updated_at": "2026-01-01T00:00:00",
+                    }
+
+                    client = TestClient(app, raise_server_exceptions=False)
+                    response = client.post(
+                        "/api/v1/projects",
+                        json={"name": "New Project", "repository_url": "https://github.com/test/repo"},
+                        cookies=auth_cookie,
+                    )
+
+                    assert response.status_code == 200
+
+    def test_delete_project_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.delete("/api/v1/projects/project-id")
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_delete_project_deletes_project_for_authenticated_user(
+        self,
+        auth_cookie: dict,
+    ):
+        from demetra.api import app
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch(
+                "demetra.api.delete_project",
+                new_callable=AsyncMock,
+            ) as mock_delete_project:
+                mock_get_user.return_value = UserResponse(
+                    id="test_user_id",
+                    github_username="testuser",
+                    email="test@example.com",
+                )
+
+                client = TestClient(app, raise_server_exceptions=False)
+                response = client.delete("/api/v1/projects/project-id", cookies=auth_cookie)
+
+                assert response.status_code == 200
+                mock_delete_project.assert_called_once_with("project-id", "test_user_id")

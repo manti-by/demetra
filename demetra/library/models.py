@@ -103,3 +103,29 @@ class UserResponse:
 @dataclass
 class UserKeysUpdateRequest:
     keys: dict
+
+
+@dataclass
+class ProjectRequest:
+    name: str
+    repository_url: str
+    linear_project_id: str | None = None
+
+
+@dataclass
+class ProjectResponse:
+    id: str
+    user_id: str | None
+    linear_project_id: str | None
+    name: str
+    repository_url: str
+    local_path: str | None
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class ProjectUpdateRequest:
+    name: str | None = None
+    repository_url: str | None = None
+    linear_project_id: str | None = None
