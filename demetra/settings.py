@@ -24,6 +24,8 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 
+WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
+
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 20))
 
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()

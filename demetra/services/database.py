@@ -397,6 +397,7 @@ async def create_project(
     repository_url: str,
     linear_project_id: str | None = None,
     local_path: str | None = None,
+    state: str = "provisioning",
 ) -> dict:
     from uuid import uuid4
 
@@ -411,6 +412,7 @@ async def create_project(
                 name=name,
                 repository_url=repository_url,
                 local_path=local_path,
+                state=state,
                 created_at=now,
                 updated_at=now,
             )
@@ -423,6 +425,7 @@ async def create_project(
         "name": name,
         "repository_url": repository_url,
         "local_path": local_path,
+        "state": state,
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
     }
@@ -449,6 +452,7 @@ async def update_project(
     name: str | None = None,
     repository_url: str | None = None,
     local_path: str | None = None,
+    state: str | None = None,
 ) -> dict | None:
     now = datetime.now(UTC)
     update_values: dict[str, datetime | str] = {"updated_at": now}
@@ -460,6 +464,8 @@ async def update_project(
         update_values["repository_url"] = repository_url
     if local_path is not None:
         update_values["local_path"] = local_path
+    if state is not None:
+        update_values["state"] = state
 
     async with get_connection() as conn:
         await conn.execute(

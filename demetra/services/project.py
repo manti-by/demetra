@@ -6,18 +6,13 @@ from urllib.parse import urlparse
 import asyncpg
 from slugify import slugify
 
-from demetra.settings import (
-    DB_HOST,
-    DB_PASSWORD,
-    DB_PORT,
-    DB_USER,
-    HOME_PATH,
-)
+from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER, WORKTREE_PATH
 
 
 logger = logging.getLogger(__name__)
 
-PROJECTS_BASE_PATH = HOME_PATH / ".demetra" / "projects"
+
+GITHUB_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
 def parse_github_url(url: str) -> tuple[str, str] | None:
@@ -29,24 +24,41 @@ def parse_github_url(url: str) -> tuple[str, str] | None:
     for pattern in patterns:
         match = re.match(pattern, url)
         if match:
-            return match.group(1), match.group(2).replace(".git", "")
+            owner, repo = match.group(1), match.group(2).replace(".git", "")
+            if not GITHUB_SEGMENT_PATTERN.match(owner):
+                raise ValueError(f"Invalid GitHub owner segment: {owner}")
+            if not GITHUB_SEGMENT_PATTERN.match(repo):
+                raise ValueError(f"Invalid GitHub repository segment: {repo}")
+            return owner, repo
 
     parsed = urlparse(url)
     if parsed.netloc == "github.com" or parsed.netloc == "www.github.com":
         parts = parsed.path.strip("/").split("/")
         if len(parts) >= 2:
-            return parts[0], parts[1].replace(".git", "")
+            owner, repo = parts[0], parts[1].replace(".git", "")
+            if not GITHUB_SEGMENT_PATTERN.match(owner):
+                raise ValueError(f"Invalid GitHub owner segment: {owner}")
+            if not GITHUB_SEGMENT_PATTERN.match(repo):
+                raise ValueError(f"Invalid GitHub repository segment: {repo}")
+            return owner, repo
 
     return None
 
 
-async def setup_project_directory(repository_url: str, project_name: str) -> Path:
+async def setup_project_directory(repository_url: str, project_name: str, project_id: str) -> Path:
     parsed = parse_github_url(repository_url)
     if not parsed:
         raise ValueError(f"Invalid GitHub repository URL: {repository_url}")
 
     owner, repo = parsed
-    project_path = PROJECTS_BASE_PATH / owner / repo
+    slugified_project_name = slugify(f"{repo}-{project_id[:8]}").replace("-", "_")
+    project_path = WORKTREE_PATH / owner / slugified_project_name
+
+    resolved_base = WORKTREE_PATH.resolve()
+    resolved_path = project_path.resolve()
+    if not str(resolved_path).startswith(str(resolved_base) + "/"):
+        raise ValueError(f"Path traversal detected: {project_path} is outside {WORKTREE_PATH}")
+
     project_path.parent.mkdir(parents=True, exist_ok=True)
 
     if project_path.exists():
@@ -110,14 +122,17 @@ PG_RESERVED_WORDS = {
 }
 
 
-async def create_postgres_role_and_database(project_name: str) -> tuple[str, str, str]:
-    slugified_name = slugify(project_name).replace("-", "_")
-    if not slugified_name or not slugified_name[0].isalpha():
-        raise ValueError(f"Invalid project name: {project_name}")
-    if slugified_name.lower() in PG_RESERVED_WORDS:
-        raise ValueError(f"Project name cannot be a PostgreSQL reserved word: {project_name}")
+async def create_postgres_role_and_database(project_id: str) -> tuple[str, str, str]:
+    import secrets
 
-    password = slugify(f"{project_name}-password").replace("-", "_")
+    db_name = f"p_{project_id.replace('-', '')[:22]}"
+    if db_name.lower() in PG_RESERVED_WORDS:
+        raise ValueError("Generated database name conflicts with PostgreSQL reserved word")
+    if not db_name[0].isalpha():
+        raise ValueError(f"Invalid generated database name: {db_name}")
+
+    password = secrets.token_urlsafe(32)
+    role_name = db_name
 
     conn = await asyncpg.connect(
         host=DB_HOST,
@@ -128,33 +143,33 @@ async def create_postgres_role_and_database(project_name: str) -> tuple[str, str
     )
 
     try:
-        role_exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", slugified_name)
+        role_exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role_name)
         if not role_exists:
             await conn.execute(
-                f"CREATE ROLE {slugified_name} WITH LOGIN PASSWORD $1",
+                f"CREATE ROLE {role_name} WITH LOGIN PASSWORD $1",
                 password,
             )
-            logger.info(f"Created role: {slugified_name}")
+            logger.info(f"Created role: {role_name}")
 
-        db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", slugified_name)
+        db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", db_name)
         if not db_exists:
             await conn.execute(
-                f"CREATE DATABASE {slugified_name} OWNER {slugified_name}",
+                f"CREATE DATABASE {db_name} OWNER {role_name}",
             )
-            logger.info(f"Created database: {slugified_name}")
+            logger.info(f"Created database: {db_name}")
 
-        await conn.execute(f"ALTER ROLE {slugified_name} CREATEDB")
-        logger.info(f"Granted CREATEDB to role: {slugified_name}")
+        await conn.execute(f"ALTER ROLE {role_name} CREATEDB")
+        logger.info(f"Granted CREATEDB to role: {role_name}")
 
     finally:
         await conn.close()
 
-    return slugified_name, slugified_name, password
+    return db_name, role_name, password
 
 
-async def setup_project(project_name: str, repository_url: str) -> dict:
-    local_path = await setup_project_directory(repository_url, project_name)
-    db_name, db_user, db_password = await create_postgres_role_and_database(project_name)
+async def setup_project(project_name: str, repository_url: str, project_id: str) -> dict:
+    local_path = await setup_project_directory(repository_url, project_name, project_id)
+    db_name, db_user, db_password = await create_postgres_role_and_database(project_id)
 
     return {
         "local_path": str(local_path),
@@ -162,3 +177,46 @@ async def setup_project(project_name: str, repository_url: str) -> dict:
         "db_user": db_user,
         "db_password": db_password,
     }
+
+
+async def cleanup_project_resources(project_name: str, repository_url: str, project_id: str) -> None:
+    db_name = f"p_{project_id.replace('-', '')[:22]}"
+
+    try:
+        conn = await asyncpg.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database="postgres",
+        )
+        try:
+            db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", db_name)
+            if db_exists:
+                await conn.execute(f"DROP DATABASE IF EXISTS {db_name}")
+                logger.info(f"Dropped database: {db_name}")
+
+            role_exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", db_name)
+            if role_exists:
+                await conn.execute(f"DROP ROLE IF EXISTS {db_name}")
+                logger.info(f"Dropped role: {db_name}")
+        finally:
+            await conn.close()
+    except Exception as e:
+        logger.exception("Failed to cleanup PostgreSQL resources: %s", e)
+
+    try:
+        parsed = parse_github_url(repository_url)
+        if parsed:
+            owner, repo = parsed
+            slugified_project_name = slugify(f"{repo}-{project_id[:8]}").replace("-", "_")
+            project_path = WORKTREE_PATH / owner / slugified_project_name
+            resolved_base = WORKTREE_PATH.resolve()
+            resolved_path = project_path.resolve()
+            if str(resolved_path).startswith(str(resolved_base) + "/") and project_path.exists():
+                import shutil
+
+                shutil.rmtree(project_path)
+                logger.info(f"Removed project directory: {project_path}")
+    except Exception as e:
+        logger.exception("Failed to cleanup project directory: %s", e)

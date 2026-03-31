@@ -162,7 +162,7 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
               </button>
             </div>
           )}
-          {activeTab === 'projects' && <ProjectList onClose={() => setActiveTab('keys')} />}
+          {activeTab === 'projects' && <ProjectList inline />}
           {error && <div className="settings-error">{error}</div>}
           {success && <div className="settings-success">Keys saved successfully</div>}
         </div>

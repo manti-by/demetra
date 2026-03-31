@@ -399,36 +399,52 @@ class TestProjectEndpoints:
                     "demetra.api.create_project",
                     new_callable=AsyncMock,
                 ) as mock_create_project:
-                    mock_get_user.return_value = UserResponse(
-                        id="test_user_id",
-                        github_username="testuser",
-                        email="test@example.com",
-                    )
-                    mock_setup_project.return_value = {
-                        "local_path": "/home/user/projects/test/repo",
-                        "db_name": "test",
-                        "db_user": "test",
-                        "db_password": "test-password",
-                    }
-                    mock_create_project.return_value = {
-                        "id": "new-project-id",
-                        "user_id": "test_user_id",
-                        "linear_project_id": None,
-                        "name": "New Project",
-                        "repository_url": "https://github.com/test/repo",
-                        "local_path": "/home/user/projects/test/repo",
-                        "created_at": "2026-01-01T00:00:00",
-                        "updated_at": "2026-01-01T00:00:00",
-                    }
+                    with patch(
+                        "demetra.api.update_project",
+                        new_callable=AsyncMock,
+                    ) as mock_update_project:
+                        mock_get_user.return_value = UserResponse(
+                            id="test_user_id",
+                            github_username="testuser",
+                            email="test@example.com",
+                        )
+                        mock_setup_project.return_value = {
+                            "local_path": "/home/user/projects/test/repo",
+                            "db_name": "test",
+                            "db_user": "test",
+                            "db_password": "test-password",
+                        }
+                        mock_create_project.return_value = {
+                            "id": "new-project-id",
+                            "user_id": "test_user_id",
+                            "linear_project_id": None,
+                            "name": "New Project",
+                            "repository_url": "https://github.com/test/repo",
+                            "local_path": None,
+                            "state": "provisioning",
+                            "created_at": "2026-01-01T00:00:00",
+                            "updated_at": "2026-01-01T00:00:00",
+                        }
+                        mock_update_project.return_value = {
+                            "id": "new-project-id",
+                            "user_id": "test_user_id",
+                            "linear_project_id": None,
+                            "name": "New Project",
+                            "repository_url": "https://github.com/test/repo",
+                            "local_path": "/home/user/projects/test/repo",
+                            "state": "active",
+                            "created_at": "2026-01-01T00:00:00",
+                            "updated_at": "2026-01-01T00:00:00",
+                        }
 
-                    client = TestClient(app, raise_server_exceptions=False)
-                    response = client.post(
-                        "/api/v1/projects",
-                        json={"name": "New Project", "repository_url": "https://github.com/test/repo"},
-                        cookies=auth_cookie,
-                    )
+                        client = TestClient(app, raise_server_exceptions=False)
+                        response = client.post(
+                            "/api/v1/projects",
+                            json={"name": "New Project", "repository_url": "https://github.com/test/repo"},
+                            cookies=auth_cookie,
+                        )
 
-                    assert response.status_code == 200
+                        assert response.status_code == 200
 
     def test_delete_project_returns_401_without_auth_token(self):
         from demetra.api import app

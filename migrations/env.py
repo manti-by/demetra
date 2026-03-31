@@ -3,7 +3,7 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from sqlalchemy.engine import URL
 
-from alembic import context  # ty: ignore[unresolved-import]
+from alembic import context
 
 from demetra.db import metadata
 
@@ -43,7 +43,8 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
-    config.set_main_option("sqlalchemy.url", url=get_url().render_as_string(hide_password=False).replace("%", "%%"))
+    url = get_url().render_as_string(hide_password=False).replace("%", "%%")
+    config.set_main_option(name="sqlalchemy.url", value=url)
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",

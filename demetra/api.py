@@ -294,32 +294,51 @@ async def create_project_endpoint(
     if not request.repository_url.strip():
         raise HTTPException(status_code=400, detail="Repository URL cannot be empty")
 
-    from demetra.services.project import setup_project
-
-    try:
-        setup_info = await setup_project(request.name.strip(), request.repository_url.strip())
-        local_path = setup_info["local_path"]
-    except Exception as e:
-        logging.exception("Failed to setup project: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to setup project: {e}") from e
+    from demetra.services.project import cleanup_project_resources, setup_project
 
     project = await create_project(
         user_id=user.id,
         name=request.name.strip(),
         repository_url=request.repository_url.strip(),
         linear_project_id=request.linear_project_id,
-        local_path=local_path,
+        state="provisioning",
     )
 
+    try:
+        setup_info = await setup_project(request.name.strip(), request.repository_url.strip(), project["id"])
+        local_path = setup_info["local_path"]
+    except ValueError:
+        await cleanup_project_resources(request.name.strip(), request.repository_url.strip(), project["id"])
+        raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from None
+    except Exception:
+        logging.exception("Failed to setup project: %s")
+        await cleanup_project_resources(request.name.strip(), request.repository_url.strip(), project["id"])
+        await update_project(
+            project_id=project["id"],
+            user_id=user.id,
+            state="failed",
+        )
+        raise HTTPException(status_code=500, detail="Internal server error") from None
+
+    updated_project = await update_project(
+        project_id=project["id"],
+        user_id=user.id,
+        local_path=local_path,
+        state="active",
+    )
+
+    if not updated_project:
+        raise HTTPException(status_code=500, detail="Failed to update project state")
+
     return ProjectResponse(
-        id=project["id"],
-        user_id=project["user_id"],
-        linear_project_id=project.get("linear_project_id"),
-        name=project["name"],
-        repository_url=project["repository_url"],
-        local_path=project.get("local_path"),
-        created_at=project["created_at"],
-        updated_at=project["updated_at"],
+        id=updated_project["id"],
+        user_id=updated_project["user_id"],
+        linear_project_id=updated_project.get("linear_project_id"),
+        name=updated_project["name"],
+        repository_url=updated_project["repository_url"],
+        local_path=updated_project.get("local_path"),
+        created_at=updated_project["created_at"],
+        updated_at=updated_project["updated_at"],
     )
 
 

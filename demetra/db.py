@@ -70,11 +70,12 @@ projects = Table(
     "projects",
     metadata,
     Column("id", String(), primary_key=True),
-    Column("user_id", String(), nullable=True),
+    Column("user_id", String(), nullable=False),
     Column("linear_project_id", String(), nullable=True),
     Column("name", String(), nullable=False),
     Column("repository_url", String(), nullable=False),
     Column("local_path", String(), nullable=True),
+    Column("state", String(), server_default="provisioning", nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )

@@ -2,7 +2,8 @@ import { useState, useCallback, useEffect } from 'react';
 import { Project, getProjects, createProject, deleteProject } from '../services/api';
 
 interface ProjectListProps {
-  onClose: () => void;
+  onClose?: () => void;
+  inline?: boolean;
 }
 
 const CloseIcon = () => (
@@ -26,7 +27,7 @@ const PlusIcon = () => (
   </svg>
 );
 
-export function ProjectList({ onClose }: ProjectListProps) {
+export function ProjectList({ onClose, inline = false }: ProjectListProps) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,6 +97,107 @@ export function ProjectList({ onClose }: ProjectListProps) {
     [fetchProjects]
   );
 
+  const content = (
+    <>
+      {error && <div className="settings-error">{error}</div>}
+
+      {loading ? (
+        <div className="loading-container">
+          <div className="loading-spinner" />
+        </div>
+      ) : (
+        <>
+          <div className="projects-list">
+            {projects.length === 0 ? (
+              <p className="empty-message">No projects yet. Add your first project!</p>
+            ) : (
+              projects.map((project) => (
+                <div key={project.id} className="project-item">
+                  <div className="project-info">
+                    <h3>{project.name}</h3>
+                    <p className="project-url">{project.repository_url}</p>
+                    {project.linear_project_id && (
+                      <p className="project-linear">Linear ID: {project.linear_project_id}</p>
+                    )}
+                  </div>
+                  {project.user_id && (
+                    <button
+                      className="btn-icon delete-project"
+                      onClick={() => handleDeleteProject(project.id)}
+                      aria-label="Delete project"
+                    >
+                      <TrashIcon />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+
+          {showForm && (
+            <div className="project-form">
+              <input
+                type="text"
+                placeholder="Project Name"
+                value={newProject.name}
+                onChange={(e) => setNewProject((prev) => ({ ...prev, name: e.target.value }))}
+                className="form-input"
+              />
+              <input
+                type="text"
+                placeholder="Repository URL (e.g., https://github.com/user/repo)"
+                value={newProject.repository_url}
+                onChange={(e) =>
+                  setNewProject((prev) => ({ ...prev, repository_url: e.target.value }))
+                }
+                className="form-input"
+              />
+              <input
+                type="text"
+                placeholder="Linear Project ID (optional)"
+                value={newProject.linear_project_id}
+                onChange={(e) =>
+                  setNewProject((prev) => ({ ...prev, linear_project_id: e.target.value }))
+                }
+                className="form-input"
+              />
+              <div className="form-actions">
+                <button
+                  className="btn-secondary"
+                  onClick={() => {
+                    setShowForm(false);
+                    setNewProject({ name: '', repository_url: '', linear_project_id: '' });
+                  }}
+                >
+                  Cancel
+                </button>
+                <button className="btn-primary" onClick={handleCreateProject} disabled={saving}>
+                  {saving ? 'Creating...' : 'Create'}
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </>
+  );
+
+  if (inline) {
+    return (
+      <div className="projects-inline">
+        <div className="projects-header">
+          <h3>Projects</h3>
+          {!showForm && (
+            <button className="btn-secondary" onClick={() => setShowForm(true)}>
+              <PlusIcon /> Add Project
+            </button>
+          )}
+        </div>
+        {content}
+      </div>
+    );
+  }
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -105,88 +207,7 @@ export function ProjectList({ onClose }: ProjectListProps) {
             <CloseIcon />
           </button>
         </div>
-        <div className="modal-body">
-          {error && <div className="settings-error">{error}</div>}
-
-          {loading ? (
-            <div className="loading-container">
-              <div className="loading-spinner" />
-            </div>
-          ) : (
-            <>
-              <div className="projects-list">
-                {projects.length === 0 ? (
-                  <p className="empty-message">No projects yet. Add your first project!</p>
-                ) : (
-                  projects.map((project) => (
-                    <div key={project.id} className="project-item">
-                      <div className="project-info">
-                        <h3>{project.name}</h3>
-                        <p className="project-url">{project.repository_url}</p>
-                        {project.linear_project_id && (
-                          <p className="project-linear">Linear ID: {project.linear_project_id}</p>
-                        )}
-                      </div>
-                      {project.user_id && (
-                        <button
-                          className="btn-icon delete-project"
-                          onClick={() => handleDeleteProject(project.id)}
-                          aria-label="Delete project"
-                        >
-                          <TrashIcon />
-                        </button>
-                      )}
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {showForm && (
-                <div className="project-form">
-                  <input
-                    type="text"
-                    placeholder="Project Name"
-                    value={newProject.name}
-                    onChange={(e) => setNewProject((prev) => ({ ...prev, name: e.target.value }))}
-                    className="form-input"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Repository URL (e.g., https://github.com/user/repo)"
-                    value={newProject.repository_url}
-                    onChange={(e) =>
-                      setNewProject((prev) => ({ ...prev, repository_url: e.target.value }))
-                    }
-                    className="form-input"
-                  />
-                  <input
-                    type="text"
-                    placeholder="Linear Project ID (optional)"
-                    value={newProject.linear_project_id}
-                    onChange={(e) =>
-                      setNewProject((prev) => ({ ...prev, linear_project_id: e.target.value }))
-                    }
-                    className="form-input"
-                  />
-                  <div className="form-actions">
-                    <button
-                      className="btn-secondary"
-                      onClick={() => {
-                        setShowForm(false);
-                        setNewProject({ name: '', repository_url: '', linear_project_id: '' });
-                      }}
-                    >
-                      Cancel
-                    </button>
-                    <button className="btn-primary" onClick={handleCreateProject} disabled={saving}>
-                      {saving ? 'Creating...' : 'Create'}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        <div className="modal-body">{content}</div>
         <div className="modal-footer">
           {!showForm && (
             <button className="btn-secondary" onClick={() => setShowForm(true)}>
