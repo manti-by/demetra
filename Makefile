@@ -34,6 +34,9 @@ update:
 test:
 	uv run pytest tests/
 
+migrate:
+	uv run alembic upgrade head
+
 ci: pip check test
 
 

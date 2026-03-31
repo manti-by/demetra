@@ -45,7 +45,12 @@ async def fetch_new_token() -> str:
         if not access_token:
             raise LinearError("No access token in OAuth response")
 
-        await save_oauth_token(LINEAR["service_name"], access_token, refresh_token, expires_in)
+        await save_oauth_token(
+            service=LINEAR["service_name"],
+            access_token=access_token,
+            refresh_token=refresh_token,
+            expires_in=expires_in,
+        )
         return access_token
     except aiohttp.ClientError as e:
         raise LinearError(f"OAuth token fetch error: {e}") from e

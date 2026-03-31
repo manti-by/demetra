@@ -14,7 +14,7 @@ def extract_comments(issue: dict) -> list[str]:
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
-    result = await graphql_request(query, {"teamId": LINEAR["team_id"]})
+    result = await graphql_request(query=query, variables={"teamId": LINEAR["team_id"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
     result = []
@@ -79,13 +79,13 @@ async def get_linear_task(project_name: str) -> LinearTask | None:
 
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
     query = await get_query(name="update_issue_status")
-    result = await graphql_request(query, {"issueId": task_id, "stateId": state_id})
+    result = await graphql_request(query=query, variables={"issueId": task_id, "stateId": state_id})
     return result.get("data", {}).get("issueUpdate", {}).get("success", False)
 
 
 async def post_comment(task_id: str, body: str) -> bool:
     query = await get_query(name="create_issue_comment")
-    result = await graphql_request(query, {"issueId": task_id, "body": body})
+    result = await graphql_request(query=query, variables={"issueId": task_id, "body": body})
     return result.get("data", {}).get("commentCreate", {}).get("success", False)
 
 

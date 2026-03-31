@@ -121,14 +121,14 @@ async def get_or_create_user(github_user: GitHubUser) -> str:
     if existing_user:
         return existing_user["id"]
 
-    return await create_user(github_user.id, github_user.login, github_user.email)
+    return await create_user(github_id=github_user.id, github_username=github_user.login, email=github_user.email)
 
 
 async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
     user_id = await get_or_create_user(github_user)
     token, expires_at = create_jwt_token(user_id)
 
-    await save_jwt_token(token, user_id, expires_at)
+    await save_jwt_token(token=token, user_id=user_id, expires_at=expires_at)
 
     user_data = await get_user_by_id(user_id)
     if not user_data:

@@ -25,7 +25,6 @@ from demetra.services.auth import (
     get_current_user,
     get_github_auth_url,
     get_github_user,
-    has_permission,
     logout,
 )
 from demetra.services.database import (
@@ -39,6 +38,7 @@ from demetra.services.database import (
 )
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
+from demetra.services.project import cleanup_project_resources, setup_project
 from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR, LOG_DIR
 
@@ -53,7 +53,7 @@ app = FastAPI(title="Demetra API")
 async def github_login():
     auth_url, state = get_github_auth_url()
     response = RedirectResponse(url=auth_url)
-    response.set_cookie("oauth_state", state, httponly=True, secure=True, samesite="lax")
+    response.set_cookie(key="oauth_state", value=state, httponly=True, secure=True, samesite="lax")
     return response
 
 
@@ -77,7 +77,12 @@ async def github_callback(code: str, response: Response):
             media_type="application/json",
         )
         response.set_cookie(
-            "auth_token", auth_response.token, httponly=True, secure=True, samesite="lax", max_age=14 * 24 * 60 * 60
+            key="auth_token",
+            value=auth_response.token,
+            httponly=True,
+            secure=True,
+            samesite="lax",
+            max_age=14 * 24 * 60 * 60,
         )
         return response
     except AuthError as e:
@@ -89,9 +94,8 @@ async def get_me(auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     return user
 
@@ -104,12 +108,10 @@ async def update_user_keys_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    await update_user_keys(user.id, request.keys)
-
+    await update_user_keys(user_id=user.id, keys=request.keys)
     return {"message": "Keys updated successfully"}
 
 
@@ -127,6 +129,9 @@ async def github_logout(response: Response, auth_token: str | None = Cookie(defa
 async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not await get_current_user(token=auth_token):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     if not request.text.strip():
         raise HTTPException(status_code=400, detail="Text cannot be empty")
@@ -158,14 +163,13 @@ async def list_sessions(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not await get_current_user(token=auth_token):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
     if status and status not in ("pending", "processed", "failed"):
         raise HTTPException(status_code=400, detail="Invalid status. Must be one of: pending, processed, failed")
 
-    sessions = await get_sessions(status)
+    sessions = await get_sessions(status=status)
     return sessions
 
 
@@ -179,14 +183,8 @@ async def watcher_logs(
         await websocket.close(code=4001, reason="Not authenticated")
         return
 
-    user = await get_current_user(auth_token)
-    if not user:
-        await websocket.close(code=4001, reason="Invalid or expired token")
-        return
-
-    if not has_permission(user, "view_logs"):
-        await websocket.close(code=4003, reason="Forbidden: insufficient permissions")
-        return
+    if not await get_current_user(token=auth_token):
+        await websocket.close(code=4003, reason="Forbidden")
 
     if not task_id or not UUID_PATTERN.match(task_id):
         await websocket.close(code=4000, reason="Invalid or missing task_id")
@@ -256,11 +254,10 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    projects = await get_projects_by_user(user.id)
+    projects = await get_projects_by_user(user_id=user.id)
     return [
         ProjectResponse(
             id=p["id"],
@@ -284,59 +281,54 @@ async def create_project_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
-    if not request.name.strip():
+    if not (project_name := request.name.strip()):
         raise HTTPException(status_code=400, detail="Project name cannot be empty")
 
-    if not request.repository_url.strip():
+    if not (repository_url := request.repository_url.strip()):
         raise HTTPException(status_code=400, detail="Repository URL cannot be empty")
-
-    from demetra.services.project import cleanup_project_resources, setup_project
 
     project = await create_project(
         user_id=user.id,
-        name=request.name.strip(),
-        repository_url=request.repository_url.strip(),
+        name=project_name,
+        repository_url=repository_url,
         linear_project_id=request.linear_project_id,
         state="provisioning",
     )
 
+    project_id, linear_project_id = project["id"], request.linear_project_id
     try:
-        setup_info = await setup_project(request.name.strip(), request.repository_url.strip(), project["id"])
-        local_path = setup_info["local_path"]
-    except ValueError:
-        await cleanup_project_resources(request.name.strip(), request.repository_url.strip(), project["id"])
-        raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from None
-    except Exception:
-        logging.exception("Failed to setup project: %s")
-        await cleanup_project_resources(request.name.strip(), request.repository_url.strip(), project["id"])
-        await update_project(
-            project_id=project["id"],
-            user_id=user.id,
-            state="failed",
+        setup_info = await setup_project(
+            project_id=project_id, project_name=project_name, repository_url=repository_url
         )
+        local_path = setup_info["local_path"]
+
+    except ValueError:
+        await cleanup_project_resources(project_id=project_id, project_name=project_name, repository_url=repository_url)
+        raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from None
+
+    except Exception as e:
+        logging.exception(f"Failed to setup project: {e}")
+        await cleanup_project_resources(project_id=project_id, project_name=project_name, repository_url=repository_url)
+        await update_project(project_id=project_id, user_id=user.id, state="failed")
         raise HTTPException(status_code=500, detail="Internal server error") from None
 
-    updated_project = await update_project(
-        project_id=project["id"],
-        user_id=user.id,
-        local_path=local_path,
-        state="active",
-    )
-
-    if not updated_project:
+    if not (
+        updated_project := await update_project(
+            project_id=project_id, user_id=user.id, local_path=local_path, state="active"
+        )
+    ):
         raise HTTPException(status_code=500, detail="Failed to update project state")
 
     return ProjectResponse(
-        id=updated_project["id"],
-        user_id=updated_project["user_id"],
-        linear_project_id=updated_project.get("linear_project_id"),
-        name=updated_project["name"],
-        repository_url=updated_project["repository_url"],
-        local_path=updated_project.get("local_path"),
+        id=project_id,
+        user_id=user.id,
+        name=project_name,
+        repository_url=repository_url,
+        linear_project_id=linear_project_id,
+        local_path=local_path,
         created_at=updated_project["created_at"],
         updated_at=updated_project["updated_at"],
     )
@@ -350,12 +342,10 @@ async def get_project_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    project = await get_project_by_id(project_id, user.id)
-    if not project:
+    if not (project := await get_project_by_id(project_id=project_id, user_id=user.id)):
         raise HTTPException(status_code=404, detail="Project not found")
 
     return ProjectResponse(
@@ -379,8 +369,7 @@ async def update_project_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
     project = await update_project(
@@ -413,9 +402,8 @@ async def delete_project_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    user = await get_current_user(auth_token)
-    if not user:
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    await delete_project(project_id, user.id)
+    await delete_project(project_id=project_id, user_id=user.id)
     return {"message": "Project deleted successfully"}

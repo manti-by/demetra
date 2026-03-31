@@ -86,11 +86,11 @@ def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEng
 
     database = db_name if db_name else DB_NAME
     url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
-    return create_async_engine(url, echo=echo)
+    return create_async_engine(url, echo=echo, isolation_level="AUTOCOMMIT")
 
 
 def get_async_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+    return async_sessionmaker(engine=engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db_session(

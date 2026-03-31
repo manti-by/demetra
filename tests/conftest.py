@@ -1,12 +1,16 @@
 import asyncio
 import os
 from collections.abc import AsyncGenerator
+from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 from faker import Faker
+from fastapi.testclient import TestClient
+
+from demetra.library.models import UserResponse
 
 
 os.environ["DB_NAME"] = "test_demetra"
@@ -385,3 +389,65 @@ async def db_connection(test_db_engine, setup_test_db):
         async with session.begin():
             yield session
             await session.rollback()
+
+
+@pytest.fixture
+def mock_user() -> UserResponse:
+    return UserResponse(
+        id="test_user_id",
+        github_username="testuser",
+        email="test@example.com",
+        role="admin",
+    )
+
+
+@pytest.fixture
+def auth_cookie() -> dict:
+    with patch(
+        "demetra.services.auth.JWT",
+        {
+            "secret_key": "test_secret_key",
+            "algorithm": "HS256",
+            "expiration_days": 14,
+        },
+    ):
+        with patch(
+            "demetra.services.auth.get_jwt_token",
+            new_callable=AsyncMock,
+            return_value={
+                "token": "test_token",
+                "user_id": "test_user_id",
+                "expires_at": "2099-01-01T00:00:00+00:00",
+            },
+        ):
+            from demetra.services.auth import create_jwt_token
+
+            token, _ = create_jwt_token("test_user_id")
+            return {"auth_token": token}
+
+
+@contextmanager
+def _patch_get_current_user(user: UserResponse):
+    with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        mock_get_user.return_value = user
+        yield mock_get_user
+
+
+@pytest.fixture
+def authenticated_client(mock_user: UserResponse, auth_cookie: dict):
+    from demetra.api import app
+
+    with _patch_get_current_user(mock_user):
+        client = TestClient(app, raise_server_exceptions=False)
+        client.cookies = auth_cookie
+        yield client
+
+
+@pytest.fixture
+def authenticated_client_no_exception(mock_user: UserResponse, auth_cookie: dict):
+    from demetra.api import app
+
+    with _patch_get_current_user(mock_user):
+        client = TestClient(app, raise_server_exceptions=True)
+        client.cookies = auth_cookie
+        yield client

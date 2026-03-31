@@ -73,6 +73,7 @@ LINEAR: LinearConfig = {
         "awaiting_input": os.environ.get("LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"),
         "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
     },
+    # TODO: Deprecated since 31-03-2026, remove after 31-06-2026
     "projects": {
         "athena": os.environ.get("LINEAR_ATHENA_PROJECT_ID", "90ae1d02-4596-4374-b48d-2f5abb343155"),
         "demetra": os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),

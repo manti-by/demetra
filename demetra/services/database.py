@@ -23,7 +23,7 @@ _engine_cache: dict[tuple[int, str], AsyncEngine] = {}
 _cache_lock = threading.Lock()
 
 
-async def _get_cached_engine(db_name: str | None = None) -> AsyncEngine:
+async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
     loop_id = id(asyncio.get_running_loop())
     key = (loop_id, db_name or "default")
     if key not in _engine_cache:
@@ -35,7 +35,7 @@ async def _get_cached_engine(db_name: str | None = None) -> AsyncEngine:
 
 @asynccontextmanager
 async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
-    engine = await _get_cached_engine(db_name)
+    engine = await get_cached_engine(db_name)
     async with AsyncSession(engine) as session:
         yield session
 

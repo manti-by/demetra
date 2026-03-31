@@ -5,7 +5,9 @@ from urllib.parse import urlparse
 
 import asyncpg
 from slugify import slugify
+from sqlalchemy import text
 
+from demetra.services.database import get_connection
 from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER, WORKTREE_PATH
 
 
@@ -45,7 +47,11 @@ def parse_github_url(url: str) -> tuple[str, str] | None:
     return None
 
 
-async def setup_project_directory(repository_url: str, project_name: str, project_id: str) -> Path:
+async def setup_project_directory(
+    project_id: str,
+    project_name: str,
+    repository_url: str,
+) -> Path:
     parsed = parse_github_url(repository_url)
     if not parsed:
         raise ValueError(f"Invalid GitHub repository URL: {repository_url}")
@@ -134,43 +140,41 @@ async def create_postgres_role_and_database(project_id: str) -> tuple[str, str, 
     password = secrets.token_urlsafe(32)
     role_name = db_name
 
-    conn = await asyncpg.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database="postgres",
-    )
-
-    try:
-        role_exists = await conn.fetchval("SELECT 1 FROM pg_roles WHERE rolname = $1", role_name)
-        if not role_exists:
-            await conn.execute(
-                f"CREATE ROLE {role_name} WITH LOGIN PASSWORD $1",
-                password,
+    async with get_connection() as session:
+        result = await session.execute(
+            text("SELECT 1 FROM pg_roles WHERE rolname = :role_name"),
+            {"role_name": role_name},
+        )
+        if not result.fetchone():
+            await session.execute(
+                text(f"CREATE ROLE {role_name} WITH LOGIN PASSWORD '{password}' CREATEDB"),
             )
             logger.info(f"Created role: {role_name}")
+        await session.commit()
 
-        db_exists = await conn.fetchval("SELECT 1 FROM pg_database WHERE datname = $1", db_name)
-        if not db_exists:
-            await conn.execute(
-                f"CREATE DATABASE {db_name} OWNER {role_name}",
+    async with get_connection() as session:
+        result = await session.execute(
+            text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
+            {"db_name": db_name},
+        )
+        if not result.fetchone():
+            await session.execute(
+                text(f"GRANT {role_name} TO {DB_USER}"),
+            )
+            await session.execute(
+                text(f"CREATE DATABASE {db_name} OWNER {role_name}"),
             )
             logger.info(f"Created database: {db_name}")
-
-        await conn.execute(f"ALTER ROLE {role_name} CREATEDB")
-        logger.info(f"Granted CREATEDB to role: {role_name}")
-
-    finally:
-        await conn.close()
+        await session.commit()
 
     return db_name, role_name, password
 
 
-async def setup_project(project_name: str, repository_url: str, project_id: str) -> dict:
-    local_path = await setup_project_directory(repository_url, project_name, project_id)
-    db_name, db_user, db_password = await create_postgres_role_and_database(project_id)
-
+async def setup_project(project_id: str, project_name: str, repository_url: str) -> dict:
+    local_path = await setup_project_directory(
+        project_id=project_id, project_name=project_name, repository_url=repository_url
+    )
+    db_name, db_user, db_password = await create_postgres_role_and_database(project_id=project_id)
     return {
         "local_path": str(local_path),
         "db_name": db_name,
