@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { updateUserKeys } from '../services/api';
+import { ProjectList } from './ProjectList';
 
 interface KeyValue {
   id: string;
@@ -11,6 +12,8 @@ interface UserSettingsProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type Tab = 'keys' | 'projects';
 
 const CloseIcon = () => (
   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -27,6 +30,7 @@ const RemoveIcon = () => (
 );
 
 export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
+  const [activeTab, setActiveTab] = useState<Tab>('keys');
   const [keys, setKeys] = useState<KeyValue[]>([{ id: '1', key: '', value: '' }]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,42 +110,59 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
             <CloseIcon />
           </button>
         </div>
+        <div className="settings-tabs">
+          <button
+            className={`settings-tab ${activeTab === 'keys' ? 'active' : ''}`}
+            onClick={() => setActiveTab('keys')}
+          >
+            Keys
+          </button>
+          <button
+            className={`settings-tab ${activeTab === 'projects' ? 'active' : ''}`}
+            onClick={() => setActiveTab('projects')}
+          >
+            Projects
+          </button>
+        </div>
         <div className="modal-body">
-          <div className="settings-section">
-            <h3>Keys</h3>
-            <p className="settings-description">Add key-value pairs for your user configuration.</p>
-            <div className="key-value-list">
-              {keys.map((kv) => (
-                <div key={kv.id} className="key-value-row">
-                  <input
-                    type="text"
-                    placeholder="Key"
-                    value={kv.key}
-                    onChange={(e) => handleKeyChange(kv.id, 'key', e.target.value)}
-                    className="key-input"
-                  />
-                  <input
-                    type="password"
-                    placeholder="Value"
-                    value={kv.value}
-                    onChange={(e) => handleKeyChange(kv.id, 'value', e.target.value)}
-                    className="value-input"
-                  />
-                  <button
-                    className="btn-icon remove-key"
-                    onClick={() => handleRemoveKey(kv.id)}
-                    aria-label="Remove key"
-                    disabled={keys.length === 1}
-                  >
-                    <RemoveIcon />
-                  </button>
-                </div>
-              ))}
+          {activeTab === 'keys' && (
+            <div className="settings-section">
+              <h3>Keys</h3>
+              <p className="settings-description">Add key-value pairs for your user configuration.</p>
+              <div className="key-value-list">
+                {keys.map((kv) => (
+                  <div key={kv.id} className="key-value-row">
+                    <input
+                      type="text"
+                      placeholder="Key"
+                      value={kv.key}
+                      onChange={(e) => handleKeyChange(kv.id, 'key', e.target.value)}
+                      className="key-input"
+                    />
+                    <input
+                      type="password"
+                      placeholder="Value"
+                      value={kv.value}
+                      onChange={(e) => handleKeyChange(kv.id, 'value', e.target.value)}
+                      className="value-input"
+                    />
+                    <button
+                      className="btn-icon remove-key"
+                      onClick={() => handleRemoveKey(kv.id)}
+                      aria-label="Remove key"
+                      disabled={keys.length === 1}
+                    >
+                      <RemoveIcon />
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <button className="btn-secondary add-key-btn" onClick={handleAddKey}>
+                + Add Key
+              </button>
             </div>
-            <button className="btn-secondary add-key-btn" onClick={handleAddKey}>
-              + Add Key
-            </button>
-          </div>
+          )}
+          {activeTab === 'projects' && <ProjectList inline />}
           {error && <div className="settings-error">{error}</div>}
           {success && <div className="settings-success">Keys saved successfully</div>}
         </div>
@@ -149,9 +170,11 @@ export function UserSettings({ isOpen, onClose }: UserSettingsProps) {
           <button className="btn-secondary" onClick={handleClose}>
             Cancel
           </button>
-          <button className="btn-primary" onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Save'}
-          </button>
+          {activeTab === 'keys' && (
+            <button className="btn-primary" onClick={handleSave} disabled={loading}>
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+          )}
         </div>
       </div>
     </div>

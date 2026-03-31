@@ -11,6 +11,7 @@ from demetra.db import (
     get_async_engine,
     jwt_tokens,
     oauth_tokens,
+    projects,
     sessions,
     task_status,
     users,
@@ -387,4 +388,101 @@ async def update_user_keys(user_id: str, keys: dict) -> None:
     encrypted_keys = encrypt(keys)
     async with get_connection() as conn:
         await conn.execute(users.update().where(users.c.id == user_id).values(keys=encrypted_keys))
+        await conn.commit()
+
+
+async def create_project(
+    user_id: str,
+    name: str,
+    repository_url: str,
+    linear_project_id: str | None = None,
+    local_path: str | None = None,
+    state: str = "provisioning",
+) -> dict:
+    from uuid import uuid4
+
+    project_id = str(uuid4())
+    now = datetime.now(UTC)
+    async with get_connection() as conn:
+        await conn.execute(
+            insert(projects).values(
+                id=project_id,
+                user_id=user_id,
+                linear_project_id=linear_project_id,
+                name=name,
+                repository_url=repository_url,
+                local_path=local_path,
+                state=state,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        await conn.commit()
+    return {
+        "id": project_id,
+        "user_id": user_id,
+        "linear_project_id": linear_project_id,
+        "name": name,
+        "repository_url": repository_url,
+        "local_path": local_path,
+        "state": state,
+        "created_at": now.isoformat(),
+        "updated_at": now.isoformat(),
+    }
+
+
+async def get_projects_by_user(user_id: str) -> list[dict]:
+    async with get_connection() as conn:
+        result = await conn.execute(select(projects).where(projects.c.user_id == user_id))
+        rows = result.fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+async def get_project_by_id(project_id: str, user_id: str) -> dict | None:
+    async with get_connection() as conn:
+        result = await conn.execute(select(projects).where(projects.c.id == project_id, projects.c.user_id == user_id))
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def update_project(
+    project_id: str,
+    user_id: str,
+    linear_project_id: str | None = None,
+    name: str | None = None,
+    repository_url: str | None = None,
+    local_path: str | None = None,
+    state: str | None = None,
+) -> dict | None:
+    now = datetime.now(UTC)
+    update_values: dict[str, datetime | str] = {"updated_at": now}
+    if linear_project_id is not None:
+        update_values["linear_project_id"] = linear_project_id
+    if name is not None:
+        update_values["name"] = name
+    if repository_url is not None:
+        update_values["repository_url"] = repository_url
+    if local_path is not None:
+        update_values["local_path"] = local_path
+    if state is not None:
+        update_values["state"] = state
+
+    async with get_connection() as conn:
+        await conn.execute(
+            projects.update()
+            .where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+            .values(**update_values)
+        )
+        await conn.commit()
+
+        result = await conn.execute(
+            select(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        )
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def delete_project(project_id: str, user_id: str) -> None:
+    async with get_connection() as conn:
+        await conn.execute(projects.delete().where((projects.c.id == project_id) & (projects.c.user_id == user_id)))
         await conn.commit()

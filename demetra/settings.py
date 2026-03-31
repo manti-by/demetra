@@ -23,6 +23,7 @@ DB_NAME = os.environ.get("DB_NAME", "demetra")
 DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
+WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 30))
 MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 5))
