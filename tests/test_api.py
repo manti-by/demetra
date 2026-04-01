@@ -295,6 +295,8 @@ class TestProjectEndpoints:
                     "linear_project_id": "linear-123",
                     "name": "Test Project",
                     "repository_url": "https://github.com/test/repo",
+                    "repository_name": "repo",
+                    "repository_owner": "test",
                     "local_path": "/home/user/projects/test/repo",
                     "created_at": datetime.now(),
                     "updated_at": datetime.now(),

@@ -38,7 +38,7 @@ from demetra.services.database import (
 )
 from demetra.services.groq import process_text_with_groq
 from demetra.services.linear import create_linear_ticket
-from demetra.services.project import cleanup_project_resources, setup_project
+from demetra.services.project import cleanup_project_resources, parse_github_url, setup_project
 from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR, LOG_DIR
 
@@ -265,6 +265,8 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
             linear_project_id=p.get("linear_project_id"),
             name=p["name"],
             repository_url=p["repository_url"],
+            repository_name=p["repository_name"],
+            repository_owner=p["repository_owner"],
             local_path=p.get("local_path"),
             created_at=p["created_at"].isoformat() if p.get("created_at") else "",
             updated_at=p["updated_at"].isoformat() if p.get("updated_at") else "",
@@ -290,30 +292,36 @@ async def create_project_endpoint(
     if not (repository_url := request.repository_url.strip()):
         raise HTTPException(status_code=400, detail="Repository URL cannot be empty")
 
+    if not (parsed_repository_url := parse_github_url(repository_url)):
+        raise HTTPException(status_code=400, detail=f"Invalid GitHub repository URL: {repository_url}")
+
+    repository_owner, repository_name = parsed_repository_url
     project = await create_project(
         user_id=user.id,
         name=project_name,
         repository_url=repository_url,
+        repository_name=repository_name,
+        repository_owner=repository_owner,
         linear_project_id=request.linear_project_id,
         state="provisioning",
     )
 
     project_id, linear_project_id = project["id"], request.linear_project_id
     try:
-        setup_info = await setup_project(
-            project_id=project_id, project_name=project_name, repository_url=repository_url
-        )
+        setup_info = await setup_project(project=project)
         local_path = setup_info["local_path"]
 
-    except ValueError:
-        await cleanup_project_resources(project_id=project_id, project_name=project_name, repository_url=repository_url)
-        raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from None
+    except ValueError as e:
+        logging.error(f"Failed to setup project: {e}")
+        await cleanup_project_resources(project=project)
+        await update_project(project_id=project_id, user_id=user.id, state="failed")
+        raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from e
 
     except Exception as e:
         logging.exception(f"Failed to setup project: {e}")
-        await cleanup_project_resources(project_id=project_id, project_name=project_name, repository_url=repository_url)
+        await cleanup_project_resources(project=project)
         await update_project(project_id=project_id, user_id=user.id, state="failed")
-        raise HTTPException(status_code=500, detail="Internal server error") from None
+        raise HTTPException(status_code=500, detail="Internal server error") from e
 
     if not (
         updated_project := await update_project(
@@ -327,6 +335,8 @@ async def create_project_endpoint(
         user_id=user.id,
         name=project_name,
         repository_url=repository_url,
+        repository_name=repository_name,
+        repository_owner=repository_owner,
         linear_project_id=linear_project_id,
         local_path=local_path,
         created_at=updated_project["created_at"],
@@ -354,6 +364,8 @@ async def get_project_endpoint(
         linear_project_id=project.get("linear_project_id"),
         name=project["name"],
         repository_url=project["repository_url"],
+        repository_name=project["repository_name"],
+        repository_owner=project["repository_owner"],
         local_path=project.get("local_path"),
         created_at=project["created_at"].isoformat() if project.get("created_at") else "",
         updated_at=project["updated_at"].isoformat() if project.get("updated_at") else "",
@@ -388,6 +400,8 @@ async def update_project_endpoint(
         linear_project_id=project.get("linear_project_id"),
         name=project["name"],
         repository_url=project["repository_url"],
+        repository_name=project["repository_name"],
+        repository_owner=project["repository_owner"],
         local_path=project.get("local_path"),
         created_at=project["created_at"].isoformat() if project.get("created_at") else "",
         updated_at=project["updated_at"].isoformat() if project.get("updated_at") else "",

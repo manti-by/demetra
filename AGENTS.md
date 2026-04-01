@@ -104,7 +104,7 @@ uv run main.py --project-name <project_name>
 - Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
-- Prefer f-strings over `.format()` or `%`
+- Use only f-strings for string formatting (never use `.format()` or `%` formatting)
 - Use list/dict/set comprehensions instead of `map`/`filter` where it improves readability
 - Prefer `pathlib.Path` over `os.path` for filesystem paths
 - Follow PEP 257 for docstrings where docstrings are used

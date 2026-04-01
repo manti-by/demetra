@@ -119,6 +119,8 @@ class ProjectResponse:
     linear_project_id: str | None
     name: str
     repository_url: str
+    repository_name: str
+    repository_owner: str
     local_path: str | None
     created_at: str
     updated_at: str
