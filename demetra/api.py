@@ -163,13 +163,13 @@ async def list_sessions(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not await get_current_user(token=auth_token):
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     if status and status not in ("pending", "processed", "failed"):
         raise HTTPException(status_code=400, detail="Invalid status. Must be one of: pending, processed, failed")
 
-    sessions = await get_sessions(status=status)
+    sessions = await get_sessions(user_id=user.id, status=status)
     return sessions
 
 

@@ -22,6 +22,9 @@ sessions = Table(
     Column("session_id", String(), nullable=False),
     Column("build_plan", Text(), nullable=False, server_default=""),
     Column("posted_to_linear", Boolean(), nullable=False, server_default="false"),
+    Column("status", String(), nullable=False, server_default="pending"),
+    Column("project_id", String(), nullable=True),
+    Column("user_id", String(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
@@ -33,16 +36,6 @@ oauth_tokens = Table(
     Column("access_token", Text(), nullable=False),
     Column("refresh_token", Text(), nullable=True),
     Column("expires_at", DateTime(timezone=True), nullable=False),
-)
-
-task_status = Table(
-    "task_status",
-    metadata,
-    Column("task_id", String(), primary_key=True),
-    Column("project_name", String(), nullable=False),
-    Column("status", String(), nullable=False, server_default="pending"),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("updated_at", DateTime(timezone=True), nullable=False),
 )
 
 users = Table(

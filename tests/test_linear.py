@@ -1,22 +1,32 @@
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 
 
 class TestLinearService:
+    @pytest.fixture
+    def mock_linked_projects(self):
+        project_id = str(uuid4())
+        user_id = str(uuid4())
+        return {project_id: (project_id, user_id), "demetra": (project_id, user_id)}
+
     @pytest.mark.asyncio
     async def test_get_todo_issues_returns_matching_project(
         self,
         graphql_todo_issues_response_demetra: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_todo_issues
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_demetra
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -32,20 +42,25 @@ class TestLinearService:
 
         assert len(issues) == 1
         assert issues[0].identifier.startswith("MNT-")
+        assert issues[0].project_id is not None
+        assert issues[0].user_id is not None
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_filters_by_project_name(
         self,
         graphql_todo_issues_multiple_response_demetra: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_todo_issues
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_multiple_response_demetra
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -65,15 +80,18 @@ class TestLinearService:
     async def test_get_linear_task_returns_first_by_priority(
         self,
         graphql_todo_issues_multiple_response_demetra: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_linear_task
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_multiple_response_demetra
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -93,15 +111,18 @@ class TestLinearService:
     async def test_get_linear_task_returns_none_when_no_issues(
         self,
         graphql_empty_response: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_linear_task
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_empty_response
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -189,15 +210,18 @@ class TestLinearService:
     async def test_get_todo_issues_includes_comments(
         self,
         graphql_todo_issues_response_with_comments: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_todo_issues
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_with_comments
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -221,15 +245,18 @@ class TestLinearService:
     async def test_get_todo_issues_empty_comments(
         self,
         graphql_todo_issues_response_demetra: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_todo_issues
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_demetra
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -251,15 +278,18 @@ class TestLinearService:
     async def test_linear_task_text_includes_comments(
         self,
         graphql_todo_issues_response_with_comments: dict,
+        mock_linked_projects: dict,
     ):
         from demetra.services.linear import get_todo_issues
 
         with (
             patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
             mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_with_comments
+            mock_linked.return_value = mock_linked_projects
             with patch(
                 "demetra.services.linear.LINEAR",
                 {
@@ -277,3 +307,37 @@ class TestLinearService:
         assert "Comments:" in task_text
         assert "First question" in task_text
         assert "Second question" in task_text
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_enriches_with_project_id_and_user_id(
+        self,
+        graphql_todo_issues_response_demetra: dict,
+        mock_linked_projects: dict,
+    ):
+        from demetra.services.linear import get_todo_issues
+
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
+        ):
+            mock_query.return_value = "query"
+            mock_request.return_value = graphql_todo_issues_response_demetra
+            mock_linked.return_value = mock_linked_projects
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {},
+                    "projects": {},
+                },
+            ):
+                issues = await get_todo_issues()
+
+        assert len(issues) == 1
+        project_id, user_id = mock_linked_projects["demetra"]
+        assert issues[0].project_id == project_id
+        assert issues[0].user_id == user_id

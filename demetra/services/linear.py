@@ -1,7 +1,11 @@
 from typing import Any
 
+from sqlalchemy import select
+
+from demetra.db import projects
 from demetra.library.exceptions import LinearError
 from demetra.library.models import Context, LinearTask
+from demetra.services.database import get_connection
 from demetra.services.graphql import get_query, graphql_request
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR
@@ -12,37 +16,64 @@ def extract_comments(issue: dict) -> list[str]:
     return [comment.get("body", "") for comment in comments if comment.get("body")]
 
 
+async def _get_linked_projects() -> dict[str, tuple[str, str]]:
+    async with get_connection() as conn:
+        result = await conn.execute(
+            select(projects.c.id, projects.c.user_id, projects.c.linear_project_id, projects.c.name)
+        )
+        rows = result.fetchall()
+
+    mapping: dict[str, tuple[str, str]] = {}
+    for row in rows:
+        if row.linear_project_id:
+            mapping[row.linear_project_id.lower()] = (row.id, row.user_id)
+        else:
+            mapping[row.name.lower()] = (row.id, row.user_id)
+    return mapping
+
+
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
     result = await graphql_request(query=query, variables={"teamId": LINEAR["team_id"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
-    result = []
+    linked = await _get_linked_projects()
+    tasks = []
     for issue in issues:
         issue_state = issue.get("state", {}).get("name")
         if not issue_state or issue_state.lower() != "todo":
             continue
 
-        issue_project_name = None
-        if project := issue.get("project", {}):
-            issue_project_name = project.get("name", "").lower()
+        linear_project_id = issue.get("project", {}).get("id", "").lower()
+        issue_project_name = issue.get("project", {}).get("name", "").lower()
 
-        if project_name is None or project_name.lower() == issue_project_name:
-            result.append(
-                LinearTask(
-                    id=issue["id"],
-                    identifier=issue["identifier"],
-                    title=issue["title"],
-                    description=issue.get("description", ""),
-                    priority=issue["priority"],
-                    created_at=issue["createdAt"],
-                    branch_name=issue["branchName"],
-                    state=issue_state,
-                    project_name=issue_project_name,
-                    comments=extract_comments(issue),
-                )
+        resolved = linked.get(linear_project_id) or linked.get(issue_project_name)
+
+        if project_name is not None and project_name.lower() != issue_project_name:
+            continue
+
+        if resolved:
+            project_id, user_id = resolved
+        else:
+            project_id, user_id = None, None
+
+        tasks.append(
+            LinearTask(
+                id=issue["id"],
+                identifier=issue["identifier"],
+                title=issue["title"],
+                description=issue.get("description", ""),
+                priority=issue["priority"],
+                created_at=issue["createdAt"],
+                branch_name=issue["branchName"],
+                state=issue_state,
+                project_name=issue_project_name,
+                project_id=project_id,
+                user_id=user_id,
+                comments=extract_comments(issue),
             )
-    return result
+        )
+    return tasks
 
 
 async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
@@ -52,9 +83,12 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     if not issue:
         return None
 
-    project_name = None
-    if project := issue.get("project", {}):
-        project_name = project.get("name", "").lower()
+    linear_project_id = issue.get("project", {}).get("id", "").lower()
+    project_name = issue.get("project", {}).get("name", "").lower()
+
+    linked = await _get_linked_projects()
+    resolved = linked.get(linear_project_id) or linked.get(project_name)
+    project_id, user_id = resolved if resolved else (None, None)
 
     return LinearTask(
         id=issue["id"],
@@ -65,6 +99,8 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         created_at=issue["createdAt"],
         branch_name=issue["branchName"],
         project_name=project_name,
+        project_id=project_id,
+        user_id=user_id,
         comments=extract_comments(issue),
     )
 

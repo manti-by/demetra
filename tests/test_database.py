@@ -15,11 +15,15 @@ class TestDatabaseService:
         assert record.session_id == db_session_id
         assert record.build_plan == ""
         assert record.posted_to_linear is False
+        assert record.status == "pending"
+        assert record.project_id is None
+        assert record.user_id is None
 
         found = await get_session(db_task_id)
         assert found is not None
         assert found.task_id == db_task_id
         assert found.session_id == db_session_id
+        assert found.status == "pending"
 
     @pytest.mark.asyncio
     async def test_read_nonexistent(self):
@@ -38,12 +42,14 @@ class TestDatabaseService:
         assert session.session_id == db_session_id
         assert session.build_plan == db_build_plan
         assert session.posted_to_linear is False
+        assert session.status == "pending"
 
         found = await get_session(db_task_id)
         assert found is not None
         assert found.task_id == db_task_id
         assert found.build_plan == db_build_plan
         assert found.posted_to_linear is False
+        assert found.status == "pending"
 
     @pytest.mark.asyncio
     async def test_save_session_updates_existing(
@@ -59,6 +65,7 @@ class TestDatabaseService:
         assert found.session_id != db_session_id
         assert found.build_plan == "Updated plan"
         assert found.posted_to_linear is False
+        assert found.status == "pending"
 
     @pytest.mark.asyncio
     async def test_save_session_preserves_posted_to_linear(
@@ -74,6 +81,7 @@ class TestDatabaseService:
         assert found is not None
         assert found.build_plan == "Plan B"
         assert found.posted_to_linear is True
+        assert found.status == "pending"
 
     @pytest.mark.asyncio
     async def test_mark_session_posted(

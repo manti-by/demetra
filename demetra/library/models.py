@@ -15,6 +15,8 @@ class LinearTask:
     branch_name: str
     state: str | None = None
     project_name: str | None = None
+    project_id: str | None = None
+    user_id: str | None = None
     comments: list[str] = field(default_factory=list)
 
     @property
@@ -40,6 +42,9 @@ class Session:
     posted_to_linear: bool
     created_at: str
     updated_at: str
+    status: str = "pending"
+    project_id: str | None = None
+    user_id: str | None = None
 
 
 @dataclass
