@@ -87,32 +87,35 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
 
     role_name = password = db_name = project_name
 
-    async with get_connection() as session:
-        result = await session.execute(
+    async with get_connection() as connection:
+        result = await connection.execute(
             text("SELECT 1 FROM pg_roles WHERE rolname = :role_name"),
             {"role_name": role_name},
         )
         if not result.fetchone():
-            await session.execute(
-                text(f"CREATE ROLE {role_name} WITH LOGIN PASSWORD '{password}' CREATEDB"),
+            await connection.execute(
+                text("CREATE ROLE :role_name WITH LOGIN PASSWORD :password CREATEDB"),
+                {"role_name": role_name, "password": password},
             )
             logger.info(f"Created role: {role_name}")
-        await session.commit()
+        await connection.commit()
 
-    async with get_connection() as session:
-        result = await session.execute(
+    async with get_connection() as connection:
+        result = await connection.execute(
             text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
             {"db_name": db_name},
         )
         if not result.fetchone():
-            await session.execute(
-                text(f"GRANT {role_name} TO {DB_USER}"),
+            await connection.execute(
+                text("GRANT :role_name TO :user"),
+                {"role_name": role_name, "user": DB_USER},
             )
-            await session.execute(
-                text(f"CREATE DATABASE {db_name} OWNER {role_name}"),
+            await connection.execute(
+                text("CREATE DATABASE :db_name OWNER :role_name"),
+                {"role_name": role_name, "db_name": db_name},
             )
             logger.info(f"Created database: {db_name}")
-        await session.commit()
+        await connection.commit()
 
     return db_name, role_name, password
 
@@ -128,29 +131,25 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
     role_name = db_name = project_name
 
     try:
-        async with get_connection() as session:
-            result = await session.execute(
+        async with get_connection() as connection:
+            result = await connection.execute(
                 text("SELECT 1 FROM pg_database WHERE datname = :db_name"),
                 {"db_name": db_name},
             )
             if result.fetchone():
-                await session.execute(
-                    text(f"DROP DATABASE IF EXISTS {db_name}"),
-                )
+                await connection.execute(text("DROP DATABASE IF EXISTS :db_name"), {"db_name": db_name})
                 logger.info(f"Dropped database: {db_name}")
-            await session.commit()
+            await connection.commit()
 
-        async with get_connection() as session:
-            result = await session.execute(
+        async with get_connection() as connection:
+            result = await connection.execute(
                 text("SELECT 1 FROM pg_roles WHERE rolname = :role_name"),
                 {"role_name": role_name},
             )
             if result.fetchone():
-                await session.execute(
-                    text(f"DROP ROLE IF EXISTS {role_name}"),
-                )
+                await connection.execute(text("DROP ROLE IF EXISTS :role_name"), {"role_name": role_name})
                 logger.info(f"Dropped role: {role_name}")
-            await session.commit()
+            await connection.commit()
 
     except Exception as e:
         logger.exception(f"Failed to cleanup PostgreSQL resources: {e}", e)

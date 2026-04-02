@@ -3,7 +3,7 @@ import asyncio
 import logging.config
 
 from demetra.library.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
-from demetra.services.database import init_db, mark_session_posted
+from demetra.services.database import init_db, mark_session_posted, update_session_status
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import setup_session_logging
@@ -61,6 +61,9 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
         await run_build_step(build_plan=context.session.build_plan, context=context)
 
         await commit_and_push(context=context)
+
+        await update_session_status(task_id=context.linear_task.id, status="success")
+
         is_success = True
 
     except InfiniteLoopError:

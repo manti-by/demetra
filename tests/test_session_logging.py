@@ -44,7 +44,7 @@ class TestSessionListingAPI:
                 )
                 response = authenticated_client.get("/api/v1/sessions?status=pending")
                 assert response.status_code == 200
-                mock_get_sessions.assert_called_once_with(status="pending")
+                mock_get_sessions.assert_called_once_with(user_id="user-123", status="pending")
 
     @pytest.mark.asyncio
     async def test_list_sessions_invalid_status(self, authenticated_client: TestClient):

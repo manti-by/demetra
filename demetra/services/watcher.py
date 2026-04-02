@@ -7,10 +7,9 @@ from rq.job import Job
 
 from demetra.library.models import LinearTask
 from demetra.services.database import (
-    add_pending_task,
-    get_pending_task_ids,
-    mark_task_failed,
-    mark_task_processed,
+    get_pending_session_task_ids,
+    update_session_status,
+    upsert_pending_session,
 )
 from demetra.services.queue import queue
 from demetra.services.utils import log_stream
@@ -77,7 +76,7 @@ async def delay_run_workflow(project_name: str, task_id: str) -> Job:
 
 
 async def process_tasks(tasks: list[LinearTask]) -> None:
-    pending_ids = await get_pending_task_ids()
+    pending_ids = await get_pending_session_task_ids()
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
 
     for task in tasks:
@@ -86,10 +85,18 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             continue
 
         if task.id not in pending_ids:
-            await add_pending_task(task_id=task.id, project_name=task.project_name)
+            if not task.project_id or not task.user_id:
+                logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={task.user_id}")
+                continue
+            await upsert_pending_session(
+                task_id=task.id,
+                session_id=None,
+                project_id=task.project_id,
+                user_id=task.user_id,
+            )
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
         if await delay_run_workflow(project_name=task.project_name, task_id=task.id):
-            await mark_task_processed(task_id=task.id)
+            await update_session_status(task_id=task.id, status="in progress")
         else:
-            await mark_task_failed(task_id=task.id)
+            await update_session_status(task_id=task.id, status="failed")
