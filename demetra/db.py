@@ -12,6 +12,8 @@ from sqlalchemy import (
 )
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+
 
 metadata = MetaData()
 
@@ -77,8 +79,6 @@ projects = Table(
 
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
-    from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
-
     database = db_name if db_name else DB_NAME
     url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
     return create_async_engine(url, echo=echo, isolation_level="AUTOCOMMIT")
@@ -97,8 +97,6 @@ async def get_db_session(
 
 
 def get_sync_engine(db_name: str | None = None, echo: bool = False):
-    from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
-
     database = db_name if db_name else DB_NAME
     url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
     return create_engine(url, echo=echo)

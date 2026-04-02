@@ -37,12 +37,12 @@ class LinearTask:
 @dataclass
 class Session:
     task_id: str
-    session_id: str
     build_plan: str
     posted_to_linear: bool
     created_at: str
     updated_at: str
     status: str = "pending"
+    session_id: str | None = None
     project_id: str | None = None
     user_id: str | None = None
 

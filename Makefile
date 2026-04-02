@@ -32,7 +32,7 @@ update:
 	uv run pre-commit autoupdate
 
 test:
-	uv run pytest tests/
+	DB_NAME=test_demetra uv run pytest tests/
 
 migrate:
 	uv run alembic upgrade head

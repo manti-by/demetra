@@ -3,6 +3,14 @@ from uuid import uuid4
 
 import pytest
 
+from demetra.services.database import (
+    get_pending_session_task_ids,
+    get_session,
+    update_session_status,
+    upsert_pending_session,
+)
+from demetra.services.linear import get_todo_issues
+
 
 class TestProcessManager:
     @pytest.mark.asyncio
@@ -10,18 +18,14 @@ class TestProcessManager:
         self,
         graphql_todo_issues_response_demetra: dict,
     ):
-        from demetra.services.linear import get_todo_issues
-
         project_id = str(uuid4())
         user_id = str(uuid4())
         mock_linked_projects = {project_id: (project_id, user_id), "demetra": (project_id, user_id)}
 
         with (
-            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
-            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
-            mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_demetra
             mock_linked.return_value = mock_linked_projects
 
@@ -48,16 +52,12 @@ class TestProcessManager:
         self,
         graphql_todo_issues_response_demetra: dict,
     ):
-        from demetra.services.linear import get_todo_issues
-
         mock_linked_projects = {}
 
         with (
-            patch("demetra.services.linear.get_query", new_callable=AsyncMock) as mock_query,
             patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
-            patch("demetra.services.linear._get_linked_projects", new_callable=AsyncMock) as mock_linked,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
         ):
-            mock_query.return_value = "query"
             mock_request.return_value = graphql_todo_issues_response_demetra
             mock_linked.return_value = mock_linked_projects
 
@@ -80,13 +80,6 @@ class TestProcessManager:
 
     @pytest.mark.asyncio
     async def test_session_status_workflow(self, setup_test_db):
-        from demetra.services.database import (
-            get_pending_session_task_ids,
-            get_session,
-            update_session_status,
-            upsert_pending_session,
-        )
-
         task_id = f"session-status-{uuid4().hex[:8]}"
         project_id = str(uuid4())
         user_id = str(uuid4())

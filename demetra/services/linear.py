@@ -16,9 +16,9 @@ def extract_comments(issue: dict) -> list[str]:
     return [comment.get("body", "") for comment in comments if comment.get("body")]
 
 
-async def _get_linked_projects() -> dict[str, tuple[str, str]]:
-    async with get_connection() as conn:
-        result = await conn.execute(
+async def get_linked_projects() -> dict[str, tuple[str, str]]:
+    async with get_connection() as connection:
+        result = await connection.execute(
             select(projects.c.id, projects.c.user_id, projects.c.linear_project_id, projects.c.name)
         )
         rows = result.fetchall()
@@ -27,7 +27,7 @@ async def _get_linked_projects() -> dict[str, tuple[str, str]]:
     for row in rows:
         if row.linear_project_id:
             mapping[row.linear_project_id.lower()] = (row.id, row.user_id)
-        else:
+        if row.name:
             mapping[row.name.lower()] = (row.id, row.user_id)
     return mapping
 
@@ -37,7 +37,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     result = await graphql_request(query=query, variables={"teamId": LINEAR["team_id"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
-    linked = await _get_linked_projects()
+    linked = await get_linked_projects()
     tasks = []
     for issue in issues:
         issue_state = issue.get("state", {}).get("name")
@@ -86,7 +86,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     linear_project_id = issue.get("project", {}).get("id", "").lower()
     project_name = issue.get("project", {}).get("name", "").lower()
 
-    linked = await _get_linked_projects()
+    linked = await get_linked_projects()
     resolved = linked.get(linear_project_id) or linked.get(project_name)
     project_id, user_id = resolved if resolved else (None, None)
 

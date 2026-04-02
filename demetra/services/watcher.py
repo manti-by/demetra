@@ -85,6 +85,9 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             continue
 
         if task.id not in pending_ids:
+            if not task.project_id or not task.user_id:
+                logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={task.user_id}")
+                continue
             await upsert_pending_session(
                 task_id=task.id,
                 session_id=None,

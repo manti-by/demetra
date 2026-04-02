@@ -1,5 +1,4 @@
 import asyncio
-import os
 from collections.abc import AsyncGenerator
 from contextlib import contextmanager
 from unittest.mock import AsyncMock, patch
@@ -9,14 +8,81 @@ import pytest
 import pytest_asyncio
 from faker import Faker
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine, text
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from demetra.library.models import UserResponse
-
-
-os.environ["DB_NAME"] = "test_demetra"
+from demetra.api import app
+from demetra.db import get_async_engine, metadata
+from demetra.library.models import LinearTask, UserResponse
+from demetra.services.auth import create_jwt_token
+from demetra.services.database import _engine_cache
+from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
 
 
 fake = Faker()
+
+_test_db_engine = None
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
+def test_db_engine():
+    global _test_db_engine
+    if _test_db_engine is None:
+        _test_db_engine = get_async_engine()
+    return _test_db_engine
+
+
+@pytest_asyncio.fixture(scope="session")
+async def setup_test_db(test_db_engine):
+    from demetra.db import get_async_engine
+
+    _engine_cache.clear()
+    admin_engine = get_async_engine(db_name="postgres")
+    async with AsyncSession(admin_engine) as connection:
+        await connection.execute(
+            text(
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'test_demetra' AND pid <> pg_backend_pid()"
+            )
+        )
+        await connection.execute(text("DROP DATABASE IF EXISTS test_demetra"))
+        await connection.execute(text("CREATE DATABASE test_demetra"))
+    await admin_engine.dispose()
+
+    sync_url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/test_demetra"
+    sync_engine = create_engine(sync_url)
+    metadata.create_all(sync_engine)
+    sync_engine.dispose()
+
+    yield
+
+    if _test_db_engine is not None:
+        await _test_db_engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_connection(test_db_engine, setup_test_db):
+    from demetra.db import get_async_session_maker
+
+    async_session_maker = get_async_session_maker(test_db_engine)
+
+    async with async_session_maker() as session:
+        async with session.begin():
+            yield session
+            await session.rollback()
+
+
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def cleanup_db_connections(test_db_engine):
+    yield
+    await test_db_engine.dispose()
+    _engine_cache.clear()
 
 
 @pytest.fixture
@@ -185,8 +251,6 @@ def graphql_todo_issues_response_with_comments(linear_task_data_with_comments: d
 
 @pytest.fixture
 def linear_task(linear_task_data: dict):
-    from demetra.library.models import LinearTask
-
     return LinearTask(
         id=linear_task_data["id"],
         identifier=linear_task_data["identifier"],
@@ -272,6 +336,11 @@ def graphql_update_success_response() -> dict:
 
 
 @pytest.fixture
+def mock_linked_projects():
+    return {"demetra": (str(uuid4()), str(uuid4()))}
+
+
+@pytest.fixture
 def graphql_update_failure_response() -> dict:
     return {
         "data": {
@@ -323,74 +392,6 @@ def db_build_plan() -> str:
     return fake.text(max_nb_chars=100)
 
 
-_test_db_engine = None
-
-
-@pytest.fixture(scope="session")
-def event_loop():
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
-
-
-@pytest.fixture(scope="session")
-def test_db_engine():
-    global _test_db_engine
-    if _test_db_engine is None:
-        import os
-
-        os.environ["DB_NAME"] = "test_demetra"
-        from demetra.db import get_async_engine
-
-        _test_db_engine = get_async_engine(db_name="test_demetra")
-    return _test_db_engine
-
-
-@pytest_asyncio.fixture(scope="session")
-async def setup_test_db(test_db_engine):
-    import asyncpg
-
-    from demetra.db import metadata
-    from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
-
-    conn = await asyncpg.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database="postgres",
-    )
-    try:
-        await conn.execute("DROP DATABASE IF EXISTS test_demetra")
-        await conn.execute("CREATE DATABASE test_demetra")
-    finally:
-        await conn.close()
-
-    from sqlalchemy import create_engine
-
-    sync_url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/test_demetra"
-    sync_engine = create_engine(sync_url)
-    metadata.create_all(sync_engine)
-    sync_engine.dispose()
-
-    yield
-
-    if _test_db_engine is not None:
-        await _test_db_engine.dispose()
-
-
-@pytest_asyncio.fixture(scope="function")
-async def db_connection(test_db_engine, setup_test_db):
-    from demetra.db import get_async_session_maker
-
-    async_session_maker = get_async_session_maker(test_db_engine)
-
-    async with async_session_maker() as session:
-        async with session.begin():
-            yield session
-            await session.rollback()
-
-
 @pytest.fixture
 def mock_user() -> UserResponse:
     return UserResponse(
@@ -420,14 +421,12 @@ def auth_cookie() -> dict:
                 "expires_at": "2099-01-01T00:00:00+00:00",
             },
         ):
-            from demetra.services.auth import create_jwt_token
-
             token, _ = create_jwt_token("test_user_id")
             return {"auth_token": token}
 
 
 @contextmanager
-def _patch_get_current_user(user: UserResponse):
+def patch_get_current_user(user: UserResponse):
     with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
         mock_get_user.return_value = user
         yield mock_get_user
@@ -435,9 +434,7 @@ def _patch_get_current_user(user: UserResponse):
 
 @pytest.fixture
 def authenticated_client(mock_user: UserResponse, auth_cookie: dict):
-    from demetra.api import app
-
-    with _patch_get_current_user(mock_user):
+    with patch_get_current_user(mock_user):
         client = TestClient(app, raise_server_exceptions=False)
         client.cookies = auth_cookie
         yield client
@@ -445,9 +442,7 @@ def authenticated_client(mock_user: UserResponse, auth_cookie: dict):
 
 @pytest.fixture
 def authenticated_client_no_exception(mock_user: UserResponse, auth_cookie: dict):
-    from demetra.api import app
-
-    with _patch_get_current_user(mock_user):
+    with patch_get_current_user(mock_user):
         client = TestClient(app, raise_server_exceptions=True)
         client.cookies = auth_cookie
         yield client
