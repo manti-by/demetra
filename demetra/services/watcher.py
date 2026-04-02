@@ -97,6 +97,6 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
         if await delay_run_workflow(project_name=task.project_name, task_id=task.id):
-            await update_session_status(task_id=task.id, status="processed")
+            await update_session_status(task_id=task.id, status="in progress")
         else:
             await update_session_status(task_id=task.id, status="failed")
