@@ -16,7 +16,7 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 
 ## Architecture
 
-![DAG Diagram](/media/diagram.jpg)
+![DAG Diagram](/media/diagram.png)
 
 ## Workflow
 

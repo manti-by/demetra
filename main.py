@@ -42,7 +42,7 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     try:
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_progress"])
 
-        if not context.session:
+        if not context.session or not context.session.build_plan:
             if not await run_plan_step(context=context):
                 return
 

@@ -18,7 +18,12 @@ async def extract_questions(plan_output: str) -> list[str]:
     output_parser = NumberedListOutputParser()
 
     chain = prompt | llm | output_parser
-    return await chain.ainvoke({"input_text": plan_output})
+
+    result = []
+    for item in await chain.ainvoke({"input_text": plan_output}):
+        if question := str(item):
+            result.append(question)
+    return result
 
 
 async def process_text_with_groq(text: str) -> dict[str, str]:

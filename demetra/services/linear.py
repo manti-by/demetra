@@ -44,14 +44,17 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
         if not issue_state or issue_state.lower() != "todo":
             continue
 
-        linear_project_id = issue.get("project", {}).get("id", "").lower()
-        issue_project_name = issue.get("project", {}).get("name", "").lower()
+        if not (project := issue.get("project", {})):
+            print_message(f"There is no project associated with issue #{issue['identifier']}", style="info")
+            continue
 
-        resolved = linked.get(linear_project_id) or linked.get(issue_project_name)
+        linear_project_id = project.get("id", "").lower()
+        issue_project_name = project.get("name", "").lower()
 
         if project_name is not None and project_name.lower() != issue_project_name:
             continue
 
+        resolved = linked.get(linear_project_id) or linked.get(issue_project_name)
         if resolved:
             project_id, user_id = resolved
         else:
