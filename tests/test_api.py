@@ -155,7 +155,7 @@ class TestWatcherLogsWebSocket:
     async def test_websocket_rejects_invalid_auth_token(self):
         from demetra.api import app
 
-        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             with pytest.raises((WebSocketDisconnect, Exception)):
@@ -177,7 +177,7 @@ class TestWatcherLogsWebSocket:
 
         try:
             with patch.dict(os.environ, {"LOG_PATH": temp_log_path}):
-                with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
                     mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
 
                     with pytest.raises((WebSocketDisconnect, Exception)):
@@ -198,7 +198,7 @@ class TestWatcherLogsWebSocket:
         from demetra.api import app
 
         with patch.dict(os.environ, {"LOG_PATH": "/nonexistent/path/logs.log"}):
-            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
                 mock_get_user.return_value = {"id": "user-123", "github_username": "testuser"}
 
                 with pytest.raises((WebSocketDisconnect, Exception)):
@@ -220,7 +220,7 @@ class TestUserKeysEndpoint:
     def test_update_keys_returns_401_with_invalid_token(self):
         from demetra.api import app
 
-        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.api.users.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -266,7 +266,7 @@ class TestProjectEndpoints:
     def test_list_projects_returns_401_with_invalid_token(self):
         from demetra.api import app
 
-        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.api.projects.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -280,7 +280,7 @@ class TestProjectEndpoints:
         authenticated_client: TestClient,
     ):
         with patch(
-            "demetra.api.get_projects_by_user",
+            "demetra.api.projects.get_projects_by_user",
             new_callable=AsyncMock,
         ) as mock_get_projects:
             mock_get_projects.return_value = [
@@ -299,7 +299,7 @@ class TestProjectEndpoints:
                 }
             ]
 
-            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch("demetra.api.projects.get_current_user", new_callable=AsyncMock) as mock_get_user:
                 mock_get_user.return_value = UserResponse(
                     id="test_user_id",
                     github_username="testuser",
@@ -359,18 +359,18 @@ class TestProjectEndpoints:
         authenticated_client: TestClient,
     ):
         with patch(
-            "demetra.api.setup_project",
+            "demetra.api.projects.setup_project",
             new_callable=AsyncMock,
         ) as mock_setup_project:
             with patch(
-                "demetra.api.create_project",
+                "demetra.api.projects.create_project",
                 new_callable=AsyncMock,
             ) as mock_create_project:
                 with patch(
-                    "demetra.api.update_project",
+                    "demetra.api.projects.update_project",
                     new_callable=AsyncMock,
                 ) as mock_update_project:
-                    with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                    with patch("demetra.api.projects.get_current_user", new_callable=AsyncMock) as mock_get_user:
                         mock_get_user.return_value = UserResponse(
                             id="test_user_id",
                             github_username="testuser",
@@ -426,10 +426,10 @@ class TestProjectEndpoints:
         authenticated_client: TestClient,
     ):
         with patch(
-            "demetra.api.delete_project",
+            "demetra.api.projects.delete_project",
             new_callable=AsyncMock,
         ) as mock_delete_project:
-            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            with patch("demetra.api.projects.get_current_user", new_callable=AsyncMock) as mock_get_user:
                 mock_get_user.return_value = UserResponse(
                     id="test_user_id",
                     github_username="testuser",

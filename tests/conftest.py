@@ -172,7 +172,7 @@ async def mock_graphql_request(
 @pytest.fixture
 async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.process_text_with_groq",
+        "demetra.api.tickets.process_text_with_groq",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = groq_processed_data
@@ -184,7 +184,7 @@ async def mock_create_linear_ticket(
     linear_ticket_data: dict,
 ) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.create_linear_ticket",
+        "demetra.api.tickets.create_linear_ticket",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = linear_ticket_data
@@ -389,6 +389,74 @@ def db_session_id() -> str:
 @pytest.fixture
 def db_build_plan() -> str:
     return fake.text(max_nb_chars=100)
+
+
+_test_db_engine = None
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
+
+
+@pytest.fixture(scope="session")
+def test_db_engine():
+    global _test_db_engine
+    if _test_db_engine is None:
+        import os
+
+        os.environ["DB_NAME"] = "test_demetra"
+        from demetra.db import get_async_engine
+
+        _test_db_engine = get_async_engine(db_name="test_demetra")
+    return _test_db_engine
+
+
+@pytest_asyncio.fixture(scope="session", autouse=True)
+async def setup_test_db(test_db_engine):
+    import asyncpg
+
+    from demetra.db import metadata
+    from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
+
+    conn = await asyncpg.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        user=DB_USER,
+        password=DB_PASSWORD,
+        database="postgres",
+    )
+    try:
+        await conn.execute("DROP DATABASE IF EXISTS test_demetra")
+        await conn.execute("CREATE DATABASE test_demetra")
+    finally:
+        await conn.close()
+
+    from sqlalchemy import create_engine
+
+    sync_url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/test_demetra"
+    sync_engine = create_engine(sync_url)
+    metadata.create_all(sync_engine)
+    sync_engine.dispose()
+
+    yield
+
+    if _test_db_engine is not None:
+        await _test_db_engine.dispose()
+
+
+@pytest_asyncio.fixture(scope="function")
+async def db_connection(test_db_engine, setup_test_db):
+    from demetra.db import get_async_session_maker
+
+    async_session_maker = get_async_session_maker(test_db_engine)
+
+    async with async_session_maker() as session:
+        async with session.begin():
+            yield session
+            await session.rollback()
 
 
 @pytest.fixture

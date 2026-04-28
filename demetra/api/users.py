@@ -1,0 +1,21 @@
+from fastapi import Cookie, HTTPException
+
+from demetra.api import app
+from demetra.library.models import UserKeysUpdateRequest
+from demetra.services.auth import get_current_user
+from demetra.services.database import update_user_keys
+
+
+@app.patch("/api/v1/users/me/keys")
+async def update_user_keys_endpoint(
+    request: UserKeysUpdateRequest,
+    auth_token: str | None = Cookie(default=None),
+):
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    await update_user_keys(user_id=user.id, keys=request.keys)
+    return {"message": "Keys updated successfully"}
