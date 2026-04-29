@@ -12,7 +12,6 @@ class LinearTask:
     description: str
     priority: str
     created_at: str
-    branch_name: str
     state: str | None = None
     project_name: str | None = None
     project_id: str | None = None
@@ -21,17 +20,17 @@ class LinearTask:
 
     @property
     def full_title(self) -> str:
-        return f"{self.identifier}: {self.title}"
+        return f"{self.identifier.strip()}: {self.title.strip()}"
 
     @property
     def text(self) -> str:
         if self.comments:
-            return f"{self.title}\n({self.description})\n\nComments:\n{'\n'.join(self.comments)}"
-        return f"{self.title}\n({self.description})"
+            return f"{self.title.strip()}\n({self.description.strip()})\n\nComments:\n{'\n'.join(self.comments)}"
+        return f"{self.title.strip()}\n({self.description.strip()})"
 
     @property
     def slug(self) -> str:
-        return slugify(f"{self.identifier}-{self.title}")
+        return slugify(f"{self.identifier.strip()}-{self.title.strip()}")
 
 
 @dataclass
@@ -48,12 +47,40 @@ class Session:
 
 
 @dataclass
+class Project:
+    id: str
+    user_id: str | None
+    linear_project_id: str | None
+    name: str
+    state: str
+    repository_url: str
+    repository_name: str
+    repository_owner: str
+    local_path: Path
+    created_at: str
+    updated_at: str
+
+
+@dataclass
+class CreateProject:
+    name: str
+    repository_url: str
+    linear_project_id: str | None = None
+
+
+@dataclass
+class UpdateProject:
+    name: str | None = None
+    repository_url: str | None = None
+    linear_project_id: str | None = None
+
+
+@dataclass
 class Context:
-    project_name: str
+    project: Project
     auto_mode: bool
     linear_task: LinearTask
     branch_name: str
-    project_path: Path
     worktree_path: Path
     session: Session | None
 
@@ -67,12 +94,12 @@ class Context:
 
 
 @dataclass
-class TicketRequest:
+class CreateTicket:
     text: str
 
 
 @dataclass
-class TicketResponse:
+class Ticket:
     ticket_id: str
     identifier: str
     title: str
@@ -108,31 +135,3 @@ class UserResponse:
 @dataclass
 class UserKeysUpdateRequest:
     keys: dict
-
-
-@dataclass
-class ProjectRequest:
-    name: str
-    repository_url: str
-    linear_project_id: str | None = None
-
-
-@dataclass
-class ProjectResponse:
-    id: str
-    user_id: str | None
-    linear_project_id: str | None
-    name: str
-    repository_url: str
-    repository_name: str
-    repository_owner: str
-    local_path: str | None
-    created_at: str
-    updated_at: str
-
-
-@dataclass
-class ProjectUpdateRequest:
-    name: str | None = None
-    repository_url: str | None = None
-    linear_project_id: str | None = None

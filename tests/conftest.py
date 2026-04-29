@@ -258,7 +258,6 @@ def linear_task(linear_task_data: dict):
         description=linear_task_data["description"],
         priority=linear_task_data["priority"],
         created_at=linear_task_data["createdAt"],
-        branch_name=linear_task_data["branchName"],
         project_name=linear_task_data["project"]["name"],
     )
 

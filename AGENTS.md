@@ -134,6 +134,15 @@ uv run bandit -c pyproject.toml .
 - Tests live in `tests/` directory
 - Run with `make test` or `uv run pytest tests/`
 
+## Database Migrations
+
+When creating Alembic migrations:
+
+- Use descriptive names in snake_case (e.g., `add_users_table`, `drop_sessions_column`, `create_oauth_tokens_index`)
+- Prefix with operation type: `add_`, `create_`, `drop_`, `alter_`, `remove_`, `rename_`
+- Include the table name and what changed
+- Example: `uv run alembic revision --autogenerate -m "add_user_keys_column"`
+
 ## Environment & Configuration
 
 Environment is controlled primarily via `demetra/settings.py` and `.env`:

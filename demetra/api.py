@@ -10,11 +10,11 @@ from fastapi import Cookie, FastAPI, HTTPException, Query, Response, WebSocket, 
 from fastapi.responses import RedirectResponse
 
 from demetra.library.models import (
-    ProjectRequest,
-    ProjectResponse,
-    ProjectUpdateRequest,
-    TicketRequest,
-    TicketResponse,
+    CreateProject,
+    CreateTicket,
+    Project,
+    Ticket,
+    UpdateProject,
     UserKeysUpdateRequest,
     UserResponse,
 )
@@ -125,8 +125,8 @@ async def github_logout(response: Response, auth_token: str | None = Cookie(defa
     return response
 
 
-@app.post("/api/v1/tickets", response_model=TicketResponse)
-async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(default=None)):
+@app.post("/api/v1/tickets", response_model=Ticket)
+async def create_ticket(request: CreateTicket, auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -152,7 +152,7 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
     except (TypeError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    return TicketResponse(**ticket)
+    return Ticket(**ticket)
 
 
 @app.get("/api/v1/sessions")
@@ -249,7 +249,7 @@ async def watcher_logs(
         return
 
 
-@app.get("/api/v1/projects", response_model=list[ProjectResponse])
+@app.get("/api/v1/projects", response_model=list[Project])
 async def list_projects(auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -259,15 +259,16 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
 
     projects = await get_projects_by_user(user_id=user.id)
     return [
-        ProjectResponse(
+        Project(
             id=p["id"],
             user_id=p.get("user_id"),
             linear_project_id=p.get("linear_project_id"),
             name=p["name"],
+            state=p["state"],
             repository_url=p["repository_url"],
             repository_name=p["repository_name"],
             repository_owner=p["repository_owner"],
-            local_path=p.get("local_path"),
+            local_path=p["local_path"],
             created_at=p["created_at"].isoformat() if p.get("created_at") else "",
             updated_at=p["updated_at"].isoformat() if p.get("updated_at") else "",
         )
@@ -275,9 +276,9 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
     ]
 
 
-@app.post("/api/v1/projects", response_model=ProjectResponse)
+@app.post("/api/v1/projects", response_model=Project)
 async def create_project_endpoint(
-    request: ProjectRequest,
+    request: CreateProject,
     auth_token: str | None = Cookie(default=None),
 ):
     if not auth_token:
@@ -330,10 +331,11 @@ async def create_project_endpoint(
     ):
         raise HTTPException(status_code=500, detail="Failed to update project state")
 
-    return ProjectResponse(
+    return Project(
         id=project_id,
         user_id=user.id,
         name=project_name,
+        state=updated_project["state"],
         repository_url=repository_url,
         repository_name=repository_name,
         repository_owner=repository_owner,
@@ -344,7 +346,7 @@ async def create_project_endpoint(
     )
 
 
-@app.get("/api/v1/projects/{project_id}", response_model=ProjectResponse)
+@app.get("/api/v1/projects/{project_id}", response_model=Project)
 async def get_project_endpoint(
     project_id: str,
     auth_token: str | None = Cookie(default=None),
@@ -358,24 +360,25 @@ async def get_project_endpoint(
     if not (project := await get_project_by_id(project_id=project_id, user_id=user.id)):
         raise HTTPException(status_code=404, detail="Project not found")
 
-    return ProjectResponse(
+    return Project(
         id=project["id"],
         user_id=project.get("user_id"),
         linear_project_id=project.get("linear_project_id"),
         name=project["name"],
+        state=project["state"],
         repository_url=project["repository_url"],
         repository_name=project["repository_name"],
         repository_owner=project["repository_owner"],
-        local_path=project.get("local_path"),
+        local_path=project["local_path"],
         created_at=project["created_at"].isoformat() if project.get("created_at") else "",
         updated_at=project["updated_at"].isoformat() if project.get("updated_at") else "",
     )
 
 
-@app.patch("/api/v1/projects/{project_id}", response_model=ProjectResponse)
+@app.patch("/api/v1/projects/{project_id}", response_model=Project)
 async def update_project_endpoint(
     project_id: str,
-    request: ProjectUpdateRequest,
+    request: UpdateProject,
     auth_token: str | None = Cookie(default=None),
 ):
     if not auth_token:
@@ -394,15 +397,16 @@ async def update_project_endpoint(
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    return ProjectResponse(
+    return Project(
         id=project["id"],
         user_id=project["user_id"],
         linear_project_id=project.get("linear_project_id"),
         name=project["name"],
+        state=project["state"],
         repository_url=project["repository_url"],
         repository_name=project["repository_name"],
         repository_owner=project["repository_owner"],
-        local_path=project.get("local_path"),
+        local_path=project["local_path"],
         created_at=project["created_at"].isoformat() if project.get("created_at") else "",
         updated_at=project["updated_at"].isoformat() if project.get("updated_at") else "",
     )

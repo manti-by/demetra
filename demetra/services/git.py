@@ -48,7 +48,7 @@ async def git_cleanup(context: Context, is_success: bool):
     try:
         print_message("Removing worktree", style="heading")
         await git_worktree_remove(
-            target_path=context.project_path, worktree_path=context.worktree_path, force=(not is_success)
+            target_path=context.project.local_path, worktree_path=context.worktree_path, force=(not is_success)
         )
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to remove worktree", style="error")
@@ -58,6 +58,6 @@ async def git_cleanup(context: Context, is_success: bool):
 
     try:
         print_message("Deleting branch", style="heading")
-        await git_branch_delete(target_path=context.project_path, branch_name=context.branch_name)
+        await git_branch_delete(target_path=context.project.local_path, branch_name=context.branch_name)
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to delete branch", style="error")

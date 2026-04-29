@@ -6,6 +6,14 @@ from demetra.services.tui import print_message
 from demetra.settings import OPENCODE
 
 
+NO_ISSUE_TOKENS = [
+    "silent",
+    "no issues found.",
+    "no clear, high-severity issues found.",
+    "no output - no critical or error-level issues found.",
+]
+
+
 async def run_review_agents(target_path: Path, session_id: str | None = None) -> str | None:
     print_message("Running OPENCODE REVIEW agents", style="heading")
     for model in OPENCODE["review_models"]:
@@ -13,11 +21,10 @@ async def run_review_agents(target_path: Path, session_id: str | None = None) ->
             target_path=target_path, session_id=session_id, model=model
         )
         opencode_comments = opencode_comments.strip()
-        no_issue_phrases = ["no issues found.", "no clear, high-severity issues found."]
-        if any(phrase in opencode_comments.lower() for phrase in no_issue_phrases):
+        if any(phrase in opencode_comments.lower() for phrase in NO_ISSUE_TOKENS):
             opencode_comments = ""
         if opencode_comments:
-            print_message("OpenCode review agent returned comments", style="result")
+            print_message(f"OpenCode review agent ({model}) returned comments", style="result")
             print_message(opencode_comments, style="result")
             return opencode_comments
 

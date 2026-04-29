@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -7,6 +8,7 @@ from fastapi.testclient import TestClient
 from starlette.testclient import WebSocketDisconnect
 
 from demetra.library.exceptions import LinearError
+from demetra.library.models import UserResponse
 from demetra.services.auth import create_jwt_token
 from demetra.services.linear import create_linear_ticket
 
@@ -71,7 +73,6 @@ class TestLinearService:
         self,
         linear_graphql_response_failure: dict,
     ):
-
         with patch(
             "demetra.services.linear.graphql_request",
             new_callable=AsyncMock,
@@ -236,8 +237,6 @@ class TestUserKeysEndpoint:
         self,
         authenticated_client: TestClient,
     ):
-        from demetra.library.models import UserResponse
-
         with patch("demetra.api.update_user_keys", new_callable=AsyncMock) as mock_update_keys:
             with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
                 mock_get_user.return_value = UserResponse(
@@ -280,10 +279,6 @@ class TestProjectEndpoints:
         self,
         authenticated_client: TestClient,
     ):
-        from datetime import datetime
-
-        from demetra.library.models import UserResponse
-
         with patch(
             "demetra.api.get_projects_by_user",
             new_callable=AsyncMock,
@@ -294,6 +289,7 @@ class TestProjectEndpoints:
                     "user_id": "test_user_id",
                     "linear_project_id": "linear-123",
                     "name": "Test Project",
+                    "state": "active",
                     "repository_url": "https://github.com/test/repo",
                     "repository_name": "repo",
                     "repository_owner": "test",
@@ -328,8 +324,6 @@ class TestProjectEndpoints:
         assert response.status_code == 401
 
     def test_create_project_returns_400_on_empty_name(self, authenticated_client: TestClient):
-        from demetra.library.models import UserResponse
-
         with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = UserResponse(
                 id="test_user_id",
@@ -345,8 +339,6 @@ class TestProjectEndpoints:
             assert "name" in response.json()["detail"].lower()
 
     def test_create_project_returns_400_on_empty_url(self, authenticated_client: TestClient):
-        from demetra.library.models import UserResponse
-
         with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = UserResponse(
                 id="test_user_id",
@@ -366,8 +358,6 @@ class TestProjectEndpoints:
         self,
         authenticated_client: TestClient,
     ):
-        from demetra.library.models import UserResponse
-
         with patch(
             "demetra.api.setup_project",
             new_callable=AsyncMock,
@@ -435,8 +425,6 @@ class TestProjectEndpoints:
         self,
         authenticated_client: TestClient,
     ):
-        from demetra.library.models import UserResponse
-
         with patch(
             "demetra.api.delete_project",
             new_callable=AsyncMock,

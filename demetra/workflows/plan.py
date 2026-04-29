@@ -10,7 +10,6 @@ from demetra.settings import LINEAR
 
 
 async def run_plan_step(context: Context) -> str | None:
-    plan_output = None
     current_task: str = context.linear_task.text
     while True:
         print_message("Running PLAN agent", style="heading")
@@ -31,8 +30,12 @@ async def run_plan_step(context: Context) -> str | None:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None
 
+        print_message(
+            f"Searching session for {context.linear_task.full_title} / {context.worktree_path}", style="heading"
+        )
+
         session_id = None
-        if context.session_id is None:
+        if not context.session_id:
             session_id = await get_opencode_session_id(
                 target_path=context.worktree_path, task_title=context.linear_task.full_title
             )
@@ -41,6 +44,9 @@ async def run_plan_step(context: Context) -> str | None:
             context.session = await save_session(
                 task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
             )
+            print_message(f"Found session {context.session_id}.", style="result")
+        else:
+            print_message("No session found.", style="error")
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")

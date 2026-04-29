@@ -11,7 +11,6 @@ query GetIssues {
       description
       priority
       createdAt
-      branchName
       project {
         id
         name

@@ -25,8 +25,8 @@ DB_PASSWORD = os.environ.get("DB_PASSWORD", "demetra")  # noqa
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
-MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 30))
-MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 5))
+MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 50))
+MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 10))
 
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
 
@@ -86,11 +86,11 @@ LINEAR: LinearConfig = {
 
 OPENCODE: OpenCodeConfig = {
     "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
-    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode/gpt-5.4"),
-    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5"),
+    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode/minimax-m2.5-free"),
+    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5-free"),
     "review_models": os.environ.get(
         "OPENCODE_REVIEW_MODELS",
-        "opencode/claude-sonnet-4-6,opencode/kimi-k2.5,opencode/gpt-5.3-codex",
+        "opencode/big-pickle,opencode/minimax-m2.5-free",
     ).split(","),
 }
 

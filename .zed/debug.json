@@ -5,7 +5,7 @@
     "request": "launch",
     "command": "uv",
     "module": "main",
-    "args": ["--project-name", "odin"],
+    "args": ["--project-name", "demetra", "--no-auto"],
     "cwd": "$ZED_WORKTREE_ROOT"
   }
 ]

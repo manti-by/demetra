@@ -32,7 +32,6 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     print_message("Running workflow", style="heading")
     context = await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)
     if not context:
-        print_message("No TODO tasks found", style="error")
         return
 
     await setup_session_logging(logger=logger, task_id=context.linear_task.id)

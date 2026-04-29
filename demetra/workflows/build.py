@@ -4,7 +4,7 @@ from demetra.services.flow import user_input
 from demetra.services.opencode import opencode_build_agent
 from demetra.services.tui import print_message
 from demetra.settings import MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
-from demetra.workflows.lint import run_linter
+from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
 
 
@@ -12,6 +12,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     current_task: str = build_plan
     rerun_attempts = MAX_BUILD_ATTEMPTS
     review_attempts = MAX_REVIEW_ATTEMPTS
+    review_step_finished = False
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
         await opencode_build_agent(
@@ -21,7 +22,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             task_title=context.linear_task.full_title,
         )
 
-        if review_attempts > 0:
+        if review_attempts > 0 and not review_step_finished:
             print_message("Running CODE REVIEW agents", style="heading")
             review_comments = await run_review_agents(target_path=context.worktree_path, session_id=context.session_id)
             if review_comments:
@@ -45,7 +46,11 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         else:
             print_message("Skipping CODE REVIEW (MAX_REVIEW_ATTEMPTS reached)", style="warning")
 
-        has_errors, lint_result = await run_linter(target_path=context.worktree_path, session_id=context.session_id)
+        review_step_finished = True
+
+        has_errors, lint_result = await run_lint_and_test(
+            target_path=context.worktree_path, session_id=context.session_id
+        )
         if has_errors and lint_result:
             current_task = lint_result
             rerun_attempts -= 1

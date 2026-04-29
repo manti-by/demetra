@@ -42,5 +42,4 @@ class TestModels:
         assert linear_task.description
         assert linear_task.priority
         assert linear_task.created_at
-        assert linear_task.branch_name
         assert linear_task.comments

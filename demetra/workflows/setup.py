@@ -1,22 +1,33 @@
-from demetra.library.models import Context
-from demetra.services.database import get_session
-from demetra.services.filesystem import get_project_root
+from demetra.library.models import Context, Project
+from demetra.services.database import get_session, search_projects_by_name
 from demetra.services.git import git_worktree_create
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.tui import print_message
 
 
 async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None = None) -> Context | None:
-    project_path = get_project_root(project_name=project_name)
-    print_message(f"Project root: {project_path}", style="result")
+    projects = await search_projects_by_name(name=project_name)
+    if not projects:
+        print_message(f"Project {project_name} not found", style="error")
+        return None
+
+    if len(projects) > 1:
+        print_message(f"There are more than one project {project_name} found", style="error")
+        return None
+
+    project = Project(**projects[0])
+    if not project.local_path:
+        print_message(f"No local path found for {project.name} project", style="error")
+        return None
 
     print_message("Retrieving linear task", style="heading")
     if task_id:
         linear_task = await get_linear_task_by_id(task_id)
     else:
-        linear_task = await get_linear_task(project_name=project_name)
+        linear_task = await get_linear_task(project_name=project.name)
 
     if not linear_task:
+        print_message(f"No TODO tasks found for {project.name} project", style="error")
         return None
 
     print_message(f"Retrieved task: {linear_task.full_title}", style="result")
@@ -26,16 +37,15 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Creating feature worktree", style="heading")
     print_message("")
-    worktree_path = await git_worktree_create(target_path=project_path, branch_name=branch_name)
+    worktree_path = await git_worktree_create(target_path=project.local_path, branch_name=branch_name)
     print_message("")
     print_message(f"Created worktree at: {worktree_path}", style="result")
 
     return Context(
-        project_name=project_name,
+        project=project,
         auto_mode=auto_mode,
         linear_task=linear_task,
         branch_name=branch_name,
-        project_path=project_path,
         worktree_path=worktree_path,
         session=session,
     )

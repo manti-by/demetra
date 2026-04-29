@@ -4,7 +4,7 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, insert, select, text
+from sqlalchemy import delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from demetra.db import (
@@ -394,6 +394,13 @@ async def create_project(
         "created_at": now.isoformat(),
         "updated_at": now.isoformat(),
     }
+
+
+async def search_projects_by_name(name: str) -> list[dict]:
+    async with get_connection() as connection:
+        result = await connection.execute(select(projects).where(func.lower(projects.c.name) == name.lower()))
+        rows = result.fetchall()
+    return [dict(row._mapping) for row in rows]
 
 
 async def get_projects_by_user(user_id: str) -> list[dict]:

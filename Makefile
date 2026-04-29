@@ -1,11 +1,11 @@
 run-demetra:
-	uv run main.py --project-name demetra
+	uv run main.py --project-name demetra --no-auto
 
 run-odin:
-	uv run main.py --project-name odin
+	uv run main.py --project-name odin --no-auto
 
 run-coruscant:
-	uv run main.py --project-name coruscant
+	uv run main.py --project-name coruscant --no-auto
 
 deploy:
 	git pull --ff-only
