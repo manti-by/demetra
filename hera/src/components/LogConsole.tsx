@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
+import { deleteSession } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
@@ -97,6 +98,19 @@ export function LogConsole({ taskId }: LogConsoleProps) {
     setLogs([]);
   }, []);
 
+  const handleDelete = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!taskId) return;
+    if (!confirm("Are you sure you want to delete this session? This action cannot be undone.")) return;
+    try {
+      await deleteSession(taskId);
+      setLogs([]);
+      window.dispatchEvent(new CustomEvent("session-deleted", { detail: taskId }));
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+    }
+  }, [taskId]);
+
   const logElements = useMemo(
     () => logs.map((log) => <LogLine key={log.id} log={log} />),
     [logs],
@@ -116,6 +130,11 @@ export function LogConsole({ taskId }: LogConsoleProps) {
           {logTitle}
         </span>
         <div className="log-actions">
+          {taskId && (
+            <button className="log-btn delete" onClick={handleDelete}>
+              Delete
+            </button>
+          )}
           <button className="log-btn" onClick={clearLogs}>
             Clear
           </button>

@@ -401,6 +401,15 @@ body::before {
     color: var(--text-secondary);
 }
 
+.log-btn.delete {
+    color: #ef4444;
+}
+
+.log-btn.delete:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+}
+
 .log-content {
     max-height: 400px;
     overflow-y: auto;

@@ -30,8 +30,10 @@ from demetra.services.auth import (
 from demetra.services.database import (
     create_project,
     delete_project,
+    delete_session,
     get_project_by_id,
     get_projects_by_user,
+    get_session_with_project,
     get_sessions,
     update_project,
     update_user_keys,
@@ -171,6 +173,33 @@ async def list_sessions(
 
     sessions = await get_sessions(status=status)
     return sessions
+
+
+@app.delete("/api/v1/sessions/{task_id}")
+async def delete_session_endpoint(
+    task_id: str,
+    auth_token: str | None = Cookie(default=None),
+):
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    user = await get_current_user(token=auth_token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    session_data = await get_session_with_project(task_id=task_id)
+    if not session_data:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    project_name = session_data.get("project_name")
+    if not project_name:
+        raise HTTPException(status_code=400, detail="Session has no associated project")
+
+    deleted = await delete_session(task_id=task_id, project_name=project_name, user_id=user.id)
+    if not deleted:
+        raise HTTPException(status_code=403, detail="Not authorized to delete this session")
+
+    return {"message": "Session deleted successfully"}
 
 
 @app.websocket("/ws/v1/watcher/logs")

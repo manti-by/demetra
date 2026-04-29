@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
 from sqlalchemy import delete, insert, select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
 from demetra.db import (
@@ -199,6 +200,51 @@ async def get_sessions(status: str | None = None) -> list[dict]:
             )
         rows = result.fetchall()
     return [dict(row._mapping) for row in rows]
+
+
+async def get_session_with_project(task_id: str) -> dict | None:
+    async with get_connection() as conn:
+        result = await conn.execute(
+            text(
+                """
+                SELECT s.task_id, s.session_id, t.project_name
+                FROM sessions s
+                LEFT JOIN task_status t ON s.task_id = t.task_id
+                WHERE s.task_id = :task_id
+                """
+            ),
+            {"task_id": task_id},
+        )
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def delete_session(task_id: str, project_name: str, user_id: str) -> bool:
+    from demetra.settings import LOG_DIR
+
+    async with get_connection() as conn:
+        try:
+            result = await conn.execute(
+                select(projects).where((projects.c.name == project_name) & (projects.c.user_id == user_id))
+            )
+            project = result.fetchone()
+            if not project:
+                return False
+        except SQLAlchemyError:
+            return False
+
+        await conn.execute(delete(sessions).where(sessions.c.task_id == task_id))
+        await conn.execute(delete(task_status).where(task_status.c.task_id == task_id))
+        await conn.commit()
+
+        log_file = LOG_DIR / "sessions" / f"{task_id}.log"
+        if log_file.exists():
+            try:
+                log_file.unlink()
+            except OSError:
+                pass
+
+    return True
 
 
 async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:

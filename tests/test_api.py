@@ -449,3 +449,80 @@ class TestProjectEndpoints:
 
                 assert response.status_code == 200
                 mock_delete_project.assert_called_once_with(project_id="project-id", user_id="test_user_id")
+
+    def test_delete_session_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.delete("/api/v1/sessions/task-id")
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_delete_session_deletes_session_for_authenticated_user(
+        self,
+        authenticated_client: TestClient,
+    ):
+        from demetra.library.models import UserResponse
+
+        with patch(
+            "demetra.api.delete_session",
+            new_callable=AsyncMock,
+        ) as mock_delete_session:
+            with patch("demetra.api.get_session_with_project", new_callable=AsyncMock) as mock_get_session:
+                mock_get_session.return_value = {"task_id": "task-id", "project_name": "test-project"}
+                with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                    mock_get_user.return_value = UserResponse(
+                        id="test_user_id",
+                        github_username="testuser",
+                        email="test@example.com",
+                    )
+                    response = authenticated_client.delete("/api/v1/sessions/task-id")
+
+                    assert response.status_code == 200
+                    mock_delete_session.assert_called_once_with(
+                        task_id="task-id", project_name="test-project", user_id="test_user_id"
+                    )
+
+    @pytest.mark.asyncio
+    async def test_delete_session_returns_404_when_not_found(
+        self,
+        authenticated_client: TestClient,
+    ):
+        from demetra.library.models import UserResponse
+
+        with patch("demetra.api.get_session_with_project", new_callable=AsyncMock) as mock_get_session:
+            mock_get_session.return_value = None
+            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = UserResponse(
+                    id="test_user_id",
+                    github_username="testuser",
+                    email="test@example.com",
+                )
+                response = authenticated_client.delete("/api/v1/sessions/task-id")
+
+                assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_session_returns_403_when_not_authorized(
+        self,
+        authenticated_client: TestClient,
+    ):
+        from demetra.library.models import UserResponse
+
+        with patch(
+            "demetra.api.delete_session",
+            new_callable=AsyncMock,
+        ) as mock_delete_session:
+            mock_delete_session.return_value = False
+            with patch("demetra.api.get_session_with_project", new_callable=AsyncMock) as mock_get_session:
+                mock_get_session.return_value = {"task_id": "task-id", "project_name": "other-project"}
+                with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                    mock_get_user.return_value = UserResponse(
+                        id="test_user_id",
+                        github_username="testuser",
+                        email="test@example.com",
+                    )
+                    response = authenticated_client.delete("/api/v1/sessions/task-id")
+
+                    assert response.status_code == 403
