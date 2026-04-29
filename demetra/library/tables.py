@@ -15,6 +15,7 @@ sessions = Table(
     "sessions",
     metadata,
     Column("task_id", String(), primary_key=True),
+    Column("name", String(), nullable=True),
     Column("session_id", String(), nullable=False),
     Column("build_plan", Text(), nullable=False, server_default=""),
     Column("posted_to_linear", Boolean(), nullable=False, server_default="false"),

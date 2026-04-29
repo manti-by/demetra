@@ -42,7 +42,10 @@ async def run_plan_step(context: Context) -> str | None:
 
         if session_id:
             context.session = await save_session(
-                task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
+                task_id=context.linear_task.id,
+                session_id=session_id,
+                build_plan=build_plan,
+                name=context.linear_task.full_title,
             )
             print_message(f"Found session {context.session_id}.", style="result")
         else:

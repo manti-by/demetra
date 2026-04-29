@@ -26,7 +26,7 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
       <span className="session-title">
-        {session.task_title || session.session_id.slice(0, 8)}
+        {session.name || session.session_id.slice(0, 8)}
       </span>
       <span className={`session-status ${session.status || 'pending'}`}>
         {session.status || 'pending'}

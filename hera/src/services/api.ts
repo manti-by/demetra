@@ -70,7 +70,7 @@ export async function updateUserKeys(keys: Record<string, string>): Promise<void
 export interface Session {
   task_id: string;
   session_id: string;
-  task_title: string | null;
+  name: string | null;
   build_plan: string | null;
   posted_to_linear: boolean;
   created_at: string;

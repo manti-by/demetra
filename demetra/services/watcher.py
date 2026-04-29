@@ -93,6 +93,7 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 session_id=None,
                 project_id=task.project_id,
                 user_id=task.user_id,
+                name=task.full_title,
             )
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")

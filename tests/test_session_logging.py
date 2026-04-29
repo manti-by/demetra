@@ -86,3 +86,61 @@ class TestSessionListingAPI:
                 assert data[0]["task_id"] == "task-123"
                 assert data[0]["session_id"] == "session-456"
                 assert data[0]["status"] == "pending"
+
+    @pytest.mark.asyncio
+    async def test_list_sessions_includes_name_field(self, authenticated_client: TestClient):
+        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
+            mock_get_sessions.return_value = [
+                {
+                    "task_id": "task-123",
+                    "name": "DEMETRA-1: Add user authentication",
+                    "session_id": "session-456",
+                    "build_plan": "",
+                    "posted_to_linear": True,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                    "status": "pending",
+                }
+            ]
+
+            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = UserResponse(
+                    id="user-123",
+                    github_username="testuser",
+                    email="test@example.com",
+                    role="admin",
+                )
+                response = authenticated_client.get("/api/v1/sessions")
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["name"] == "DEMETRA-1: Add user authentication"
+
+    @pytest.mark.asyncio
+    async def test_list_sessions_name_is_null_when_not_set(self, authenticated_client: TestClient):
+        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
+            mock_get_sessions.return_value = [
+                {
+                    "task_id": "task-123",
+                    "name": None,
+                    "session_id": "session-456",
+                    "build_plan": "",
+                    "posted_to_linear": True,
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "updated_at": "2024-01-01T00:00:00Z",
+                    "status": "pending",
+                }
+            ]
+
+            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = UserResponse(
+                    id="user-123",
+                    github_username="testuser",
+                    email="test@example.com",
+                    role="admin",
+                )
+                response = authenticated_client.get("/api/v1/sessions")
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["name"] is None
