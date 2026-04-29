@@ -86,7 +86,7 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             continue
 
         if task.id not in pending_ids:
-            await add_pending_task(task_id=task.id, project_name=task.project_name)
+            await add_pending_task(task_id=task.id, project_name=task.project_name, task_title=task.full_title)
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
         if await delay_run_workflow(project_name=task.project_name, task_id=task.id):

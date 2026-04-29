@@ -25,7 +25,7 @@ const formatDate = (dateStr: string): string => {
 const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: () => void }) => (
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
-      <span className="session-id">{session.session_id.slice(0, 8)}</span>
+      <span className="session-id">{session.task_title || session.session_id.slice(0, 8)}</span>
       <span className={`session-status ${session.status || 'pending'}`}>
         {session.status || 'pending'}
       </span>

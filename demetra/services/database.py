@@ -161,7 +161,7 @@ async def get_sessions(status: str | None = None) -> list[dict]:
                 result = await conn.execute(
                     text(
                         """
-                        SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                        SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status, t.task_title
                         FROM sessions s
                         LEFT JOIN task_status t ON s.task_id = t.task_id
                         WHERE t.status = 'pending' OR t.status IS NULL
@@ -175,7 +175,7 @@ async def get_sessions(status: str | None = None) -> list[dict]:
                 result = await conn.execute(
                     text(
                         """
-                        SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                        SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status, t.task_title
                         FROM sessions s
                         LEFT JOIN task_status t ON s.task_id = t.task_id
                         WHERE t.status = :status
@@ -190,7 +190,7 @@ async def get_sessions(status: str | None = None) -> list[dict]:
             result = await conn.execute(
                 text(
                     """
-                    SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status
+                    SELECT s.task_id, s.session_id, s.build_plan, s.posted_to_linear, s.created_at, s.updated_at, t.status, t.task_title
                     FROM sessions s
                     LEFT JOIN task_status t ON s.task_id = t.task_id
                     ORDER BY s.created_at DESC
@@ -254,28 +254,51 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
     return None
 
 
-async def add_pending_task(task_id: str, project_name: str) -> None:
+async def add_pending_task(task_id: str, project_name: str, task_title: str | None = None) -> None:
     now = datetime.now(UTC)
     async with get_connection() as conn:
-        await conn.execute(
-            text(
-                """
-                INSERT INTO task_status (task_id, project_name, status, created_at, updated_at)
-                VALUES (:task_id, :project_name, :status, :created_at, :updated_at)
-                ON CONFLICT (task_id) DO UPDATE SET
-                    project_name = EXCLUDED.project_name,
-                    status = EXCLUDED.status,
-                    updated_at = EXCLUDED.updated_at
-                """
-            ),
-            {
-                "task_id": task_id,
-                "project_name": project_name,
-                "status": "pending",
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
+        if task_title is not None:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO task_status (task_id, project_name, task_title, status, created_at, updated_at)
+                    VALUES (:task_id, :project_name, :task_title, :status, :created_at, :updated_at)
+                    ON CONFLICT (task_id) DO UPDATE SET
+                        project_name = EXCLUDED.project_name,
+                        task_title = EXCLUDED.task_title,
+                        status = EXCLUDED.status,
+                        updated_at = EXCLUDED.updated_at
+                    """
+                ),
+                {
+                    "task_id": task_id,
+                    "project_name": project_name,
+                    "task_title": task_title,
+                    "status": "pending",
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
+        else:
+            await conn.execute(
+                text(
+                    """
+                    INSERT INTO task_status (task_id, project_name, status, created_at, updated_at)
+                    VALUES (:task_id, :project_name, :status, :created_at, :updated_at)
+                    ON CONFLICT (task_id) DO UPDATE SET
+                        project_name = EXCLUDED.project_name,
+                        status = EXCLUDED.status,
+                        updated_at = EXCLUDED.updated_at
+                    """
+                ),
+                {
+                    "task_id": task_id,
+                    "project_name": project_name,
+                    "status": "pending",
+                    "created_at": now,
+                    "updated_at": now,
+                },
+            )
         await conn.commit()
 
 

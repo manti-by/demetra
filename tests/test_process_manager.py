@@ -15,6 +15,31 @@ class TestProcessManager:
         assert status == "pending"
 
     @pytest.mark.asyncio
+    async def test_add_pending_task_with_title(self):
+        from demetra.services.database import add_pending_task, get_sessions
+
+        task_id = f"task-title-{uuid4().hex[:8]}"
+        task_title = "DEMETRA-123: Add user authentication"
+        await add_pending_task(task_id, "demetra", task_title)
+
+        sessions = await get_sessions()
+        matching = [s for s in sessions if s["task_id"] == task_id]
+        assert len(matching) == 1
+        assert matching[0]["task_title"] == task_title
+
+    @pytest.mark.asyncio
+    async def test_add_pending_task_without_title(self):
+        from demetra.services.database import add_pending_task, get_sessions
+
+        task_id = f"task-notitle-{uuid4().hex[:8]}"
+        await add_pending_task(task_id, "demetra")
+
+        sessions = await get_sessions()
+        matching = [s for s in sessions if s["task_id"] == task_id]
+        assert len(matching) == 1
+        assert matching[0]["task_title"] is None
+
+    @pytest.mark.asyncio
     async def test_mark_task_processed(self):
         from demetra.services.database import add_pending_task, get_task_status, mark_task_processed
 

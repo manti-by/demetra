@@ -18,6 +18,7 @@ const mockSessions: api.Session[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     status: 'processed',
+    task_title: 'DEMETRA-123: Add user authentication',
   },
   {
     task_id: 'task-002-def456',
@@ -27,6 +28,7 @@ const mockSessions: api.Session[] = [
     created_at: new Date(Date.now() - 3600000).toISOString(),
     updated_at: new Date(Date.now() - 3600000).toISOString(),
     status: 'pending',
+    task_title: 'CHIMERA-456: Fix dashboard layout',
   },
   {
     task_id: 'task-003-ghi789',
@@ -36,6 +38,7 @@ const mockSessions: api.Session[] = [
     created_at: new Date(Date.now() - 86400000).toISOString(),
     updated_at: new Date(Date.now() - 86400000).toISOString(),
     status: 'failed',
+    task_title: null,
   },
 ];
 
@@ -57,7 +60,7 @@ describe('SessionList', () => {
     render(<SessionList onSelectSession={vi.fn()} selectedTaskId={null} />);
     
     await waitFor(() => {
-      expect(screen.getAllByText('session-')).toHaveLength(3);
+      expect(screen.getByText('DEMETRA-123: Add user authentication')).toBeInTheDocument();
     });
   });
 
@@ -87,11 +90,11 @@ describe('SessionList', () => {
     render(<SessionList onSelectSession={onSelectSession} selectedTaskId={null} />);
     
     await waitFor(() => {
-      expect(screen.getAllByText('session-')).toHaveLength(3);
+      expect(screen.getByText('DEMETRA-123: Add user authentication')).toBeInTheDocument();
     });
     
-    const sessionItems = screen.getAllByText('session-');
-    await user.click(sessionItems[0]);
+    const sessionItem = screen.getByText('DEMETRA-123: Add user authentication');
+    await user.click(sessionItem);
     
     expect(onSelectSession).toHaveBeenCalledWith('task-001-abc123');
   });
@@ -101,8 +104,8 @@ describe('SessionList', () => {
     render(<SessionList onSelectSession={vi.fn()} selectedTaskId="task-001-abc123" />);
     
     await waitFor(() => {
-      const sessionItems = screen.getAllByText('session-');
-      expect(sessionItems[0].closest('.session-item')).toHaveClass('selected');
+      const sessionItems = screen.getByText('DEMETRA-123: Add user authentication');
+      expect(sessionItems.closest('.session-item')).toHaveClass('selected');
     });
   });
 

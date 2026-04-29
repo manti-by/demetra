@@ -449,3 +449,98 @@ class TestProjectEndpoints:
 
                 assert response.status_code == 200
                 mock_delete_project.assert_called_once_with(project_id="project-id", user_id="test_user_id")
+
+
+class TestSessionsEndpoint:
+    def test_list_sessions_returns_401_without_auth_token(self):
+        from demetra.api import app
+
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/api/v1/sessions")
+
+        assert response.status_code == 401
+
+    def test_list_sessions_returns_401_with_invalid_token(self):
+        from demetra.api import app
+
+        with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = None
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.get("/api/v1/sessions", cookies={"auth_token": "invalid_token"})
+
+            assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_list_sessions_returns_task_title(
+        self,
+        authenticated_client: TestClient,
+    ):
+        from demetra.library.models import UserResponse
+
+        with patch(
+            "demetra.api.get_sessions",
+            new_callable=AsyncMock,
+        ) as mock_get_sessions:
+            mock_get_sessions.return_value = [
+                {
+                    "task_id": "task-001",
+                    "session_id": "session-001",
+                    "build_plan": "Test plan",
+                    "posted_to_linear": False,
+                    "created_at": "2026-01-01T00:00:00",
+                    "updated_at": "2026-01-01T00:00:00",
+                    "status": "pending",
+                    "task_title": "DEMETRA-123: Add user authentication",
+                }
+            ]
+
+            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = UserResponse(
+                    id="test_user_id",
+                    github_username="testuser",
+                    email="test@example.com",
+                )
+                response = authenticated_client.get("/api/v1/sessions")
+
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["task_title"] == "DEMETRA-123: Add user authentication"
+
+    @pytest.mark.asyncio
+    async def test_list_sessions_returns_null_task_title_when_not_set(
+        self,
+        authenticated_client: TestClient,
+    ):
+        from demetra.library.models import UserResponse
+
+        with patch(
+            "demetra.api.get_sessions",
+            new_callable=AsyncMock,
+        ) as mock_get_sessions:
+            mock_get_sessions.return_value = [
+                {
+                    "task_id": "task-001",
+                    "session_id": "session-001",
+                    "build_plan": "Test plan",
+                    "posted_to_linear": False,
+                    "created_at": "2026-01-01T00:00:00",
+                    "updated_at": "2026-01-01T00:00:00",
+                    "status": "pending",
+                    "task_title": None,
+                }
+            ]
+
+            with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
+                mock_get_user.return_value = UserResponse(
+                    id="test_user_id",
+                    github_username="testuser",
+                    email="test@example.com",
+                )
+                response = authenticated_client.get("/api/v1/sessions")
+
+                assert response.status_code == 200
+                data = response.json()
+                assert len(data) == 1
+                assert data[0]["task_title"] is None

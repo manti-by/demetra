@@ -41,6 +41,7 @@ task_status = Table(
     Column("task_id", String(), primary_key=True),
     Column("project_name", String(), nullable=False),
     Column("status", String(), nullable=False, server_default="pending"),
+    Column("task_title", String(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
