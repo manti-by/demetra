@@ -17,7 +17,6 @@ class TestProcessManager:
     @pytest.mark.asyncio
     async def test_add_pending_task_with_title(self, setup_test_db):
         from demetra.services.database import add_pending_task, create_session, get_sessions
-        from uuid import uuid4
 
         task_id = f"task-title-{uuid4().hex[:8]}"
         session_id = f"session-{uuid4().hex[:8]}"
@@ -33,7 +32,6 @@ class TestProcessManager:
     @pytest.mark.asyncio
     async def test_add_pending_task_without_title(self, setup_test_db):
         from demetra.services.database import add_pending_task, create_session, get_sessions
-        from uuid import uuid4
 
         task_id = f"task-notitle-{uuid4().hex[:8]}"
         session_id = f"session-{uuid4().hex[:8]}"
