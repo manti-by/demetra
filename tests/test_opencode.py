@@ -23,7 +23,7 @@ class TestOpencodeService:
             target_path=Path("/test/path"),
             task=expected_task,
             task_title="do something",
-            model="opencode/gpt-5.4",
+            model="opencode/minimax-m2.5",
             agent="plan",
         )
         assert result is not None
