@@ -34,6 +34,11 @@ async def git_commit(target_path: Path, message: str):
     await run_command(command=command, target_path=target_path)
 
 
+async def git_pull(target_path: Path, branch_name: str = "master"):
+    command = [str(GIT["path"]), "pull", "origin", branch_name]
+    await run_command(command=command, target_path=target_path)
+
+
 async def git_push(target_path: Path, branch_name: str):
     command = [str(GIT["path"]), "push", "--set-upstream", "origin", branch_name]
     await run_command(command=command, target_path=target_path)

@@ -1,6 +1,6 @@
 from demetra.library.models import Context, Project
 from demetra.services.database import get_session, search_projects_by_name
-from demetra.services.git import git_worktree_create
+from demetra.services.git import git_pull, git_worktree_create
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.tui import print_message
 
@@ -34,6 +34,11 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     session = await get_session(task_id=linear_task.id)
     branch_name = f"demetra/{linear_task.slug}"
+
+    print_message("Pulling latest changes", style="heading")
+    print_message("")
+    await git_pull(target_path=project.local_path)
+    print_message("")
 
     print_message("Creating feature worktree", style="heading")
     print_message("")

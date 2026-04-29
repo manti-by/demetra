@@ -8,6 +8,7 @@ from demetra.settings import OPENCODE
 
 NO_ISSUE_TOKENS = [
     "silent",
+    "no output",
     "no issues found.",
     "no clear, high-severity issues found.",
     "no output - no critical or error-level issues found.",
