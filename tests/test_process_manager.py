@@ -6,7 +6,7 @@ import pytest
 
 class TestProcessManager:
     @pytest.mark.asyncio
-    async def test_add_pending_task(self):
+    async def test_add_pending_task(self, setup_test_db):
         from demetra.services.database import add_pending_task, get_task_status
 
         task_id = f"task-add-{uuid4().hex[:8]}"
@@ -15,11 +15,14 @@ class TestProcessManager:
         assert status == "pending"
 
     @pytest.mark.asyncio
-    async def test_add_pending_task_with_title(self):
-        from demetra.services.database import add_pending_task, get_sessions
+    async def test_add_pending_task_with_title(self, setup_test_db):
+        from demetra.services.database import add_pending_task, create_session, get_sessions
+        from uuid import uuid4
 
         task_id = f"task-title-{uuid4().hex[:8]}"
+        session_id = f"session-{uuid4().hex[:8]}"
         task_title = "DEMETRA-123: Add user authentication"
+        await create_session(task_id, session_id)
         await add_pending_task(task_id, "demetra", task_title)
 
         sessions = await get_sessions()
@@ -28,10 +31,13 @@ class TestProcessManager:
         assert matching[0]["task_title"] == task_title
 
     @pytest.mark.asyncio
-    async def test_add_pending_task_without_title(self):
-        from demetra.services.database import add_pending_task, get_sessions
+    async def test_add_pending_task_without_title(self, setup_test_db):
+        from demetra.services.database import add_pending_task, create_session, get_sessions
+        from uuid import uuid4
 
         task_id = f"task-notitle-{uuid4().hex[:8]}"
+        session_id = f"session-{uuid4().hex[:8]}"
+        await create_session(task_id, session_id)
         await add_pending_task(task_id, "demetra")
 
         sessions = await get_sessions()
@@ -40,7 +46,7 @@ class TestProcessManager:
         assert matching[0]["task_title"] is None
 
     @pytest.mark.asyncio
-    async def test_mark_task_processed(self):
+    async def test_mark_task_processed(self, setup_test_db):
         from demetra.services.database import add_pending_task, get_task_status, mark_task_processed
 
         task_id = f"task-process-{uuid4().hex[:8]}"
@@ -50,7 +56,7 @@ class TestProcessManager:
         assert status == "processed"
 
     @pytest.mark.asyncio
-    async def test_mark_task_failed(self):
+    async def test_mark_task_failed(self, setup_test_db):
         from demetra.services.database import add_pending_task, get_task_status, mark_task_failed
 
         task_id = f"task-fail-{uuid4().hex[:8]}"
@@ -60,7 +66,7 @@ class TestProcessManager:
         assert status == "failed"
 
     @pytest.mark.asyncio
-    async def test_get_pending_task_ids(self):
+    async def test_get_pending_task_ids(self, setup_test_db):
         from demetra.services.database import add_pending_task, get_pending_task_ids, mark_task_processed
 
         task_1 = f"task-1-{uuid4().hex[:8]}"
