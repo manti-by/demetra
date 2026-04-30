@@ -1,3 +1,5 @@
+"""Project management endpoints."""
+
 import logging
 
 from fastapi import APIRouter, Cookie, HTTPException
@@ -20,6 +22,11 @@ router = APIRouter()
 
 @router.get("/api/v1/projects", response_model=list[Project])
 async def list_projects(auth_token: str | None = Cookie(default=None)):
+    """List all projects for the authenticated user.
+
+    Returns a list of projects associated with the user's account,
+    including project metadata such as name, state, repository info, and local path.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -50,6 +57,12 @@ async def create_project_endpoint(
     request: CreateProject,
     auth_token: str | None = Cookie(default=None),
 ):
+    """Create a new project with GitHub repository integration.
+
+    Validates the project name and repository URL, then sets up
+    the project by cloning the repository and configuring resources.
+    Returns the created project with its initial state.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -120,6 +133,11 @@ async def get_project_endpoint(
     project_id: str,
     auth_token: str | None = Cookie(default=None),
 ):
+    """Retrieve a specific project by ID.
+
+    Returns the project details including metadata, repository info,
+    and current state. Requires authentication and ownership verification.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -150,17 +168,30 @@ async def update_project_endpoint(
     request: UpdateProject,
     auth_token: str | None = Cookie(default=None),
 ):
+    """Update an existing project's properties.
+
+    Allows updating the project name, repository URL, and Linear project ID.
+    Validates ownership before applying changes.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
     if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
+    validated_name = request.name.strip() if request.name else None
+    if validated_name == "":
+        raise HTTPException(status_code=400, detail="Project name cannot be empty")
+
+    validated_repository_url = request.repository_url.strip() if request.repository_url else None
+    if validated_repository_url and not parse_github_url(validated_repository_url):
+        raise HTTPException(status_code=400, detail=f"Invalid GitHub repository URL: {validated_repository_url}")
+
     project = await update_project(
         project_id=project_id,
         user_id=user.id,
-        name=request.name.strip() if request.name else None,
-        repository_url=request.repository_url.strip() if request.repository_url else None,
+        name=validated_name,
+        repository_url=validated_repository_url,
         linear_project_id=request.linear_project_id,
     )
     if not project:
@@ -186,6 +217,11 @@ async def delete_project_endpoint(
     project_id: str,
     auth_token: str | None = Cookie(default=None),
 ):
+    """Delete a project and its associated resources.
+
+    Removes the project from the database and cleans up any
+    associated local resources. Requires authentication and ownership.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 

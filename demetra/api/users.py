@@ -1,3 +1,5 @@
+"""User management endpoints."""
+
 from fastapi import APIRouter, Cookie, HTTPException
 
 from demetra.library.models import UserKeysUpdateRequest
@@ -13,6 +15,11 @@ async def update_user_keys_endpoint(
     request: UserKeysUpdateRequest,
     auth_token: str | None = Cookie(default=None),
 ):
+    """Update API keys for the authenticated user.
+
+    Accepts a dictionary of key-value pairs to store as the user's
+    API keys. These keys are typically used for external service integrations.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 

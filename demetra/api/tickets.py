@@ -1,3 +1,5 @@
+"""Ticket creation and session management endpoints."""
+
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, HTTPException, Query
@@ -16,6 +18,12 @@ router = APIRouter()
 
 @router.post("/api/v1/tickets", response_model=Ticket)
 async def create_ticket(request: CreateTicket, auth_token: str | None = Cookie(default=None)):
+    """Create a new ticket in Linear using AI-processed text.
+
+    Accepts raw text input, processes it through Groq AI to extract
+    structured ticket details (title, description, requirements, criteria),
+    and creates the ticket in the specified Linear project.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -27,6 +35,11 @@ async def create_ticket(request: CreateTicket, auth_token: str | None = Cookie(d
 
     try:
         processed = await process_text_with_groq(request.text)
+
+        if "tech_requirements" in processed:
+            processed["technical_requirements"] = processed.pop("tech_requirements")
+        if "acceptance" in processed and "acceptance_criteria" not in processed:
+            processed["acceptance_criteria"] = processed.pop("acceptance")
 
         project_name = processed["project_name"]
         project_id = await get_project_id_by_name(project_name) or LINEAR["default_project"]
@@ -49,6 +62,11 @@ async def list_sessions(
     auth_token: str | None = Cookie(default=None),
     status: Annotated[str | None, Query()] = None,
 ) -> list[dict]:
+    """List processing sessions for the authenticated user.
+
+    Optionally filter by status (pending, processed, failed).
+    Returns a list of session records with their current state and metadata.
+    """
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
