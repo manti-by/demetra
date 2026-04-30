@@ -3,14 +3,13 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
+from demetra.app import app
 from demetra.library.models import UserResponse
 
 
 class TestSessionListingAPI:
     @pytest.mark.asyncio
     async def test_list_sessions_requires_auth(self):
-        from demetra.api import app
-
         client = TestClient(app, raise_server_exceptions=False)
         response = client.get("/api/v1/sessions")
         assert response.status_code == 401

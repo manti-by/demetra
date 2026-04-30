@@ -3,7 +3,7 @@ from unittest.mock import patch
 import pytest
 from fastapi.testclient import TestClient
 
-from demetra.api import app
+from demetra.app import app
 from demetra.library.models import GitHubUser
 from demetra.services.auth import (
     AuthError,

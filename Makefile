@@ -41,7 +41,7 @@ ci: pip check test
 
 
 api:
-	uv run uvicorn demetra.api:app --host 0.0.0.0 --port 8081 --workers 2
+	uv run uvicorn demetra.app:app --host 0.0.0.0 --port 8081 --workers 2
 
 worker:
 	uv run rq worker

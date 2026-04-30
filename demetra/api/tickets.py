@@ -1,9 +1,8 @@
 from typing import Annotated
 
-from fastapi import Cookie, HTTPException, Query
+from fastapi import APIRouter, Cookie, HTTPException, Query
 
-from demetra.api import app
-from demetra.library.models import TicketRequest, TicketResponse
+from demetra.library.models import CreateTicket, Ticket
 from demetra.services.auth import get_current_user
 from demetra.services.database import get_sessions
 from demetra.services.groq import process_text_with_groq
@@ -12,8 +11,11 @@ from demetra.services.utils import get_project_id_by_name
 from demetra.settings import LINEAR
 
 
-@app.post("/api/v1/tickets", response_model=TicketResponse)
-async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(default=None)):
+router = APIRouter()
+
+
+@router.post("/api/v1/tickets", response_model=Ticket)
+async def create_ticket(request: CreateTicket, auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
@@ -39,10 +41,10 @@ async def create_ticket(request: TicketRequest, auth_token: str | None = Cookie(
     except (TypeError, KeyError) as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    return TicketResponse(**ticket)
+    return Ticket(**ticket)
 
 
-@app.get("/api/v1/sessions")
+@router.get("/api/v1/sessions")
 async def list_sessions(
     auth_token: str | None = Cookie(default=None),
     status: Annotated[str | None, Query()] = None,
@@ -50,11 +52,11 @@ async def list_sessions(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not await get_current_user(token=auth_token):
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
     if status and status not in ("pending", "processed", "failed"):
         raise HTTPException(status_code=400, detail="Invalid status. Must be one of: pending, processed, failed")
 
-    sessions = await get_sessions(status=status)
+    sessions = await get_sessions(user_id=user.id, status=status)
     return sessions

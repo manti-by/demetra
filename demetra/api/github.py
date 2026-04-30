@@ -1,9 +1,8 @@
 import json
 
-from fastapi import Cookie, HTTPException, Response
+from fastapi import APIRouter, Cookie, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
-from demetra.api import app
 from demetra.library.models import UserResponse
 from demetra.services.auth import (
     AuthError,
@@ -16,7 +15,10 @@ from demetra.services.auth import (
 )
 
 
-@app.get("/api/v1/github/login")
+router = APIRouter()
+
+
+@router.get("/api/v1/github/login")
 async def github_login():
     auth_url, state = get_github_auth_url()
     response = RedirectResponse(url=auth_url)
@@ -24,7 +26,7 @@ async def github_login():
     return response
 
 
-@app.get("/api/v1/github/callback")
+@router.get("/api/v1/github/callback")
 async def github_callback(code: str, response: Response):
     try:
         access_token = await exchange_code_for_token(code)
@@ -56,7 +58,7 @@ async def github_callback(code: str, response: Response):
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@app.get("/api/v1/github/me", response_model=UserResponse)
+@router.get("/api/v1/github/me", response_model=UserResponse)
 async def get_me(auth_token: str | None = Cookie(default=None)):
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -67,7 +69,7 @@ async def get_me(auth_token: str | None = Cookie(default=None)):
     return user
 
 
-@app.post("/api/v1/github/logout")
+@router.post("/api/v1/github/logout")
 async def github_logout(response: Response, auth_token: str | None = Cookie(default=None)):
     if auth_token:
         await logout(auth_token)

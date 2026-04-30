@@ -5,17 +5,18 @@ import re
 from typing import Annotated
 
 import aiofiles
-from fastapi import Cookie, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
-from demetra.api import app
 from demetra.services.auth import get_current_user
 from demetra.settings import LOG_DIR
 
 
 UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
 
+router = APIRouter()
 
-@app.websocket("/ws/v1/watcher/logs")
+
+@router.websocket("/ws/v1/watcher/logs")
 async def watcher_logs(
     websocket: WebSocket,
     auth_token: str | None = Cookie(default=None),

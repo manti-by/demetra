@@ -1,12 +1,14 @@
-from fastapi import Cookie, HTTPException
+from fastapi import APIRouter, Cookie, HTTPException
 
-from demetra.api import app
 from demetra.library.models import UserKeysUpdateRequest
 from demetra.services.auth import get_current_user
 from demetra.services.database import update_user_keys
 
 
-@app.patch("/api/v1/users/me/keys")
+router = APIRouter()
+
+
+@router.patch("/api/v1/users/me/keys")
 async def update_user_keys_endpoint(
     request: UserKeysUpdateRequest,
     auth_token: str | None = Cookie(default=None),
