@@ -5,7 +5,7 @@ from sqlalchemy.engine import URL
 
 from alembic import context
 
-from demetra.db import metadata
+from demetra.library.tables import metadata
 
 
 def get_url() -> URL:

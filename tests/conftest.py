@@ -12,10 +12,10 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from demetra.app import app
-from demetra.db import get_async_engine, metadata
 from demetra.library.models import LinearTask, UserResponse
+from demetra.library.tables import metadata
 from demetra.services.auth import create_jwt_token
-from demetra.services.database import _engine_cache
+from demetra.services.database import _engine_cache, get_async_engine, get_async_session_maker
 from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -41,8 +41,6 @@ def test_db_engine():
 
 @pytest_asyncio.fixture(scope="session")
 async def setup_test_db(test_db_engine):
-    from demetra.db import get_async_engine
-
     _engine_cache.clear()
     admin_engine = get_async_engine(db_name="postgres")
     async with AsyncSession(admin_engine) as connection:
@@ -68,8 +66,6 @@ async def setup_test_db(test_db_engine):
 
 @pytest_asyncio.fixture(scope="function")
 async def db_connection(test_db_engine, setup_test_db):
-    from demetra.db import get_async_session_maker
-
     async_session_maker = get_async_session_maker(test_db_engine)
 
     async with async_session_maker() as session:

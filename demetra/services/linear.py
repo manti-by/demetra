@@ -2,9 +2,9 @@ from typing import Any
 
 from sqlalchemy import select
 
-from demetra.db import projects
 from demetra.library.exceptions import LinearError
 from demetra.library.models import Context, LinearTask
+from demetra.library.tables import projects
 from demetra.services.database import get_connection
 from demetra.services.graphql import get_query, graphql_request
 from demetra.services.tui import print_message

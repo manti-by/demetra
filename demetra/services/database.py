@@ -4,18 +4,36 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 
-from sqlalchemy import delete, func, insert, select, text
-from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
+from sqlalchemy import create_engine, delete, func, insert, select, text
+from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.db import (
-    get_async_engine,
-    jwt_tokens,
-    oauth_tokens,
-    projects,
-    sessions,
-    users,
-)
 from demetra.library.models import Session
+from demetra.library.tables import jwt_tokens, oauth_tokens, projects, sessions, users
+from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+
+
+def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
+    database = db_name if db_name else DB_NAME
+    url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    return create_async_engine(url, echo=echo, isolation_level="AUTOCOMMIT")
+
+
+def get_async_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    return async_sessionmaker(engine=engine, class_=AsyncSession, expire_on_commit=False)
+
+
+async def get_db_session(
+    engine: AsyncEngine,
+) -> AsyncGenerator[AsyncSession]:
+    async_session_maker = get_async_session_maker(engine)
+    async with async_session_maker() as session:
+        yield session
+
+
+def get_sync_engine(db_name: str | None = None, echo: bool = False):
+    database = db_name if db_name else DB_NAME
+    url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    return create_engine(url, echo=echo)
 
 
 _engine_cache: dict[tuple[int, str], AsyncEngine] = {}
