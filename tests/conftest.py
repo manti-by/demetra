@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import AsyncGenerator
-from contextlib import contextmanager
+from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from demetra.api import app
+from demetra.app import app
 from demetra.db import get_async_engine, metadata
 from demetra.library.models import LinearTask, UserResponse
 from demetra.services.auth import create_jwt_token
@@ -172,7 +172,7 @@ async def mock_graphql_request(
 @pytest.fixture
 async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.process_text_with_groq",
+        "demetra.api.tickets.process_text_with_groq",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = groq_processed_data
@@ -184,7 +184,7 @@ async def mock_create_linear_ticket(
     linear_ticket_data: dict,
 ) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.create_linear_ticket",
+        "demetra.api.tickets.create_linear_ticket",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = linear_ticket_data
@@ -426,9 +426,18 @@ def auth_cookie() -> dict:
 
 @contextmanager
 def patch_get_current_user(user: UserResponse):
-    with patch("demetra.api.get_current_user", new_callable=AsyncMock) as mock_get_user:
-        mock_get_user.return_value = user
-        yield mock_get_user
+    with ExitStack() as stack:
+        patches = [
+            patch("demetra.api.tickets.get_current_user", new_callable=AsyncMock),
+            patch("demetra.api.projects.get_current_user", new_callable=AsyncMock),
+            patch("demetra.api.users.get_current_user", new_callable=AsyncMock),
+            patch("demetra.api.github.get_current_user", new_callable=AsyncMock),
+            patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock),
+        ]
+        for p in patches:
+            mock = stack.enter_context(p)
+            mock.return_value = user
+        yield
 
 
 @pytest.fixture

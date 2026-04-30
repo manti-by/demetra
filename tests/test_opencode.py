@@ -8,6 +8,7 @@ class TestOpencodeService:
     @pytest.mark.asyncio
     async def test_plan_agent_calls_run_opencode_agent(self):
         from demetra.services.opencode import opencode_plan_agent
+        from demetra.settings import OPENCODE
 
         with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "plan result"
@@ -23,7 +24,7 @@ class TestOpencodeService:
             target_path=Path("/test/path"),
             task=expected_task,
             task_title="do something",
-            model="opencode/minimax-m2.5",
+            model=OPENCODE["plan_model"],
             agent="plan",
         )
         assert result is not None
