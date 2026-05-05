@@ -34,6 +34,9 @@ update:
 test:
 	DB_NAME=test_demetra uv run pytest tests/
 
+test-cov:
+	DB_NAME=test_demetra uv run pytest tests/ --cov=demetra --cov-report=term-missing --cov-report=html --cov-fail-under=65
+
 migrate:
 	uv run alembic upgrade head
 
