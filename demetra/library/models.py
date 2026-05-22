@@ -1,7 +1,11 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 from slugify import slugify
+
+
+StepType = Literal["initial", "plan", "build", "review", "lint", "test", "push", "failed", "completed"]
 
 
 @dataclass
@@ -45,6 +49,7 @@ class Session:
     session_id: str | None = None
     project_id: str | None = None
     user_id: str | None = None
+    step: StepType = "initial"
 
 
 @dataclass

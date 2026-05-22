@@ -1,5 +1,6 @@
 from demetra.library.exceptions import InfiniteLoopError
 from demetra.library.models import Context
+from demetra.services.database import update_session_step
 from demetra.services.flow import user_input
 from demetra.services.opencode import opencode_build_agent
 from demetra.services.tui import print_message
@@ -15,6 +16,8 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     review_step_finished = False
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
+        await update_session_step(task_id=context.linear_task.id, step="build")
+
         await opencode_build_agent(
             target_path=context.worktree_path,
             task=current_task,
@@ -24,6 +27,8 @@ async def run_build_step(build_plan: str, context: Context) -> None:
 
         if review_attempts > 0 and not review_step_finished:
             print_message("Running CODE REVIEW agents", style="heading")
+            await update_session_step(task_id=context.linear_task.id, step="review")
+
             review_comments = await run_review_agents(target_path=context.worktree_path, session_id=context.session_id)
             if review_comments:
                 if context.auto_mode:
@@ -49,13 +54,12 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         review_step_finished = True
 
         has_errors, lint_result = await run_lint_and_test(
-            target_path=context.worktree_path, session_id=context.session_id
+            target_path=context.worktree_path, session_id=context.session_id, task_id=context.linear_task.id
         )
         if has_errors and lint_result:
             current_task = lint_result
             rerun_attempts -= 1
             continue
-
         return
 
     raise InfiniteLoopError

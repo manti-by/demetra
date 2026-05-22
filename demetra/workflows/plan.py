@@ -1,6 +1,6 @@
 from demetra.library.exceptions import AutoCancelledError, UserCancelledError
 from demetra.library.models import Context
-from demetra.services.database import save_session
+from demetra.services.database import save_session, update_session_step
 from demetra.services.flow import user_input
 from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
@@ -13,6 +13,8 @@ async def run_plan_step(context: Context) -> str | None:
     current_task: str = context.linear_task.text
     while True:
         print_message("Running PLAN agent", style="heading")
+        await update_session_step(task_id=context.linear_task.id, step="plan")
+
         _, plan_output, _ = await opencode_plan_agent(
             target_path=context.worktree_path,
             task=current_task,
@@ -39,7 +41,6 @@ async def run_plan_step(context: Context) -> str | None:
             session_id = await get_opencode_session_id(
                 target_path=context.worktree_path, task_title=context.linear_task.full_title
             )
-
         if session_id:
             context.session = await save_session(
                 task_id=context.linear_task.id,
@@ -49,6 +50,7 @@ async def run_plan_step(context: Context) -> str | None:
             )
             print_message(f"Found session {context.session_id}.", style="result")
         else:
+            context.session = await save_session(task_id=context.linear_task.id, build_plan=build_plan)
             print_message("No session found.", style="error")
 
         print_message("Plan step is completed", style="heading")

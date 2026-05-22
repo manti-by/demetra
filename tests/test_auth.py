@@ -127,7 +127,7 @@ class TestAuthServiceWithMocks:
         mock_github_user = GitHubUser(id="123", login="testuser", email="test@example.com")
 
         with patch(
-            "demetra.settings.JWT",
+            "demetra.services.auth.JWT",
             {
                 "secret_key": "test_secret_key",
                 "algorithm": "HS256",
@@ -143,7 +143,7 @@ class TestAuthServiceWithMocks:
     @pytest.mark.asyncio
     async def test_verify_jwt_token_returns_none_for_invalid_token(self):
         with patch(
-            "demetra.settings.JWT",
+            "demetra.services.auth.JWT",
             {
                 "secret_key": "test_secret_key",
                 "algorithm": "HS256",
