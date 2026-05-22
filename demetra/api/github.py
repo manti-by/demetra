@@ -1,5 +1,3 @@
-"""GitHub OAuth authentication endpoints."""
-
 import json
 
 from fastapi import APIRouter, Cookie, HTTPException, Response
@@ -17,10 +15,10 @@ from demetra.services.auth import (
 )
 
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/github")
 
 
-@router.get("/api/v1/github/login")
+@router.get("/login")
 async def github_login():
     """Initiate GitHub OAuth login flow.
 
@@ -33,7 +31,7 @@ async def github_login():
     return response
 
 
-@router.get("/api/v1/github/callback")
+@router.get("/callback")
 async def github_callback(
     code: str,
     state: str,
@@ -81,7 +79,7 @@ async def github_callback(
         raise HTTPException(status_code=400, detail=str(e)) from e
 
 
-@router.get("/api/v1/github/me", response_model=UserResponse)
+@router.get("/me", response_model=UserResponse)
 async def get_me(auth_token: str | None = Cookie(default=None)):
     """Retrieve the currently authenticated user.
 
@@ -97,7 +95,7 @@ async def get_me(auth_token: str | None = Cookie(default=None)):
     return user
 
 
-@router.post("/api/v1/github/logout")
+@router.post("/logout")
 async def github_logout(response: Response, auth_token: str | None = Cookie(default=None)):
     """Log out the current user.
 

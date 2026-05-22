@@ -1,5 +1,3 @@
-"""WebSocket log streaming endpoint."""
-
 import asyncio
 import logging
 import os
@@ -15,10 +13,10 @@ from demetra.settings import LOG_DIR
 
 UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
 
-router = APIRouter()
+router = APIRouter(prefix="/ws/v1/watcher")
 
 
-@router.websocket("/ws/v1/watcher/logs")
+@router.websocket("/logs")
 async def watcher_logs(
     websocket: WebSocket,
     auth_token: str | None = Cookie(default=None),
