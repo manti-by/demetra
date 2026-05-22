@@ -40,7 +40,7 @@ test-cov:
 migrate:
 	uv run alembic upgrade head
 
-ci: pip check test
+ci: pip check test hera-test
 
 
 api:

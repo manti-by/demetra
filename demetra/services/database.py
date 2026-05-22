@@ -67,15 +67,17 @@ async def upsert_pending_session(
     session_id: str | None,
     project_id: str | None = None,
     user_id: str | None = None,
+    name: str | None = None,
 ) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, session_id, build_plan, posted_to_linear, status, project_id, user_id, created_at, updated_at)
-                VALUES (:task_id, :session_id, :build_plan, :posted_to_linear, :status, :project_id, :user_id, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, status, project_id, user_id, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :status, :project_id, :user_id, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
+                    name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
                     status = EXCLUDED.status,
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
@@ -85,6 +87,7 @@ async def upsert_pending_session(
             ),
             {
                 "task_id": task_id,
+                "name": name if name else "",
                 "session_id": session_id if session_id is not None else "",
                 "build_plan": "",
                 "posted_to_linear": False,
@@ -102,6 +105,7 @@ async def upsert_pending_session(
         build_plan="",
         posted_to_linear=False,
         status="pending",
+        name=name,
         project_id=project_id,
         user_id=user_id,
         created_at=now.isoformat(),
@@ -121,6 +125,7 @@ async def get_session(task_id: str) -> Session | None:
         return None
     return Session(
         task_id=row.task_id,
+        name=row.name,
         session_id=row.session_id,
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
@@ -132,15 +137,16 @@ async def get_session(task_id: str) -> Session | None:
     )
 
 
-async def save_session(task_id: str, session_id: str, build_plan: str) -> Session:
+async def save_session(task_id: str, session_id: str, build_plan: str, name: str | None = None) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, session_id, build_plan, posted_to_linear, status, project_id, user_id, created_at, updated_at)
-                VALUES (:task_id, :session_id, :build_plan, :posted_to_linear, :status, :project_id, :user_id, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, status, project_id, user_id, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :status, :project_id, :user_id, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
+                    name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
                     build_plan = EXCLUDED.build_plan,
                     status = COALESCE(sessions.status, 'pending'),
@@ -151,6 +157,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str) -> Sessio
             ),
             {
                 "task_id": task_id,
+                "name": name if name else "",
                 "session_id": session_id,
                 "build_plan": build_plan,
                 "posted_to_linear": False,
@@ -169,6 +176,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str) -> Sessio
     if row:
         return Session(
             task_id=row.task_id,
+            name=row.name,
             session_id=row.session_id,
             build_plan=row.build_plan,
             posted_to_linear=bool(row.posted_to_linear),
@@ -180,6 +188,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str) -> Sessio
         )
     return Session(
         task_id=task_id,
+        name=name,
         session_id=session_id,
         build_plan=build_plan,
         posted_to_linear=False,

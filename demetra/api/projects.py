@@ -1,5 +1,3 @@
-"""Project management endpoints."""
-
 import logging
 
 from fastapi import APIRouter, Cookie, HTTPException
@@ -17,10 +15,10 @@ from demetra.services.project import cleanup_project_resources, parse_github_url
 
 
 logger = logging.getLogger(__name__)
-router = APIRouter()
+router = APIRouter(prefix="/api/v1/projects")
 
 
-@router.get("/api/v1/projects", response_model=list[Project])
+@router.get("", response_model=list[Project])
 async def list_projects(auth_token: str | None = Cookie(default=None)):
     """List all projects for the authenticated user.
 
@@ -52,7 +50,7 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
     ]
 
 
-@router.post("/api/v1/projects", response_model=Project)
+@router.post("", response_model=Project)
 async def create_project_endpoint(
     request: CreateProject,
     auth_token: str | None = Cookie(default=None),
@@ -128,7 +126,7 @@ async def create_project_endpoint(
     )
 
 
-@router.get("/api/v1/projects/{project_id}", response_model=Project)
+@router.get("/{project_id}", response_model=Project)
 async def get_project_endpoint(
     project_id: str,
     auth_token: str | None = Cookie(default=None),
@@ -162,7 +160,7 @@ async def get_project_endpoint(
     )
 
 
-@router.patch("/api/v1/projects/{project_id}", response_model=Project)
+@router.patch("/{project_id}", response_model=Project)
 async def update_project_endpoint(
     project_id: str,
     request: UpdateProject,
@@ -212,7 +210,7 @@ async def update_project_endpoint(
     )
 
 
-@router.delete("/api/v1/projects/{project_id}")
+@router.delete("/{project_id}")
 async def delete_project_endpoint(
     project_id: str,
     auth_token: str | None = Cookie(default=None),

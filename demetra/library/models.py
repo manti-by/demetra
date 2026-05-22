@@ -41,6 +41,7 @@ class Session:
     created_at: str
     updated_at: str
     status: str = "pending"
+    name: str | None = None
     session_id: str | None = None
     project_id: str | None = None
     user_id: str | None = None

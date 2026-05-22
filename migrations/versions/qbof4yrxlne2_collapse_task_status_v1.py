@@ -1,6 +1,6 @@
 """Collapse task_status into sessions
 
-Revision ID: collapse_task_status_v1
+Revision ID: qbof4yrxlne2
 Revises: 556019e457d2
 Create Date: 2026-04-01
 
@@ -13,7 +13,7 @@ import sqlalchemy as sa
 from alembic import op
 
 
-revision: str = "collapse_task_status_v1"
+revision: str = "qbof4yrxlne2"
 down_revision: str | Sequence[str] | None = "556019e457d2"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
