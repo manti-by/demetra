@@ -51,7 +51,7 @@ class TestDatabaseService:
         assert session.build_plan == db_build_plan
         assert session.posted_to_linear is False
         assert session.status == "pending"
-        assert session.step == "plan"
+        assert session.step == "initial"
 
         found = await get_session(db_task_id)
         assert found is not None
@@ -59,7 +59,7 @@ class TestDatabaseService:
         assert found.build_plan == db_build_plan
         assert found.posted_to_linear is False
         assert found.status == "pending"
-        assert found.step == "plan"
+        assert found.step == "initial"
 
     @pytest.mark.asyncio
     async def test_save_session_updates_existing(
@@ -76,7 +76,7 @@ class TestDatabaseService:
         assert found.build_plan == "Updated plan"
         assert found.posted_to_linear is False
         assert found.status == "pending"
-        assert found.step == "plan"
+        assert found.step == "initial"
 
     @pytest.mark.asyncio
     async def test_save_session_preserves_posted_to_linear(

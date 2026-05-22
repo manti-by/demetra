@@ -152,13 +152,13 @@ class TestWorkflowPlan:
                     return_value=[],
                 ):
                     with patch(
-                        "demetra.workflows.plan.get_opencode_session_id",
+                        "demetra.workflows.plan.save_session",
                         new_callable=AsyncMock,
-                        return_value=str(uuid4()),
                     ):
                         with patch(
-                            "demetra.workflows.plan.save_session",
+                            "demetra.workflows.plan.get_opencode_session_id",
                             new_callable=AsyncMock,
+                            return_value=None,
                         ):
                             result = await run_plan_step(context)
 

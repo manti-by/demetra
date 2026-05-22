@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from demetra.services.cursor import cursor_review_agent
+from demetra.services.database import update_session_step
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
 from demetra.settings import OPENCODE
@@ -15,7 +16,7 @@ NO_ISSUE_TOKENS = [
 ]
 
 
-async def run_review_agents(target_path: Path, session_id: str | None = None) -> str | None:
+async def run_review_agents(target_path: Path, session_id: str | None = None, task_id: str | None = None) -> str | None:
     print_message("Running OPENCODE REVIEW agents", style="heading")
     for model in OPENCODE["review_models"]:
         _, opencode_comments, _ = await opencode_review_agent(
@@ -27,6 +28,8 @@ async def run_review_agents(target_path: Path, session_id: str | None = None) ->
         if opencode_comments:
             print_message(f"OpenCode review agent ({model}) returned comments", style="result")
             print_message(opencode_comments, style="result")
+            if task_id:
+                await update_session_step(task_id=task_id, step="review")
             return opencode_comments
 
     print_message("Running CURSOR REVIEW agent", style="heading")
@@ -34,7 +37,11 @@ async def run_review_agents(target_path: Path, session_id: str | None = None) ->
     if cursor_comments:
         print_message("Cursor review agent returned comments", style="result")
         print_message(cursor_comments, style="result")
+        if task_id:
+            await update_session_step(task_id=task_id, step="review")
         return cursor_comments
 
     print_message("No comments from any review agent, continuing the workflow.", style="result")
+    if task_id:
+        await update_session_step(task_id=task_id, step="review")
     return None

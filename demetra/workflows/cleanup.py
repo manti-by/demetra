@@ -22,6 +22,8 @@ async def commit_and_push(context: Context) -> None:
     )
     await update_session_step(task_id=context.linear_task.id, step="completed")
 
+    await update_session_step(task_id=context.linear_task.id, step="completed")
+
 
 async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:
     if not is_success:

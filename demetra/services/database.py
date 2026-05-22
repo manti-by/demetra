@@ -103,11 +103,11 @@ async def upsert_pending_session(
         await connection.commit()
     return Session(
         task_id=task_id,
+        name=name,
         session_id=session_id,
         build_plan="",
         posted_to_linear=False,
         status="pending",
-        name=name,
         step="initial",
         project_id=project_id,
         user_id=user_id,
