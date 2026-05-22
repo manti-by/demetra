@@ -142,25 +142,30 @@ class TestWorkflowPlan:
             return_value=("session_id", faker.text(), None),
         ):
             with patch(
-                "demetra.workflows.plan.extract_plan",
+                "demetra.workflows.plan.get_opencode_sessions",
                 new_callable=AsyncMock,
-                return_value="build plan content",
+                return_value=[],
             ):
                 with patch(
-                    "demetra.workflows.plan.extract_questions",
+                    "demetra.workflows.plan.extract_plan",
                     new_callable=AsyncMock,
-                    return_value=[],
+                    return_value="build plan content",
                 ):
                     with patch(
-                        "demetra.workflows.plan.get_opencode_session_id",
+                        "demetra.workflows.plan.extract_questions",
                         new_callable=AsyncMock,
-                        return_value=str(uuid4()),
+                        return_value=[],
                     ):
                         with patch(
-                            "demetra.workflows.plan.save_session",
+                            "demetra.workflows.plan.get_opencode_session_id",
                             new_callable=AsyncMock,
+                            return_value=str(uuid4()),
                         ):
-                            result = await run_plan_step(context)
+                            with patch(
+                                "demetra.workflows.plan.save_session",
+                                new_callable=AsyncMock,
+                            ):
+                                result = await run_plan_step(context)
 
         assert result == "build plan content"
 
@@ -200,11 +205,16 @@ class TestWorkflowPlan:
             return_value=("session_id", faker.text(), None),
         ):
             with patch(
-                "demetra.workflows.plan.extract_plan",
+                "demetra.workflows.plan.get_opencode_sessions",
                 new_callable=AsyncMock,
-                return_value=None,
+                return_value=[],
             ):
-                result = await run_plan_step(context)
+                with patch(
+                    "demetra.workflows.plan.extract_plan",
+                    new_callable=AsyncMock,
+                    return_value=None,
+                ):
+                    result = await run_plan_step(context)
 
         assert result is None
 

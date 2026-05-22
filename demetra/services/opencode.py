@@ -81,9 +81,21 @@ async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
 
 async def get_opencode_session_id(target_path: Path, task_title: str) -> str | None:
     sessions = await get_opencode_sessions(target_path=target_path)
+    target_directory = str(target_path).rstrip("/")
     for session in sorted(sessions, key=lambda x: x["updated"], reverse=True):
-        if session["title"] == task_title and session["directory"] == str(target_path):
+        session_title = session.get("title", "")
+        session_directory = session.get("directory", "").rstrip("/")
+
+        # TODO: Think what to do with worktrees mismatch
+        if session_directory != target_directory:
+            continue
+
+        if session_title == task_title:
             return session["id"]
+
+        if task_title.strip() in session_title or session_title in task_title.strip():
+            return session["id"]
+
     return None
 
 

@@ -1,4 +1,5 @@
 from demetra.library.models import Context
+from demetra.services.database import update_session_step
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request
 from demetra.services.linear import linear_cleanup
@@ -17,6 +18,8 @@ async def commit_and_push(context: Context) -> None:
     await create_pull_request(
         target_path=context.worktree_path, branch_name=context.branch_name, title=context.linear_task.full_title
     )
+
+    await update_session_step(task_id=context.linear_task.id, step="completed")
 
 
 async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:

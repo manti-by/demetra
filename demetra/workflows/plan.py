@@ -4,7 +4,7 @@ from demetra.services.database import save_session
 from demetra.services.flow import user_input
 from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.opencode import get_opencode_session_id, opencode_plan_agent
+from demetra.services.opencode import get_opencode_session_id, get_opencode_sessions, opencode_plan_agent
 from demetra.services.tui import print_message
 from demetra.settings import LINEAR
 
@@ -13,6 +13,10 @@ async def run_plan_step(context: Context) -> str | None:
     current_task: str = context.linear_task.text
     while True:
         print_message("Running PLAN agent", style="heading")
+
+        existing_sessions = await get_opencode_sessions(target_path=context.worktree_path)
+        existing_ids = {s["id"] for s in existing_sessions}
+
         _, plan_output, _ = await opencode_plan_agent(
             target_path=context.worktree_path,
             task=current_task,
@@ -36,17 +40,40 @@ async def run_plan_step(context: Context) -> str | None:
 
         session_id = None
         if not context.session_id:
-            session_id = await get_opencode_session_id(
-                target_path=context.worktree_path, task_title=context.linear_task.full_title
-            )
+            new_sessions = await get_opencode_sessions(target_path=context.worktree_path)
+            print_message(f"Found {len(new_sessions)} sessions in opencode", style="info")
+            for s in new_sessions:
+                print_message(
+                    f"  Session: id={s.get('id')}, title={s.get('title')}, dir={s.get('directory')}", style="info"
+                )
+
+            for session in sorted(new_sessions, key=lambda x: x["updated"], reverse=True):
+                if session["id"] not in existing_ids and session["directory"].rstrip("/") == str(
+                    context.worktree_path
+                ).rstrip("/"):
+                    session_id = session["id"]
+                    print_message(f"Found new session {session_id} created by plan agent.", style="result")
+                    break
+
+            if not session_id:
+                print_message("No new session found, trying title match...", style="info")
+                session_id = await get_opencode_session_id(
+                    target_path=context.worktree_path, task_title=context.linear_task.full_title
+                )
 
         if session_id:
             context.session = await save_session(
                 task_id=context.linear_task.id, session_id=session_id, build_plan=build_plan
             )
-            print_message(f"Found session {context.session_id}.", style="result")
+            print_message(f"Saved session {session_id}.", style="result")
+        elif context.session_id:
+            context.session = await save_session(
+                task_id=context.linear_task.id, session_id=context.session_id, build_plan=build_plan
+            )
+            print_message(f"Updated session {context.session_id}.", style="result")
         else:
-            print_message("No session found.", style="error")
+            context.session = await save_session(task_id=context.linear_task.id, build_plan=build_plan)
+            print_message("No opencode session found, saved build plan without session_id.", style="warning")
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
