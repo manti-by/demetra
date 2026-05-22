@@ -31,6 +31,9 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
       <span className={`session-status ${session.status || 'pending'}`}>
         {session.status || 'pending'}
       </span>
+      <span className={`session-state ${session.state || 'initial'}`}>
+        {session.state || 'initial'}
+      </span>
     </div>
     <div className="session-item-meta">
       <span className="session-time">{formatDate(session.created_at)}</span>

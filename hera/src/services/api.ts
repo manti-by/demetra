@@ -76,6 +76,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   status: string | null;
+  state: string | null;
 }
 
 export async function getSessions(status?: string): Promise<Session[]> {

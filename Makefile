@@ -40,11 +40,14 @@ test-cov:
 migrate:
 	uv run alembic upgrade head
 
-ci: pip check test hera-test
+ci: pip check test react-build react-test
 
 
-api:
+uvicorn:
 	uv run uvicorn demetra.app:app --host 0.0.0.0 --port 8081 --workers 2
+
+fastapi:
+	uv run fastapi dev demetra/app.py --host 0.0.0.0 --port 8081
 
 worker:
 	uv run rq worker
@@ -52,14 +55,14 @@ worker:
 watcher:
 	uv run -m demetra.watcher
 
-hera-install:
+react-install:
 	cd hera && bun install
 
-hera-build:
+react-build:
 	cd hera && bun run build
 
-hera-dev:
+react-dev:
 	cd hera && bun run dev --host
 
-hera-test:
+react-test:
 	cd hera && bun run test

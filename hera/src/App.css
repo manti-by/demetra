@@ -914,7 +914,8 @@ body::before {
     font-weight: 500;
 }
 
-.session-status {
+.session-status,
+.session-state {
     font-family: var(--font-mono);
     font-size: 0.65rem;
     text-transform: uppercase;
@@ -928,7 +929,7 @@ body::before {
     color: var(--accent);
 }
 
-.session-status.processed {
+.session-status.success {
     background: rgba(124, 184, 124, 0.15);
     color: var(--success);
 }
