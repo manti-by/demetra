@@ -81,10 +81,25 @@ async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
 
 async def get_opencode_session_id(target_path: Path, task_title: str) -> str | None:
     sessions = await get_opencode_sessions(target_path=target_path)
+    target_directory = str(target_path).rstrip("/")
+
+    fallback_session_id = None
     for session in sorted(sessions, key=lambda x: x["updated"], reverse=True):
-        if session["title"] == task_title and session["directory"] == str(target_path):
+        session_title = session.get("title", "")
+        session_directory = session.get("directory", "").rstrip("/")
+
+        if session_directory != target_directory:
+            print(f"Skipping session math for {session_directory} and {target_directory}")
+            continue
+
+        # Worktree mistmatch
+        elif session_title == task_title and not fallback_session_id:
+            fallback_session_id = session["id"]
+
+        if session_title == task_title:
             return session["id"]
-    return None
+
+    return fallback_session_id
 
 
 async def extract_plan(plan_output: str) -> str:

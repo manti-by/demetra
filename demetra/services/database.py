@@ -80,6 +80,7 @@ async def upsert_pending_session(
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
                     status = EXCLUDED.status,
+                    step = EXCLUDED.step,
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     updated_at = EXCLUDED.updated_at
@@ -92,6 +93,7 @@ async def upsert_pending_session(
                 "build_plan": "",
                 "posted_to_linear": False,
                 "status": "pending",
+                "step": "initial",
                 "project_id": project_id,
                 "user_id": user_id,
                 "created_at": now,
@@ -106,6 +108,7 @@ async def upsert_pending_session(
         posted_to_linear=False,
         status="pending",
         name=name,
+        step="initial",
         project_id=project_id,
         user_id=user_id,
         created_at=now.isoformat(),
@@ -130,6 +133,7 @@ async def get_session(task_id: str) -> Session | None:
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         status=row.status or "pending",
+        step=row.step or "initial",
         project_id=row.project_id,
         user_id=row.user_id,
         created_at=row.created_at.isoformat(),
@@ -137,7 +141,9 @@ async def get_session(task_id: str) -> Session | None:
     )
 
 
-async def save_session(task_id: str, session_id: str, build_plan: str, name: str | None = None) -> Session:
+async def save_session(
+    task_id: str, build_plan: str, name: str | None = None, session_id: str | None = None
+) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
@@ -150,6 +156,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str, name: str
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
                     build_plan = EXCLUDED.build_plan,
                     status = COALESCE(sessions.status, 'pending'),
+                    step = COALESCE(EXCLUDED.step, sessions.step),
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     updated_at = EXCLUDED.updated_at
@@ -158,10 +165,11 @@ async def save_session(task_id: str, session_id: str, build_plan: str, name: str
             {
                 "task_id": task_id,
                 "name": name if name else "",
-                "session_id": session_id,
+                "session_id": session_id if session_id else "",
                 "build_plan": build_plan,
                 "posted_to_linear": False,
                 "status": "pending",
+                "step": "plan",
                 "project_id": None,
                 "user_id": None,
                 "created_at": now,
@@ -181,6 +189,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str, name: str
             build_plan=row.build_plan,
             posted_to_linear=bool(row.posted_to_linear),
             status=row.status or "pending",
+            step=row.step or "initial",
             project_id=row.project_id,
             user_id=row.user_id,
             created_at=row.created_at.isoformat(),
@@ -193,6 +202,7 @@ async def save_session(task_id: str, session_id: str, build_plan: str, name: str
         build_plan=build_plan,
         posted_to_linear=False,
         status="pending",
+        step="plan",
         project_id=None,
         user_id=None,
         created_at=now.isoformat(),
@@ -283,6 +293,14 @@ async def update_session_status(task_id: str, status: str) -> None:
     async with get_connection() as connection:
         await connection.execute(
             sessions.update().where(sessions.c.task_id == task_id).values(status=status, updated_at=datetime.now(UTC))
+        )
+        await connection.commit()
+
+
+async def update_session_step(task_id: str, step: str) -> None:
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=datetime.now(UTC))
         )
         await connection.commit()
 
