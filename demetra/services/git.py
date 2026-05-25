@@ -28,7 +28,7 @@ async def git_add_all(target_path: Path):
     command = [str(GIT["path"]), "add", "."]
     await run_command(command=command, target_path=target_path)
 
-    diff_cmd = [str(GIT["path"]), "diff", "--name-only"]
+    diff_cmd = [str(GIT["path"]), "diff", "--staged", "--name-only"]
     _, stdout, _ = await run_command(command=diff_cmd, target_path=target_path, disable_stdio=True)
     if not stdout.strip():
         raise RuntimeError("No files to commit")

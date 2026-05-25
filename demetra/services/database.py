@@ -523,7 +523,13 @@ async def delete_session(task_id: str, user_id: str) -> bool:
         if not row:
             return False
 
-    log_path = LOG_DIR / "sessions" / f"{task_id}.log"
+    sessions_log_dir = (LOG_DIR / "sessions").resolve()
+    log_path = (sessions_log_dir / f"{task_id}.log").resolve()
+    try:
+        log_path.relative_to(sessions_log_dir)
+    except ValueError:
+        return True
+
     if log_path.exists():
         try:
             log_path.unlink()
