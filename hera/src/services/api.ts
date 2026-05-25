@@ -90,6 +90,22 @@ export async function getSessions(status?: string): Promise<Session[]> {
   return response.json();
 }
 
+export async function deleteSession(taskId: string): Promise<void> {
+  try {
+    const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to delete session');
+    }
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Network error deleting session';
+    throw new Error(message);
+  }
+}
+
 export interface Project {
   id: string;
   user_id: string | null;

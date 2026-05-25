@@ -507,3 +507,33 @@ async def delete_project(project_id: str, user_id: str) -> None:
             projects.delete().where((projects.c.id == project_id) & (projects.c.user_id == user_id))
         )
         await connection.commit()
+
+
+async def delete_session(task_id: str, user_id: str) -> bool:
+    from demetra.settings import LOG_DIR
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            delete(sessions)
+            .where((sessions.c.task_id == task_id) & (sessions.c.user_id == user_id))
+            .returning(sessions.c.task_id)
+        )
+        row = result.fetchone()
+        await connection.commit()
+        if not row:
+            return False
+
+    sessions_log_dir = (LOG_DIR / "sessions").resolve()
+    log_path = (sessions_log_dir / f"{task_id}.log").resolve()
+    try:
+        log_path.relative_to(sessions_log_dir)
+    except ValueError:
+        return True
+
+    if log_path.exists():
+        try:
+            log_path.unlink()
+        except OSError:
+            pass
+
+    return True

@@ -5,6 +5,7 @@ import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
 import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
+import { deleteSession } from "./services/api";
 import "./App.css";
 
 const GitHubCallback = lazy(() =>
@@ -40,6 +41,7 @@ function AppContent() {
   const { user, loading, logout } = useAuth();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -58,6 +60,16 @@ function AppContent() {
     setSelectedTaskId(taskId);
   }, []);
 
+  const handleDeleteSession = useCallback(async (taskId: string) => {
+    try {
+      await deleteSession(taskId);
+      setSelectedTaskId(null);
+      setSessionRefreshTrigger((t) => t + 1);
+    } catch (err) {
+      console.error("Failed to delete session:", err);
+    }
+  }, []);
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -74,6 +86,7 @@ function AppContent() {
           <SessionSidebar
             onSelectSession={handleSelectSession}
             selectedTaskId={selectedTaskId}
+            refreshTrigger={sessionRefreshTrigger}
           />
           <Suspense
             fallback={
@@ -82,7 +95,7 @@ function AppContent() {
               </div>
             }
           >
-            <LogConsole taskId={selectedTaskId} />
+            <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
           </Suspense>
         </main>
       ) : (

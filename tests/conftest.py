@@ -429,6 +429,7 @@ def patch_get_current_user(user: UserResponse):
             patch("demetra.api.users.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.github.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock),
+            patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock),
         ]
         for p in patches:
             mock = stack.enter_context(p)

@@ -33,9 +33,10 @@ const SelectSession = () => <div className="log-empty">Select a session</div>;
 
 interface LogConsoleProps {
   taskId?: string | null;
+  onDeleteSession?: (taskId: string) => void;
 }
 
-export function LogConsole({ taskId }: LogConsoleProps) {
+export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -116,6 +117,14 @@ export function LogConsole({ taskId }: LogConsoleProps) {
           {logTitle}
         </span>
         <div className="log-actions">
+          {taskId && onDeleteSession && (
+            <button
+              className="log-btn log-btn-delete"
+              onClick={() => onDeleteSession(taskId)}
+            >
+              Delete
+            </button>
+          )}
           <button className="log-btn" onClick={clearLogs}>
             Clear
           </button>

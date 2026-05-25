@@ -6,6 +6,7 @@ const POLL_INTERVAL = 60000;
 interface SessionListProps {
   onSelectSession: (taskId: string) => void;
   selectedTaskId: string | null;
+  refreshTrigger?: number;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -42,7 +43,7 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
   </div>
 ));
 
-export function SessionList({ onSelectSession, selectedTaskId }: SessionListProps) {
+export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }: SessionListProps) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +66,7 @@ export function SessionList({ onSelectSession, selectedTaskId }: SessionListProp
     fetchSessions();
     const interval = setInterval(fetchSessions, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchSessions]);
+  }, [fetchSessions, refreshTrigger]);
 
   const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
     setStatusFilter(e.target.value);
