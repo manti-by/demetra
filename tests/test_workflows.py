@@ -270,13 +270,18 @@ class TestWorkflowReview:
         target_path = Path(f"/tmp/{faker.slug()}")
 
         with patch(
-            "demetra.workflows.review.opencode_review_agent",
+            "demetra.workflows.review.cursor_review_agent",
             new_callable=AsyncMock,
-            return_value=("session_id", "Some comments here", None),
+            return_value=(0, None, None),
         ):
-            result = await run_review_agents(target_path)
+            with patch(
+                "demetra.workflows.review.opencode_review_agent",
+                new_callable=AsyncMock,
+                return_value=(0, "Some comments here", None),
+            ):
+                result = await run_review_agents(target_path)
 
-        assert result == "Some comments here"
+        assert result and "Some comments here" in result
 
     @pytest.mark.asyncio
     async def test_run_review_agents_no_issue_tokens(self, faker):
@@ -285,12 +290,12 @@ class TestWorkflowReview:
         with patch(
             "demetra.workflows.review.opencode_review_agent",
             new_callable=AsyncMock,
-            return_value=("session_id", "no issues found.", None),
+            return_value=(0, "no issues found.", None),
         ):
             with patch(
                 "demetra.workflows.review.cursor_review_agent",
                 new_callable=AsyncMock,
-                return_value=("session_id", None, None),
+                return_value=(0, None, None),
             ):
                 result = await run_review_agents(target_path)
 

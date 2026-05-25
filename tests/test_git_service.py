@@ -25,8 +25,21 @@ class TestGitService:
         with patch(
             "demetra.services.git.run_command",
             new_callable=AsyncMock,
+            return_value=(0, "file1.py\nfile2.py\n", ""),
         ):
             await git_add_all(target_path)
+
+    @pytest.mark.asyncio
+    async def test_git_add_all_no_files(self, faker):
+        target_path = Path(f"/tmp/{faker.slug()}")
+
+        with patch(
+            "demetra.services.git.run_command",
+            new_callable=AsyncMock,
+            return_value=(0, "", ""),
+        ):
+            with pytest.raises(RuntimeError, match="No files to commit"):
+                await git_add_all(target_path)
 
     @pytest.mark.asyncio
     async def test_git_commit(self, faker):
