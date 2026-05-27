@@ -26,8 +26,8 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-export async function exchangeCodeForToken(code: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/github/callback?code=${code}`, {
+export async function exchangeCodeForToken(code: string, state: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/github/callback?code=${code}&${state}`, {
     credentials: 'include',
   });
   if (!response.ok) {
