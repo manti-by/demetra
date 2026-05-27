@@ -1,10 +1,10 @@
 import logging.config
 
-import aiofiles
 from rich.console import Console
 from rich.text import Text
 
-from demetra.settings import BASE_PATH, LOGGING
+from demetra.library.header import header
+from demetra.settings import LOGGING
 
 
 logging.config.dictConfig(LOGGING)
@@ -37,10 +37,7 @@ def print_message(message: str, style: str | None = None):
 
 
 async def print_heading():
-    async with aiofiles.open(BASE_PATH / "demetra/tui/header.txt") as file:
-        text = await file.read()
-
-    text = Text(text)
+    text = Text(header)
     text.stylize("magenta", 0, 150)
     text.stylize("cyan", 150, 250)
     text.stylize("blue", 250, 350)
