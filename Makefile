@@ -23,7 +23,7 @@ check:
 	uv run ty check
 	uv run pre-commit run
 
-pip:
+install:
 	uv sync --all-extras --dev
 
 update:
@@ -40,7 +40,7 @@ test-cov:
 migrate:
 	uv run alembic upgrade head
 
-ci: pip check test react-build react-test
+ci: install check test react-build react-test
 
 
 uvicorn:
@@ -48,6 +48,9 @@ uvicorn:
 
 fastapi:
 	uv run fastapi dev demetra/app.py --host 0.0.0.0 --port 8081
+
+mcp:
+	uv run python -m demetra.mcp_server
 
 worker:
 	uv run rq worker

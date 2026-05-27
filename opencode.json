@@ -1,5 +1,12 @@
 {
   "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "demetra": {
+      "type": "local",
+      "command": ["uv", "run", "python", "-m", "demetra.mcp_server"],
+      "enabled": true,
+    }
+  },
   "command": {
     "review-changes": {
       "template": "Check existing changes for potential bugs and security issues",
