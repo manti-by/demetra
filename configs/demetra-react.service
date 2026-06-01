@@ -1,5 +1,5 @@
 [Unit]
-Description=Hera frontend app for Demetra
+Description=React frontend app for Demetra
 After=network.target
 
 [Service]
@@ -7,11 +7,11 @@ Type=simple
 User=manti
 Group=manti
 Restart=always
-WorkingDirectory=/home/manti/www/demetra/hera
+WorkingDirectory=/home/manti/www/demetra/react
 ExecStartPre=/home/manti/.bun/bin/bun run build
 ExecStart=/home/manti/.bun/bin/bun run preview
-StandardOutput=file:/var/log/demetra/hera-stdout.log
-StandardError=file:/var/log/demetra/hera-stderr.log
+StandardOutput=file:/var/log/demetra/react-stdout.log
+StandardError=file:/var/log/demetra/react-stderr.log
 KillSignal=SIGINT
 TimeoutStopSec=30
 RestartSec=10

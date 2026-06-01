@@ -10,10 +10,10 @@ run-coruscant:
 deploy:
 	git pull --ff-only
 	uv sync
-	cd hera && bun install && bun run build
+	cd react && bun install && bun run build
 	sudo systemctl daemon-reload
 	sudo systemctl restart demetra-api.service
-	sudo systemctl restart demetra-hera.service
+	sudo systemctl restart demetra-react.service
 	sudo systemctl restart demetra-watcher.service
 	sudo systemctl restart demetra-worker.service
 	sudo service nginx reload
@@ -59,13 +59,13 @@ watcher:
 	uv run -m demetra.watcher
 
 react-install:
-	cd hera && bun install
+	cd react && bun install
 
 react-build:
-	cd hera && bun run build
+	cd react && bun run build
 
 react-dev:
-	cd hera && bun run dev --host
+	cd react && bun run dev --host
 
 react-test:
-	cd hera && bun run test
+	cd react && bun run test
