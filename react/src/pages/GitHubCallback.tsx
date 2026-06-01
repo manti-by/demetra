@@ -7,9 +7,9 @@ export function GitHubCallback() {
   const navigate = useNavigate();
   const [error, setError] = useState<string | null>(null);
 
-  const handleCallback = useCallback(async (code: string) => {
+  const handleCallback = useCallback(async (code: string, state: string) => {
     try {
-      const response = await exchangeCodeForToken(code);
+      const response = await exchangeCodeForToken(code, state);
       localStorage.setItem('auth_token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       navigate('/');
@@ -20,11 +20,12 @@ export function GitHubCallback() {
 
   useEffect(() => {
     const code = searchParams.get('code');
-    if (!code) {
-      setError('No code provided');
+    const state = searchParams.get('state');
+    if (!code || !state) {
+      setError('No code or state provided');
       return;
     }
-    handleCallback(code);
+    handleCallback(code, state);
   }, [searchParams, handleCallback]);
 
   return (
