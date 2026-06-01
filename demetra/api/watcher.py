@@ -63,8 +63,8 @@ async def watcher_logs(
         async with aiofiles.open(resolved_path) as f:
             content = await f.read()
             lines = content.strip().split("\n")
-            last_10_lines = lines[-10:] if len(lines) > 10 else lines
-            for line in last_10_lines:
+            last_100_lines = lines[-100:] if len(lines) > 100 else lines
+            for line in last_100_lines:
                 if line:
                     await websocket.send_text(line)
 
