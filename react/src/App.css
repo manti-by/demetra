@@ -969,6 +969,8 @@ body::before {
 }
 
 .session-title {
+    flex: 1;
+    min-width: 0;
     font-size: 0.7rem;
     color: var(--text-muted);
     max-width: 120px;

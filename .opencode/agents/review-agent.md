@@ -22,5 +22,7 @@ Do NOT raise style nits, naming preferences, speculative "could be nicer" sugges
 - Be specific: cite the file and line. Vague comments are useless to the build agent that consumes them.
 
 ## Critical Output Rule
-- If you find no high-severity issues, output NOTHING — do not write, print, or echo anything. Exit silently.
-- Never write phrases like "No issues found", "All good", "Looks good", or "LGTM". Any output is treated as a request for changes and triggers another build pass, so only produce text when there is a real issue to fix.
+- If you find no high-severity issues, your final response MUST be the empty string. No prose, no summary, no "LGTM", no "No issues found", no "All good", no "Looks good", no trailing newline of commentary. Exit completely silently.
+- Never emit phrases like "No issues found", "All good", "Looks good", "LGTM", "No high-severity issues found", "Both modifications are correct and safe", or any variation that affirms the code is fine.
+- Any non-empty output is treated as a request for changes and triggers another full build pass, so a silent review is the only acceptable review when nothing is wrong. Silence is a successful review, not a missing one.
+- Only produce text when you have a concrete, high-severity issue to flag on a specific changed line.

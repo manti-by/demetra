@@ -19,7 +19,7 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
 
     payload = {"query": query}
     if variables is not None:
-        payload["variables"]: dict[str, Any] = variables
+        payload["variables"]: dict[str, Any] = variables  # ty: ignore
 
     try:
         async with aiohttp.ClientSession() as session:
