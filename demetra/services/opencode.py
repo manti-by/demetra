@@ -89,24 +89,22 @@ async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
 
 async def get_opencode_session_id(target_path: Path, task_title: str) -> str | None:
     sessions = await get_opencode_sessions(target_path=target_path)
-    target_directory = str(target_path).rstrip("/")
+    filtered_sessions = list(filter(lambda x: task_title == x.get("title", ""), sessions))
+    if not filtered_sessions:
+        print_message("Session not found", style="info")
 
     fallback_session_id = None
-    for session in sorted(sessions, key=lambda x: x["updated"], reverse=True):
-        session_title = session.get("title", "")
-        session_directory = session.get("directory", "").rstrip("/")
-
-        if session_directory != target_directory:
-            print_message(f"Skipping session math for {session_directory} and {target_directory}", style="info")
-            continue
-
+    target_directory = str(target_path).rstrip("/")
+    for session in sorted(filtered_sessions, key=lambda x: x["updated"], reverse=True):
         # Worktree mistmatch
-        elif session_title == task_title and not fallback_session_id:
+        if not fallback_session_id:
             fallback_session_id = session["id"]
 
-        if session_title == task_title:
+        session_directory = session.get("directory", "").rstrip("/")
+        if session_directory == target_directory:
             return session["id"]
 
+    print_message("Worktree mistmatch, using fallback session id", style="error")
     return fallback_session_id
 
 

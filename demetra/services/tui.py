@@ -41,6 +41,4 @@ async def print_heading():
     text.stylize("magenta", 0, 150)
     text.stylize("cyan", 150, 250)
     text.stylize("blue", 250, 350)
-
-    console.print()
     console.print(text, end="")
