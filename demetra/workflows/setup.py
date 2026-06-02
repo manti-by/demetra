@@ -33,7 +33,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     print_message(f"Retrieved task: {linear_task.full_title}", style="result")
 
     session = await get_session(task_id=linear_task.id)
-    branch_name = f"demetra/{linear_task.slug}"
+    branch_name = linear_task.slug
 
     print_message("Pulling latest changes", style="heading")
     print_message("")

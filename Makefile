@@ -1,6 +1,9 @@
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
 
+run-demetra-auto:
+	uv run main.py --project-name demetra --auto --plan-loop
+
 run-odin:
 	uv run main.py --project-name odin --no-auto
 

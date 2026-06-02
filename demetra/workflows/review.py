@@ -12,7 +12,7 @@ from demetra.settings import OPENCODE
 async def run_review_agents(target_path: Path, session_id: str | None = None, task_id: str | None = None) -> str | None:
     print_message("Running REVIEW agents", style="heading")
 
-    review_agents = [cursor_review_agent(target_path=target_path, session_id=session_id)]
+    review_agents = [cursor_review_agent(target_path=target_path)]
     for model in OPENCODE["review_models"]:
         review_agents.append(opencode_review_agent(target_path=target_path, model=model))
     results = await asyncio.gather(*review_agents)

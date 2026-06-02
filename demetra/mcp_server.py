@@ -6,7 +6,7 @@ from mcp.server import Server
 from mcp.server.stdio import stdio_server
 
 from demetra.settings import LOGGING
-from demetra.tools import create_database_tools, create_filesystem_tools
+from demetra.tools import create_database_tools
 
 
 logging.config.dictConfig(LOGGING)
@@ -19,7 +19,6 @@ VERSION = "1.0.0"
 mcp_server = Server(APP_NAME)
 
 create_database_tools(mcp_server)
-create_filesystem_tools(mcp_server)
 
 
 async def main():

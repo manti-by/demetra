@@ -11,7 +11,7 @@ class TestCursorService:
 
         with patch("demetra.services.cursor.run_cursor_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = "review output"
-            result = await cursor_review_agent(Path("/test/path"), "session-123")
+            result = await cursor_review_agent(Path("/test/path"))
 
         mock_run.assert_called_once()
         assert result == "review output"
@@ -22,7 +22,7 @@ class TestCursorService:
 
         with patch("demetra.services.cursor.run_cursor_agent", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = ""
-            await cursor_review_agent(Path("/test"), "session-123")
+            await cursor_review_agent(Path("/test"))
 
         call_kwargs = mock_run.call_args.kwargs
         task = call_kwargs["task"]
