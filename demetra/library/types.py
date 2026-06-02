@@ -39,6 +39,7 @@ class PathConfig(TypedDict):
 
 class OpenCodeConfig(PathConfig):
     plan_model: str
+    resolve_model: str
     build_model: str
     review_models: list[str]
 

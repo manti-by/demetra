@@ -20,7 +20,7 @@ async def test_precommit_and_test_integration():
         mock_precommit.return_value = "ruff check output"
         mock_test.return_value = "pytest output"
 
-        precommit_result = await run_ruff_checks(target_path=target_path, session_id=session_id)
+        precommit_result = await run_ruff_checks(target_path=target_path)
         test_result = await run_pytests(target_path=target_path, session_id=session_id)
 
         assert precommit_result == "ruff check output"
@@ -34,10 +34,8 @@ async def test_precommit_and_test_integration():
 async def test_precommit_failure_stops_test():
     """Test that if precommit fails, test agent is not called."""
     target_path = Path("/test/path")
-    session_id = "test-session"
-
     with patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit:
         mock_precommit.side_effect = Exception("ruff check failed")
 
         with pytest.raises(Exception, match="ruff check failed"):
-            await run_ruff_checks(target_path=target_path, session_id=session_id)
+            await run_ruff_checks(target_path=target_path)

@@ -2,12 +2,19 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 
+from demetra.services.opencode import PLAN_HAS_QUESTIONS
 from demetra.services.parser import NumberedListOutputParser
 from demetra.services.prompt import get_prompt
 from demetra.settings import GROQ
 
 
 async def extract_questions(plan_output: str) -> list[str]:
+    # The plan agent emits an explicit terminal marker. Only run extraction when it
+    # signalled open questions; otherwise the LLM tends to fabricate questions out of
+    # the plan's build steps and verification notes.
+    if PLAN_HAS_QUESTIONS not in plan_output:
+        return []
+
     llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=1024, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(
         [

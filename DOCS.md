@@ -139,6 +139,20 @@ uv run ty check
 uv run bandit -c pyproject.toml .
 ```
 
+### Makefile Targets
+
+```bash
+make run-chimera    # Run workflow on 'chimera' project
+make run-demetra    # Run workflow on 'demetra' project
+make run-odin       # Run workflow on 'odin' project
+make run-coruscant  # Run workflow on 'coruscant' project
+make check          # Run type checking and pre-commit checks
+make pip            # Install dependencies
+make update         # Upgrade dependencies and pre-commit hooks
+make test           # Run tests
+make ci             # Shorthand: pip check test
+```
+
 ## Testing
 
 - pytest in `tests/` directory
@@ -154,24 +168,25 @@ uv run alembic revision --autogenerate -m "add_user_keys_column"
 
 Naming: snake_case with operation prefix (`add_`, `create_`, `drop_`, etc.)
 
-## Environment Variables
+## Environment & Configuration
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `PROJECTS_PATH` | Projects directory | `$HOME/www` |
-| `DB_PATH` | SQLite database | `$HOME/.demetra/demetra.sqlite3` |
-| `LINEAR_API_KEY` | Linear API key | - |
-| `LINEAR_API_URL` | Linear GraphQL URL | `https://api.linear.app/graphql` |
-| `LINEAR_TEAM_ID` | Linear team ID | - |
-| `LINEAR_STATE_TODO_ID` | TODO state ID | - |
-| `LINEAR_STATE_IN_PROGRESS_ID` | In Progress state | - |
-| `LINEAR_STATE_IN_REVIEW_ID` | In Review state | - |
-| `OPENCODE_PATH` | OpenCode binary | `$HOME/.opencode/bin/opencode` |
-| `OPENCODE_MODEL` | OpenCode model | `opencode/minimax-m2.5-free` |
-| `CURSOR_PATH` | Cursor binary | `$HOME/.local/bin/cursor-agent` |
-| `CODERABBIT_PATH` | CodeRabbit binary | `$HOME/.local/bin/coderabbit` |
-| `GIT_PATH` | git binary | `/usr/bin/git` |
-| `GIT_WORKTREE_PATH` | Worktrees path | `$HOME/.demetra/worktrees/` |
+Environment is controlled primarily via `demetra/settings.py` and `.env`:
+
+- `PROJECTS_PATH`: Base path for projects directory (default: `$HOME/www`)
+- `DB_PATH`: Path to SQLite database (default: `$HOME/.demetra/demetra.sqlite3`)
+- `LINEAR_API_KEY`: API key for Linear integration
+- `LINEAR_API_URL`: Linear GraphQL API URL (hardcoded: `https://api.linear.app/graphql`)
+- `LINEAR_TEAM_ID`: Linear team ID
+- `LINEAR_STATE_TODO_ID`: Linear TODO state ID
+- `LINEAR_STATE_IN_PROGRESS_ID`: Linear In Progress state ID
+- `LINEAR_STATE_IN_REVIEW_ID`: Linear In Review state ID
+- `OPENCODE_PATH`: Path to OpenCode CLI binary (default: `$HOME/.opencode/bin/opencode`)
+- `OPENCODE_MODEL`: OpenCode model to use (default: `opencode/minimax-m2.5-free`)
+- `MAX_PLAN_ATTEMPTS`: Max iterations of the plan/resolve plan-loop (default: `30`)
+- `CURSOR_PATH`: Path to Cursor CLI binary (default: `$HOME/.local/bin/cursor-agent`)
+- `CODERABBIT_PATH`: Path to CodeRabbit CLI binary (default: `$HOME/.local/bin/coderabbit`)
+- `GIT_PATH`: Path to git binary (default: `/usr/bin/git`)
+- `GIT_WORKTREE_PATH`: Path for git worktrees (default: `$HOME/.demetra/worktrees/`)
 
 ## Dependencies
 

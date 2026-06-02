@@ -23,9 +23,15 @@ parser.add_argument("-t", "--task-id", help="Specific Linear task ID to run", ty
 parser.add_argument(
     "--auto", help="Automatic mode - post questions and exit", action=argparse.BooleanOptionalAction, default=True
 )
+parser.add_argument(
+    "--plan-loop",
+    help="Loop between plan and resolve agents instead of posting questions to Linear",
+    action=argparse.BooleanOptionalAction,
+    default=False,
+)
 
 
-async def main(project_name: str, auto_mode: bool = True, task_id: str | None = None):
+async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None):
     await init_db()
     await print_heading()
 
@@ -33,6 +39,8 @@ async def main(project_name: str, auto_mode: bool = True, task_id: str | None = 
     context = await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)
     if not context:
         return
+
+    context.plan_loop = plan_loop
 
     await setup_session_logging(logger=logger, task_id=context.linear_task.id)
 
@@ -93,6 +101,7 @@ if __name__ == "__main__":
         main(
             project_name=args.project_name,
             auto_mode=args.auto,
+            plan_loop=args.plan_loop,
             task_id=args.task_id,
         )
     )

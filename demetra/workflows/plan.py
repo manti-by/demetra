@@ -1,4 +1,4 @@
-from demetra.library.exceptions import AutoCancelledError, UserCancelledError
+from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, UserCancelledError
 from demetra.library.models import Context
 from demetra.services.database import save_session, update_session_step
 from demetra.services.flow import user_input
@@ -6,12 +6,14 @@ from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import get_opencode_session_id, opencode_plan_agent
 from demetra.services.tui import print_message
-from demetra.settings import LINEAR
+from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS
+from demetra.workflows.resolve import run_resolve_step
 
 
 async def run_plan_step(context: Context) -> str | None:
     current_task: str = context.linear_task.text
-    while True:
+    plan_attempts = MAX_PLAN_ATTEMPTS if context.plan_loop else 1
+    while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
 
@@ -62,6 +64,27 @@ async def run_plan_step(context: Context) -> str | None:
             return build_plan
 
         print_message(f"Questions detected:\n{questions}", style="heading")
+
+        if context.plan_loop and context.auto_mode:
+            plan_attempts -= 1
+            if plan_attempts <= 0:
+                print_message("Plan loop attempts exhausted, exiting the workflow.", style="error")
+                raise InfiniteLoopError
+
+            print_message(
+                f"Plan loop enabled, sending questions to RESOLVE agent (attempts left: {plan_attempts}).",
+                style="heading",
+            )
+            resolve_output = await run_resolve_step(
+                context=context, original_task=context.linear_task.text, questions=questions
+            )
+            current_task = (
+                f"Original Task:\n{context.linear_task.text}\n\n"
+                f"Resolved Answers:\n{resolve_output}\n\n"
+                "Revisit your plan with these resolved answers, finalize it, "
+                "and re-emit the Implementation Plan section."
+            )
+            continue
 
         if context.auto_mode:
             print_message("Auto mode: posting questions to Linear and exiting.", style="heading")

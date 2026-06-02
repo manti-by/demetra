@@ -15,9 +15,8 @@ async def run_lint_and_test(
         if task_id:
             await update_session_step(task_id=task_id, step="lint")
 
-        await run_ruff_format(target_path=target_path, session_id=session_id)
-
-        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, session_id=session_id)
+        await run_ruff_format(target_path=target_path)
+        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path)
         if ruff_exit_code:
             print_message("Processing RUFF comments", style="result")
             print_message(ruff_result, style="info")

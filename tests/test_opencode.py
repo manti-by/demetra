@@ -73,3 +73,33 @@ class TestOpencodeService:
 
         assert PLAN_IS_READY_STRING == "Ready to proceed to build."
         assert PLAN_HAS_QUESTIONS == "Please check my questions above."
+
+    @pytest.mark.asyncio
+    async def test_resolve_agent_uses_resolve_model(self):
+        from demetra.services.opencode import opencode_resolve_agent
+        from demetra.settings import OPENCODE
+
+        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = "resolve result"
+            result = await opencode_resolve_agent(Path("/test/path"), "answer these questions")
+
+        mock_run.assert_called_once_with(
+            target_path=Path("/test/path"),
+            task="answer these questions",
+            task_title=None,
+            model=OPENCODE["resolve_model"],
+            agent="resolve-agent",
+        )
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_resolve_agent_uses_new_session(self):
+        from demetra.services.opencode import opencode_resolve_agent
+
+        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = "resolve result"
+            await opencode_resolve_agent(Path("/test/path"), "answer these questions", task_title="resolve-title")
+
+        call_kwargs = mock_run.call_args.kwargs
+        assert call_kwargs.get("session_id") is None
+        assert call_kwargs.get("agent") == "resolve-agent"

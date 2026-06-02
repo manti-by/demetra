@@ -53,7 +53,7 @@ async def test_workflow_build_precommit_test_sequence():
             )
 
             try:
-                await run_ruff_checks(target_path=target_path, session_id=session_id)
+                await run_ruff_checks(target_path=target_path)
             except Exception as e:  # noqa: BLE001
                 current_task = f"Fix pre-commit issues: {e}"
                 continue
@@ -93,7 +93,7 @@ async def test_workflow_success_no_retry():
             target_path=target_path, task="Initial task", session_id=session_id, task_title="Test Task"
         )
 
-        ruff_result = await run_ruff_checks(target_path=target_path, session_id=session_id)
+        ruff_result = await run_ruff_checks(target_path=target_path)
         test_result = await run_pytests(target_path=target_path, session_id=session_id)
 
         assert build_call_count == 1

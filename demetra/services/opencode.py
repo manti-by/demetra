@@ -4,6 +4,7 @@ from pathlib import Path
 
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
+from demetra.services.tui import print_message
 from demetra.settings import OPENCODE
 
 
@@ -34,7 +35,7 @@ async def opencode_build_agent(
         session_id=session_id,
         task_title=task_title,
         model=OPENCODE["build_model"],
-        agent="build",
+        agent="build-agent",
     )
 
 
@@ -45,8 +46,18 @@ async def opencode_review_agent(target_path: Path, model: str, task_title: str |
         task=task,
         task_title=task_title,
         model=model,
-        agent="review",
+        agent="review-agent",
         disable_stdio=True,
+    )
+
+
+async def opencode_resolve_agent(target_path: Path, task: str, task_title: str | None = None) -> tuple[int, str, str]:
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=task,
+        task_title=task_title,
+        model=OPENCODE["resolve_model"],
+        agent="resolve-agent",
     )
 
 
@@ -86,7 +97,7 @@ async def get_opencode_session_id(target_path: Path, task_title: str) -> str | N
         session_directory = session.get("directory", "").rstrip("/")
 
         if session_directory != target_directory:
-            print(f"Skipping session math for {session_directory} and {target_directory}")
+            print_message(f"Skipping session math for {session_directory} and {target_directory}", style="info")
             continue
 
         # Worktree mistmatch

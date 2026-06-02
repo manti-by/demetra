@@ -90,6 +90,7 @@ class Context:
     branch_name: str
     worktree_path: Path
     session: Session | None
+    plan_loop: bool = False
 
     @property
     def session_id(self) -> str | None:

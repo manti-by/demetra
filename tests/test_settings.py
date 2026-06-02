@@ -17,11 +17,43 @@ class TestSettings:
 
         assert "www" in str(settings.PROJECTS_PATH)
 
-    def test_opencode_defaults(self):
-        from demetra import settings
+    def test_opencode_defaults(self, monkeypatch):
+        monkeypatch.delenv("OPENCODE_PLAN_MODEL", raising=False)
+        import importlib
 
-        assert ".opencode" in str(settings.OPENCODE["path"])
-        assert "opencode" in settings.OPENCODE["plan_model"]
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert ".opencode" in str(settings_module.OPENCODE["path"])
+            assert "opencode" in settings_module.OPENCODE["plan_model"]
+        finally:
+            importlib.reload(settings_module)
+
+    def test_max_plan_attempts_default(self, monkeypatch):
+        monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        assert settings_module.MAX_PLAN_ATTEMPTS == 30
+
+    def test_max_plan_attempts_env_override(self, monkeypatch):
+        monkeypatch.setenv("MAX_PLAN_ATTEMPTS", "5")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.MAX_PLAN_ATTEMPTS == 5
+        finally:
+            monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
+            importlib.reload(settings_module)
 
     def test_git_worktree_path_default(self):
         from demetra import settings

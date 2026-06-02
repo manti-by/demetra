@@ -968,6 +968,15 @@ body::before {
     white-space: nowrap;
 }
 
+.session-title {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Focus states for accessibility */
 *:focus-visible {
     outline: 2px solid var(--accent);

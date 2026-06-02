@@ -27,6 +27,7 @@ WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 50))
 MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 10))
+MAX_PLAN_ATTEMPTS = int(os.environ.get("MAX_PLAN_ATTEMPTS", 30))
 
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
 
@@ -87,6 +88,7 @@ LINEAR: LinearConfig = {
 OPENCODE: OpenCodeConfig = {
     "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
     "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode/minimax-m2.5-free"),
+    "resolve_model": os.environ.get("OPENCODE_RESOLVE_MODEL", "opencode/minimax-m2.5-free"),
     "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5-free"),
     "review_models": os.environ.get(
         "OPENCODE_REVIEW_MODELS",
