@@ -65,6 +65,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             if await post_comment(task_id=context.linear_task.id, body=context.session.build_plan):
                 await mark_session_posted(task_id=context.linear_task.id)
 
+        print(context)
+
         await run_build_step(build_plan=context.session.build_plan, context=context)
 
         await commit_and_push(context=context)

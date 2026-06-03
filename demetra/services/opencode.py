@@ -96,9 +96,9 @@ async def get_opencode_session_id(target_path: Path, task_title: str) -> str | N
     fallback_session_id = None
     target_directory = str(target_path).rstrip("/")
     for session in sorted(filtered_sessions, key=lambda x: x["updated"], reverse=True):
-        # Worktree mistmatch
-        if not fallback_session_id:
-            fallback_session_id = session["id"]
+        # TODO: Think how to proceed with a worktree mistmatch
+        # if not fallback_session_id:
+        #     fallback_session_id = session["id"]
 
         session_directory = session.get("directory", "").rstrip("/")
         if session_directory == target_directory:

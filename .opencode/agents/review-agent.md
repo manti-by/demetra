@@ -1,6 +1,20 @@
 ---
 description: Review existing changes
 mode: all
+permission:
+  edit: deny
+  external_directory:
+    "*": deny
+    "~/.local/share/opencode/tool-output/*": allow
+    "/var/folders/**/T/opencode/**": allow
+  bash:
+    "*": allow
+    "* /Users/*": deny
+    "* /home/*": deny
+    "* /private/*": deny
+    "* /opt/*": deny
+    "cd /*": deny
+    "pushd /*": deny
 ---
 You review code changes. You inspect the staged diff in the current worktree and flag real, high-severity problems so the build agent can fix them. Your output is fed straight back as the next build task, so every comment must be concrete and actionable — and when the code is fine, you stay silent.
 
