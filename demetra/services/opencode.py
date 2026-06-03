@@ -21,7 +21,7 @@ async def opencode_plan_agent(target_path: Path, task: str, task_title: str | No
     )
 
     return await run_opencode_agent(
-        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan"
+        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan-agent"
     )
 
 
@@ -70,7 +70,7 @@ async def run_opencode_agent(
     task_title: str | None = None,
     disable_stdio: bool = False,
 ) -> tuple[int, str, str]:
-    command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+    command = [str(OPENCODE["path"]), "run", "--dir", str(target_path), "--model", model, "--agent", agent]
 
     if session_id is not None:
         command.extend(["--session", session_id])
@@ -96,9 +96,9 @@ async def get_opencode_session_id(target_path: Path, task_title: str) -> str | N
     fallback_session_id = None
     target_directory = str(target_path).rstrip("/")
     for session in sorted(filtered_sessions, key=lambda x: x["updated"], reverse=True):
-        # Worktree mistmatch
-        if not fallback_session_id:
-            fallback_session_id = session["id"]
+        # TODO: Think how to proceed with a worktree mistmatch
+        # if not fallback_session_id:
+        #     fallback_session_id = session["id"]
 
         session_directory = session.get("directory", "").rstrip("/")
         if session_directory == target_directory:
