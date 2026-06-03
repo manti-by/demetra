@@ -23,7 +23,7 @@ const formatDate = (dateStr: string): string => {
   return `${days}d ago`;
 };
 
-const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: () => void }) => (
+const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: (e: React.MouseEvent) => void }) => (
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
       <span className="session-title">
@@ -64,7 +64,8 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
     return () => clearInterval(interval);
   }, [fetchSessions, refreshTrigger]);
 
-  const handleSelectSession = useCallback((taskId: string) => {
+  const handleSelectSession = useCallback((e: React.MouseEvent, taskId: string) => {
+    e.preventDefault();
     onSelectSession(taskId);
   }, [onSelectSession]);
 
@@ -82,7 +83,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
             key={session.task_id}
             session={session}
             isSelected={selectedTaskId === session.task_id}
-            onClick={() => handleSelectSession(session.task_id)}
+            onClick={(e) => handleSelectSession(e, session.task_id)}
           />
         ))
       )}
