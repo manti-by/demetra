@@ -15,11 +15,16 @@ from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
     database = db_name if db_name else DB_NAME
     url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
-    return create_async_engine(url, echo=echo, isolation_level="AUTOCOMMIT")
+    return create_async_engine(
+        url,
+        echo=echo,
+        isolation_level="AUTOCOMMIT",
+        pool_pre_ping=True,
+    )
 
 
 def get_async_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
-    return async_sessionmaker(engine=engine, class_=AsyncSession, expire_on_commit=False)
+    return async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db_session(
@@ -53,7 +58,8 @@ async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
 @asynccontextmanager
 async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
     engine = await get_cached_engine(db_name)
-    async with AsyncSession(engine) as session:
+    async_session_maker = get_async_session_maker(engine)
+    async with async_session_maker() as session:
         yield session
 
 
