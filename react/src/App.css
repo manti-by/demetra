@@ -923,8 +923,7 @@ body::before {
     font-weight: 500;
 }
 
-.session-status,
-.session-state {
+.session-step {
     font-family: var(--font-mono);
     font-size: 0.65rem;
     text-transform: uppercase;
@@ -933,17 +932,24 @@ body::before {
     border-radius: var(--radius-sm);
 }
 
-.session-status.pending {
+.session-step.initial,
+.session-step.plan {
     background: rgba(232, 168, 56, 0.15);
     color: var(--accent);
 }
 
-.session-status.success {
+.session-step.build,
+.session-step.review {
     background: rgba(124, 184, 124, 0.15);
     color: var(--success);
 }
 
-.session-status.failed {
+.session-step.completed {
+    background: rgba(96, 165, 250, 0.15);
+    color: #60a5fa;
+}
+
+.session-step.failed {
     background: var(--error-dim);
     color: var(--error);
 }

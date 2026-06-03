@@ -76,13 +76,11 @@ export interface Session {
   posted_to_linear: boolean;
   created_at: string;
   updated_at: string;
-  status: string | null;
-  state: string | null;
+  step: string | null;
 }
 
-export async function getSessions(status?: string): Promise<Session[]> {
-  const params = status ? `?status=${status}` : '';
-  const response = await fetch(`${API_URL}/api/v1/sessions${params}`, {
+export async function getSessions(): Promise<Session[]> {
+  const response = await fetch(`${API_URL}/api/v1/sessions`, {
     credentials: 'include',
   });
   if (!response.ok) {

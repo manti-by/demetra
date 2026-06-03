@@ -5,7 +5,6 @@ from typing import Literal
 from slugify import slugify
 
 
-StatusType = Literal["pending", "success", "failed"]
 StepType = Literal["initial", "plan", "build", "review", "lint", "test", "push", "completed"]
 
 
@@ -45,7 +44,6 @@ class Session:
     posted_to_linear: bool
     created_at: str
     updated_at: str
-    status: StatusType = "pending"
     step: StepType = "initial"
     name: str | None = None
     session_id: str | None = None

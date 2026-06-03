@@ -27,13 +27,10 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
       <span className="session-title">
-        {session.name || session.session_id.slice(0, 8)}
+        {session.name || session.session_id?.slice(0, 8)}
       </span>
-      <span className={`session-status ${session.status || 'pending'}`}>
-        {session.status || 'pending'}
-      </span>
-      <span className={`session-state ${session.state || 'initial'}`}>
-        {session.state || 'initial'}
+      <span className={`session-step ${session.step || 'initial'}`}>
+        {session.step || 'initial'}
       </span>
     </div>
     <div className="session-item-meta">
@@ -47,11 +44,10 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
   const [sessions, setSessions] = useState<Session[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('');
 
   const fetchSessions = useCallback(async () => {
     try {
-      const data = await getSessions(statusFilter || undefined);
+      const data = await getSessions();
       setSessions(data);
       setError(null);
     } catch (err) {
@@ -59,7 +55,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
@@ -68,24 +64,12 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
     return () => clearInterval(interval);
   }, [fetchSessions, refreshTrigger]);
 
-  const handleStatusChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-    setStatusFilter(e.target.value);
-  }, []);
-
   const handleSelectSession = useCallback((taskId: string) => {
     onSelectSession(taskId);
   }, [onSelectSession]);
 
   return (
     <div className="session-list">
-      <div className="session-list-filter">
-        <select value={statusFilter} onChange={handleStatusChange}>
-          <option value="">All statuses</option>
-          <option value="pending">Pending</option>
-          <option value="processed">Processed</option>
-          <option value="failed">Failed</option>
-        </select>
-      </div>
       {loading && sessions.length === 0 ? (
         <div className="session-list-loading">Loading sessions...</div>
       ) : error ? (

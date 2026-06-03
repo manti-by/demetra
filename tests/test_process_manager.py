@@ -6,7 +6,6 @@ import pytest
 from demetra.services.database import (
     get_pending_session_task_ids,
     get_session,
-    update_session_status,
     upsert_pending_session,
 )
 from demetra.services.linear import get_todo_issues
@@ -79,8 +78,8 @@ class TestProcessManager:
         assert issues[0].user_id is None
 
     @pytest.mark.asyncio
-    async def test_session_status_workflow(self, setup_test_db):
-        task_id = f"session-status-{uuid4().hex[:8]}"
+    async def test_pending_session_workflow(self, setup_test_db):
+        task_id = f"session-step-{uuid4().hex[:8]}"
         project_id = str(uuid4())
         user_id = str(uuid4())
 
@@ -93,19 +92,9 @@ class TestProcessManager:
 
         session = await get_session(task_id)
         assert session is not None
-        assert session.status == "pending"
+        assert session.step == "initial"
         assert session.project_id == project_id
         assert session.user_id == user_id
 
         pending = await get_pending_session_task_ids()
         assert task_id in pending
-
-        await update_session_status(task_id=task_id, status="processed")
-        session = await get_session(task_id)
-        assert session is not None
-        assert session.status == "processed"
-
-        await update_session_status(task_id=task_id, status="failed")
-        session = await get_session(task_id)
-        assert session is not None
-        assert session.status == "failed"

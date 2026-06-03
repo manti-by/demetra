@@ -6,6 +6,7 @@ from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import get_opencode_session_id, opencode_plan_agent
 from demetra.services.tui import print_message
+from demetra.services.utils import NO_ISSUE_TOKENS
 from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS
 from demetra.workflows.resolve import run_resolve_step
 
@@ -59,6 +60,7 @@ async def run_plan_step(context: Context) -> str | None:
         print_message(f"Plan output:\n{build_plan}")
 
         questions = await extract_questions(plan_output=plan_output)
+        questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
         if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")
             return build_plan
