@@ -42,7 +42,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Creating feature worktree", style="heading")
     print_message("")
-    worktree_path = await git_worktree_create(target_path=project.local_path, branch_name=branch_name)
+    worktree_path = await git_worktree_create(project=project, branch_name=branch_name)
     print_message("")
     print_message(f"Created worktree at: {worktree_path}", style="result")
 

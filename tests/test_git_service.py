@@ -82,17 +82,44 @@ class TestGitService:
         with patch(
             "demetra.services.git.run_command",
             new_callable=AsyncMock,
+            return_value=(0, "", ""),
         ):
             await git_worktree_remove(target_path, worktree_path)
 
     @pytest.mark.asyncio
-    async def test_git_worktree_create(self, faker):
+    async def test_git_worktree_remove_failure_raises(self, faker):
         target_path = Path(f"/tmp/{faker.slug()}")
+        worktree_path = Path(f"/tmp/worktree/{faker.slug()}")
+
+        with patch(
+            "demetra.services.git.run_command",
+            new_callable=AsyncMock,
+            return_value=(1, "", "fatal: not a working tree"),
+        ):
+            with pytest.raises(RuntimeError, match="Failed to remove worktree"):
+                await git_worktree_remove(target_path, worktree_path)
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_create(self, faker):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=str(uuid4()),
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
         branch_name = f"feature/{faker.slug()}"
 
         with patch(
             "demetra.services.git.run_command",
             new_callable=AsyncMock,
+            return_value=(0, "", ""),
         ):
             with patch(
                 "demetra.services.git.git_worktree_remove",
@@ -102,9 +129,45 @@ class TestGitService:
                     "demetra.services.git.git_branch_delete",
                     new_callable=AsyncMock,
                 ):
-                    result = await git_worktree_create(target_path, branch_name)
+                    result = await git_worktree_create(project=project, branch_name=branch_name)
 
         assert result is not None
+        assert project.repository_owner in str(result)
+        assert project.repository_name in str(result)
+        assert branch_name in str(result)
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_create_failure_raises(self, faker):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=str(uuid4()),
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        branch_name = f"feature/{faker.slug()}"
+
+        with patch(
+            "demetra.services.git.run_command",
+            new_callable=AsyncMock,
+            return_value=(128, "", "fatal: invalid reference"),
+        ):
+            with patch(
+                "demetra.services.git.git_worktree_remove",
+                new_callable=AsyncMock,
+            ):
+                with patch(
+                    "demetra.services.git.git_branch_delete",
+                    new_callable=AsyncMock,
+                ):
+                    with pytest.raises(RuntimeError, match="Failed to create worktree"):
+                        await git_worktree_create(project=project, branch_name=branch_name)
 
     @pytest.mark.asyncio
     async def test_git_cleanup_success(self, faker):

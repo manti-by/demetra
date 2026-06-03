@@ -10,6 +10,9 @@ run-odin:
 run-coruscant:
 	uv run main.py --project-name coruscant --no-auto
 
+run-mgallery-auto:
+	uv run main.py --project-name mgallery --auto --plan-loop
+		
 deploy:
 	git pull --ff-only
 	uv sync
