@@ -43,6 +43,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             env=env,
+            cwd=str(BASE_PATH),
         )
 
         if process.stdout and process.stderr:

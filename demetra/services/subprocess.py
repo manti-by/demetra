@@ -1,12 +1,16 @@
 import asyncio
+import os
 from pathlib import Path
 
 from demetra.services.utils import live_stream
 
 
 async def run_command(command: list, target_path: Path, disable_stdio: bool = False) -> tuple[int, str, str]:
+    # TODO: MNT-28 Setup project environment
+    env = os.environ.copy()
+    env["PWD"] = str(target_path)
     process = await asyncio.create_subprocess_exec(
-        *command, cwd=target_path, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *command, cwd=target_path, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     if not process.stdout or not process.stderr:
         process.kill()

@@ -21,7 +21,7 @@ async def opencode_plan_agent(target_path: Path, task: str, task_title: str | No
     )
 
     return await run_opencode_agent(
-        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan"
+        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan-agent"
     )
 
 
@@ -70,7 +70,7 @@ async def run_opencode_agent(
     task_title: str | None = None,
     disable_stdio: bool = False,
 ) -> tuple[int, str, str]:
-    command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+    command = [str(OPENCODE["path"]), "run", "--dir", str(target_path), "--model", model, "--agent", agent]
 
     if session_id is not None:
         command.extend(["--session", session_id])

@@ -25,7 +25,7 @@ class TestOpencodeService:
             task=expected_task,
             task_title="do something",
             model=OPENCODE["plan_model"],
-            agent="plan",
+            agent="plan-agent",
         )
         assert result is not None
 
