@@ -674,7 +674,8 @@ class TestWorkflowReview:
         assert result is None
         mock_summarize.assert_awaited_once()
         sent_to_summarizer = mock_summarize.call_args.kwargs["review_output"]
-        assert thinking_prose in sent_to_summarizer
+        for line in thinking_prose.splitlines():
+            assert line in sent_to_summarizer
 
     @pytest.mark.asyncio
     async def test_run_review_agents_returns_none_when_summarizer_finds_nothing(self, faker):

@@ -17,8 +17,8 @@ Include a line ONLY if ALL of these are true:
 - Section headers, code blocks, tool output, and any other non-finding text.
 
 ## Deduplication
-- When the same finding was reported by multiple review agents, keep ONE item that captures the combined information.
-- Order the final list from most severe / most actionable to least.
+- When the same finding was reported by multiple review agents, keep ONE verbatim instance.
+- If duplicate findings differ in detail, keep the single most specific verbatim line; do not merge or rewrite lines.
 
 ## Output
 - A plain numbered list, one finding per line, e.g. `1. Finding text`.

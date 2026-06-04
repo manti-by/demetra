@@ -1,3 +1,5 @@
+import logging
+
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
@@ -6,6 +8,9 @@ from demetra.services.opencode import PLAN_HAS_QUESTIONS
 from demetra.services.parser import NumberedListOutputParser
 from demetra.services.prompt import get_prompt
 from demetra.settings import GROQ
+
+
+logger = logging.getLogger(__name__)
 
 
 async def extract_questions(plan_output: str) -> list[str]:
@@ -34,9 +39,11 @@ async def extract_questions(plan_output: str) -> list[str]:
 
 
 async def summarize_review(review_output: str) -> list[str]:
-    # The review agent output is noisy (thinking prose, no-issue affirmations) and
-    # the LLM is good at telling actual CRITICAL/ERROR findings apart from the
-    # rest. Skip the LLM call entirely when there is nothing to feed it.
+    """
+    The review agent output is noisy (thinking prose, no-issue affirmations) and
+    the LLM is good at telling actual CRITICAL/ERROR findings apart from the
+    rest. Skip the LLM call entirely when there is nothing to feed it.
+    """
     if not review_output or not review_output.strip():
         return []
 
@@ -51,10 +58,18 @@ async def summarize_review(review_output: str) -> list[str]:
 
     chain = prompt | llm | output_parser
 
-    result = []
-    for item in await chain.ainvoke({"input_text": review_output}):
-        if finding := str(item).strip():
-            result.append(finding)
+    seen: set[str] = set()
+    result: list[str] = []
+    try:
+        for item in await chain.ainvoke({"input_text": review_output}):
+            if finding := str(item).strip():
+                key = finding.casefold()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(finding)
+    except Exception:
+        logger.exception("LLM call failed in summarize_review")
+        return []
     return result
 
 

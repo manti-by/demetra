@@ -22,9 +22,14 @@ async def run_review_agents(target_path: Path, session_id: str | None = None, ta
 
     parts = []
     for _, stdout, _ in results:
-        if not stdout or any(phrase in stdout for phrase in NO_ISSUE_TOKENS):
+        if not stdout:
             continue
-        if stripped := stdout.strip():
+        for line in stdout.splitlines():
+            stripped = line.strip()
+            if not stripped:
+                continue
+            if any(stripped == token.strip() for token in NO_ISSUE_TOKENS):
+                continue
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
