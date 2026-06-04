@@ -1,5 +1,5 @@
 [Unit]
-Description=Demetra Worker
+Description=Demetra Worker #%i
 After=network.target
 
 [Service]
