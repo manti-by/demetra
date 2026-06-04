@@ -10,7 +10,7 @@ from demetra.settings import LOGGING
 logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
-POLL_INTERVAL = 300
+POLL_INTERVAL = 60
 
 
 async def main() -> None:

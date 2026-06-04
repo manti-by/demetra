@@ -26,9 +26,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         )
 
         if review_attempts > 0 and not review_step_finished:
-            print_message("Running CODE REVIEW agents", style="heading")
             await update_session_step(task_id=context.linear_task.id, step="review")
-
             review_comments = await run_review_agents(target_path=context.worktree_path, session_id=context.session_id)
             if review_comments:
                 if context.auto_mode:

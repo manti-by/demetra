@@ -3,7 +3,7 @@ from demetra.watcher import POLL_INTERVAL
 
 class TestWatcher:
     def test_poll_interval_value(self):
-        assert POLL_INTERVAL == 300
+        assert POLL_INTERVAL == 60
 
 
 class TestWorker:
