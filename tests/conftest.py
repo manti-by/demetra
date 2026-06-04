@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from demetra.app import app
 from demetra.library.models import LinearTask, UserResponse
 from demetra.library.tables import metadata
+from demetra.services import database as _database_module
 from demetra.services.auth import create_jwt_token
 from demetra.services.database import _engine_cache, get_async_engine, get_async_session_maker
 from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
@@ -35,7 +36,7 @@ def event_loop():
 def test_db_engine():
     global _test_db_engine
     if _test_db_engine is None:
-        _test_db_engine = get_async_engine()
+        _test_db_engine = get_async_engine(db_name="test_demetra")
     return _test_db_engine
 
 
@@ -58,8 +59,12 @@ async def setup_test_db(test_db_engine):
     metadata.create_all(sync_engine)
     sync_engine.dispose()
 
+    _original_db_name = _database_module.DB_NAME
+    _database_module.DB_NAME = "test_demetra"
+
     yield
 
+    _database_module.DB_NAME = _original_db_name
     if _test_db_engine is not None:
         await _test_db_engine.dispose()
 
