@@ -79,14 +79,3 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
 
     logger.handlers.clear()
     logger.addHandler(file_handler)
-
-
-async def merge_review_results(results: list[tuple[int, str, str]]) -> tuple[int, str, str]:
-    exit_code, stdout, stderr = 0, "", ""
-    for c, o, e in results:
-        if o is None or any(phrase in o for phrase in NO_ISSUE_TOKENS):
-            continue
-        exit_code += c
-        stdout += f"\n{o.strip()}" if o.strip() else ""
-        stderr += f"\n{e.strip()}" if e and e.strip() else ""
-    return exit_code, stdout, stderr
