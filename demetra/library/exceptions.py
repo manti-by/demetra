@@ -24,3 +24,7 @@ class UserCancelledError(DemetraError):
 
 class AutoCancelledError(DemetraError):
     pass
+
+
+class BuildError(DemetraError):
+    pass

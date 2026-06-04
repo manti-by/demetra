@@ -87,6 +87,9 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")
 
+    except RuntimeError as e:
+        print_message(f"Runtime Error: {e}", style="error")
+
     finally:
         # Only run cleanup if we successfully created a context (which means worktree was created)
         if context:

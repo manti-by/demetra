@@ -592,6 +592,7 @@ class TestWorkflowBuild:
         with patch(
             "demetra.workflows.build.opencode_build_agent",
             new_callable=AsyncMock,
+            return_value=(0, "", ""),
         ):
             with patch(
                 "demetra.workflows.build.run_review_agents",

@@ -1,4 +1,4 @@
-from demetra.library.exceptions import InfiniteLoopError
+from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.database import update_session_step
 from demetra.services.flow import user_input
@@ -18,12 +18,16 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         print_message("Running BUILD agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="build")
 
-        await opencode_build_agent(
+        exit_code, stdout, stderr = await opencode_build_agent(
             target_path=context.worktree_path,
             task=current_task,
             session_id=context.session_id,
             task_title=context.linear_task.full_title,
         )
+        if exit_code != 0:
+            raise BuildError(
+                f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
+            )
 
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")
