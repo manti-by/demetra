@@ -7,20 +7,6 @@
       "enabled": true,
     }
   },
-  "command": {
-    "review-changes": {
-      "template": "Check existing changes for potential bugs and security issues",
-      "description": "Review existing changes",
-      "agent": "review-agent",
-      "model": "opencode-go/qwen3.7-max"
-    },
-    "fix-tags-history": {
-      "template": "Check version updates in pyproject.toml using git, create git tags that do not exists and push them to git",
-      "description": "Fix git tags history",
-      "agent": "build-agent",
-      "model": "opencode-go/deepseek-v4-flash"
-    }
-  },
   "lsp": {
     "pyright": {
       "disabled": true

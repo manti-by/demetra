@@ -1,0 +1,20 @@
+[Unit]
+Description=Demetra Worker
+After=network.target
+
+[Service]
+Type=simple
+User=manti
+Group=manti
+Restart=always
+WorkingDirectory=/home/manti/www/demetra
+EnvironmentFile=/home/manti/www/demetra/.env
+ExecStart=/home/manti/www/demetra/.venv/bin/python -m demetra.worker
+StandardOutput=file:/var/log/demetra/worker-stdout.log
+StandardError=file:/var/log/demetra/worker-stderr.log
+KillSignal=SIGINT
+TimeoutStopSec=30
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

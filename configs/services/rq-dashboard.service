@@ -1,5 +1,5 @@
 [Unit]
-Description=Demetra Process Manager
+Description=Demetra RQ dashboard
 After=network.target
 
 [Service]
@@ -9,9 +9,9 @@ Group=manti
 Restart=always
 WorkingDirectory=/home/manti/www/demetra
 EnvironmentFile=/home/manti/www/demetra/.env
-ExecStart=/home/manti/www/demetra/.venv/bin/python -m demetra.worker
-StandardOutput=file:/var/log/demetra/worker-stdout.log
-StandardError=file:/var/log/demetra/worker-stderr.log
+ExecStart=/home/manti/www/demetra/.venv/bin/rq-dashboard
+StandardOutput=file:/var/log/demetra/rq-dashboard-stdout.log
+StandardError=file:/var/log/demetra/rq-dashboard-stderr.log
 KillSignal=SIGINT
 TimeoutStopSec=30
 RestartSec=10
