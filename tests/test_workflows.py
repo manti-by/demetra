@@ -621,9 +621,14 @@ class TestWorkflowReview:
         with patch(
             "demetra.workflows.review.opencode_review_agent",
             new_callable=AsyncMock,
-            return_value=(0, "Some comments here", None),
+            return_value=(0, "Raw review output from agent.", None),
         ):
-            result = await run_review_agents(target_path)
+            with patch(
+                "demetra.workflows.review.summarize_review",
+                new_callable=AsyncMock,
+                return_value=["Some comments here"],
+            ):
+                result = await run_review_agents(target_path)
 
         assert result and "Some comments here" in result
 
@@ -635,7 +640,56 @@ class TestWorkflowReview:
             new_callable=AsyncMock,
             return_value=(0, "no issues found.", None),
         ):
-            result = await run_review_agents(target_path)
+            with patch(
+                "demetra.workflows.review.summarize_review",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as mock_summarize:
+                result = await run_review_agents(target_path)
+
+        assert result is None
+        mock_summarize.assert_awaited_once_with(review_output="")
+
+    @pytest.mark.asyncio
+    async def test_run_review_agents_filters_thinking_prose(self, faker):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        thinking_prose = (
+            "Looking at the staged changes, they're all test additions and configuration updates.\n"
+            "Let me run a quick lint check to verify the test code quality.\n"
+            "All staged changes pass lint checks. Let me verify the tests can actually run:\n"
+            "All 72 tests pass. No high-severity issues found."
+        )
+        with patch(
+            "demetra.workflows.review.opencode_review_agent",
+            new_callable=AsyncMock,
+            return_value=(0, thinking_prose, None),
+        ):
+            with patch(
+                "demetra.workflows.review.summarize_review",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as mock_summarize:
+                result = await run_review_agents(target_path)
+
+        assert result is None
+        mock_summarize.assert_awaited_once()
+        sent_to_summarizer = mock_summarize.call_args.kwargs["review_output"]
+        assert thinking_prose in sent_to_summarizer
+
+    @pytest.mark.asyncio
+    async def test_run_review_agents_returns_none_when_summarizer_finds_nothing(self, faker):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        with patch(
+            "demetra.workflows.review.opencode_review_agent",
+            new_callable=AsyncMock,
+            return_value=(0, "Some prose that turns out to be just thinking.", None),
+        ):
+            with patch(
+                "demetra.workflows.review.summarize_review",
+                new_callable=AsyncMock,
+                return_value=[],
+            ):
+                result = await run_review_agents(target_path)
 
         assert result is None
 

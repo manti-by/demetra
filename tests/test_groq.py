@@ -1,8 +1,9 @@
 import inspect
+from unittest.mock import patch
 
 import pytest
 
-from demetra.services.groq import extract_plan
+from demetra.services.groq import extract_plan, summarize_review
 
 
 class TestGroqService:
@@ -19,3 +20,31 @@ class TestGroqService:
         assert "task_description" in params
         assert "comments" in params
         assert sig.parameters["comments"].annotation == list[str]
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_function_exists(self):
+        assert callable(summarize_review)
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_signature(self):
+        sig = inspect.signature(summarize_review)
+        params = list(sig.parameters.keys())
+
+        assert "review_output" in params
+        assert sig.return_annotation == list[str]
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_returns_empty_for_empty_input(self):
+        with patch("demetra.services.groq.ChatGroq") as mock_llm:
+            result = await summarize_review(review_output="")
+
+        assert result == []
+        mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_returns_empty_for_whitespace_input(self):
+        with patch("demetra.services.groq.ChatGroq") as mock_llm:
+            result = await summarize_review(review_output="   \n\t  ")
+
+        assert result == []
+        mock_llm.assert_not_called()

@@ -33,6 +33,31 @@ async def extract_questions(plan_output: str) -> list[str]:
     return result
 
 
+async def summarize_review(review_output: str) -> list[str]:
+    # The review agent output is noisy (thinking prose, no-issue affirmations) and
+    # the LLM is good at telling actual CRITICAL/ERROR findings apart from the
+    # rest. Skip the LLM call entirely when there is nothing to feed it.
+    if not review_output or not review_output.strip():
+        return []
+
+    llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=1024, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="summarize_review")),
+            ("human", "Text: {input_text}"),
+        ]
+    )
+    output_parser = NumberedListOutputParser()
+
+    chain = prompt | llm | output_parser
+
+    result = []
+    for item in await chain.ainvoke({"input_text": review_output}):
+        if finding := str(item).strip():
+            result.append(finding)
+    return result
+
+
 async def process_text_with_groq(text: str) -> dict[str, str]:
     llm = ChatGroq(model=GROQ["model"], temperature=0.3, max_tokens=2048, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(

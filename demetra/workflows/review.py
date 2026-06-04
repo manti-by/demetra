@@ -2,9 +2,10 @@ import asyncio
 from pathlib import Path
 
 from demetra.services.database import update_session_step
+from demetra.services.groq import summarize_review
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
-from demetra.services.utils import merge_review_results
+from demetra.services.utils import NO_ISSUE_TOKENS
 from demetra.settings import OPENCODE
 
 
@@ -19,11 +20,20 @@ async def run_review_agents(target_path: Path, session_id: str | None = None, ta
     if task_id:
         await update_session_step(task_id=task_id, step="review")
 
-    _, opencode_comments, _ = await merge_review_results(results=results)
-    if opencode_comments:
+    parts = []
+    for _, stdout, _ in results:
+        if not stdout or any(phrase in stdout for phrase in NO_ISSUE_TOKENS):
+            continue
+        if stripped := stdout.strip():
+            parts.append(stripped)
+    review_output = "\n\n".join(parts)
+
+    findings = await summarize_review(review_output=review_output)
+    if findings:
         print_message("Review agents returned comments", style="result")
-        print_message(opencode_comments, style="result")
-        return opencode_comments
+        findings_text = "\n".join(f"{i + 1}. {finding}" for i, finding in enumerate(findings))
+        print_message(findings_text, style="result")
+        return findings_text
 
     print_message("No comments from any review agent, continuing the workflow.", style="result")
     return None
