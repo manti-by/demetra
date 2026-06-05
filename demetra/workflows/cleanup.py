@@ -1,9 +1,14 @@
+from demetra.library.exceptions import DemetraError
 from demetra.library.models import Context
 from demetra.services.database import update_session_step
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request
 from demetra.services.linear import linear_cleanup
 from demetra.services.tui import print_message
+
+
+class PullRequestError(DemetraError):
+    pass
 
 
 async def commit_and_push(context: Context) -> None:
@@ -17,10 +22,12 @@ async def commit_and_push(context: Context) -> None:
     await git_push(target_path=context.worktree_path, branch_name=context.branch_name)
 
     print_message("Creating GitHub PR", style="heading")
-    await create_pull_request(
+    exit_code, stdout, stderr = await create_pull_request(
         target_path=context.worktree_path, branch_name=context.branch_name, title=context.linear_task.full_title
     )
-    await update_session_step(task_id=context.linear_task.id, step="completed")
+    if exit_code != 0:
+        raise PullRequestError(f"Failed to create PR: {stderr or stdout}")
+    print_message(stdout.strip(), style="result")
 
     await update_session_step(task_id=context.linear_task.id, step="completed")
 

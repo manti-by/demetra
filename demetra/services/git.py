@@ -11,10 +11,16 @@ def get_worktree_path(project: Project, branch_name: str) -> Path:
 
 
 async def git_worktree_create(project: Project, branch_name: str) -> Path:
+    import shutil
+
     worktree_path = get_worktree_path(project=project, branch_name=branch_name)
     if worktree_path.exists():
-        await git_worktree_remove(target_path=project.local_path, worktree_path=worktree_path, force=True)
-        await git_branch_delete(target_path=project.local_path, branch_name=branch_name)
+        git_file = worktree_path / ".git"
+        if git_file.exists() and git_file.is_file():
+            await git_worktree_remove(target_path=project.local_path, worktree_path=worktree_path, force=True)
+            await git_branch_delete(target_path=project.local_path, branch_name=branch_name)
+        else:
+            shutil.rmtree(worktree_path)
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
