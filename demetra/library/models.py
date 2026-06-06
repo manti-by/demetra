@@ -9,6 +9,16 @@ StepType = Literal["initial", "plan", "build", "review", "lint", "test", "push",
 
 
 @dataclass
+class Environment:
+    id: str
+    project_id: str
+    key: str
+    value: str
+    created_at: str
+    updated_at: str
+
+
+@dataclass
 class LinearTask:
     id: str
     identifier: str
