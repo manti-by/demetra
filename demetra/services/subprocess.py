@@ -9,9 +9,9 @@ async def run_command(
     command: list, target_path: Path, disable_stdio: bool = False, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
     merged_env = os.environ.copy()
-    merged_env["PWD"] = str(target_path)
     if env:
         merged_env.update(env)
+    merged_env["PWD"] = str(target_path)
     process = await asyncio.create_subprocess_exec(
         *command, cwd=target_path, env=merged_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )

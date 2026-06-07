@@ -26,6 +26,7 @@ class TestOpencodeService:
             task_title="do something",
             model=OPENCODE["plan_model"],
             agent="plan-agent",
+            env=None,
         )
         assert result is not None
 
@@ -89,6 +90,7 @@ class TestOpencodeService:
             task_title=None,
             model=OPENCODE["resolve_model"],
             agent="resolve-agent",
+            env=None,
         )
         assert result is not None
 

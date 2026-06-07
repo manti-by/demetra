@@ -32,6 +32,7 @@ def upgrade() -> None:
             ["projects.id"],
         ),
         sa.PrimaryKeyConstraint("id"),
+        sa.UniqueConstraint("project_id", "key"),
     )
 
 

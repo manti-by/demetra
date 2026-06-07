@@ -7,6 +7,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
 )
 
 
@@ -80,4 +81,5 @@ project_environments = Table(
     Column("project_id", String(), ForeignKey("projects.id"), nullable=False),
     Column("key", String(), nullable=False),
     Column("value", Text(), nullable=False),
+    UniqueConstraint("project_id", "key"),
 )
