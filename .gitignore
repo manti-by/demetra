@@ -19,6 +19,8 @@ venv/
 .coverage
 .env
 
+.opencode/package-lock.json
+
 **/node_modules/
 **/dist/
 **/.vite/
