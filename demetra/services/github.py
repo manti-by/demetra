@@ -5,7 +5,7 @@ from demetra.settings import GITHUB
 
 
 async def create_pull_request(
-    target_path: Path, branch_name: str, title: str, base: str = "master"
+    target_path: Path, branch_name: str, title: str, base: str = "master", env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
     command = [
         str(GITHUB["path"]),
@@ -20,4 +20,4 @@ async def create_pull_request(
         "--body",
         "",
     ]
-    return await run_command(command=command, target_path=target_path)
+    return await run_command(command=command, target_path=target_path, env=env)

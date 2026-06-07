@@ -93,3 +93,90 @@ class TestSubprocessService:
         call_kwargs = mock_create.call_args.kwargs
         assert call_kwargs["stdout"] == asyncio.subprocess.PIPE
         assert call_kwargs["stderr"] == asyncio.subprocess.PIPE
+
+    @pytest.mark.asyncio
+    async def test_run_command_accepts_env_parameter(self):
+        from demetra.services.subprocess import run_command
+
+        mock_stdout = AsyncMock()
+        mock_stdout.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_stderr = AsyncMock()
+        mock_stderr.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_process = MagicMock()
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        mock_process.wait = AsyncMock(return_value=0)
+
+        with (
+            patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
+            patch("demetra.services.subprocess.live_stream", new_callable=AsyncMock),
+        ):
+            mock_create.return_value = mock_process
+            await run_command(["cmd"], Path("/test"), env={"CUSTOM_KEY": "custom_value"})
+
+        call_kwargs = mock_create.call_args.kwargs
+        assert "env" in call_kwargs
+        assert call_kwargs["env"]["CUSTOM_KEY"] == "custom_value"
+        assert call_kwargs["env"]["PWD"] == str(Path("/test"))
+
+    @pytest.mark.asyncio
+    async def test_run_command_env_does_not_override_parent_env(self):
+        from demetra.services.subprocess import run_command
+
+        mock_stdout = AsyncMock()
+        mock_stdout.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_stderr = AsyncMock()
+        mock_stderr.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_process = MagicMock()
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        mock_process.wait = AsyncMock(return_value=0)
+
+        import os
+
+        with (
+            patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
+            patch("demetra.services.subprocess.live_stream", new_callable=AsyncMock),
+        ):
+            mock_create.return_value = mock_process
+            await run_command(["cmd"], Path("/test"), env={"MY_VAR": "my_val"})
+
+        call_kwargs = mock_create.call_args.kwargs
+        merged_env = call_kwargs["env"]
+        assert merged_env["MY_VAR"] == "my_val"
+        # Verify that parent env vars like PATH are still present
+        assert "PATH" in merged_env
+        assert merged_env["PATH"] == os.environ["PATH"]
+
+    @pytest.mark.asyncio
+    async def test_run_command_without_env_inherits_parent(self):
+        from demetra.services.subprocess import run_command
+
+        mock_stdout = AsyncMock()
+        mock_stdout.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_stderr = AsyncMock()
+        mock_stderr.readline = AsyncMock(side_effect=[b"", b""])
+
+        mock_process = MagicMock()
+        mock_process.stdout = mock_stdout
+        mock_process.stderr = mock_stderr
+        mock_process.wait = AsyncMock(return_value=0)
+
+        import os
+
+        with (
+            patch("asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock_create,
+            patch("demetra.services.subprocess.live_stream", new_callable=AsyncMock),
+        ):
+            mock_create.return_value = mock_process
+            await run_command(["cmd"], Path("/test"))
+
+        call_kwargs = mock_create.call_args.kwargs
+        assert "env" in call_kwargs
+        assert "PATH" in call_kwargs["env"]
+        assert call_kwargs["env"]["PATH"] == os.environ["PATH"]

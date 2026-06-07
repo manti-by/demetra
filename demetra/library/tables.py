@@ -2,6 +2,7 @@ from sqlalchemy import (
     Boolean,
     Column,
     DateTime,
+    ForeignKey,
     MetaData,
     String,
     Table,
@@ -70,4 +71,13 @@ projects = Table(
     Column("state", String(), server_default="provisioning", nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+project_environments = Table(
+    "project_environments",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("project_id", String(), ForeignKey("projects.id"), nullable=False),
+    Column("key", String(), nullable=False),
+    Column("value", Text(), nullable=False),
 )

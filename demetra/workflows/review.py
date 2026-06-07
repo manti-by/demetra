@@ -9,12 +9,14 @@ from demetra.services.utils import NO_ISSUE_TOKENS
 from demetra.settings import OPENCODE
 
 
-async def run_review_agents(target_path: Path, session_id: str | None = None, task_id: str | None = None) -> str | None:
+async def run_review_agents(
+    target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
+) -> str | None:
     print_message("Running REVIEW agents", style="heading")
 
     review_agents = []
     for model in OPENCODE["review_models"]:
-        review_agents.append(opencode_review_agent(target_path=target_path, model=model))
+        review_agents.append(opencode_review_agent(target_path=target_path, model=model, env=env))
     results = await asyncio.gather(*review_agents)
 
     if task_id:

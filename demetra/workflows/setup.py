@@ -1,5 +1,5 @@
 from demetra.library.models import Context, Project
-from demetra.services.database import get_session, search_projects_by_name
+from demetra.services.database import get_project_environments, get_session, search_projects_by_name
 from demetra.services.git import git_pull, git_worktree_create
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.tui import print_message
@@ -20,6 +20,9 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
         print_message(f"No local path found for {project.name} project", style="error")
         return None
 
+    print_message("Loading project environment", style="heading")
+    project.environment = await get_project_environments(project_id=project.id)
+
     print_message("Retrieving linear task", style="heading")
     if task_id:
         linear_task = await get_linear_task_by_id(task_id)
@@ -37,12 +40,12 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Pulling latest changes", style="heading")
     print_message("")
-    await git_pull(target_path=project.local_path)
+    await git_pull(target_path=project.local_path, env=project.environment)
     print_message("")
 
     print_message("Creating feature worktree", style="heading")
     print_message("")
-    worktree_path = await git_worktree_create(project=project, branch_name=branch_name)
+    worktree_path = await git_worktree_create(project=project, branch_name=branch_name, env=project.environment)
     print_message("")
     print_message(f"Created worktree at: {worktree_path}", style="result")
 

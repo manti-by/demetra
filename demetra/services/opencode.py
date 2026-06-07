@@ -13,7 +13,9 @@ PLAN_IS_READY_STRING = "Ready to proceed to build."
 PLAN_HAS_QUESTIONS = "Please check my questions above."
 
 
-async def opencode_plan_agent(target_path: Path, task: str, task_title: str | None = None) -> tuple[int, str, str]:
+async def opencode_plan_agent(
+    target_path: Path, task: str, task_title: str | None = None, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
     task += (
         f"\nIMPORTANT:"
         f"\n- If you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
@@ -21,12 +23,21 @@ async def opencode_plan_agent(target_path: Path, task: str, task_title: str | No
     )
 
     return await run_opencode_agent(
-        target_path=target_path, task=task, task_title=task_title, model=OPENCODE["plan_model"], agent="plan-agent"
+        target_path=target_path,
+        task=task,
+        task_title=task_title,
+        model=OPENCODE["plan_model"],
+        agent="plan-agent",
+        env=env,
     )
 
 
 async def opencode_build_agent(
-    target_path: Path, task: str, session_id: str | None = None, task_title: str | None = None
+    target_path: Path,
+    task: str,
+    session_id: str | None = None,
+    task_title: str | None = None,
+    env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     task += "\nDO NOT commit or push any changes, just stage them"
     return await run_opencode_agent(
@@ -36,10 +47,13 @@ async def opencode_build_agent(
         task_title=task_title,
         model=OPENCODE["build_model"],
         agent="build-agent",
+        env=env,
     )
 
 
-async def opencode_review_agent(target_path: Path, model: str, task_title: str | None = None) -> tuple[int, str, str]:
+async def opencode_review_agent(
+    target_path: Path, model: str, task_title: str | None = None, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
     task = await get_prompt(name="review_agent")
     return await run_opencode_agent(
         target_path=target_path,
@@ -48,16 +62,20 @@ async def opencode_review_agent(target_path: Path, model: str, task_title: str |
         model=model,
         agent="review-agent",
         disable_stdio=True,
+        env=env,
     )
 
 
-async def opencode_resolve_agent(target_path: Path, task: str, task_title: str | None = None) -> tuple[int, str, str]:
+async def opencode_resolve_agent(
+    target_path: Path, task: str, task_title: str | None = None, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
         task_title=task_title,
         model=OPENCODE["resolve_model"],
         agent="resolve-agent",
+        env=env,
     )
 
 
@@ -69,6 +87,7 @@ async def run_opencode_agent(
     session_id: str | None = None,
     task_title: str | None = None,
     disable_stdio: bool = False,
+    env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     command = [str(OPENCODE["path"]), "run", "--dir", str(target_path), "--model", model, "--agent", agent]
 
@@ -78,17 +97,17 @@ async def run_opencode_agent(
         command.extend(["--title", task_title])
 
     command.append(shlex.quote(task)[:4095])
-    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio)
+    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
 
 
-async def get_opencode_sessions(target_path: Path) -> list[dict[str, str]]:
+async def get_opencode_sessions(target_path: Path, env: dict[str, str] | None = None) -> list[dict[str, str]]:
     command = [str(OPENCODE["path"]), "session", "list", "--format", "json"]
-    _, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True)
+    _, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
     return json.loads(result)
 
 
-async def get_opencode_session_id(target_path: Path, task_title: str) -> str | None:
-    sessions = await get_opencode_sessions(target_path=target_path)
+async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[str, str] | None = None) -> str | None:
+    sessions = await get_opencode_sessions(target_path=target_path, env=env)
     filtered_sessions = list(filter(lambda x: task_title == x.get("title", ""), sessions))
     if not filtered_sessions:
         print_message("Session not found", style="info")

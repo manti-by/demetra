@@ -52,6 +52,13 @@ class Session:
 
 
 @dataclass
+class Environment:
+    project_id: str
+    key: str
+    value: str
+
+
+@dataclass
 class Project:
     id: str
     user_id: str | None
@@ -64,6 +71,17 @@ class Project:
     local_path: Path
     created_at: str
     updated_at: str
+    _environment: dict[str, str] | None = None
+
+    @property
+    def environment(self) -> dict[str, str]:
+        if self._environment is None:
+            return {}
+        return self._environment
+
+    @environment.setter
+    def environment(self, value: dict[str, str]) -> None:
+        self._environment = value
 
 
 @dataclass

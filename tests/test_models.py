@@ -1,6 +1,8 @@
+from pathlib import Path
+
 from faker import Faker
 
-from demetra.library.models import LinearTask
+from demetra.library.models import Environment, LinearTask, Project
 
 
 fake = Faker()
@@ -43,3 +45,70 @@ class TestModels:
         assert linear_task.priority
         assert linear_task.created_at
         assert linear_task.comments
+
+
+class TestEnvironment:
+    def test_environment_dataclass_has_required_fields(self):
+        env = Environment(project_id="proj-123", key="MY_KEY", value="my_value")
+
+        assert env.project_id == "proj-123"
+        assert env.key == "MY_KEY"
+        assert env.value == "my_value"
+
+
+class TestProjectEnvironment:
+    def test_project_environment_returns_empty_dict_by_default(self):
+        project = Project(
+            id="proj-1",
+            user_id="usr-1",
+            linear_project_id=None,
+            name="test-project",
+            state="active",
+            repository_url="https://github.com/owner/repo",
+            repository_name="repo",
+            repository_owner="owner",
+            local_path=Path("/tmp/test"),
+            created_at="2026-01-01T00:00:00",
+            updated_at="2026-01-01T00:00:00",
+        )
+
+        assert project.environment == {}
+
+    def test_project_environment_returns_set_values(self):
+        project = Project(
+            id="proj-1",
+            user_id="usr-1",
+            linear_project_id=None,
+            name="test-project",
+            state="active",
+            repository_url="https://github.com/owner/repo",
+            repository_name="repo",
+            repository_owner="owner",
+            local_path=Path("/tmp/test"),
+            created_at="2026-01-01T00:00:00",
+            updated_at="2026-01-01T00:00:00",
+        )
+        project.environment = {"API_KEY": "secret123", "DB_URL": "postgres://localhost"}
+
+        assert project.environment == {"API_KEY": "secret123", "DB_URL": "postgres://localhost"}
+
+    def test_project_environment_is_cached(self):
+        project = Project(
+            id="proj-1",
+            user_id="usr-1",
+            linear_project_id=None,
+            name="test-project",
+            state="active",
+            repository_url="https://github.com/owner/repo",
+            repository_name="repo",
+            repository_owner="owner",
+            local_path=Path("/tmp/test"),
+            created_at="2026-01-01T00:00:00",
+            updated_at="2026-01-01T00:00:00",
+        )
+        project.environment = {"KEY": "value1"}
+        env1 = project.environment
+        env2 = project.environment
+
+        assert env1 is env2
+        assert env1 == {"KEY": "value1"}

@@ -42,7 +42,7 @@ async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) ->
         logger_callable(decoded)
 
 
-async def is_package_installed(target_path: Path, package_name: str) -> bool:
+async def is_package_installed(target_path: Path, package_name: str, env: dict[str, str] | None = None) -> bool:
     from demetra.services.subprocess import run_command
     from demetra.settings import UV
 
@@ -50,6 +50,7 @@ async def is_package_installed(target_path: Path, package_name: str) -> bool:
         command=[str(UV["path"]), "tree", "--quiet", "--package", package_name],
         target_path=target_path,
         disable_stdio=True,
+        env=env,
     )
     return result != ""
 

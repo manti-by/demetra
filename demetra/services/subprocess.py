@@ -5,12 +5,15 @@ from pathlib import Path
 from demetra.services.utils import live_stream
 
 
-async def run_command(command: list, target_path: Path, disable_stdio: bool = False) -> tuple[int, str, str]:
-    # TODO: MNT-28 Setup project environment
-    env = os.environ.copy()
-    env["PWD"] = str(target_path)
+async def run_command(
+    command: list, target_path: Path, disable_stdio: bool = False, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    merged_env = os.environ.copy()
+    merged_env["PWD"] = str(target_path)
+    if env:
+        merged_env.update(env)
     process = await asyncio.create_subprocess_exec(
-        *command, cwd=target_path, env=env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
+        *command, cwd=target_path, env=merged_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
     )
     if not process.stdout or not process.stderr:
         process.kill()
