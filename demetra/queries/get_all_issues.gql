@@ -1,5 +1,5 @@
-query GetIssues($state: String!) {
-  issues(first: 100, filter: {state: {name: {eq: $state}}}) {
+query GetIssues($state_id: String!) {
+  issues(first: 100, filter: {state: {name: {eq: $state_id}}}) {
     nodes {
       id
       identifier

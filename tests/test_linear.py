@@ -207,7 +207,7 @@ class TestLinearService:
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                     "comments": {},
                 },
@@ -380,7 +380,7 @@ class TestExtractComments:
             }
         }
         result = extract_comments(issue)
-        assert result == ["Parent", None]
+        assert result == ["Parent"]
 
 
 class TestGetLinkedProjects:

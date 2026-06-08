@@ -14,10 +14,13 @@ from demetra.settings import LINEAR
 def extract_comments(issue: dict) -> list[str]:
     result = []
     comments = issue.get("comments", {}).get("nodes", [])
-    for comment in list(filter(lambda x: not x["resolvedAt"], comments)):
+    for comment in comments:
+        if comment.get("resolvedAt"):
+            continue
         result.append(comment.get("body", ""))
         for answer in comment.get("children", {}).get("edges", []):
-            result.append(answer.get("node", {}).get("body"))
+            if answer_body := answer.get("node", {}).get("body", ""):
+                result.append(answer_body)
     return result
 
 
@@ -39,7 +42,7 @@ async def get_linked_projects() -> dict[str, tuple[str, str]]:
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
-    result = await graphql_request(query=query, variables={"state": "Todo"})
+    result = await graphql_request(query=query, variables={"state_id": LINEAR["states"]["todo"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
     linked = await get_linked_projects()
