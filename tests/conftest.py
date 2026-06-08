@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from demetra.app import app
 from demetra.library.models import LinearTask, UserResponse
 from demetra.library.tables import metadata
+from demetra.library.tables import sessions as sessions_table
 from demetra.services import database as _database_module
 from demetra.services.auth import create_jwt_token
 from demetra.services.database import _engine_cache, get_async_engine, get_async_session_maker
@@ -82,6 +83,8 @@ async def db_connection(test_db_engine, setup_test_db):
 @pytest_asyncio.fixture(scope="function", autouse=True)
 async def cleanup_db_connections(test_db_engine):
     yield
+    async with test_db_engine.begin() as conn:
+        await conn.execute(sessions_table.delete())
     await test_db_engine.dispose()
     _engine_cache.clear()
 

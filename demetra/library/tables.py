@@ -75,7 +75,7 @@ projects = Table(
 )
 
 project_environments = Table(
-    "project_environments",
+    "project_environment",
     metadata,
     Column("id", String(), primary_key=True),
     Column("project_id", String(), ForeignKey("projects.id"), nullable=False),

@@ -22,7 +22,7 @@ depends_on: str | Sequence[str] | None = None
 def upgrade() -> None:
     """Upgrade schema."""
     op.create_table(
-        "project_environments",
+        "project_environment",
         sa.Column("id", sa.String(), nullable=False),
         sa.Column("project_id", sa.String(), nullable=False),
         sa.Column("key", sa.String(), nullable=False),
@@ -38,4 +38,4 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     """Downgrade schema."""
-    op.drop_table("project_environments")
+    op.drop_table("project_environment")

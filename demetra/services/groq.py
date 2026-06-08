@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 
 
 async def extract_questions(plan_output: str) -> list[str]:
-    # The plan agent emits an explicit terminal marker. Only run extraction when it
-    # signalled open questions; otherwise the LLM tends to fabricate questions out of
-    # the plan's build steps and verification notes.
+    """
+    The plan agent emits an explicit terminal marker. Only run extraction when it
+    signalled open questions; otherwise the LLM tends to fabricate questions out of
+    the plan's build steps and verification notes.
+    """
     if PLAN_HAS_QUESTIONS not in plan_output:
         return []
 

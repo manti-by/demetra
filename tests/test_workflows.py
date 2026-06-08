@@ -139,7 +139,7 @@ class TestWorkflowPlan:
         with patch(
             "demetra.workflows.plan.opencode_plan_agent",
             new_callable=AsyncMock,
-            return_value=("session_id", faker.text(), None),
+            return_value=(0, faker.text(), ""),
         ):
             with patch(
                 "demetra.workflows.plan.extract_plan",
@@ -197,7 +197,7 @@ class TestWorkflowPlan:
         with patch(
             "demetra.workflows.plan.opencode_plan_agent",
             new_callable=AsyncMock,
-            return_value=("session_id", faker.text(), None),
+            return_value=(0, faker.text(), ""),
         ):
             with patch(
                 "demetra.workflows.plan.extract_plan",

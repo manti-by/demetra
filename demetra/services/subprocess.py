@@ -8,6 +8,7 @@ from demetra.services.utils import live_stream
 async def run_command(
     command: list, target_path: Path, disable_stdio: bool = False, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
+    # TODO: MNT-111 - Process environment
     merged_env = os.environ.copy()
     if env:
         merged_env.update(env)

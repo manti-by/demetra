@@ -26,5 +26,9 @@ class AutoCancelledError(DemetraError):
     pass
 
 
+class PlanError(DemetraError):
+    pass
+
+
 class BuildError(DemetraError):
     pass
