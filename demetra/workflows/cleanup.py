@@ -15,15 +15,20 @@ async def commit_and_push(context: Context) -> None:
     print_message("Committing changes", style="heading")
     await update_session_step(task_id=context.linear_task.id, step="push")
 
-    await git_add_all(target_path=context.worktree_path)
-    await git_commit(target_path=context.worktree_path, message=context.linear_task.full_title)
+    await git_add_all(target_path=context.worktree_path, env=context.project.environment)
+    await git_commit(
+        target_path=context.worktree_path, message=context.linear_task.full_title, env=context.project.environment
+    )
 
     print_message("Pushing changes", style="heading")
-    await git_push(target_path=context.worktree_path, branch_name=context.branch_name)
+    await git_push(target_path=context.worktree_path, branch_name=context.branch_name, env=context.project.environment)
 
     print_message("Creating GitHub PR", style="heading")
     exit_code, stdout, stderr = await create_pull_request(
-        target_path=context.worktree_path, branch_name=context.branch_name, title=context.linear_task.full_title
+        target_path=context.worktree_path,
+        branch_name=context.branch_name,
+        title=context.linear_task.full_title,
+        env=context.project.environment,
     )
     if exit_code != 0:
         raise PullRequestError(f"Failed to create PR: {stderr or stdout}")

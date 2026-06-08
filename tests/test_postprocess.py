@@ -26,9 +26,9 @@ async def test_postprocess_clean():
 
         assert has_issues is False
         assert feedback is None
-        mock_format.assert_awaited_once_with(target_path=target_path)
-        mock_fix.assert_awaited_once_with(target_path=target_path)
-        mock_diff.assert_awaited_once_with(target_path=target_path)
+        mock_format.assert_awaited_once_with(target_path=target_path, env=None)
+        mock_fix.assert_awaited_once_with(target_path=target_path, env=None)
+        mock_diff.assert_awaited_once_with(target_path=target_path, env=None)
 
 
 @pytest.mark.asyncio

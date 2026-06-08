@@ -1,12 +1,19 @@
-import pytest
+from uuid import uuid4
 
+import pytest
+from sqlalchemy import insert
+
+from demetra.library.tables import project_environments
 from demetra.services.database import (
+    create_project,
     create_session,
+    get_project_environments,
     get_session,
     mark_session_posted,
     save_session,
     update_session_step,
 )
+from demetra.services.database import get_connection as _get_connection
 
 
 class TestDatabaseService:
@@ -131,3 +138,87 @@ class TestDatabaseService:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.step == "completed"
+
+
+class TestProjectEnvironments:
+    @pytest.mark.asyncio
+    async def test_get_project_environments_returns_empty_dict_when_none(self, setup_test_db):
+        result = await get_project_environments("nonexistent-project-id")
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_get_project_environments_returns_all_records(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        async with _get_connection() as conn:
+            await conn.execute(
+                insert(project_environments).values(
+                    id=str(uuid4()),
+                    project_id=project_id,
+                    key="API_KEY",
+                    value="secret123",
+                )
+            )
+            await conn.execute(
+                insert(project_environments).values(
+                    id=str(uuid4()),
+                    project_id=project_id,
+                    key="DB_URL",
+                    value="postgres://localhost/mydb",
+                )
+            )
+            await conn.commit()
+
+        result = await get_project_environments(project_id)
+        assert result == {"API_KEY": "secret123", "DB_URL": "postgres://localhost/mydb"}
+
+    @pytest.mark.asyncio
+    async def test_get_project_environments_isolation_between_projects(self, faker, setup_test_db):
+        project_a = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        project_b = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        async with _get_connection() as conn:
+            await conn.execute(
+                insert(project_environments).values(
+                    id=str(uuid4()),
+                    project_id=project_a,
+                    key="ONLY_A",
+                    value="value_a",
+                )
+            )
+            await conn.execute(
+                insert(project_environments).values(
+                    id=str(uuid4()),
+                    project_id=project_b,
+                    key="ONLY_B",
+                    value="value_b",
+                )
+            )
+            await conn.commit()
+
+        result_a = await get_project_environments(project_a)
+        result_b = await get_project_environments(project_b)
+        assert result_a == {"ONLY_A": "value_a"}
+        assert result_b == {"ONLY_B": "value_b"}

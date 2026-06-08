@@ -23,6 +23,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             task=current_task,
             session_id=context.session_id,
             task_title=context.linear_task.full_title,
+            env=context.project.environment,
         )
         if exit_code != 0:
             raise BuildError(
@@ -31,7 +32,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
 
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")
-            review_comments = await run_review_agents(target_path=context.worktree_path, session_id=context.session_id)
+            review_comments = await run_review_agents(
+                target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+            )
             if review_comments:
                 if context.auto_mode:
                     current_task = review_comments
@@ -56,7 +59,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         review_step_finished = True
 
         has_errors, lint_result = await run_lint_and_test(
-            target_path=context.worktree_path, session_id=context.session_id, task_id=context.linear_task.id
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            task_id=context.linear_task.id,
+            env=context.project.environment,
         )
         if has_errors and lint_result:
             current_task = lint_result

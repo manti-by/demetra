@@ -8,15 +8,15 @@ from demetra.services.utils import is_package_installed
 
 
 async def run_lint_and_test(
-    target_path: Path, session_id: str | None = None, task_id: str | None = None
+    target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[bool, str | None]:
-    if await is_package_installed(target_path=target_path, package_name="ruff"):
+    if await is_package_installed(target_path=target_path, package_name="ruff", env=env):
         print_message("Running RUFF linter", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="lint")
 
-        await run_ruff_format(target_path=target_path)
-        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path)
+        await run_ruff_format(target_path=target_path, env=env)
+        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, env=env)
         if ruff_exit_code:
             print_message("Processing RUFF comments", style="result")
             print_message(ruff_result, style="info")
@@ -24,12 +24,12 @@ async def run_lint_and_test(
                 await update_session_step(task_id=task_id, step="lint")
             return True, ruff_result
 
-    if await is_package_installed(target_path=target_path, package_name="pytest"):
+    if await is_package_installed(target_path=target_path, package_name="pytest", env=env):
         print_message("Running PYTESTs", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="test")
 
-        pytest_exit_code, pytest_result, _ = await run_pytests(target_path=target_path, session_id=session_id)
+        pytest_exit_code, pytest_result, _ = await run_pytests(target_path=target_path, session_id=session_id, env=env)
         if pytest_exit_code:
             print_message("Processing PYTEST errors", style="result")
             print_message(pytest_result, style="info")

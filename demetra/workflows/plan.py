@@ -22,6 +22,7 @@ async def run_plan_step(context: Context) -> str | None:
             target_path=context.worktree_path,
             task=current_task,
             task_title=context.linear_task.full_title,
+            env=context.project.environment,
         )
 
         print_message(f"Plain plan agent output:\n{plan_output}", style="info")
@@ -42,7 +43,9 @@ async def run_plan_step(context: Context) -> str | None:
         session_id = None
         if not context.session_id:
             session_id = await get_opencode_session_id(
-                target_path=context.worktree_path, task_title=context.linear_task.full_title
+                target_path=context.worktree_path,
+                task_title=context.linear_task.full_title,
+                env=context.project.environment,
             )
         if session_id:
             context.session = await save_session(

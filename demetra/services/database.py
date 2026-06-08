@@ -8,7 +8,7 @@ from sqlalchemy import create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import Session
-from demetra.library.tables import jwt_tokens, oauth_tokens, projects, sessions, users
+from demetra.library.tables import jwt_tokens, oauth_tokens, project_environments, projects, sessions, users
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -479,6 +479,15 @@ async def update_project(
         )
         row = result.fetchone()
     return dict(row._mapping) if row else None
+
+
+async def get_project_environments(project_id: str) -> dict[str, str]:
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(project_environments).where(project_environments.c.project_id == project_id)
+        )
+        rows = result.fetchall()
+    return {row.key: row.value for row in rows}
 
 
 async def delete_project(project_id: str, user_id: str) -> None:
