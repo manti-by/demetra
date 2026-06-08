@@ -8,11 +8,14 @@ from rq.job import Job
 from demetra.library.models import LinearTask
 from demetra.services.database import (
     get_pending_session_task_ids,
+    get_session,
+    increment_run_attempts,
     upsert_pending_session,
 )
+from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.queue import queue
 from demetra.services.utils import log_stream
-from demetra.settings import BASE_PATH, LOG_DIR, LOGGING
+from demetra.settings import BASE_PATH, LINEAR, LOG_DIR, LOGGING, MAX_RUN_ATTEMPTS
 
 
 logging.config.dictConfig(LOGGING)
@@ -24,6 +27,14 @@ TIMEOUT = 60 * 60
 async def run_workflow(project_name: str, task_id: str) -> bool:
     if not task_id:
         logger.error(f"Task ID is empty: {task_id}")
+        return False
+
+    attempts = await increment_run_attempts(task_id)
+    session = await get_session(task_id)
+    if session and attempts > MAX_RUN_ATTEMPTS:
+        logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
+        await post_comment(task_id=task_id, body="Max run attempts reached")
+        await update_ticket_status(task_id=task_id, state_id=LINEAR["states"]["awaiting_input"])
         return False
 
     process = None

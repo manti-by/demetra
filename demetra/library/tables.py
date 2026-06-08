@@ -3,6 +3,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Integer,
     MetaData,
     String,
     Table,
@@ -24,6 +25,7 @@ sessions = Table(
     Column("step", String(), nullable=False, server_default="initial"),
     Column("project_id", String(), nullable=True),
     Column("user_id", String(), nullable=True),
+    Column("run_attempts", Integer(), nullable=False, server_default="0"),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
