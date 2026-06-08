@@ -49,6 +49,7 @@ class Session:
     session_id: str | None = None
     project_id: str | None = None
     user_id: str | None = None
+    run_attempts: int = 0
 
 
 @dataclass

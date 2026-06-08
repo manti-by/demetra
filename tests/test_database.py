@@ -9,13 +9,16 @@ from demetra.services.database import (
     create_session,
     get_project_environments,
     get_session,
+    increment_run_attempts,
     mark_session_posted,
     save_session,
     update_session_step,
+    upsert_pending_session,
 )
 from demetra.services.database import get_connection as _get_connection
 
 
+@pytest.mark.usefixtures("setup_test_db")
 class TestDatabaseService:
     @pytest.mark.asyncio
     async def test_create_and_read(
@@ -222,3 +225,53 @@ class TestProjectEnvironments:
         result_b = await get_project_environments(project_b)
         assert result_a == {"ONLY_A": "value_a"}
         assert result_b == {"ONLY_B": "value_b"}
+
+
+@pytest.mark.usefixtures("setup_test_db")
+class TestRunAttempts:
+    @pytest.mark.asyncio
+    async def test_run_attempts_starts_at_0_on_insert(
+        self,
+        db_task_id: str,
+    ):
+        session = await upsert_pending_session(task_id=db_task_id, session_id=None)
+        assert session.run_attempts == 0
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.run_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_increment_run_attempts(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        first = await increment_run_attempts(db_task_id)
+        assert first == 1
+
+        second = await increment_run_attempts(db_task_id)
+        assert second == 2
+
+        third = await increment_run_attempts(db_task_id)
+        assert third == 3
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.run_attempts == 3
+
+    @pytest.mark.asyncio
+    async def test_run_attempts_preserved_on_upsert(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        await increment_run_attempts(db_task_id)
+
+        # Re-upsert should preserve (not reset) run_attempts
+        await upsert_pending_session(task_id=db_task_id, session_id="new-session-id")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.run_attempts == 1
