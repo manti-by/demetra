@@ -2,6 +2,10 @@ query GetIssueById($issueId: String!) {
   issue(id: $issueId) {
     id
     identifier
+    state {
+      id
+      name
+    }
     title
     description
     priority
@@ -11,9 +15,26 @@ query GetIssueById($issueId: String!) {
       id
       name
     }
-    comments {
+    comments(first: 100, filter: {parent: {null: true}}) {
       nodes {
         body
+        resolvedAt
+        createdAt
+        user {
+          name
+        }
+        children {
+          edges {
+            node {
+              id
+              body
+              createdAt
+              user {
+                name
+              }
+            }
+          }
+        }
       }
     }
   }

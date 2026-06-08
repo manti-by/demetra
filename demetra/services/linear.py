@@ -12,8 +12,13 @@ from demetra.settings import LINEAR
 
 
 def extract_comments(issue: dict) -> list[str]:
+    result = []
     comments = issue.get("comments", {}).get("nodes", [])
-    return [comment.get("body", "") for comment in comments if comment.get("body")]
+    for comment in list(filter(lambda x: not x["resolvedAt"], comments)):
+        result.append(comment.get("body", ""))
+        for answer in comment.get("children", {}).get("edges", []):
+            result.append(answer.get("node", {}).get("body"))
+    return result
 
 
 async def get_linked_projects() -> dict[str, tuple[str, str]]:
@@ -34,16 +39,12 @@ async def get_linked_projects() -> dict[str, tuple[str, str]]:
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     query = await get_query(name="get_all_issues")
-    result = await graphql_request(query=query, variables={"teamId": LINEAR["team_id"]})
+    result = await graphql_request(query=query, variables={"state": "Todo"})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
     linked = await get_linked_projects()
     tasks = []
     for issue in issues:
-        issue_state = issue.get("state", {}).get("name")
-        if not issue_state or issue_state.lower() != "todo":
-            continue
-
         if not (project := issue.get("project", {})):
             print_message(f"There is no project associated with issue #{issue['identifier']}", style="info")
             continue
@@ -68,7 +69,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
                 description=issue.get("description", ""),
                 priority=issue["priority"],
                 created_at=issue["createdAt"],
-                state=issue_state,
+                state="Todo",
                 project_name=issue_project_name,
                 project_id=project_id,
                 user_id=user_id,

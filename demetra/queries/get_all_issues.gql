@@ -1,5 +1,5 @@
-query GetIssues {
-  issues(first: 100) {
+query GetIssues($state: String!) {
+  issues(first: 100, filter: {state: {name: {eq: $state}}}) {
     nodes {
       id
       identifier
@@ -11,13 +11,31 @@ query GetIssues {
       description
       priority
       createdAt
+      branchName
       project {
         id
         name
       }
-      comments(first: 10) {
+      comments(first: 100, filter: {parent: {null: true}}) {
         nodes {
           body
+          resolvedAt
+          createdAt
+          user {
+            name
+          }
+          children {
+            edges {
+              node {
+                id
+                body
+                createdAt
+                user {
+                  name
+                }
+              }
+            }
+          }
         }
       }
     }
