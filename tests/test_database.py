@@ -12,6 +12,7 @@ from demetra.services.database import (
     increment_run_attempts,
     mark_session_posted,
     save_session,
+    update_session_pr_link,
     update_session_step,
     upsert_pending_session,
 )
@@ -275,3 +276,30 @@ class TestRunAttempts:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.run_attempts == 1
+
+
+@pytest.mark.usefixtures("setup_test_db")
+class TestPrLink:
+    @pytest.mark.asyncio
+    async def test_pr_link_defaults_to_none(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.pr_link is None
+
+    @pytest.mark.asyncio
+    async def test_update_session_pr_link_persists_value(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        await update_session_pr_link(task_id=db_task_id, pr_link="https://github.com/owner/repo/pull/42")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.pr_link == "https://github.com/owner/repo/pull/42"

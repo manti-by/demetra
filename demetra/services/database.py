@@ -80,8 +80,8 @@ async def upsert_pending_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :pr_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -101,6 +101,7 @@ async def upsert_pending_session(
                 "project_id": project_id,
                 "user_id": user_id,
                 "run_attempts": 0,
+                "pr_link": None,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -116,6 +117,7 @@ async def upsert_pending_session(
         project_id=project_id,
         user_id=user_id,
         run_attempts=0,
+        pr_link=None,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -163,6 +165,7 @@ async def get_session(task_id: str) -> Session | None:
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
+        pr_link=row.pr_link,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -176,8 +179,8 @@ async def save_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :pr_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -198,6 +201,7 @@ async def save_session(
                 "project_id": None,
                 "user_id": None,
                 "run_attempts": 0,
+                "pr_link": None,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -218,6 +222,7 @@ async def save_session(
             project_id=row.project_id,
             user_id=row.user_id,
             run_attempts=row.run_attempts,
+            pr_link=row.pr_link,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
         )
@@ -231,6 +236,7 @@ async def save_session(
         project_id=None,
         user_id=None,
         run_attempts=0,
+        pr_link=None,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -241,6 +247,26 @@ async def mark_session_posted(task_id: str) -> None:
     async with get_connection() as connection:
         await connection.execute(
             sessions.update().where(sessions.c.task_id == task_id).values(posted_to_linear=True, updated_at=now)
+        )
+        await connection.commit()
+
+
+async def update_session_pr_link(task_id: str, pr_link: str) -> None:
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET pr_link = :pr_link, updated_at = :updated_at
+                WHERE task_id = :task_id
+                """
+            ),
+            {
+                "task_id": task_id,
+                "pr_link": pr_link,
+                "updated_at": now,
+            },
         )
         await connection.commit()
 

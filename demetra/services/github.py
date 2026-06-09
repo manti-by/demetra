@@ -1,7 +1,17 @@
+import re
 from pathlib import Path
 
 from demetra.services.subprocess import run_command
 from demetra.settings import GITHUB
+
+
+_PR_LINK_RE = re.compile(r"https?://[^/\s]+/[^/\s]+/[^/\s]+/pull/\d+")
+
+
+def extract_pr_link(stdout: str) -> str | None:
+    """Extract the PR URL from ``gh pr create`` stdout, if present."""
+    match = _PR_LINK_RE.search(stdout)
+    return match.group(0) if match else None
 
 
 async def create_pull_request(
