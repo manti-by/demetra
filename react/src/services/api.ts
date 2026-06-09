@@ -4,6 +4,7 @@ export interface User {
   id: string;
   github_username: string;
   email: string;
+  avatar_url: string | null;
 }
 
 export interface AuthResponse {
@@ -55,19 +56,6 @@ export function login(): void {
   window.location.href = `${API_URL}/api/v1/github/login`;
 }
 
-export async function updateUserKeys(keys: Record<string, string>): Promise<void> {
-  const response = await fetch(`${API_URL}/api/v1/users/me/keys`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ keys }),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to update keys');
-  }
-}
-
 export interface Session {
   task_id: string;
   session_id: string;
@@ -103,76 +91,5 @@ export async function deleteSession(taskId: string): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Network error deleting session';
     throw new Error(message);
-  }
-}
-
-export interface Project {
-  id: string;
-  user_id: string | null;
-  linear_project_id: string | null;
-  name: string;
-  repository_url: string;
-  local_path: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export async function getProjects(): Promise<Project[]> {
-  const response = await fetch(`${API_URL}/api/v1/projects`, {
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    throw new Error('Failed to fetch projects');
-  }
-  return response.json();
-}
-
-export async function createProject(data: {
-  name: string;
-  repository_url: string;
-  linear_project_id?: string;
-}): Promise<Project> {
-  const response = await fetch(`${API_URL}/api/v1/projects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to create project');
-  }
-  return response.json();
-}
-
-export async function updateProject(
-  projectId: string,
-  data: {
-    name?: string;
-    repository_url?: string;
-    linear_project_id?: string;
-  }
-): Promise<Project> {
-  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(data),
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to update project');
-  }
-  return response.json();
-}
-
-export async function deleteProject(projectId: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to delete project');
   }
 }

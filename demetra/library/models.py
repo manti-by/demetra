@@ -137,6 +137,7 @@ class GitHubUser:
     id: str
     login: str
     email: str | None
+    avatar_url: str | None = None
 
 
 @dataclass
@@ -156,6 +157,7 @@ class UserResponse:
     id: str
     github_username: str
     email: str | None
+    avatar_url: str | None = None
     role: str = "user"
 
 

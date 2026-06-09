@@ -47,6 +47,7 @@ users = Table(
     Column("github_id", String(), nullable=False, unique=True),
     Column("github_username", String(), nullable=False),
     Column("email", String(), nullable=True),
+    Column("avatar_url", String(), nullable=True),
     Column("role", String(), nullable=False, server_default="user"),
     Column("keys", Text(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),

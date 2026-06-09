@@ -34,13 +34,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -65,13 +65,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -95,13 +95,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -123,13 +123,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -235,13 +235,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                     "comments": {},
                 },
@@ -265,13 +265,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -298,13 +298,13 @@ class TestLinearService:
             mock_linked.return_value = mock_linked_projects
 
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -328,7 +328,7 @@ class TestLinearService:
             mock_request.return_value = graphql_todo_issues_response_with_labels
             mock_linked.return_value = mock_linked_projects
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
@@ -356,7 +356,7 @@ class TestLinearService:
             mock_request.return_value = graphql_todo_issues_response_demetra
             mock_linked.return_value = mock_linked_projects
             with patch(
-                "demetra.settings.LINEAR",
+                "demetra.services.linear.LINEAR",
                 {
                     "team_id": "team-123",
                     "default_state": "s1",
@@ -370,6 +370,119 @@ class TestLinearService:
 
         assert len(issues) == 1
         assert issues[0].labels == []
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_filter_labels_includes_matching(
+        self,
+        graphql_todo_issues_response_with_labels: dict,
+        mock_linked_projects: dict,
+    ):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
+        ):
+            mock_request.return_value = graphql_todo_issues_response_with_labels
+            mock_linked.return_value = mock_linked_projects
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {"todo": "state-todo"},
+                    "projects": {},
+                    "filter_labels": ["bug"],
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert len(issues) == 1
+        assert "bug" in issues[0].labels
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_filter_labels_skips_non_matching(
+        self,
+        graphql_todo_issues_response_with_labels: dict,
+        mock_linked_projects: dict,
+    ):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
+        ):
+            mock_request.return_value = graphql_todo_issues_response_with_labels
+            mock_linked.return_value = mock_linked_projects
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {"todo": "state-todo"},
+                    "projects": {},
+                    "filter_labels": ["backend"],
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert issues == []
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_filter_labels_empty_allows_all(
+        self,
+        graphql_todo_issues_response_with_labels: dict,
+        mock_linked_projects: dict,
+    ):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
+        ):
+            mock_request.return_value = graphql_todo_issues_response_with_labels
+            mock_linked.return_value = mock_linked_projects
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {"todo": "state-todo"},
+                    "projects": {},
+                    "filter_labels": [],
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert len(issues) == 1
+
+    @pytest.mark.asyncio
+    async def test_get_todo_issues_filter_labels_case_insensitive(
+        self,
+        graphql_todo_issues_response_with_labels: dict,
+        mock_linked_projects: dict,
+    ):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+            patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as mock_linked,
+        ):
+            mock_request.return_value = graphql_todo_issues_response_with_labels
+            mock_linked.return_value = mock_linked_projects
+            with patch(
+                "demetra.services.linear.LINEAR",
+                {
+                    "team_id": "team-123",
+                    "default_state": "s1",
+                    "default_project": "p1",
+                    "feature_label_id": "l1",
+                    "states": {"todo": "state-todo"},
+                    "projects": {},
+                    "filter_labels": ["FRONTEND"],
+                },
+            ):
+                issues = await get_todo_issues("demetra")
+
+        assert len(issues) == 1
 
 
 class TestExtractComments:

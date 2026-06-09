@@ -5,7 +5,7 @@ from collections.abc import Callable
 from logging import Formatter, Logger
 from pathlib import Path
 
-from demetra.settings import LINEAR, LOG_DIR, LOGGING
+from demetra.settings import LOG_DIR, LOGGING
 
 
 NO_ISSUE_TOKENS = [
@@ -53,14 +53,6 @@ async def is_package_installed(target_path: Path, package_name: str, env: dict[s
         env=env,
     )
     return result != ""
-
-
-async def get_project_id_by_name(name: str) -> str | None:
-    return {
-        "odin": LINEAR["projects"]["odin"],
-        "demetra": LINEAR["projects"]["demetra"],
-        "coruscant": LINEAR["projects"]["coruscant"],
-    }.get(name.strip().lower())
 
 
 async def setup_session_logging(logger: Logger, task_id: str) -> None:

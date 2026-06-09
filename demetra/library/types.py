@@ -11,13 +11,6 @@ class LinearStates(TypedDict):
     done: str
 
 
-class LinearProjects(TypedDict):
-    athena: str
-    demetra: str
-    coruscant: str
-    odin: str
-
-
 class LinearConfig(TypedDict):
     api_url: str
     client_id: str | None
@@ -28,9 +21,8 @@ class LinearConfig(TypedDict):
     service_name: str
     feature_label_id: str
     states: LinearStates
-    projects: LinearProjects
     default_state: str
-    default_project: str
+    filter_labels: list[str]
 
 
 class PathConfig(TypedDict):

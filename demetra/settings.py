@@ -78,15 +78,10 @@ LINEAR: LinearConfig = {
         "awaiting_input": os.environ.get("LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"),
         "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
     },
-    # TODO: Deprecated since 31-03-2026, remove after 31-06-2026
-    "projects": {
-        "athena": os.environ.get("LINEAR_ATHENA_PROJECT_ID", "90ae1d02-4596-4374-b48d-2f5abb343155"),
-        "demetra": os.environ.get("LINEAR_DEMETRA_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),
-        "coruscant": os.environ.get("LINEAR_CORUSCANT_PROJECT_ID", "8ee7cd23-8fc9-4304-8ba3-997c76d06714"),
-        "odin": os.environ.get("LINEAR_ODIN_PROJECT_ID", "57af4fbe-2ee1-4faf-8968-e9b50063afff"),
-    },
     "default_state": os.environ.get("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
-    "default_project": os.environ.get("LINEAR_DEFAULT_PROJECT_ID", "59773b61-cdd2-4f93-95ec-d6a5a1b5b33c"),
+    "filter_labels": [
+        label.strip() for label in os.environ.get("LINEAR_FILTER_LABELS", "").split(",") if label.strip()
+    ],
 }
 
 OPENCODE: OpenCodeConfig = {

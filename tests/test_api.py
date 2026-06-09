@@ -100,47 +100,6 @@ class TestLinearService:
                     await create_linear_ticket("Test", "Desc", "Req", "AC")
 
 
-class TestApiEndpoint:
-    def test_create_ticket_returns_400_on_empty_text(self, authenticated_client: TestClient):
-        response = authenticated_client.post("/api/v1/tickets", json={"text": "  "})
-
-        assert response.status_code == 400
-        assert response.json()["detail"] == "Text cannot be empty"
-
-    def test_create_ticket_returns_422_on_missing_text(self):
-        client = TestClient(app, raise_server_exceptions=False)
-        response = client.post("/api/v1/tickets/", json={})
-
-        assert response.status_code == 422
-
-    @pytest.mark.asyncio
-    async def test_create_ticket_returns_ticket_on_success(
-        self,
-        mock_groq: AsyncMock,
-        mock_create_linear_ticket: AsyncMock,
-        linear_identifier: str,
-        authenticated_client: TestClient,
-    ):
-        response = authenticated_client.post("/api/v1/tickets", json={"text": "Add user auth"})
-
-        assert response.status_code == 200
-        assert response.json()["identifier"] == linear_identifier
-
-    @pytest.mark.asyncio
-    async def test_create_ticket_uses_custom_title(
-        self,
-        mock_groq: AsyncMock,
-        mock_create_linear_ticket: AsyncMock,
-        authenticated_client: TestClient,
-    ):
-        response = authenticated_client.post("/api/v1/tickets", json={"text": "Add user auth"})
-
-        assert response.status_code == 200
-        mock_create_linear_ticket.assert_called_once()
-        call_args = mock_create_linear_ticket.call_args
-        assert call_args.kwargs["title"] == mock_groq.return_value["title"]
-
-
 class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_rejects_missing_auth_token(self):

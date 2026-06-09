@@ -78,6 +78,7 @@ async def get_github_user(access_token: str) -> GitHubUser:
             id=str(data["id"]),
             login=data["login"],
             email=data.get("email"),
+            avatar_url=data.get("avatar_url"),
         )
     except aiohttp.ClientError as e:
         raise AuthError(f"Failed to fetch GitHub user: {e}") from e
@@ -121,7 +122,12 @@ async def get_or_create_user(github_user: GitHubUser) -> str:
     if existing_user:
         return existing_user["id"]
 
-    return await create_user(github_id=github_user.id, github_username=github_user.login, email=github_user.email)
+    return await create_user(
+        github_id=github_user.id,
+        github_username=github_user.login,
+        email=github_user.email,
+        avatar_url=github_user.avatar_url,
+    )
 
 
 async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
@@ -140,6 +146,7 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
             id=user_data["id"],
             github_username=user_data["github_username"],
             email=user_data["email"],
+            avatar_url=user_data.get("avatar_url"),
         ),
     )
 
@@ -161,6 +168,7 @@ async def get_current_user(token: str) -> UserResponse | None:
         id=user_data["id"],
         github_username=user_data["github_username"],
         email=user_data["email"],
+        avatar_url=user_data.get("avatar_url"),
         role=user_data.get("role", "user"),
     )
 

@@ -351,7 +351,7 @@ async def get_pending_session_task_ids() -> set[str]:
     return {row.task_id for row in rows}
 
 
-async def create_user(github_id: str, github_username: str, email: str | None) -> str:
+async def create_user(github_id: str, github_username: str, email: str | None, avatar_url: str | None = None) -> str:
     from uuid import uuid4
 
     user_id = str(uuid4())
@@ -363,6 +363,7 @@ async def create_user(github_id: str, github_username: str, email: str | None) -
                 github_id=github_id,
                 github_username=github_username,
                 email=email,
+                avatar_url=avatar_url,
                 role="user",
                 created_at=now,
             )

@@ -166,7 +166,7 @@ async def mock_graphql_request(
 @pytest.fixture
 async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.tickets.process_text_with_groq",
+        "demetra.services.groq.process_text_with_groq",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = groq_processed_data
@@ -178,7 +178,7 @@ async def mock_create_linear_ticket(
     linear_ticket_data: dict,
 ) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.api.tickets.create_linear_ticket",
+        "demetra.services.linear.create_linear_ticket",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = linear_ticket_data
@@ -527,7 +527,6 @@ def auth_cookie() -> dict:
 def patch_get_current_user(user: UserResponse):
     with ExitStack() as stack:
         patches = [
-            patch("demetra.api.tickets.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.projects.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.users.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.github.get_current_user", new_callable=AsyncMock),

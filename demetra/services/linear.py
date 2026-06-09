@@ -50,7 +50,9 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
     result = await graphql_request(query=query, variables={"state_id": LINEAR["states"]["todo"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
-    linked = await get_linked_projects()
+    linked_projects = await get_linked_projects()
+    filter_labels = {label.lower() for label in LINEAR.get("filter_labels", [])}
+
     tasks = []
     for issue in issues:
         if not (project := issue.get("project", {})):
@@ -63,7 +65,11 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
         if project_name is not None and project_name.lower() != issue_project_name:
             continue
 
-        resolved = linked.get(linear_project_id) or linked.get(issue_project_name)
+        issue_labels = {name.lower() for name in extract_labels(issue)}
+        if filter_labels and not (filter_labels & issue_labels):
+            continue
+
+        resolved = linked_projects.get(linear_project_id) or linked_projects.get(issue_project_name)
         if resolved:
             project_id, user_id = resolved
         else:
@@ -169,7 +175,7 @@ async def create_linear_ticket(
             "description": full_description,
             "teamId": team_id or LINEAR["team_id"],
             "stateId": state_id or LINEAR["default_state"],
-            "projectId": project_id or LINEAR["default_project"],
+            "projectId": project_id,
             "labelIds": [LINEAR["feature_label_id"]],
             "createAsUser": "Demetra",
             "priority": 3,

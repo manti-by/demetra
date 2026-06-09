@@ -60,6 +60,7 @@ async def github_callback(
                 "id": auth_response.user.id,
                 "github_username": auth_response.user.github_username,
                 "email": auth_response.user.email,
+                "avatar_url": auth_response.user.avatar_url,
             },
         }
         response = Response(
