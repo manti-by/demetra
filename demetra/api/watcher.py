@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.settings import LOG_DIR
+from demetra.settings import DEBUG, LOG_DIR
 
 
 UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
@@ -21,6 +21,7 @@ async def watcher_logs(
     websocket: WebSocket,
     auth_token: str | None = Cookie(default=None),
     task_id: Annotated[str | None, Query()] = None,
+    token: Annotated[str | None, Query()] = None,
 ) -> None:
     """Stream log files via WebSocket in real-time.
 
@@ -28,6 +29,9 @@ async def watcher_logs(
     Sends the last 10 lines immediately, then continuously streams
     new log content as it's written. Includes path traversal protection.
     """
+    if DEBUG and not auth_token:
+        auth_token = token
+
     if not auth_token:
         await websocket.close(code=4001, reason="Not authenticated")
         return

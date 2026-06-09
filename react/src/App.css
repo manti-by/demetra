@@ -72,7 +72,7 @@ body::before {
 }
 
 .app {
-    min-height: 100vh;
+    height: 100vh;
     display: flex;
     flex-direction: column;
     background:
@@ -240,12 +240,15 @@ body::before {
 /* Main Content */
 .main-content {
     display: flex;
-    flex-flow: row wrap;
-    align-content: space-between;
-    padding: 3rem 2rem;
+    flex-flow: row nowrap;
+    align-items: stretch;
+    padding: 2rem 2rem;
     width: 100%;
     max-width: 1400px;
     margin: 0 auto;
+    flex: 1;
+    min-height: 0;
+    gap: 1rem;
 }
 
 /* Login */
@@ -313,9 +316,10 @@ body::before {
 .log-console {
     display: flex;
     flex-direction: column;
+    flex: 1;
+    min-height: 0;
     width: 100%;
     max-width: 900px;
-    min-height: 400px;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -792,9 +796,10 @@ body::before {
 /* Session Sidebar */
 .session-sidebar {
     display: flex;
-    margin-right: 1rem;
-    min-width: 300px;
     flex-direction: column;
+    min-width: 300px;
+    width: 300px;
+    min-height: 0;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -841,7 +846,9 @@ body::before {
 /* Session List */
 .session-list {
     flex: 1;
+    min-height: 0;
     overflow-y: auto;
+    overflow-x: hidden;
     padding: 0.5rem;
 }
 
@@ -896,7 +903,6 @@ body::before {
 
 /* Session Item */
 .session-item {
-    min-width: 300px;
     padding: 0.75rem;
     border-radius: var(--radius-sm);
     cursor: pointer;

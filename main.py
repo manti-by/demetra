@@ -7,7 +7,7 @@ from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import setup_session_logging
-from demetra.settings import LINEAR, LOGGING
+from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.plan import run_plan_step
@@ -41,6 +41,9 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         return
 
     context.plan_loop = plan_loop
+
+    if not context.linear_task.user_id and DEFAULT_USER_ID:
+        context.linear_task.user_id = DEFAULT_USER_ID
 
     await setup_session_logging(logger=logger, task_id=context.linear_task.id)
 

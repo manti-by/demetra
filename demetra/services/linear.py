@@ -24,6 +24,11 @@ def extract_comments(issue: dict) -> list[str]:
     return result
 
 
+def extract_labels(issue: dict) -> list[str]:
+    labels = issue.get("labels", {}).get("nodes", [])
+    return [label["name"] for label in labels if label.get("name")]
+
+
 async def get_linked_projects() -> dict[str, tuple[str, str]]:
     async with get_connection() as connection:
         result = await connection.execute(
@@ -77,6 +82,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
                 project_id=project_id,
                 user_id=user_id,
                 comments=extract_comments(issue),
+                labels=extract_labels(issue),
             )
         )
     return tasks
@@ -107,6 +113,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         project_id=project_id,
         user_id=user_id,
         comments=extract_comments(issue),
+        labels=extract_labels(issue),
     )
 
 

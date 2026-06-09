@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 from collections.abc import Callable
-from logging import Logger
+from logging import Formatter, Logger
 from pathlib import Path
 
 from demetra.settings import LINEAR, LOG_DIR, LOGGING
@@ -74,9 +74,17 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
     if LOGGING["handlers"]["file"]["filename"] == str(session_log_path):
         return
 
+    formatter_name = LOGGING["handlers"]["file"].get("formatter")
+    formatter_config = LOGGING.get("formatters", {}).get(formatter_name, {})
+    fmt = Formatter(
+        fmt=formatter_config.get("format"),
+        datefmt=formatter_config.get("datefmt"),
+    )
+
     file_handler = logging.FileHandler(session_log_path)
     file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
-    file_handler.setFormatter(LOGGING["handlers"]["file"]["formatter"])
+    file_handler.setFormatter(fmt)
 
-    logger.handlers.clear()
-    logger.addHandler(file_handler)
+    root_logger = logging.getLogger()
+    root_logger.handlers.clear()
+    root_logger.addHandler(file_handler)

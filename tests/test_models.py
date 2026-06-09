@@ -35,8 +35,19 @@ class TestModels:
     def test_linear_issue_default_comments_is_empty_list(self, linear_task: LinearTask):
         assert linear_task.comments == []
 
+    def test_linear_issue_default_labels_is_empty_list(self, linear_task: LinearTask):
+        assert linear_task.labels == []
+
+    def test_linear_issue_labels_stores_names_only(self, linear_task: LinearTask):
+        linear_task.labels = ["bug", "frontend", "high-priority"]
+        assert len(linear_task.labels) == 3
+        assert "bug" in linear_task.labels
+        assert "frontend" in linear_task.labels
+        assert all(isinstance(label, str) for label in linear_task.labels)
+
     def test_linear_issue_fields_are_accessible(self, linear_task: LinearTask):
         linear_task.comments = [fake.sentence()]
+        linear_task.labels = ["bug"]
 
         assert linear_task.id
         assert linear_task.identifier
@@ -45,6 +56,7 @@ class TestModels:
         assert linear_task.priority
         assert linear_task.created_at
         assert linear_task.comments
+        assert linear_task.labels
 
 
 class TestEnvironment:

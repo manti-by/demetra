@@ -15,7 +15,13 @@ query GetIssueById($issueId: String!) {
       id
       name
     }
-    comments(first: 100, filter: {parent: {null: true}}) {
+      labels {
+        nodes {
+          id
+          name
+        }
+      }
+      comments(first: 100, filter: {parent: {null: true}}) {
       nodes {
         body
         resolvedAt

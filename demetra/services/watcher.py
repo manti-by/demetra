@@ -15,7 +15,7 @@ from demetra.services.database import (
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.queue import queue
 from demetra.services.utils import log_stream
-from demetra.settings import BASE_PATH, LINEAR, LOG_DIR, LOGGING, MAX_RUN_ATTEMPTS
+from demetra.settings import BASE_PATH, DEFAULT_USER_ID, LINEAR, LOG_DIR, LOGGING, MAX_RUN_ATTEMPTS
 
 
 logging.config.dictConfig(LOGGING)
@@ -96,14 +96,15 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             continue
 
         if task.id not in pending_ids:
-            if not task.project_id or not task.user_id:
-                logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={task.user_id}")
+            user_id = task.user_id or DEFAULT_USER_ID
+            if not task.project_id or not user_id:
+                logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={user_id}")
                 continue
             await upsert_pending_session(
                 task_id=task.id,
                 session_id=None,
                 project_id=task.project_id,
-                user_id=task.user_id,
+                user_id=user_id,
                 name=task.full_title,
             )
 

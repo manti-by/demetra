@@ -214,7 +214,23 @@ def linear_task_data() -> dict:
         "project": {"name": fake.word()},
         "state": {"name": "todo"},
         "comments": {"nodes": []},
+        "labels": {"nodes": []},
     }
+
+
+@pytest.fixture
+def linear_task_data_with_labels(linear_task_data_demetra: dict) -> dict:
+    linear_task_data_demetra.update(
+        {
+            "labels": {
+                "nodes": [
+                    {"id": "label-1", "name": "bug"},
+                    {"id": "label-2", "name": "frontend"},
+                ]
+            }
+        }
+    )
+    return linear_task_data_demetra
 
 
 @pytest.fixture
@@ -267,6 +283,11 @@ def graphql_todo_issues_response_with_comments(linear_task_data_with_comments: d
 
 
 @pytest.fixture
+def graphql_todo_issues_response_with_labels(linear_task_data_with_labels: dict) -> dict:
+    return {"data": {"issues": {"nodes": [linear_task_data_with_labels]}}}
+
+
+@pytest.fixture
 def linear_task(linear_task_data: dict):
     return LinearTask(
         id=linear_task_data["id"],
@@ -276,6 +297,7 @@ def linear_task(linear_task_data: dict):
         priority=linear_task_data["priority"],
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
+        labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
     )
 
 
@@ -305,6 +327,7 @@ def graphql_todo_issues_multiple_response() -> dict:
                 "project": {"name": fake.word()},
                 "state": {"name": "todo"},
                 "comments": {"nodes": []},
+                "labels": {"nodes": []},
             }
         )
     return {"data": {"issues": {"nodes": tasks}}}
@@ -326,6 +349,7 @@ def graphql_todo_issues_multiple_response_demetra() -> dict:
                 "project": {"name": "demetra"},
                 "state": {"name": "todo"},
                 "comments": {"nodes": []},
+                "labels": {"nodes": []},
             }
         )
     return {"data": {"issues": {"nodes": tasks}}}
@@ -434,6 +458,11 @@ def graphql_create_ticket_no_issue_response() -> dict:
 @pytest.fixture
 def graphql_get_issue_by_id_response(linear_task_data_demetra: dict) -> dict:
     return {"data": {"issue": linear_task_data_demetra}}
+
+
+@pytest.fixture
+def graphql_get_issue_by_id_response_with_labels(linear_task_data_with_labels: dict) -> dict:
+    return {"data": {"issue": linear_task_data_with_labels}}
 
 
 @pytest.fixture

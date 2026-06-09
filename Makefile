@@ -51,7 +51,7 @@ ci: install check test react-build react-test
 
 
 uvicorn:
-	uv run uvicorn demetra.app:app --host 0.0.0.0 --port 8081 --workers 2
+	uv run uvicorn demetra.app:app --host 0.0.0.0 --port 8081 --workers 4
 
 fastapi:
 	uv run fastapi dev demetra/app.py --host 0.0.0.0 --port 8081
