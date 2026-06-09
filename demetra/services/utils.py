@@ -85,6 +85,9 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
     file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
     file_handler.setFormatter(fmt)
 
-    root_logger = logging.getLogger()
-    root_logger.handlers.clear()
-    root_logger.addHandler(file_handler)
+    for handler in logger.handlers[:]:
+        if isinstance(handler, logging.FileHandler):
+            handler.close()
+            logger.removeHandler(handler)
+
+    logger.addHandler(file_handler)
