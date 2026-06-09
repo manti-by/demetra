@@ -240,12 +240,20 @@ body::before {
 /* Main Content */
 .main-content {
     display: flex;
-    flex-flow: row nowrap;
-    align-items: stretch;
+    flex-flow: column nowrap;
     padding: 2rem 2rem;
     width: 100%;
     max-width: 1400px;
     margin: 0 auto;
+    flex: 1;
+    min-height: 0;
+    gap: 0;
+}
+
+.main-content-body {
+    display: flex;
+    flex-flow: row nowrap;
+    align-items: stretch;
     flex: 1;
     min-height: 0;
     gap: 1rem;
@@ -349,34 +357,36 @@ body::before {
 
 .session-artifacts {
     display: flex;
-    gap: 0.75rem;
-    padding: 0.75rem 0;
+    gap: 1.25rem;
+    padding: 0.75rem 1.25rem;
     animation: consoleSlideIn 0.3s ease;
 }
 
-.session-artifacts-link,
-.session-artifacts-btn {
+.session-artifacts-link {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 0.875rem;
-    background: var(--bg-tertiary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius-md);
-    color: var(--text-secondary);
+    gap: 0.375rem;
+    color: var(--text-muted);
     font-family: var(--font-mono);
     font-size: 0.75rem;
     text-decoration: none;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: color 0.15s ease;
     white-space: nowrap;
 }
 
-.session-artifacts-link:hover,
-.session-artifacts-btn:hover {
-    background: var(--bg-elevated);
-    border-color: var(--accent);
+.session-artifacts-link svg {
+    opacity: 0.6;
+    transition: opacity 0.15s ease;
+}
+
+.session-artifacts-link:hover {
     color: var(--accent);
+    text-decoration: underline;
+}
+
+.session-artifacts-link:hover svg {
+    opacity: 1;
 }
 
 .log-console.collapsed {
@@ -854,6 +864,7 @@ body::before {
     min-width: 300px;
     width: 300px;
     min-height: 0;
+    margin-bottom: 2.675rem;
     background: var(--bg-secondary);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);

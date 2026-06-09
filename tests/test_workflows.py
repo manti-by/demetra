@@ -780,6 +780,7 @@ class TestWorkflowCleanup:
         with patch(
             "demetra.workflows.cleanup.git_add_all",
             new_callable=AsyncMock,
+            return_value=True,
         ):
             with patch(
                 "demetra.workflows.cleanup.git_commit",
@@ -794,7 +795,8 @@ class TestWorkflowCleanup:
                         new_callable=AsyncMock,
                         return_value=(0, "https://github.com/test/demetra/pull/1", ""),
                     ):
-                        await commit_and_push(context)
+                        result = await commit_and_push(context)
+                        assert result is True
 
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker):
@@ -831,6 +833,7 @@ class TestWorkflowCleanup:
         with patch(
             "demetra.workflows.cleanup.git_add_all",
             new_callable=AsyncMock,
+            return_value=True,
         ):
             with patch(
                 "demetra.workflows.cleanup.git_commit",

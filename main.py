@@ -7,7 +7,7 @@ from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import setup_session_logging
-from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING
+from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING, MAX_BUILD_ATTEMPTS
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.plan import run_plan_step
@@ -68,9 +68,22 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             if await post_comment(task_id=context.linear_task.id, body=context.session.build_plan):
                 await mark_session_posted(task_id=context.linear_task.id)
 
-        await run_build_step(build_plan=context.session.build_plan, context=context)
+        build_plan = context.session.build_plan
+        commit_retries = MAX_BUILD_ATTEMPTS
+        while commit_retries:
+            await run_build_step(build_plan=build_plan, context=context)
 
-        await commit_and_push(context=context)
+            if await commit_and_push(context=context):
+                break
+
+            build_plan = (
+                "The previous build attempt produced no staged changes. "
+                "You MUST implement the required changes and stage them using `git add`.\n\n"
+                f"Original plan:\n{build_plan}"
+            )
+            commit_retries -= 1
+        else:
+            raise InfiniteLoopError("Build agent repeatedly produced no changes")
 
         is_success = True
 

@@ -68,13 +68,14 @@ describe('SessionArtifacts', () => {
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('renders build plan button when session has build_plan', async () => {
+  it('renders build plan link when session has build_plan', async () => {
     vi.mocked(getSessions).mockResolvedValue([mockSessionWithBuildPlanOnly]);
 
     render(<SessionArtifacts taskId="TASK-123" />);
 
-    const button = await screen.findByText('View Build Plan');
-    expect(button).toBeInTheDocument();
+    const link = await screen.findByText('View Build Plan');
+    expect(link).toBeInTheDocument();
+    expect(link.tagName).toBe('A');
   });
 
   it('does not render PR link when pr_link is null', async () => {
@@ -87,17 +88,17 @@ describe('SessionArtifacts', () => {
     });
   });
 
-  it('opens build plan modal on button click and closes it', async () => {
+  it('opens build plan modal on link click and closes it', async () => {
     const user = userEvent.setup();
     vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
 
     render(<SessionArtifacts taskId="TASK-123" />);
 
-    const button = await screen.findByText('View Build Plan');
-    await user.click(button);
+    const link = await screen.findByText('View Build Plan');
+    await user.click(link);
 
     expect(screen.getByText('Build Plan')).toBeInTheDocument();
-    expect(screen.getByText(mockSessionWithPrLink.build_plan)).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('1. Step one'))).toBeInTheDocument();
 
     const closeButton = screen.getByLabelText('Close');
     await user.click(closeButton);

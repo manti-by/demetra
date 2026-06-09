@@ -76,7 +76,7 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
         </a>
       )}
       {hasBuildPlan && (
-        <button className="session-artifacts-btn" onClick={openModal}>
+        <a className="session-artifacts-link" href="#" onClick={(e) => { e.preventDefault(); openModal(); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
             <polyline points="14 2 14 8 20 8" />
@@ -85,7 +85,7 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
             <polyline points="10 9 9 9 8 9" />
           </svg>
           View Build Plan
-        </button>
+        </a>
       )}
       {modalOpen && hasBuildPlan && (
         <div className="modal-overlay" onClick={closeModal}>

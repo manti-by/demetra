@@ -84,22 +84,24 @@ function AppContent() {
       />
       {user ? (
         <main className="main-content">
-          <SessionSidebar
-            onSelectSession={handleSelectSession}
-            selectedTaskId={selectedTaskId}
-            refreshTrigger={sessionRefreshTrigger}
-          />
-          <div className="console-container">
-            <SessionArtifacts taskId={selectedTaskId} />
-            <Suspense
-              fallback={
-                <div className="loading-container">
-                  <div className="loading-spinner" />
-                </div>
-              }
-            >
-              <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
-            </Suspense>
+          <div className="main-content-body">
+            <SessionSidebar
+              onSelectSession={handleSelectSession}
+              selectedTaskId={selectedTaskId}
+              refreshTrigger={sessionRefreshTrigger}
+            />
+            <div className="console-container">
+              <Suspense
+                fallback={
+                  <div className="loading-container">
+                    <div className="loading-spinner" />
+                  </div>
+                }
+              >
+                <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
+              </Suspense>
+              <SessionArtifacts taskId={selectedTaskId} />
+            </div>
           </div>
         </main>
       ) : (

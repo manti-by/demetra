@@ -42,8 +42,8 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     review_attempts -= 1
                     continue
 
-                result, _ = await user_input([("1", "approve"), ("2", "skip")])
-                if result == "approve":
+                result, _ = await user_input([("1", "apply review comments"), ("2", "skip")])
+                if result == "apply review comments":
                     print_message("Applying proposed changes.")
                     current_task = review_comments
                     rerun_attempts -= 1

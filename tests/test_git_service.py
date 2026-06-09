@@ -27,7 +27,8 @@ class TestGitService:
             new_callable=AsyncMock,
             return_value=(0, "file1.py\nfile2.py\n", ""),
         ):
-            await git_add_all(target_path)
+            result = await git_add_all(target_path)
+            assert result is True
 
     @pytest.mark.asyncio
     async def test_git_add_all_no_files(self, faker):
@@ -38,8 +39,8 @@ class TestGitService:
             new_callable=AsyncMock,
             return_value=(0, "", ""),
         ):
-            with pytest.raises(RuntimeError, match="No files to commit"):
-                await git_add_all(target_path)
+            result = await git_add_all(target_path)
+            assert result is False
 
     @pytest.mark.asyncio
     async def test_git_commit(self, faker):

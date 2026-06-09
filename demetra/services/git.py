@@ -42,14 +42,13 @@ async def git_worktree_remove(
         raise RuntimeError(f"Failed to remove worktree {worktree_path}: {stderr.strip() or 'unknown error'}")
 
 
-async def git_add_all(target_path: Path, env: dict[str, str] | None = None):
+async def git_add_all(target_path: Path, env: dict[str, str] | None = None) -> bool:
     command = [str(GIT["path"]), "add", "."]
     await run_command(command=command, target_path=target_path, env=env)
 
     diff_cmd = [str(GIT["path"]), "diff", "--staged", "--name-only"]
     _, stdout, _ = await run_command(command=diff_cmd, target_path=target_path, disable_stdio=True, env=env)
-    if not stdout.strip():
-        raise RuntimeError("No files to commit")
+    return bool(stdout.strip())
 
 
 async def git_commit(target_path: Path, message: str, env: dict[str, str] | None = None):
