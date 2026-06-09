@@ -77,6 +77,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   step: string | null;
+  pr_link: string | null;
 }
 
 export async function getSessions(): Promise<Session[]> {

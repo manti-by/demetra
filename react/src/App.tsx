@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
+import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { deleteSession } from "./services/api";
@@ -88,15 +89,18 @@ function AppContent() {
             selectedTaskId={selectedTaskId}
             refreshTrigger={sessionRefreshTrigger}
           />
-          <Suspense
-            fallback={
-              <div className="loading-container">
-                <div className="loading-spinner" />
-              </div>
-            }
-          >
-            <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
-          </Suspense>
+          <div className="console-container">
+            <SessionArtifacts taskId={selectedTaskId} />
+            <Suspense
+              fallback={
+                <div className="loading-container">
+                  <div className="loading-spinner" />
+                </div>
+              }
+            >
+              <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
+            </Suspense>
+          </div>
         </main>
       ) : (
         <LoginView />

@@ -849,6 +849,117 @@ class TestWorkflowCleanup:
                             await commit_and_push(context)
 
     @pytest.mark.asyncio
+    async def test_commit_and_push_persists_pr_link(self, faker):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority="1",
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        with patch(
+            "demetra.workflows.cleanup.git_add_all",
+            new_callable=AsyncMock,
+        ):
+            with patch(
+                "demetra.workflows.cleanup.git_commit",
+                new_callable=AsyncMock,
+            ):
+                with patch(
+                    "demetra.workflows.cleanup.git_push",
+                    new_callable=AsyncMock,
+                ):
+                    with patch(
+                        "demetra.workflows.cleanup.create_pull_request",
+                        new_callable=AsyncMock,
+                        return_value=(0, "https://github.com/test/demetra/pull/42\n", ""),
+                    ):
+                        with patch(
+                            "demetra.workflows.cleanup.update_session_pr_link",
+                            new_callable=AsyncMock,
+                        ) as mock_update_pr_link:
+                            await commit_and_push(context)
+                            mock_update_pr_link.assert_awaited_once_with(
+                                task_id=context.linear_task.id,
+                                pr_link="https://github.com/test/demetra/pull/42",
+                            )
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_skips_pr_link_when_url_missing(self, faker):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority="1",
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        with patch(
+            "demetra.workflows.cleanup.git_add_all",
+            new_callable=AsyncMock,
+        ):
+            with patch(
+                "demetra.workflows.cleanup.git_commit",
+                new_callable=AsyncMock,
+            ):
+                with patch(
+                    "demetra.workflows.cleanup.git_push",
+                    new_callable=AsyncMock,
+                ):
+                    with patch(
+                        "demetra.workflows.cleanup.create_pull_request",
+                        new_callable=AsyncMock,
+                        return_value=(0, "Pull request created successfully\n", ""),
+                    ):
+                        with patch(
+                            "demetra.workflows.cleanup.update_session_pr_link",
+                            new_callable=AsyncMock,
+                        ) as mock_update_pr_link:
+                            await commit_and_push(context)
+                            mock_update_pr_link.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_cleanup_workflow_success(self, faker):
         context = Context(
             project=Project(

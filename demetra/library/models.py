@@ -51,6 +51,7 @@ class Session:
     project_id: str | None = None
     user_id: str | None = None
     run_attempts: int = 0
+    pr_link: str | None = None
 
 
 @dataclass
