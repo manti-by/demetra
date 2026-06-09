@@ -51,7 +51,11 @@ export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
     if (!cachedToken) return;
 
     setLogs([]);
-    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?task_id=${taskId}`;
+    const params = new URLSearchParams({ task_id: taskId });
+    if (import.meta.env.DEV) {
+      params.set("token", cachedToken);
+    }
+    const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?${params}`;
     const ws = new WebSocket(wsUrl);
     wsRef.current = ws;
 

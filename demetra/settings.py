@@ -12,6 +12,8 @@ from demetra.library.types import (
 )
 
 
+DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
+
 HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
@@ -141,3 +143,5 @@ GROQ: GroqConfig = {
 SECRET_KEY = os.environ.get("SECRET_KEY")
 
 ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")
+
+DEFAULT_USER_ID = os.environ.get("DEFAULT_USER_ID")

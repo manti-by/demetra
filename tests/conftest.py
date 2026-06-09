@@ -214,7 +214,23 @@ def linear_task_data() -> dict:
         "project": {"name": fake.word()},
         "state": {"name": "todo"},
         "comments": {"nodes": []},
+        "labels": {"nodes": []},
     }
+
+
+@pytest.fixture
+def linear_task_data_with_labels(linear_task_data_demetra: dict) -> dict:
+    linear_task_data_demetra.update(
+        {
+            "labels": {
+                "nodes": [
+                    {"id": "label-1", "name": "bug"},
+                    {"id": "label-2", "name": "frontend"},
+                ]
+            }
+        }
+    )
+    return linear_task_data_demetra
 
 
 @pytest.fixture
@@ -229,8 +245,31 @@ def linear_task_data_with_comments(linear_task_data_demetra: dict) -> dict:
         {
             "comments": {
                 "nodes": [
-                    {"body": "First question from the team?"},
-                    {"body": "Second question about the implementation?"},
+                    {
+                        "body": "First question from the team?",
+                        "resolvedAt": None,
+                        "createdAt": "2026-01-01T00:00:00Z",
+                        "user": {"name": "Test User"},
+                        "children": {
+                            "edges": [
+                                {
+                                    "node": {
+                                        "id": "reply-1",
+                                        "body": "Answer to first question",
+                                        "createdAt": "2026-01-01T01:00:00Z",
+                                        "user": {"name": "Another User"},
+                                    }
+                                }
+                            ]
+                        },
+                    },
+                    {
+                        "body": "Second question about the implementation?",
+                        "resolvedAt": None,
+                        "createdAt": "2026-01-02T00:00:00Z",
+                        "user": {"name": "Test User"},
+                        "children": {"edges": []},
+                    },
                 ]
             }
         }
@@ -244,6 +283,11 @@ def graphql_todo_issues_response_with_comments(linear_task_data_with_comments: d
 
 
 @pytest.fixture
+def graphql_todo_issues_response_with_labels(linear_task_data_with_labels: dict) -> dict:
+    return {"data": {"issues": {"nodes": [linear_task_data_with_labels]}}}
+
+
+@pytest.fixture
 def linear_task(linear_task_data: dict):
     return LinearTask(
         id=linear_task_data["id"],
@@ -253,6 +297,7 @@ def linear_task(linear_task_data: dict):
         priority=linear_task_data["priority"],
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
+        labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
     )
 
 
@@ -282,6 +327,7 @@ def graphql_todo_issues_multiple_response() -> dict:
                 "project": {"name": fake.word()},
                 "state": {"name": "todo"},
                 "comments": {"nodes": []},
+                "labels": {"nodes": []},
             }
         )
     return {"data": {"issues": {"nodes": tasks}}}
@@ -303,6 +349,7 @@ def graphql_todo_issues_multiple_response_demetra() -> dict:
                 "project": {"name": "demetra"},
                 "state": {"name": "todo"},
                 "comments": {"nodes": []},
+                "labels": {"nodes": []},
             }
         )
     return {"data": {"issues": {"nodes": tasks}}}
@@ -368,6 +415,64 @@ def graphql_comment_failure_response() -> dict:
             }
         }
     }
+
+
+@pytest.fixture
+def graphql_create_ticket_success_response(linear_issue_id: str, linear_identifier: str) -> dict:
+    return {
+        "data": {
+            "issueCreate": {
+                "success": True,
+                "issue": {
+                    "id": linear_issue_id,
+                    "identifier": linear_identifier,
+                    "title": "Test ticket",
+                },
+            }
+        }
+    }
+
+
+@pytest.fixture
+def graphql_create_ticket_failure_response() -> dict:
+    return {
+        "data": {
+            "issueCreate": {
+                "success": False,
+            }
+        }
+    }
+
+
+@pytest.fixture
+def graphql_create_ticket_no_issue_response() -> dict:
+    return {
+        "data": {
+            "issueCreate": {
+                "success": True,
+            }
+        }
+    }
+
+
+@pytest.fixture
+def graphql_get_issue_by_id_response(linear_task_data_demetra: dict) -> dict:
+    return {"data": {"issue": linear_task_data_demetra}}
+
+
+@pytest.fixture
+def graphql_get_issue_by_id_response_with_labels(linear_task_data_with_labels: dict) -> dict:
+    return {"data": {"issue": linear_task_data_with_labels}}
+
+
+@pytest.fixture
+def graphql_get_issue_by_id_response_with_comments(linear_task_data_with_comments: dict) -> dict:
+    return {"data": {"issue": linear_task_data_with_comments}}
+
+
+@pytest.fixture
+def graphql_get_issue_by_id_not_found_response() -> dict:
+    return {"data": {"issue": None}}
 
 
 @pytest.fixture

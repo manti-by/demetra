@@ -35,7 +35,7 @@ class TestProcessManager:
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):
@@ -67,7 +67,7 @@ class TestProcessManager:
                     "default_state": "s1",
                     "default_project": "p1",
                     "feature_label_id": "l1",
-                    "states": {},
+                    "states": {"todo": "state-todo"},
                     "projects": {},
                 },
             ):

@@ -21,6 +21,7 @@ class LinearTask:
     project_id: str | None = None
     user_id: str | None = None
     comments: list[str] = field(default_factory=list)
+    labels: list[str] = field(default_factory=list)
 
     @property
     def full_title(self) -> str:
