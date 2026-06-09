@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, memo } from 'react';
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import { getSessions, type Session } from '../services/api';
-
 interface SessionArtifactsProps {
   taskId: string | null;
 }
@@ -15,6 +16,7 @@ const CloseIcon = () => (
 function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isRendered, setIsRendered] = useState(true);
 
   useEffect(() => {
     if (!taskId) {
@@ -45,7 +47,10 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
     };
   }, [taskId]);
 
-  const openModal = useCallback(() => setModalOpen(true), []);
+  const openModal = useCallback(() => {
+    setIsRendered(true);
+    setModalOpen(true);
+  }, []);
   const closeModal = useCallback(() => setModalOpen(false), []);
 
   if (!session) {
@@ -97,9 +102,18 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
               </button>
             </div>
             <div className="modal-body">
-              <pre className="build-plan-text">{session.build_plan}</pre>
+              {!isRendered ? (
+                <pre className="build-plan-text">{session.build_plan}</pre>
+              ) : (
+                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.build_plan!, { async: false }) as string) }} />
+              )}
             </div>
-          </div>
+            <div className="modal-footer">
+              <button className="modal-btn" onClick={() => setIsRendered(!isRendered)}>
+                {isRendered ? 'Show Markdown' : 'Show Rendered'}
+              </button>
+            </div>
+        </div>
         </div>
       )}
     </div>

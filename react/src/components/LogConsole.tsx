@@ -10,17 +10,8 @@ interface LogMessage {
   type: "info" | "error" | "success";
 }
 
-const formatTimestamp = (ts: string): string => {
-  const date = new Date(ts);
-  const h = String(date.getHours()).padStart(2, "0");
-  const m = String(date.getMinutes()).padStart(2, "0");
-  const s = String(date.getSeconds()).padStart(2, "0");
-  return `${h}:${m}:${s}`;
-};
-
 const LogLine = memo(({ log }: { log: LogMessage }) => (
   <div className={`log-line ${log.type}`}>
-    <span className="log-timestamp">[{formatTimestamp(log.timestamp)}]</span>
     <span className="log-message">{log.message}</span>
   </div>
 ));
@@ -70,10 +61,10 @@ export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
 
       try {
         const data = JSON.parse(event.data);
-        addLog({ 
-          ...data, 
+        addLog({
+          ...data,
           id: crypto.randomUUID(),
-          type: data.type || "info" 
+          type: data.type || "info"
         });
       } catch {
         addLog({

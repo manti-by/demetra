@@ -64,6 +64,12 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
     return () => clearInterval(interval);
   }, [fetchSessions, refreshTrigger]);
 
+  useEffect(() => {
+    if (sessions.length > 0 && !selectedTaskId) {
+      onSelectSession(sessions[0].task_id);
+    }
+  }, [sessions, selectedTaskId, onSelectSession]);
+
   const handleSelectSession = useCallback((e: React.MouseEvent, taskId: string) => {
     e.preventDefault();
     onSelectSession(taskId);

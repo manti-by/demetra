@@ -98,7 +98,7 @@ describe('SessionArtifacts', () => {
     await user.click(link);
 
     expect(screen.getByText('Build Plan')).toBeInTheDocument();
-    expect(screen.getByText((content) => content.includes('1. Step one'))).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Step one'))).toBeInTheDocument();
 
     const closeButton = screen.getByLabelText('Close');
     await user.click(closeButton);
