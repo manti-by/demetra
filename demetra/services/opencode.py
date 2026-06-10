@@ -5,7 +5,7 @@ from pathlib import Path
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
-from demetra.settings import OPENCODE, SHELL_TIMEOUT_MS
+from demetra.settings import OPENCODE
 
 
 PLAN_HEADER_STRING = "## Implementation Plan"
@@ -97,16 +97,12 @@ async def run_opencode_agent(
         command.extend(["--title", task_title])
 
     command.append(shlex.quote(task)[:4095])
-    return await run_command(
-        command=command, target_path=target_path, disable_stdio=disable_stdio, env=env, timeout=SHELL_TIMEOUT_MS / 1000
-    )
+    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
 
 
 async def get_opencode_sessions(target_path: Path, env: dict[str, str] | None = None) -> list[dict[str, str]]:
     command = [str(OPENCODE["path"]), "session", "list", "--format", "json"]
-    _, result, _ = await run_command(
-        command=command, target_path=target_path, disable_stdio=True, env=env, timeout=SHELL_TIMEOUT_MS / 1000
-    )
+    _, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
     return json.loads(result)
 
 

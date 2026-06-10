@@ -3,7 +3,7 @@ import os
 from pathlib import Path
 
 from demetra.services.utils import live_stream
-from demetra.settings import SHELL_TIMEOUT_MS
+from demetra.settings import SUBPROCESS_TIMEOUT
 
 
 async def run_command(
@@ -11,7 +11,7 @@ async def run_command(
     target_path: Path,
     disable_stdio: bool = False,
     env: dict[str, str] | None = None,
-    timeout: float | None = SHELL_TIMEOUT_MS / 1000,
+    timeout: int | None = SUBPROCESS_TIMEOUT,
 ) -> tuple[int, str, str]:
     # TODO: MNT-111 - Process environment
     merged_env = os.environ.copy()
