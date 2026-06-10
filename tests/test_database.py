@@ -1,22 +1,27 @@
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 
 from demetra.library.tables import project_environments
 from demetra.services.database import (
     create_project,
     create_session,
+    delete_project,
+    delete_project_environment,
     get_project_environments,
     get_session,
     increment_run_attempts,
+    list_project_environments,
     mark_session_posted,
     save_session,
     update_session_pr_link,
     update_session_step,
     upsert_pending_session,
+    upsert_project_environment,
 )
 from demetra.services.database import get_connection as _get_connection
+from demetra.services.encryption import decrypt_str
 
 
 @pytest.mark.usefixtures("setup_test_db")
@@ -226,6 +231,329 @@ class TestProjectEnvironments:
         result_b = await get_project_environments(project_b)
         assert result_a == {"ONLY_A": "value_a"}
         assert result_b == {"ONLY_B": "value_b"}
+
+
+class TestProjectEnvironmentMutations:
+    @pytest.mark.asyncio
+    async def test_upsert_creates_new_entry(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        entry = await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="secret",
+        )
+
+        assert entry["key"] == "API_KEY"
+        assert entry["value"] == "secret"
+        assert entry["project_id"] == project_id
+        assert entry["id"]
+
+        env = await get_project_environments(project_id)
+        assert env == {"API_KEY": "secret"}
+
+    @pytest.mark.asyncio
+    async def test_upsert_updates_existing_entry(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="first",
+        )
+        second = await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="second",
+        )
+
+        assert second["value"] == "second"
+        env = await get_project_environments(project_id)
+        assert env == {"API_KEY": "second"}
+
+    @pytest.mark.asyncio
+    async def test_upsert_raises_for_missing_project(self, setup_test_db):
+        with pytest.raises(LookupError):
+            await upsert_project_environment(
+                project_id="nonexistent",
+                user_id="test-user",
+                key="X",
+                value="Y",
+            )
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_entry(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="secret",
+        )
+
+        await delete_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+        )
+
+        env = await get_project_environments(project_id)
+        assert env == {}
+
+    @pytest.mark.asyncio
+    async def test_delete_raises_for_missing_project(self, setup_test_db):
+        with pytest.raises(LookupError):
+            await delete_project_environment(
+                project_id="nonexistent",
+                user_id="test-user",
+                key="X",
+            )
+
+    @pytest.mark.asyncio
+    async def test_delete_is_noop_for_missing_key(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await delete_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="NOPE",
+        )
+
+        env = await get_project_environments(project_id)
+        assert env == {}
+
+    @pytest.mark.asyncio
+    async def test_delete_project_by_non_owner_leaves_environment_intact(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="owner-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="owner-user",
+            key="API_KEY",
+            value="secret",
+        )
+
+        # A different user must not be able to delete the project or wipe its env vars.
+        await delete_project(project_id=project_id, user_id="attacker-user")
+
+        env = await get_project_environments(project_id)
+        assert env == {"API_KEY": "secret"}
+
+
+class TestProjectEnvironmentType:
+    @pytest.fixture(autouse=True)
+    def _encryption_keys(self):
+        from unittest.mock import patch
+
+        with (
+            patch("demetra.services.encryption.SECRET_KEY", "x7uKwdXjK-UPCdQ2DEoUoVoe1sAceCvG9iaJuTbwj20="),
+            patch("demetra.services.encryption.ENCRYPTION_SALT", "DajyYABtMczCRByZdRh1W"),
+        ):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_default_type_is_text(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        entry = await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_URL",
+            value="https://example.com",
+        )
+
+        assert entry["type"] == "text"
+        assert entry["value"] == "https://example.com"
+
+    @pytest.mark.asyncio
+    async def test_encrypted_value_is_stored_encrypted(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        entry = await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="topsecret",
+            env_type="encrypted",
+        )
+
+        assert entry["type"] == "encrypted"
+        assert entry["value"] == "********"
+
+        async with _get_connection() as conn:
+            row = (
+                await conn.execute(
+                    select(project_environments).where(
+                        (project_environments.c.project_id == project_id) & (project_environments.c.key == "API_KEY")
+                    )
+                )
+            ).fetchone()
+        assert row is not None
+        assert row.type == "encrypted"
+        assert row.value != "topsecret"
+        assert decrypt_str(row.value) == "topsecret"
+
+    @pytest.mark.asyncio
+    async def test_get_environments_decrypts_encrypted_values(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="topsecret",
+            env_type="encrypted",
+        )
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_URL",
+            value="https://example.com",
+            env_type="text",
+        )
+
+        env = await get_project_environments(project_id)
+
+        assert env == {"API_KEY": "topsecret", "API_URL": "https://example.com"}
+
+    @pytest.mark.asyncio
+    async def test_list_environments_masks_encrypted_values(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="topsecret",
+            env_type="encrypted",
+        )
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_URL",
+            value="https://example.com",
+            env_type="text",
+        )
+
+        entries = await list_project_environments(project_id=project_id, user_id="test-user")
+
+        by_key = {entry["key"]: entry for entry in entries}
+        assert by_key["API_KEY"]["value"] == "********"
+        assert by_key["API_KEY"]["type"] == "encrypted"
+        assert by_key["API_URL"]["value"] == "https://example.com"
+        assert by_key["API_URL"]["type"] == "text"
+
+    @pytest.mark.asyncio
+    async def test_upsert_can_switch_type(self, faker, setup_test_db):
+        project_id = (
+            await create_project(
+                user_id="test-user",
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="topsecret",
+            env_type="text",
+        )
+        entry = await upsert_project_environment(
+            project_id=project_id,
+            user_id="test-user",
+            key="API_KEY",
+            value="topsecret",
+            env_type="encrypted",
+        )
+
+        assert entry["type"] == "encrypted"
+        assert entry["value"] == "********"
+
+        env = await get_project_environments(project_id)
+        assert env == {"API_KEY": "topsecret"}
+
+    @pytest.mark.asyncio
+    async def test_list_environments_raises_for_missing_project(self, setup_test_db):
+        with pytest.raises(LookupError):
+            await list_project_environments(project_id="missing", user_id="test-user")
 
 
 @pytest.mark.usefixtures("setup_test_db")

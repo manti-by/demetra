@@ -21,7 +21,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
         return None
 
     print_message("Loading project environment", style="heading")
-    project.environment = await get_project_environments(project_id=project.id)
+    project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
 
     print_message("Retrieving linear task", style="heading")
     if task_id:

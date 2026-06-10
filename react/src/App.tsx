@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
 import { SessionArtifacts } from "./components/SessionArtifacts";
+import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { deleteSession } from "./services/api";
 import "./App.css";
@@ -39,6 +40,7 @@ function LoginView() {
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
 
@@ -46,6 +48,14 @@ function AppContent() {
     await logout();
     window.location.reload();
   }, [logout]);
+
+  const handleOpenSettings = useCallback(() => {
+    setSettingsOpen(true);
+  }, []);
+
+  const handleCloseSettings = useCallback(() => {
+    setSettingsOpen(false);
+  }, []);
 
   const handleSelectSession = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
@@ -67,7 +77,11 @@ function AppContent() {
 
   return (
     <div className="app">
-      <Header user={user} onLogout={handleLogout} />
+      <Header
+        user={user}
+        onLogout={handleLogout}
+        onOpenSettings={handleOpenSettings}
+      />
       {user ? (
         <main className="main-content">
           <div className="main-content-body">
@@ -93,6 +107,7 @@ function AppContent() {
       ) : (
         <LoginView />
       )}
+      <UserSettings isOpen={settingsOpen} onClose={handleCloseSettings} />
     </div>
   );
 }

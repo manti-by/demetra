@@ -1,3 +1,4 @@
+import base64
 import json
 
 from cryptography.fernet import Fernet, InvalidToken
@@ -14,7 +15,7 @@ def get_fernet() -> Fernet:
     salt = ENCRYPTION_SALT.encode()
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000)
     key = kdf.derive(SECRET_KEY.encode())
-    return Fernet(key)
+    return Fernet(base64.urlsafe_b64encode(key))
 
 
 def encrypt(data: dict) -> str:
@@ -29,5 +30,20 @@ def decrypt(encrypted_data: str) -> dict:
         fernet = get_fernet()
         decrypted = fernet.decrypt(encrypted_data.encode())
         return json.loads(decrypted.decode())
+    except InvalidToken as e:
+        raise ValueError("Failed to decrypt data: invalid or corrupted") from e
+
+
+def encrypt_str(plaintext: str) -> str:
+    fernet = get_fernet()
+    encrypted = fernet.encrypt(plaintext.encode())
+    return encrypted.decode()
+
+
+def decrypt_str(ciphertext: str) -> str:
+    try:
+        fernet = get_fernet()
+        decrypted = fernet.decrypt(ciphertext.encode())
+        return decrypted.decode()
     except InvalidToken as e:
         raise ValueError("Failed to decrypt data: invalid or corrupted") from e

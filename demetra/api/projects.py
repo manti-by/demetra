@@ -2,14 +2,23 @@ import logging
 
 from fastapi import APIRouter, Cookie, HTTPException
 
-from demetra.library.models import CreateProject, Project, UpdateProject
+from demetra.library.models import (
+    CreateProject,
+    Project,
+    ProjectEnvironmentEntry,
+    ProjectEnvironmentUpsert,
+    UpdateProject,
+)
 from demetra.services.auth import get_current_user
 from demetra.services.database import (
     create_project,
     delete_project,
+    delete_project_environment,
     get_project_by_id,
     get_projects_by_user,
+    list_project_environments,
     update_project,
+    upsert_project_environment,
 )
 from demetra.services.project import cleanup_project_resources, parse_github_url, setup_project
 
@@ -226,5 +235,117 @@ async def delete_project_endpoint(
     if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid or expired token")
 
-    await delete_project(project_id=project_id, user_id=user.id)
+    if not await delete_project(project_id=project_id, user_id=user.id):
+        raise HTTPException(status_code=404, detail="Project not found")
     return {"message": "Project deleted successfully"}
+
+
+@router.get("/{project_id}/environment", response_model=list[ProjectEnvironmentEntry])
+async def list_project_environment_endpoint(
+    project_id: str,
+    auth_token: str | None = Cookie(default=None),
+):
+    """List environment variables for a specific project.
+
+    Returns a list of key-value entries configured for the project.
+    Requires authentication and ownership verification.
+    """
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    try:
+        entries = await list_project_environments(project_id=project_id, user_id=user.id)
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail="Project not found") from e
+
+    return [
+        ProjectEnvironmentEntry(
+            id=entry["id"],
+            project_id=entry["project_id"],
+            key=entry["key"],
+            value=entry["value"],
+            type=entry["type"],
+        )
+        for entry in entries
+    ]
+
+
+@router.put("/{project_id}/environment/{key}", response_model=ProjectEnvironmentEntry)
+async def upsert_project_environment_endpoint(
+    project_id: str,
+    key: str,
+    request: ProjectEnvironmentUpsert,
+    auth_token: str | None = Cookie(default=None),
+):
+    """Create or update a single environment variable for a project.
+
+    Saves the provided key-value pair and returns the resulting entry.
+    Encrypted values are stored encrypted and returned masked.
+    Requires authentication and ownership verification.
+    """
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    validated_key = key.strip()
+    if not validated_key:
+        raise HTTPException(status_code=400, detail="Environment key cannot be empty")
+
+    if request.type not in ("text", "encrypted"):
+        raise HTTPException(status_code=400, detail="Environment type must be 'text' or 'encrypted'")
+
+    try:
+        entry = await upsert_project_environment(
+            project_id=project_id,
+            user_id=user.id,
+            key=validated_key,
+            value=request.value,
+            env_type=request.type,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail="Project not found") from e
+
+    return ProjectEnvironmentEntry(
+        id=entry["id"],
+        project_id=entry["project_id"],
+        key=entry["key"],
+        value=entry["value"],
+        type=entry["type"],
+    )
+
+
+@router.delete("/{project_id}/environment/{key}")
+async def delete_project_environment_endpoint(
+    project_id: str,
+    key: str,
+    auth_token: str | None = Cookie(default=None),
+):
+    """Delete a single environment variable from a project.
+
+    Requires authentication and ownership verification.
+    """
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid or expired token")
+
+    validated_key = key.strip()
+    if not validated_key:
+        raise HTTPException(status_code=400, detail="Environment key cannot be empty")
+
+    try:
+        await delete_project_environment(
+            project_id=project_id,
+            user_id=user.id,
+            key=validated_key,
+        )
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail="Project not found") from e
+
+    return {"message": "Environment variable deleted successfully"}

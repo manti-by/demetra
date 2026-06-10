@@ -46,25 +46,30 @@ class TestWorkflowSetup:
             return_value=[project_data],
         ):
             with patch(
-                "demetra.workflows.setup.get_linear_task",
+                "demetra.workflows.setup.get_project_environments",
                 new_callable=AsyncMock,
-                return_value=LinearTask(**linear_task_data),  # ty: ignore
+                return_value={},
             ):
                 with patch(
-                    "demetra.workflows.setup.get_session",
+                    "demetra.workflows.setup.get_linear_task",
                     new_callable=AsyncMock,
-                    return_value=None,
+                    return_value=LinearTask(**linear_task_data),  # ty: ignore
                 ):
                     with patch(
-                        "demetra.workflows.setup.git_pull",
+                        "demetra.workflows.setup.get_session",
                         new_callable=AsyncMock,
+                        return_value=None,
                     ):
                         with patch(
-                            "demetra.workflows.setup.git_worktree_create",
+                            "demetra.workflows.setup.git_pull",
                             new_callable=AsyncMock,
-                            return_value=f"/tmp/worktree/{faker.slug()}",
                         ):
-                            result = await setup_workflow("demetra", auto_mode=False)
+                            with patch(
+                                "demetra.workflows.setup.git_worktree_create",
+                                new_callable=AsyncMock,
+                                return_value=f"/tmp/worktree/{faker.slug()}",
+                            ):
+                                result = await setup_workflow("demetra", auto_mode=False)
 
         assert result is not None
         assert result.project.name == "demetra"

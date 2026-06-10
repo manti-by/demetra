@@ -1,5 +1,6 @@
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     Column,
     DateTime,
     ForeignKey,
@@ -85,5 +86,7 @@ project_environments = Table(
     Column("project_id", String(), ForeignKey("projects.id"), nullable=False),
     Column("key", String(), nullable=False),
     Column("value", Text(), nullable=False),
+    Column("type", String(), nullable=False, server_default="text"),
     UniqueConstraint("project_id", "key"),
+    CheckConstraint("type IN ('text', 'encrypted')", name="ck_project_environment_type"),
 )

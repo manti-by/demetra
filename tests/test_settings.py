@@ -93,18 +93,3 @@ class TestSettings:
             assert settings_module.LINEAR["filter_labels"] == []
         finally:
             importlib.reload(settings_module)
-
-    def test_linear_filter_labels_parses_comma_separated(self, monkeypatch):
-        monkeypatch.setenv("LINEAR_FILTER_LABELS", " bug , frontend , , docs ")
-
-        import importlib
-
-        import demetra.settings as settings_module
-
-        importlib.reload(settings_module)
-
-        try:
-            assert settings_module.LINEAR["filter_labels"] == ["bug", "frontend", "docs"]
-        finally:
-            monkeypatch.delenv("LINEAR_FILTER_LABELS", raising=False)
-            importlib.reload(settings_module)

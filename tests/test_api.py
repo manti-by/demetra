@@ -359,3 +359,236 @@ class TestProjectEndpoints:
 
                 assert response.status_code == 200
                 mock_delete_project.assert_called_once_with(project_id="project-id", user_id="test_user_id")
+
+
+class TestProjectEnvironmentEndpoints:
+    def test_list_environment_returns_401_without_auth_token(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/api/v1/projects/project-id/environment")
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_list_environment_returns_entries(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with (
+            patch(
+                "demetra.api.projects.get_project_by_id",
+                new_callable=AsyncMock,
+                return_value={"id": "project-id"},
+            ),
+            patch(
+                "demetra.api.projects.list_project_environments",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "id": "env-1",
+                        "project_id": "project-id",
+                        "key": "API_KEY",
+                        "value": "secret",
+                        "type": "text",
+                    }
+                ],
+            ) as mock_list,
+        ):
+            response = authenticated_client.get("/api/v1/projects/project-id/environment")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert len(data) == 1
+            assert data[0]["key"] == "API_KEY"
+            assert data[0]["value"] == "secret"
+            assert data[0]["type"] == "text"
+            assert data[0]["project_id"] == "project-id"
+            mock_list.assert_called_once_with(project_id="project-id", user_id="test_user_id")
+
+    @pytest.mark.asyncio
+    async def test_list_environment_masks_encrypted_values(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with (
+            patch(
+                "demetra.api.projects.get_project_by_id",
+                new_callable=AsyncMock,
+                return_value={"id": "project-id"},
+            ),
+            patch(
+                "demetra.api.projects.list_project_environments",
+                new_callable=AsyncMock,
+                return_value=[
+                    {
+                        "id": "env-1",
+                        "project_id": "project-id",
+                        "key": "API_KEY",
+                        "value": "********",
+                        "type": "encrypted",
+                    }
+                ],
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/projects/project-id/environment")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data[0]["value"] == "********"
+            assert data[0]["type"] == "encrypted"
+
+    @pytest.mark.asyncio
+    async def test_list_environment_returns_404_for_missing_project(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.list_project_environments",
+            new_callable=AsyncMock,
+            side_effect=LookupError("missing"),
+        ):
+            response = authenticated_client.get("/api/v1/projects/project-id/environment")
+
+            assert response.status_code == 404
+
+    def test_upsert_environment_returns_401_without_auth_token(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.put(
+            "/api/v1/projects/project-id/environment/API_KEY",
+            json={"value": "secret"},
+        )
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_upsert_environment_creates_entry(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.upsert_project_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "project_id": "project-id",
+                "key": "API_KEY",
+                "value": "secret",
+                "type": "text",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/projects/project-id/environment/API_KEY",
+                json={"value": "secret"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["key"] == "API_KEY"
+            assert data["value"] == "secret"
+            assert data["type"] == "text"
+            mock_upsert.assert_called_once_with(
+                project_id="project-id",
+                user_id="test_user_id",
+                key="API_KEY",
+                value="secret",
+                env_type="text",
+            )
+
+    @pytest.mark.asyncio
+    async def test_upsert_environment_with_encrypted_type(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.upsert_project_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "project_id": "project-id",
+                "key": "API_KEY",
+                "value": "********",
+                "type": "encrypted",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/projects/project-id/environment/API_KEY",
+                json={"value": "secret", "type": "encrypted"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["type"] == "encrypted"
+            assert data["value"] == "********"
+            mock_upsert.assert_called_once_with(
+                project_id="project-id",
+                user_id="test_user_id",
+                key="API_KEY",
+                value="secret",
+                env_type="encrypted",
+            )
+
+    def test_upsert_environment_rejects_invalid_type(
+        self,
+        authenticated_client: TestClient,
+    ):
+        response = authenticated_client.put(
+            "/api/v1/projects/project-id/environment/API_KEY",
+            json={"value": "secret", "type": "binary"},
+        )
+
+        assert response.status_code in (400, 422)
+
+    @pytest.mark.asyncio
+    async def test_upsert_environment_returns_404_for_missing_project(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.upsert_project_environment",
+            new_callable=AsyncMock,
+            side_effect=LookupError("missing"),
+        ):
+            response = authenticated_client.put(
+                "/api/v1/projects/project-id/environment/API_KEY",
+                json={"value": "secret"},
+            )
+
+            assert response.status_code == 404
+
+    def test_delete_environment_returns_401_without_auth_token(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.delete("/api/v1/projects/project-id/environment/API_KEY")
+
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_delete_environment_removes_entry(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.delete_project_environment",
+            new_callable=AsyncMock,
+        ) as mock_delete:
+            response = authenticated_client.delete("/api/v1/projects/project-id/environment/API_KEY")
+
+            assert response.status_code == 200
+            assert response.json()["message"] == "Environment variable deleted successfully"
+            mock_delete.assert_called_once_with(
+                project_id="project-id",
+                user_id="test_user_id",
+                key="API_KEY",
+            )
+
+    @pytest.mark.asyncio
+    async def test_delete_environment_returns_404_for_missing_project(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.delete_project_environment",
+            new_callable=AsyncMock,
+            side_effect=LookupError("missing"),
+        ):
+            response = authenticated_client.delete("/api/v1/projects/project-id/environment/API_KEY")
+
+            assert response.status_code == 404

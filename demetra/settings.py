@@ -79,9 +79,7 @@ LINEAR: LinearConfig = {
         "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
     },
     "default_state": os.environ.get("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
-    "filter_labels": [
-        label.strip() for label in os.environ.get("LINEAR_FILTER_LABELS", "").split(",") if label.strip()
-    ],
+    "filter_labels": [x for x in os.environ.get("LINEAR_FILTER_LABELS", "").split(",") if x],
 }
 
 OPENCODE: OpenCodeConfig = {

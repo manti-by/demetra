@@ -4,7 +4,6 @@ export interface User {
   id: string;
   github_username: string;
   email: string;
-  avatar_url: string | null;
 }
 
 export interface AuthResponse {
@@ -91,5 +90,134 @@ export async function deleteSession(taskId: string): Promise<void> {
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Network error deleting session';
     throw new Error(message);
+  }
+}
+
+export interface Project {
+  id: string;
+  user_id: string | null;
+  linear_project_id: string | null;
+  name: string;
+  repository_url: string;
+  local_path: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getProjects(): Promise<Project[]> {
+  const response = await fetch(`${API_URL}/api/v1/projects`, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    throw new Error('Failed to fetch projects');
+  }
+  return response.json();
+}
+
+export async function createProject(data: {
+  name: string;
+  repository_url: string;
+  linear_project_id?: string;
+}): Promise<Project> {
+  const response = await fetch(`${API_URL}/api/v1/projects`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create project');
+  }
+  return response.json();
+}
+
+export async function updateProject(
+  projectId: string,
+  data: {
+    name?: string;
+    repository_url?: string;
+    linear_project_id?: string;
+  }
+): Promise<Project> {
+  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update project');
+  }
+  return response.json();
+}
+
+export async function deleteProject(projectId: string): Promise<void> {
+  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete project');
+  }
+}
+
+export interface ProjectEnvironmentEntry {
+  id: string;
+  project_id: string;
+  key: string;
+  value: string;
+  type: 'text' | 'encrypted';
+}
+
+export async function getProjectEnvironment(projectId: string): Promise<ProjectEnvironmentEntry[]> {
+  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}/environment`, {
+    credentials: 'include',
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to fetch project environment');
+  }
+  return response.json();
+}
+
+export async function upsertProjectEnvironment(
+  projectId: string,
+  key: string,
+  value: string,
+  type: 'text' | 'encrypted' = 'text'
+): Promise<ProjectEnvironmentEntry> {
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ value, type }),
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to save environment variable');
+  }
+  return response.json();
+}
+
+export async function deleteProjectEnvironment(
+  projectId: string,
+  key: string
+): Promise<void> {
+  const response = await fetch(
+    `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete environment variable');
   }
 }

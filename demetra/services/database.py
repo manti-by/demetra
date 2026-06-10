@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -10,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 from demetra.library.models import Session
 from demetra.library.tables import jwt_tokens, oauth_tokens, project_environments, projects, sessions, users
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+
+
+logger = logging.getLogger(__name__)
 
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
@@ -536,21 +540,136 @@ async def update_project(
     return dict(row._mapping) if row else None
 
 
-async def get_project_environments(project_id: str) -> dict[str, str]:
+async def get_project_environments(project_id: str, user_id: str | None = None) -> dict[str, str]:
+    from demetra.services.encryption import decrypt_str
+
+    if user_id and not await get_project_by_id(project_id=project_id, user_id=user_id):
+        raise LookupError("Project not found")
+
     async with get_connection() as connection:
         result = await connection.execute(
             select(project_environments).where(project_environments.c.project_id == project_id)
         )
         rows = result.fetchall()
-    return {row.key: row.value for row in rows}
+
+    env: dict[str, str] = {}
+    for row in rows:
+        if row.type == "encrypted":
+            try:
+                env[row.key] = decrypt_str(row.value)
+            except ValueError:
+                logger.exception("Failed to decrypt env var '%s' for project '%s'", row.key, project_id)
+                env[row.key] = ""
+        else:
+            env[row.key] = row.value
+    return env
 
 
-async def delete_project(project_id: str, user_id: str) -> None:
+async def list_project_environments(project_id: str, user_id: str) -> list[dict]:
+    from demetra.library.models import ENCRYPTED_VALUE_MASK
+
+    if not await get_project_by_id(project_id=project_id, user_id=user_id):
+        raise LookupError("Project not found")
+
     async with get_connection() as connection:
-        await connection.execute(
-            projects.delete().where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        result = await connection.execute(
+            select(project_environments).where(project_environments.c.project_id == project_id)
+        )
+        rows = result.fetchall()
+    return [
+        {
+            "id": row.id,
+            "project_id": row.project_id,
+            "key": row.key,
+            "value": ENCRYPTED_VALUE_MASK if row.type == "encrypted" else row.value,
+            "type": row.type,
+        }
+        for row in rows
+    ]
+
+
+async def upsert_project_environment(
+    project_id: str,
+    user_id: str,
+    key: str,
+    value: str,
+    env_type: str = "text",
+) -> dict:
+    from uuid import uuid4
+
+    from demetra.library.models import ENCRYPTED_VALUE_MASK
+
+    if not await get_project_by_id(project_id=project_id, user_id=user_id):
+        raise LookupError("Project not found")
+
+    if env_type == "encrypted":
+        from demetra.services.encryption import encrypt_str
+
+        stored_value = encrypt_str(value)
+    else:
+        stored_value = value
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                INSERT INTO project_environment (id, project_id, key, value, type)
+                VALUES (:id, :project_id, :key, :value, :type)
+                ON CONFLICT (project_id, key) DO UPDATE SET
+                    value = EXCLUDED.value,
+                    type = EXCLUDED.type
+                RETURNING id, type
+                """
+            ),
+            {
+                "id": str(uuid4()),
+                "project_id": project_id,
+                "key": key,
+                "value": stored_value,
+                "type": env_type,
+            },
         )
         await connection.commit()
+        row = result.fetchone()
+    if row is None:
+        raise RuntimeError("Failed to insert project environment")
+    return {
+        "id": row.id,
+        "project_id": project_id,
+        "key": key,
+        "value": ENCRYPTED_VALUE_MASK if env_type == "encrypted" else value,
+        "type": row.type,
+    }
+
+
+async def delete_project_environment(project_id: str, user_id: str, key: str) -> None:
+    if not await get_project_by_id(project_id=project_id, user_id=user_id):
+        raise LookupError("Project not found")
+
+    async with get_connection() as connection:
+        await connection.execute(
+            delete(project_environments).where(
+                (project_environments.c.project_id == project_id) & (project_environments.c.key == key)
+            )
+        )
+        await connection.commit()
+
+
+async def delete_project(project_id: str, user_id: str) -> bool:
+    async with get_connection() as connection:
+        async with connection.begin():
+            existing = await connection.execute(
+                select(projects.c.id).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+            )
+            if not existing.fetchone():
+                return False
+            await connection.execute(
+                delete(project_environments).where(project_environments.c.project_id == project_id)
+            )
+            await connection.execute(
+                delete(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+            )
+    return True
 
 
 async def delete_session(task_id: str, user_id: str) -> bool:

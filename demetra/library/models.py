@@ -54,11 +54,31 @@ class Session:
     pr_link: str | None = None
 
 
+EnvironmentType = Literal["text", "encrypted"]
+ENCRYPTED_VALUE_MASK = "********"
+
+
 @dataclass
 class Environment:
     project_id: str
     key: str
     value: str
+    type: EnvironmentType = "text"
+
+
+@dataclass
+class ProjectEnvironmentUpsert:
+    value: str
+    type: EnvironmentType = "text"
+
+
+@dataclass
+class ProjectEnvironmentEntry:
+    id: str
+    project_id: str
+    key: str
+    value: str
+    type: EnvironmentType = "text"
 
 
 @dataclass
