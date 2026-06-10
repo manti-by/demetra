@@ -66,7 +66,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
             continue
 
         issue_labels = {name.lower() for name in extract_labels(issue)}
-        if filter_labels and not (filter_labels & issue_labels):
+        if filter_labels and not any(label in issue_labels for label in filter_labels):
             continue
 
         resolved = linked_projects.get(linear_project_id) or linked_projects.get(issue_project_name)
