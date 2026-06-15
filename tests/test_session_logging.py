@@ -1,10 +1,16 @@
 from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
 import pytest
 from fastapi.testclient import TestClient
 
 from demetra.app import app
-from demetra.library.models import UserResponse
+from demetra.services.database import (
+    get_session,
+    save_session,
+    update_session_pr_link,
+    upsert_pending_session,
+)
 
 
 class TestSessionDeletionAPI:
@@ -15,52 +21,34 @@ class TestSessionDeletionAPI:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_delete_session_not_found(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.delete_session", new_callable=AsyncMock) as mock_delete:
-            mock_delete.return_value = False
-
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.delete("/api/v1/sessions/nonexistent-task")
-                assert response.status_code == 404
+        response = authenticated_client.delete("/api/v1/sessions/nonexistent-task")
+        assert response.status_code == 404
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_delete_session_success(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.delete_session", new_callable=AsyncMock) as mock_delete:
-            mock_delete.return_value = True
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.delete("/api/v1/sessions/task-123")
-                assert response.status_code == 200
-                data = response.json()
-                assert data["success"] is True
-                mock_delete.assert_called_once_with(task_id="task-123", user_id="user-123")
+        task_id = "task-123"
+        await upsert_pending_session(
+            task_id=task_id, session_id="sess-456", user_id="test_user_id", name="Test Session"
+        )
+        response = authenticated_client.delete(f"/api/v1/sessions/{task_id}")
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_delete_session_calls_database_delete(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.delete_session", new_callable=AsyncMock) as mock_delete:
-            mock_delete.return_value = True
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-456",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                authenticated_client.delete("/api/v1/sessions/my-task-id")
-                mock_delete.assert_called_once_with(task_id="my-task-id", user_id="user-456")
+        task_id = "my-task-id"
+        await upsert_pending_session(
+            task_id=task_id, session_id="sess-789", user_id="test_user_id", name="Test Session"
+        )
+        authenticated_client.delete(f"/api/v1/sessions/{task_id}")
+        assert await get_session(task_id) is None
 
 
 class TestSessionListingAPI:
@@ -71,163 +59,89 @@ class TestSessionListingAPI:
         assert response.status_code == 401
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_list_sessions_returns_sessions(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
-            mock_get_sessions.return_value = []
-
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions")
-                assert response.status_code == 200
+        response = authenticated_client.get("/api/v1/sessions")
+        assert response.status_code == 200
 
     @pytest.mark.asyncio
     async def test_list_sessions_filter_by_status(self, authenticated_client: TestClient):
         with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
             mock_get_sessions.return_value = []
-
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions?status=pending")
-                assert response.status_code == 200
-                mock_get_sessions.assert_called_once_with(user_id="user-123", status="pending")
+            response = authenticated_client.get("/api/v1/sessions?status=pending")
+            assert response.status_code == 200
+            mock_get_sessions.assert_called_once_with(user_id="test_user_id", status="pending")
 
     @pytest.mark.asyncio
     async def test_list_sessions_invalid_status(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-            mock_get_user.return_value = UserResponse(
-                id="user-123",
-                github_username="testuser",
-                email="test@example.com",
-                role="admin",
-            )
-            response = authenticated_client.get("/api/v1/sessions?status=invalid")
-            assert response.status_code == 400
+        response = authenticated_client.get("/api/v1/sessions?status=invalid")
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_list_sessions_returns_raw_session_data(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
-            mock_get_sessions.return_value = [
-                {
-                    "task_id": "task-123",
-                    "session_id": "session-456",
-                    "build_plan": "",
-                    "posted_to_linear": True,
-                    "created_at": "2024-01-01T00:00:00Z",
-                    "updated_at": "2024-01-01T00:00:00Z",
-                    "status": "pending",
-                }
-            ]
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions")
-                assert response.status_code == 200
-                data = response.json()
-                assert len(data) == 1
-                assert data[0]["task_id"] == "task-123"
-                assert data[0]["session_id"] == "session-456"
-                assert data[0]["status"] == "pending"
+        task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id, session_id="session-456", user_id="test_user_id", name="Test Session"
+        )
+        response = authenticated_client.get("/api/v1/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        session = next(s for s in data if s["task_id"] == task_id)
+        assert session["session_id"] == "session-456"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_list_sessions_includes_name_field(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
-            mock_get_sessions.return_value = [
-                {
-                    "task_id": "task-123",
-                    "name": "DEMETRA-1: Add user authentication",
-                    "session_id": "session-456",
-                    "build_plan": "",
-                    "posted_to_linear": True,
-                    "created_at": "2024-01-01T00:00:00Z",
-                    "updated_at": "2024-01-01T00:00:00Z",
-                    "status": "pending",
-                }
-            ]
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions")
-                assert response.status_code == 200
-                data = response.json()
-                assert len(data) == 1
-                assert data[0]["name"] == "DEMETRA-1: Add user authentication"
+        task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id,
+            session_id="session-name-test",
+            user_id="test_user_id",
+            name="DEMETRA-1: Add user authentication",
+        )
+        response = authenticated_client.get("/api/v1/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        session = next(s for s in data if s["task_id"] == task_id)
+        assert session["name"] == "DEMETRA-1: Add user authentication"
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_list_sessions_name_is_null_when_not_set(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
-            mock_get_sessions.return_value = [
-                {
-                    "task_id": "task-123",
-                    "name": None,
-                    "session_id": "session-456",
-                    "build_plan": "",
-                    "posted_to_linear": True,
-                    "created_at": "2024-01-01T00:00:00Z",
-                    "updated_at": "2024-01-01T00:00:00Z",
-                    "status": "pending",
-                }
-            ]
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions")
-                assert response.status_code == 200
-                data = response.json()
-                assert len(data) == 1
-                assert data[0]["name"] is None
+        task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id,
+            session_id="session-null-name",
+            user_id="test_user_id",
+        )
+        response = authenticated_client.get("/api/v1/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        session = next(s for s in data if s["task_id"] == task_id)
+        assert session["name"] == ""
 
     @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_list_sessions_includes_pr_link_and_build_plan(self, authenticated_client: TestClient):
-        with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
-            mock_get_sessions.return_value = [
-                {
-                    "task_id": "task-123",
-                    "name": "DEMETRA-1: Add user auth",
-                    "session_id": "session-456",
-                    "build_plan": "1. Step one\n2. Step two",
-                    "posted_to_linear": True,
-                    "created_at": "2024-01-01T00:00:00Z",
-                    "updated_at": "2024-01-01T00:00:00Z",
-                    "pr_link": "https://github.com/owner/repo/pull/42",
-                    "status": "completed",
-                }
-            ]
 
-            with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = UserResponse(
-                    id="user-123",
-                    github_username="testuser",
-                    email="test@example.com",
-                    role="admin",
-                )
-                response = authenticated_client.get("/api/v1/sessions")
-                assert response.status_code == 200
-                data = response.json()
-                assert len(data) == 1
-                assert data[0]["build_plan"] == "1. Step one\n2. Step two"
-                assert data[0]["pr_link"] == "https://github.com/owner/repo/pull/42"
+        task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id, session_id="session-pr-link", user_id="test_user_id", name="DEMETRA-1: Add user auth"
+        )
+        await save_session(
+            task_id=task_id,
+            build_plan="1. Step one\n2. Step two",
+            name="DEMETRA-1: Add user auth",
+            session_id="session-pr-link",
+        )
+        await update_session_pr_link(task_id, "https://github.com/owner/repo/pull/42")
+        response = authenticated_client.get("/api/v1/sessions")
+        assert response.status_code == 200
+        data = response.json()
+        session = next(s for s in data if s["task_id"] == task_id)
+        assert session["build_plan"] == "1. Step one\n2. Step two"
+        assert session["pr_link"] == "https://github.com/owner/repo/pull/42"

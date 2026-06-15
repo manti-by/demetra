@@ -12,7 +12,7 @@ Include a line ONLY if ALL of these are true:
 
 ## What to ignore (never output these)
 - The agent's own reasoning and "thinking" prose: "Let me run a lint check...", "Looking at the staged changes...", "I will now verify...", "Let me verify the tests can actually run:".
-- Generic no-issue affirmations: "No issues found.", "No high-severity issues found.", "No output", "No clear, high-severity issues found.", "All staged changes pass lint checks.", "All tests pass.", "LGTM", "Looks good", "Both modifications are correct and safe", or any variation affirming the code is fine.
+- Generic no-issue affirmations: "No issues found.", "No high-severity issues found.", "No output", "(no output)", "No clear, high-severity issues found.", "All staged changes pass lint checks.", "All tests pass.", "LGTM", "Looks good", "All good", "Nothing to report", "Both modifications are correct and safe", or any variation affirming the code is fine.
 - The terminal markers "Ready to proceed to build." and "Please check my questions above.".
 - Section headers, code blocks, tool output, and any other non-finding text.
 

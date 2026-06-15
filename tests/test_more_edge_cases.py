@@ -10,6 +10,42 @@ from demetra.workflows.build import run_build_step
 
 
 class TestWorkflowBuildEdgeCases:
+    @pytest.fixture(autouse=True)
+    def mock_opencode_build_agent(self):
+        with patch(
+            "demetra.workflows.build.opencode_build_agent",
+            new_callable=AsyncMock,
+            return_value=(0, "", ""),
+        ):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def mock_run_review_agents(self):
+        with patch(
+            "demetra.workflows.build.run_review_agents",
+            new_callable=AsyncMock,
+            return_value="review comments",
+        ):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def mock_run_lint_and_test(self):
+        with patch(
+            "demetra.workflows.build.run_lint_and_test",
+            new_callable=AsyncMock,
+            return_value=(True, "lint errors"),
+        ):
+            yield
+
+    @pytest.fixture(autouse=True)
+    def mock_user_input(self):
+        with patch(
+            "demetra.workflows.build.user_input",
+            new_callable=AsyncMock,
+            return_value=("1", None),
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_run_build_step_handles_review_loop(self, faker):
         context = Context(
@@ -41,27 +77,7 @@ class TestWorkflowBuildEdgeCases:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.build.opencode_build_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "", ""),
-        ):
-            with patch(
-                "demetra.workflows.build.run_review_agents",
-                new_callable=AsyncMock,
-                return_value="review comments",
-            ):
-                with patch(
-                    "demetra.workflows.build.run_lint_and_test",
-                    new_callable=AsyncMock,
-                    return_value=(True, "lint errors"),
-                ):
-                    with patch(
-                        "demetra.workflows.build.user_input",
-                        new_callable=AsyncMock,
-                        return_value=("1", None),
-                    ):
-                        try:
-                            await run_build_step("test build plan", context)
-                        except Exception:  # noqa
-                            pass
+        try:
+            await run_build_step("test build plan", context)
+        except Exception:  # noqa
+            pass

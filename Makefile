@@ -76,3 +76,6 @@ react-build:
 
 react-test:
 	cd react && bun run test
+
+docker-build:
+	docker build --platform linux/amd64 -t mantiby/demetra:latest .

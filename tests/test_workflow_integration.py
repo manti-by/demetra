@@ -8,24 +8,28 @@ from demetra.services.test import run_pytests
 
 
 @pytest.mark.asyncio
-async def test_workflow_build_precommit_test_sequence():
-    """Test the complete sequence: build -> precommit -> test with retry logic."""
-    target_path = Path("/test/path")
-    session_id = "test-session"
+class TestWorkflowIntegration:
+    @pytest.fixture
+    def mock_commands(self):
+        with (
+            patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
+            patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
+        ):
+            yield mock_precommit, mock_test
 
-    build_call_count = 0
-    precommit_attempt = 0
-    test_attempt = 0
+    async def test_workflow_build_precommit_test_sequence(self, mock_commands):
+        target_path = Path("/test/path")
+        session_id = "test-session"
+        mock_precommit, mock_test = mock_commands
 
-    async def mock_build_agent(*args, **kwargs):
-        nonlocal build_call_count
-        build_call_count += 1
-        return "build completed"
+        build_call_count = 0
+        precommit_attempt = 0
+        test_attempt = 0
 
-    with (
-        patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
-        patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
-    ):
+        async def mock_build_agent(*args, **kwargs):
+            nonlocal build_call_count
+            build_call_count += 1
+            return "build completed"
 
         def precommit_side_effect(*args, **kwargs):
             nonlocal precommit_attempt
@@ -68,24 +72,18 @@ async def test_workflow_build_precommit_test_sequence():
         assert mock_precommit.call_count == 3
         assert mock_test.call_count == 2
 
+    async def test_workflow_success_no_retry(self, mock_commands):
+        target_path = Path("/test/path")
+        session_id = "test-session"
+        mock_precommit, mock_test = mock_commands
 
-@pytest.mark.asyncio
-async def test_workflow_success_no_retry():
-    """Test workflow succeeds on first attempt without retry."""
-    target_path = Path("/test/path")
-    session_id = "test-session"
+        build_call_count = 0
 
-    build_call_count = 0
+        async def mock_build_agent(*args, **kwargs):
+            nonlocal build_call_count
+            build_call_count += 1
+            return "build completed"
 
-    async def mock_build_agent(*args, **kwargs):
-        nonlocal build_call_count
-        build_call_count += 1
-        return "build completed"
-
-    with (
-        patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
-        patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
-    ):
         mock_precommit.return_value = "ty check output"
         mock_test.return_value = "pytest output"
 

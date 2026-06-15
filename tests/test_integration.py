@@ -8,15 +8,25 @@ from demetra.services.test import run_pytests
 
 
 @pytest.mark.asyncio
-async def test_precommit_and_test_integration():
-    """Test that precommit and test agents work together in sequence."""
-    target_path = Path("/test/path")
-    session_id = "test-session"
+class TestIntegration:
+    @pytest.fixture
+    def mock_run_commands(self):
+        with (
+            patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
+            patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
+        ):
+            yield mock_precommit, mock_test
 
-    with (
-        patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
-        patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
-    ):
+    @pytest.fixture
+    def mock_run_precommit(self):
+        with patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit:
+            yield mock_precommit
+
+    async def test_precommit_and_test_integration(self, mock_run_commands):
+        target_path = Path("/test/path")
+        session_id = "test-session"
+
+        mock_precommit, mock_test = mock_run_commands
         mock_precommit.return_value = "ruff check output"
         mock_test.return_value = "pytest output"
 
@@ -29,12 +39,9 @@ async def test_precommit_and_test_integration():
         assert mock_precommit.call_count == 1
         mock_test.assert_called_once()
 
-
-@pytest.mark.asyncio
-async def test_precommit_failure_stops_test():
-    """Test that if precommit fails, test agent is not called."""
-    target_path = Path("/test/path")
-    with patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit:
+    async def test_precommit_failure_stops_test(self, mock_run_precommit):
+        target_path = Path("/test/path")
+        mock_precommit = mock_run_precommit
         mock_precommit.side_effect = Exception("ruff check failed")
 
         with pytest.raises(Exception, match="ruff check failed"):
