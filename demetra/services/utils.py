@@ -8,13 +8,25 @@ from pathlib import Path
 from demetra.settings import LOG_DIR, LOGGING
 
 
-NO_ISSUE_TOKENS = [
+NO_ISSUE_TOKENS = {
     "silent",
     "no output",
+    "(no output)",
     "no issues found.",
+    "no issues found",
     "no clear, high-severity issues found.",
     "no output - no critical or error-level issues found.",
-]
+    "no critical or error-level issues found.",
+    "lgtm",
+    "looks good.",
+    "looks good",
+    "all good.",
+    "all good",
+    "nothing to report.",
+    "nothing to report",
+}
+
+NO_ISSUE_TOKENS_CASE = {t.casefold() for t in NO_ISSUE_TOKENS}
 
 
 async def live_stream(

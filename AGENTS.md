@@ -116,6 +116,8 @@ uv run bandit -c pyproject.toml .
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
 
+**Imports**: Always place imports at the top of the file (global scope). Local imports inside functions are permitted only in rare cases where they are necessary to resolve circular import dependencies.
+
 ## Testing Guidelines
 
 - Use `pytest` for tests

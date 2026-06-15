@@ -1,4 +1,8 @@
+import argparse
+import inspect
+
 from demetra.watcher import POLL_INTERVAL
+from demetra.worker import connection
 
 
 class TestWatcher:
@@ -8,15 +12,11 @@ class TestWatcher:
 
 class TestWorker:
     def test_worker_exists(self):
-        from demetra.worker import connection
-
         assert connection is not None
 
 
 class TestMainEntrypoint:
     def test_main_argparser_accepts_plan_loop(self):
-        import argparse
-
         from main import parser
 
         assert isinstance(parser, argparse.ArgumentParser)
@@ -36,8 +36,6 @@ class TestMainEntrypoint:
         assert args.plan_loop is False
 
     def test_main_function_accepts_plan_loop_kwarg(self):
-        import inspect
-
         from main import main
 
         sig = inspect.signature(main)

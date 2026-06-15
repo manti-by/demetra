@@ -1,3 +1,4 @@
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -24,8 +25,11 @@ from demetra.services.database import get_connection as _get_connection
 from demetra.services.encryption import decrypt_str
 
 
-@pytest.mark.usefixtures("setup_test_db")
 class TestDatabaseService:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
     @pytest.mark.asyncio
     async def test_create_and_read(
         self,
@@ -385,8 +389,6 @@ class TestProjectEnvironmentMutations:
 class TestProjectEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
-        from unittest.mock import patch
-
         with (
             patch("demetra.services.encryption.SECRET_KEY", "x7uKwdXjK-UPCdQ2DEoUoVoe1sAceCvG9iaJuTbwj20="),
             patch("demetra.services.encryption.ENCRYPTION_SALT", "DajyYABtMczCRByZdRh1W"),
@@ -556,8 +558,11 @@ class TestProjectEnvironmentType:
             await list_project_environments(project_id="missing", user_id="test-user")
 
 
-@pytest.mark.usefixtures("setup_test_db")
 class TestRunAttempts:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
     @pytest.mark.asyncio
     async def test_run_attempts_starts_at_0_on_insert(
         self,
@@ -606,8 +611,11 @@ class TestRunAttempts:
         assert found.run_attempts == 1
 
 
-@pytest.mark.usefixtures("setup_test_db")
 class TestPrLink:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
     @pytest.mark.asyncio
     async def test_pr_link_defaults_to_none(
         self,

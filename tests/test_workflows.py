@@ -5,18 +5,70 @@ from uuid import uuid4
 
 import pytest
 
+from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError
 from demetra.library.models import Context, LinearTask, Project
 from demetra.workflows.build import run_build_step
-from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
+from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.plan import run_plan_step
+from demetra.workflows.resolve import run_resolve_step
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.setup import setup_workflow
 
 
 class TestWorkflowSetup:
+    @pytest.fixture
+    def mock_search_projects(self):
+        with patch("demetra.workflows.setup.search_projects_by_name", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_environments(self):
+        with patch("demetra.workflows.setup.get_project_environments", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_linear_task(self):
+        with patch("demetra.workflows.setup.get_linear_task", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_session(self):
+        with patch("demetra.workflows.setup.get_session", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_git_pull(self):
+        with patch("demetra.workflows.setup.git_pull", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_git_worktree_create(self):
+        with patch("demetra.workflows.setup.git_worktree_create", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_setup_deps(
+        self,
+        mock_search_projects,
+        mock_get_environments,
+        mock_get_linear_task,
+        mock_get_session,
+        mock_git_pull,
+        mock_git_worktree_create,
+    ):
+        return (
+            mock_search_projects,
+            mock_get_environments,
+            mock_get_linear_task,
+            mock_get_session,
+            mock_git_pull,
+            mock_git_worktree_create,
+        )
+
     @pytest.mark.asyncio
-    async def test_setup_workflow_returns_context(self, faker):
+    async def test_setup_workflow_returns_context(self, faker, mock_setup_deps):
+        mock_search, mock_env, mock_task, mock_sess, _mock_pull, mock_wt = mock_setup_deps
         project_data = {
             "id": str(uuid4()),
             "user_id": str(uuid4()),
@@ -40,53 +92,25 @@ class TestWorkflowSetup:
             "comments": [],
         }
 
-        with patch(
-            "demetra.workflows.setup.search_projects_by_name",
-            new_callable=AsyncMock,
-            return_value=[project_data],
-        ):
-            with patch(
-                "demetra.workflows.setup.get_project_environments",
-                new_callable=AsyncMock,
-                return_value={},
-            ):
-                with patch(
-                    "demetra.workflows.setup.get_linear_task",
-                    new_callable=AsyncMock,
-                    return_value=LinearTask(**linear_task_data),  # ty: ignore
-                ):
-                    with patch(
-                        "demetra.workflows.setup.get_session",
-                        new_callable=AsyncMock,
-                        return_value=None,
-                    ):
-                        with patch(
-                            "demetra.workflows.setup.git_pull",
-                            new_callable=AsyncMock,
-                        ):
-                            with patch(
-                                "demetra.workflows.setup.git_worktree_create",
-                                new_callable=AsyncMock,
-                                return_value=f"/tmp/worktree/{faker.slug()}",
-                            ):
-                                result = await setup_workflow("demetra", auto_mode=False)
+        mock_search.return_value = [project_data]
+        mock_env.return_value = {}
+        mock_task.return_value = LinearTask(**linear_task_data)  # ty: ignore
+        mock_sess.return_value = None
+        mock_wt.return_value = f"/tmp/worktree/{faker.slug()}"
+
+        result = await setup_workflow("demetra", auto_mode=False)
 
         assert result is not None
         assert result.project.name == "demetra"
 
     @pytest.mark.asyncio
-    async def test_setup_workflow_project_not_found(self):
-        with patch(
-            "demetra.workflows.setup.search_projects_by_name",
-            new_callable=AsyncMock,
-            return_value=[],
-        ):
-            result = await setup_workflow("nonexistent", auto_mode=False)
-
+    async def test_setup_workflow_project_not_found(self, mock_search_projects):
+        mock_search_projects.return_value = []
+        result = await setup_workflow("nonexistent", auto_mode=False)
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_setup_workflow_multiple_projects_found(self, faker):
+    async def test_setup_workflow_multiple_projects_found(self, faker, mock_search_projects):
         project_data = {
             "id": str(uuid4()),
             "user_id": str(uuid4()),
@@ -100,19 +124,47 @@ class TestWorkflowSetup:
             "created_at": datetime.now().isoformat(),
             "updated_at": datetime.now().isoformat(),
         }
-        with patch(
-            "demetra.workflows.setup.search_projects_by_name",
-            new_callable=AsyncMock,
-            return_value=[project_data, project_data],
-        ):
-            result = await setup_workflow("demetra", auto_mode=False)
-
+        mock_search_projects.return_value = [project_data, project_data]
+        result = await setup_workflow("demetra", auto_mode=False)
         assert result is None
 
 
 class TestWorkflowPlan:
+    @pytest.fixture
+    def mock_plan_agent(self):
+        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_extract_plan(self):
+        with patch("demetra.workflows.plan.extract_plan", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_extract_questions(self):
+        with patch("demetra.workflows.plan.extract_questions", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_save_session(self):
+        with patch("demetra.workflows.plan.save_session", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_opencode_session_id(self):
+        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
+            yield m
+
     @pytest.mark.asyncio
-    async def test_run_plan_step_returns_build_plan(self, faker):
+    async def test_run_plan_step_returns_build_plan(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+        mock_extract_questions,
+        mock_save_session,
+        mock_get_opencode_session_id,
+    ):
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -141,36 +193,22 @@ class TestWorkflowPlan:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent",
-            new_callable=AsyncMock,
-            return_value=(0, faker.text(), ""),
-        ):
-            with patch(
-                "demetra.workflows.plan.extract_plan",
-                new_callable=AsyncMock,
-                return_value="build plan content",
-            ):
-                with patch(
-                    "demetra.workflows.plan.extract_questions",
-                    new_callable=AsyncMock,
-                    return_value=[],
-                ):
-                    with patch(
-                        "demetra.workflows.plan.save_session",
-                        new_callable=AsyncMock,
-                    ):
-                        with patch(
-                            "demetra.workflows.plan.get_opencode_session_id",
-                            new_callable=AsyncMock,
-                            return_value=None,
-                        ):
-                            result = await run_plan_step(context)
+        mock_plan_agent.return_value = (0, faker.text(), "")
+        mock_extract_plan.return_value = "build plan content"
+        mock_extract_questions.return_value = []
+        mock_get_opencode_session_id.return_value = None
+
+        result = await run_plan_step(context)
 
         assert result == "build plan content"
 
     @pytest.mark.asyncio
-    async def test_run_plan_step_empty_plan_returns_none(self, faker):
+    async def test_run_plan_step_empty_plan_returns_none(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+    ):
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -199,26 +237,33 @@ class TestWorkflowPlan:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent",
-            new_callable=AsyncMock,
-            return_value=(0, faker.text(), ""),
-        ):
-            with patch(
-                "demetra.workflows.plan.extract_plan",
-                new_callable=AsyncMock,
-                return_value=None,
-            ):
-                result = await run_plan_step(context)
+        mock_plan_agent.return_value = (0, faker.text(), "")
+        mock_extract_plan.return_value = None
+
+        result = await run_plan_step(context)
 
         assert result is None
 
 
 class TestWorkflowResolve:
-    @pytest.mark.asyncio
-    async def test_run_resolve_step_passes_task_and_questions(self, faker):
-        from demetra.workflows.resolve import run_resolve_step
+    @pytest.fixture
+    def mock_resolve_agent(self):
+        with patch("demetra.workflows.resolve.opencode_resolve_agent", new_callable=AsyncMock) as m:
+            yield m
 
+    @pytest.fixture
+    def mock_get_prompt(self):
+        with patch("demetra.workflows.resolve.get_prompt", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_resolve_deps(self, mock_resolve_agent, mock_get_prompt):
+        return mock_resolve_agent, mock_get_prompt
+
+    @pytest.mark.asyncio
+    async def test_run_resolve_step_passes_task_and_questions(self, faker, mock_resolve_deps):
+
+        mock_agent, mock_prompt = mock_resolve_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -255,19 +300,10 @@ class TestWorkflowResolve:
             "Answer each question by inspecting the codebase."
         )
 
-        with (
-            patch(
-                "demetra.workflows.resolve.opencode_resolve_agent",
-                new_callable=AsyncMock,
-                return_value=(0, "answer text", None),
-            ) as mock_agent,
-            patch(
-                "demetra.workflows.resolve.get_prompt",
-                new_callable=AsyncMock,
-                return_value=resolved_prompt,
-            ) as mock_prompt,
-        ):
-            result = await run_resolve_step(context=context, original_task=original_task, questions=questions)
+        mock_agent.return_value = (0, "answer text", None)
+        mock_prompt.return_value = resolved_prompt
+
+        result = await run_resolve_step(context=context, original_task=original_task, questions=questions)
 
         assert result == "answer text"
         mock_agent.assert_called_once()
@@ -285,9 +321,9 @@ class TestWorkflowResolve:
         )
 
     @pytest.mark.asyncio
-    async def test_run_resolve_step_uses_new_session(self, faker):
-        from demetra.workflows.resolve import run_resolve_step
+    async def test_run_resolve_step_uses_new_session(self, faker, mock_resolve_deps):
 
+        mock_agent, mock_prompt = mock_resolve_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -316,27 +352,94 @@ class TestWorkflowResolve:
             session=None,
         )
 
-        with (
-            patch(
-                "demetra.workflows.resolve.opencode_resolve_agent",
-                new_callable=AsyncMock,
-                return_value=(0, "answers", None),
-            ) as mock_agent,
-            patch(
-                "demetra.workflows.resolve.get_prompt",
-                new_callable=AsyncMock,
-                return_value="prompt text",
-            ),
-        ):
-            await run_resolve_step(context=context, original_task="task", questions=["q?"])
+        mock_agent.return_value = (0, "answers", None)
+        mock_prompt.return_value = "prompt text"
+
+        await run_resolve_step(context=context, original_task="task", questions=["q?"])
 
         call_kwargs = mock_agent.call_args.kwargs
         assert "session_id" not in call_kwargs or call_kwargs.get("session_id") is None
 
 
 class TestWorkflowPlanLoop:
+    @pytest.fixture
+    def mock_plan_agent(self):
+        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_extract_plan(self):
+        with patch("demetra.workflows.plan.extract_plan", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_extract_questions(self):
+        with patch("demetra.workflows.plan.extract_questions", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_resolve_step(self):
+        with patch("demetra.workflows.plan.run_resolve_step", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_save_session(self):
+        with patch("demetra.workflows.plan.save_session", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_opencode_session_id(self):
+        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_post_comment(self):
+        with patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_ticket_status(self):
+        with patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_max_plan_attempts_3(self):
+        with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 3):
+            yield
+
+    @pytest.fixture
+    def mock_max_plan_attempts_2(self):
+        with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 2):
+            yield
+
+    @pytest.fixture
+    def mock_plan_loop_base(
+        self,
+        mock_plan_agent,
+        mock_extract_plan,
+        mock_extract_questions,
+        mock_save_session,
+        mock_get_opencode_session_id,
+    ):
+        return (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            mock_save_session,
+            mock_get_opencode_session_id,
+        )
+
     @pytest.mark.asyncio
-    async def test_plan_loop_calls_resolve_and_revalidates(self, faker):
+    async def test_plan_loop_calls_resolve_and_revalidates(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_run_resolve_step,
+        mock_max_plan_attempts_3,
+    ):
+        mock_plan_agent, mock_extract_plan, mock_extract_questions, _mock_save_session, mock_get_opencode_session_id = (
+            mock_plan_loop_base
+        )
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -372,7 +475,7 @@ class TestWorkflowPlanLoop:
         ]
         plan_calls = []
 
-        async def mock_plan_agent(*args, **kwargs):
+        async def mock_plan_side_effect(*args, **kwargs):
             plan_calls.append(kwargs.get("task", ""))
             if plan_calls and "Resolved Answers" in plan_calls[-1]:
                 return plan_outputs[1]
@@ -381,46 +484,31 @@ class TestWorkflowPlanLoop:
         extract_plan_results = ["build plan v1", "build plan v2"]
         extract_question_results = [["How does X work?"], []]
 
-        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock, side_effect=mock_plan_agent):
-            with patch(
-                "demetra.workflows.plan.extract_plan",
-                new_callable=AsyncMock,
-                side_effect=extract_plan_results,
-            ):
-                with patch(
-                    "demetra.workflows.plan.extract_questions",
-                    new_callable=AsyncMock,
-                    side_effect=extract_question_results,
-                ):
-                    with patch(
-                        "demetra.workflows.plan.run_resolve_step",
-                        new_callable=AsyncMock,
-                        return_value="resolved answers",
-                    ) as mock_resolve:
-                        with patch(
-                            "demetra.workflows.plan.save_session",
-                            new_callable=AsyncMock,
-                        ):
-                            with patch(
-                                "demetra.workflows.plan.get_opencode_session_id",
-                                new_callable=AsyncMock,
-                                return_value=None,
-                            ):
-                                with patch(
-                                    "demetra.workflows.plan.MAX_PLAN_ATTEMPTS",
-                                    3,
-                                ):
-                                    result = await run_plan_step(context)
+        mock_plan_agent.side_effect = mock_plan_side_effect
+        mock_extract_plan.side_effect = extract_plan_results
+        mock_extract_questions.side_effect = extract_question_results
+        mock_run_resolve_step.return_value = "resolved answers"
+        mock_get_opencode_session_id.return_value = None
+
+        result = await run_plan_step(context)
 
         assert result == "build plan v2"
-        assert mock_resolve.call_count == 1
+        assert mock_run_resolve_step.call_count == 1
         assert len(plan_calls) == 2
         assert "Resolved Answers" in plan_calls[1]
 
     @pytest.mark.asyncio
-    async def test_plan_loop_max_attempts_raises(self, faker):
-        from demetra.library.exceptions import InfiniteLoopError
+    async def test_plan_loop_max_attempts_raises(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_run_resolve_step,
+        mock_max_plan_attempts_2,
+    ):
 
+        mock_plan_agent, mock_extract_plan, mock_extract_questions, _mock_save_session, mock_get_opencode_session_id = (
+            mock_plan_loop_base
+        )
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -450,48 +538,34 @@ class TestWorkflowPlanLoop:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.", None),
-        ):
-            with patch(
-                "demetra.workflows.plan.extract_plan",
-                new_callable=AsyncMock,
-                return_value="build plan",
-            ):
-                with patch(
-                    "demetra.workflows.plan.extract_questions",
-                    new_callable=AsyncMock,
-                    return_value=["What is X?"],
-                ):
-                    with patch(
-                        "demetra.workflows.plan.run_resolve_step",
-                        new_callable=AsyncMock,
-                        return_value="answers",
-                    ) as mock_resolve:
-                        with patch(
-                            "demetra.workflows.plan.save_session",
-                            new_callable=AsyncMock,
-                        ):
-                            with patch(
-                                "demetra.workflows.plan.get_opencode_session_id",
-                                new_callable=AsyncMock,
-                                return_value=None,
-                            ):
-                                with patch(
-                                    "demetra.workflows.plan.MAX_PLAN_ATTEMPTS",
-                                    2,
-                                ):
-                                    with pytest.raises(InfiniteLoopError):
-                                        await run_plan_step(context)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_run_resolve_step.return_value = "answers"
+        mock_get_opencode_session_id.return_value = None
 
-        assert mock_resolve.call_count == 1
+        with pytest.raises(InfiniteLoopError):
+            await run_plan_step(context)
+
+        assert mock_run_resolve_step.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_plan_loop_disabled_uses_linear_auto_mode(self, faker):
-        from demetra.library.exceptions import AutoCancelledError
+    async def test_plan_loop_disabled_uses_linear_auto_mode(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_run_resolve_step,
+        mock_post_comment,
+        mock_update_ticket_status,
+    ):
 
+        mock_plan_agent, mock_extract_plan, mock_extract_questions, _mock_save_session, mock_get_opencode_session_id = (
+            mock_plan_loop_base
+        )
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -521,51 +595,51 @@ class TestWorkflowPlanLoop:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.", None),
-        ):
-            with patch(
-                "demetra.workflows.plan.extract_plan",
-                new_callable=AsyncMock,
-                return_value="build plan",
-            ):
-                with patch(
-                    "demetra.workflows.plan.extract_questions",
-                    new_callable=AsyncMock,
-                    return_value=["What is X?"],
-                ):
-                    with patch(
-                        "demetra.workflows.plan.run_resolve_step",
-                        new_callable=AsyncMock,
-                    ) as mock_resolve:
-                        with patch(
-                            "demetra.workflows.plan.post_comment",
-                            new_callable=AsyncMock,
-                        ):
-                            with patch(
-                                "demetra.workflows.plan.update_ticket_status",
-                                new_callable=AsyncMock,
-                            ):
-                                with patch(
-                                    "demetra.workflows.plan.save_session",
-                                    new_callable=AsyncMock,
-                                ):
-                                    with patch(
-                                        "demetra.workflows.plan.get_opencode_session_id",
-                                        new_callable=AsyncMock,
-                                        return_value=None,
-                                    ):
-                                        with pytest.raises(AutoCancelledError):
-                                            await run_plan_step(context)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_get_opencode_session_id.return_value = None
 
-        mock_resolve.assert_not_called()
+        with pytest.raises(AutoCancelledError):
+            await run_plan_step(context)
+
+        mock_run_resolve_step.assert_not_called()
 
 
 class TestWorkflowBuild:
+    @pytest.fixture
+    def mock_build_agent(self):
+        with patch("demetra.workflows.build.opencode_build_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_review_agents(self):
+        with patch("demetra.workflows.build.run_review_agents", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_lint_and_test(self):
+        with patch("demetra.workflows.build.run_lint_and_test", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_user_input(self):
+        with patch("demetra.workflows.build.user_input", new_callable=AsyncMock) as m:
+            yield m
+
     @pytest.mark.asyncio
-    async def test_run_build_step_success(self, faker):
+    async def test_run_build_step_success(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_lint_and_test,
+        mock_user_input,
+    ):
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -594,69 +668,50 @@ class TestWorkflowBuild:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.build.opencode_build_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "", ""),
-        ):
-            with patch(
-                "demetra.workflows.build.run_review_agents",
-                new_callable=AsyncMock,
-                return_value=None,
-            ):
-                with patch(
-                    "demetra.workflows.build.run_lint_and_test",
-                    new_callable=AsyncMock,
-                    return_value=(False, None),
-                ):
-                    with patch(
-                        "demetra.workflows.build.user_input",
-                        new_callable=AsyncMock,
-                        return_value=("1", None),
-                    ):
-                        result = await run_build_step("test build plan", context)
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        result = await run_build_step("test build plan", context)
 
         assert result is None
 
 
 class TestWorkflowReview:
+    @pytest.fixture
+    def mock_review_agent(self):
+        with patch("demetra.workflows.review.opencode_review_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_summarize_review(self):
+        with patch("demetra.workflows.review.summarize_review", new_callable=AsyncMock) as m:
+            yield m
+
     @pytest.mark.asyncio
-    async def test_run_review_agents_returns_comments(self, faker):
+    async def test_run_review_agents_returns_comments(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
-        with patch(
-            "demetra.workflows.review.opencode_review_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "Raw review output from agent.", None),
-        ):
-            with patch(
-                "demetra.workflows.review.summarize_review",
-                new_callable=AsyncMock,
-                return_value=["Some comments here"],
-            ):
-                result = await run_review_agents(target_path)
+        mock_review_agent.return_value = (0, "Raw review output from agent.", None)
+        mock_summarize_review.return_value = ["Some comments here"]
+
+        result = await run_review_agents(target_path)
 
         assert result and "Some comments here" in result
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_no_issue_tokens(self, faker):
+    async def test_run_review_agents_no_issue_tokens(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
-        with patch(
-            "demetra.workflows.review.opencode_review_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "no issues found.", None),
-        ):
-            with patch(
-                "demetra.workflows.review.summarize_review",
-                new_callable=AsyncMock,
-                return_value=[],
-            ) as mock_summarize:
-                result = await run_review_agents(target_path)
+        mock_review_agent.return_value = (0, "no issues found.", None)
+        mock_summarize_review.return_value = []
+
+        result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize.assert_awaited_once_with(review_output="")
+        mock_summarize_review.assert_awaited_once_with(review_output="")
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_filters_thinking_prose(self, faker):
+    async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
         thinking_prose = (
             "Looking at the staged changes, they're all test additions and configuration updates.\n"
@@ -664,96 +719,142 @@ class TestWorkflowReview:
             "All staged changes pass lint checks. Let me verify the tests can actually run:\n"
             "All 72 tests pass. No high-severity issues found."
         )
-        with patch(
-            "demetra.workflows.review.opencode_review_agent",
-            new_callable=AsyncMock,
-            return_value=(0, thinking_prose, None),
-        ):
-            with patch(
-                "demetra.workflows.review.summarize_review",
-                new_callable=AsyncMock,
-                return_value=[],
-            ) as mock_summarize:
-                result = await run_review_agents(target_path)
+        mock_review_agent.return_value = (0, thinking_prose, None)
+        mock_summarize_review.return_value = []
+
+        result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize.assert_awaited_once()
-        sent_to_summarizer = mock_summarize.call_args.kwargs["review_output"]
+        mock_summarize_review.assert_awaited_once()
+        sent_to_summarizer = mock_summarize_review.call_args.kwargs["review_output"]
         for line in thinking_prose.splitlines():
             assert line in sent_to_summarizer
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_returns_none_when_summarizer_finds_nothing(self, faker):
+    async def test_run_review_agents_returns_none_when_summarizer_finds_nothing(
+        self, faker, mock_review_agent, mock_summarize_review
+    ):
         target_path = Path(f"/tmp/{faker.slug()}")
-        with patch(
-            "demetra.workflows.review.opencode_review_agent",
-            new_callable=AsyncMock,
-            return_value=(0, "Some prose that turns out to be just thinking.", None),
-        ):
-            with patch(
-                "demetra.workflows.review.summarize_review",
-                new_callable=AsyncMock,
-                return_value=[],
-            ):
-                result = await run_review_agents(target_path)
+        mock_review_agent.return_value = (0, "Some prose that turns out to be just thinking.", None)
+        mock_summarize_review.return_value = []
+
+        result = await run_review_agents(target_path)
 
         assert result is None
 
 
 class TestWorkflowLint:
+    @pytest.fixture
+    def mock_is_package_installed(self):
+        with patch("demetra.workflows.lint.is_package_installed", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_ruff_format(self):
+        with patch("demetra.workflows.lint.run_ruff_format", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_ruff_checks(self):
+        with patch("demetra.workflows.lint.run_ruff_checks", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_run_pytests(self):
+        with patch("demetra.workflows.lint.run_pytests", new_callable=AsyncMock) as m:
+            yield m
+
     @pytest.mark.asyncio
-    async def test_run_lint_and_test_returns_errors(self, faker):
+    async def test_run_lint_and_test_returns_errors(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+    ):
         target_path = Path(f"/tmp/{faker.slug()}")
 
-        with patch(
-            "demetra.workflows.lint.is_package_installed",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            with patch(
-                "demetra.workflows.lint.run_ruff_format",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.lint.run_ruff_checks",
-                    new_callable=AsyncMock,
-                    return_value=(1, "lint errors", None),
-                ):
-                    result = await run_lint_and_test(target_path)
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (1, "lint errors", None)
+
+        result = await run_lint_and_test(target_path)
 
         assert result == (True, "lint errors")
 
     @pytest.mark.asyncio
-    async def test_run_lint_and_test_no_errors(self, faker):
+    async def test_run_lint_and_test_no_errors(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
         target_path = Path(f"/tmp/{faker.slug()}")
 
-        with patch(
-            "demetra.workflows.lint.is_package_installed",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            with patch(
-                "demetra.workflows.lint.run_ruff_format",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.lint.run_ruff_checks",
-                    new_callable=AsyncMock,
-                    return_value=(0, "", None),
-                ):
-                    with patch(
-                        "demetra.workflows.lint.run_pytests",
-                        new_callable=AsyncMock,
-                        return_value=(0, "", None),
-                    ):
-                        result = await run_lint_and_test(target_path)
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (0, "", None)
+
+        result = await run_lint_and_test(target_path)
 
         assert result == (False, None)
 
 
 class TestWorkflowCleanup:
+    @pytest.fixture
+    def mock_git_add_all(self):
+        with patch("demetra.workflows.cleanup.git_add_all", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_git_commit(self):
+        with patch("demetra.workflows.cleanup.git_commit", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_git_push(self):
+        with patch("demetra.workflows.cleanup.git_push", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_create_pull_request(self):
+        with patch("demetra.workflows.cleanup.create_pull_request", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_session_pr_link(self):
+        with patch("demetra.workflows.cleanup.update_session_pr_link", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_git_cleanup(self):
+        with patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_linear_cleanup(self):
+        with patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_commit_deps(
+        self,
+        mock_git_add_all,
+        mock_git_commit,
+        mock_git_push,
+        mock_create_pull_request,
+    ):
+        return (
+            mock_git_add_all,
+            mock_git_commit,
+            mock_git_push,
+            mock_create_pull_request,
+        )
+
     @pytest.mark.asyncio
-    async def test_commit_and_push(self, faker):
+    async def test_commit_and_push(self, faker, mock_commit_deps):
+        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -782,31 +883,16 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.cleanup.git_add_all",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            with patch(
-                "demetra.workflows.cleanup.git_commit",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.cleanup.git_push",
-                    new_callable=AsyncMock,
-                ):
-                    with patch(
-                        "demetra.workflows.cleanup.create_pull_request",
-                        new_callable=AsyncMock,
-                        return_value=(0, "https://github.com/test/demetra/pull/1", ""),
-                    ):
-                        result = await commit_and_push(context)
-                        assert result is True
+        _mock_add_all.return_value = True
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/1", "")
+
+        result = await commit_and_push(context)
+        assert result is True
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_pr_failure(self, faker):
-        from demetra.workflows.cleanup import PullRequestError
+    async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):
 
+        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -835,29 +921,20 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.cleanup.git_add_all",
-            new_callable=AsyncMock,
-            return_value=True,
-        ):
-            with patch(
-                "demetra.workflows.cleanup.git_commit",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.cleanup.git_push",
-                    new_callable=AsyncMock,
-                ):
-                    with patch(
-                        "demetra.workflows.cleanup.create_pull_request",
-                        new_callable=AsyncMock,
-                        return_value=(1, "", "gh: could not create PR"),
-                    ):
-                        with pytest.raises(PullRequestError, match="could not create PR"):
-                            await commit_and_push(context)
+        _mock_add_all.return_value = True
+        mock_pr.return_value = (1, "", "gh: could not create PR")
+
+        with pytest.raises(PullRequestError, match="could not create PR"):
+            await commit_and_push(context)
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_persists_pr_link(self, faker):
+    async def test_commit_and_push_persists_pr_link(
+        self,
+        faker,
+        mock_commit_deps,
+        mock_update_session_pr_link,
+    ):
+        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -886,35 +963,22 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.cleanup.git_add_all",
-            new_callable=AsyncMock,
-        ):
-            with patch(
-                "demetra.workflows.cleanup.git_commit",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.cleanup.git_push",
-                    new_callable=AsyncMock,
-                ):
-                    with patch(
-                        "demetra.workflows.cleanup.create_pull_request",
-                        new_callable=AsyncMock,
-                        return_value=(0, "https://github.com/test/demetra/pull/42\n", ""),
-                    ):
-                        with patch(
-                            "demetra.workflows.cleanup.update_session_pr_link",
-                            new_callable=AsyncMock,
-                        ) as mock_update_pr_link:
-                            await commit_and_push(context)
-                            mock_update_pr_link.assert_awaited_once_with(
-                                task_id=context.linear_task.id,
-                                pr_link="https://github.com/test/demetra/pull/42",
-                            )
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/42\n", "")
+
+        await commit_and_push(context)
+        mock_update_session_pr_link.assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            pr_link="https://github.com/test/demetra/pull/42",
+        )
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_skips_pr_link_when_url_missing(self, faker):
+    async def test_commit_and_push_skips_pr_link_when_url_missing(
+        self,
+        faker,
+        mock_commit_deps,
+        mock_update_session_pr_link,
+    ):
+        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -943,32 +1007,13 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.cleanup.git_add_all",
-            new_callable=AsyncMock,
-        ):
-            with patch(
-                "demetra.workflows.cleanup.git_commit",
-                new_callable=AsyncMock,
-            ):
-                with patch(
-                    "demetra.workflows.cleanup.git_push",
-                    new_callable=AsyncMock,
-                ):
-                    with patch(
-                        "demetra.workflows.cleanup.create_pull_request",
-                        new_callable=AsyncMock,
-                        return_value=(0, "Pull request created successfully\n", ""),
-                    ):
-                        with patch(
-                            "demetra.workflows.cleanup.update_session_pr_link",
-                            new_callable=AsyncMock,
-                        ) as mock_update_pr_link:
-                            await commit_and_push(context)
-                            mock_update_pr_link.assert_not_awaited()
+        mock_pr.return_value = (0, "Pull request created successfully\n", "")
+
+        await commit_and_push(context)
+        mock_update_session_pr_link.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_cleanup_workflow_success(self, faker):
+    async def test_cleanup_workflow_success(self, faker, mock_git_cleanup, mock_linear_cleanup):
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -997,12 +1042,4 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        with patch(
-            "demetra.workflows.cleanup.git_cleanup",
-            new_callable=AsyncMock,
-        ):
-            with patch(
-                "demetra.workflows.cleanup.linear_cleanup",
-                new_callable=AsyncMock,
-            ):
-                await cleanup_workflow(context, is_success=True, should_update_linear_status=True)
+        await cleanup_workflow(context, is_success=True, should_update_linear_status=True)

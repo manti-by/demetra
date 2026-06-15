@@ -16,7 +16,17 @@ from demetra.library.models import LinearTask, UserResponse
 from demetra.library.tables import metadata
 from demetra.services import database as _database_module
 from demetra.services.auth import create_jwt_token
-from demetra.services.database import _engine_cache, get_async_engine, get_async_session_maker
+from demetra.services.database import (
+    _engine_cache,
+    create_user,
+    get_async_engine,
+    get_async_session_maker,
+    get_user_by_id,
+    upsert_pending_session,
+)
+from demetra.services.database import (
+    get_connection as _get_connection,
+)
 from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -149,6 +159,46 @@ def linear_ticket_data(linear_issue_id: str, linear_identifier: str) -> dict:
         "identifier": linear_identifier,
         "title": fake.sentence(nb_words=4),
     }
+
+
+@pytest.fixture
+def create_test_user():
+    async def _create(github_username="testuser", role="admin"):
+        user_id = await create_user(
+            github_id=f"git-{uuid4().hex[:8]}",
+            github_username=github_username,
+            email=f"{github_username}@example.com",
+        )
+        async with _get_connection() as conn:
+            await conn.execute(text("UPDATE users SET role = :role WHERE id = :id"), {"role": role, "id": user_id})
+            await conn.commit()
+        user_data = await get_user_by_id(user_id)
+        assert user_data is not None, f"User {user_id} not found after creation"
+        return UserResponse(
+            id=user_data["id"],
+            github_username=user_data["github_username"],
+            email=user_data["email"],
+            role=user_data["role"],
+        )
+
+    return _create
+
+
+@pytest.fixture
+def create_test_session():
+    async def _create(task_id="task-123", user_id=None, step="initial"):
+        await upsert_pending_session(
+            task_id=task_id, session_id=f"sess-{uuid4().hex[:8]}", user_id=user_id, name="Test Session"
+        )
+        if step != "initial":
+            async with _get_connection() as conn:
+                await conn.execute(
+                    text("UPDATE sessions SET step = :step WHERE task_id = :task_id"),
+                    {"step": step, "task_id": task_id},
+                )
+                await conn.commit()
+
+    return _create
 
 
 @pytest.fixture
@@ -376,6 +426,24 @@ def graphql_update_success_response() -> dict:
 
 
 @pytest.fixture
+def linear_full_settings(linear_team_id: str, linear_state_id: str) -> dict:
+    return {
+        "team_id": linear_team_id,
+        "default_state": linear_state_id,
+        "default_project": "project-123",
+        "feature_label_id": "label-123",
+        "states": {"todo": linear_state_id, "in_review": "state-review"},
+        "projects": {},
+        "api_url": "",
+        "client_id": None,
+        "client_secret": None,
+        "oauth_scope": "",
+        "oauth_token_url": "",
+        "service_name": "",
+    }
+
+
+@pytest.fixture
 def mock_linked_projects():
     return {"demetra": (str(uuid4()), str(uuid4()))}
 
@@ -488,6 +556,39 @@ def db_session_id() -> str:
 @pytest.fixture
 def db_build_plan() -> str:
     return fake.text(max_nb_chars=100)
+
+
+@pytest.fixture
+def jwt_settings() -> dict:
+    return {
+        "secret_key": "test_secret_key",
+        "algorithm": "HS256",
+        "expiration_days": 14,
+    }
+
+
+@pytest.fixture
+def github_oauth_settings() -> dict:
+    return {
+        "client_id": "test_client_id",
+        "client_secret": "test_client_secret",
+        "redirect_uri": "https://example.com/callback",
+        "oauth_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "user_url": "https://api.github.com/user",
+    }
+
+
+@pytest.fixture
+def mock_jwt_settings(jwt_settings: dict):
+    with patch("demetra.services.auth.JWT", jwt_settings):
+        yield
+
+
+@pytest.fixture
+def mock_github_oauth_settings(github_oauth_settings: dict):
+    with patch("demetra.services.auth.GITHUB_OAUTH", github_oauth_settings):
+        yield
 
 
 @pytest.fixture

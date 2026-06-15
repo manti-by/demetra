@@ -5,8 +5,12 @@ from demetra.services.database import update_session_step
 from demetra.services.groq import summarize_review
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
-from demetra.services.utils import NO_ISSUE_TOKENS
+from demetra.services.utils import NO_ISSUE_TOKENS_CASE
 from demetra.settings import OPENCODE
+
+
+def filter_meaningful_reviews(findings: list[str]) -> list[str]:
+    return [f for f in findings if len(f) >= 10 and f.casefold() not in NO_ISSUE_TOKENS_CASE]
 
 
 async def run_review_agents(
@@ -30,17 +34,19 @@ async def run_review_agents(
             stripped = line.strip()
             if not stripped:
                 continue
-            if any(stripped == token.strip() for token in NO_ISSUE_TOKENS):
+            if stripped.casefold() in NO_ISSUE_TOKENS_CASE:
                 continue
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
     findings = await summarize_review(review_output=review_output)
     if findings:
-        print_message("Review agents returned comments", style="result")
-        findings_text = "\n".join(f"{i + 1}. {finding}" for i, finding in enumerate(findings))
-        print_message(findings_text, style="result")
-        return findings_text
+        meaningful = filter_meaningful_reviews(findings)
+        if meaningful:
+            print_message("Review agents returned comments", style="result")
+            findings_text = "\n".join(f"{i + 1}. {finding}" for i, finding in enumerate(meaningful))
+            print_message(findings_text, style="result")
+            return findings_text
 
     print_message("No comments from any review agent, continuing the workflow.", style="result")
     return None
