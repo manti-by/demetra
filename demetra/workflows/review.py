@@ -9,11 +9,8 @@ from demetra.services.utils import NO_ISSUE_TOKENS_CASE
 from demetra.settings import OPENCODE
 
 
-SKIP_REVIEW_TOKENS = {t.casefold() for t in ["no output", "(no output)", "silent", "lgtm", "looks good", "all good"]}
-
-
 def filter_meaningful_reviews(findings: list[str]) -> list[str]:
-    return [f for f in findings if len(f) >= 10 and f.casefold() not in SKIP_REVIEW_TOKENS]
+    return [f for f in findings if len(f) >= 10 and f.casefold() not in NO_ISSUE_TOKENS_CASE]
 
 
 async def run_review_agents(
