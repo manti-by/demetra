@@ -1,3 +1,5 @@
+.PHONY: react
+
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
 
@@ -22,7 +24,7 @@ deploy:
 	sudo systemctl restart demetra-api.service
 	sudo systemctl restart demetra-react.service
 	sudo systemctl restart demetra-watcher.service
-	sudo systemctl restart demetra-worker@{1..4}.service
+	sudo systemctl restart demetra-worker@$${1..4}.service
 	sudo service nginx reload
 
 check:
