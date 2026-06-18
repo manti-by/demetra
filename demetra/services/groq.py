@@ -114,3 +114,26 @@ async def extract_plan(plan_output: str, task_description: str, comments: list[s
     chain = prompt | llm
     result = await chain.ainvoke({"task_description": task_description_full, "plan_output": plan_output})
     return str(result.content)
+
+
+async def generate_pr_description(task_details: str, build_plan: str | None = None) -> str:
+    llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=1024, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="generate_pr_description")),
+            ("human", "Task details:\n{task_details}\n\nImplementation plan:\n{build_plan}"),
+        ]
+    )
+
+    chain = prompt | llm
+    try:
+        result = await chain.ainvoke(
+            {
+                "task_details": task_details,
+                "build_plan": build_plan or "No build plan available.",
+            }
+        )
+        return str(result.content).strip()
+    except Exception:
+        logger.exception("LLM call failed in generate_pr_description")
+        return ""

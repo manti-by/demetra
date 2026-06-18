@@ -5,6 +5,7 @@ from demetra.library.models import Context
 from demetra.services.database import update_session_pr_link, update_session_step
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request, extract_pr_link
+from demetra.services.groq import generate_pr_description
 from demetra.services.linear import linear_cleanup
 from demetra.services.tui import print_message
 
@@ -29,11 +30,22 @@ async def commit_and_push(context: Context) -> bool:
     print_message("Pushing changes", style="heading")
     await git_push(target_path=context.worktree_path, branch_name=context.branch_name, env=context.project.environment)
 
+    print_message("Generating PR description", style="heading")
+    task_details = f"{context.linear_task.full_title}\n\n{context.linear_task.description}"
+    try:
+        pr_body = await generate_pr_description(task_details=task_details, build_plan=context.build_plan)
+    except Exception:  # noqa: BLE001
+        print_message("Failed to generate PR description, continuing with empty body", style="warning")
+        pr_body = ""
+    if not pr_body:
+        pr_body = ""
+
     print_message("Creating GitHub PR", style="heading")
     exit_code, stdout, stderr = await create_pull_request(
         target_path=context.worktree_path,
         branch_name=context.branch_name,
         title=context.linear_task.full_title,
+        body=pr_body,
         env=context.project.environment,
     )
     if exit_code != 0:
