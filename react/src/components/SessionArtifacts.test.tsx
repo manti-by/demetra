@@ -14,6 +14,7 @@ const mockSessionWithPrLink = {
   updated_at: '2026-01-01T01:00:00Z',
   step: 'completed',
   pr_link: 'https://github.com/owner/repo/pull/42',
+  linear_link: 'https://linear.app/manti-by/issue/MNT-123',
 };
 
 const mockSessionWithBuildPlanOnly = {
@@ -25,6 +26,7 @@ const mockSessionWithoutArtifacts = {
   ...mockSessionWithPrLink,
   pr_link: null,
   build_plan: null,
+  linear_link: null,
 };
 
 vi.mock('../services/api', () => ({
@@ -64,6 +66,18 @@ describe('SessionArtifacts', () => {
     const link = await screen.findByText('View Pull Request');
     expect(link).toBeInTheDocument();
     expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/owner/repo/pull/42');
+    expect(link.closest('a')).toHaveAttribute('target', '_blank');
+    expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('renders Linear issue link when session has linear_link', async () => {
+    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+
+    render(<SessionArtifacts taskId="TASK-123" />);
+
+    const link = await screen.findByText('View Linear Issue');
+    expect(link).toBeInTheDocument();
+    expect(link.closest('a')).toHaveAttribute('href', 'https://linear.app/manti-by/issue/MNT-123');
     expect(link.closest('a')).toHaveAttribute('target', '_blank');
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });

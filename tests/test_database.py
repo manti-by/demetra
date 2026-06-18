@@ -16,6 +16,7 @@ from demetra.services.database import (
     list_project_environments,
     mark_session_posted,
     save_session,
+    update_session_linear_link,
     update_session_pr_link,
     update_session_step,
     upsert_pending_session,
@@ -609,6 +610,66 @@ class TestRunAttempts:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.run_attempts == 1
+
+
+class TestLinearLink:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_linear_link_defaults_to_none(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.linear_link is None
+
+    @pytest.mark.asyncio
+    async def test_save_session_stores_linear_link(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        url = "https://linear.app/manti-by/issue/MNT-123"
+        session = await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="plan", linear_link=url)
+
+        assert session.linear_link == url
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.linear_link == url
+
+    @pytest.mark.asyncio
+    async def test_update_session_linear_link_persists_value(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        await update_session_linear_link(task_id=db_task_id, linear_link="https://linear.app/manti-by/issue/MNT-456")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.linear_link == "https://linear.app/manti-by/issue/MNT-456"
+
+    @pytest.mark.asyncio
+    async def test_linear_link_preserved_on_save_without_link(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        url = "https://linear.app/manti-by/issue/MNT-789"
+        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan A", linear_link=url)
+        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan B")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.build_plan == "Plan B"
+        assert found.linear_link == url
 
 
 class TestPrLink:

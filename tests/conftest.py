@@ -253,9 +253,11 @@ async def mock_linear_settings(linear_settings: dict):
 
 @pytest.fixture
 def linear_task_data() -> dict:
+    identifier = f"MNT-{fake.random_int(min=1, max=999)}"
     return {
         "id": f"issue-{uuid4().hex[:8]}",
-        "identifier": f"MNT-{fake.random_int(min=1, max=999)}",
+        "identifier": identifier,
+        "url": f"https://linear.app/manti-by/issue/{identifier}",
         "title": fake.sentence(nb_words=4),
         "description": fake.paragraph(nb_sentences=2),
         "priority": fake.random_int(min=1, max=4),

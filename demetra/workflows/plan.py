@@ -58,10 +58,13 @@ async def run_plan_step(context: Context) -> str | None:
                 session_id=session_id,
                 build_plan=build_plan,
                 name=context.linear_task.full_title,
+                linear_link=context.linear_task.url,
             )
             print_message(f"Saved session {session_id}.", style="result")
         else:
-            context.session = await save_session(task_id=context.linear_task.id, build_plan=build_plan)
+            context.session = await save_session(
+                task_id=context.linear_task.id, build_plan=build_plan, linear_link=context.linear_task.url
+            )
             print_message("No opencode session found, saved build plan without session_id.", style="warning")
 
         print_message("Plan step is completed", style="heading")

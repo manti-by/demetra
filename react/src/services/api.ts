@@ -65,6 +65,7 @@ export interface Session {
   updated_at: string;
   step: string | null;
   pr_link: string | null;
+  linear_link: string | null;
 }
 
 export async function getSessions(): Promise<Session[]> {

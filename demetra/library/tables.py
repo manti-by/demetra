@@ -28,6 +28,7 @@ sessions = Table(
     Column("user_id", String(), nullable=True),
     Column("run_attempts", Integer(), nullable=False, server_default="0"),
     Column("pr_link", String(), nullable=True),
+    Column("linear_link", String(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )
