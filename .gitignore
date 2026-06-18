@@ -3,7 +3,6 @@
 .idea/
 .ropeproject/
 .vscode/
-.zed/
 
 .pytest_cache/
 .ruff_cache/

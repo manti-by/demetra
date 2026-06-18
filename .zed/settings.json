@@ -1,0 +1,52 @@
+{
+  "languages": {
+    "GraphQL": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "HTML": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "JavaScript": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "JSON": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "JSONC": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "Make": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "Markdown": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "Python": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+      "ensure_final_newline_on_save": true,
+      "language_servers": ["!basedpyright", "!pylsp", "!pyright", "...", "ty"],
+    },
+    "TypeScript": {
+      "format_on_save": "on",
+    },
+    "TSX": {
+      "format_on_save": "on",
+    },
+    "Plain Text": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+    "YAML": {
+      "format_on_save": "on",
+      "remove_trailing_whitespace_on_save": true,
+    },
+  },
+}
