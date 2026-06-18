@@ -14,7 +14,7 @@ from demetra.services.database import (
     get_user_by_id,
     save_jwt_token,
 )
-from demetra.settings import GITHUB_OAUTH, JWT
+from demetra.settings import GITHUB, JWT
 
 
 class AuthError(LinearError):
@@ -23,30 +23,32 @@ class AuthError(LinearError):
 
 def get_github_auth_url() -> tuple[str, str]:
     state = secrets.token_urlsafe(32)
+    oauth = GITHUB["oauth"]
     params = {
-        "client_id": GITHUB_OAUTH["client_id"],
-        "redirect_uri": GITHUB_OAUTH["redirect_uri"],
+        "client_id": oauth["client_id"],
+        "redirect_uri": oauth["redirect_uri"],
         "scope": "read:user user:email",
         "state": state,
     }
     query = "&".join(f"{k}={v}" for k, v in params.items())
-    return f"{GITHUB_OAUTH['oauth_url']}?{query}", state
+    return f"{oauth['oauth_url']}?{query}", state
 
 
 async def exchange_code_for_token(code: str) -> str:
-    if not GITHUB_OAUTH["client_id"] or not GITHUB_OAUTH["client_secret"]:
+    oauth = GITHUB["oauth"]
+    if not oauth["client_id"] or not oauth["client_secret"]:
         raise AuthError("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set")
 
     payload = {
-        "client_id": GITHUB_OAUTH["client_id"],
-        "client_secret": GITHUB_OAUTH["client_secret"],
+        "client_id": oauth["client_id"],
+        "client_secret": oauth["client_secret"],
         "code": code,
     }
 
     try:
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                GITHUB_OAUTH["token_url"],
+                oauth["token_url"],
                 data=payload,
                 timeout=aiohttp.ClientTimeout(total=10),
                 headers={"Accept": "application/json"},
@@ -64,10 +66,11 @@ async def exchange_code_for_token(code: str) -> str:
 
 
 async def get_github_user(access_token: str) -> GitHubUser:
+    oauth = GITHUB["oauth"]
     try:
         async with aiohttp.ClientSession() as session:
             async with session.get(
-                GITHUB_OAUTH["user_url"],
+                oauth["user_url"],
                 timeout=aiohttp.ClientTimeout(total=10),
                 headers={"Authorization": f"Bearer {access_token}"},
             ) as response:

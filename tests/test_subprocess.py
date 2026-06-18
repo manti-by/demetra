@@ -120,3 +120,28 @@ class TestSubprocessService:
         assert "env" in call_kwargs
         assert "PATH" in call_kwargs["env"]
         assert call_kwargs["env"]["PATH"] == os.environ["PATH"]
+
+    @pytest.mark.asyncio
+    async def test_run_command_handles_timeout(self, mock_subprocess_exec):
+        async def hanging_stream(*args, **kwargs):
+            await asyncio.sleep(3600)
+
+        mock_process = _make_mock_process()
+        mock_subprocess_exec.return_value = mock_process
+
+        with patch("demetra.services.subprocess.live_stream", side_effect=hanging_stream):
+            exit_code, _stdout, stderr = await run_command(["cmd"], Path("/test"), timeout=1)
+
+        assert exit_code == -1
+        assert "timed out" in stderr.lower()
+        mock_process.kill.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_command_raises_on_missing_stdout(self, mock_subprocess_exec):
+        mock_process = MagicMock()
+        mock_process.stdout = None
+        mock_process.stderr = None
+        mock_subprocess_exec.return_value = mock_process
+
+        with pytest.raises(AttributeError, match="stdout/stderr is None"):
+            await run_command(["cmd"], Path("/test"))

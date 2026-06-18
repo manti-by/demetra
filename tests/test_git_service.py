@@ -7,11 +7,17 @@ import pytest
 
 from demetra.library.models import Context, LinearTask, Project
 from demetra.services.git import (
+    get_worktree_path,
     git_add_all,
     git_branch_delete,
+    git_checkout,
     git_cleanup,
     git_commit,
+    git_fetch,
+    git_force_push,
+    git_pull,
     git_push,
+    git_rebase,
     git_worktree_create,
     git_worktree_remove,
 )
@@ -144,3 +150,46 @@ class TestGitService:
     async def test_git_cleanup_failure_deletes_branch(self, faker, mock_git_worktree_remove, mock_git_branch_delete):
         context = _make_context(faker)
         await git_cleanup(context, is_success=False)
+
+    @pytest.mark.asyncio
+    async def test_git_fetch(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        await git_fetch(target_path)
+
+    @pytest.mark.asyncio
+    async def test_git_checkout(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        branch_name = f"feature/{faker.slug()}"
+        await git_checkout(target_path, branch_name)
+
+    @pytest.mark.asyncio
+    async def test_git_rebase_success(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        result = await git_rebase(target_path, "main")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_git_rebase_failure_raises(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_run_command.return_value = (1, "", "conflict error")
+        with pytest.raises(RuntimeError, match="Rebase failed"):
+            await git_rebase(target_path, "main")
+
+    @pytest.mark.asyncio
+    async def test_git_force_push(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        branch_name = f"feature/{faker.slug()}"
+        await git_force_push(target_path, branch_name)
+
+    @pytest.mark.asyncio
+    async def test_git_pull(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        await git_pull(target_path)
+
+    def test_get_worktree_path(self, faker):
+        project = _make_project(faker)
+        branch_name = f"feature/{faker.slug()}"
+        path = get_worktree_path(project=project, branch_name=branch_name)
+        assert project.repository_owner in str(path)
+        assert project.repository_name in str(path)
+        assert branch_name in str(path)

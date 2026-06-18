@@ -33,3 +33,15 @@ class TestFilesystemService:
             with patch("demetra.services.filesystem.PROJECTS_PATH", projects_path):
                 result = get_project_root("myproject")
                 assert result == projects_path / "myproject"
+
+    def test_get_project_root_raises_when_projects_path_missing(self):
+        with patch("demetra.services.filesystem.PROJECTS_PATH", Path("/nonexistent/path")):
+            with pytest.raises(Exception, match="does not exist"):
+                get_project_root("whatever")
+
+    def test_get_project_root_raises_when_projects_path_not_dir(self):
+        with tempfile.NamedTemporaryFile() as tmpfile:
+            file_path = Path(tmpfile.name)
+            with patch("demetra.services.filesystem.PROJECTS_PATH", file_path):
+                with pytest.raises(Exception, match="not a directory"):
+                    get_project_root("whatever")

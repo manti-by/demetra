@@ -6,6 +6,7 @@ from demetra.api.projects import router as projects_router
 from demetra.api.sessions import router as sessions_router
 from demetra.api.users import router as users_router
 from demetra.api.watcher import router as watcher_router
+from demetra.api.webhooks import router as webhooks_router
 
 
 app = FastAPI(title="Demetra API")
@@ -23,3 +24,4 @@ app.include_router(projects_router)
 app.include_router(sessions_router)
 app.include_router(users_router)
 app.include_router(watcher_router)
+app.include_router(webhooks_router)

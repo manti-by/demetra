@@ -3,7 +3,7 @@ from pathlib import Path
 
 from demetra.library.types import (
     GitConfig,
-    GitHubOAuthConfig,
+    GitHubConfig,
     GroqConfig,
     JWTConfig,
     LinearConfig,
@@ -110,17 +110,19 @@ GIT: GitConfig = {
     "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")).resolve(),
 }
 
-GITHUB: PathConfig = {
+GITHUB: GitHubConfig = {
     "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")).resolve(),
-}
-
-GITHUB_OAUTH: GitHubOAuthConfig = {
-    "client_id": os.environ.get("GITHUB_CLIENT_ID"),
-    "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
-    "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demetra.manti.by/github/callback"),
-    "oauth_url": "https://github.com/login/oauth/authorize",
-    "token_url": "https://github.com/login/oauth/access_token",
-    "user_url": "https://api.github.com/user",
+    "oauth": {
+        "client_id": os.environ.get("GITHUB_CLIENT_ID"),
+        "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
+        "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demetra.manti.by/github/callback"),
+        "oauth_url": "https://github.com/login/oauth/authorize",
+        "token_url": "https://github.com/login/oauth/access_token",
+        "user_url": "https://api.github.com/user",
+    },
+    "webhook": {
+        "secret": os.environ.get("GITHUB_WEBHOOK_SECRET"),
+    },
 }
 
 JWT: JWTConfig = {

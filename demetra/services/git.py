@@ -71,6 +71,29 @@ async def git_branch_delete(target_path: Path, branch_name: str, env: dict[str, 
     await run_command(command=command, target_path=target_path, env=env)
 
 
+async def git_fetch(target_path: Path, env: dict[str, str] | None = None):
+    command = [str(GIT["path"]), "fetch", "--all"]
+    await run_command(command=command, target_path=target_path, env=env)
+
+
+async def git_checkout(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
+    command = [str(GIT["path"]), "checkout", branch_name]
+    await run_command(command=command, target_path=target_path, env=env)
+
+
+async def git_rebase(target_path: Path, base_branch: str, env: dict[str, str] | None = None) -> bool:
+    command = [str(GIT["path"]), "rebase", "-X", "theirs", f"origin/{base_branch}"]
+    exit_code, _, stderr = await run_command(command=command, target_path=target_path, env=env)
+    if exit_code == 0:
+        return True
+    raise RuntimeError(f"Rebase failed: {stderr.strip()}")
+
+
+async def git_force_push(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
+    command = [str(GIT["path"]), "push", "--force-with-lease", "origin", branch_name]
+    await run_command(command=command, target_path=target_path, env=env)
+
+
 async def git_cleanup(context: Context, is_success: bool):
     env = context.project.environment
     try:

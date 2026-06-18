@@ -49,6 +49,15 @@ class GitHubOAuthConfig(TypedDict):
     user_url: str
 
 
+class GitHubWebhookConfig(TypedDict):
+    secret: str | None
+
+
+class GitHubConfig(PathConfig):
+    oauth: GitHubOAuthConfig
+    webhook: GitHubWebhookConfig
+
+
 class JWTConfig(TypedDict):
     secret_key: str | None
     algorithm: str

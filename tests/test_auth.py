@@ -1,10 +1,11 @@
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
+import aiohttp
 import pytest
 from fastapi.testclient import TestClient
 
 from demetra.app import app
-from demetra.library.models import GitHubUser
+from demetra.library.models import GitHubUser, UserResponse
 from demetra.services.auth import (
     AuthError,
     authenticate_user,
@@ -12,6 +13,8 @@ from demetra.services.auth import (
     exchange_code_for_token,
     get_current_user,
     get_github_auth_url,
+    get_github_user,
+    has_permission,
     verify_jwt_token,
 )
 
@@ -21,7 +24,12 @@ class TestAuthService:
     def mock_github_oauth_no_credentials(self, github_oauth_settings):
         github_oauth_settings["client_id"] = None
         github_oauth_settings["client_secret"] = None
-        with patch("demetra.services.auth.GITHUB_OAUTH", github_oauth_settings):
+        github_settings = {
+            "path": "/usr/bin/gh",
+            "oauth": github_oauth_settings,
+            "webhook": {"secret": None},
+        }
+        with patch("demetra.services.auth.GITHUB", github_settings):
             yield
 
     @pytest.fixture
@@ -55,6 +63,95 @@ class TestAuthService:
 
         assert token is not None
         assert expires_at is not None
+
+
+class TestExchangeCodeForToken:
+    @pytest.fixture(autouse=True)
+    def setup(self, github_oauth_settings):
+        self.github = {"path": "/usr/bin/gh", "oauth": github_oauth_settings, "webhook": {"secret": None}}
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_for_token_success(self):
+        with (
+            patch("demetra.services.auth.GITHUB", self.github),
+            patch("aiohttp.ClientSession.post") as mock_post,
+        ):
+            mock_response = AsyncMock()
+            mock_response.__aenter__.return_value = mock_response
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json = AsyncMock(return_value={"access_token": "gho_test123"})
+            mock_post.return_value = mock_response
+
+            token = await exchange_code_for_token("test_code")
+            assert token == "gho_test123"
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_for_token_missing_access_token(self):
+        with (
+            patch("demetra.services.auth.GITHUB", self.github),
+            patch("aiohttp.ClientSession.post") as mock_post,
+        ):
+            mock_response = AsyncMock()
+            mock_response.__aenter__.return_value = mock_response
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json = AsyncMock(return_value={})
+            mock_post.return_value = mock_response
+
+            with pytest.raises(AuthError, match="No access token"):
+                await exchange_code_for_token("test_code")
+
+    @pytest.mark.asyncio
+    async def test_exchange_code_for_token_http_error(self):
+        with (
+            patch("demetra.services.auth.GITHUB", self.github),
+            patch("aiohttp.ClientSession.post") as mock_post,
+        ):
+            mock_post.side_effect = aiohttp.ClientError("HTTP error")
+
+            with pytest.raises(AuthError, match="OAuth token exchange error"):
+                await exchange_code_for_token("test_code")
+
+
+class TestGetGitHubUser:
+    @pytest.fixture(autouse=True)
+    def setup(self, github_oauth_settings):
+        self.github = {"path": "/usr/bin/gh", "oauth": github_oauth_settings, "webhook": {"secret": None}}
+
+    @pytest.mark.asyncio
+    async def test_get_github_user_success(self):
+        with (
+            patch("demetra.services.auth.GITHUB", self.github),
+            patch("aiohttp.ClientSession.get") as mock_get,
+        ):
+            mock_response = AsyncMock()
+            mock_response.__aenter__.return_value = mock_response
+            mock_response.raise_for_status = MagicMock()
+            mock_response.json = AsyncMock(
+                return_value={
+                    "id": 12345,
+                    "login": "testuser",
+                    "email": "test@example.com",
+                    "avatar_url": "https://avatars.com/u/12345",
+                }
+            )
+            mock_get.return_value = mock_response
+
+            user = await get_github_user("gho_test123")
+            assert user.id == "12345"
+            assert user.login == "testuser"
+            assert user.email == "test@example.com"
+            assert user.avatar_url == "https://avatars.com/u/12345"
+
+    @pytest.mark.asyncio
+    async def test_get_github_user_http_error(self):
+        with (
+            patch("demetra.services.auth.GITHUB", self.github),
+            patch("aiohttp.ClientSession.get") as mock_get,
+        ):
+            mock_get.side_effect = aiohttp.ClientError("HTTP error")
+
+            with pytest.raises(AuthError, match="Failed to fetch GitHub user"):
+                await get_github_user("gho_test123")
 
 
 class TestAuthApiEndpoints:
@@ -109,3 +206,25 @@ class TestAuthServiceWithMocks:
     async def test_get_current_user_returns_none_without_token(self, mock_jwt_settings):
         result = await get_current_user("")
         assert result is None
+
+
+class TestHasPermission:
+    def test_admin_can_view_logs(self):
+        user = UserResponse(id="1", github_username="admin", email="admin@test.com", role="admin")
+        assert has_permission(user, "view_logs") is True
+
+    def test_user_cannot_view_logs(self):
+        user = UserResponse(id="2", github_username="user", email="user@test.com", role="user")
+        assert has_permission(user, "view_logs") is False
+
+    def test_dict_admin_can_view_logs(self):
+        user = {"role": "admin"}
+        assert has_permission(user, "view_logs") is True
+
+    def test_dict_user_cannot_view_logs(self):
+        user = {"role": "user"}
+        assert has_permission(user, "view_logs") is False
+
+    def test_unknown_permission_returns_false(self):
+        user = UserResponse(id="1", github_username="admin", email="admin@test.com", role="admin")
+        assert has_permission(user, "unknown_permission") is False

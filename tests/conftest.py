@@ -580,14 +580,23 @@ def github_oauth_settings() -> dict:
 
 
 @pytest.fixture
+def github_settings(github_oauth_settings: dict) -> dict:
+    return {
+        "path": "/usr/bin/gh",
+        "oauth": github_oauth_settings,
+        "webhook": {"secret": None},
+    }
+
+
+@pytest.fixture
 def mock_jwt_settings(jwt_settings: dict):
     with patch("demetra.services.auth.JWT", jwt_settings):
         yield
 
 
 @pytest.fixture
-def mock_github_oauth_settings(github_oauth_settings: dict):
-    with patch("demetra.services.auth.GITHUB_OAUTH", github_oauth_settings):
+def mock_github_oauth_settings(github_settings: dict):
+    with patch("demetra.services.auth.GITHUB", github_settings):
         yield
 
 
