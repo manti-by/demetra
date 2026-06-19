@@ -1,7 +1,7 @@
 #!/bin/bash
 CURR_DIR="$PWD"
 
-for service in api react rq-dashboard watcher
+for service in api react rq-dashboard watcher listener
 do
     sudo ln -s "$CURR_DIR/services/$service.service" /etc/systemd/system/demetra-$service.service
     sudo systemctl enable demetra-$service.service

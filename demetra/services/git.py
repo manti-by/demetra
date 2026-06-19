@@ -1,3 +1,4 @@
+import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project
@@ -6,11 +7,16 @@ from demetra.services.tui import print_message
 from demetra.settings import GIT
 
 
+logger = logging.getLogger(__name__)
+
+
 def get_worktree_path(project: Project, branch_name: str) -> Path:
     return GIT["worktree_path"] / project.repository_owner / project.repository_name / branch_name
 
 
-async def git_worktree_create(project: Project, branch_name: str, env: dict[str, str] | None = None) -> Path:
+async def git_worktree_create(
+    project: Project, branch_name: str, env: dict[str, str] | None = None, create_branch: bool = True
+) -> Path:
     import shutil
 
     worktree_path = get_worktree_path(project=project, branch_name=branch_name)
@@ -24,7 +30,14 @@ async def git_worktree_create(project: Project, branch_name: str, env: dict[str,
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
-    command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
+    if create_branch:
+        command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
+    else:
+        branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
+        branch_exit, _, branch_err = await run_command(command=branch_cmd, target_path=project.local_path, env=env)
+        if branch_exit != 0:
+            raise RuntimeError(f"Failed to create branch {branch_name}: {branch_err.strip() or 'unknown error'}")
+        command = [str(GIT["path"]), "worktree", "add", str(worktree_path), branch_name]
     exit_code, _, stderr = await run_command(command=command, target_path=project.local_path, env=env)
     if exit_code != 0:
         raise RuntimeError(f"Failed to create worktree at {worktree_path}: {stderr.strip() or 'unknown error'}")

@@ -175,6 +175,28 @@ async def get_session(task_id: str) -> Session | None:
     )
 
 
+async def get_session_by_pr_link(pr_link: str) -> Session | None:
+    async with get_connection() as connection:
+        result = await connection.execute(select(sessions).where(sessions.c.pr_link == pr_link))
+        row = result.fetchone()
+    if not row:
+        return None
+    return Session(
+        task_id=row.task_id,
+        name=row.name,
+        session_id=row.session_id,
+        build_plan=row.build_plan,
+        posted_to_linear=bool(row.posted_to_linear),
+        step=row.step or "initial",
+        project_id=row.project_id,
+        user_id=row.user_id,
+        run_attempts=row.run_attempts,
+        pr_link=row.pr_link,
+        created_at=row.created_at.isoformat(),
+        updated_at=row.updated_at.isoformat(),
+    )
+
+
 async def save_session(
     task_id: str, build_plan: str, name: str | None = None, session_id: str | None = None
 ) -> Session:
@@ -492,6 +514,13 @@ async def get_projects_by_user(user_id: str) -> list[dict]:
         result = await connection.execute(select(projects).where(projects.c.user_id == user_id))
         rows = result.fetchall()
     return [dict(row._mapping) for row in rows]
+
+
+async def get_project_by_id_system(project_id: str) -> dict | None:
+    async with get_connection() as connection:
+        result = await connection.execute(select(projects).where(projects.c.id == project_id))
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
 
 
 async def get_project_by_id(project_id: str, user_id: str) -> dict | None:

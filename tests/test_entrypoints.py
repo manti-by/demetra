@@ -1,13 +1,13 @@
 import argparse
 import inspect
 
-from demetra.watcher import POLL_INTERVAL
+from demetra.settings import WATCHER_POLL_INTERVAL
 from demetra.worker import connection
 
 
 class TestWatcher:
     def test_poll_interval_value(self):
-        assert POLL_INTERVAL == 60
+        assert WATCHER_POLL_INTERVAL == 60
 
 
 class TestWorker:

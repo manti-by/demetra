@@ -66,6 +66,16 @@ async def opencode_review_agent(
     )
 
 
+async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=task,
+        model=OPENCODE["build_model"],
+        agent="merge-agent",
+        env=env,
+    )
+
+
 async def opencode_resolve_agent(
     target_path: Path, task: str, task_title: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:

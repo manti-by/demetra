@@ -29,9 +29,13 @@ WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 50))
 MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 10))
+MAX_MERGE_ATTEMPTS = int(os.environ.get("MAX_MERGE_ATTEMPTS", 10))
 MAX_PLAN_ATTEMPTS = int(os.environ.get("MAX_PLAN_ATTEMPTS", 30))
 MAX_RUN_ATTEMPTS = int(os.environ.get("MAX_RUN_ATTEMPTS", 3))
 SUBPROCESS_TIMEOUT = int(os.environ.get("SUBPROCESS_TIMEOUT", 30 * 60))
+
+WATCHER_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", 60))
+LISTENER_POLL_INTERVAL = int(os.environ.get("LISTENER_POLL_INTERVAL", 60))
 
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
 
