@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError
-from demetra.library.models import Context, LinearTask, Project
+from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test
@@ -1051,3 +1051,64 @@ class TestWorkflowCleanup:
         )
 
         await cleanup_workflow(context, is_success=True, should_update_linear_status=True)
+
+
+class TestMainBumpVersion:
+    @pytest.fixture
+    def context(self, faker) -> Context:
+        return Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority="1",
+                created_at=datetime.now().isoformat(),
+                labels=["bug"],
+            ),
+            branch_name=f"feature/{faker.slug()}",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id=str(uuid4()),
+                build_plan="Some build plan",
+                posted_to_linear=True,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                step="plan",
+            ),
+        )
+
+    @pytest.mark.asyncio
+    async def test_main_bumps_version_before_commit_loop(self, faker, context):
+        with (
+            patch("main.init_db", new_callable=AsyncMock),
+            patch("main.print_heading", new_callable=AsyncMock),
+            patch("main.setup_workflow", new_callable=AsyncMock, return_value=context),
+            patch("main.update_ticket_status", new_callable=AsyncMock),
+            patch("main.run_plan_step", new_callable=AsyncMock, return_value=True),
+            patch("main.post_comment", new_callable=AsyncMock),
+            patch("main.mark_session_posted", new_callable=AsyncMock),
+            patch("main.run_build_step", new_callable=AsyncMock),
+            patch("main.commit_and_push", new_callable=AsyncMock, return_value=True),
+            patch("main.cleanup_workflow", new_callable=AsyncMock),
+            patch("main.bump_project_version", return_value="1.15.0") as mock_bump,
+            patch("main.is_epic_label", return_value=False),
+        ):
+            from main import main
+
+            await main(project_name="demetra", auto_mode=True)
+            mock_bump.assert_called_once()

@@ -5,6 +5,7 @@ import logging.config
 from demetra.library.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
 from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.project import bump_project_version, is_epic_label
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import setup_session_logging
 from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING, MAX_BUILD_ATTEMPTS
@@ -49,6 +50,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     is_success = False
     should_update_linear_status = True
+    original_pyproject: str | None = None
     try:
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_progress"])
 
@@ -69,6 +71,17 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 await mark_session_posted(task_id=context.linear_task.id)
 
         build_plan = context.session.build_plan
+
+        # Save original pyproject.toml so we can revert on failure.
+        pyproject_file = context.worktree_path / "pyproject.toml"
+        original_pyproject = pyproject_file.read_text(encoding="utf-8") if pyproject_file.exists() else None
+
+        new_version = bump_project_version(
+            target_path=context.worktree_path,
+            is_epic=is_epic_label(context.linear_task.labels),
+        )
+        print_message(f"Bumped project version to {new_version}", style="info")
+
         commit_retries = MAX_BUILD_ATTEMPTS
         while commit_retries:
             await run_build_step(build_plan=build_plan, context=context)
@@ -97,6 +110,9 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         print_message("User cancelled, exiting the workflow.", style="error")
         should_update_linear_status = False
 
+    except ValueError as e:
+        print_message(f"Configuration error: {e}", style="error")
+
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")
 
@@ -107,6 +123,11 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         print_message(f"Runtime Error: {e}", style="error")
 
     finally:
+        # Revert pyproject.toml on failure so the working tree stays clean.
+        if not is_success and original_pyproject is not None:
+            pyproject_file = context.worktree_path / "pyproject.toml"
+            pyproject_file.write_text(original_pyproject, encoding="utf-8")
+
         # Only run cleanup if we successfully created a context (which means worktree was created)
         if context:
             await cleanup_workflow(
