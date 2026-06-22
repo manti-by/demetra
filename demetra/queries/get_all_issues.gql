@@ -3,6 +3,7 @@ query GetIssues($state_id: ID!) {
     nodes {
       id
       identifier
+      url
       state {
         id
         name

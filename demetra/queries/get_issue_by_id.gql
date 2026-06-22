@@ -2,6 +2,7 @@ query GetIssueById($issueId: String!) {
   issue(id: $issueId) {
     id
     identifier
+    url
     state {
       id
       name

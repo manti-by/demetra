@@ -22,6 +22,7 @@ class LinearTask:
     user_id: str | None = None
     comments: list[str] = field(default_factory=list)
     labels: list[str] = field(default_factory=list)
+    url: str | None = None
 
     @property
     def full_title(self) -> str:
@@ -52,6 +53,7 @@ class Session:
     user_id: str | None = None
     run_attempts: int = 0
     pr_link: str | None = None
+    linear_link: str | None = None
 
 
 EnvironmentType = Literal["text", "encrypted"]

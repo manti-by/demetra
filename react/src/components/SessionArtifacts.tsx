@@ -59,13 +59,29 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
 
   const hasPrLink = !!session.pr_link;
   const hasBuildPlan = !!session.build_plan;
+  const hasLinearLink = !!session.linear_link;
 
-  if (!hasPrLink && !hasBuildPlan) {
+  if (!hasPrLink && !hasBuildPlan && !hasLinearLink) {
     return null;
   }
 
   return (
     <div className="session-artifacts">
+      {hasLinearLink && (
+        <a
+          className="session-artifacts-link"
+          href={session.linear_link!}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="2" y="3" width="20" height="14" rx="2" ry="2" />
+            <line x1="8" y1="21" x2="16" y2="21" />
+            <line x1="12" y1="17" x2="12" y2="21" />
+          </svg>
+          View Linear Issue
+        </a>
+      )}
       {hasPrLink && (
         <a
           className="session-artifacts-link"

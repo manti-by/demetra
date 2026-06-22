@@ -89,6 +89,7 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
                 user_id=user_id,
                 comments=extract_comments(issue),
                 labels=extract_labels(issue),
+                url=issue.get("url"),
             )
         )
     return tasks
@@ -120,6 +121,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         user_id=user_id,
         comments=extract_comments(issue),
         labels=extract_labels(issue),
+        url=issue.get("url"),
     )
 
 
