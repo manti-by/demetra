@@ -38,7 +38,12 @@ def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
 
 
 async def create_pull_request(
-    target_path: Path, branch_name: str, title: str, base: str = "master", env: dict[str, str] | None = None
+    target_path: Path,
+    branch_name: str,
+    title: str,
+    body: str = "",
+    base: str = "master",
+    env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     command = [
         str(GITHUB["path"]),
@@ -51,7 +56,7 @@ async def create_pull_request(
         "--title",
         title,
         "--body",
-        "",
+        body,
     ]
     return await run_command(command=command, target_path=target_path, env=env)
 

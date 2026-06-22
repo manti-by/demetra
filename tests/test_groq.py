@@ -3,7 +3,7 @@ from unittest.mock import patch
 
 import pytest
 
-from demetra.services.groq import extract_plan, summarize_review
+from demetra.services.groq import extract_plan, generate_pr_description, summarize_review
 
 
 class TestGroqService:
@@ -48,3 +48,17 @@ class TestGroqService:
 
         assert result == []
         mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_generate_pr_description_function_exists(self):
+        assert callable(generate_pr_description)
+
+    @pytest.mark.asyncio
+    async def test_generate_pr_description_signature(self):
+        sig = inspect.signature(generate_pr_description)
+        params = list(sig.parameters.keys())
+
+        assert "task_details" in params
+        assert "build_plan" in params
+        assert sig.return_annotation is str
+        assert sig.parameters["build_plan"].default is None

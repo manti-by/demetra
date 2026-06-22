@@ -823,6 +823,12 @@ class TestWorkflowCleanup:
             yield m
 
     @pytest.fixture
+    def mock_generate_pr_description(self):
+        with patch("demetra.workflows.cleanup.generate_pr_description", new_callable=AsyncMock) as m:
+            m.return_value = "Generated PR body"
+            yield m
+
+    @pytest.fixture
     def mock_update_session_pr_link(self):
         with patch("demetra.workflows.cleanup.update_session_pr_link", new_callable=AsyncMock) as m:
             yield m
@@ -844,17 +850,19 @@ class TestWorkflowCleanup:
         mock_git_commit,
         mock_git_push,
         mock_create_pull_request,
+        mock_generate_pr_description,
     ):
         return (
             mock_git_add_all,
             mock_git_commit,
             mock_git_push,
             mock_create_pull_request,
+            mock_generate_pr_description,
         )
 
     @pytest.mark.asyncio
     async def test_commit_and_push(self, faker, mock_commit_deps):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -892,7 +900,7 @@ class TestWorkflowCleanup:
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):
 
-        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -934,7 +942,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -978,7 +986,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
