@@ -104,7 +104,7 @@ uv run bandit -c pyproject.toml .
 **Naming** (ruff N enforces most):
 - Modules: `snake_case.py`; tests mirror at `tests/test_<module>.py`
 - Classes: `PascalCase`; dataclasses in `library/models.py`, TypedDicts in `library/types.py`
-- Functions: `snake_case`; private prefixed `_`; external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
+- Functions: `snake_case`; **never** prefix with `_` (no private/underscore-prefixed functions); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
 - Constants: `UPPER_SNAKE_CASE`; env-driven ones live in `demetra/settings.py`
 
 **Architecture** (strict layering, no skipping):

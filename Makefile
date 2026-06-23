@@ -14,7 +14,7 @@ run-coruscant:
 
 run-mgallery-auto:
 	uv run main.py --project-name mgallery --auto --plan-loop
-		
+
 deploy:
 	git pull --ff-only
 	uv sync
@@ -24,7 +24,8 @@ deploy:
 	sudo systemctl restart demetra-api.service
 	sudo systemctl restart demetra-react.service
 	sudo systemctl restart demetra-watcher.service
-	sudo systemctl restart demetra-worker@$${1..4}.service
+	sudo systemctl restart demetra-listener.service
+	sudo systemctl restart demetra-worker@{1..4}.service
 	sudo service nginx reload
 
 check:

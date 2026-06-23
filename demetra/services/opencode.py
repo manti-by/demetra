@@ -61,7 +61,6 @@ async def opencode_review_agent(
         task_title=task_title,
         model=model,
         agent="review-agent",
-        disable_stdio=True,
         env=env,
     )
 
