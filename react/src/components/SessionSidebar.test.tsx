@@ -13,7 +13,9 @@ describe('SessionSidebar', () => {
       <SessionSidebar
         onSelectSession={vi.fn()}
         selectedTaskId={null}
-      />
+        sessions={[]}
+        setSessions={vi.fn()}
+      />,
     );
     expect(screen.getByText('Sessions')).toBeInTheDocument();
   });

@@ -12,6 +12,7 @@ from demetra.services.database import (
     delete_project_environment,
     get_project_environments,
     get_session,
+    get_session_step_name,
     increment_run_attempts,
     list_project_environments,
     mark_session_posted,
@@ -152,6 +153,31 @@ class TestDatabaseService:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.step == "completed"
+
+    @pytest.mark.asyncio
+    async def test_get_session_step_name_returns_step_and_name(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        await create_session(db_task_id, db_session_id)
+
+        result = await get_session_step_name(db_task_id)
+        assert result is not None
+        step, name = result
+        assert step == "initial"
+        assert name == ""
+
+        await update_session_step(db_task_id, "build")
+        result = await get_session_step_name(db_task_id)
+        assert result is not None
+        step, name = result
+        assert step == "build"
+
+    @pytest.mark.asyncio
+    async def test_get_session_step_name_returns_none_for_missing_task(self):
+        result = await get_session_step_name("nonexistent-task")
+        assert result is None
 
 
 class TestProjectEnvironments:

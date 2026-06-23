@@ -8,12 +8,27 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
+from demetra.services.database import get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 
 UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
 
 router = APIRouter(prefix="/ws/v1/watcher")
+
+STATUS_POLL_INTERVAL = 1.0
+
+
+async def _send_log(websocket: WebSocket, line: str) -> None:
+    await websocket.send_json({"type": "log", "data": {"text": line}})
+
+
+async def _send_status(websocket: WebSocket, step: str, name: str = "") -> None:
+    await websocket.send_json({"type": "status", "data": {"step": step, "name": name}})
+
+
+async def _send_deleted(websocket: WebSocket) -> None:
+    await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": ""}})
 
 
 @router.websocket("/logs")
@@ -23,11 +38,12 @@ async def watcher_logs(
     task_id: Annotated[str | None, Query()] = None,
     token: Annotated[str | None, Query()] = None,
 ) -> None:
-    """Stream log files via WebSocket in real-time.
+    """Stream log files and session status via WebSocket in real-time.
 
     Authenticates the user and validates the task_id as a UUID.
-    Sends the last 10 lines immediately, then continuously streams
-    new log content as it's written. Includes path traversal protection.
+    Sends JSON envelopes with type "log" (data.text) for log lines
+    and "status" (data.step, data.name) for session step changes.
+    Includes path traversal protection.
     """
     if DEBUG and not auth_token:
         auth_token = token
@@ -63,22 +79,40 @@ async def watcher_logs(
 
     await websocket.accept()
 
+    last_seen_step: str | None = None
+    last_seen_name: str = ""
+
     try:
+        # Prime status from database
+        status_info = await get_session_step_name(task_id=task_id)
+        if status_info is not None:
+            last_seen_step, last_seen_name = status_info
+            await _send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
+        else:
+            await _send_deleted(websocket=websocket)
+            await websocket.close(code=4004, reason="Session not found")
+            return
+
+        # Send last 100 log lines
         async with aiofiles.open(resolved_path) as f:
             content = await f.read()
             lines = content.strip().split("\n")
             last_100_lines = lines[-100:] if len(lines) > 100 else lines
             for line in last_100_lines:
                 if line:
-                    await websocket.send_text(line)
+                    await _send_log(websocket=websocket, line=line)
 
+        # Tail new log lines and poll for status changes
         async with aiofiles.open(resolved_path) as f:
             await f.seek(0, os.SEEK_END)
             current_position = await f.tell()
 
+            status_ticks = 0
             while True:
                 await asyncio.sleep(0.5)
+                status_ticks += 1
 
+                # Read new log content
                 async with aiofiles.open(resolved_path) as file:
                     await file.seek(0, os.SEEK_END)
                     file_size = await file.tell()
@@ -94,7 +128,20 @@ async def watcher_logs(
                     lines = new_content.strip().split("\n")
                     for line in lines:
                         if line:
-                            await websocket.send_text(line)
+                            await _send_log(websocket=websocket, line=line)
+
+                # Poll for status changes at a slower rate than log polling
+                if status_ticks >= 2:  # every ~1s
+                    status_ticks = 0
+                    status_info = await get_session_step_name(task_id=task_id)
+                    if status_info is None:
+                        await _send_deleted(websocket=websocket)
+                        break
+                    step, name = status_info
+                    if step != last_seen_step or name != last_seen_name:
+                        last_seen_step = step
+                        last_seen_name = name
+                        await _send_status(websocket=websocket, step=step, name=name)
     except WebSocketDisconnect:
         pass
     except OSError as e:
