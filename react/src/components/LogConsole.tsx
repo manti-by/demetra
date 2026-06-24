@@ -39,6 +39,8 @@ export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogCons
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef<string | null>(null);
+  const onSessionStatusRef = useRef(onSessionStatus);
+  onSessionStatusRef.current = onSessionStatus;
 
   useEffect(() => {
     if (!taskId) return;
@@ -87,7 +89,7 @@ export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogCons
               setConnected(false);
             }
             if (taskId) {
-              onSessionStatus?.(taskId, { step: data?.step ?? "", name: data?.name });
+              onSessionStatusRef.current?.(taskId, { step: data?.step ?? "", name: data?.name });
             }
             break;
           }

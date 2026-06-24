@@ -93,14 +93,17 @@ async def watcher_logs(
             await websocket.close(code=4004, reason="Session not found")
             return
 
-        # Send last 100 log lines
-        async with aiofiles.open(resolved_path) as f:
-            content = await f.read()
-            lines = content.strip().split("\n")
-            last_100_lines = lines[-100:] if len(lines) > 100 else lines
-            for line in last_100_lines:
-                if line:
-                    await _send_log(websocket=websocket, line=line)
+        # Send last 100 log lines (gracefully handle missing file)
+        try:
+            async with aiofiles.open(resolved_path) as f:
+                content = await f.read()
+                lines = content.strip().split("\n")
+                last_100_lines = lines[-100:] if len(lines) > 100 else lines
+                for line in last_100_lines:
+                    if line:
+                        await _send_log(websocket=websocket, line=line)
+        except FileNotFoundError:
+            pass  # no logs yet, will be picked up by the tail loop
 
         # Tail new log lines and poll for status changes
         async with aiofiles.open(resolved_path) as f:
@@ -146,5 +149,5 @@ async def watcher_logs(
         pass
     except OSError as e:
         logging.exception("Error streaming logs: %s", e)
-        await websocket.close(code=4002, reason=f"Stream error: {e}")
+        await websocket.close(code=4002, reason="Stream error")
         return
