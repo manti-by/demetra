@@ -1,4 +1,5 @@
 import logging
+import shutil
 from pathlib import Path
 
 from demetra.library.models import Context, Project
@@ -17,8 +18,6 @@ def get_worktree_path(project: Project, branch_name: str) -> Path:
 async def git_worktree_create(
     project: Project, branch_name: str, env: dict[str, str] | None = None, create_branch: bool = True
 ) -> Path:
-    import shutil
-
     worktree_path = get_worktree_path(project=project, branch_name=branch_name)
     if worktree_path.exists():
         git_file = worktree_path / ".git"
@@ -38,9 +37,11 @@ async def git_worktree_create(
         if branch_exit != 0:
             raise RuntimeError(f"Failed to create branch {branch_name}: {branch_err.strip() or 'unknown error'}")
         command = [str(GIT["path"]), "worktree", "add", str(worktree_path), branch_name]
+
     exit_code, _, stderr = await run_command(command=command, target_path=project.local_path, env=env)
     if exit_code != 0:
         raise RuntimeError(f"Failed to create worktree at {worktree_path}: {stderr.strip() or 'unknown error'}")
+
     return worktree_path
 
 
@@ -102,9 +103,15 @@ async def git_rebase(target_path: Path, base_branch: str, env: dict[str, str] | 
     raise RuntimeError(f"Rebase failed: {stderr.strip()}")
 
 
-async def git_force_push(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
+async def git_force_push(target_path: Path, branch_name: str, env: dict[str, str] | None = None) -> bool:
     command = [str(GIT["path"]), "push", "--force-with-lease", "origin", branch_name]
-    await run_command(command=command, target_path=target_path, env=env)
+    exit_code, stdout, stderr = await run_command(command=command, target_path=target_path, env=env)
+    if exit_code != 0:
+        raise RuntimeError(f"Force push failed: {stderr.strip()}")
+    # If push reports "Everything up-to-date", nothing was actually pushed
+    if "Everything up-to-date" in stdout or "Everything up-to-date" in stderr:
+        return False
+    return True
 
 
 async def git_cleanup(context: Context, is_success: bool):

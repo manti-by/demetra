@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.library.models import Session
-from demetra.workflows.merge import run_merge_workflow
+from demetra.workflows.rebase import run_rebase_workflow
 
 
 PROJECT_DATA = {
@@ -36,15 +36,15 @@ SESSION = Session(
 @pytest.fixture
 def base_mocks():
     with (
-        patch("demetra.workflows.merge.get_session", new_callable=AsyncMock) as mock_get_session,
-        patch("demetra.workflows.merge.setup_session_logging", new_callable=AsyncMock),
-        patch("demetra.workflows.merge.get_project_by_id_system", new_callable=AsyncMock) as mock_get_project,
-        patch("demetra.workflows.merge.get_project_environments", new_callable=AsyncMock) as mock_get_env,
-        patch("demetra.workflows.merge.git_fetch", new_callable=AsyncMock) as mock_fetch,
-        patch("demetra.workflows.merge.git_worktree_create", new_callable=AsyncMock) as mock_wt_create,
-        patch("demetra.workflows.merge.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
-        patch("demetra.workflows.merge.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
-        patch("demetra.workflows.merge.perform_git_merge", new_callable=AsyncMock) as mock_perform_merge,
+        patch("demetra.workflows.rebase.get_session", new_callable=AsyncMock) as mock_get_session,
+        patch("demetra.workflows.rebase.setup_session_logging", new_callable=AsyncMock),
+        patch("demetra.workflows.rebase.get_project_by_id_system", new_callable=AsyncMock) as mock_get_project,
+        patch("demetra.workflows.rebase.get_project_environments", new_callable=AsyncMock) as mock_get_env,
+        patch("demetra.workflows.rebase.git_fetch", new_callable=AsyncMock) as mock_fetch,
+        patch("demetra.workflows.rebase.git_worktree_create", new_callable=AsyncMock) as mock_wt_create,
+        patch("demetra.workflows.rebase.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
+        patch("demetra.workflows.rebase.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
+        patch("demetra.workflows.rebase.perform_git_rebase", new_callable=AsyncMock) as mock_perform_rebase,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
@@ -58,17 +58,17 @@ def base_mocks():
             "mock_wt_create": mock_wt_create,
             "mock_wt_remove": mock_wt_remove,
             "mock_pr_info": mock_pr_info,
-            "mock_perform_merge": mock_perform_merge,
+            "mock_perform_rebase": mock_perform_rebase,
         }
 
 
-class TestRunMergeWorkflow:
+class TestRunRebaseWorkflow:
     @pytest.mark.asyncio
-    async def test_merge_succeeds(self, base_mocks):
+    async def test_rebase_succeeds(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
-        base_mocks["mock_perform_merge"].return_value = True
+        base_mocks["mock_perform_rebase"].return_value = True
 
-        result = await run_merge_workflow(
+        result = await run_rebase_workflow(
             task_id="TASK-123",
             project_id="proj-1",
             pr_number=42,
@@ -78,14 +78,14 @@ class TestRunMergeWorkflow:
         assert result is True
         base_mocks["mock_fetch"].assert_awaited_once()
         base_mocks["mock_wt_create"].assert_awaited_once()
-        base_mocks["mock_perform_merge"].assert_awaited_once()
+        base_mocks["mock_perform_rebase"].assert_awaited_once()
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_merge_failure_pr_info_error(self, base_mocks):
+    async def test_rebase_failure_pr_info_error(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = None
 
-        result = await run_merge_workflow(
+        result = await run_rebase_workflow(
             task_id="TASK-123",
             project_id="proj-1",
             pr_number=999,
@@ -95,14 +95,14 @@ class TestRunMergeWorkflow:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_merge_failure_session_not_found(self):
+    async def test_rebase_failure_session_not_found(self):
         with (
-            patch("demetra.workflows.merge.get_session", new_callable=AsyncMock) as mock_get_session,
-            patch("demetra.workflows.merge.setup_session_logging", new_callable=AsyncMock),
+            patch("demetra.workflows.rebase.get_session", new_callable=AsyncMock) as mock_get_session,
+            patch("demetra.workflows.rebase.setup_session_logging", new_callable=AsyncMock),
         ):
             mock_get_session.return_value = None
 
-            result = await run_merge_workflow(
+            result = await run_rebase_workflow(
                 task_id="TASK-UNKNOWN",
                 project_id="proj-1",
                 pr_number=42,
@@ -112,10 +112,10 @@ class TestRunMergeWorkflow:
             assert result is False
 
     @pytest.mark.asyncio
-    async def test_merge_failure_project_not_found(self, base_mocks):
+    async def test_rebase_failure_project_not_found(self, base_mocks):
         base_mocks["mock_get_project"].return_value = None
 
-        result = await run_merge_workflow(
+        result = await run_rebase_workflow(
             task_id="TASK-123",
             project_id="proj-missing",
             pr_number=42,
@@ -125,11 +125,11 @@ class TestRunMergeWorkflow:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_merge_perform_merge_fails(self, base_mocks):
+    async def test_rebase_perform_rebase_fails(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
-        base_mocks["mock_perform_merge"].return_value = False
+        base_mocks["mock_perform_rebase"].return_value = False
 
-        result = await run_merge_workflow(
+        result = await run_rebase_workflow(
             task_id="TASK-123",
             project_id="proj-1",
             pr_number=42,

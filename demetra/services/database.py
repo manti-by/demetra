@@ -4,6 +4,7 @@ import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from sqlalchemy import create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
@@ -14,6 +15,10 @@ from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
 logger = logging.getLogger(__name__)
+
+
+_engine_cache: dict[tuple[int, str], AsyncEngine] = {}
+_cache_lock = threading.Lock()
 
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
@@ -43,10 +48,6 @@ def get_sync_engine(db_name: str | None = None, echo: bool = False):
     database = db_name if db_name else DB_NAME
     url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
     return create_engine(url, echo=echo)
-
-
-_engine_cache: dict[tuple[int, str], AsyncEngine] = {}
-_cache_lock = threading.Lock()
 
 
 async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
@@ -113,6 +114,7 @@ async def upsert_pending_session(
             },
         )
         await connection.commit()
+
     return Session(
         task_id=task_id,
         name=name,
@@ -160,8 +162,10 @@ async def get_session(task_id: str) -> Session | None:
     async with get_connection() as connection:
         result = await connection.execute(select(sessions).where(sessions.c.task_id == task_id))
         row = result.fetchone()
+
     if not row:
         return None
+
     return Session(
         task_id=row.task_id,
         name=row.name,
@@ -183,8 +187,10 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
     async with get_connection() as connection:
         result = await connection.execute(select(sessions).where(sessions.c.pr_link == pr_link))
         row = result.fetchone()
+
     if not row:
         return None
+
     return Session(
         task_id=row.task_id,
         name=row.name,
@@ -263,6 +269,7 @@ async def save_session(
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
         )
+
     return Session(
         task_id=task_id,
         name=name,
@@ -333,10 +340,13 @@ async def get_sessions(user_id: str, status: str | None = None) -> list[dict]:
     query = select(sessions).where(sessions.c.user_id == user_id)
     if status:
         query = query.where(sessions.c.status == status)
+
     query = query.order_by(sessions.c.created_at.desc())
+
     async with get_connection() as connection:
         result = await connection.execute(query)
         rows = result.fetchall()
+
     return [dict(row._mapping) for row in rows]
 
 
@@ -386,6 +396,7 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
     async with get_connection() as connection:
         result = await connection.execute(select(oauth_tokens).where(oauth_tokens.c.service == service))
         row = result.fetchone()
+
     if not row:
         return None
 
@@ -410,8 +421,6 @@ async def get_pending_session_task_ids() -> set[str]:
 
 
 async def create_user(github_id: str, github_username: str, email: str | None, avatar_url: str | None = None) -> str:
-    from uuid import uuid4
-
     user_id = str(uuid4())
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -447,6 +456,7 @@ async def get_user_by_id(user_id: str) -> dict | None:
 async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
     now = datetime.now(UTC)
     expires_at_dt = datetime.fromisoformat(expires_at)
+
     async with get_connection() as connection:
         await connection.execute(
             text(
@@ -498,10 +508,9 @@ async def create_project(
     local_path: str | None = None,
     state: str = "provisioning",
 ) -> dict:
-    from uuid import uuid4
-
     project_id = str(uuid4())
     now = datetime.now(UTC)
+
     async with get_connection() as connection:
         await connection.execute(
             insert(projects).values(
@@ -519,6 +528,7 @@ async def create_project(
             )
         )
         await connection.commit()
+
     return {
         "id": project_id,
         "user_id": user_id,
@@ -575,14 +585,19 @@ async def update_project(
 ) -> dict | None:
     now = datetime.now(UTC)
     update_values: dict[str, datetime | str] = {"updated_at": now}
+
     if linear_project_id is not None:
         update_values["linear_project_id"] = linear_project_id
+
     if name is not None:
         update_values["name"] = name
+
     if repository_url is not None:
         update_values["repository_url"] = repository_url
+
     if local_path is not None:
         update_values["local_path"] = local_path
+
     if state is not None:
         update_values["state"] = state
 
@@ -692,8 +707,10 @@ async def upsert_project_environment(
         )
         await connection.commit()
         row = result.fetchone()
+
     if row is None:
         raise RuntimeError("Failed to insert project environment")
+
     return {
         "id": row.id,
         "project_id": project_id,

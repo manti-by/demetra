@@ -5,14 +5,14 @@ from demetra.library.models import Project
 from demetra.services.database import get_project_by_id_system, get_project_environments, get_session
 from demetra.services.git import git_fetch, git_worktree_create, git_worktree_remove
 from demetra.services.github import get_pr_info
-from demetra.services.merge import perform_git_merge
+from demetra.services.rebase import perform_git_rebase
 from demetra.services.utils import setup_session_logging
 
 
 logger = logging.getLogger(__name__)
 
 
-async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
+async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
     session = await get_session(task_id=task_id)
     if not session:
         logger.error(f"Session not found for task_id: {task_id}")
@@ -20,7 +20,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
 
     await setup_session_logging(logger=logger, task_id=session.task_id)
 
-    logger.info(f"Starting merge workflow for PR #{pr_number} in {full_name}")
+    logger.info(f"Starting rebase workflow for PR #{pr_number} in {full_name}")
 
     project_data = await get_project_by_id_system(project_id=project_id)
     if not project_data:
@@ -47,7 +47,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
             project=project, branch_name=head_branch, env=project.environment, create_branch=False
         )
 
-        success = await perform_git_merge(
+        success = await perform_git_rebase(
             worktree_path=worktree_path,
             head_branch=head_branch,
             base_branch=base_branch,
@@ -56,11 +56,11 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
             full_name=full_name,
         )
         if success:
-            logger.info(f"Successfully merged and resolved conflicts for PR #{pr_number}")
+            logger.info(f"Successfully rebased and resolved conflicts for PR #{pr_number}")
             return True
 
     except (OSError, RuntimeError) as e:
-        logger.error(f"Failed to process merge for PR #{pr_number}: {e}")
+        logger.error(f"Failed to process rebase for PR #{pr_number}: {e}")
         return False
 
     finally:

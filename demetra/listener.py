@@ -8,6 +8,8 @@ from demetra.services.listener import (
     get_notifications,
     mark_notification_read,
     mentions_demetra_ai_and_merge,
+    mentions_demetra_ai_and_rebase,
+    process_merge_notification,
     process_rebase_notification,
     should_process_notification,
 )
@@ -32,25 +34,31 @@ async def main() -> None:
                 continue
 
             for notification in notifications:
-                if not should_process_notification(notification):
+                if not should_process_notification(notification=notification):
                     continue
 
                 subject = notification.get("subject", {})
-                body = await fetch_subject_body(subject)
+                body = await fetch_subject_body(subject=subject)
 
-                if not mentions_demetra_ai_and_merge(body):
-                    continue
+                if mentions_demetra_ai_and_merge(body=body):
+                    pr_info = extract_pr_info(notification=notification)
+                    if not pr_info:
+                        continue
 
-                pr_info = extract_pr_info(notification)
-                if not pr_info:
-                    continue
+                    logger.info(f"Merge requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}")
+                    await process_merge_notification(pr_info=pr_info)
+                    await mark_notification_read(notification=notification)
 
-                logger.info(f"Rebase requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}")
-                await process_rebase_notification(notification)
+                elif mentions_demetra_ai_and_rebase(body=body):
+                    pr_info = extract_pr_info(notification=notification)
+                    if not pr_info:
+                        continue
 
-                # Mark the thread read so this comment isn't reprocessed (and re-enqueued)
-                # on every subsequent poll. GitHub keeps it unread until acknowledged.
-                await mark_notification_read(notification)
+                    logger.info(
+                        f"Rebase requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}"
+                    )
+                    await process_rebase_notification(pr_info=pr_info)
+                    await mark_notification_read(notification=notification)
 
         except OSError as e:
             logger.error(f"Error polling GitHub notifications: {e}")

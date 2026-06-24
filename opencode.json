@@ -4,7 +4,7 @@
     "demetra": {
       "type": "local",
       "command": ["uv", "run", "python", "-m", "demetra.mcp_server"],
-      "enabled": true,
+      "enabled": true
     }
   },
   "lsp": {

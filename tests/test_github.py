@@ -9,7 +9,6 @@ from demetra.services.github import (
     create_pull_request,
     extract_pr_link,
     get_pr_info,
-    rebase_pr_branch,
     verify_signature,
     webhook_rebase_handler,
 )
@@ -30,9 +29,6 @@ class TestGitHubModuleImports:
 
     def test_clone_repo_import(self):
         assert callable(clone_repo)
-
-    def test_rebase_pr_branch_import(self):
-        assert callable(rebase_pr_branch)
 
     def test_webhook_rebase_handler_import(self):
         assert callable(webhook_rebase_handler)
@@ -106,72 +102,188 @@ class TestVerifySignature:
 
 class TestWebhookRebaseHandler:
     @pytest.mark.asyncio
-    async def test_ignores_comment_without_rebase_keyword(self):
+    async def test_ignores_comment_without_demetra_ai(self):
         payload = {
-            "comment": {"body": "looks good to me"},
+            "comment": {
+                "body": "looks good to me",
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
             "issue": {"number": 1, "pull_request": {"url": "https://api.github.com/repo/pulls/1"}},
-            "repository": {"clone_url": "https://github.com/owner/repo.git", "full_name": "owner/repo"},
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner"},
+            },
         }
         result = await webhook_rebase_handler(payload)
-        assert result == {"action": "ignored", "reason": "no rebase keyword"}
+        assert result == {"action": "ignored", "reason": "no recognized command"}
 
     @pytest.mark.asyncio
     async def test_ignores_non_pr_comment(self):
         payload = {
-            "comment": {"body": "please rebase"},
+            "comment": {
+                "body": "@demetra-ai rebase",
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
             "issue": {"number": 1},
-            "repository": {"clone_url": "https://github.com/owner/repo.git", "full_name": "owner/repo"},
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner"},
+            },
         }
         result = await webhook_rebase_handler(payload)
         assert result == {"action": "ignored", "reason": "not a PR comment"}
 
     @pytest.mark.asyncio
-    async def test_ignores_when_missing_repo_url(self):
+    async def test_ignores_when_missing_repo_info(self):
         payload = {
-            "comment": {"body": "please rebase"},
+            "comment": {
+                "body": "@demetra-ai rebase",
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
             "issue": {"number": 1, "pull_request": {"url": "https://api.github.com/repo/pulls/1"}},
-            "repository": {"full_name": "owner/repo"},
+            "repository": {},
         }
         result = await webhook_rebase_handler(payload)
-        assert result == {"action": "ignored", "reason": "missing repo URL or PR number"}
+        assert result == {"action": "ignored", "reason": "missing repo info or PR number"}
 
     @pytest.mark.asyncio
-    async def test_triggers_rebase_on_keyword(self):
+    async def test_ignores_unauthorized_user(self):
         payload = {
-            "comment": {"body": "please rebase this PR"},
+            "comment": {
+                "body": "@demetra-ai rebase",
+                "author_association": "NONE",
+                "user": {"login": "stranger"},
+            },
             "issue": {"number": 42, "pull_request": {"url": "https://api.github.com/repo/pulls/42"}},
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "owner": {"login": "owner"},
             },
         }
-        with patch(
-            "demetra.services.github.rebase_pr_branch",
-            new_callable=AsyncMock,
-            return_value=True,
-        ) as mock_rebase:
+        result = await webhook_rebase_handler(payload)
+        assert result == {"action": "ignored", "reason": "unauthorized user"}
+
+    @pytest.mark.asyncio
+    async def test_ignores_when_no_session_found(self):
+        payload = {
+            "comment": {
+                "body": "@demetra-ai rebase",
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
+            "issue": {"number": 42, "pull_request": {"url": "https://api.github.com/repo/pulls/42"}},
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner"},
+            },
+        }
+        with patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+            mock_db.return_value = None
             result = await webhook_rebase_handler(payload)
-            mock_rebase.assert_awaited_once_with(repo_url="https://github.com/owner/repo.git", pr_number=42)
-            assert result == {"action": "rebased", "pr_number": 42, "repository": "owner/repo"}
+            assert result == {"action": "ignored", "reason": "no session found"}
+
+    def _authorized_comment_payload(self, body: str) -> dict:
+        return {
+            "comment": {
+                "body": body,
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
+            "issue": {"number": 42, "pull_request": {"url": "https://api.github.com/repo/pulls/42"}},
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner"},
+            },
+        }
+
+    @pytest.mark.asyncio
+    async def test_enqueues_rebase_workflow(self):
+        from demetra.library.models import Session
+
+        payload = self._authorized_comment_payload("@demetra-ai rebase")
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.github.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
+            result = await webhook_rebase_handler(payload)
+            assert result == {"action": "enqueued_rebase", "pr_number": 42, "repository": "owner/repo"}
+            mock_queue.enqueue.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_enqueues_merge_workflow(self):
+        from demetra.library.models import Session
+
+        payload = self._authorized_comment_payload("@demetra-ai merge")
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.github.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
+            result = await webhook_rebase_handler(payload)
+            assert result == {"action": "enqueued_merge", "pr_number": 42, "repository": "owner/repo"}
+            mock_queue.enqueue.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_detects_rebase_case_insensitively(self):
+        from demetra.library.models import Session
+
         payload = {
-            "comment": {"body": "REBASE please"},
+            "comment": {
+                "body": "@DEMETRA-AI REBASE",
+                "author_association": "CONTRIBUTOR",
+                "user": {"login": "contributor"},
+            },
             "issue": {"number": 7, "pull_request": {"url": "https://api.github.com/repo/pulls/7"}},
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "owner": {"login": "owner"},
             },
         }
-        with patch(
-            "demetra.services.github.rebase_pr_branch",
-            new_callable=AsyncMock,
-            return_value=True,
-        ) as mock_rebase:
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/7",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.github.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
             result = await webhook_rebase_handler(payload)
-            mock_rebase.assert_awaited_once()
-            assert result["action"] == "rebased"
+            assert result["action"] == "enqueued_rebase"
+            mock_queue.enqueue.assert_called_once()
 
 
 class TestCreatePullRequest:
@@ -185,6 +297,17 @@ class TestCreatePullRequest:
                 title="Test PR",
             )
             assert result == (0, "https://github.com/owner/repo/pull/1\n", "")
+            command = mock_run.call_args[1]["command"]
+            assert command[1:] == [
+                "pr",
+                "create",
+                "--title",
+                "Test PR",
+                "--base",
+                "master",
+                "--head",
+                "feature/test",
+            ]
 
     @pytest.mark.asyncio
     async def test_accepts_custom_base_branch(self):
@@ -207,15 +330,15 @@ class TestGetPrInfo:
                 '{"headRefName": "feature/test", "baseRefName": "main"}',
                 "",
             )
-            result = await get_pr_info(repo_path=Path("/tmp/repo"), pr_number=42)
-            assert result == {"headRefName": "feature/test", "baseRefName": "main"}
+            result = await get_pr_info(pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"), env={})
+            assert result == ("feature/test", "main")
 
     @pytest.mark.asyncio
     async def test_raises_on_nonzero_exit(self):
         with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "PR not found")
-            with pytest.raises(RuntimeError, match="Failed to get PR info"):
-                await get_pr_info(repo_path=Path("/tmp/repo"), pr_number=999)
+            result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"), env={})
+            assert result is None
 
 
 class TestCloneRepo:
@@ -240,35 +363,3 @@ class TestCloneRepo:
                     parent_path=Path("/tmp"),
                     target_path=Path("/tmp/repo"),
                 )
-
-
-class TestRebasePrBranch:
-    @pytest.mark.asyncio
-    async def test_complete_flow_success(self):
-        with (
-            patch("demetra.services.github.clone_repo", new_callable=AsyncMock) as mock_clone,
-            patch("demetra.services.github.get_pr_info", new_callable=AsyncMock) as mock_info,
-            patch("demetra.services.github.git_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("demetra.services.github.git_checkout", new_callable=AsyncMock) as mock_checkout,
-            patch("demetra.services.github.git_rebase", new_callable=AsyncMock) as mock_rebase,
-            patch("demetra.services.github.git_force_push", new_callable=AsyncMock) as mock_push,
-        ):
-            mock_clone.return_value = {"cloned": True}
-            mock_info.return_value = {"headRefName": "feature/test", "baseRefName": "main"}
-            mock_rebase.return_value = True
-
-            result = await rebase_pr_branch(
-                repo_url="https://github.com/owner/repo.git",
-                pr_number=42,
-            )
-
-            assert result is True
-            mock_clone.assert_awaited_once()
-            mock_info.assert_awaited_once()
-            mock_fetch.assert_awaited_once()
-            mock_checkout.assert_awaited_once_with(
-                target_path=mock_checkout.call_args[1]["target_path"],
-                branch_name="feature/test",
-            )
-            mock_rebase.assert_awaited_once()
-            mock_push.assert_awaited_once()
