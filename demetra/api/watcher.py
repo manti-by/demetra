@@ -16,18 +16,16 @@ UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
 
 router = APIRouter(prefix="/ws/v1/watcher")
 
-STATUS_POLL_INTERVAL = 1.0
 
-
-async def _send_log(websocket: WebSocket, line: str) -> None:
+async def send_log(websocket: WebSocket, line: str) -> None:
     await websocket.send_json({"type": "log", "data": {"text": line}})
 
 
-async def _send_status(websocket: WebSocket, step: str, name: str = "") -> None:
+async def send_status(websocket: WebSocket, step: str, name: str = "") -> None:
     await websocket.send_json({"type": "status", "data": {"step": step, "name": name}})
 
 
-async def _send_deleted(websocket: WebSocket) -> None:
+async def send_deleted(websocket: WebSocket) -> None:
     await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": ""}})
 
 
@@ -86,25 +84,23 @@ async def watcher_logs(
         status_info = await get_session_step_name(task_id=task_id)
         if status_info is not None:
             last_seen_step, last_seen_name = status_info
-            await _send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
+            await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
         else:
-            await _send_deleted(websocket=websocket)
+            await send_deleted(websocket=websocket)
             await websocket.close(code=4004, reason="Session not found")
             return
 
         try:
             async with aiofiles.open(resolved_path) as f:
                 content = await f.read()
-                lines = content.strip().split("\n")
+                lines = content.splitlines()
                 last_100_lines = lines[-100:] if len(lines) > 100 else lines
                 for line in last_100_lines:
-                    if line:
-                        await _send_log(websocket=websocket, line=line)
+                    await send_log(websocket=websocket, line=line)
         except FileNotFoundError:
             pass
 
-
-        async with aiofiles.open(resolved_path) as f:
+        async with aiofiles.open(resolved_path, mode="a+") as f:
             await f.seek(0, os.SEEK_END)
             current_position = await f.tell()
 
@@ -113,7 +109,7 @@ async def watcher_logs(
                 await asyncio.sleep(0.5)
                 status_ticks += 1
 
-                async with aiofiles.open(resolved_path) as file:
+                async with aiofiles.open(resolved_path, mode="a+") as file:
                     await file.seek(0, os.SEEK_END)
                     file_size = await file.tell()
 
@@ -128,21 +124,23 @@ async def watcher_logs(
                     lines = new_content.strip().split("\n")
                     for line in lines:
                         if line:
-                            await _send_log(websocket=websocket, line=line)
+                            await send_log(websocket=websocket, line=line)
 
                 if status_ticks >= 2:
                     status_ticks = 0
                     status_info = await get_session_step_name(task_id=task_id)
                     if status_info is None:
-                        await _send_deleted(websocket=websocket)
+                        await send_deleted(websocket=websocket)
                         break
                     step, name = status_info
                     if step != last_seen_step or name != last_seen_name:
                         last_seen_step = step
                         last_seen_name = name
-                        await _send_status(websocket=websocket, step=step, name=name)
+                        await send_status(websocket=websocket, step=step, name=name)
+
     except WebSocketDisconnect:
         pass
+
     except OSError as e:
         logging.exception("Error streaming logs: %s", e)
         await websocket.close(code=4002, reason="Stream error")
