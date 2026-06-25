@@ -102,7 +102,6 @@ function AppContent() {
               refreshTrigger={sessionRefreshTrigger}
               sessions={sessions}
               setSessions={setSessions}
-              onSessionStatus={updateSessionStatus}
             />
             <div className="console-container">
               <Suspense

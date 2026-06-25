@@ -1,18 +1,12 @@
 import type { Session } from "../services/api";
 import { SessionList } from "./SessionList";
 
-interface SessionStatusData {
-  step: string;
-  name?: string;
-}
-
 interface SessionSidebarProps {
   onSelectSession: (taskId: string) => void;
   selectedTaskId: string | null;
   refreshTrigger?: number;
   sessions: Session[];
   setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => void;
-  onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
 }
 
 export function SessionSidebar({
@@ -21,7 +15,6 @@ export function SessionSidebar({
   refreshTrigger,
   sessions,
   setSessions,
-  onSessionStatus,
 }: SessionSidebarProps) {
   return (
     <aside className="session-sidebar">
@@ -34,7 +27,6 @@ export function SessionSidebar({
         refreshTrigger={refreshTrigger}
         sessions={sessions}
         setSessions={setSessions}
-        onSessionStatus={onSessionStatus}
       />
     </aside>
   );

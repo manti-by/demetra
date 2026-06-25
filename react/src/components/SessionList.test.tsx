@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { SessionList } from './SessionList';
+import { getSessions } from '../services/api';
 
 vi.mock('../services/api', () => ({
   getSessions: vi.fn().mockResolvedValue([]),
@@ -37,8 +38,6 @@ describe('SessionList', () => {
       },
     ];
 
-    // Mock getSessions to return empty so loading state ends
-    const { getSessions } = require('../services/api');
     vi.mocked(getSessions).mockResolvedValue(sessions);
 
     render(
@@ -70,7 +69,6 @@ describe('SessionList', () => {
       },
     ];
 
-    const { getSessions } = require('../services/api');
     vi.mocked(getSessions).mockResolvedValue(sessions);
 
     const { rerender } = render(

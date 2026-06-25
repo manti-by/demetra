@@ -16,7 +16,6 @@ function createMockWebSocket() {
     send: vi.fn(),
   };
 
-  // Override setters to capture callbacks
   const mockWebSocket = new Proxy(ws, {
     set(target, prop, value) {
       if (prop === 'onmessage') {
@@ -35,10 +34,10 @@ function createMockWebSocket() {
   return {
     mockWebSocket,
     triggerOpen: () => {
-      mockWebSocket.onopen?.();
+      onopen?.();
     },
     triggerMessage: (data: string) => {
-      mockWebSocket.onmessage?.(new MessageEvent('message', { data }));
+      onmessage?.(new MessageEvent('message', { data }));
     },
   };
 }

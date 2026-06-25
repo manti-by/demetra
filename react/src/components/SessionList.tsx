@@ -3,18 +3,12 @@ import { getSessions, type Session } from '../services/api';
 
 const POLL_INTERVAL = 60000;
 
-interface SessionStatusData {
-  step: string;
-  name?: string;
-}
-
 interface SessionListProps {
   onSelectSession: (taskId: string) => void;
   selectedTaskId: string | null;
   refreshTrigger?: number;
   sessions: Session[];
   setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => void;
-  onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -48,7 +42,7 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
   </div>
 ));
 
-export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions, onSessionStatus }: SessionListProps) {
+export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions }: SessionListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
