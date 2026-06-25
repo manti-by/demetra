@@ -127,6 +127,7 @@ GITHUB: GitHubConfig = {
     "webhook": {
         "secret": os.environ.get("GITHUB_WEBHOOK_SECRET"),
     },
+    "token": os.environ.get("GITHUB_TOKEN"),
 }
 
 JWT: JWTConfig = {

@@ -587,6 +587,7 @@ def github_settings(github_oauth_settings: dict) -> dict:
         "path": "/usr/bin/gh",
         "oauth": github_oauth_settings,
         "webhook": {"secret": None},
+        "token": None,
     }
 
 

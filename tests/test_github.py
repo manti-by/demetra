@@ -1,6 +1,6 @@
 import inspect
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -112,7 +112,7 @@ class TestIsPrAuthorization:
                 "author_association": "OWNER",
                 "user": {"login": "owner"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
 
     @pytest.fixture
@@ -122,7 +122,7 @@ class TestIsPrAuthorization:
                 "author_association": "MEMBER",
                 "user": {"login": "member"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
 
     @pytest.fixture
@@ -132,7 +132,7 @@ class TestIsPrAuthorization:
                 "author_association": "COLLABORATOR",
                 "user": {"login": "collab"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
 
     @pytest.fixture
@@ -142,7 +142,7 @@ class TestIsPrAuthorization:
                 "author_association": "CONTRIBUTOR",
                 "user": {"login": "contributor"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
 
     @pytest.fixture
@@ -152,25 +152,59 @@ class TestIsPrAuthorization:
                 "author_association": "NONE",
                 "user": {"login": "stranger"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
 
-    def test_owner_is_authorized(self, owner_payload):
-        assert _is_pr_authorization(owner_payload) is True
+    @pytest.fixture(autouse=True)
+    def _setup_github_token(self):
+        with patch("demetra.services.github.GITHUB", {"token": "test_token"}):
+            yield
 
-    def test_member_is_authorized(self, member_payload):
-        assert _is_pr_authorization(member_payload) is True
+    def _mock_github_api(self, permission: str):
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.json = AsyncMock(return_value={"permission": permission})
+        mock_get = MagicMock()
+        mock_get.return_value.__aenter__.return_value = mock_resp
+        return patch("aiohttp.ClientSession.get", mock_get)
 
-    def test_collaborator_is_authorized(self, collaborator_payload):
-        assert _is_pr_authorization(collaborator_payload) is True
+    @pytest.mark.asyncio
+    async def test_owner_is_authorized(self, owner_payload):
+        result = await _is_pr_authorization(owner_payload)
+        assert result is True
 
-    def test_contributor_is_not_authorized(self, contributor_payload):
-        assert _is_pr_authorization(contributor_payload) is False
+    @pytest.mark.asyncio
+    async def test_member_is_authorized(self, member_payload):
+        with self._mock_github_api("write"):
+            result = await _is_pr_authorization(member_payload)
+            assert result is True
 
-    def test_none_is_not_authorized(self, none_payload):
-        assert _is_pr_authorization(none_payload) is False
+    @pytest.mark.asyncio
+    async def test_collaborator_is_authorized(self, collaborator_payload):
+        with self._mock_github_api("write"):
+            result = await _is_pr_authorization(collaborator_payload)
+            assert result is True
 
-    def test_owner_login_fallback(self):
+    @pytest.mark.asyncio
+    async def test_collaborator_with_admin_is_authorized(self, collaborator_payload):
+        with self._mock_github_api("admin"):
+            result = await _is_pr_authorization(collaborator_payload)
+            assert result is True
+
+    @pytest.mark.asyncio
+    async def test_contributor_is_not_authorized(self, contributor_payload):
+        with self._mock_github_api("read"):
+            result = await _is_pr_authorization(contributor_payload)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_none_is_not_authorized(self, none_payload):
+        with self._mock_github_api("none"):
+            result = await _is_pr_authorization(none_payload)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_owner_login_fallback(self):
         payload = {
             "comment": {
                 "author_association": "NONE",
@@ -178,20 +212,53 @@ class TestIsPrAuthorization:
             },
             "repository": {"owner": {"login": "owner"}},
         }
-        assert _is_pr_authorization(payload) is True
+        result = await _is_pr_authorization(payload)
+        assert result is True
 
-    def test_mismatched_owner_login_not_authorized(self):
+    @pytest.mark.asyncio
+    async def test_mismatched_owner_login_not_authorized(self):
         payload = {
             "comment": {
                 "author_association": "NONE",
                 "user": {"login": "notowner"},
             },
-            "repository": {"owner": {"login": "owner"}},
+            "repository": {"owner": {"login": "owner"}, "name": "repo"},
         }
-        assert _is_pr_authorization(payload) is False
+        with self._mock_github_api("none"):
+            result = await _is_pr_authorization(payload)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_api_error_returns_false(self, collaborator_payload):
+        mock_resp = AsyncMock()
+        mock_resp.status = 404
+        mock_get = MagicMock()
+        mock_get.return_value.__aenter__.return_value = mock_resp
+        with patch("aiohttp.ClientSession.get", mock_get):
+            result = await _is_pr_authorization(collaborator_payload)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_no_token_returns_false(self, collaborator_payload):
+        with patch("demetra.services.github.GITHUB", {"token": None}):
+            result = await _is_pr_authorization(collaborator_payload)
+            assert result is False
 
 
 class TestWebhookRebaseHandler:
+    @pytest.fixture(autouse=True)
+    def _setup_github_token(self):
+        with patch("demetra.services.github.GITHUB", {"token": "test_token"}):
+            yield
+
+    def _mock_github_api(self, permission: str):
+        mock_resp = AsyncMock()
+        mock_resp.status = 200
+        mock_resp.json = AsyncMock(return_value={"permission": permission})
+        mock_get = MagicMock()
+        mock_get.return_value.__aenter__.return_value = mock_resp
+        return patch("aiohttp.ClientSession.get", mock_get)
+
     @pytest.mark.asyncio
     async def test_ignores_comment_without_demetra_ai(self):
         payload = {
@@ -232,7 +299,7 @@ class TestWebhookRebaseHandler:
             "repository": {},
         }
         result = await webhook_rebase_handler(payload)
-        assert result == {"action": "ignored", "reason": "missing repo info or PR number"}
+        assert result == {"action": "ignored", "reason": "unauthorized user"}
 
     @pytest.mark.asyncio
     async def test_ignores_unauthorized_user(self):
@@ -246,11 +313,13 @@ class TestWebhookRebaseHandler:
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "name": "repo",
                 "owner": {"login": "owner"},
             },
         }
-        result = await webhook_rebase_handler(payload)
-        assert result == {"action": "ignored", "reason": "unauthorized user"}
+        with self._mock_github_api("none"):
+            result = await webhook_rebase_handler(payload)
+            assert result == {"action": "ignored", "reason": "unauthorized user"}
 
     @pytest.mark.asyncio
     async def test_ignores_when_no_session_found(self):
@@ -264,10 +333,14 @@ class TestWebhookRebaseHandler:
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "name": "repo",
                 "owner": {"login": "owner"},
             },
         }
-        with patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+        with (
+            self._mock_github_api("write"),
+            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+        ):
             mock_db.return_value = None
             result = await webhook_rebase_handler(payload)
             assert result == {"action": "ignored", "reason": "no session found"}
@@ -283,6 +356,7 @@ class TestWebhookRebaseHandler:
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "name": "repo",
                 "owner": {"login": "owner"},
             },
         }
@@ -302,6 +376,7 @@ class TestWebhookRebaseHandler:
             project_id="proj-123",
         )
         with (
+            self._mock_github_api("write"),
             patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
             patch("demetra.services.github.queue") as mock_queue,
         ):
@@ -325,6 +400,7 @@ class TestWebhookRebaseHandler:
             project_id="proj-123",
         )
         with (
+            self._mock_github_api("write"),
             patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
             patch("demetra.services.github.queue") as mock_queue,
         ):
@@ -341,11 +417,13 @@ class TestWebhookRebaseHandler:
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "name": "repo",
                 "owner": {"login": "owner"},
             },
         }
-        result = await webhook_rebase_handler(payload)
-        assert result == {"action": "ignored", "reason": "unauthorized user"}
+        with self._mock_github_api("read"):
+            result = await webhook_rebase_handler(payload)
+            assert result == {"action": "ignored", "reason": "unauthorized user"}
 
     @pytest.mark.asyncio
     async def test_detects_rebase_case_insensitively(self):
@@ -361,6 +439,7 @@ class TestWebhookRebaseHandler:
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
                 "full_name": "owner/repo",
+                "name": "repo",
                 "owner": {"login": "owner"},
             },
         }
@@ -374,6 +453,7 @@ class TestWebhookRebaseHandler:
             project_id="proj-123",
         )
         with (
+            self._mock_github_api("write"),
             patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
             patch("demetra.services.github.queue") as mock_queue,
         ):

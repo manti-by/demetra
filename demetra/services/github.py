@@ -4,6 +4,8 @@ import json
 import logging
 from pathlib import Path
 
+import aiohttp
+
 from demetra.library import MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
 from demetra.services.database import get_session_by_pr_link
 from demetra.services.queue import queue
@@ -118,23 +120,43 @@ async def clone_repo(repo_url: str, parent_path: Path, target_path: Path) -> dic
     return {"cloned": True}
 
 
-_PRIVILEGED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
-
-
-def _is_pr_authorization(payload: dict) -> bool:
+async def _is_pr_authorization(payload: dict) -> bool:
     comment = payload.get("comment", {})
     repository = payload.get("repository", {})
 
-    association = comment.get("author_association", "")
-    if association in _PRIVILEGED_ASSOCIATIONS:
-        return True
-
     repo_owner = repository.get("owner", {}).get("login", "")
+    repo_name = repository.get("name", "")
     comment_author = comment.get("user", {}).get("login", "")
+
     if repo_owner and comment_author and repo_owner == comment_author:
         return True
 
-    return False
+    if not repo_owner or not repo_name or not comment_author:
+        return False
+
+    token = GITHUB.get("token")
+    if not token:
+        return False
+
+    url = f"https://api.github.com/repos/{repo_owner}/{repo_name}/collaborators/{comment_author}/permission"
+
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(
+                url,
+                timeout=aiohttp.ClientTimeout(total=10),
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "Accept": "application/vnd.github+json",
+                },
+            ) as response:
+                if response.status != 200:
+                    return False
+                data = await response.json()
+                permission = data.get("permission", "")
+                return permission in ("write", "admin")
+    except (aiohttp.ClientError, TimeoutError):
+        return False
 
 
 async def webhook_rebase_handler(payload: dict) -> dict:
@@ -147,7 +169,7 @@ async def webhook_rebase_handler(payload: dict) -> dict:
     if not issue.get("pull_request"):
         return {"action": "ignored", "reason": "not a PR comment"}
 
-    if not _is_pr_authorization(payload=payload):
+    if not await _is_pr_authorization(payload=payload):
         return {"action": "ignored", "reason": "unauthorized user"}
 
     repo = payload.get("repository", {})

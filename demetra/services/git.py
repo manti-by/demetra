@@ -9,14 +9,13 @@ from demetra.services.tui import print_message
 from demetra.settings import GIT
 
 
-logger = logging.getLogger(__name__)
+SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9_\-\.\/]+$")
 
-_SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9_\-\.\/]+$")
+logger = logging.getLogger(__name__)
 
 
 def validate_ref(ref: str, label: str) -> None:
-    """Validate a git ref name to prevent injection attacks."""
-    if not ref or not _SAFE_REF_RE.match(ref) or ".." in ref or "@{" in ref:
+    if not ref or not SAFE_REF_RE.fullmatch(ref) or ".." in ref or "@{" in ref:
         raise RuntimeError(f"Invalid {label}: {ref!r}")
 
 

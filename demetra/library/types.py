@@ -56,6 +56,7 @@ class GitHubWebhookConfig(TypedDict):
 class GitHubConfig(PathConfig):
     oauth: GitHubOAuthConfig
     webhook: GitHubWebhookConfig
+    token: str | None
 
 
 class JWTConfig(TypedDict):
