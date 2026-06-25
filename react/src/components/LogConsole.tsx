@@ -108,7 +108,7 @@ export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogCons
       ws.close();
       wsRef.current = null;
     };
-  }, [taskId]);
+  }, [taskId, onSessionStatus]);
 
   useEffect(() => {
     if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {

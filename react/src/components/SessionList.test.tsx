@@ -3,6 +3,11 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { SessionList } from './SessionList';
 
+vi.mock('../services/api', () => ({
+  getSessions: vi.fn().mockResolvedValue([]),
+  deleteSession: vi.fn(),
+}));
+
 describe('SessionList', () => {
   it('renders without crashing', () => {
     render(

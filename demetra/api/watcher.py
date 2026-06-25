@@ -83,7 +83,6 @@ async def watcher_logs(
     last_seen_name: str = ""
 
     try:
-        # Prime status from database
         status_info = await get_session_step_name(task_id=task_id)
         if status_info is not None:
             last_seen_step, last_seen_name = status_info
@@ -93,7 +92,6 @@ async def watcher_logs(
             await websocket.close(code=4004, reason="Session not found")
             return
 
-        # Send last 100 log lines (gracefully handle missing file)
         try:
             async with aiofiles.open(resolved_path) as f:
                 content = await f.read()
@@ -103,9 +101,9 @@ async def watcher_logs(
                     if line:
                         await _send_log(websocket=websocket, line=line)
         except FileNotFoundError:
-            pass  # no logs yet, will be picked up by the tail loop
+            pass
 
-        # Tail new log lines and poll for status changes
+
         async with aiofiles.open(resolved_path) as f:
             await f.seek(0, os.SEEK_END)
             current_position = await f.tell()
@@ -115,7 +113,6 @@ async def watcher_logs(
                 await asyncio.sleep(0.5)
                 status_ticks += 1
 
-                # Read new log content
                 async with aiofiles.open(resolved_path) as file:
                     await file.seek(0, os.SEEK_END)
                     file_size = await file.tell()
@@ -133,8 +130,7 @@ async def watcher_logs(
                         if line:
                             await _send_log(websocket=websocket, line=line)
 
-                # Poll for status changes at a slower rate than log polling
-                if status_ticks >= 2:  # every ~1s
+                if status_ticks >= 2:
                     status_ticks = 0
                     status_info = await get_session_step_name(task_id=task_id)
                     if status_info is None:

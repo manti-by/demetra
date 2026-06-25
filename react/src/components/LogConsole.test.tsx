@@ -51,6 +51,7 @@ vi.mock('../services/api', () => ({
 describe('LogConsole', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.setItem('auth_token', 'test-token');
   });
 
   it('renders select session prompt when no taskId', () => {
