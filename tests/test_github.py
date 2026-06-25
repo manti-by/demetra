@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.services.github import (
+    _is_pr_authorization,
     clone_repo,
     create_pull_request,
     extract_pr_link,
@@ -32,6 +33,9 @@ class TestGitHubModuleImports:
 
     def test_webhook_rebase_handler_import(self):
         assert callable(webhook_rebase_handler)
+
+    def test_is_pr_authorization_import(self):
+        assert callable(_is_pr_authorization)
 
 
 class TestCreatePullRequestFunction:
@@ -73,9 +77,9 @@ class TestVerifySignature:
     def setup(self):
         self.payload = b'{"test": "data"}'
 
-    def test_returns_true_when_no_secret_configured(self):
+    def test_returns_false_when_no_secret_configured(self):
         with patch("demetra.services.github.GITHUB", {"webhook": {"secret": None}}):
-            assert verify_signature(self.payload, "sha256=abc") is True
+            assert verify_signature(self.payload, "sha256=abc") is False
 
     def test_returns_false_when_signature_header_missing(self):
         with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
@@ -100,15 +104,98 @@ class TestVerifySignature:
             assert result is True
 
 
+class TestIsPrAuthorization:
+    @pytest.fixture
+    def owner_payload(self):
+        return {
+            "comment": {
+                "author_association": "OWNER",
+                "user": {"login": "owner"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+
+    @pytest.fixture
+    def member_payload(self):
+        return {
+            "comment": {
+                "author_association": "MEMBER",
+                "user": {"login": "member"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+
+    @pytest.fixture
+    def collaborator_payload(self):
+        return {
+            "comment": {
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+
+    @pytest.fixture
+    def contributor_payload(self):
+        return {
+            "comment": {
+                "author_association": "CONTRIBUTOR",
+                "user": {"login": "contributor"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+
+    @pytest.fixture
+    def none_payload(self):
+        return {
+            "comment": {
+                "author_association": "NONE",
+                "user": {"login": "stranger"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+
+    def test_owner_is_authorized(self, owner_payload):
+        assert _is_pr_authorization(owner_payload) is True
+
+    def test_member_is_authorized(self, member_payload):
+        assert _is_pr_authorization(member_payload) is True
+
+    def test_collaborator_is_authorized(self, collaborator_payload):
+        assert _is_pr_authorization(collaborator_payload) is True
+
+    def test_contributor_is_not_authorized(self, contributor_payload):
+        assert _is_pr_authorization(contributor_payload) is False
+
+    def test_none_is_not_authorized(self, none_payload):
+        assert _is_pr_authorization(none_payload) is False
+
+    def test_owner_login_fallback(self):
+        payload = {
+            "comment": {
+                "author_association": "NONE",
+                "user": {"login": "owner"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+        assert _is_pr_authorization(payload) is True
+
+    def test_mismatched_owner_login_not_authorized(self):
+        payload = {
+            "comment": {
+                "author_association": "NONE",
+                "user": {"login": "notowner"},
+            },
+            "repository": {"owner": {"login": "owner"}},
+        }
+        assert _is_pr_authorization(payload) is False
+
+
 class TestWebhookRebaseHandler:
     @pytest.mark.asyncio
     async def test_ignores_comment_without_demetra_ai(self):
         payload = {
-            "comment": {
-                "body": "looks good to me",
-                "author_association": "COLLABORATOR",
-                "user": {"login": "collab"},
-            },
+            "comment": {"body": "looks good to me", "author_association": "OWNER", "user": {"login": "owner"}},
             "issue": {"number": 1, "pull_request": {"url": "https://api.github.com/repo/pulls/1"}},
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
@@ -122,11 +209,7 @@ class TestWebhookRebaseHandler:
     @pytest.mark.asyncio
     async def test_ignores_non_pr_comment(self):
         payload = {
-            "comment": {
-                "body": "@demetra-ai rebase",
-                "author_association": "COLLABORATOR",
-                "user": {"login": "collab"},
-            },
+            "comment": {"body": "please rebase", "author_association": "OWNER", "user": {"login": "owner"}},
             "issue": {"number": 1},
             "repository": {
                 "clone_url": "https://github.com/owner/repo.git",
@@ -251,14 +334,28 @@ class TestWebhookRebaseHandler:
             mock_queue.enqueue.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_rejects_unprivileged_user(self):
+        payload = {
+            "comment": {"body": "please rebase", "author_association": "CONTRIBUTOR", "user": {"login": "contributor"}},
+            "issue": {"number": 99, "pull_request": {"url": "https://api.github.com/repo/pulls/99"}},
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+                "owner": {"login": "owner"},
+            },
+        }
+        result = await webhook_rebase_handler(payload)
+        assert result == {"action": "ignored", "reason": "unauthorized user"}
+
+    @pytest.mark.asyncio
     async def test_detects_rebase_case_insensitively(self):
         from demetra.library.models import Session
 
         payload = {
             "comment": {
                 "body": "@DEMETRA-AI REBASE",
-                "author_association": "CONTRIBUTOR",
-                "user": {"login": "contributor"},
+                "author_association": "COLLABORATOR",
+                "user": {"login": "collab"},
             },
             "issue": {"number": 7, "pull_request": {"url": "https://api.github.com/repo/pulls/7"}},
             "repository": {

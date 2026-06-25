@@ -154,7 +154,15 @@ class TestGitService:
     @pytest.mark.asyncio
     async def test_git_fetch(self, faker, mock_run_command):
         target_path = Path(f"/tmp/{faker.slug()}")
+        mock_run_command.return_value = (0, "", "")
         await git_fetch(target_path)
+
+    @pytest.mark.asyncio
+    async def test_git_fetch_failure_raises(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_run_command.return_value = (128, "", "fatal: could not fetch")
+        with pytest.raises(RuntimeError, match="Fetch failed"):
+            await git_fetch(target_path)
 
     @pytest.mark.asyncio
     async def test_git_checkout(self, faker, mock_run_command):

@@ -18,11 +18,13 @@ def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
     """Verify GitHub webhook signature."""
     secret = GITHUB.get("webhook", {}).get("secret")
     if not secret:
-        return True
+        logger.warning("Webhook secret is not configured — rejecting all webhooks")
+        return False
+
     if not signature_header or not signature_header.startswith("sha256="):
         return False
 
-    signature = signature_header.split("=")[1]
+    signature = signature_header.split("=", maxsplit=1)[1]
     expected_digest = hmac.new(key=secret.encode(), msg=payload_body, digestmod=hashlib.sha256).hexdigest()
     return hmac.compare_digest(signature, expected_digest)
 
@@ -116,19 +118,20 @@ async def clone_repo(repo_url: str, parent_path: Path, target_path: Path) -> dic
     return {"cloned": True}
 
 
-def _is_pr_authorization(payload: dict) -> bool:
-    """Check whether the comment author has write access to the repository."""
-    comment = payload.get("comment", {})
-    author = comment.get("user", {})
-    author_association = comment.get("author_association", "").upper()
+_PRIVILEGED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
 
-    privileged_associations = {"OWNER", "MEMBER", "COLLABORATOR", "CONTRIBUTOR"}
-    if author_association in privileged_associations:
+
+def _is_pr_authorization(payload: dict) -> bool:
+    comment = payload.get("comment", {})
+    repository = payload.get("repository", {})
+
+    association = comment.get("author_association", "")
+    if association in _PRIVILEGED_ASSOCIATIONS:
         return True
 
-    repository = payload.get("repository", {})
-    owner = repository.get("owner", {})
-    if isinstance(owner, dict) and author.get("login") == owner.get("login"):
+    repo_owner = repository.get("owner", {}).get("login", "")
+    comment_author = comment.get("user", {}).get("login", "")
+    if repo_owner and comment_author and repo_owner == comment_author:
         return True
 
     return False

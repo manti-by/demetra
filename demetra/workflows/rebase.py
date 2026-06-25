@@ -3,7 +3,7 @@ from pathlib import Path
 
 from demetra.library.models import Project
 from demetra.services.database import get_project_by_id_system, get_project_environments, get_session
-from demetra.services.git import git_fetch, git_worktree_create, git_worktree_remove
+from demetra.services.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
 from demetra.services.github import get_pr_info
 from demetra.services.rebase import perform_git_rebase
 from demetra.services.utils import setup_session_logging
@@ -42,6 +42,9 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
         head_branch, base_branch = pr_info
 
         await git_fetch(target_path=project.local_path, env=project.environment)
+
+        validate_ref(head_branch, "head branch")
+        validate_ref(base_branch, "base branch")
 
         worktree_path = await git_worktree_create(
             project=project, branch_name=head_branch, env=project.environment, create_branch=False

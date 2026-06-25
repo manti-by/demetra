@@ -49,6 +49,7 @@ def base_mocks():
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
         mock_get_env.return_value = {}
+        mock_fetch.return_value = None
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
         yield {
             "mock_get_session": mock_get_session,

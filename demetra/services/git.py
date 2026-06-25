@@ -1,4 +1,5 @@
 import logging
+import re
 import shutil
 from pathlib import Path
 
@@ -9,6 +10,14 @@ from demetra.settings import GIT
 
 
 logger = logging.getLogger(__name__)
+
+_SAFE_REF_RE = re.compile(r"^[a-zA-Z0-9_\-\.\/]+$")
+
+
+def validate_ref(ref: str, label: str) -> None:
+    """Validate a git ref name to prevent injection attacks."""
+    if not ref or not _SAFE_REF_RE.match(ref) or ".." in ref or "@{" in ref:
+        raise RuntimeError(f"Invalid {label}: {ref!r}")
 
 
 def get_worktree_path(project: Project, branch_name: str) -> Path:
@@ -87,7 +96,9 @@ async def git_branch_delete(target_path: Path, branch_name: str, env: dict[str, 
 
 async def git_fetch(target_path: Path, env: dict[str, str] | None = None):
     command = [str(GIT["path"]), "fetch", "--all"]
-    await run_command(command=command, target_path=target_path, env=env)
+    exit_code, _, stderr = await run_command(command=command, target_path=target_path, env=env)
+    if exit_code != 0:
+        raise RuntimeError(f"Fetch failed: {stderr.strip()}")
 
 
 async def git_checkout(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
