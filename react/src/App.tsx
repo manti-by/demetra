@@ -6,7 +6,7 @@ import { Header } from "./components/Header";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
-import { deleteSession } from "./services/api";
+import { deleteSession, type Session } from "./services/api";
 import "./App.css";
 
 const GitHubCallback = lazy(() =>
@@ -43,6 +43,17 @@ function AppContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
+  const [sessions, setSessions] = useState<Session[]>([]);
+
+  const updateSessionStatus = useCallback((taskId: string, data: { step: string; name?: string }) => {
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.task_id === taskId
+          ? { ...s, step: data.step, ...(data.name !== undefined ? { name: data.name } : {}) }
+          : s,
+      ),
+    );
+  }, []);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -89,6 +100,8 @@ function AppContent() {
               onSelectSession={handleSelectSession}
               selectedTaskId={selectedTaskId}
               refreshTrigger={sessionRefreshTrigger}
+              sessions={sessions}
+              setSessions={setSessions}
             />
             <div className="console-container">
               <Suspense
@@ -98,7 +111,7 @@ function AppContent() {
                   </div>
                 }
               >
-                <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} />
+                <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} />
             </div>

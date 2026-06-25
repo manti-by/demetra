@@ -22,17 +22,25 @@ const EmptyLog = () => (
 
 const SelectSession = () => <div className="log-empty">Select a session</div>;
 
+interface SessionStatusData {
+  step: string;
+  name?: string;
+}
+
 interface LogConsoleProps {
   taskId?: string | null;
   onDeleteSession?: (taskId: string) => void;
+  onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
 }
 
-export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
+export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef<string | null>(null);
+  const onSessionStatusRef = useRef(onSessionStatus);
+  onSessionStatusRef.current = onSessionStatus;
 
   useEffect(() => {
     if (!taskId) return;
@@ -60,12 +68,32 @@ export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
       };
 
       try {
-        const data = JSON.parse(event.data);
-        addLog({
-          ...data,
-          id: crypto.randomUUID(),
-          type: data.type || "info"
-        });
+        const envelope = JSON.parse(event.data);
+        const { type, data } = envelope;
+        switch (type) {
+          case "log": {
+            const text = data?.text ?? "";
+            if (text) {
+              addLog({
+                id: crypto.randomUUID(),
+                message: text,
+                type: "info",
+                timestamp: new Date().toISOString(),
+              });
+            }
+            break;
+          }
+          case "status": {
+            if (data?.step === "deleted") {
+              setLogs([]);
+              setConnected(false);
+            }
+            if (taskId) {
+              onSessionStatusRef.current?.(taskId, { step: data?.step ?? "", name: data?.name });
+            }
+            break;
+          }
+        }
       } catch {
         addLog({
           id: crypto.randomUUID(),
@@ -80,7 +108,7 @@ export function LogConsole({ taskId, onDeleteSession }: LogConsoleProps) {
       ws.close();
       wsRef.current = null;
     };
-  }, [taskId]);
+  }, [taskId, onSessionStatus]);
 
   useEffect(() => {
     if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {

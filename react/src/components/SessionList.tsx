@@ -7,6 +7,8 @@ interface SessionListProps {
   onSelectSession: (taskId: string) => void;
   selectedTaskId: string | null;
   refreshTrigger?: number;
+  sessions: Session[];
+  setSessions: (sessions: Session[] | ((prev: Session[]) => Session[])) => void;
 }
 
 const formatDate = (dateStr: string): string => {
@@ -40,8 +42,7 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
   </div>
 ));
 
-export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }: SessionListProps) {
-  const [sessions, setSessions] = useState<Session[]>([]);
+export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions }: SessionListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,7 +56,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger }:
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [setSessions]);
 
   useEffect(() => {
     setLoading(true);

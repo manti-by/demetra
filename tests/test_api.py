@@ -1,6 +1,6 @@
-import os
 import tempfile
 from datetime import datetime
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -48,10 +48,13 @@ class TestLinearService:
 
 
 class TestWatcherLogsWebSocket:
+    WS_PATH = "/ws/v1/watcher/logs"
+    TASK_ID = "00000000-0000-4000-8000-000000000001"
+
     @pytest.mark.asyncio
     async def test_websocket_rejects_missing_auth_token(self):
         with pytest.raises((WebSocketDisconnect, Exception)):
-            with TestClient(app).websocket_connect("/api/v1/watcher/logs") as _:
+            with TestClient(app).websocket_connect(self.WS_PATH) as _:
                 pass
 
     @pytest.mark.asyncio
@@ -61,48 +64,131 @@ class TestWatcherLogsWebSocket:
 
             with pytest.raises((WebSocketDisconnect, Exception)):
                 with TestClient(app).websocket_connect(
-                    "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
                 ) as _:
                     pass
 
     @pytest.mark.asyncio
-    async def test_websocket_streams_logs(
+    async def test_websocket_emits_log_envelope(
         self,
         mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
-        with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".log") as f:
-            temp_log_path = f.name
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.write_text("test log line\n")
 
-        try:
-            with patch.dict(os.environ, {"LOG_PATH": temp_log_path}):
-                with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                    mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+            ):
+                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_step.return_value = ("initial", "Test Session")
 
-                    with pytest.raises((WebSocketDisconnect, Exception)):
-                        with TestClient(app).websocket_connect(
-                            "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
-                        ) as _:
-                            pass
+                with TestClient(app).websocket_connect(
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
+                ) as ws:
+                    # First message should be initial status
+                    status_msg = ws.receive_json()
+                    assert status_msg["type"] == "status"
+                    assert status_msg["data"]["step"] == "initial"
+                    assert status_msg["data"]["name"] == "Test Session"
 
-        finally:
-            os.unlink(temp_log_path)
+                    # Next should be the log line
+                    log_msg = ws.receive_json()
+                    assert log_msg["type"] == "log"
+                    assert log_msg["data"]["text"] == "test log line"
 
     @pytest.mark.asyncio
-    async def test_websocket_fails_on_missing_log_file(
+    async def test_websocket_emits_status_on_step_change(
         self,
         mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
-        with patch.dict(os.environ, {"LOG_PATH": "/nonexistent/path/logs.log"}):
-            with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
-                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser"}
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.touch()
 
-                with pytest.raises((WebSocketDisconnect, Exception)):
-                    with TestClient(app).websocket_connect(
-                        "/api/v1/watcher/logs", cookies={"auth_token": "valid_token"}
-                    ) as _:
-                        pass
+            step_call_count = 0
+
+            async def mock_step_side_effect(task_id: str):
+                nonlocal step_call_count
+                step_call_count += 1
+                if step_call_count <= 2:
+                    return ("initial", "Test Session")
+                return ("build", "Test Session")
+
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+            ):
+                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_step.side_effect = mock_step_side_effect
+
+                with TestClient(app).websocket_connect(
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
+                ) as ws:
+                    msg1 = ws.receive_json()
+                    assert msg1["type"] == "status"
+                    assert msg1["data"]["step"] == "initial"
+
+                    # After polling, should see the step change
+                    msg2 = ws.receive_json()
+                    assert msg2["type"] == "status"
+                    assert msg2["data"]["step"] == "build"
+
+    @pytest.mark.asyncio
+    async def test_websocket_closes_when_session_deleted(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.touch()
+
+            step_call_count = 0
+
+            async def mock_step_side_effect(task_id: str):
+                nonlocal step_call_count
+                step_call_count += 1
+                if step_call_count <= 2:
+                    return ("initial", "Test Session")
+                return None
+
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+            ):
+                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_step.side_effect = mock_step_side_effect
+
+                with TestClient(app).websocket_connect(
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
+                ) as ws:
+                    msg1 = ws.receive_json()
+                    assert msg1["type"] == "status"
+                    assert msg1["data"]["step"] == "initial"
+
+                    msg2 = ws.receive_json()
+                    assert msg2["type"] == "status"
+                    assert msg2["data"]["step"] == "deleted"
 
 
 class TestUserKeysEndpoint:

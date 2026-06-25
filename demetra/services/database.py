@@ -402,6 +402,15 @@ async def update_session_step(task_id: str, step: str) -> None:
         await connection.commit()
 
 
+async def get_session_step_name(task_id: str) -> tuple[str, str] | None:
+    async with get_connection() as connection:
+        result = await connection.execute(select(sessions.c.step, sessions.c.name).where(sessions.c.task_id == task_id))
+        row = result.fetchone()
+    if not row:
+        return None
+    return row.step or "initial", row.name or ""
+
+
 async def get_pending_session_task_ids() -> set[str]:
     async with get_connection() as connection:
         result = await connection.execute(select(sessions.c.task_id).where(sessions.c.session_id == ""))
