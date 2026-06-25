@@ -1,6 +1,9 @@
 import logging
+import os
 import re
 import shutil
+import tempfile
+import tomllib
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -164,3 +167,103 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
 
     except Exception as e:
         logger.exception(f"Failed to cleanup project directory: {e}")
+
+
+EPIC_LABEL = "epic"
+
+
+def is_epic_label(labels: list[str]) -> bool:
+    """Check if any label matches 'epic' (case-insensitive)."""
+    return any(label.lower() == EPIC_LABEL for label in labels)
+
+
+# Matches MAJOR.MINOR.PATCH with optional PEP 440 pre-release / build suffix.
+_VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(.*)$")
+
+
+def bump_project_version(target_path: Path, is_epic: bool = False) -> str:
+    """Read pyproject.toml, bump the version under [project], and write back."""
+    pyproject_file = target_path / "pyproject.toml"
+    content = pyproject_file.read_text(encoding="utf-8")
+
+    data = tomllib.loads(content)
+    try:
+        current_version = data["project"]["version"]
+    except KeyError:
+        msg = "Project version not found in pyproject.toml"
+        raise ValueError(msg) from None
+
+    match = _VERSION_PATTERN.match(current_version)
+    if not match:
+        msg = f"Invalid version format: {current_version!r}"
+        raise ValueError(msg)
+
+    major = int(match.group(1))
+    minor = int(match.group(2))
+    suffix = match.group(4)  # PEP 440 suffix, empty for plain semver
+
+    if is_epic:
+        new_version = f"{major + 1}.0.0{suffix}"
+    else:
+        new_version = f"{major}.{minor + 1}.0{suffix}"
+
+    lines = content.splitlines(keepends=True)
+    project_start = _find_section_start(lines, "[project]")
+    if project_start is None:
+        msg = "Project section not found in pyproject.toml"
+        raise ValueError(msg)
+
+    project_end = _find_next_section_start(lines, project_start + 1)
+    if project_end is None:
+        project_end = len(lines)
+
+    # Extract the [project] section body, apply regex, then splice it back.
+    project_lines = lines[project_start:project_end]
+    project_text = "".join(project_lines)
+
+    new_project_text, count = re.subn(
+        r'^(\s*version\s*=\s*)(["\'])([^"\']+)(["\'])(.*)',
+        rf"\g<1>\g<2>{new_version}\g<2>\g<5>",
+        project_text,
+        count=1,
+        flags=re.MULTILINE,
+    )
+    if count == 0:
+        msg = "Project version field not found in [project] section"
+        raise ValueError(msg)
+
+    lines[project_start:project_end] = [new_project_text]
+
+    # Atomic write via temp file + rename.
+    with tempfile.NamedTemporaryFile(
+        mode="w",
+        encoding="utf-8",
+        dir=pyproject_file.parent,
+        delete=False,
+    ) as tmp:
+        tmp.write("".join(lines))
+        tmp_path = tmp.name
+    os.replace(tmp_path, pyproject_file)
+
+    return new_version
+
+
+def _find_section_start(lines: list[str], target: str) -> int | None:
+    """Return the index of the line matching *target* section header."""
+    for i, line in enumerate(lines):
+        stripped = line.lstrip()
+        # Match lines like [project], [project]  # comment, etc.
+        if stripped.startswith("[") and "]" in stripped:
+            header = stripped.split("]")[0] + "]"
+            if header == target:
+                return i
+    return None
+
+
+def _find_next_section_start(lines: list[str], start: int) -> int | None:
+    """Return the index of the next TOML section header at or after *start*."""
+    for i in range(start, len(lines)):
+        stripped = lines[i].lstrip()
+        if stripped.startswith("[") and "]" in stripped:
+            return i
+    return None
