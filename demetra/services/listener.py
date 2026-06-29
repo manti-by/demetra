@@ -114,9 +114,8 @@ async def mark_notification_read(notification: dict) -> None:
         logger.warning(f"Failed to mark notification {thread_id} as read: {stderr.strip()}")
 
 
-async def process_merge_notification(pr_info: dict) -> bool:
-    pr_number = pr_info["pr_number"]
-    full_name = pr_info["full_name"]
+async def process_notification(pr_info: dict, action: str) -> bool:
+    pr_number, full_name = pr_info["pr_number"], pr_info["full_name"]
     pr_link = f"https://github.com/{full_name}/pull/{pr_number}"
 
     session = await get_session_by_pr_link(pr_link=pr_link)
@@ -125,44 +124,32 @@ async def process_merge_notification(pr_info: dict) -> bool:
         return False
 
     if not session.project_id:
-        logger.warning(f"Session {session.task_id} has no project_id, cannot enqueue merge workflow")
+        logger.warning(f"Session {session.task_id} has no project_id, cannot enqueue {action} workflow")
         return False
 
-    logger.info(f"Enqueuing merge workflow for PR #{pr_number} in {full_name}")
+    match action:
+        case "merge":
+            callable_function = run_merge_workflow
+        case "rebase":
+            callable_function = run_rebase_workflow
+        case _:
+            logger.info(f"Unknown action: {pr_link}")
+            return False
 
+    logger.info(f"Enqueuing {action} workflow for PR #{pr_number} in {full_name}")
     queue.enqueue(
-        run_merge_workflow,
+        callable_function,
         task_id=session.task_id,
         project_id=session.project_id,
         pr_number=pr_number,
         full_name=full_name,
     )
-
     return True
+
+
+async def process_merge_notification(pr_info: dict) -> bool:
+    return await process_notification(pr_info=pr_info, action="merge")
 
 
 async def process_rebase_notification(pr_info: dict) -> bool:
-    pr_number = pr_info["pr_number"]
-    full_name = pr_info["full_name"]
-    pr_link = f"https://github.com/{full_name}/pull/{pr_number}"
-
-    session = await get_session_by_pr_link(pr_link=pr_link)
-    if not session:
-        logger.info(f"No session found for PR link: {pr_link}")
-        return False
-
-    if not session.project_id:
-        logger.warning(f"Session {session.task_id} has no project_id, cannot enqueue rebase workflow")
-        return False
-
-    logger.info(f"Enqueuing rebase workflow for PR #{pr_number} in {full_name}")
-
-    queue.enqueue(
-        run_rebase_workflow,
-        task_id=session.task_id,
-        project_id=session.project_id,
-        pr_number=pr_number,
-        full_name=full_name,
-    )
-
-    return True
+    return await process_notification(pr_info=pr_info, action="rebase")

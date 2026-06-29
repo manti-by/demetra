@@ -38,27 +38,25 @@ async def main() -> None:
                     continue
 
                 subject = notification.get("subject", {})
-                body = await fetch_subject_body(subject=subject)
+                if not (body := await fetch_subject_body(subject=subject)):
+                    continue
+                if not (pr_info := extract_pr_info(notification=notification)):
+                    continue
+
+                message = f"requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}"
 
                 if mentions_demetra_ai_and_merge(body=body):
-                    pr_info = extract_pr_info(notification=notification)
-                    if not pr_info:
-                        continue
-
-                    logger.info(f"Merge requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}")
+                    logger.info(f"Merge {message}")
                     await process_merge_notification(pr_info=pr_info)
-                    await mark_notification_read(notification=notification)
 
                 elif mentions_demetra_ai_and_rebase(body=body):
-                    pr_info = extract_pr_info(notification=notification)
-                    if not pr_info:
-                        continue
-
-                    logger.info(
-                        f"Rebase requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}"
-                    )
+                    logger.info(f"Rebase {message}")
                     await process_rebase_notification(pr_info=pr_info)
-                    await mark_notification_read(notification=notification)
+
+                else:
+                    continue
+
+                await mark_notification_read(notification=notification)
 
         except OSError as e:
             logger.error(f"Error polling GitHub notifications: {e}")

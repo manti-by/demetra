@@ -1,8 +1,10 @@
 from demetra.library.models import Context, Project
+from demetra.services.auth_copy import copy_auth_from_parent
 from demetra.services.database import get_project_environments, get_session, search_projects_by_name
 from demetra.services.git import git_pull, git_worktree_create
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.tui import print_message
+from demetra.settings import PARENT_HOME
 
 
 async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None = None) -> Context | None:
@@ -22,6 +24,9 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Loading project environment", style="heading")
     project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
+
+    print_message("Copying auth from parent OS", style="heading")
+    await copy_auth_from_parent(parent_home=PARENT_HOME)
 
     print_message("Retrieving linear task", style="heading")
     if task_id:

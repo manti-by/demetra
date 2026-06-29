@@ -24,6 +24,8 @@ DB_USER = os.environ.get("DB_USER", "demetra")
 DB_NAME = os.environ.get("DB_NAME", "demetra")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
+PARENT_HOME: Path | None = Path(os.environ["PARENT_HOME"]) if "PARENT_HOME" in os.environ else None
+
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
