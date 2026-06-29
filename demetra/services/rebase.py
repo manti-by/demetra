@@ -23,7 +23,9 @@ async def perform_git_rebase(
     """
     Handles the Git rebase process, including conflict resolution with opencode-merge-agent.
     """
-    rebase_cmd = [str(GIT["path"]), "rebase", "-X", "theirs", f"origin/{base_branch}"]
+    # During rebase, ours/theirs are swapped relative to merge: the branch being rebased
+    # onto (origin/{base_branch}) is "ours". -X ours keeps the base version on conflict.
+    rebase_cmd = [str(GIT["path"]), "rebase", "-X", "ours", f"origin/{base_branch}"]
     exit_code, _, stderr = await run_command(command=rebase_cmd, target_path=worktree_path, env=env)
 
     if exit_code == 0:
@@ -45,7 +47,7 @@ async def perform_git_rebase(
             logger.info(f"Successfully rebased branch {head_branch} onto {base_branch}")
         return True
 
-    logger.warning(f"Rebase with -X theirs failed, attempting conflict resolution: {stderr.strip()[:500]}")
+    logger.warning(f"Rebase with -X ours failed, attempting conflict resolution: {stderr.strip()[:500]}")
 
     conflict_cmd = [str(GIT["path"]), "diff", "--name-only", "--diff-filter=U"]
     for attempt in range(MAX_MERGE_ATTEMPTS):

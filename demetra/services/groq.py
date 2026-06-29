@@ -92,7 +92,7 @@ async def process_text_with_groq(text: str) -> dict[str, str]:
     return {
         "title": text[:100] if len(text) > 100 else text,
         "description": text,
-        "tech_requirements": "",
+        "technical_requirements": "",
         "acceptance_criteria": "",
         "project_name": "",
     }
