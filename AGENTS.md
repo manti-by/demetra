@@ -6,15 +6,25 @@ Demetra is a coding workflow orchestration tool that coordinates multiple AI cod
 
 ## Project Structure
 
+- `main.py`: CLI entry point and supervisor orchestration
 - `demetra/settings.py`: Core configuration and environment variables
-- `demetra/models.py`: LinearIssue dataclass for task state management
-- `demetra/exceptions.py`: Custom exception classes
-- `demetra/services/*.py`: The main services for workflows
-- `demetra/services/queries/*.gql`: GraphQL queries
-- `demetra/workflows/*.py`: Different complex workflow parts
-- `main.py`: Entry point and supervisor orchestration
-- `opencode.json`: OpenCode LSP configuration
-- `tests/`: Comprehensive test suite
+- `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables)
+- `demetra/services/`: External system integrations (Linear, GitHub, OpenCode, etc.)
+- `demetra/queries/`: GraphQL queries
+- `demetra/workflows/`: Workflow orchestration steps
+- `demetra/api/`: FastAPI REST endpoints
+- `demetra/tools/`: MCP tool definitions
+- `demetra/prompts/`: LLM prompt templates
+- `demetra/app.py`: FastAPI application
+- `demetra/mcp_server.py`: MCP server
+- `demetra/watcher.py`: Linear TODO poller
+- `demetra/listener.py`: GitHub notification listener
+- `demetra/worker.py`: RQ worker
+- `react/`: React frontend (Vite + TypeScript)
+- `migrations/`: Alembic database migrations
+- `tests/`: Comprehensive test suite (40+ files)
+- `configs/`: Systemd service files, nginx config
+- `.opencode/`: OpenCode agent definitions
 
 ## Git Workflow
 
@@ -139,8 +149,8 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`.
 
 ## Dependencies
 
-**Core**: asyncio, aiofiles, aiohttp, psycopg, python-slugify, rich, langchain-groq, langchain-core
-**Development**: pytest, pytest-asyncio, debugpy, ipython, pre-commit, ty, uv-bump
+**Core**: aiofiles, aiohttp, alembic, asyncpg, fastapi, langchain-groq, langchain-core, mcp, psycopg, pydantic, python-jose, python-slugify, redis, rich, rq, rq-dashboard, ruff, sqlalchemy, uvicorn, websockets
+**Development**: bandit, debugpy, faker, ipython, pytest, pytest-asyncio, pytest-cov, pre-commit, ty, uv-bump
 
 ## External Dependencies
 
