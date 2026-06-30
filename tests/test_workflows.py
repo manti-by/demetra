@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError
-from demetra.library.models import Context, LinearTask, Project, Session
+from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test
@@ -709,11 +709,6 @@ class TestContextCompaction:
     """Tests for check_and_compact_context in build.py."""
 
     @pytest.fixture
-    def mock_get_opencode_session_length(self):
-        with patch("demetra.workflows.build.get_opencode_session_length", new_callable=AsyncMock) as m:
-            yield m
-
-    @pytest.fixture
     def mock_opencode_compact_session(self):
         with patch("demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock) as m:
             yield m
@@ -767,25 +762,25 @@ class TestContextCompaction:
             else None,
         )
 
+    def _make_history(self, length: int | None) -> SessionHistory:
+        return SessionHistory(
+            id="hist_1", session_id="ses_test123", step="build", length=length, created_at=datetime.now().isoformat()
+        )
+
     @pytest.mark.asyncio
     async def test_compacts_when_length_exceeds_threshold(
         self,
         faker,
-        mock_get_opencode_session_length,
         mock_opencode_compact_session,
         mock_record_session_step_history,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_length.return_value = 150_000
+        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_opencode_compact_session.return_value = (0, "compacted", "")
 
         await check_and_compact_context(context)
 
-        mock_get_opencode_session_length.assert_awaited_once_with(
-            target_path=context.worktree_path,
-            session_id=context.session_id,
-            env=context.project.environment,
-        )
         mock_opencode_compact_session.assert_awaited_once_with(
             target_path=context.worktree_path,
             session_id=context.session_id,
@@ -793,16 +788,31 @@ class TestContextCompaction:
         )
 
     @pytest.mark.asyncio
-    async def test_does_not_compact_when_below_threshold(
+    async def test_logs_compaction_failure(
         self,
         faker,
-        mock_get_opencode_session_length,
         mock_opencode_compact_session,
         mock_record_session_step_history,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_length.return_value = 50_000
+        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_opencode_compact_session.return_value = (1, "", "error details")
+
+        await check_and_compact_context(context)
+
+        mock_opencode_compact_session.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_does_not_compact_when_below_threshold(
+        self,
+        faker,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_record_session_step_history.return_value = self._make_history(50_000)
 
         await check_and_compact_context(context)
 
@@ -812,13 +822,12 @@ class TestContextCompaction:
     async def test_does_not_compact_when_length_is_none(
         self,
         faker,
-        mock_get_opencode_session_length,
         mock_opencode_compact_session,
         mock_record_session_step_history,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_length.return_value = None
+        mock_record_session_step_history.return_value = self._make_history(None)
 
         await check_and_compact_context(context)
 
@@ -828,7 +837,6 @@ class TestContextCompaction:
     async def test_no_ops_when_session_id_is_none(
         self,
         faker,
-        mock_get_opencode_session_length,
         mock_opencode_compact_session,
         mock_record_session_step_history,
     ):
@@ -836,20 +844,19 @@ class TestContextCompaction:
 
         await check_and_compact_context(context)
 
-        mock_get_opencode_session_length.assert_not_called()
+        mock_record_session_step_history.assert_not_called()
         mock_opencode_compact_session.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_records_step_history(
         self,
         faker,
-        mock_get_opencode_session_length,
         mock_opencode_compact_session,
         mock_record_session_step_history,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_length.return_value = 80_000
+        mock_record_session_step_history.return_value = self._make_history(80_000)
 
         await check_and_compact_context(context)
 

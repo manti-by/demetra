@@ -431,8 +431,17 @@ async def get_session_step_name(task_id: str) -> tuple[str, str] | None:
     return row.step or "initial", row.name or ""
 
 
-async def record_session_history(session_id: str, step: str, length: int | None = None) -> SessionHistory:
-    """Insert a row into session_history recording an opencode session length at a workflow step."""
+async def record_session_history(
+    session_id: str,
+    step: str,
+    length: int | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    reasoning_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+) -> SessionHistory:
+    """Insert a row into session_history recording an opencode session token usage at a workflow step."""
     history_id = str(uuid4())
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -442,6 +451,11 @@ async def record_session_history(session_id: str, step: str, length: int | None 
                 session_id=session_id,
                 step=step,
                 length=length,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                reasoning_tokens=reasoning_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
                 created_at=now,
             )
         )
@@ -452,6 +466,11 @@ async def record_session_history(session_id: str, step: str, length: int | None 
         session_id=session_id,
         step=step,
         length=length,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        reasoning_tokens=reasoning_tokens,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
         created_at=now.isoformat(),
     )
 
@@ -472,6 +491,11 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
             session_id=row.session_id,
             step=row.step,
             length=row.length,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            reasoning_tokens=row.reasoning_tokens,
+            cache_read_tokens=row.cache_read_tokens,
+            cache_write_tokens=row.cache_write_tokens,
             created_at=row.created_at.isoformat(),
         )
         for row in rows
@@ -851,14 +875,19 @@ async def record_session_step_history(
     step: str,
     env: dict[str, str] | None = None,
 ) -> SessionHistory | None:
-    """Fetch the current opencode session length and record it in session_history.
-
-    Returns the created SessionHistory record, or None if session_id is not available.
-    """
-    from demetra.services.opencode import get_opencode_session_length
+    from demetra.services.opencode import get_opencode_session_tokens
 
     if not session_id:
         return None
 
-    length = await get_opencode_session_length(target_path=target_path, session_id=session_id, env=env)
-    return await record_session_history(session_id=session_id, step=step, length=length)
+    usage = await get_opencode_session_tokens(target_path=target_path, session_id=session_id, env=env)
+    return await record_session_history(
+        session_id=session_id,
+        step=step,
+        length=usage.total if usage is not None else None,
+        input_tokens=usage.input if usage is not None else None,
+        output_tokens=usage.output if usage is not None else None,
+        reasoning_tokens=usage.reasoning if usage is not None else None,
+        cache_read_tokens=usage.cache_read if usage is not None else None,
+        cache_write_tokens=usage.cache_write if usage is not None else None,
+    )

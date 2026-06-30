@@ -2,6 +2,7 @@ import json
 import shlex
 from pathlib import Path
 
+from demetra.library.models import TokenUsage
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
@@ -137,12 +138,12 @@ async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[
     return fallback_session_id
 
 
-async def get_opencode_session_length(
+async def get_opencode_session_tokens(
     target_path: Path, session_id: str, env: dict[str, str] | None = None
-) -> int | None:
-    """Get the total token count for an opencode session via `opencode export`.
+) -> TokenUsage | None:
+    """Get token usage breakdown from an opencode session via `opencode export`.
 
-    Sums input, output, reasoning, cache.read, and cache.write tokens.
+    Returns a TokenUsage with input, output, reasoning, cache_read, cache_write.
     Returns None if the command fails or the export JSON is malformed.
     """
     command = [str(OPENCODE["path"]), "export", session_id]
@@ -155,23 +156,36 @@ async def get_opencode_session_length(
     except (json.JSONDecodeError, ValueError):
         return None
 
+    if not isinstance(data, dict):
+        return None
+
     info = data.get("info")
-    if not info:
+    if not isinstance(info, dict):
         return None
 
     tokens = info.get("tokens")
-    if not tokens:
+    if not isinstance(tokens, dict):
         return None
 
-    total = tokens.get("input", 0) or 0
-    total += tokens.get("output", 0) or 0
-    total += tokens.get("reasoning", 0) or 0
+    usage = TokenUsage(
+        input=tokens.get("input", 0) or 0,
+        output=tokens.get("output", 0) or 0,
+        reasoning=tokens.get("reasoning", 0) or 0,
+    )
     cache = tokens.get("cache")
-    if cache:
-        total += cache.get("read", 0) or 0
-        total += cache.get("write", 0) or 0
+    if isinstance(cache, dict):
+        usage.cache_read = cache.get("read", 0) or 0
+        usage.cache_write = cache.get("write", 0) or 0
 
-    return total
+    return usage
+
+
+async def get_opencode_session_length(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> int | None:
+    """Get the total token count for an opencode session via `opencode export`."""
+    usage = await get_opencode_session_tokens(target_path=target_path, session_id=session_id, env=env)
+    return usage.total if usage is not None else None
 
 
 async def opencode_compact_session(

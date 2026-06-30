@@ -1,3 +1,5 @@
+from sqlalchemy.exc import SQLAlchemyError
+
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError, UserCancelledError
 from demetra.library.models import Context
 from demetra.services.database import record_session_step_history, save_session, update_session_step
@@ -17,12 +19,6 @@ async def run_plan_step(context: Context) -> str | None:
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
-        await record_session_step_history(
-            target_path=context.worktree_path,
-            session_id=context.session_id,
-            step="plan",
-            env=context.project.environment,
-        )
 
         exit_code, stdout, stderr = await opencode_plan_agent(
             target_path=context.worktree_path,
@@ -75,6 +71,16 @@ async def run_plan_step(context: Context) -> str | None:
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
+
+        try:
+            await record_session_step_history(
+                target_path=context.worktree_path,
+                session_id=context.session_id,
+                step="plan",
+                env=context.project.environment,
+            )
+        except (SQLAlchemyError, OSError):
+            print_message("Failed to record session step history.", style="warning")
 
         questions = await extract_questions(plan_output=plan_output)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]

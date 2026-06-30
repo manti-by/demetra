@@ -1,3 +1,5 @@
+from sqlalchemy.exc import SQLAlchemyError
+
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.database import record_session_step_history, update_session_step
@@ -18,25 +20,27 @@ async def check_and_compact_context(context: Context) -> None:
     if not context.session_id:
         return
 
-    length = await get_opencode_session_length(
-        target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
-    )
-
-    await record_session_step_history(
-        target_path=context.worktree_path,
-        session_id=context.session_id,
-        step="build",
-        env=context.project.environment,
-    )
+    try:
+        history = await record_session_step_history(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            step="build",
+            env=context.project.environment,
+        )
+    except (SQLAlchemyError, OSError):
+        history = None
+    length = history.length if history is not None else None
 
     if length is not None and length > CONTEXT_COMPACTION_THRESHOLD:
         print_message(
             f"Session length ({length:,} tokens) exceeds threshold ({CONTEXT_COMPACTION_THRESHOLD:,}), compacting.",
             style="info",
         )
-        await opencode_compact_session(
+        compact_exit_code, _, compact_stderr = await opencode_compact_session(
             target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
         )
+        if compact_exit_code != 0:
+            print_message(f"Failed to compact session: {compact_stderr.strip()}", style="error")
 
 
 async def run_build_step(build_plan: str, context: Context) -> None:
@@ -66,7 +70,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")
             review_comments = await run_review_agents(
-                target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+                target_path=context.worktree_path,
+                session_id=context.session_id,
+                task_id=context.linear_task.id,
+                env=context.project.environment,
             )
             if review_comments:
                 if context.auto_mode:
