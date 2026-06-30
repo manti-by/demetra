@@ -40,6 +40,15 @@ class LinearTask:
 
 
 @dataclass
+class SessionHistory:
+    id: str
+    session_id: str
+    step: str
+    created_at: str
+    length: int | None = None
+
+
+@dataclass
 class Session:
     task_id: str
     build_plan: str

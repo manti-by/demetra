@@ -1,6 +1,6 @@
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError, UserCancelledError
 from demetra.library.models import Context
-from demetra.services.database import save_session, update_session_step
+from demetra.services.database import record_session_step_history, save_session, update_session_step
 from demetra.services.flow import user_input
 from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
@@ -17,6 +17,12 @@ async def run_plan_step(context: Context) -> str | None:
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
+        await record_session_step_history(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            step="plan",
+            env=context.project.environment,
+        )
 
         exit_code, stdout, stderr = await opencode_plan_agent(
             target_path=context.worktree_path,

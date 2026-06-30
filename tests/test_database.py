@@ -12,10 +12,12 @@ from demetra.services.database import (
     delete_project_environment,
     get_project_environments,
     get_session,
+    get_session_history,
     get_session_step_name,
     increment_run_attempts,
     list_project_environments,
     mark_session_posted,
+    record_session_history,
     save_session,
     update_session_linear_link,
     update_session_pr_link,
@@ -726,3 +728,71 @@ class TestPrLink:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.pr_link == "https://github.com/owner/repo/pull/42"
+
+
+class TestSessionHistory:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_record_session_history_inserts_row(self, db_session_id: str):
+        history = await record_session_history(
+            session_id=db_session_id,
+            step="build",
+            length=12345,
+        )
+        assert history.session_id == db_session_id
+        assert history.step == "build"
+        assert history.length == 12345
+        assert history.id is not None
+        assert history.created_at is not None
+
+    @pytest.mark.asyncio
+    async def test_record_session_history_with_none_length(self, db_session_id: str):
+        history = await record_session_history(
+            session_id=db_session_id,
+            step="plan",
+            length=None,
+        )
+        assert history.session_id == db_session_id
+        assert history.step == "plan"
+        assert history.length is None
+
+    @pytest.mark.asyncio
+    async def test_get_session_history_returns_ordered_rows(self, db_session_id: str):
+        await record_session_history(session_id=db_session_id, step="plan", length=100)
+        await record_session_history(session_id=db_session_id, step="build", length=200)
+        await record_session_history(session_id=db_session_id, step="review", length=350)
+
+        rows = await get_session_history(db_session_id)
+        assert len(rows) == 3
+        steps = [r.step for r in rows]
+        assert steps == ["plan", "build", "review"]
+        lengths = [r.length for r in rows]
+        assert lengths == [100, 200, 350]
+
+    @pytest.mark.asyncio
+    async def test_get_session_history_returns_empty_for_unknown(self):
+        rows = await get_session_history("nonexistent-session")
+        assert rows == []
+
+    @pytest.mark.asyncio
+    async def test_multiple_sessions_are_isolated(self, db_session_id: str):
+        other_session_id = "session-other"
+        await record_session_history(session_id=db_session_id, step="build", length=111)
+        await record_session_history(session_id=other_session_id, step="plan", length=222)
+
+        rows_a = await get_session_history(db_session_id)
+        assert len(rows_a) == 1
+        assert rows_a[0].length == 111
+
+        rows_b = await get_session_history(other_session_id)
+        assert len(rows_b) == 1
+        assert rows_b[0].length == 222
+
+    @pytest.mark.asyncio
+    async def test_generates_unique_ids(self, db_session_id: str):
+        h1 = await record_session_history(session_id=db_session_id, step="a", length=1)
+        h2 = await record_session_history(session_id=db_session_id, step="b", length=2)
+        assert h1.id != h2.id

@@ -4,13 +4,22 @@ import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy import create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session
-from demetra.library.tables import jwt_tokens, oauth_tokens, project_environments, projects, sessions, users
+from demetra.library.models import Session, SessionHistory
+from demetra.library.tables import (
+    jwt_tokens,
+    oauth_tokens,
+    project_environments,
+    projects,
+    session_history,
+    sessions,
+    users,
+)
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -422,6 +431,53 @@ async def get_session_step_name(task_id: str) -> tuple[str, str] | None:
     return row.step or "initial", row.name or ""
 
 
+async def record_session_history(session_id: str, step: str, length: int | None = None) -> SessionHistory:
+    """Insert a row into session_history recording an opencode session length at a workflow step."""
+    history_id = str(uuid4())
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(session_history).values(
+                id=history_id,
+                session_id=session_id,
+                step=step,
+                length=length,
+                created_at=now,
+            )
+        )
+        await connection.commit()
+
+    return SessionHistory(
+        id=history_id,
+        session_id=session_id,
+        step=step,
+        length=length,
+        created_at=now.isoformat(),
+    )
+
+
+async def get_session_history(session_id: str) -> list[SessionHistory]:
+    """Return all history rows for the given opencode session, ordered by creation time."""
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(session_history)
+            .where(session_history.c.session_id == session_id)
+            .order_by(session_history.c.created_at)
+        )
+        rows = result.fetchall()
+
+    return [
+        SessionHistory(
+            id=row.id,
+            session_id=row.session_id,
+            step=row.step,
+            length=row.length,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
+
+
 async def get_pending_session_task_ids() -> set[str]:
     async with get_connection() as connection:
         result = await connection.execute(select(sessions.c.task_id).where(sessions.c.session_id == ""))
@@ -787,3 +843,22 @@ async def delete_session(task_id: str, user_id: str) -> bool:
             pass
 
     return True
+
+
+async def record_session_step_history(
+    target_path: Path,
+    session_id: str | None,
+    step: str,
+    env: dict[str, str] | None = None,
+) -> SessionHistory | None:
+    """Fetch the current opencode session length and record it in session_history.
+
+    Returns the created SessionHistory record, or None if session_id is not available.
+    """
+    from demetra.services.opencode import get_opencode_session_length
+
+    if not session_id:
+        return None
+
+    length = await get_opencode_session_length(target_path=target_path, session_id=session_id, env=env)
+    return await record_session_history(session_id=session_id, step=step, length=length)

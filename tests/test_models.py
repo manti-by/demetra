@@ -2,7 +2,7 @@ from pathlib import Path
 
 from faker import Faker
 
-from demetra.library.models import Environment, LinearTask, Project
+from demetra.library.models import Environment, LinearTask, Project, SessionHistory
 
 
 fake = Faker()
@@ -124,3 +124,29 @@ class TestProjectEnvironment:
 
         assert env1 is env2
         assert env1 == {"KEY": "value1"}
+
+
+class TestSessionHistory:
+    def test_session_history_dataclass_has_required_fields(self):
+        history = SessionHistory(
+            id="hist-001",
+            session_id="ses_abc123",
+            step="build",
+            length=12345,
+            created_at="2026-06-30T12:00:00+00:00",
+        )
+        assert history.id == "hist-001"
+        assert history.session_id == "ses_abc123"
+        assert history.step == "build"
+        assert history.length == 12345
+        assert history.created_at == "2026-06-30T12:00:00+00:00"
+        assert isinstance(history.length, int)
+
+    def test_session_history_default_length_is_none(self):
+        history = SessionHistory(
+            id="hist-002",
+            session_id="ses_def456",
+            step="plan",
+            created_at="2026-06-30T12:00:00+00:00",
+        )
+        assert history.length is None

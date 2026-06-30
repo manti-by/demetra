@@ -137,6 +137,59 @@ async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[
     return fallback_session_id
 
 
+async def get_opencode_session_length(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> int | None:
+    """Get the total token count for an opencode session via `opencode export`.
+
+    Sums input, output, reasoning, cache.read, and cache.write tokens.
+    Returns None if the command fails or the export JSON is malformed.
+    """
+    command = [str(OPENCODE["path"]), "export", session_id]
+    exit_code, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
+    if exit_code != 0:
+        return None
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+    info = data.get("info")
+    if not info:
+        return None
+
+    tokens = info.get("tokens")
+    if not tokens:
+        return None
+
+    total = tokens.get("input", 0) or 0
+    total += tokens.get("output", 0) or 0
+    total += tokens.get("reasoning", 0) or 0
+    cache = tokens.get("cache")
+    if cache:
+        total += cache.get("read", 0) or 0
+        total += cache.get("write", 0) or 0
+
+    return total
+
+
+async def opencode_compact_session(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    """Run the /compact command within an existing opencode session."""
+    command = [
+        str(OPENCODE["path"]),
+        "run",
+        "--session",
+        session_id,
+        "--dir",
+        str(target_path),
+        "/compact",
+    ]
+    return await run_command(command=command, target_path=target_path, disable_stdio=False, env=env)
+
+
 async def extract_plan(plan_output: str) -> str:
     if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
         plan_output = plan_output[start_index:]

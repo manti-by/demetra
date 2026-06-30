@@ -2,7 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import DemetraError
 from demetra.library.models import Context
-from demetra.services.database import update_session_pr_link, update_session_step
+from demetra.services.database import record_session_step_history, update_session_pr_link, update_session_step
 from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request, extract_pr_link
 from demetra.services.groq import generate_pr_description
@@ -23,6 +23,12 @@ async def commit_and_push(context: Context) -> bool:
         return False
 
     await update_session_step(task_id=context.linear_task.id, step="push")
+    await record_session_step_history(
+        target_path=context.worktree_path,
+        session_id=context.session_id,
+        step="push",
+        env=context.project.environment,
+    )
     await git_commit(
         target_path=context.worktree_path, message=context.linear_task.full_title, env=context.project.environment
     )
@@ -60,12 +66,24 @@ async def commit_and_push(context: Context) -> bool:
             print_message("Failed to persist PR link, continuing.", style="warning")
 
     await update_session_step(task_id=context.linear_task.id, step="completed")
+    await record_session_step_history(
+        target_path=context.worktree_path,
+        session_id=context.session_id,
+        step="completed",
+        env=context.project.environment,
+    )
     return True
 
 
 async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:
     if not is_success:
         await update_session_step(task_id=context.linear_task.id, step="failed")
+        await record_session_step_history(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            step="failed",
+            env=context.project.environment,
+        )
 
     await git_cleanup(context=context, is_success=is_success)
     if should_update_linear_status:
