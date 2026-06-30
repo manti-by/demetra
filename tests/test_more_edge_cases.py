@@ -46,6 +46,14 @@ class TestWorkflowBuildEdgeCases:
         ):
             yield
 
+    @pytest.fixture(autouse=True)
+    def mock_bump_version(self):
+        with patch(
+            "demetra.workflows.build.bump_project_version",
+            return_value="1.15.0",
+        ):
+            yield
+
     @pytest.mark.asyncio
     async def test_run_build_step_handles_review_loop(self, faker):
         context = Context(

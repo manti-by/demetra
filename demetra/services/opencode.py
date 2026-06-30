@@ -18,6 +18,7 @@ async def opencode_plan_agent(
 ) -> tuple[int, str, str]:
     task += (
         f"\nIMPORTANT:"
+        f"\n- Do NOT use markdown tables in the implementation plan. Use lists or paragraphs instead."
         f"\n- If you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
         f"\n- If there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
     )

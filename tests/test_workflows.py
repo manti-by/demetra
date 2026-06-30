@@ -631,6 +631,16 @@ class TestWorkflowBuild:
         with patch("demetra.workflows.build.user_input", new_callable=AsyncMock) as m:
             yield m
 
+    @pytest.fixture
+    def mock_bump_version(self):
+        with patch("demetra.workflows.build.bump_project_version", return_value="1.15.0") as m:
+            yield m
+
+    @pytest.fixture
+    def mock_is_epic_label(self):
+        with patch("demetra.workflows.build.is_epic_label", return_value=False) as m:
+            yield m
+
     @pytest.mark.asyncio
     async def test_run_build_step_success(
         self,
@@ -639,6 +649,8 @@ class TestWorkflowBuild:
         mock_run_review_agents,
         mock_run_lint_and_test,
         mock_user_input,
+        mock_bump_version,
+        mock_is_epic_label,
     ):
         context = Context(
             project=Project(
@@ -676,6 +688,7 @@ class TestWorkflowBuild:
         result = await run_build_step("test build plan", context)
 
         assert result is None
+        mock_bump_version.assert_called_once()
 
 
 class TestWorkflowReview:
@@ -1093,7 +1106,7 @@ class TestMainBumpVersion:
         )
 
     @pytest.mark.asyncio
-    async def test_main_bumps_version_before_commit_loop(self, faker, context):
+    async def test_main_calls_build_step_before_commit(self, faker, context):
         with (
             patch("main.init_db", new_callable=AsyncMock),
             patch("main.print_heading", new_callable=AsyncMock),
@@ -1102,13 +1115,11 @@ class TestMainBumpVersion:
             patch("main.run_plan_step", new_callable=AsyncMock, return_value=True),
             patch("main.post_comment", new_callable=AsyncMock),
             patch("main.mark_session_posted", new_callable=AsyncMock),
-            patch("main.run_build_step", new_callable=AsyncMock),
+            patch("main.run_build_step", new_callable=AsyncMock) as mock_build,
             patch("main.commit_and_push", new_callable=AsyncMock, return_value=True),
             patch("main.cleanup_workflow", new_callable=AsyncMock),
-            patch("main.bump_project_version", return_value="1.15.0") as mock_bump,
-            patch("main.is_epic_label", return_value=False),
         ):
             from main import main
 
             await main(project_name="demetra", auto_mode=True)
-            mock_bump.assert_called_once()
+            mock_build.assert_called_once()

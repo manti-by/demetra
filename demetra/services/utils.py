@@ -93,5 +93,11 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
         if isinstance(handler, logging.FileHandler):
             handler.close()
             logger.removeHandler(handler)
-
     logger.addHandler(file_handler)
+
+    tui_logger = logging.getLogger("demetra.services.tui")
+    for handler in tui_logger.handlers[:]:
+        if isinstance(handler, logging.FileHandler):
+            handler.close()
+            tui_logger.removeHandler(handler)
+    tui_logger.addHandler(file_handler)

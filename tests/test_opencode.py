@@ -37,6 +37,7 @@ class TestOpencodeService:
         expected_task = (
             "do something"
             "\nIMPORTANT:"
+            "\n- Do NOT use markdown tables in the implementation plan. Use lists or paragraphs instead."
             "\n- If you have some question about implementation, just print in the end `Please check my questions above.`"
             "\n- If there are no questions, just print in the end `Ready to proceed to build.`"
         )
