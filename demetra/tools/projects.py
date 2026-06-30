@@ -15,7 +15,7 @@ _MAX_TAIL_LINES = 5000
 _DEFAULT_TAIL_LINES = 100
 
 
-def _resolve_log_path(file_path: str) -> Path | None:
+def resolve_log_path(file_path: str) -> Path | None:
     target = (LOG_ROOT / file_path).resolve()
     try:
         target.relative_to(LOG_ROOT)
@@ -24,7 +24,7 @@ def _resolve_log_path(file_path: str) -> Path | None:
     return target if target.is_file() else None
 
 
-def _tail_file(path: Path, lines: int) -> str:
+def tail_file(path: Path, lines: int) -> str:
     lines = min(max(lines, 1), _MAX_TAIL_LINES)
     BLOCK_SIZE = 8192
     file_size = path.stat().st_size
@@ -32,34 +32,23 @@ def _tail_file(path: Path, lines: int) -> str:
         return ""
 
     with path.open("rb") as f:
-        if lines == 0:
-            return ""
-
-        data = bytearray()
         pos = file_size
+        buffer = bytearray()
         newline_count = 0
 
-        while pos > 0 and newline_count <= lines:
+        while pos > 0 and newline_count < lines:
             read_size = min(BLOCK_SIZE, pos)
             pos -= read_size
             f.seek(pos)
             chunk = f.read(read_size)
-            data.extend(reversed(chunk))
+            buffer[:0] = chunk
             newline_count += chunk.count(b"\n")
 
-        data.extend(b"\n")
+        all_lines = buffer.split(b"\n")
+        if buffer[-1:] == b"\n":
+            all_lines.pop()
 
-        reversed_lines = data.split(b"\n")
-        result_lines = []
-        count = 0
-        for line in reversed(reversed_lines):
-            if count >= lines:
-                break
-            decoded = bytes(reversed(line)).decode("utf-8", errors="replace")
-            result_lines.append(decoded)
-            count += 1
-
-        return "".join(reversed(result_lines)).rstrip("\n")
+        return b"\n".join(all_lines[-lines:]).decode("utf-8", errors="replace")
 
 
 _TOOLS = [
@@ -118,13 +107,13 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
             file_path = args.get("file_path")
             if not file_path:
                 return [TextContent(type="text", text="Error: file_path is required")]
-            resolved = _resolve_log_path(file_path)
+            resolved = resolve_log_path(file_path)
             if resolved is None:
                 return [
                     TextContent(type="text", text=f"Error: file not found or path outside log directory: {file_path}")
                 ]
             lines = args.get("lines", _DEFAULT_TAIL_LINES)
-            content = _tail_file(resolved, lines)
+            content = tail_file(resolved, lines)
             return [TextContent(type="text", text=content)]
 
         return [TextContent(type="text", text=f"Error: Unknown tool {name}")]

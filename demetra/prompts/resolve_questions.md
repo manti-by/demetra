@@ -17,7 +17,7 @@ Answer each question by inspecting the codebase, citing the concrete evidence th
 question cannot be answered from the codebase, say so explicitly instead of guessing. Use this format, one block per
 question:
 
-```
+```text
 1. Question: <verbatim question>
    Answer: <answer, or "Cannot be determined from the codebase">
    Evidence: <file path:line-range, symbol> (omit if none)

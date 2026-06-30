@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 .PHONY: react
 
 run-demetra:
@@ -87,7 +88,7 @@ docker-build-arm:
 	docker build --platform linux/arm64 -t mantiby/demetra:arm .
 
 docker-run:
-	docker run -e PARENT_HOME=/home/manti/ -v $HOME:/home/manti/:ro demetra
+	docker run -e PARENT_HOME=/home/manti/ -v "$(HOME):/home/manti/:ro" demetra
 
 container-build:
 	container build --tag demetra:latest --file Dockerfile .
