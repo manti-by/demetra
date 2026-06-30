@@ -37,8 +37,8 @@ class TestCursorService:
 
         call_kwargs = mock_run_cursor_agent.call_args.kwargs
         task = call_kwargs["task"]
-        assert "Check git staged changes" in task
-        assert "Review diff" in task
+        assert "staged changes" in task
+        assert "high-severity issues" in task
 
     @pytest.mark.asyncio
     async def test_run_cursor_agent_uses_correct_command(self, mock_run_command, mock_cursor_path):

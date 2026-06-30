@@ -9,6 +9,8 @@ from demetra.services.listener import (
     fetch_subject_body,
     get_notifications,
     mentions_demetra_ai_and_merge,
+    mentions_demetra_ai_and_rebase,
+    process_merge_notification,
     process_rebase_notification,
     should_process_notification,
 )
@@ -157,12 +159,15 @@ class TestFetchSubjectBody:
             assert result == "Title"
 
 
-class TestMentionsDemetraAiAndRebase:
+class TestMentionsDemetraAiAndMerge:
     def test_returns_true_when_both_present(self):
         assert mentions_demetra_ai_and_merge("@demetra-ai please merge") is True
 
     def test_returns_true_case_insensitive(self):
-        assert mentions_demetra_ai_and_merge("DEMETRA-AI MERGE") is True
+        assert mentions_demetra_ai_and_merge("@DEMETRA-AI MERGE") is True
+
+    def test_returns_false_without_at_mention(self):
+        assert mentions_demetra_ai_and_merge("DEMETRA-AI MERGE") is False
 
     def test_returns_false_when_only_rebase(self):
         assert mentions_demetra_ai_and_merge("please rebase") is False
@@ -187,42 +192,76 @@ class TestMentionsDemetraAiAndRebase:
         assert mentions_demetra_ai_and_merge("") is False
 
 
-class TestProcessRebaseNotification:
-    @pytest.mark.asyncio
-    async def test_returns_false_when_no_pr_info(self):
-        notification = {"subject": {"type": "Issue"}}
-        result = await process_rebase_notification(notification)
-        assert result is False
+class TestMentionsDemetraAiAndRebase:
+    def test_returns_true_when_both_present(self):
+        assert mentions_demetra_ai_and_rebase("@demetra-ai please rebase") is True
+
+    def test_returns_true_case_insensitive(self):
+        assert mentions_demetra_ai_and_rebase("@DEMETRA-AI REBASE") is True
+
+    def test_returns_false_without_at_mention(self):
+        assert mentions_demetra_ai_and_rebase("DEMETRA-AI REBASE") is False
+
+    def test_returns_false_when_only_merge(self):
+        assert mentions_demetra_ai_and_rebase("please merge") is False
+
+    def test_returns_false_when_only_demetra_ai(self):
+        assert mentions_demetra_ai_and_rebase("@demetra-ai help") is False
+
+    def test_returns_false_when_none_present(self):
+        assert mentions_demetra_ai_and_rebase("looks good to me") is False
+
+    def test_returns_false_when_rebase_not_directed_at_bot(self):
+        assert mentions_demetra_ai_and_rebase("thanks @demetra-ai, I'll rebase this myself later") is False
+
+    def test_returns_true_with_comma_after_mention(self):
+        assert mentions_demetra_ai_and_rebase("@demetra-ai, rebase") is True
+        assert mentions_demetra_ai_and_rebase("@demetra-ai rebase please") is True
+
+    def test_returns_false_for_none(self):
+        assert mentions_demetra_ai_and_rebase(None) is False
+
+    def test_returns_false_for_empty_string(self):
+        assert mentions_demetra_ai_and_rebase("") is False
+
+    def test_does_not_match_merge_when_rebase_requested(self):
+        assert mentions_demetra_ai_and_rebase("@demetra-ai merge") is False
+
+    def test_does_not_match_rebase_in_other_context(self):
+        assert mentions_demetra_ai_and_rebase("can you rebase this branch?") is False
+
+    def test_matches_with_colon_separator(self):
+        assert mentions_demetra_ai_and_rebase("@demetra-ai: rebase") is True
+
+
+class TestProcessMergeNotification:
+    PR_INFO = {"pr_number": 42, "full_name": "owner/repo", "title": "Fix the thing"}
 
     @pytest.mark.asyncio
     async def test_returns_false_when_no_session_found(self):
-        notification = {
-            "subject": {
-                "type": "PullRequest",
-                "url": "https://api.github.com/repos/owner/repo/pulls/42",
-            },
-            "repository": {
-                "full_name": "owner/repo",
-                "clone_url": "https://github.com/owner/repo.git",
-            },
-        }
         with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
             mock_db.return_value = None
-            result = await process_rebase_notification(notification)
+            result = await process_merge_notification(self.PR_INFO)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_session_has_no_project_id(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id=None,
+        )
+        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+            mock_db.return_value = session
+            result = await process_merge_notification(self.PR_INFO)
             assert result is False
 
     @pytest.mark.asyncio
     async def test_enqueues_merge_workflow(self):
-        notification = {
-            "subject": {
-                "type": "PullRequest",
-                "url": "https://api.github.com/repos/owner/repo/pulls/42",
-            },
-            "repository": {
-                "full_name": "owner/repo",
-                "clone_url": "https://github.com/owner/repo.git",
-            },
-        }
         session = Session(
             task_id="TASK-123",
             build_plan="Implement feature X",
@@ -238,11 +277,66 @@ class TestProcessRebaseNotification:
         ):
             mock_db.return_value = session
 
-            result = await process_rebase_notification(notification)
+            result = await process_merge_notification(self.PR_INFO)
 
             assert result is True
             mock_queue.enqueue.assert_called_once_with(
-                mock_queue.enqueue.call_args[0][0],  # run_merge_workflow
+                mock_queue.enqueue.call_args[0][0],
+                task_id=session.task_id,
+                project_id=session.project_id,
+                pr_number=42,
+                full_name="owner/repo",
+            )
+
+
+class TestProcessRebaseNotification:
+    PR_INFO = {"pr_number": 42, "full_name": "owner/repo", "title": "Fix the thing"}
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_no_session_found(self):
+        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+            mock_db.return_value = None
+            result = await process_rebase_notification(self.PR_INFO)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_when_session_has_no_project_id(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id=None,
+        )
+        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+            mock_db.return_value = session
+            result = await process_rebase_notification(self.PR_INFO)
+            assert result is False
+
+    @pytest.mark.asyncio
+    async def test_enqueues_rebase_workflow(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="Implement feature X",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
+
+            result = await process_rebase_notification(self.PR_INFO)
+
+            assert result is True
+            mock_queue.enqueue.assert_called_once_with(
+                mock_queue.enqueue.call_args[0][0],
                 task_id=session.task_id,
                 project_id=session.project_id,
                 pr_number=42,
@@ -258,7 +352,7 @@ class TestListenerEntrypoint:
         assert LISTENER_POLL_INTERVAL == 60
 
     @pytest.mark.asyncio
-    async def test_main_loop_processes_notifications(self):
+    async def test_main_loop_processes_merge(self):
         notifications = [
             {
                 "id": "1",
@@ -280,13 +374,61 @@ class TestListenerEntrypoint:
             patch("demetra.listener.get_notifications", new_callable=AsyncMock) as mock_get,
             patch("demetra.listener.fetch_subject_body", new_callable=AsyncMock) as mock_body,
             patch("demetra.listener.extract_pr_info") as mock_pr,
-            patch("demetra.listener.process_rebase_notification", new_callable=AsyncMock) as mock_process,
+            patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=True),
+            patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=False),
+            patch("demetra.listener.process_merge_notification", new_callable=AsyncMock) as mock_process,
             patch("demetra.listener.mark_notification_read", new_callable=AsyncMock),
             patch("demetra.listener.init_db", new_callable=AsyncMock),
             patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
         ):
             mock_get.return_value = notifications
             mock_body.return_value = "@demetra-ai please merge"
+            mock_pr.return_value = {
+                "pr_number": 42,
+                "full_name": "owner/repo",
+                "title": "PR Title",
+                "clone_url": "https://github.com/owner/repo.git",
+            }
+
+            from demetra.listener import main
+
+            with pytest.raises(RuntimeError, match="coroutine raised StopIteration"):
+                await main()
+
+            mock_process.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_main_loop_processes_rebase(self):
+        notifications = [
+            {
+                "id": "1",
+                "reason": "mention",
+                "subject": {
+                    "type": "PullRequest",
+                    "title": "PR Title",
+                    "url": "https://api.github.com/repos/owner/repo/pulls/42",
+                    "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/1",
+                },
+                "repository": {
+                    "full_name": "owner/repo",
+                    "clone_url": "https://github.com/owner/repo.git",
+                },
+            }
+        ]
+
+        with (
+            patch("demetra.listener.get_notifications", new_callable=AsyncMock) as mock_get,
+            patch("demetra.listener.fetch_subject_body", new_callable=AsyncMock) as mock_body,
+            patch("demetra.listener.extract_pr_info") as mock_pr,
+            patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=False),
+            patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=True),
+            patch("demetra.listener.process_rebase_notification", new_callable=AsyncMock) as mock_process,
+            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock),
+            patch("demetra.listener.init_db", new_callable=AsyncMock),
+            patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
+        ):
+            mock_get.return_value = notifications
+            mock_body.return_value = "@demetra-ai please rebase"
             mock_pr.return_value = {
                 "pr_number": 42,
                 "full_name": "owner/repo",

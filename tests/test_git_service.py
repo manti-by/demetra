@@ -154,7 +154,15 @@ class TestGitService:
     @pytest.mark.asyncio
     async def test_git_fetch(self, faker, mock_run_command):
         target_path = Path(f"/tmp/{faker.slug()}")
+        mock_run_command.return_value = (0, "", "")
         await git_fetch(target_path)
+
+    @pytest.mark.asyncio
+    async def test_git_fetch_failure_raises(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_run_command.return_value = (128, "", "fatal: could not fetch")
+        with pytest.raises(RuntimeError, match="Fetch failed"):
+            await git_fetch(target_path)
 
     @pytest.mark.asyncio
     async def test_git_checkout(self, faker, mock_run_command):
@@ -179,7 +187,24 @@ class TestGitService:
     async def test_git_force_push(self, faker, mock_run_command):
         target_path = Path(f"/tmp/{faker.slug()}")
         branch_name = f"feature/{faker.slug()}"
-        await git_force_push(target_path, branch_name)
+        result = await git_force_push(target_path, branch_name)
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_git_force_push_everything_up_to_date(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        branch_name = f"feature/{faker.slug()}"
+        mock_run_command.return_value = (0, "Everything up-to-date", "")
+        result = await git_force_push(target_path, branch_name)
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_git_force_push_failure_raises(self, faker, mock_run_command):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        branch_name = f"feature/{faker.slug()}"
+        mock_run_command.return_value = (1, "", "permission denied")
+        with pytest.raises(RuntimeError, match="Force push failed"):
+            await git_force_push(target_path, branch_name)
 
     @pytest.mark.asyncio
     async def test_git_pull(self, faker, mock_run_command):

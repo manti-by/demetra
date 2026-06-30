@@ -24,12 +24,15 @@ DB_USER = os.environ.get("DB_USER", "demetra")
 DB_NAME = os.environ.get("DB_NAME", "demetra")
 DB_PASSWORD = os.environ.get("DB_PASSWORD")
 
+PARENT_HOME: Path | None = Path(os.environ["PARENT_HOME"]) if "PARENT_HOME" in os.environ else None
+
 PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
 MAX_BUILD_ATTEMPTS = int(os.environ.get("MAX_BUILD_ATTEMPTS", 50))
 MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 10))
 MAX_MERGE_ATTEMPTS = int(os.environ.get("MAX_MERGE_ATTEMPTS", 10))
+MAX_REBASE_ATTEMPTS = int(os.environ.get("MAX_REBASE_ATTEMPTS", 10))
 MAX_PLAN_ATTEMPTS = int(os.environ.get("MAX_PLAN_ATTEMPTS", 30))
 MAX_RUN_ATTEMPTS = int(os.environ.get("MAX_RUN_ATTEMPTS", 3))
 SUBPROCESS_TIMEOUT = int(os.environ.get("SUBPROCESS_TIMEOUT", 30 * 60))
@@ -127,6 +130,7 @@ GITHUB: GitHubConfig = {
     "webhook": {
         "secret": os.environ.get("GITHUB_WEBHOOK_SECRET"),
     },
+    "token": os.environ.get("GITHUB_TOKEN"),
 }
 
 JWT: JWTConfig = {

@@ -2,7 +2,6 @@ import logging
 import re
 
 import asyncpg
-from mcp.server import Server
 from mcp.types import TextContent, Tool
 
 
@@ -239,11 +238,11 @@ _TOOLS = [
 ]
 
 
-async def _list_tools() -> list[Tool]:
+async def list_tools() -> list[Tool]:
     return _TOOLS
 
 
-async def _call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
     args = arguments or {}
     try:
         pool = await get_db_pool()
@@ -278,13 +277,3 @@ async def _call_tool(name: str, arguments: dict | None) -> list[TextContent]:
     except Exception:
         logger.exception(f"Error executing tool {name}")
         return [TextContent(type="text", text="Error: Database operation failed")]
-
-
-def create_database_tools(mcp: Server) -> None:
-    @mcp.list_tools()
-    async def list_tools() -> list[Tool]:
-        return await _list_tools()
-
-    @mcp.call_tool()
-    async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
-        return await _call_tool(name, arguments)

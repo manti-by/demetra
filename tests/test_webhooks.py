@@ -28,39 +28,53 @@ class TestWebhookAPI:
             assert response.json() == {"error": "Invalid signature"}
 
     def test_ignores_non_issue_comment_events(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": None}}):
+        payload_body = b"{}"
+        digest = hmac.new(key=b"secret", msg=payload_body, digestmod="sha256").hexdigest()
+        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "secret"}}):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
                 "/api/v1/webhooks/github",
-                json={},
-                headers={"X-GitHub-Event": "push"},
+                content=payload_body,
+                headers={
+                    "X-GitHub-Event": "push",
+                    "X-Hub-Signature-256": f"sha256={digest}",
+                    "Content-Type": "application/json",
+                },
             )
             assert response.status_code == 200
             data = response.json()
             assert data["status"] == "ignored"
 
     def test_accepts_valid_webhook_and_enqueues_job(self):
+        import json as _json
+
+        payload = {
+            "action": "created",
+            "comment": {"body": "please rebase"},
+            "issue": {
+                "number": 42,
+                "pull_request": {"url": "https://api.github.com/repo/pulls/42"},
+            },
+            "repository": {
+                "clone_url": "https://github.com/owner/repo.git",
+                "full_name": "owner/repo",
+            },
+        }
+        payload_body = _json.dumps(payload).encode()
+        digest = hmac.new(key=b"secret", msg=payload_body, digestmod="sha256").hexdigest()
         with (
-            patch("demetra.services.github.GITHUB", {"webhook": {"secret": None}}),
+            patch("demetra.services.github.GITHUB", {"webhook": {"secret": "secret"}}),
             patch("demetra.api.webhooks.queue.enqueue") as mock_enqueue,
         ):
             client = TestClient(app, raise_server_exceptions=False)
-            payload = {
-                "action": "created",
-                "comment": {"body": "please rebase"},
-                "issue": {
-                    "number": 42,
-                    "pull_request": {"url": "https://api.github.com/repo/pulls/42"},
-                },
-                "repository": {
-                    "clone_url": "https://github.com/owner/repo.git",
-                    "full_name": "owner/repo",
-                },
-            }
             response = client.post(
                 "/api/v1/webhooks/github",
-                json=payload,
-                headers={"X-GitHub-Event": "issue_comment"},
+                content=payload_body,
+                headers={
+                    "X-GitHub-Event": "issue_comment",
+                    "X-Hub-Signature-256": f"sha256={digest}",
+                    "Content-Type": "application/json",
+                },
             )
             assert response.status_code == 200
             assert response.json() == {"status": "accepted"}
