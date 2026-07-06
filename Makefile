@@ -92,3 +92,13 @@ docker-run:
 
 container-build:
 	container build --tag demetra:latest --file Dockerfile .
+
+gh-use-manti:
+	git config user.name "Alexander Chaika"
+	git config user.email manti.by@gmail.com
+	gh auth login
+
+gh-use-demetra:
+	git config user.name Demetra
+	git config user.email demetra.ai@protonmail.com
+	gh auth login

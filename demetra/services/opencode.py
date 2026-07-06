@@ -167,15 +167,34 @@ async def get_opencode_session_tokens(
     if not isinstance(tokens, dict):
         return None
 
+    def _non_negative_int(value: object) -> int | None:
+        if isinstance(value, bool):
+            return None
+        if not isinstance(value, int):
+            return None
+        if value < 0:
+            return None
+        return value
+
+    input_tokens = _non_negative_int(tokens.get("input"))
+    output_tokens = _non_negative_int(tokens.get("output"))
+    reasoning_tokens = _non_negative_int(tokens.get("reasoning"))
+    if input_tokens is None or output_tokens is None or reasoning_tokens is None:
+        return None
+
     usage = TokenUsage(
-        input=tokens.get("input", 0) or 0,
-        output=tokens.get("output", 0) or 0,
-        reasoning=tokens.get("reasoning", 0) or 0,
+        input=input_tokens,
+        output=output_tokens,
+        reasoning=reasoning_tokens,
     )
     cache = tokens.get("cache")
     if isinstance(cache, dict):
-        usage.cache_read = cache.get("read", 0) or 0
-        usage.cache_write = cache.get("write", 0) or 0
+        cache_read = _non_negative_int(cache.get("read"))
+        cache_write = _non_negative_int(cache.get("write"))
+        if cache_read is not None:
+            usage.cache_read = cache_read
+        if cache_write is not None:
+            usage.cache_write = cache_write
 
     return usage
 

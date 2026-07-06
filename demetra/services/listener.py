@@ -23,7 +23,7 @@ async def get_notifications() -> list[dict]:
         "--jq",
         ".",
     ]
-    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH)
+    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         logger.error(f"Failed to fetch notifications: {stderr.strip()}")
         return []
@@ -78,7 +78,7 @@ async def fetch_subject_body(subject: dict) -> str | None:
         "--jq",
         ".body",
     ]
-    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH)
+    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         logger.error(f"Failed to fetch subject body: {stderr.strip()}")
         return subject.get("title")
@@ -109,7 +109,7 @@ async def mark_notification_read(notification: dict) -> None:
         "PATCH",
         f"/notifications/threads/{thread_id}",
     ]
-    exit_code, _, stderr = await run_command(command=command, target_path=BASE_PATH)
+    exit_code, _, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         logger.warning(f"Failed to mark notification {thread_id} as read: {stderr.strip()}")
 

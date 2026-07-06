@@ -55,6 +55,11 @@ LOGGING: dict = {
         }
     },
     "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
@@ -63,7 +68,7 @@ LOGGING: dict = {
         },
     },
     "loggers": {
-        "": {"handlers": ["file"], "level": "INFO", "propagate": True},
+        "": {"handlers": ["console", "file"], "level": os.environ.get("LOG_LEVEL", "DEBUG"), "propagate": True},
     },
 }
 

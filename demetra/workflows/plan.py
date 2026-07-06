@@ -6,7 +6,7 @@ from demetra.services.database import record_session_step_history, save_session,
 from demetra.services.flow import user_input
 from demetra.services.groq import extract_plan, extract_questions
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.opencode import get_opencode_session_id, opencode_plan_agent
+from demetra.services.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
 from demetra.services.tui import print_message
 from demetra.services.utils import NO_ISSUE_TOKENS
 from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS
@@ -72,15 +72,20 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
 
-        try:
-            await record_session_step_history(
-                target_path=context.worktree_path,
-                session_id=context.session_id,
-                step="plan",
-                env=context.project.environment,
-            )
-        except (SQLAlchemyError, OSError):
-            print_message("Failed to record session step history.", style="warning")
+        if context.session_id:
+            try:
+                usage = await get_opencode_session_tokens(
+                    target_path=context.worktree_path,
+                    session_id=context.session_id,
+                    env=context.project.environment,
+                )
+                await record_session_step_history(
+                    session_id=context.session_id,
+                    step="plan",
+                    usage=usage,
+                )
+            except (SQLAlchemyError, OSError):
+                print_message("Failed to record session step history.", style="warning")
 
         questions = await extract_questions(plan_output=plan_output)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]

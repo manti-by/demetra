@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Cookie, HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.models import (
     CreateProject,
@@ -107,7 +108,7 @@ async def create_project_endpoint(
         await update_project(project_id=project_id, user_id=user.id, state="failed")
         raise HTTPException(status_code=400, detail="Invalid project name or repository URL") from e
 
-    except Exception as e:
+    except (SQLAlchemyError, OSError) as e:
         logging.exception(f"Failed to setup project: {e}")
         await cleanup_project_resources(project=project)
         await update_project(project_id=project_id, user_id=user.id, state="failed")

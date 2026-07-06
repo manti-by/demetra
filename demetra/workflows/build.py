@@ -4,7 +4,11 @@ from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.database import record_session_step_history, update_session_step
 from demetra.services.flow import user_input
-from demetra.services.opencode import opencode_build_agent
+from demetra.services.opencode import (
+    get_opencode_session_tokens,
+    opencode_build_agent,
+    opencode_compact_session,
+)
 from demetra.services.project import bump_project_version, is_epic_label
 from demetra.services.tui import print_message
 from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
@@ -21,11 +25,15 @@ async def check_and_compact_context(context: Context) -> None:
         return
 
     try:
-        history = await record_session_step_history(
+        usage = await get_opencode_session_tokens(
             target_path=context.worktree_path,
             session_id=context.session_id,
-            step="build",
             env=context.project.environment,
+        )
+        history = await record_session_step_history(
+            session_id=context.session_id,
+            step="build",
+            usage=usage,
         )
     except (SQLAlchemyError, OSError):
         history = None

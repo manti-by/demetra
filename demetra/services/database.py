@@ -4,13 +4,12 @@ import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
-from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy import create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session, SessionHistory
+from demetra.library.models import Session, SessionHistory, TokenUsage
 from demetra.library.tables import (
     jwt_tokens,
     oauth_tokens,
@@ -88,6 +87,7 @@ async def upsert_pending_session(
     project_id: str | None = None,
     user_id: str | None = None,
     name: str | None = None,
+    linear_link: str | None = None,
 ) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -117,7 +117,7 @@ async def upsert_pending_session(
                 "user_id": user_id,
                 "run_attempts": 0,
                 "pr_link": None,
-                "linear_link": None,
+                "linear_link": linear_link,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -135,7 +135,7 @@ async def upsert_pending_session(
         user_id=user_id,
         run_attempts=0,
         pr_link=None,
-        linear_link=None,
+        linear_link=linear_link,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -211,6 +211,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         user_id=row.user_id,
         run_attempts=row.run_attempts,
         pr_link=row.pr_link,
+        linear_link=row.linear_link,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -870,17 +871,13 @@ async def delete_session(task_id: str, user_id: str) -> bool:
 
 
 async def record_session_step_history(
-    target_path: Path,
     session_id: str | None,
     step: str,
-    env: dict[str, str] | None = None,
+    usage: TokenUsage | None = None,
 ) -> SessionHistory | None:
-    from demetra.services.opencode import get_opencode_session_tokens
-
     if not session_id:
         return None
 
-    usage = await get_opencode_session_tokens(target_path=target_path, session_id=session_id, env=env)
     return await record_session_history(
         session_id=session_id,
         step=step,

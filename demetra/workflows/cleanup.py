@@ -7,6 +7,7 @@ from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.github import create_pull_request, extract_pr_link
 from demetra.services.groq import generate_pr_description
 from demetra.services.linear import linear_cleanup
+from demetra.services.opencode import get_opencode_session_tokens
 from demetra.services.tui import print_message
 
 
@@ -58,15 +59,20 @@ async def commit_and_push(context: Context) -> bool:
 
     await update_session_step(task_id=context.linear_task.id, step="completed")
 
-    try:
-        await record_session_step_history(
-            target_path=context.worktree_path,
-            session_id=context.session_id,
-            step="completed",
-            env=context.project.environment,
-        )
-    except (SQLAlchemyError, OSError):
-        print_message("Failed to record session step history, continuing.", style="warning")
+    if context.session_id:
+        try:
+            usage = await get_opencode_session_tokens(
+                target_path=context.worktree_path,
+                session_id=context.session_id,
+                env=context.project.environment,
+            )
+            await record_session_step_history(
+                session_id=context.session_id,
+                step="completed",
+                usage=usage,
+            )
+        except Exception:  # noqa: BLE001
+            print_message("Failed to record session step history, continuing.", style="warning")
 
     return True
 
@@ -74,15 +80,20 @@ async def commit_and_push(context: Context) -> bool:
 async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:
     if not is_success:
         await update_session_step(task_id=context.linear_task.id, step="failed")
-        try:
-            await record_session_step_history(
-                target_path=context.worktree_path,
-                session_id=context.session_id,
-                step="failed",
-                env=context.project.environment,
-            )
-        except Exception:  # noqa: BLE001
-            print_message("Failed to record session step history, continuing.", style="warning")
+        if context.session_id:
+            try:
+                usage = await get_opencode_session_tokens(
+                    target_path=context.worktree_path,
+                    session_id=context.session_id,
+                    env=context.project.environment,
+                )
+                await record_session_step_history(
+                    session_id=context.session_id,
+                    step="failed",
+                    usage=usage,
+                )
+            except Exception:  # noqa: BLE001
+                print_message("Failed to record session step history, continuing.", style="warning")
 
     await git_cleanup(context=context, is_success=is_success)
     if should_update_linear_status:

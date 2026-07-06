@@ -140,7 +140,7 @@ class TestOpencodeSessionLength:
     async def test_handles_missing_cache(self, mock_run_command_and_config):
         mock_run_command_and_config.return_value = (
             0,
-            '{"info": {"tokens": {"input": 20, "output": 3}}}',
+            '{"info": {"tokens": {"input": 20, "output": 3, "reasoning": 0}}}',
             "",
         )
         result = await get_opencode_session_length(Path("/p"), "session-1")
