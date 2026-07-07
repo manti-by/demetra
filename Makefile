@@ -94,11 +94,11 @@ container-build:
 	container build --tag demetra:latest --file Dockerfile .
 
 gh-use-manti:
-	git config user.name "Alexander Chaika"
-	git config user.email manti.by@gmail.com
+	git config user.name "$(MANTI_GIT_NAME)"
+	git config user.email "$(MANTI_GIT_EMAIL)"
 	gh auth login
 
 gh-use-demetra:
-	git config user.name Demetra
-	git config user.email demetra.ai@protonmail.com
+	git config user.name "$(DEMETRA_GIT_NAME)"
+	git config user.email "$(DEMETRA_GIT_EMAIL)"
 	gh auth login

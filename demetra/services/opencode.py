@@ -6,6 +6,7 @@ from demetra.library.models import TokenUsage
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
+from demetra.services.utils import non_negative_int
 from demetra.settings import OPENCODE
 
 
@@ -167,18 +168,9 @@ async def get_opencode_session_tokens(
     if not isinstance(tokens, dict):
         return None
 
-    def _non_negative_int(value: object) -> int | None:
-        if isinstance(value, bool):
-            return None
-        if not isinstance(value, int):
-            return None
-        if value < 0:
-            return None
-        return value
-
-    input_tokens = _non_negative_int(tokens.get("input"))
-    output_tokens = _non_negative_int(tokens.get("output"))
-    reasoning_tokens = _non_negative_int(tokens.get("reasoning"))
+    input_tokens = non_negative_int(tokens.get("input"))
+    output_tokens = non_negative_int(tokens.get("output"))
+    reasoning_tokens = non_negative_int(tokens.get("reasoning"))
     if input_tokens is None or output_tokens is None or reasoning_tokens is None:
         return None
 
@@ -189,8 +181,8 @@ async def get_opencode_session_tokens(
     )
     cache = tokens.get("cache")
     if isinstance(cache, dict):
-        cache_read = _non_negative_int(cache.get("read"))
-        cache_write = _non_negative_int(cache.get("write"))
+        cache_read = non_negative_int(cache.get("read"))
+        cache_write = non_negative_int(cache.get("write"))
         if cache_read is not None:
             usage.cache_read = cache_read
         if cache_write is not None:

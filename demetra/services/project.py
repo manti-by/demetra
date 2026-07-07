@@ -155,7 +155,7 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
                 {"db_name": db_name},
             )
             if result.fetchone():
-                q_db = quote_ident(db_name)
+                q_db = quote_ident(ident=db_name)
                 await connection.execute(text(f"DROP DATABASE IF EXISTS {q_db}"))
                 logger.info(f"Dropped database: {db_name}")
             await connection.commit()
@@ -166,7 +166,7 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
                 {"role_name": role_name},
             )
             if result.fetchone():
-                q_role = quote_ident(role_name)
+                q_role = quote_ident(ident=role_name)
                 await connection.execute(text(f"DROP ROLE IF EXISTS {q_role}"))
                 logger.info(f"Dropped role: {role_name}")
             await connection.commit()
