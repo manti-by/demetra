@@ -6,8 +6,8 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError
-from demetra.library.models import Context, LinearTask, Project, Session
-from demetra.workflows.build import run_build_step
+from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory, TokenUsage
+from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.plan import run_plan_step
@@ -153,6 +153,11 @@ class TestWorkflowPlan:
     @pytest.fixture
     def mock_get_opencode_session_id(self):
         with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture(autouse=True)
+    def _mock_record_session_step_history(self):
+        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
@@ -403,6 +408,11 @@ class TestWorkflowPlanLoop:
             yield m
 
     @pytest.fixture
+    def mock_record_session_step_history(self):
+        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
     def mock_max_plan_attempts_3(self):
         with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 3):
             yield
@@ -411,6 +421,10 @@ class TestWorkflowPlanLoop:
     def mock_max_plan_attempts_2(self):
         with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 2):
             yield
+
+    @pytest.fixture(autouse=True)
+    def _auto_mock_record_session_step_history(self, mock_record_session_step_history):
+        pass
 
     @pytest.fixture
     def mock_plan_loop_base(
@@ -689,6 +703,204 @@ class TestWorkflowBuild:
 
         assert result is None
         mock_bump_version.assert_called_once()
+
+
+class TestContextCompaction:
+    """Tests for check_and_compact_context in build.py."""
+
+    @pytest.fixture
+    def mock_opencode_compact_session(self):
+        with patch("demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_opencode_session_tokens(self):
+        with patch("demetra.workflows.build.get_opencode_session_tokens", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_record_session_step_history(self):
+        with patch("demetra.workflows.build.record_session_step_history", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_threshold(self):
+        with patch("demetra.workflows.build.CONTEXT_COMPACTION_THRESHOLD", 100_000):
+            yield
+
+    def make_context(self, faker, session_id: str | None = "ses_test123") -> Context:
+        return Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority="1",
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="TASK-1",
+                session_id=session_id,
+                build_plan="plan",
+                posted_to_linear=False,
+                step="build",
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            )
+            if session_id
+            else None,
+        )
+
+    def _make_history(self, length: int | None) -> SessionHistory:
+        return SessionHistory(
+            id="hist_1", session_id="ses_test123", step="build", length=length, created_at=datetime.now().isoformat()
+        )
+
+    @pytest.mark.asyncio
+    async def test_compacts_when_length_exceeds_threshold(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_opencode_compact_session.return_value = (0, "compacted", "")
+
+        await check_and_compact_context(context)
+
+        mock_opencode_compact_session.assert_awaited_once_with(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            env=context.project.environment,
+        )
+
+    @pytest.mark.asyncio
+    async def test_logs_compaction_failure(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_opencode_compact_session.return_value = (1, "", "error details")
+
+        await check_and_compact_context(context)
+
+        mock_opencode_compact_session.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_does_not_compact_when_below_threshold(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.return_value = self._make_history(50_000)
+
+        await check_and_compact_context(context)
+
+        mock_opencode_compact_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_does_not_compact_when_length_is_none(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.return_value = self._make_history(None)
+
+        await check_and_compact_context(context)
+
+        mock_opencode_compact_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_no_ops_when_session_id_is_none(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+    ):
+        context = self.make_context(faker, session_id=None)
+
+        await check_and_compact_context(context)
+
+        mock_get_opencode_session_tokens.assert_not_called()
+        mock_record_session_step_history.assert_not_called()
+        mock_opencode_compact_session.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_records_step_history(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.return_value = self._make_history(80_000)
+
+        await check_and_compact_context(context)
+
+        mock_record_session_step_history.assert_awaited_once_with(
+            session_id=context.session_id,
+            step="build",
+            usage=mock_get_opencode_session_tokens.return_value,
+        )
+
+    @pytest.mark.asyncio
+    async def test_handles_step_history_error(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_record_session_step_history,
+        mock_threshold,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
+        mock_record_session_step_history.side_effect = OSError("connection refused")
+
+        await check_and_compact_context(context)
+
+        mock_get_opencode_session_tokens.assert_awaited_once()
+        mock_record_session_step_history.assert_awaited_once()
+        mock_opencode_compact_session.assert_not_called()
 
 
 class TestWorkflowReview:

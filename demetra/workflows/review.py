@@ -1,7 +1,6 @@
 import asyncio
 from pathlib import Path
 
-from demetra.services.database import update_session_step
 from demetra.services.groq import summarize_review
 from demetra.services.opencode import opencode_review_agent
 from demetra.services.tui import print_message
@@ -22,9 +21,6 @@ async def run_review_agents(
     for model in OPENCODE["review_models"]:
         review_agents.append(opencode_review_agent(target_path=target_path, model=model, env=env))
     results = await asyncio.gather(*review_agents)
-
-    if task_id:
-        await update_session_step(task_id=task_id, step="review")
 
     parts = []
     for _, stdout, _ in results:

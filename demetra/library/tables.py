@@ -10,6 +10,7 @@ from sqlalchemy import (
     Table,
     Text,
     UniqueConstraint,
+    text,
 )
 
 
@@ -90,4 +91,19 @@ project_environments = Table(
     Column("type", String(), nullable=False, server_default="text"),
     UniqueConstraint("project_id", "key"),
     CheckConstraint("type IN ('text', 'encrypted')", name="ck_project_environment_type"),
+)
+
+session_history = Table(
+    "session_history",
+    metadata,
+    Column(name="id", type_=String(), primary_key=True),
+    Column(name="session_id", type_=String(), nullable=False, index=True),
+    Column(name="step", type_=String(), nullable=False),
+    Column(name="length", type_=Integer(), nullable=True),
+    Column(name="input_tokens", type_=Integer(), nullable=True),
+    Column(name="output_tokens", type_=Integer(), nullable=True),
+    Column(name="reasoning_tokens", type_=Integer(), nullable=True),
+    Column(name="cache_read_tokens", type_=Integer(), nullable=True),
+    Column(name="cache_write_tokens", type_=Integer(), nullable=True),
+    Column(name="created_at", type_=DateTime(timezone=True), server_default=text("now()"), nullable=False),
 )

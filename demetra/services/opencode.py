@@ -2,9 +2,11 @@ import json
 import shlex
 from pathlib import Path
 
+from demetra.library.models import TokenUsage
 from demetra.services.prompt import get_prompt
 from demetra.services.subprocess import run_command
 from demetra.services.tui import print_message
+from demetra.services.utils import non_negative_int
 from demetra.settings import OPENCODE
 
 
@@ -135,6 +137,82 @@ async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[
 
     print_message("Worktree mistmatch, using fallback session id", style="error")
     return fallback_session_id
+
+
+async def get_opencode_session_tokens(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> TokenUsage | None:
+    """Get token usage breakdown from an opencode session via `opencode export`.
+
+    Returns a TokenUsage with input, output, reasoning, cache_read, cache_write.
+    Returns None if the command fails or the export JSON is malformed.
+    """
+    command = [str(OPENCODE["path"]), "export", session_id]
+    exit_code, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
+    if exit_code != 0:
+        return None
+
+    try:
+        data = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        return None
+
+    if not isinstance(data, dict):
+        return None
+
+    info = data.get("info")
+    if not isinstance(info, dict):
+        return None
+
+    tokens = info.get("tokens")
+    if not isinstance(tokens, dict):
+        return None
+
+    input_tokens = non_negative_int(tokens.get("input"))
+    output_tokens = non_negative_int(tokens.get("output"))
+    reasoning_tokens = non_negative_int(tokens.get("reasoning"))
+    if input_tokens is None or output_tokens is None or reasoning_tokens is None:
+        return None
+
+    usage = TokenUsage(
+        input=input_tokens,
+        output=output_tokens,
+        reasoning=reasoning_tokens,
+    )
+    cache = tokens.get("cache")
+    if isinstance(cache, dict):
+        cache_read = non_negative_int(cache.get("read"))
+        cache_write = non_negative_int(cache.get("write"))
+        if cache_read is not None:
+            usage.cache_read = cache_read
+        if cache_write is not None:
+            usage.cache_write = cache_write
+
+    return usage
+
+
+async def get_opencode_session_length(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> int | None:
+    """Get the total token count for an opencode session via `opencode export`."""
+    usage = await get_opencode_session_tokens(target_path=target_path, session_id=session_id, env=env)
+    return usage.total if usage is not None else None
+
+
+async def opencode_compact_session(
+    target_path: Path, session_id: str, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    """Run the /compact command within an existing opencode session."""
+    command = [
+        str(OPENCODE["path"]),
+        "run",
+        "--session",
+        session_id,
+        "--dir",
+        str(target_path),
+        "/compact",
+    ]
+    return await run_command(command=command, target_path=target_path, disable_stdio=False, env=env)
 
 
 async def extract_plan(plan_output: str) -> str:

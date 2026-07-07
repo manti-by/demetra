@@ -36,6 +36,7 @@ MAX_REBASE_ATTEMPTS = int(os.environ.get("MAX_REBASE_ATTEMPTS", 10))
 MAX_PLAN_ATTEMPTS = int(os.environ.get("MAX_PLAN_ATTEMPTS", 30))
 MAX_RUN_ATTEMPTS = int(os.environ.get("MAX_RUN_ATTEMPTS", 3))
 SUBPROCESS_TIMEOUT = int(os.environ.get("SUBPROCESS_TIMEOUT", 30 * 60))
+CONTEXT_COMPACTION_THRESHOLD = int(os.environ.get("CONTEXT_COMPACTION_THRESHOLD", 100_000))
 
 WATCHER_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", 60))
 LISTENER_POLL_INTERVAL = int(os.environ.get("LISTENER_POLL_INTERVAL", 60))
@@ -54,6 +55,11 @@ LOGGING: dict = {
         }
     },
     "handlers": {
+        "console": {
+            "level": "DEBUG",
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
@@ -62,7 +68,7 @@ LOGGING: dict = {
         },
     },
     "loggers": {
-        "": {"handlers": ["file"], "level": "INFO", "propagate": True},
+        "": {"handlers": ["console", "file"], "level": os.environ.get("LOG_LEVEL", "DEBUG"), "propagate": True},
     },
 }
 

@@ -29,7 +29,7 @@ async def main() -> None:
             notifications = await get_notifications()
 
             if not notifications:
-                logger.debug("No notifications found")
+                logger.info("No notifications found")
                 await asyncio.sleep(LISTENER_POLL_INTERVAL)
                 continue
 
@@ -38,6 +38,8 @@ async def main() -> None:
                     continue
 
                 subject = notification.get("subject", {})
+                logger.info(f"Processing notification: {subject}")
+
                 if not (body := await fetch_subject_body(subject=subject)):
                     continue
                 if not (pr_info := extract_pr_info(notification=notification)):

@@ -20,6 +20,20 @@ from demetra.settings import DB_USER, GIT, WORKTREE_PATH
 logger = logging.getLogger(__name__)
 
 
+def quote_ident(ident: str) -> str:
+    """
+    PostgreSQL doesn't support bind parameters for identifiers (DDL objects like roles, databases).
+    """
+    return '"' + ident.replace('"', '""') + '"'
+
+
+def quote_literal(value: str) -> str:
+    """
+    Escape a string literal for PostgreSQL by doubling single quotes.
+    """
+    return "'" + value.replace("'", "''") + "'"
+
+
 GITHUB_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
 
 
@@ -89,6 +103,8 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
         raise ValueError(f"Invalid generated database name: {project_name}")
 
     role_name = password = db_name = project_name
+    q_role = quote_ident(ident=role_name)
+    q_password = quote_literal(value=password)
 
     async with get_connection() as connection:
         result = await connection.execute(
@@ -97,8 +113,7 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
         )
         if not result.fetchone():
             await connection.execute(
-                text("CREATE ROLE :role_name WITH LOGIN PASSWORD :password CREATEDB"),
-                {"role_name": role_name, "password": password},
+                text(f"CREATE ROLE {q_role} WITH LOGIN PASSWORD {q_password} CREATEDB"),
             )
             logger.info(f"Created role: {role_name}")
         await connection.commit()
@@ -109,13 +124,13 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
             {"db_name": db_name},
         )
         if not result.fetchone():
+            q_user = quote_ident(ident=DB_USER)
+            q_db = quote_ident(ident=db_name)
             await connection.execute(
-                text("GRANT :role_name TO :user"),
-                {"role_name": role_name, "user": DB_USER},
+                text(f"GRANT {q_role} TO {q_user}"),
             )
             await connection.execute(
-                text("CREATE DATABASE :db_name OWNER :role_name"),
-                {"role_name": role_name, "db_name": db_name},
+                text(f"CREATE DATABASE {q_db} OWNER {q_role}"),
             )
             logger.info(f"Created database: {db_name}")
         await connection.commit()
@@ -140,7 +155,8 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
                 {"db_name": db_name},
             )
             if result.fetchone():
-                await connection.execute(text("DROP DATABASE IF EXISTS :db_name"), {"db_name": db_name})
+                q_db = quote_ident(ident=db_name)
+                await connection.execute(text(f"DROP DATABASE IF EXISTS {q_db}"))
                 logger.info(f"Dropped database: {db_name}")
             await connection.commit()
 
@@ -150,7 +166,8 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
                 {"role_name": role_name},
             )
             if result.fetchone():
-                await connection.execute(text("DROP ROLE IF EXISTS :role_name"), {"role_name": role_name})
+                q_role = quote_ident(ident=role_name)
+                await connection.execute(text(f"DROP ROLE IF EXISTS {q_role}"))
                 logger.info(f"Dropped role: {role_name}")
             await connection.commit()
 

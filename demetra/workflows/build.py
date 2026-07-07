@@ -1,13 +1,54 @@
+from sqlalchemy.exc import SQLAlchemyError
+
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
-from demetra.services.database import update_session_step
+from demetra.services.database import record_session_step_history, update_session_step
 from demetra.services.flow import user_input
-from demetra.services.opencode import opencode_build_agent
+from demetra.services.opencode import (
+    get_opencode_session_tokens,
+    opencode_build_agent,
+    opencode_compact_session,
+)
 from demetra.services.project import bump_project_version, is_epic_label
 from demetra.services.tui import print_message
-from demetra.settings import MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
+from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
+
+
+async def check_and_compact_context(context: Context) -> None:
+    """Check the opencode session length and run /compact if it exceeds the threshold.
+
+    Also records the session length in session_history for the 'build' step.
+    """
+    if not context.session_id:
+        return
+
+    try:
+        usage = await get_opencode_session_tokens(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            env=context.project.environment,
+        )
+        history = await record_session_step_history(
+            session_id=context.session_id,
+            step="build",
+            usage=usage,
+        )
+    except (SQLAlchemyError, OSError):
+        history = None
+    length = history.length if history is not None else None
+
+    if length is not None and length > CONTEXT_COMPACTION_THRESHOLD:
+        print_message(
+            f"Session length ({length:,} tokens) exceeds threshold ({CONTEXT_COMPACTION_THRESHOLD:,}), compacting.",
+            style="info",
+        )
+        compact_exit_code, _, compact_stderr = await opencode_compact_session(
+            target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+        )
+        if compact_exit_code != 0:
+            print_message(f"Failed to compact session: {compact_stderr.strip()}", style="error")
 
 
 async def run_build_step(build_plan: str, context: Context) -> None:
@@ -32,10 +73,15 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
             )
 
+        await check_and_compact_context(context)
+
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")
             review_comments = await run_review_agents(
-                target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+                target_path=context.worktree_path,
+                session_id=context.session_id,
+                task_id=context.linear_task.id,
+                env=context.project.environment,
             )
             if review_comments:
                 if context.auto_mode:

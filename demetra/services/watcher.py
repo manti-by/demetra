@@ -106,6 +106,7 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 project_id=task.project_id,
                 user_id=user_id,
                 name=task.full_title,
+                linear_link=task.url,
             )
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")

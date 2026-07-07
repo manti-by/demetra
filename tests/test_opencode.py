@@ -6,7 +6,9 @@ import pytest
 from demetra.services.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
+    get_opencode_session_length,
     opencode_build_agent,
+    opencode_compact_session,
     opencode_plan_agent,
     opencode_resolve_agent,
     run_opencode_agent,
@@ -113,3 +115,107 @@ class TestOpencodeService:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs.get("session_id") is None
         assert call_kwargs.get("agent") == "resolve-agent"
+
+
+class TestOpencodeSessionLength:
+    @pytest.fixture
+    def mock_run_command_and_config(self):
+        with (
+            patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_sums_all_token_fields(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            '{"info": {"tokens": {"input": 10, "output": 5, "reasoning": 1, "cache": {"read": 100, "write": 2}}}}',
+            "",
+        )
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result == 118  # 10 + 5 + 1 + 100 + 2
+
+    @pytest.mark.asyncio
+    async def test_handles_missing_cache(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            '{"info": {"tokens": {"input": 20, "output": 3, "reasoning": 0}}}',
+            "",
+        )
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result == 23
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_nonzero_exit(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (1, "", "error")
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_invalid_json(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "not json", "")
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_info_missing(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "{}", "")
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_tokens_missing(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, '{"info": {}}', "")
+        result = await get_opencode_session_length(Path("/p"), "session-1")
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_uses_correct_export_command(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, '{"info": {"tokens": {"input": 0}}}', "")
+        await get_opencode_session_length(Path("/p"), "ses_abc123")
+        command = mock_run_command_and_config.call_args.kwargs["command"]
+        assert command == ["/bin/opencode", "export", "ses_abc123"]
+
+    @pytest.mark.asyncio
+    async def test_passes_target_path_and_env(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, '{"info": {"tokens": {"input": 0}}}', "")
+        await get_opencode_session_length(Path("/custom/path"), "s-1", env={"KEY": "val"})
+        call_kwargs = mock_run_command_and_config.call_args.kwargs
+        assert call_kwargs["target_path"] == Path("/custom/path")
+        assert call_kwargs["env"] == {"KEY": "val"}
+
+
+class TestOpencodeCompactSession:
+    @pytest.fixture
+    def mock_run_command_and_config(self):
+        with (
+            patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_invokes_run_with_compact_command(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "ok", "")
+        exit_code, stdout, _stderr = await opencode_compact_session(Path("/p"), "ses_abc123")
+        assert exit_code == 0
+        assert stdout == "ok"
+        command = mock_run_command_and_config.call_args.kwargs["command"]
+        assert command == ["/bin/opencode", "run", "--session", "ses_abc123", "--dir", "/p", "/compact"]
+
+    @pytest.mark.asyncio
+    async def test_forwards_target_path_and_env(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "", "")
+        await opencode_compact_session(Path("/custom/path"), "s-1", env={"KEY": "val"})
+        call_kwargs = mock_run_command_and_config.call_args.kwargs
+        assert call_kwargs["target_path"] == Path("/custom/path")
+        assert call_kwargs["env"] == {"KEY": "val"}
+
+    @pytest.mark.asyncio
+    async def test_disables_stdio_by_default(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "", "")
+        await opencode_compact_session(Path("/p"), "s-1")
+        call_kwargs = mock_run_command_and_config.call_args.kwargs
+        # opencode_compact_session uses disable_stdio=False
+        assert call_kwargs.get("disable_stdio") is False

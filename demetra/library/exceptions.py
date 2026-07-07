@@ -32,3 +32,7 @@ class PlanError(DemetraError):
 
 class BuildError(DemetraError):
     pass
+
+
+class PullRequestError(DemetraError):
+    pass

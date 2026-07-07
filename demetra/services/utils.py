@@ -101,3 +101,13 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
             handler.close()
             tui_logger.removeHandler(handler)
     tui_logger.addHandler(file_handler)
+
+
+def non_negative_int(value: object) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if not isinstance(value, int):
+        return None
+    if value < 0:
+        return None
+    return value

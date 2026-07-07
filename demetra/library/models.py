@@ -40,6 +40,33 @@ class LinearTask:
 
 
 @dataclass
+class TokenUsage:
+    input: int = 0
+    output: int = 0
+    reasoning: int = 0
+    cache_read: int = 0
+    cache_write: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.input + self.output + self.reasoning + self.cache_read + self.cache_write
+
+
+@dataclass
+class SessionHistory:
+    id: str
+    session_id: str
+    step: str
+    created_at: str
+    length: int | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    reasoning_tokens: int | None = None
+    cache_read_tokens: int | None = None
+    cache_write_tokens: int | None = None
+
+
+@dataclass
 class Session:
     task_id: str
     build_plan: str

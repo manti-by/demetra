@@ -9,8 +9,16 @@ from uuid import uuid4
 from sqlalchemy import create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session
-from demetra.library.tables import jwt_tokens, oauth_tokens, project_environments, projects, sessions, users
+from demetra.library.models import Session, SessionHistory, TokenUsage
+from demetra.library.tables import (
+    jwt_tokens,
+    oauth_tokens,
+    project_environments,
+    projects,
+    session_history,
+    sessions,
+    users,
+)
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -79,6 +87,7 @@ async def upsert_pending_session(
     project_id: str | None = None,
     user_id: str | None = None,
     name: str | None = None,
+    linear_link: str | None = None,
 ) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -108,7 +117,7 @@ async def upsert_pending_session(
                 "user_id": user_id,
                 "run_attempts": 0,
                 "pr_link": None,
-                "linear_link": None,
+                "linear_link": linear_link,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -126,7 +135,7 @@ async def upsert_pending_session(
         user_id=user_id,
         run_attempts=0,
         pr_link=None,
-        linear_link=None,
+        linear_link=linear_link,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -202,6 +211,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         user_id=row.user_id,
         run_attempts=row.run_attempts,
         pr_link=row.pr_link,
+        linear_link=row.linear_link,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -420,6 +430,77 @@ async def get_session_step_name(task_id: str) -> tuple[str, str] | None:
     if not row:
         return None
     return row.step or "initial", row.name or ""
+
+
+async def record_session_history(
+    session_id: str,
+    step: str,
+    length: int | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+    reasoning_tokens: int | None = None,
+    cache_read_tokens: int | None = None,
+    cache_write_tokens: int | None = None,
+) -> SessionHistory:
+    """Insert a row into session_history recording an opencode session token usage at a workflow step."""
+    history_id = str(uuid4())
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(session_history).values(
+                id=history_id,
+                session_id=session_id,
+                step=step,
+                length=length,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                reasoning_tokens=reasoning_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
+                created_at=now,
+            )
+        )
+        await connection.commit()
+
+    return SessionHistory(
+        id=history_id,
+        session_id=session_id,
+        step=step,
+        length=length,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        reasoning_tokens=reasoning_tokens,
+        cache_read_tokens=cache_read_tokens,
+        cache_write_tokens=cache_write_tokens,
+        created_at=now.isoformat(),
+    )
+
+
+async def get_session_history(session_id: str) -> list[SessionHistory]:
+    """Return all history rows for the given opencode session, ordered by creation time."""
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(session_history)
+            .where(session_history.c.session_id == session_id)
+            .order_by(session_history.c.created_at)
+        )
+        rows = result.fetchall()
+
+    return [
+        SessionHistory(
+            id=row.id,
+            session_id=row.session_id,
+            step=row.step,
+            length=row.length,
+            input_tokens=row.input_tokens,
+            output_tokens=row.output_tokens,
+            reasoning_tokens=row.reasoning_tokens,
+            cache_read_tokens=row.cache_read_tokens,
+            cache_write_tokens=row.cache_write_tokens,
+            created_at=row.created_at.isoformat(),
+        )
+        for row in rows
+    ]
 
 
 async def get_pending_session_task_ids() -> set[str]:
@@ -787,3 +868,23 @@ async def delete_session(task_id: str, user_id: str) -> bool:
             pass
 
     return True
+
+
+async def record_session_step_history(
+    session_id: str | None,
+    step: str,
+    usage: TokenUsage | None = None,
+) -> SessionHistory | None:
+    if not session_id:
+        return None
+
+    return await record_session_history(
+        session_id=session_id,
+        step=step,
+        length=usage.total if usage is not None else None,
+        input_tokens=usage.input if usage is not None else None,
+        output_tokens=usage.output if usage is not None else None,
+        reasoning_tokens=usage.reasoning if usage is not None else None,
+        cache_read_tokens=usage.cache_read if usage is not None else None,
+        cache_write_tokens=usage.cache_write if usage is not None else None,
+    )
