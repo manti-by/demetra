@@ -4,6 +4,9 @@ version = "1.14.4"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
+license = { text = "AGPL-3.0" }
+authors = [{ name = "Alexander Chaika" }]
+
 dependencies = [
     "aiofiles>=25.1.0",
     "aiohttp>=3.14.1",
