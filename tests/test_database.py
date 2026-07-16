@@ -639,6 +639,20 @@ class TestRunAttempts:
         assert found is not None
         assert found.run_attempts == 1
 
+    @pytest.mark.asyncio
+    async def test_step_preserved_on_re_upsert(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        await update_session_step(db_task_id, "build")
+
+        await upsert_pending_session(task_id=db_task_id, session_id="new-session-id")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.step == "build"
+
 
 class TestLinearLink:
     @pytest.fixture(autouse=True)

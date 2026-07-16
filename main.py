@@ -45,7 +45,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     if not context.linear_task.user_id and DEFAULT_USER_ID:
         context.linear_task.user_id = DEFAULT_USER_ID
 
-    await setup_session_logging(logger=logger, task_id=context.linear_task.id)
+    await setup_session_logging(task_id=context.linear_task.id)
 
     is_success = False
     should_update_linear_status = True

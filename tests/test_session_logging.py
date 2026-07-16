@@ -65,16 +65,16 @@ class TestSessionListingAPI:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
-    async def test_list_sessions_filter_by_status(self, authenticated_client: TestClient):
+    async def test_list_sessions_filter_by_step(self, authenticated_client: TestClient):
         with patch("demetra.api.sessions.get_sessions", new_callable=AsyncMock) as mock_get_sessions:
             mock_get_sessions.return_value = []
-            response = authenticated_client.get("/api/v1/sessions?status=pending")
+            response = authenticated_client.get("/api/v1/sessions?step=build")
             assert response.status_code == 200
-            mock_get_sessions.assert_called_once_with(user_id="test_user_id", status="pending")
+            mock_get_sessions.assert_called_once_with(user_id="test_user_id", step="build")
 
     @pytest.mark.asyncio
-    async def test_list_sessions_invalid_status(self, authenticated_client: TestClient):
-        response = authenticated_client.get("/api/v1/sessions?status=invalid")
+    async def test_list_sessions_invalid_step(self, authenticated_client: TestClient):
+        response = authenticated_client.get("/api/v1/sessions?step=invalid")
         assert response.status_code == 400
 
     @pytest.mark.asyncio

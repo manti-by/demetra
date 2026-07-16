@@ -8,7 +8,7 @@ services: [main, tui, watcher, build]
 branch: -
 tickets: []
 tags: [logging, duplication, type-bug, build-agent]
-related: []
+related: [2026-07-16-simplify-session-logging-setup.md]
 ---
 
 # Duplicated log messages and missing build agent logs
@@ -138,4 +138,4 @@ All 472 tests pass, `ruff check` and `ty check` clean. No test changes needed â€
 
 ## References
 
-- Related: None
+- Related: [[2026-07-16-simplify-session-logging-setup]] â€” later behavior-preserving refactor of `setup_session_logging()`

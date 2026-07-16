@@ -91,7 +91,7 @@ async def upsert_pending_session(
 ) -> Session:
     now = datetime.now(UTC)
     async with get_connection() as connection:
-        await connection.execute(
+        result = await connection.execute(
             text(
                 """
                 INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, linear_link, created_at, updated_at)
@@ -99,11 +99,12 @@ async def upsert_pending_session(
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
-                    step = EXCLUDED.step,
+                    step = sessions.step,
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
+                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, linear_link, created_at, updated_at
                 """
             ),
             {
@@ -122,22 +123,26 @@ async def upsert_pending_session(
                 "updated_at": now,
             },
         )
+        row = result.fetchone()
         await connection.commit()
 
+    if row is None:
+        raise BaseException
+
     return Session(
-        task_id=task_id,
-        name=name,
-        session_id=session_id,
-        build_plan="",
-        posted_to_linear=False,
-        step="initial",
-        project_id=project_id,
-        user_id=user_id,
-        run_attempts=0,
-        pr_link=None,
-        linear_link=linear_link,
-        created_at=now.isoformat(),
-        updated_at=now.isoformat(),
+        task_id=row.task_id,
+        name=row.name,
+        session_id=row.session_id,
+        build_plan=row.build_plan,
+        posted_to_linear=bool(row.posted_to_linear),
+        step=row.step or "initial",
+        project_id=row.project_id,
+        user_id=row.user_id,
+        run_attempts=row.run_attempts,
+        pr_link=row.pr_link,
+        linear_link=row.linear_link,
+        created_at=row.created_at.isoformat(),
+        updated_at=row.updated_at.isoformat(),
     )
 
 
@@ -235,7 +240,7 @@ async def save_session(
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
                     build_plan = EXCLUDED.build_plan,
-                    step = COALESCE(EXCLUDED.step, sessions.step),
+                    step = EXCLUDED.step,
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
@@ -346,10 +351,10 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
         await connection.commit()
 
 
-async def get_sessions(user_id: str, status: str | None = None) -> list[dict]:
+async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
     query = select(sessions).where(sessions.c.user_id == user_id)
-    if status:
-        query = query.where(sessions.c.status == status)
+    if step is not None:
+        query = query.where(sessions.c.step == step)
 
     query = query.order_by(sessions.c.created_at.desc())
 

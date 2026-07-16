@@ -18,7 +18,7 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
         logger.error(f"Session not found for task_id: {task_id}")
         return False
 
-    await setup_session_logging(logger=logger, task_id=session.task_id)
+    await setup_session_logging(task_id=session.task_id)
 
     logger.info(f"Starting rebase workflow for PR #{pr_number} in {full_name}")
 

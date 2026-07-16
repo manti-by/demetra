@@ -5,7 +5,7 @@ from typing import Literal
 from slugify import slugify
 
 
-StepType = Literal["initial", "plan", "build", "review", "lint", "test", "push", "completed"]
+StepType = Literal["initial", "plan", "build", "review", "lint", "test", "push", "completed", "failed"]
 
 
 @dataclass

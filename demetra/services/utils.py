@@ -2,7 +2,7 @@ import asyncio
 import logging
 import sys
 from collections.abc import Callable
-from logging import Formatter, Logger
+from logging import Formatter
 from pathlib import Path
 
 from demetra.settings import LOG_DIR, LOGGING
@@ -72,42 +72,33 @@ async def is_package_installed(target_path: Path, package_name: str, env: dict[s
     return result != ""
 
 
-async def setup_session_logging(logger: Logger, task_id: str) -> None:
-    if LOG_DIR.name == "sessions":
-        session_dir = LOG_DIR
-    else:
-        session_dir = LOG_DIR / "sessions"
+async def setup_session_logging(task_id: str) -> None:
+    session_dir = LOG_DIR if LOG_DIR.name == "sessions" else LOG_DIR / "sessions"
     session_dir.mkdir(parents=True, exist_ok=True)
     session_log_path = session_dir / f"{task_id}.log"
 
-    configured_filename = Path(LOGGING["handlers"]["file"]["filename"])
-    if configured_filename.resolve() == session_log_path.resolve():
-        for handler in logging.getLogger().handlers:
-            if isinstance(handler, logging.FileHandler):
-                stream_logger.addHandler(handler)
-                break
+    root_logger = logging.getLogger()
+    file_config = LOGGING["handlers"]["file"]
+    root_file_handler = next((h for h in root_logger.handlers if isinstance(h, logging.FileHandler)), None)
+
+    if Path(file_config["filename"]).resolve() == session_log_path.resolve():
+        # Root already writes to the session log — adding another handler would
+        # duplicate every propagated record. Reuse it for the stream logger.
+        if root_file_handler is not None:
+            stream_logger.addHandler(root_file_handler)
         return
 
-    formatter_name = LOGGING["handlers"]["file"].get("formatter")
-    formatter_config = LOGGING.get("formatters", {}).get(formatter_name, {})
-    fmt = Formatter(
-        fmt=formatter_config.get("format"),
-        datefmt=formatter_config.get("datefmt"),
-    )
-
+    formatter_config = LOGGING["formatters"][file_config["formatter"]]
     file_handler = logging.FileHandler(session_log_path)
-    file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
-    file_handler.setFormatter(fmt)
+    file_handler.setLevel(file_config["level"])
+    file_handler.setFormatter(Formatter(fmt=formatter_config["format"], datefmt=formatter_config["datefmt"]))
 
-    root_logger = logging.getLogger()
-    for handler in root_logger.handlers[:]:
-        if isinstance(handler, logging.FileHandler):
-            handler.close()
-            root_logger.removeHandler(handler)
+    if root_file_handler is not None:
+        root_file_handler.close()
+        root_logger.removeHandler(root_file_handler)
     root_logger.addHandler(file_handler)
-    LOGGING["handlers"]["file"]["filename"] = str(session_log_path)
-
     stream_logger.addHandler(file_handler)
+    file_config["filename"] = str(session_log_path)
 
 
 def non_negative_int(value: object) -> int | None:

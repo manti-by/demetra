@@ -178,9 +178,9 @@ async def query_table(
             params.append(value)
             where_clauses.append(f'"{validated_key}" = ${i + 2}')
         query += " WHERE " + " AND ".join(where_clauses)
-    params.append(str(limit))
+    params.append(limit)
     query += f" LIMIT ${len(params)}"
-    params.append(str(offset))
+    params.append(offset)
     query += f" OFFSET ${len(params)}"
 
     async with pool.acquire() as conn:
