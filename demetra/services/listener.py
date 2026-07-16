@@ -2,10 +2,14 @@ import json
 import logging
 
 from demetra.library import MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
-from demetra.services.database import get_session_by_pr_link
+from demetra.services.database import (
+    get_session_by_pr_link,
+    increment_listener_attempts,
+    reset_listener_attempts,
+)
 from demetra.services.queue import queue
 from demetra.services.subprocess import run_command
-from demetra.settings import BASE_PATH, GITHUB
+from demetra.settings import BASE_PATH, GITHUB, MAX_LISTENER_ATTEMPTS
 from demetra.workflows.merge import run_merge_workflow
 from demetra.workflows.rebase import run_rebase_workflow
 
@@ -123,6 +127,14 @@ async def process_notification(pr_info: dict, action: str) -> bool:
         logger.info(f"No session found for PR link: {pr_link}")
         return False
 
+    attempts = await increment_listener_attempts(session.task_id)
+    if attempts > MAX_LISTENER_ATTEMPTS:
+        logger.warning(
+            f"Max listener attempts ({MAX_LISTENER_ATTEMPTS}) reached for session {session.task_id}, "
+            f"giving up on {action} notification for {pr_link}"
+        )
+        return True
+
     if not session.project_id:
         logger.warning(f"Session {session.task_id} has no project_id, cannot enqueue {action} workflow")
         return False
@@ -144,6 +156,7 @@ async def process_notification(pr_info: dict, action: str) -> bool:
         pr_number=pr_number,
         full_name=full_name,
     )
+    await reset_listener_attempts(session.task_id)
     return True
 
 

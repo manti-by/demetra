@@ -4,7 +4,7 @@ from pathlib import Path
 
 from demetra.library.models import TokenUsage
 from demetra.services.prompt import get_prompt
-from demetra.services.subprocess import run_command
+from demetra.services.subprocess import run_command, run_command_to_file
 from demetra.services.tui import print_message
 from demetra.services.utils import non_negative_int
 from demetra.settings import OPENCODE
@@ -148,7 +148,9 @@ async def get_opencode_session_tokens(
     Returns None if the command fails or the export JSON is malformed.
     """
     command = [str(OPENCODE["path"]), "export", session_id]
-    exit_code, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
+    exit_code, result, _ = await run_command_to_file(
+        command=command, target_path=target_path, disable_stdio=True, env=env
+    )
     if exit_code != 0:
         return None
 

@@ -49,16 +49,19 @@ async def main() -> None:
 
                 if mentions_demetra_ai_and_merge(body=body):
                     logger.info(f"Merge {message}")
-                    await process_merge_notification(pr_info=pr_info)
+                    processed = await process_merge_notification(pr_info=pr_info)
 
                 elif mentions_demetra_ai_and_rebase(body=body):
                     logger.info(f"Rebase {message}")
-                    await process_rebase_notification(pr_info=pr_info)
+                    processed = await process_rebase_notification(pr_info=pr_info)
 
                 else:
                     continue
 
-                await mark_notification_read(notification=notification)
+                if processed:
+                    await mark_notification_read(notification=notification)
+                else:
+                    logger.warning(f"Notification not marked as read, processing failed: {message}")
 
         except OSError as e:
             logger.error(f"Error polling GitHub notifications: {e}")

@@ -8,7 +8,7 @@ services:           [main, graphql, opencode]
 branch:             -
 tickets:            []
 tags:               [workflow, session-management, error-handling, testing]
-related:            [2026-07-16-empty-build-output]
+related:            []
 ---
 
 # Fix empty build plan infinite loop
@@ -126,7 +126,7 @@ return fallback_session_id
 
 ## Test Results
 
-All tests pass; 11 new tests added.
+All tests pass; 9 new tests added.
 
 ### New tests
 
@@ -169,4 +169,4 @@ All checks passed!
 
 ## References
 
-- Related: [[2026-07-16-empty-build-output]] — The investigation that led to these fixes.
+- **External:** Q-001 (missing wiki pages [[2026-07-16-empty-build-output]] referenced in original session but never created)

@@ -94,8 +94,8 @@ async def upsert_pending_session(
         result = await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :pr_link, :linear_link, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -104,7 +104,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, linear_link, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at
                 """
             ),
             {
@@ -117,6 +117,7 @@ async def upsert_pending_session(
                 "project_id": project_id,
                 "user_id": user_id,
                 "run_attempts": 0,
+                "listener_attempts": 0,
                 "pr_link": None,
                 "linear_link": linear_link,
                 "created_at": now,
@@ -139,6 +140,7 @@ async def upsert_pending_session(
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
+        listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         created_at=row.created_at.isoformat(),
@@ -168,6 +170,50 @@ async def increment_run_attempts(task_id: str) -> int:
     return row.run_attempts if row else 0
 
 
+async def reset_listener_attempts(task_id: str) -> int:
+    """Reset listener_attempts to 0 for a session and return the new value."""
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET listener_attempts = 0, updated_at = :updated_at
+                WHERE task_id = :task_id
+                RETURNING listener_attempts
+                """
+            ),
+            {
+                "task_id": task_id,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+    return row.listener_attempts if row else 0
+
+
+async def increment_listener_attempts(task_id: str) -> int:
+    """Increment listener_attempts for a session and return the new value."""
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET listener_attempts = listener_attempts + 1, updated_at = :updated_at
+                WHERE task_id = :task_id
+                RETURNING listener_attempts
+                """
+            ),
+            {
+                "task_id": task_id,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+    return row.listener_attempts if row else 0
+
+
 async def create_session(task_id: str, session_id: str) -> Session:
     return await upsert_pending_session(task_id=task_id, session_id=session_id)
 
@@ -190,6 +236,7 @@ async def get_session(task_id: str) -> Session | None:
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
+        listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         created_at=row.created_at.isoformat(),
@@ -215,6 +262,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
+        listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         created_at=row.created_at.isoformat(),
@@ -234,8 +282,8 @@ async def save_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :pr_link, :linear_link, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -257,6 +305,7 @@ async def save_session(
                 "project_id": None,
                 "user_id": None,
                 "run_attempts": 0,
+                "listener_attempts": 0,
                 "pr_link": None,
                 "linear_link": linear_link,
                 "created_at": now,
@@ -279,6 +328,7 @@ async def save_session(
             project_id=row.project_id,
             user_id=row.user_id,
             run_attempts=row.run_attempts,
+            listener_attempts=row.listener_attempts,
             pr_link=row.pr_link,
             linear_link=row.linear_link,
             created_at=row.created_at.isoformat(),
@@ -295,6 +345,7 @@ async def save_session(
         project_id=None,
         user_id=None,
         run_attempts=0,
+        listener_attempts=0,
         pr_link=None,
         linear_link=linear_link,
         created_at=now.isoformat(),

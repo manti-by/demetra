@@ -239,10 +239,14 @@ class TestProcessMergeNotification:
 
     @pytest.mark.asyncio
     async def test_returns_false_when_no_session_found(self):
-        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+        ):
             mock_db.return_value = None
             result = await process_merge_notification(self.PR_INFO)
             assert result is False
+            mock_inc.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_returns_false_when_session_has_no_project_id(self):
@@ -255,10 +259,18 @@ class TestProcessMergeNotification:
             pr_link="https://github.com/owner/repo/pull/42",
             project_id=None,
         )
-        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.listener.queue") as mock_queue,
+        ):
             mock_db.return_value = session
+            mock_inc.return_value = 1
             result = await process_merge_notification(self.PR_INFO)
             assert result is False
+            mock_queue.enqueue.assert_not_called()
+            mock_reset.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_enqueues_merge_workflow(self):
@@ -273,9 +285,12 @@ class TestProcessMergeNotification:
         )
         with (
             patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
             patch("demetra.services.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
+            mock_inc.return_value = 1
 
             result = await process_merge_notification(self.PR_INFO)
 
@@ -287,6 +302,34 @@ class TestProcessMergeNotification:
                 pr_number=42,
                 full_name="owner/repo",
             )
+            mock_reset.assert_awaited_once_with(session.task_id)
+
+    @pytest.mark.asyncio
+    async def test_marks_read_when_max_listener_attempts_exceeded(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.listener.MAX_LISTENER_ATTEMPTS", 3),
+        ):
+            mock_db.return_value = session
+            mock_inc.return_value = 4
+
+            result = await process_merge_notification(self.PR_INFO)
+
+            assert result is True
+            mock_queue.enqueue.assert_not_called()
+            mock_reset.assert_not_awaited()
 
 
 class TestProcessRebaseNotification:
@@ -294,10 +337,14 @@ class TestProcessRebaseNotification:
 
     @pytest.mark.asyncio
     async def test_returns_false_when_no_session_found(self):
-        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+        ):
             mock_db.return_value = None
             result = await process_rebase_notification(self.PR_INFO)
             assert result is False
+            mock_inc.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_returns_false_when_session_has_no_project_id(self):
@@ -310,10 +357,18 @@ class TestProcessRebaseNotification:
             pr_link="https://github.com/owner/repo/pull/42",
             project_id=None,
         )
-        with patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db:
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.listener.queue") as mock_queue,
+        ):
             mock_db.return_value = session
+            mock_inc.return_value = 1
             result = await process_rebase_notification(self.PR_INFO)
             assert result is False
+            mock_queue.enqueue.assert_not_called()
+            mock_reset.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_enqueues_rebase_workflow(self):
@@ -328,9 +383,12 @@ class TestProcessRebaseNotification:
         )
         with (
             patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
             patch("demetra.services.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
+            mock_inc.return_value = 1
 
             result = await process_rebase_notification(self.PR_INFO)
 
@@ -342,6 +400,34 @@ class TestProcessRebaseNotification:
                 pr_number=42,
                 full_name="owner/repo",
             )
+            mock_reset.assert_awaited_once_with(session.task_id)
+
+    @pytest.mark.asyncio
+    async def test_marks_read_when_max_listener_attempts_exceeded(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.listener.MAX_LISTENER_ATTEMPTS", 3),
+        ):
+            mock_db.return_value = session
+            mock_inc.return_value = 4
+
+            result = await process_rebase_notification(self.PR_INFO)
+
+            assert result is True
+            mock_queue.enqueue.assert_not_called()
+            mock_reset.assert_not_awaited()
 
 
 class TestListenerEntrypoint:
@@ -377,12 +463,13 @@ class TestListenerEntrypoint:
             patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=True),
             patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=False),
             patch("demetra.listener.process_merge_notification", new_callable=AsyncMock) as mock_process,
-            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock),
+            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock) as mock_mark_read,
             patch("demetra.listener.init_db", new_callable=AsyncMock),
             patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
         ):
             mock_get.return_value = notifications
             mock_body.return_value = "@demetra-ai please merge"
+            mock_process.return_value = True
             mock_pr.return_value = {
                 "pr_number": 42,
                 "full_name": "owner/repo",
@@ -396,6 +483,7 @@ class TestListenerEntrypoint:
                 await main()
 
             mock_process.assert_awaited_once()
+            mock_mark_read.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_main_loop_processes_rebase(self):
@@ -423,12 +511,13 @@ class TestListenerEntrypoint:
             patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=False),
             patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=True),
             patch("demetra.listener.process_rebase_notification", new_callable=AsyncMock) as mock_process,
-            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock),
+            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock) as mock_mark_read,
             patch("demetra.listener.init_db", new_callable=AsyncMock),
             patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
         ):
             mock_get.return_value = notifications
             mock_body.return_value = "@demetra-ai please rebase"
+            mock_process.return_value = True
             mock_pr.return_value = {
                 "pr_number": 42,
                 "full_name": "owner/repo",
@@ -442,3 +531,100 @@ class TestListenerEntrypoint:
                 await main()
 
             mock_process.assert_awaited_once()
+            mock_mark_read.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_main_loop_does_not_mark_read_when_merge_fails(self):
+        notifications = [
+            {
+                "id": "1",
+                "reason": "mention",
+                "subject": {
+                    "type": "PullRequest",
+                    "title": "PR Title",
+                    "url": "https://api.github.com/repos/owner/repo/pulls/42",
+                    "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/1",
+                },
+                "repository": {
+                    "full_name": "owner/repo",
+                    "clone_url": "https://github.com/owner/repo.git",
+                },
+            }
+        ]
+
+        with (
+            patch("demetra.listener.get_notifications", new_callable=AsyncMock) as mock_get,
+            patch("demetra.listener.fetch_subject_body", new_callable=AsyncMock) as mock_body,
+            patch("demetra.listener.extract_pr_info") as mock_pr,
+            patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=True),
+            patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=False),
+            patch("demetra.listener.process_merge_notification", new_callable=AsyncMock) as mock_process,
+            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock) as mock_mark_read,
+            patch("demetra.listener.init_db", new_callable=AsyncMock),
+            patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
+        ):
+            mock_get.return_value = notifications
+            mock_body.return_value = "@demetra-ai please merge"
+            mock_process.return_value = False
+            mock_pr.return_value = {
+                "pr_number": 42,
+                "full_name": "owner/repo",
+                "title": "PR Title",
+                "clone_url": "https://github.com/owner/repo.git",
+            }
+
+            from demetra.listener import main
+
+            with pytest.raises(RuntimeError, match="coroutine raised StopIteration"):
+                await main()
+
+            mock_process.assert_awaited_once()
+            mock_mark_read.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_main_loop_does_not_mark_read_when_rebase_fails(self):
+        notifications = [
+            {
+                "id": "1",
+                "reason": "mention",
+                "subject": {
+                    "type": "PullRequest",
+                    "title": "PR Title",
+                    "url": "https://api.github.com/repos/owner/repo/pulls/42",
+                    "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/1",
+                },
+                "repository": {
+                    "full_name": "owner/repo",
+                    "clone_url": "https://github.com/owner/repo.git",
+                },
+            }
+        ]
+
+        with (
+            patch("demetra.listener.get_notifications", new_callable=AsyncMock) as mock_get,
+            patch("demetra.listener.fetch_subject_body", new_callable=AsyncMock) as mock_body,
+            patch("demetra.listener.extract_pr_info") as mock_pr,
+            patch("demetra.listener.mentions_demetra_ai_and_merge", return_value=False),
+            patch("demetra.listener.mentions_demetra_ai_and_rebase", return_value=True),
+            patch("demetra.listener.process_rebase_notification", new_callable=AsyncMock) as mock_process,
+            patch("demetra.listener.mark_notification_read", new_callable=AsyncMock) as mock_mark_read,
+            patch("demetra.listener.init_db", new_callable=AsyncMock),
+            patch("demetra.listener.asyncio.sleep", new_callable=AsyncMock, side_effect=StopIteration),
+        ):
+            mock_get.return_value = notifications
+            mock_body.return_value = "@demetra-ai please rebase"
+            mock_process.return_value = False
+            mock_pr.return_value = {
+                "pr_number": 42,
+                "full_name": "owner/repo",
+                "title": "PR Title",
+                "clone_url": "https://github.com/owner/repo.git",
+            }
+
+            from demetra.listener import main
+
+            with pytest.raises(RuntimeError, match="coroutine raised StopIteration"):
+                await main()
+
+            mock_process.assert_awaited_once()
+            mock_mark_read.assert_not_awaited()

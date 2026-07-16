@@ -166,7 +166,7 @@ class TestOpencodeSessionLength:
     @pytest.fixture
     def mock_run_command_and_config(self):
         with (
-            patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
             patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
             yield mock_run

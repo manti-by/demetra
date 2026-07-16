@@ -14,10 +14,12 @@ from demetra.services.database import (
     get_session,
     get_session_history,
     get_session_step_name,
+    increment_listener_attempts,
     increment_run_attempts,
     list_project_environments,
     mark_session_posted,
     record_session_history,
+    reset_listener_attempts,
     save_session,
     update_session_linear_link,
     update_session_pr_link,
@@ -652,6 +654,84 @@ class TestRunAttempts:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.step == "build"
+
+
+class TestListenerAttempts:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_listener_attempts_starts_at_0_on_insert(
+        self,
+        db_task_id: str,
+    ):
+        session = await upsert_pending_session(task_id=db_task_id, session_id=None)
+        assert session.listener_attempts == 0
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.listener_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_increment_listener_attempts(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        first = await increment_listener_attempts(db_task_id)
+        assert first == 1
+
+        second = await increment_listener_attempts(db_task_id)
+        assert second == 2
+
+        third = await increment_listener_attempts(db_task_id)
+        assert third == 3
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.listener_attempts == 3
+
+    @pytest.mark.asyncio
+    async def test_reset_listener_attempts(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        await increment_listener_attempts(db_task_id)
+        await increment_listener_attempts(db_task_id)
+
+        result = await reset_listener_attempts(db_task_id)
+        assert result == 0
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.listener_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_listener_attempts_preserved_on_upsert(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        await increment_listener_attempts(db_task_id)
+
+        await upsert_pending_session(task_id=db_task_id, session_id="new-session-id")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.listener_attempts == 1
+
+    @pytest.mark.asyncio
+    async def test_increment_listener_attempts_nonexistent_returns_0(self):
+        result = await increment_listener_attempts("NONEXISTENT-TASK-999")
+        assert result == 0
+
+    @pytest.mark.asyncio
+    async def test_reset_listener_attempts_nonexistent_returns_0(self):
+        result = await reset_listener_attempts("NONEXISTENT-TASK-999")
+        assert result == 0
 
 
 class TestLinearLink:
