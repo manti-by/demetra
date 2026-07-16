@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["openwiki"],
+  "plugin": ["@manti-by/openwiki@0.3.0-rc1"],
   "mcp": {
     "demetra": {
       "type": "local",

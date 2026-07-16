@@ -10,6 +10,7 @@ by the plugin.
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — Implementation: replan on missing build_plan (not step), validate Linear response payload, enable fallback session ID recovery (2026-07-16)
 - [Empty build output and plan root causes](pages/2026-07-16-empty-build-output.md) — Debug: root causes of empty `build_plan` and stuck workflows; Linear null-response crashes at `graphql_request`, fallback session ID disabled (2026-07-16)
 - [Empty Build Plan — Workflow Crashes After Worktree Creation](pages/2026-07-16-empty-build-plan-investigation.md) — Investigation: workflow exits after worktree creation, before plan agent runs (2026-07-16)
+- [Duplicated log messages and missing build agent logs](pages/2026-07-16-duplicated-log-messages.md) — Path==str dedup bug causing double writes, plus build agent stdout discarded instead of logged (2026-07-16)
 _Newest first._
 
 ## By topic

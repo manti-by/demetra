@@ -8,6 +8,10 @@ from pathlib import Path
 from demetra.settings import LOG_DIR, LOGGING
 
 
+stream_logger = logging.getLogger("demetra.services.subprocess_stream")
+stream_logger.propagate = False
+
+
 NO_ISSUE_TOKENS = {
     "silent",
     "no output",
@@ -43,6 +47,7 @@ async def live_stream(
         if not disable_stdio:
             sys.stdout.write(decoded)
             sys.stdout.flush()
+            stream_logger.info(decoded.rstrip())
 
 
 async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) -> None:
@@ -75,7 +80,12 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
     session_dir.mkdir(parents=True, exist_ok=True)
     session_log_path = session_dir / f"{task_id}.log"
 
-    if LOGGING["handlers"]["file"]["filename"] == str(session_log_path):
+    configured_filename = Path(LOGGING["handlers"]["file"]["filename"])
+    if configured_filename.resolve() == session_log_path.resolve():
+        for handler in logging.getLogger().handlers:
+            if isinstance(handler, logging.FileHandler):
+                stream_logger.addHandler(handler)
+                break
         return
 
     formatter_name = LOGGING["handlers"]["file"].get("formatter")
@@ -89,18 +99,15 @@ async def setup_session_logging(logger: Logger, task_id: str) -> None:
     file_handler.setLevel(LOGGING["handlers"]["file"]["level"])
     file_handler.setFormatter(fmt)
 
-    for handler in logger.handlers[:]:
+    root_logger = logging.getLogger()
+    for handler in root_logger.handlers[:]:
         if isinstance(handler, logging.FileHandler):
             handler.close()
-            logger.removeHandler(handler)
-    logger.addHandler(file_handler)
+            root_logger.removeHandler(handler)
+    root_logger.addHandler(file_handler)
+    LOGGING["handlers"]["file"]["filename"] = str(session_log_path)
 
-    tui_logger = logging.getLogger("demetra.services.tui")
-    for handler in tui_logger.handlers[:]:
-        if isinstance(handler, logging.FileHandler):
-            handler.close()
-            tui_logger.removeHandler(handler)
-    tui_logger.addHandler(file_handler)
+    stream_logger.addHandler(file_handler)
 
 
 def non_negative_int(value: object) -> int | None:
