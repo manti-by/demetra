@@ -75,7 +75,9 @@ async def git_add_all(target_path: Path, env: dict[str, str] | None = None) -> b
 
 async def git_commit(target_path: Path, message: str, env: dict[str, str] | None = None):
     command = [str(GIT["path"]), "commit", "-m", message]
-    await run_command(command=command, target_path=target_path, env=env)
+    exit_code, stdout, stderr = await run_command(command=command, target_path=target_path, env=env)
+    if exit_code != 0:
+        raise RuntimeError(f"Commit failed: {stderr.strip() or stdout.strip() or 'unknown error'}")
 
 
 async def git_pull(target_path: Path, branch_name: str = "master", env: dict[str, str] | None = None):
@@ -85,7 +87,9 @@ async def git_pull(target_path: Path, branch_name: str = "master", env: dict[str
 
 async def git_push(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
     command = [str(GIT["path"]), "push", "--set-upstream", "origin", branch_name]
-    await run_command(command=command, target_path=target_path, env=env)
+    exit_code, stdout, stderr = await run_command(command=command, target_path=target_path, env=env)
+    if exit_code != 0:
+        raise RuntimeError(f"Push failed: {stderr.strip() or stdout.strip() or 'unknown error'}")
 
 
 async def git_branch_delete(target_path: Path, branch_name: str, env: dict[str, str] | None = None):
