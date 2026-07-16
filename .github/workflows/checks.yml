@@ -51,6 +51,13 @@ jobs:
         run: |
           uv run pre-commit run --all-files
 
+      - name: Run migrations
+        env:
+          LOG_PATH: /tmp/demetra.log
+          DB_PASSWORD: demetra
+        run: |
+          uv run alembic upgrade head
+
       - name: Run tests
         env:
           LOG_PATH: /tmp/demetra.log
