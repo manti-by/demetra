@@ -111,7 +111,7 @@ function AppContent() {
                   </div>
                 }
               >
-                <LogConsole taskId={selectedTaskId} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
+                <LogConsole taskId={selectedTaskId} sessionName={sessions.find((s) => s.task_id === selectedTaskId)?.name ?? null} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} />
             </div>

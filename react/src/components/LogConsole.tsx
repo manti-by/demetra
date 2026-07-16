@@ -29,11 +29,12 @@ interface SessionStatusData {
 
 interface LogConsoleProps {
   taskId?: string | null;
+  sessionName?: string | null;
   onDeleteSession?: (taskId: string) => void;
   onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
 }
 
-export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogConsoleProps) {
+export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStatus }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -130,7 +131,9 @@ export function LogConsole({ taskId, onDeleteSession, onSessionStatus }: LogCons
     ? "log-indicator connected"
     : "log-indicator";
 
-  const logTitle = taskId ? `Session: ${taskId.slice(0, 8)}` : "Session Logs";
+  const logTitle = taskId
+    ? (sessionName && sessionName.trim()) ? sessionName : `Session: ${taskId.slice(0, 8)}`
+    : "Session Logs";
 
   return (
     <div className="log-console">
