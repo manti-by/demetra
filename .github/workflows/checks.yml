@@ -37,5 +37,7 @@ jobs:
           uv run pre-commit run --all-files
 
       - name: Run tests
+        env:
+          LOG_PATH: /tmp/demetra.log
         run: |
           uv run pytest tests/
