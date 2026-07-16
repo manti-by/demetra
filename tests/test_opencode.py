@@ -6,6 +6,7 @@ import pytest
 from demetra.services.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
+    get_opencode_session_id,
     get_opencode_session_length,
     opencode_build_agent,
     opencode_compact_session,
@@ -115,6 +116,50 @@ class TestOpencodeService:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs.get("session_id") is None
         assert call_kwargs.get("agent") == "resolve-agent"
+
+
+class TestOpencodeSessionId:
+    """No exact worktree-directory match should still return the most recently updated
+    same-titled session as a fallback, instead of None. Returning None here leaves the
+    session's session_id empty in the DB, which keeps it stuck as 'pending' forever and
+    blocks the watcher's step reset on future runs."""
+
+    @pytest.fixture
+    def mock_get_opencode_sessions(self):
+        with patch("demetra.services.opencode.get_opencode_sessions", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.mark.asyncio
+    async def test_returns_exact_directory_match(self, mock_get_opencode_sessions):
+        mock_get_opencode_sessions.return_value = [
+            {"id": "ses-other-dir", "title": "MNT-128", "directory": "/other/path", "updated": 2},
+            {"id": "ses-exact", "title": "MNT-128", "directory": "/test/path", "updated": 1},
+        ]
+
+        result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
+
+        assert result == "ses-exact"
+
+    @pytest.mark.asyncio
+    async def test_returns_fallback_when_no_directory_matches(self, mock_get_opencode_sessions):
+        mock_get_opencode_sessions.return_value = [
+            {"id": "ses-newer", "title": "MNT-128", "directory": "/other/path", "updated": 2},
+            {"id": "ses-older", "title": "MNT-128", "directory": "/another/path", "updated": 1},
+        ]
+
+        result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
+
+        assert result == "ses-newer"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_no_matching_titles(self, mock_get_opencode_sessions):
+        mock_get_opencode_sessions.return_value = [
+            {"id": "ses-other", "title": "MNT-999", "directory": "/test/path", "updated": 1},
+        ]
+
+        result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
+
+        assert result is None
 
 
 class TestOpencodeSessionLength:

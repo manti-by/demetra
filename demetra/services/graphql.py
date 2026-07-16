@@ -33,6 +33,11 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 response.raise_for_status()
-                return await response.json()
+                data = await response.json()
     except aiohttp.ClientError as e:
         raise LinearError(f"Linear API error: {e}") from e
+
+    if not isinstance(data, dict):
+        raise LinearError(f"Linear API returned an unexpected payload: {data!r}")
+
+    return data

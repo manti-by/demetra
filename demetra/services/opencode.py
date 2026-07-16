@@ -127,15 +127,15 @@ async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[
     fallback_session_id = None
     target_directory = str(target_path).rstrip("/")
     for session in sorted(filtered_sessions, key=lambda x: x["updated"], reverse=True):
-        # TODO: Think how to proceed with a worktree mistmatch
-        # if not fallback_session_id:
-        #     fallback_session_id = session["id"]
+        if not fallback_session_id:
+            fallback_session_id = session["id"]
 
         session_directory = session.get("directory", "").rstrip("/")
         if session_directory == target_directory:
             return session["id"]
 
-    print_message("Worktree mistmatch, using fallback session id", style="error")
+    if fallback_session_id:
+        print_message("Worktree mistmatch, using fallback session id", style="error")
     return fallback_session_id
 
 

@@ -76,7 +76,7 @@ class TestWorkflowBuildEdgeCases:
                 identifier="MNT-123",
                 title=faker.sentence(),
                 description=faker.text(),
-                priority="1",
+                priority=1,
                 created_at=datetime.now().isoformat(),
                 comments=[],
             ),

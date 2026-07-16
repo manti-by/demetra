@@ -79,7 +79,7 @@ class TestWatcherService:
             identifier="MNT-123",
             title=faker.sentence(),
             description=faker.text(),
-            priority="1",
+            priority=1,
             created_at=datetime.now().isoformat(),
             project_name=None,
         )
@@ -94,7 +94,7 @@ class TestWatcherService:
             identifier="MNT-123",
             title=faker.sentence(),
             description=faker.text(),
-            priority="1",
+            priority=1,
             created_at=datetime.now().isoformat(),
             project_name="demetra",
             project_id=None,

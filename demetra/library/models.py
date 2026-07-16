@@ -14,7 +14,7 @@ class LinearTask:
     identifier: str
     title: str
     description: str
-    priority: str
+    priority: int
     created_at: str
     state: str | None = None
     project_name: str | None = None

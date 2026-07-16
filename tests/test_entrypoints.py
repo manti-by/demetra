@@ -1,6 +1,13 @@
 import argparse
 import inspect
+from datetime import datetime
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
+from uuid import uuid4
 
+import pytest
+
+from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import WATCHER_POLL_INTERVAL
 from demetra.worker import connection
 
@@ -40,3 +47,114 @@ class TestMainEntrypoint:
 
         sig = inspect.signature(main)
         assert "plan_loop" in sig.parameters
+
+
+def _build_context(*, step, build_plan) -> Context:
+    linear_task = LinearTask(
+        id=str(uuid4()),
+        identifier="MNT-128",
+        title="Create Bare React Application",
+        description="desc",
+        priority=1,
+        created_at=datetime.now().isoformat(),
+    )
+    project = Project(
+        id=str(uuid4()),
+        user_id=str(uuid4()),
+        linear_project_id=None,
+        name="demetra",
+        state="active",
+        repository_url="https://github.com/test/demetra",
+        repository_name="demetra",
+        repository_owner="test",
+        local_path=Path("/tmp/demetra"),
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+    )
+    session = Session(
+        task_id=linear_task.id,
+        build_plan=build_plan,
+        posted_to_linear=bool(build_plan),
+        created_at=datetime.now().isoformat(),
+        updated_at=datetime.now().isoformat(),
+        step=step,
+    )
+    return Context(
+        project=project,
+        auto_mode=True,
+        linear_task=linear_task,
+        branch_name="mnt-128-create-bare-react-application",
+        worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
+        session=session,
+    )
+
+
+class TestMainReplanning:
+    """A run that fails before a plan is saved leaves the session step at 'failed' with an
+    empty build_plan. main() must re-run the plan step in that case, not only when step is
+    'initial' — otherwise the workflow loops forever on 'Empty build plan, exiting.'"""
+
+    @pytest.fixture
+    def mock_main_deps(self):
+        with (
+            patch("main.init_db", new_callable=AsyncMock),
+            patch("main.setup_workflow", new_callable=AsyncMock) as mock_setup_workflow,
+            patch("main.setup_session_logging", new_callable=AsyncMock),
+            patch("main.update_ticket_status", new_callable=AsyncMock),
+            patch("main.post_comment", new_callable=AsyncMock),
+            patch("main.mark_session_posted", new_callable=AsyncMock),
+            patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
+            patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
+            patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
+            patch("main.cleanup_workflow", new_callable=AsyncMock),
+        ):
+            mock_commit_and_push.return_value = True
+            yield {
+                "setup_workflow": mock_setup_workflow,
+                "run_plan_step": mock_run_plan_step,
+                "run_build_step": mock_run_build_step,
+                "commit_and_push": mock_commit_and_push,
+            }
+
+    @pytest.mark.asyncio
+    async def test_main_replans_when_step_failed_but_build_plan_empty(self, mock_main_deps):
+        from main import main
+
+        context = _build_context(step="failed", build_plan="")
+
+        async def fake_run_plan_step(context):
+            context.session.build_plan = "generated build plan"
+            return "generated build plan"
+
+        mock_main_deps["setup_workflow"].return_value = context
+        mock_main_deps["run_plan_step"].side_effect = fake_run_plan_step
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["run_plan_step"].assert_awaited_once_with(context=context)
+        mock_main_deps["run_build_step"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_main_skips_replan_when_build_plan_already_present(self, mock_main_deps):
+        from main import main
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["run_plan_step"].assert_not_awaited()
+        mock_main_deps["run_build_step"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_main_exits_when_replan_produces_no_plan(self, mock_main_deps):
+        from main import main
+
+        context = _build_context(step="failed", build_plan="")
+        mock_main_deps["setup_workflow"].return_value = context
+        mock_main_deps["run_plan_step"].return_value = None
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["run_plan_step"].assert_awaited_once_with(context=context)
+        mock_main_deps["run_build_step"].assert_not_awaited()
