@@ -49,6 +49,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     is_success = False
     should_update_linear_status = True
+    failure_step = "failed"
     try:
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_progress"])
 
@@ -96,6 +97,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     except AutoCancelledError:
         print_message("User cancelled, exiting the workflow.", style="error")
         should_update_linear_status = False
+        failure_step = "awaiting_input"
 
     except ValueError as e:
         print_message(f"Configuration error: {e}", style="error")
@@ -113,7 +115,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         # Only run cleanup if we successfully created a context (which means worktree was created)
         if context:
             await cleanup_workflow(
-                context=context, is_success=is_success, should_update_linear_status=should_update_linear_status
+                context=context,
+                is_success=is_success,
+                should_update_linear_status=should_update_linear_status,
+                failure_step=failure_step,
             )
 
 

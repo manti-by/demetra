@@ -123,6 +123,7 @@ async def run_plan_step(context: Context) -> str | None:
                     print_message("Failed to post question to Linear", style="error")
 
             await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
+            await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
             print_message("Task moved to Awaiting Input state.", style="result")
 
             raise AutoCancelledError

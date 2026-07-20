@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 
+from demetra.library.exceptions import AutoCancelledError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import WATCHER_POLL_INTERVAL
 from demetra.worker import connection
@@ -106,7 +107,7 @@ class TestMainReplanning:
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
-            patch("main.cleanup_workflow", new_callable=AsyncMock),
+            patch("main.cleanup_workflow", new_callable=AsyncMock) as mock_cleanup_workflow,
         ):
             mock_commit_and_push.return_value = True
             yield {
@@ -114,6 +115,7 @@ class TestMainReplanning:
                 "run_plan_step": mock_run_plan_step,
                 "run_build_step": mock_run_build_step,
                 "commit_and_push": mock_commit_and_push,
+                "cleanup_workflow": mock_cleanup_workflow,
             }
 
     @pytest.mark.asyncio
@@ -158,3 +160,21 @@ class TestMainReplanning:
 
         mock_main_deps["run_plan_step"].assert_awaited_once_with(context=context)
         mock_main_deps["run_build_step"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_main_sets_awaiting_input_on_auto_cancelled(self, mock_main_deps):
+        from main import main
+
+        context = _build_context(step="initial", build_plan="")
+        mock_main_deps["setup_workflow"].return_value = context
+
+        mock_main_deps["run_plan_step"].side_effect = AutoCancelledError
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+        )

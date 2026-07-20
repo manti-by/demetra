@@ -413,6 +413,11 @@ class TestWorkflowPlanLoop:
             yield m
 
     @pytest.fixture
+    def mock_update_session_step(self):
+        with patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
     def mock_max_plan_attempts_3(self):
         with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 3):
             yield
@@ -424,6 +429,10 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture(autouse=True)
     def _auto_mock_record_session_step_history(self, mock_record_session_step_history):
+        pass
+
+    @pytest.fixture(autouse=True)
+    def _auto_mock_update_session_step(self, mock_update_session_step):
         pass
 
     @pytest.fixture
@@ -622,6 +631,63 @@ class TestWorkflowPlanLoop:
             await run_plan_step(context)
 
         mock_run_resolve_step.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_plan_loop_disabled_sets_session_awaiting_input(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_run_resolve_step,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_update_session_step,
+    ):
+
+        mock_plan_agent, mock_extract_plan, mock_extract_questions, _mock_save_session, mock_get_opencode_session_id = (
+            mock_plan_loop_base
+        )
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            plan_loop=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_get_opencode_session_id.return_value = None
+
+        with pytest.raises(AutoCancelledError):
+            await run_plan_step(context)
+
+        mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
 
 
 class TestWorkflowBuild:
@@ -1276,6 +1342,63 @@ class TestWorkflowCleanup:
         )
 
         await cleanup_workflow(context, is_success=True, should_update_linear_status=True)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_workflow_failure_with_awaiting_input(
+        self,
+        faker,
+        mock_git_cleanup,
+        mock_linear_cleanup,
+    ):
+        with (
+            patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.workflows.cleanup.get_opencode_session_tokens", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.record_session_step_history", new_callable=AsyncMock),
+        ):
+            context = Context(
+                project=Project(
+                    id=str(uuid4()),
+                    user_id=str(uuid4()),
+                    linear_project_id=str(uuid4()),
+                    name="demetra",
+                    state="active",
+                    repository_url="https://github.com/test/demetra",
+                    repository_name="demetra",
+                    repository_owner="test",
+                    local_path=Path(f"/tmp/{faker.slug()}"),
+                    created_at=datetime.now().isoformat(),
+                    updated_at=datetime.now().isoformat(),
+                ),
+                auto_mode=False,
+                linear_task=LinearTask(
+                    id=str(uuid4()),
+                    identifier="MNT-123",
+                    title=faker.sentence(),
+                    description=faker.text(),
+                    priority=1,
+                    created_at=datetime.now().isoformat(),
+                ),
+                branch_name="feature/test",
+                worktree_path=Path(f"/tmp/{faker.slug()}"),
+                session=Session(
+                    task_id=str(uuid4()),
+                    build_plan="plan",
+                    posted_to_linear=False,
+                    created_at=datetime.now().isoformat(),
+                    updated_at=datetime.now().isoformat(),
+                    step="plan",
+                    session_id=str(uuid4()),
+                ),
+            )
+
+            await cleanup_workflow(
+                context=context,
+                is_success=False,
+                should_update_linear_status=True,
+                failure_step="awaiting_input",
+            )
+
+            mock_update_step.assert_awaited_once_with(task_id=context.linear_task.id, step="awaiting_input")
 
 
 class TestMainBumpVersion:

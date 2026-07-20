@@ -77,9 +77,14 @@ async def commit_and_push(context: Context) -> bool:
     return True
 
 
-async def cleanup_workflow(context: Context, is_success: bool, should_update_linear_status: bool) -> None:
+async def cleanup_workflow(
+    context: Context,
+    is_success: bool,
+    should_update_linear_status: bool,
+    failure_step: str = "failed",
+) -> None:
     if not is_success:
-        await update_session_step(task_id=context.linear_task.id, step="failed")
+        await update_session_step(task_id=context.linear_task.id, step=failure_step)
         if context.session_id:
             try:
                 usage = await get_opencode_session_tokens(
@@ -89,7 +94,7 @@ async def cleanup_workflow(context: Context, is_success: bool, should_update_lin
                 )
                 await record_session_step_history(
                     session_id=context.session_id,
-                    step="failed",
+                    step=failure_step,
                     usage=usage,
                 )
             except Exception:  # noqa: BLE001

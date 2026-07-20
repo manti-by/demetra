@@ -158,6 +158,11 @@ class TestDatabaseService:
         assert found is not None
         assert found.step == "completed"
 
+        await update_session_step(db_task_id, "awaiting_input")
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.step == "awaiting_input"
+
     @pytest.mark.asyncio
     async def test_get_session_step_name_returns_step_and_name(
         self,
