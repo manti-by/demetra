@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Resolve ANSI Color Escape Codes in Logs](pages/2026-07-20-resolve-ansi-color-escape-codes-in-logs.md) — Fixed ANSI coloring issues by adding stripping filters at four levels in logging pipeline (2026-07-20)
 - [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — Guarded mark_notification_read with success bool and added listener_attempts counter with MAX_LISTENER_ATTEMPTS=3 to break infinite retry loops (2026-07-16)
 - [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — Implementation: unified StepType/VALID_STEPS enum, renamed API `status`→`step`, fixed stale `upsert_pending_session` return value, documented divergent ON CONFLICT clauses (2026-07-16)
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — Implementation: behavior-preserving refactor — dropped unused `logger` param, single root-handler lookup, removed dead formatter fallbacks (2026-07-16)
@@ -18,6 +19,10 @@ _Newest first._
 ## By topic
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
+
+### ANSI escape codes in logs (1 page)
+
+- [Resolve ANSI Color Escape Codes in Logs](pages/2026-07-20-resolve-ansi-color-escape-codes-in-logs.md) — ANSI stripping filters at four levels in logging pipeline
 
 ### Logging infrastructure (2 pages)
 

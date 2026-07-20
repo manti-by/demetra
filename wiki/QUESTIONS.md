@@ -22,3 +22,11 @@ _Newest first. Entry format:_
 ## Resolved
 
 _Newest first. Moved here by the Consistency Agent, with a one-line note of what was applied._
+
+### Q-002 — Three overlapping ANSI stripping pages
+
+- **Date:** 2026-07-20
+- **Pages:** [[2026-07-20-resolve-ansi-color-escape-codes-in-logs]], [[2026-07-20-log-coloring-issue]], [[2026-07-20-colors-fix]]
+- **Discrepancy:** Three pages document the same ANSI stripping fix with different detail levels and slightly different scope counts (3 vs 4 levels). Duplicate coverage of the same session — should they be consolidated into one canonical page?
+- **Checked:** All three pages describe the same code changes (AnsiStrippingFilter, live_stream, settings.py dictConfig, setup_session_logging). No conflicting claims, just redundant documentation.
+- **Answer:** Consolidated by Dedup Agent: survivor [[2026-07-20-resolve-ansi-color-escape-codes-in-logs]] (most descriptive title, latest session_id). Merged tags from all three pages. Other two pages deleted.

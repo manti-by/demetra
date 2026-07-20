@@ -1,11 +1,25 @@
 import asyncio
 import logging
+import re
 import sys
 from collections.abc import Callable
-from logging import Formatter
+from logging import Formatter, LogRecord
 from pathlib import Path
 
 from demetra.settings import LOG_DIR, LOGGING
+
+
+ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
+
+
+def ansi_strip(text: str) -> str:
+    return ANSI_ESCAPE_RE.sub("", text)
+
+
+class AnsiStrippingFilter(logging.Filter):
+    def filter(self, record: LogRecord) -> bool:
+        record.msg = ansi_strip(record.msg)
+        return True
 
 
 stream_logger = logging.getLogger("demetra.services.subprocess_stream")
@@ -40,7 +54,7 @@ async def live_stream(
         if not (line := await stream.readline()):
             break
 
-        decoded = line.decode()
+        decoded = ansi_strip(line.decode())
         if result is not None:
             result.append(decoded)
 
@@ -92,6 +106,7 @@ async def setup_session_logging(task_id: str) -> None:
     file_handler = logging.FileHandler(session_log_path)
     file_handler.setLevel(file_config["level"])
     file_handler.setFormatter(Formatter(fmt=formatter_config["format"], datefmt=formatter_config["datefmt"]))
+    file_handler.addFilter(AnsiStrippingFilter())
 
     if root_file_handler is not None:
         root_file_handler.close()

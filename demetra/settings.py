@@ -49,6 +49,11 @@ LOG_DIR = LOG_PATH.parent
 LOGGING: dict = {
     "version": 1,
     "disable_existing_loggers": False,
+    "filters": {
+        "ansi_strip": {
+            "()": "demetra.services.utils.AnsiStrippingFilter",
+        },
+    },
     "formatters": {
         "standard": {
             "format": "%(asctime)s %(levelname)-6s: %(message)s",
@@ -60,12 +65,14 @@ LOGGING: dict = {
             "level": "DEBUG",
             "class": "logging.StreamHandler",
             "formatter": "standard",
+            "filters": ["ansi_strip"],
         },
         "file": {
             "level": "INFO",
             "class": "logging.FileHandler",
             "filename": LOG_PATH,
             "formatter": "standard",
+            "filters": ["ansi_strip"],
         },
     },
     "loggers": {
