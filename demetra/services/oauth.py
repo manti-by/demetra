@@ -7,7 +7,7 @@ from demetra.settings import LINEAR
 
 async def get_valid_token() -> str:
     token_data = await get_oauth_token(LINEAR["service_name"])
-    if token_data:
+    if token_data and token_data[0]:
         return token_data[0]
 
     if not LINEAR["client_id"] or not LINEAR["client_secret"]:

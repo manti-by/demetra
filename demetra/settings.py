@@ -34,8 +34,8 @@ MAX_REVIEW_ATTEMPTS = int(os.environ.get("MAX_REVIEW_ATTEMPTS", 10))
 MAX_MERGE_ATTEMPTS = int(os.environ.get("MAX_MERGE_ATTEMPTS", 10))
 MAX_REBASE_ATTEMPTS = int(os.environ.get("MAX_REBASE_ATTEMPTS", 10))
 MAX_PLAN_ATTEMPTS = int(os.environ.get("MAX_PLAN_ATTEMPTS", 30))
-MAX_RUN_ATTEMPTS = int(os.environ.get("MAX_RUN_ATTEMPTS", 3))
-MAX_LISTENER_ATTEMPTS = int(os.environ.get("MAX_LISTENER_ATTEMPTS", 3))
+MAX_RUN_ATTEMPTS = int(os.environ.get("MAX_RUN_ATTEMPTS", 5))
+MAX_LISTENER_ATTEMPTS = int(os.environ.get("MAX_LISTENER_ATTEMPTS", 5))
 SUBPROCESS_TIMEOUT = int(os.environ.get("SUBPROCESS_TIMEOUT", 30 * 60))
 CONTEXT_COMPACTION_THRESHOLD = int(os.environ.get("CONTEXT_COMPACTION_THRESHOLD", 100_000))
 
@@ -98,12 +98,12 @@ LINEAR: LinearConfig = {
 
 OPENCODE: OpenCodeConfig = {
     "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
-    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode/minimax-m2.5-free"),
-    "resolve_model": os.environ.get("OPENCODE_RESOLVE_MODEL", "opencode/minimax-m2.5-free"),
-    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode/minimax-m2.5-free"),
+    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
+    "resolve_model": os.environ.get("OPENCODE_RESOLVE_MODEL", "opencode-go/qwen3.7-max"),
+    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode-go/deepseek-v4-flash"),
     "review_models": os.environ.get(
         "OPENCODE_REVIEW_MODELS",
-        "opencode/big-pickle,opencode/minimax-m2.5-free",
+        "opencode-go/qwen3.7-plus,opencode-go/glm-5.2,opencode-go/kimi-k2.7-code",
     ).split(","),
 }
 

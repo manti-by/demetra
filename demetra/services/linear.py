@@ -136,13 +136,23 @@ async def get_linear_task(project_name: str) -> LinearTask | None:
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
     query = await get_query(name="update_issue_status")
     result = await graphql_request(query=query, variables={"issueId": task_id, "stateId": state_id})
-    return result.get("data", {}).get("issueUpdate", {}).get("success", False)
+    if result is None:
+        return False
+    data = result.get("data")
+    if data is None:
+        return False
+    return data.get("issueUpdate", {}).get("success", False)
 
 
 async def post_comment(task_id: str, body: str) -> bool:
     query = await get_query(name="create_issue_comment")
     result = await graphql_request(query=query, variables={"issueId": task_id, "body": body})
-    return result.get("data", {}).get("commentCreate", {}).get("success", False)
+    if result is None:
+        return False
+    data = result.get("data")
+    if data is None:
+        return False
+    return data.get("commentCreate", {}).get("success", False)
 
 
 async def linear_cleanup(context: Context, is_success: bool):
