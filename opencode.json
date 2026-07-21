@@ -6,6 +6,11 @@
       "type": "local",
       "command": ["uv", "run", "python", "-m", "demetra.mcp_server"],
       "enabled": true
+    },
+    "Linear": {
+      "type": "remote",
+      "url": "https://mcp.linear.app/mcp",
+      "oauth": {}
     }
   },
   "lsp": {

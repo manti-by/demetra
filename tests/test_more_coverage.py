@@ -114,7 +114,6 @@ class TestWatcherService:
         session = MagicMock(spec=Session)
         session.run_attempts = 4
 
-        mock_increment_run_attempts.return_value = 4
         mock_get_session.return_value = session
 
         result = await run_workflow("demetra", task_id)
@@ -123,6 +122,7 @@ class TestWatcherService:
         mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
         mock_update_ticket_status.assert_awaited_once()
         mock_create_subprocess_exec.assert_not_called()
+        mock_increment_run_attempts.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_run_workflow_proceeds_when_below_max(
@@ -142,10 +142,106 @@ class TestWatcherService:
         process_mock.stderr = None
         process_mock.communicate = AsyncMock(return_value=(b"", b""))
 
-        mock_increment_run_attempts.return_value = 1
         mock_get_session.return_value = session
         mock_create_subprocess_exec.return_value = process_mock
 
         result = await run_workflow("demetra", task_id)
 
         assert result is True
+        mock_increment_run_attempts.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_workflow_increments_on_nonzero_exit(
+        self,
+        faker,
+        mock_increment_run_attempts,
+        mock_get_session,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_create_subprocess_exec,
+    ):
+
+        task_id = f"TASK-{faker.random_int(min=100, max=999)}"
+        session = MagicMock(spec=Session)
+        session.run_attempts = 0
+        process_mock = AsyncMock()
+        process_mock.returncode = 1
+        process_mock.stdout = None
+        process_mock.stderr = None
+        process_mock.communicate = AsyncMock(return_value=(b"", b"boom"))
+
+        mock_get_session.return_value = session
+        mock_create_subprocess_exec.return_value = process_mock
+        mock_increment_run_attempts.return_value = 1
+
+        result = await run_workflow("demetra", task_id)
+
+        assert result is False
+        mock_increment_run_attempts.assert_awaited_once_with(task_id)
+        mock_post_comment.assert_not_called()
+        mock_update_ticket_status.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_run_workflow_bails_after_increment_exceeds_limit(
+        self,
+        faker,
+        mock_increment_run_attempts,
+        mock_get_session,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_create_subprocess_exec,
+    ):
+
+        task_id = f"TASK-{faker.random_int(min=100, max=999)}"
+        session = MagicMock(spec=Session)
+        session.run_attempts = 3
+        process_mock = AsyncMock()
+        process_mock.returncode = 1
+        process_mock.stdout = None
+        process_mock.stderr = None
+        process_mock.communicate = AsyncMock(return_value=(b"", b"boom"))
+
+        mock_get_session.return_value = session
+        mock_create_subprocess_exec.return_value = process_mock
+        mock_increment_run_attempts.return_value = 4
+
+        result = await run_workflow("demetra", task_id)
+
+        assert result is False
+        mock_increment_run_attempts.assert_awaited_once_with(task_id)
+        mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
+        mock_update_ticket_status.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_run_workflow_increments_on_timeout(
+        self,
+        faker,
+        mock_increment_run_attempts,
+        mock_get_session,
+        mock_create_subprocess_exec,
+    ):
+
+        task_id = f"TASK-{faker.random_int(min=100, max=999)}"
+        session = MagicMock(spec=Session)
+        session.run_attempts = 0
+        process_mock = MagicMock()
+        process_mock.stdout = None
+        process_mock.stderr = None
+        process_mock.kill = MagicMock()
+        process_mock.wait = AsyncMock()
+        process_mock.communicate = AsyncMock(return_value=(b"", b""))
+
+        mock_get_session.return_value = session
+        mock_create_subprocess_exec.return_value = process_mock
+        mock_increment_run_attempts.return_value = 1
+
+        with patch(
+            "demetra.services.watcher.asyncio.wait_for",
+            side_effect=TimeoutError,
+        ):
+            result = await run_workflow("demetra", task_id)
+
+        assert result is False
+        process_mock.kill.assert_called_once()
+        process_mock.wait.assert_awaited_once()
+        mock_increment_run_attempts.assert_awaited_once_with(task_id)

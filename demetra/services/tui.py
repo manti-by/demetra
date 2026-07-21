@@ -1,6 +1,7 @@
 import logging.config
 
 from rich.console import Console
+from rich.markup import escape
 from rich.text import Text
 
 from demetra.library.header import header
@@ -14,23 +15,24 @@ console = Console()
 
 
 def print_message(message: str, style: str | None = None):
+    safe = escape(message) if message else ""
     if style == "heading":
         console.print("\n\u25cf ", style="bold bright_green", end="")
-        console.print(message, style="bold bright_white")
+        console.print(safe, style="bold bright_white")
     elif style == "result":
         console.print("→ ", style="bold bright_green", end="")
-        console.print(message, style="white")
+        console.print(safe, style="white")
     elif style == "info":
         console.print()
-        console.print(message, style="bright_black")
+        console.print(safe, style="bright_black")
     elif style == "error":
         console.print()
-        console.print(message, style="red")
+        console.print(safe, style="red")
         if message.strip():
             logger.error(message)
             return
     else:
-        console.print(message)
+        console.print(safe)
 
     if message.strip():
         logger.info(message)

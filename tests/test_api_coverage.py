@@ -41,6 +41,28 @@ class TestTuiService:
         print_message(faker.sentence(), style="error")
         mock_logger.error.assert_called()
 
+    @pytest.mark.parametrize(
+        "style",
+        ["heading", "result", "info", "error", None],
+    )
+    def test_print_message_escapes_rich_markup(self, style):
+        from rich.markup import escape as rich_escape
+
+        from demetra.services.tui import console as real_console
+
+        message = (
+            '`frontend/src/sw.ts:19` — `new NavigationRoute(createHandlerBoundToURL("/static/index.html"))` '
+            r"matches every navigation inside the root scope. Pass a `denylist` as the second argument, "
+            r"e.g. `{ denylist: [/^\/admin/, /^\/api/, /^\/static/, /^\/media/] }`."
+        )
+        expected = rich_escape(message)
+
+        with patch.object(real_console, "print") as mock_print:
+            print_message(message, style=style)
+
+            printed = [call.args[0] for call in mock_print.call_args_list if call.args]
+            assert expected in printed, f"escaped message not found in {printed}"
+
 
 class TestProjectService:
     def test_parse_github_url_https(self, faker):

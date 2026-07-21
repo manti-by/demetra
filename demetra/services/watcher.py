@@ -29,9 +29,8 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
         logger.error(f"Task ID is empty: {task_id}")
         return False
 
-    attempts = await increment_run_attempts(task_id)
     session = await get_session(task_id)
-    if session and attempts > MAX_RUN_ATTEMPTS:
+    if session and session.run_attempts > MAX_RUN_ATTEMPTS:
         logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
         await post_comment(task_id=task_id, body="Max run attempts reached")
         await update_ticket_status(task_id=task_id, state_id=LINEAR["states"]["awaiting_input"])
@@ -78,6 +77,13 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
 
     except (RuntimeError, OSError) as e:
         logger.error(f"Process creation/execution error for task {task_id}: {e}")
+
+    attempts = await increment_run_attempts(task_id)
+    if attempts > MAX_RUN_ATTEMPTS:
+        logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
+        await post_comment(task_id=task_id, body="Max run attempts reached")
+        await update_ticket_status(task_id=task_id, state_id=LINEAR["states"]["awaiting_input"])
+        return False
 
     return False
 
