@@ -73,7 +73,8 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
             )
 
-        await check_and_compact_context(context)
+        # TODO: MNT-145 Context optimization
+        # await check_and_compact_context(context)
 
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")
