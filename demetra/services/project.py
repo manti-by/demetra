@@ -198,22 +198,32 @@ def is_epic_label(labels: list[str]) -> bool:
 _VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(.*)$")
 
 
-def bump_project_version(target_path: Path, is_epic: bool = False) -> str:
+def bump_project_version(target_path: Path, is_epic: bool = False) -> str | None:
     """Read pyproject.toml, bump the version under [project], and write back."""
-    pyproject_file = target_path / "pyproject.toml"
-    content = pyproject_file.read_text(encoding="utf-8")
+    try:
+        pyproject_file = target_path / "pyproject.toml"
+        content = pyproject_file.read_text(encoding="utf-8")
+        data = tomllib.loads(content)
+    except FileNotFoundError:
+        logger.warning(f"The configuration file was not found at {target_path}")
+        return None
+    except PermissionError:
+        logger.warning("You do not have permission to read pyproject.toml")
+        return None
+    except tomllib.TOMLDecodeError as e:
+        logger.warning(f"Invalid TOML syntax - {e}")
+        return None
 
-    data = tomllib.loads(content)
     try:
         current_version = data["project"]["version"]
     except KeyError:
-        msg = "Project version not found in pyproject.toml"
-        raise ValueError(msg) from None
+        logger.warning("Project version not found in pyproject.toml")
+        return None
 
     match = _VERSION_PATTERN.match(current_version)
     if not match:
-        msg = f"Invalid version format: {current_version!r}"
-        raise ValueError(msg)
+        logger.warning(f"Invalid version format: {current_version!r}")
+        return None
 
     major = int(match.group(1))
     minor = int(match.group(2))
@@ -227,8 +237,8 @@ def bump_project_version(target_path: Path, is_epic: bool = False) -> str:
     lines = content.splitlines(keepends=True)
     project_start = _find_section_start(lines, "[project]")
     if project_start is None:
-        msg = "Project section not found in pyproject.toml"
-        raise ValueError(msg)
+        logger.warning("Project section not found in pyproject.toml")
+        return None
 
     project_end = _find_next_section_start(lines, project_start + 1)
     if project_end is None:
@@ -246,8 +256,8 @@ def bump_project_version(target_path: Path, is_epic: bool = False) -> str:
         flags=re.MULTILINE,
     )
     if count == 0:
-        msg = "Project version field not found in [project] section"
-        raise ValueError(msg)
+        logger.warning("Project version field not found in [project] section")
+        return None
 
     lines[project_start:project_end] = [new_project_text]
 
