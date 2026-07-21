@@ -1,11 +1,13 @@
-import { lazy, Suspense, useCallback, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
+import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
+import { CommandPalette, type CommandPaletteHandle } from "./components/CommandPalette";
 import { deleteSession, type Session } from "./services/api";
 import "./App.css";
 
@@ -40,10 +42,13 @@ function LoginView() {
 
 function AppContent() {
   const { user, loading, logout } = useAuth();
+  const { toggleTheme, theme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const paletteRef = useRef<CommandPaletteHandle>(null);
+  const handleOpenPalette = useCallback(() => paletteRef.current?.open(), []);
 
   const updateSessionStatus = useCallback((taskId: string, data: { step: string; name?: string }) => {
     setSessions((prev) =>
@@ -82,6 +87,15 @@ function AppContent() {
     }
   }, []);
 
+  const commands = useMemo(
+    () => [
+      { id: "toggle-theme", label: `Switch to ${theme === "dark" ? "light" : "dark"} mode`, shortcut: "T", action: toggleTheme },
+      { id: "open-settings", label: "Open settings", shortcut: "S", action: handleOpenSettings },
+      { id: "logout", label: "Logout", action: handleLogout },
+    ],
+    [theme, toggleTheme, handleOpenSettings, handleLogout],
+  );
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -92,6 +106,7 @@ function AppContent() {
         user={user}
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
+        onOpenPalette={handleOpenPalette}
       />
       {user ? (
         <main className="main-content">
@@ -121,6 +136,7 @@ function AppContent() {
         <LoginView />
       )}
       <UserSettings isOpen={settingsOpen} onClose={handleCloseSettings} />
+      <CommandPalette ref={paletteRef} commands={commands} />
     </div>
   );
 }
@@ -128,12 +144,14 @@ function AppContent() {
 function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <Routes>
-          <Route path="/" element={<AppContent />} />
-          <Route path="/github/callback" element={<GitHubCallback />} />
-        </Routes>
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <Routes>
+            <Route path="/" element={<AppContent />} />
+            <Route path="/github/callback" element={<GitHubCallback />} />
+          </Routes>
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }

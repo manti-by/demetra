@@ -7,6 +7,8 @@ vi.mock('./services/api', () => ({
   getCurrentUser: vi.fn().mockResolvedValue(null),
   login: vi.fn(),
   logout: vi.fn(),
+  deleteSession: vi.fn(),
+  getSessions: vi.fn().mockResolvedValue([]),
 }));
 
 describe('App', () => {
