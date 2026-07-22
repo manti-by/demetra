@@ -1055,6 +1055,11 @@ class TestWorkflowLint:
         with patch("demetra.workflows.lint.run_pytests", new_callable=AsyncMock) as m:
             yield m
 
+    @pytest.fixture(autouse=True)
+    def mock_features_enabled(self):
+        with patch.dict("demetra.workflows.lint.FEATURES", {"is_ruff_enabled": True, "is_pytest_enabled": True}):
+            yield
+
     @pytest.mark.asyncio
     async def test_run_lint_and_test_returns_errors(
         self,
@@ -1090,6 +1095,65 @@ class TestWorkflowLint:
         result = await run_lint_and_test(target_path)
 
         assert result == (False, None)
+
+    @pytest.mark.asyncio
+    async def test_ruff_skipped_when_feature_disabled(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_is_package_installed.return_value = True
+        mock_run_pytests.return_value = (0, "", "")
+
+        with patch.dict("demetra.workflows.lint.FEATURES", {"is_ruff_enabled": False, "is_pytest_enabled": True}):
+            result = await run_lint_and_test(target_path)
+
+        assert result == (False, None)
+        mock_run_ruff_format.assert_not_called()
+        mock_run_ruff_checks.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_pytest_skipped_when_feature_disabled(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+
+        with patch.dict("demetra.workflows.lint.FEATURES", {"is_ruff_enabled": True, "is_pytest_enabled": False}):
+            result = await run_lint_and_test(target_path)
+
+        assert result == (False, None)
+        mock_run_pytests.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_both_features_disabled_skips_everything(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_is_package_installed.return_value = True
+
+        with patch.dict("demetra.workflows.lint.FEATURES", {"is_ruff_enabled": False, "is_pytest_enabled": False}):
+            result = await run_lint_and_test(target_path)
+
+        assert result == (False, None)
+        mock_run_ruff_format.assert_not_called()
+        mock_run_ruff_checks.assert_not_called()
+        mock_run_pytests.assert_not_called()
 
 
 class TestWorkflowCleanup:

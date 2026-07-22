@@ -87,3 +87,54 @@ class TestSettings:
             assert settings_module.LINEAR["filter_labels"] == []
         finally:
             importlib.reload(settings_module)
+
+    def test_features_defaults_disabled(self, monkeypatch):
+        monkeypatch.delenv("IS_RUFF_ENABLED", raising=False)
+        monkeypatch.delenv("IS_PYTEST_ENABLED", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.FEATURES["is_ruff_enabled"] is False
+            assert settings_module.FEATURES["is_pytest_enabled"] is False
+        finally:
+            importlib.reload(settings_module)
+
+    def test_features_env_override(self, monkeypatch):
+        monkeypatch.setenv("IS_RUFF_ENABLED", "True")
+        monkeypatch.setenv("IS_PYTEST_ENABLED", "true")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.FEATURES["is_ruff_enabled"] is True
+            assert settings_module.FEATURES["is_pytest_enabled"] is True
+        finally:
+            monkeypatch.delenv("IS_RUFF_ENABLED", raising=False)
+            monkeypatch.delenv("IS_PYTEST_ENABLED", raising=False)
+            importlib.reload(settings_module)
+
+    def test_features_partial_override(self, monkeypatch):
+        monkeypatch.setenv("IS_RUFF_ENABLED", "true")
+        monkeypatch.delenv("IS_PYTEST_ENABLED", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.FEATURES["is_ruff_enabled"] is True
+            assert settings_module.FEATURES["is_pytest_enabled"] is False
+        finally:
+            monkeypatch.delenv("IS_RUFF_ENABLED", raising=False)
+            importlib.reload(settings_module)

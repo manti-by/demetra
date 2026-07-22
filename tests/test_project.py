@@ -1,7 +1,5 @@
 from pathlib import Path
 
-import pytest
-
 from demetra.services.project import bump_project_version, is_epic_label
 
 
@@ -63,20 +61,20 @@ class TestBumpProjectVersion:
         assert "requires-python" in content
         assert "dependencies" in content
 
-    def test_missing_version_field_raises(self, tmp_path: Path):
+    def test_missing_version_field_returns_none(self, tmp_path: Path):
         content = """[project]
 name = "demetra"
 """
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        with pytest.raises(ValueError, match="Project version not found"):
-            bump_project_version(tmp_path, is_epic=False)
+        result = bump_project_version(tmp_path, is_epic=False)
+        assert result is None
 
-    def test_invalid_version_format_raises(self, tmp_path: Path):
+    def test_invalid_version_format_returns_none(self, tmp_path: Path):
         content = SAMPLE_PYPROJECT.replace('version = "1.14.1"', 'version = "abc"')
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        with pytest.raises(ValueError, match="Invalid version format"):
-            bump_project_version(tmp_path, is_epic=False)
+        result = bump_project_version(tmp_path, is_epic=False)
+        assert result is None
