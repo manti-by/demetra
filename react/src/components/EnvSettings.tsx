@@ -1,10 +1,10 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect } from "react";
 import {
   ProjectEnvironmentEntry,
   getProjectEnvironment,
   upsertProjectEnvironment,
   deleteProjectEnvironment,
-} from '../services/api';
+} from "../services/api";
 
 interface EnvSettingsProps {
   isOpen: boolean;
@@ -14,14 +14,28 @@ interface EnvSettingsProps {
 }
 
 const CloseIcon = () => (
-  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    width="20"
+    height="20"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <line x1="18" y1="6" x2="6" y2="18" />
     <line x1="6" y1="6" x2="18" y2="18" />
   </svg>
 );
 
 const TrashIcon = () => (
-  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
     <polyline points="3,6 5,6 21,6" />
     <path d="M19,6v14a2,2 0 0,1-2,2H7a2,2 0 0,1-2-2V6m3,0V4a2,2 0 0,1,2-2h4a2,2 0 0,1,2 2v2" />
   </svg>
@@ -29,21 +43,26 @@ const TrashIcon = () => (
 
 function formatValue(entry: ProjectEnvironmentEntry): string {
   if (!entry.value) {
-    return '(empty)';
+    return "(empty)";
   }
-  if (entry.type === 'encrypted') {
-    return '••••••••';
+  if (entry.type === "encrypted") {
+    return "••••••••";
   }
   return entry.value;
 }
 
-export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSettingsProps) {
+export function EnvSettings({
+  isOpen,
+  onClose,
+  projectId,
+  projectName,
+}: EnvSettingsProps) {
   const [entries, setEntries] = useState<ProjectEnvironmentEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [draftKey, setDraftKey] = useState('');
-  const [draftValue, setDraftValue] = useState('');
+  const [draftKey, setDraftKey] = useState("");
+  const [draftValue, setDraftValue] = useState("");
   const [draftEncrypted, setDraftEncrypted] = useState(false);
 
   const fetchEnvironment = useCallback(async () => {
@@ -53,7 +72,7 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
       setEntries(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load environment');
+      setError(e instanceof Error ? e.message : "Failed to load environment");
     } finally {
       setLoading(false);
     }
@@ -62,8 +81,8 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
   useEffect(() => {
     if (isOpen) {
       fetchEnvironment();
-      setDraftKey('');
-      setDraftValue('');
+      setDraftKey("");
+      setDraftValue("");
       setDraftEncrypted(false);
     }
   }, [isOpen, fetchEnvironment]);
@@ -71,7 +90,7 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
   const handleAddEntry = useCallback(async () => {
     const key = draftKey.trim();
     if (!key) {
-      setError('Environment key is required');
+      setError("Environment key is required");
       return;
     }
     if (entries.some((entry) => entry.key === key)) {
@@ -86,14 +105,16 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
         projectId,
         key,
         draftValue,
-        draftEncrypted ? 'encrypted' : 'text'
+        draftEncrypted ? "encrypted" : "text",
       );
       setEntries((prev) => [...prev, entry]);
-      setDraftKey('');
-      setDraftValue('');
+      setDraftKey("");
+      setDraftValue("");
       setDraftEncrypted(false);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to add environment variable');
+      setError(
+        e instanceof Error ? e.message : "Failed to add environment variable",
+      );
     } finally {
       setSaving(false);
     }
@@ -107,12 +128,16 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
         await deleteProjectEnvironment(projectId, key);
         setEntries((prev) => prev.filter((entry) => entry.key !== key));
       } catch (e) {
-        setError(e instanceof Error ? e.message : 'Failed to delete environment variable');
+        setError(
+          e instanceof Error
+            ? e.message
+            : "Failed to delete environment variable",
+        );
       } finally {
         setSaving(false);
       }
     },
-    [projectId]
+    [projectId],
   );
 
   if (!isOpen) return null;
@@ -137,13 +162,17 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
             <>
               <div className="env-list">
                 {entries.length === 0 ? (
-                  <p className="empty-message">No environment variables yet. Add your first one!</p>
+                  <p className="empty-message">
+                    No environment variables yet. Add your first one!
+                  </p>
                 ) : (
                   entries.map((entry) => (
                     <div key={entry.key} className="env-row">
                       <span className="env-key">{entry.key}</span>
                       <span className="env-value">{formatValue(entry)}</span>
-                      <span className={`env-type env-type-${entry.type}`}>{entry.type}</span>
+                      <span className={`env-type env-type-${entry.type}`}>
+                        {entry.type}
+                      </span>
                       <button
                         className="btn-icon delete-env"
                         onClick={() => handleDeleteEntry(entry.key)}
@@ -185,7 +214,7 @@ export function EnvSettings({ isOpen, onClose, projectId, projectName }: EnvSett
                   onClick={handleAddEntry}
                   disabled={saving || !draftKey.trim()}
                 >
-                  {saving ? 'Saving...' : 'Add'}
+                  {saving ? "Saving..." : "Add"}
                 </button>
               </div>
             </>
