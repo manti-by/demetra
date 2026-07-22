@@ -40,12 +40,13 @@ describe('SessionArtifacts', () => {
     vi.clearAllMocks();
   });
 
-  it('renders nothing when taskId is null', () => {
+  it('renders empty container when taskId is null', () => {
     const { container } = render(<SessionArtifacts taskId={null} />);
-    expect(container.firstChild).toBeNull();
+    expect(container.firstChild).toBeInTheDocument();
+    expect(container.firstChild).toHaveClass('session-artifacts');
   });
 
-  it('renders nothing when session has no artifacts', async () => {
+  it('renders empty container when session has no artifacts', async () => {
     vi.mocked(getSessions).mockResolvedValue([mockSessionWithoutArtifacts]);
 
     const { container } = render(<SessionArtifacts taskId="TASK-123" />);
@@ -54,7 +55,8 @@ describe('SessionArtifacts', () => {
     });
     // Wait for state update
     await vi.waitFor(() => {
-      expect(container.firstChild).toBeNull();
+      expect(container.firstChild).toBeInTheDocument();
+      expect(container.firstChild).toHaveClass('session-artifacts');
     });
   });
 

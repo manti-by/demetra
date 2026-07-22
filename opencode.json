@@ -6,6 +6,11 @@
       "command": ["uv", "run", "python", "-m", "demetra.mcp_server"],
       "enabled": true
     },
+    "Playwright": {
+      "type": "local",
+      "command": ["npx", "-y", "@tontoko/fast-playwright-mcp"],
+      "enabled": true
+    },
     "Linear": {
       "type": "remote",
       "url": "https://mcp.linear.app/mcp",

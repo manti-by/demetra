@@ -136,7 +136,7 @@ function AppContent() {
         <LoginView />
       )}
       <UserSettings isOpen={settingsOpen} onClose={handleCloseSettings} />
-      <CommandPalette ref={paletteRef} commands={commands} />
+      {user && <CommandPalette ref={paletteRef} commands={commands} />}
     </div>
   );
 }

@@ -54,7 +54,7 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const closeModal = useCallback(() => setModalOpen(false), []);
 
   if (!session) {
-    return null;
+    return <div className="session-artifacts" />;
   }
 
   const hasPrLink = !!session.pr_link;
@@ -62,7 +62,7 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const hasLinearLink = !!session.linear_link;
 
   if (!hasPrLink && !hasBuildPlan && !hasLinearLink) {
-    return null;
+    return <div className="session-artifacts" />;
   }
 
   return (

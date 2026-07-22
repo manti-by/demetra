@@ -28,8 +28,16 @@ function getInitialTheme(): Theme {
   return "dark";
 }
 
+function initTheme(): Theme {
+  const t = getInitialTheme();
+  if (typeof document !== "undefined") {
+    document.documentElement.setAttribute("data-theme", t);
+  }
+  return t;
+}
+
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [theme, setThemeState] = useState<Theme>(initTheme);
 
   const applyTheme = useCallback((t: Theme) => {
     document.documentElement.setAttribute("data-theme", t);
