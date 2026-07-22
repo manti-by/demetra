@@ -5,12 +5,16 @@ from demetra.services.lint import run_ruff_checks, run_ruff_format
 from demetra.services.test import run_pytests
 from demetra.services.tui import print_message
 from demetra.services.utils import is_package_installed
+from demetra.settings import FEATURES
 
 
 async def run_lint_and_test(
     target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[bool, str | None]:
-    if await is_package_installed(target_path=target_path, package_name="ruff", env=env):
+    if (
+        await is_package_installed(target_path=target_path, package_name="ruff", env=env)
+        and FEATURES["is_ruff_enabled"]
+    ):
         print_message("Running RUFF linter", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="lint")
@@ -24,7 +28,10 @@ async def run_lint_and_test(
                 await update_session_step(task_id=task_id, step="lint")
             return True, ruff_result
 
-    if await is_package_installed(target_path=target_path, package_name="pytest", env=env):
+    if (
+        await is_package_installed(target_path=target_path, package_name="pytest", env=env)
+        and FEATURES["is_pytest_enabled"]
+    ):
         print_message("Running PYTESTs", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="test")

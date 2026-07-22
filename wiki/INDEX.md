@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — Added FEATURES dict with IS_RUFF_ENABLED/IS_PYTEST_ENABLED env flags, gated lint workflow, added 6 new tests (2026-07-22)
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — Debug: Rich `MarkupError` from a review finding with `[/.../]` regex crashed the workflow subprocess; escape markup in `print_message` and only increment `run_attempts` on actual failure (2026-07-21)
 - [<title>](pages/2026-07-21-socket-server.md) — (2026-07-21)
 - [Fixing Failing Tests](pages/2026-07-21-fixing-failing-tests.md) — Fixed two failing tests by updating their expected behavior and renaming the test methods. (2026-07-21)

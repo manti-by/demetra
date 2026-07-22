@@ -39,6 +39,11 @@ MAX_LISTENER_ATTEMPTS = int(os.environ.get("MAX_LISTENER_ATTEMPTS", 5))
 SUBPROCESS_TIMEOUT = int(os.environ.get("SUBPROCESS_TIMEOUT", 30 * 60))
 CONTEXT_COMPACTION_THRESHOLD = int(os.environ.get("CONTEXT_COMPACTION_THRESHOLD", 100_000))
 
+FEATURES: dict = {
+    "is_ruff_enabled": os.environ.get("IS_RUFF_ENABLED", "False").lower() == "true",
+    "is_pytest_enabled": os.environ.get("IS_PYTEST_ENABLED", "False").lower() == "true",
+}
+
 WATCHER_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", 60))
 LISTENER_POLL_INTERVAL = int(os.environ.get("LISTENER_POLL_INTERVAL", 60))
 
