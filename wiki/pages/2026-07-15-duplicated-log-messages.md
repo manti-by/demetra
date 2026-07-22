@@ -1,6 +1,6 @@
 ---
 title: Duplicated log messages and missing build agent logs
-date: 2026-07-16
+date: 2026-07-15
 type: debug
 status: resolved
 session_id: ses_094983da7ffe4Xk4LIfYPUrftI
@@ -26,10 +26,10 @@ Two logging bugs in the build workflow subprocess: (1) `print_message()` outputs
 Session log files on the odin server contained duplicate entries:
 
 ```
-2026-07-16 17:46:51 INFO  : Running BUILD agent
-2026-07-16 17:46:51 INFO  : Running BUILD agent
-2026-07-16 17:48:15 INFO  : Running REVIEW agents
-2026-07-16 17:48:15 INFO  : Running REVIEW agents
+2026-07-15 17:46:51 INFO  : Running BUILD agent
+2026-07-15 17:46:51 INFO  : Running BUILD agent
+2026-07-15 17:48:15 INFO  : Running REVIEW agents
+2026-07-15 17:48:15 INFO  : Running REVIEW agents
 ```
 
 Only `print_message()` calls duplicated — other loggers (which propagate solely to root) wrote once.

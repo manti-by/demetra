@@ -108,6 +108,7 @@ export const CommandPalette = forwardRef<
   const handleGlobalKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!open) return;
+      if (document.activeElement === inputRef.current) return;
       const cmd = commands.find((c) => c.shortcut && c.shortcut === e.key.toUpperCase());
       if (cmd) {
         e.preventDefault();

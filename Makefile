@@ -96,9 +96,11 @@ container-build:
 gh-use-manti:
 	git config user.name "$(MANTI_GIT_NAME)"
 	git config user.email "$(MANTI_GIT_EMAIL)"
+	git config user.signingkey "$(MANTI_SIGNIN_KEY_ID)"
 	gh auth login
 
 gh-use-demetra:
 	git config user.name "$(DEMETRA_GIT_NAME)"
 	git config user.email "$(DEMETRA_GIT_EMAIL)"
+	git config user.signingkey "$(DEMETRA_SIGNIN_KEY_ID)"
 	gh auth login

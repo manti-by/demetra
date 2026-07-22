@@ -8,7 +8,7 @@
     },
     "Playwright": {
       "type": "local",
-      "command": ["npx", "-y", "@tontoko/fast-playwright-mcp"],
+      "command": ["npx", "-y", "@tontoko/fast-playwright-mcp@0.1.3"],
       "enabled": true
     },
     "Linear": {

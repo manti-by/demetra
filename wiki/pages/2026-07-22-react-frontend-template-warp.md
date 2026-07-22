@@ -80,26 +80,26 @@ The layout uses **flexbox** (no CSS Grid). Key classes:
 | `.log-console` | Log panel inside container (`flex: 1`) |
 | `.sidebar-footer` | Bottom spacer in sidebar matching artifacts height |
 
-```
-┌─────────────────────────────────────────────────────────────┐
+```text
+┌──────────────────────────────────────────────────────────────┐
 │  .header (sticky top bar)                                    │
-├─────────────────────────────────────────────────────────────┤
+├──────────────────────────────────────────────────────────────┤
 │  .main-content (max-width 1400px, centered, flex column)     │
 │                                                              │
 │  .main-content-body (flex row, gap: 0)                       │
 │  ┌──────────────────────────┬──────────────────────────────┐ │
 │  │ .session-sidebar         │ .console-container           │ │
 │  │ (280px fixed)            │ (flex: 1, max-width 1200px)  │ │
-│  │ radius: lg 0 0 lg       │ radius: 0 lg lg 0            │ │
+│  │ radius: lg 0 0 lg       │ radius: 0 lg lg 0             │ │
 │  │ ──────────────────────   │ ──────────────────────────── │ │
-│  │ sidebar-header           │ .log-console                  │ │
-│  │   "Sessions"             │   log-header + log-content    │ │
-│  │ .session-list            │   (scrollable log lines)      │ │
-│  │   (scrollable items)     │ .session-artifacts            │ │
-│  │ .sidebar-footer          │   (links row, always renders) │ │
+│  │ sidebar-header           │ .log-console                 │ │
+│  │   "Sessions"             │   log-header + log-content   │ │
+│  │ .session-list            │   (scrollable log lines)     │ │
+│  │   (scrollable items)     │ .session-artifacts           │ │
+│  │ .sidebar-footer          │   (links row, always renders)│ │
 │  └──────────────────────────┴──────────────────────────────┘ │
 │                                                              │
-└─────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
 ```
 
 ---
