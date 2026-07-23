@@ -93,9 +93,10 @@ export interface SessionHistoryEntry {
   model: string | null;
 }
 
-export async function getSessionHistory(taskId: string): Promise<SessionHistoryEntry[]> {
+export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryEntry[]> {
   const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
     credentials: 'include',
+    signal,
   });
   if (response.status === 404) return [];
   if (!response.ok) throw new Error('Failed to fetch session history');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, memo } from 'react';
+import { useState, useEffect, useCallback, memo, useRef } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
 import { getSessions, getSessionHistory, type Session, type SessionHistoryEntry } from '../services/api';
@@ -22,6 +22,7 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyEntries, setHistoryEntries] = useState<SessionHistoryEntry[]>([]);
+  const historyAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (!taskId) {
@@ -63,6 +64,14 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
     setHistoryEntries([]);
     setHistoryLoading(false);
     setHistoryError(null);
+
+    historyAbortRef.current?.abort();
+    historyAbortRef.current = new AbortController();
+
+    return () => {
+      historyAbortRef.current?.abort();
+      historyAbortRef.current = null;
+    };
   }, [taskId]);
 
   const openHistory = useCallback(async () => {
@@ -70,23 +79,23 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
     setHistoryOpen(true);
     setHistoryLoading(true);
     setHistoryError(null);
-    let cancelled = false;
-    const currentTaskId = taskId;
+
+    const controller = historyAbortRef.current;
+    if (!controller) return;
+    const signal = controller.signal;
+
     try {
-      const entries = await getSessionHistory(currentTaskId);
-      if (!cancelled) {
-        setHistoryEntries(entries);
-      }
+      const entries = await getSessionHistory(taskId, signal);
+      if (signal.aborted) return;
+      setHistoryEntries(entries);
     } catch {
-      if (!cancelled) {
-        setHistoryError('Failed to load session history');
-      }
+      if (signal.aborted) return;
+      setHistoryError('Failed to load session history');
     } finally {
-      if (!cancelled) {
+      if (!signal.aborted) {
         setHistoryLoading(false);
       }
     }
-    return () => { cancelled = true; };
   }, [taskId]);
 
   const closeHistory = useCallback(() => {
