@@ -27,13 +27,23 @@ const mockSessionWithoutArtifacts = {
   pr_link: null,
   build_plan: null,
   linear_link: null,
+  session_id: '',
+};
+
+const mockSessionWithHistoryOnly = {
+  ...mockSessionWithPrLink,
+  pr_link: null,
+  build_plan: null,
+  linear_link: null,
+  session_id: 'session-abc',
 };
 
 vi.mock('../services/api', () => ({
   getSessions: vi.fn(),
+  getSessionHistory: vi.fn(),
 }));
 
-import { getSessions } from '../services/api';
+import { getSessions, getSessionHistory } from '../services/api';
 
 describe('SessionArtifacts', () => {
   beforeEach(() => {
@@ -102,6 +112,68 @@ describe('SessionArtifacts', () => {
     await vi.waitFor(() => {
       expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
     });
+  });
+
+  it('renders history link when session has session_id', async () => {
+    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+    vi.mocked(getSessionHistory).mockResolvedValue([]);
+
+    render(<SessionArtifacts taskId="TASK-123" />);
+
+    const link = await screen.findByText('View History');
+    expect(link).toBeInTheDocument();
+    expect(link.tagName).toBe('A');
+  });
+
+  it('opens history modal on link click', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+    vi.mocked(getSessionHistory).mockResolvedValue([
+      {
+        id: 'h1',
+        session_id: 'session-abc',
+        step: 'plan',
+        created_at: new Date().toISOString(),
+        length: 500,
+        input_tokens: 200,
+        output_tokens: 200,
+        reasoning_tokens: 50,
+        cache_read_tokens: 25,
+        cache_write_tokens: 25,
+      },
+    ]);
+
+    render(<SessionArtifacts taskId="TASK-123" />);
+
+    const link = await screen.findByText('View History');
+    await user.click(link);
+
+    expect(screen.getByText('Session History')).toBeInTheDocument();
+    expect(screen.getByText('plan')).toBeInTheDocument();
+  });
+
+  it('does not render history link when session_id is empty', async () => {
+    const noSessionId = { ...mockSessionWithPrLink, session_id: '' };
+    vi.mocked(getSessions).mockResolvedValue([noSessionId]);
+
+    render(<SessionArtifacts taskId="TASK-123" />);
+
+    await vi.waitFor(() => {
+      expect(screen.queryByText('View History')).not.toBeInTheDocument();
+    });
+  });
+
+  it('renders history link when session has only session_id and no other artifacts', async () => {
+    vi.mocked(getSessions).mockResolvedValue([mockSessionWithHistoryOnly]);
+    vi.mocked(getSessionHistory).mockResolvedValue([]);
+
+    render(<SessionArtifacts taskId="TASK-123" />);
+
+    const link = await screen.findByText('View History');
+    expect(link).toBeInTheDocument();
+    expect(screen.queryByText('View Build Plan')).not.toBeInTheDocument();
+    expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
+    expect(screen.queryByText('View Linear Issue')).not.toBeInTheDocument();
   });
 
   it('opens build plan modal on link click and closes it', async () => {

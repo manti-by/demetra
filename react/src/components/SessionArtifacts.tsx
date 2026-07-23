@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, memo } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { getSessions, type Session } from '../services/api';
+import { getSessions, getSessionHistory, type Session, type SessionHistoryEntry } from '../services/api';
+import { SessionHistory } from './SessionHistory';
 interface SessionArtifactsProps {
   taskId: string | null;
 }
@@ -17,6 +18,10 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const [session, setSession] = useState<Session | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyEntries, setHistoryEntries] = useState<SessionHistoryEntry[]>([]);
 
   useEffect(() => {
     if (!taskId) {
@@ -53,6 +58,25 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   }, []);
   const closeModal = useCallback(() => setModalOpen(false), []);
 
+  const openHistory = useCallback(async () => {
+    if (!taskId) return;
+    setHistoryOpen(true);
+    setHistoryLoading(true);
+    setHistoryError(null);
+    try {
+      const entries = await getSessionHistory(taskId);
+      setHistoryEntries(entries);
+    } catch {
+      setHistoryError('Failed to load session history');
+    } finally {
+      setHistoryLoading(false);
+    }
+  }, [taskId]);
+
+  const closeHistory = useCallback(() => {
+    setHistoryOpen(false);
+  }, []);
+
   if (!session) {
     return <div className="session-artifacts" />;
   }
@@ -60,8 +84,9 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const hasPrLink = !!session.pr_link;
   const hasBuildPlan = !!session.build_plan;
   const hasLinearLink = !!session.linear_link;
+  const hasHistory = !!session.session_id;
 
-  if (!hasPrLink && !hasBuildPlan && !hasLinearLink) {
+  if (!hasPrLink && !hasBuildPlan && !hasLinearLink && !hasHistory) {
     return <div className="session-artifacts" />;
   }
 
@@ -108,6 +133,15 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
           View Build Plan
         </a>
       )}
+      {hasHistory && (
+        <a className="session-artifacts-link" href="#" onClick={(e) => { e.preventDefault(); openHistory(); }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <polyline points="12 6 12 12 16 14" />
+          </svg>
+          View History
+        </a>
+      )}
       {modalOpen && hasBuildPlan && (
         <div className="modal-overlay" onClick={closeModal}>
           <div className="modal-content build-plan-modal" onClick={(e) => e.stopPropagation()}>
@@ -132,6 +166,13 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
         </div>
         </div>
       )}
+      <SessionHistory
+        entries={historyEntries}
+        isOpen={historyOpen}
+        onClose={closeHistory}
+        isLoading={historyLoading}
+        error={historyError}
+      />
     </div>
   );
 }

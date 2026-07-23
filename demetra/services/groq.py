@@ -13,6 +13,10 @@ from demetra.settings import GROQ
 logger = logging.getLogger(__name__)
 
 
+# llama-3.1-8b-instant has a 131k token context; plan outputs can reach hundreds of k tokens.
+PLAN_OUTPUT_MAX_CHARS = 32_000
+
+
 async def extract_questions(plan_output: str) -> list[str]:
     """
     The plan agent emits an explicit terminal marker. Only run extraction when it
@@ -99,6 +103,8 @@ async def process_text_with_groq(text: str) -> dict[str, str]:
 
 
 async def extract_plan(plan_output: str, task_description: str, comments: list[str]) -> str:
+    plan_output = plan_output[-PLAN_OUTPUT_MAX_CHARS:]
+
     task_description_full = (
         f"{task_description}\n\nComments:\n{chr(10).join(comments)}" if comments else task_description
     )

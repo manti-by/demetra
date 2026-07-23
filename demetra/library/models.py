@@ -48,6 +48,7 @@ class TokenUsage:
     reasoning: int = 0
     cache_read: int = 0
     cache_write: int = 0
+    context: int | None = None
 
     @property
     def total(self) -> int:
@@ -66,6 +67,8 @@ class SessionHistory:
     reasoning_tokens: int | None = None
     cache_read_tokens: int | None = None
     cache_write_tokens: int | None = None
+    context_tokens: int | None = None
+    model: str | None = None
 
 
 @dataclass

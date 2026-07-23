@@ -78,6 +78,28 @@ export async function getSessions(): Promise<Session[]> {
   return response.json();
 }
 
+export interface SessionHistoryEntry {
+  id: string;
+  session_id: string;
+  step: string;
+  created_at: string;
+  length: number | null;
+  input_tokens: number | null;
+  output_tokens: number | null;
+  reasoning_tokens: number | null;
+  cache_read_tokens: number | null;
+  cache_write_tokens: number | null;
+}
+
+export async function getSessionHistory(taskId: string): Promise<SessionHistoryEntry[]> {
+  const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
+    credentials: 'include',
+  });
+  if (response.status === 404) return [];
+  if (!response.ok) throw new Error('Failed to fetch session history');
+  return response.json();
+}
+
 export async function deleteSession(taskId: string): Promise<void> {
   try {
     const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}`, {

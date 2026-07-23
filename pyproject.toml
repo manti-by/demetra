@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.15.1"
+version = "1.15.2"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
@@ -59,12 +59,14 @@ norecursedirs = '''
 .pytest_cache
 .ruff_cache
 .venv
+wiki
 '''
 
 [tool.bandit]
 exclude_dirs = [
     "demetra/settings.py",
-    "tests/"
+    "tests/",
+    "wiki/"
 ]
 skips = ["B101", "B308", "B703"]
 
@@ -76,7 +78,9 @@ html_has_lang = true
 line-length = 120
 indent-width = 4
 target-version = "py313"
-exclude = []
+exclude = [
+    "wiki",
+]
 
 [tool.ruff.lint]
 select = [
@@ -155,4 +159,5 @@ exclude = [
     ".pytest_cache",
     ".ruff_cache",
     ".venv",
+    "wiki"
 ]

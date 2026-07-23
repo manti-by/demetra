@@ -8,7 +8,7 @@ services: [main, merge, rebase]
 branch: -
 tickets: []
 tags: [logging, refactoring, cleanup]
-related: [2026-07-16-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]
+related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # Simplify setup_session_logging
@@ -16,7 +16,7 @@ related: [2026-07-16-duplicated-log-messages.md, 2026-07-16-fix-step-status-revi
 ## TL;DR
 
 Refactored `setup_session_logging()` in `demetra/services/utils.py` — it had grown hard to read
-after the dedup fix from [[2026-07-16-duplicated-log-messages]]. Behavior is unchanged: dropped the
+after the dedup fix from [[2026-07-15-duplicated-log-messages]]. Behavior is unchanged: dropped the
 unused `logger` parameter (updating three call sites), collapsed duplicate handler loops into a
 single lookup, removed dead defensive fallbacks in the formatter lookup, and documented *why* the
 early-return dedup branch exists. Function went from 36 to 27 lines; all 472 tests pass, `ruff` and
@@ -32,7 +32,7 @@ the per-task session log:
 1. **Subprocess case** (build workflow spawns `main.py` with `LOG_PATH=sessions/<task>.log`):
    root already writes to the session log — just attach the existing handler to `stream_logger`
    and return. Adding a second handler here is exactly the duplicate-message bug fixed in
-   [[2026-07-16-duplicated-log-messages]].
+   [[2026-07-15-duplicated-log-messages]].
 2. **In-process case** (merge/rebase workflows, `LOG_PATH=demetra.log`): build a new session
    `FileHandler`, swap it in for the root's current one, and attach it to `stream_logger` too.
 
@@ -148,5 +148,5 @@ Deliberately kept the function `async` (it has no awaits) so the three call site
 
 ## References
 
-- Related: [[2026-07-16-duplicated-log-messages]]
+- Related: [[2026-07-15-duplicated-log-messages]]
 - Related: [[2026-07-16-fix-step-status-review-findings]] — later code review of the same diff, covering sessions.step/status handling
