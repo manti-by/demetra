@@ -497,6 +497,8 @@ async def record_session_history(
     reasoning_tokens: int | None = None,
     cache_read_tokens: int | None = None,
     cache_write_tokens: int | None = None,
+    context_tokens: int | None = None,
+    model: str | None = None,
 ) -> SessionHistory:
     """Insert a row into session_history recording an opencode session token usage at a workflow step."""
     history_id = str(uuid4())
@@ -513,6 +515,8 @@ async def record_session_history(
                 reasoning_tokens=reasoning_tokens,
                 cache_read_tokens=cache_read_tokens,
                 cache_write_tokens=cache_write_tokens,
+                context_tokens=context_tokens,
+                model=model,
                 created_at=now,
             )
         )
@@ -528,8 +532,23 @@ async def record_session_history(
         reasoning_tokens=reasoning_tokens,
         cache_read_tokens=cache_read_tokens,
         cache_write_tokens=cache_write_tokens,
+        context_tokens=context_tokens,
+        model=model,
         created_at=now.isoformat(),
     )
+
+
+async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) -> str | None:
+    """Return the opencode session_id for a given task_id, optionally scoped by user_id."""
+    query = select(sessions.c.session_id).where(sessions.c.task_id == task_id)
+    if user_id is not None:
+        query = query.where(sessions.c.user_id == user_id)
+    async with get_connection() as connection:
+        result = await connection.execute(query)
+        row = result.fetchone()
+    if not row or not row.session_id:
+        return None
+    return row.session_id
 
 
 async def get_session_history(session_id: str) -> list[SessionHistory]:
@@ -553,6 +572,8 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
             reasoning_tokens=row.reasoning_tokens,
             cache_read_tokens=row.cache_read_tokens,
             cache_write_tokens=row.cache_write_tokens,
+            context_tokens=row.context_tokens,
+            model=row.model,
             created_at=row.created_at.isoformat(),
         )
         for row in rows
@@ -930,6 +951,7 @@ async def record_session_step_history(
     session_id: str | None,
     step: str,
     usage: TokenUsage | None = None,
+    model: str | None = None,
 ) -> SessionHistory | None:
     if not session_id:
         return None
@@ -943,4 +965,6 @@ async def record_session_step_history(
         reasoning_tokens=usage.reasoning if usage is not None else None,
         cache_read_tokens=usage.cache_read if usage is not None else None,
         cache_write_tokens=usage.cache_write if usage is not None else None,
+        context_tokens=usage.context if usage is not None else None,
+        model=model,
     )

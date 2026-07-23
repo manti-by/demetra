@@ -9,6 +9,7 @@ from demetra.services.groq import generate_pr_description
 from demetra.services.linear import linear_cleanup
 from demetra.services.opencode import get_opencode_session_tokens
 from demetra.services.tui import print_message
+from demetra.settings import OPENCODE
 
 
 async def commit_and_push(context: Context) -> bool:
@@ -70,6 +71,7 @@ async def commit_and_push(context: Context) -> bool:
                 session_id=context.session_id,
                 step="completed",
                 usage=usage,
+                model=OPENCODE["build_model"],
             )
         except Exception:  # noqa: BLE001
             print_message("Failed to record session step history, continuing.", style="warning")
@@ -96,6 +98,7 @@ async def cleanup_workflow(
                     session_id=context.session_id,
                     step=failure_step,
                     usage=usage,
+                    model=OPENCODE["build_model"],
                 )
             except Exception:  # noqa: BLE001
                 print_message("Failed to record session step history, continuing.", style="warning")

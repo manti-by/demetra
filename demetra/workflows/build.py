@@ -11,15 +11,17 @@ from demetra.services.opencode import (
 )
 from demetra.services.project import bump_project_version, is_epic_label
 from demetra.services.tui import print_message
-from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
+from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
 
 
 async def check_and_compact_context(context: Context) -> None:
-    """Check the opencode session length and run /compact if it exceeds the threshold.
+    """Check the opencode session context and run /compact if it exceeds the threshold.
 
-    Also records the session length in session_history for the 'build' step.
+    Also records the full TokenUsage breakdown (input, output, reasoning,
+    cache, and context tokens) along with the model in session_history
+    for the 'build' step.
     """
     if not context.session_id:
         return
@@ -34,14 +36,15 @@ async def check_and_compact_context(context: Context) -> None:
             session_id=context.session_id,
             step="build",
             usage=usage,
+            model=OPENCODE["build_model"],
         )
     except (SQLAlchemyError, OSError):
         history = None
-    length = history.length if history is not None else None
+    context_tokens = history.context_tokens if history is not None else None
 
-    if length is not None and length > CONTEXT_COMPACTION_THRESHOLD:
+    if context_tokens is not None and context_tokens > CONTEXT_COMPACTION_THRESHOLD:
         print_message(
-            f"Session length ({length:,} tokens) exceeds threshold ({CONTEXT_COMPACTION_THRESHOLD:,}), compacting.",
+            f"Context size ({context_tokens:,} tokens) exceeds threshold ({CONTEXT_COMPACTION_THRESHOLD:,}), compacting.",
             style="info",
         )
         compact_exit_code, _, compact_stderr = await opencode_compact_session(
@@ -73,8 +76,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
             )
 
-        # TODO: MNT-145 Context optimization
-        # await check_and_compact_context(context)
+        await check_and_compact_context(context)
 
         if review_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="review")

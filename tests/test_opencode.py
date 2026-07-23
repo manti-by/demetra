@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -8,6 +9,7 @@ from demetra.services.opencode import (
     PLAN_IS_READY_STRING,
     get_opencode_session_id,
     get_opencode_session_length,
+    get_opencode_session_tokens,
     opencode_build_agent,
     opencode_compact_session,
     opencode_plan_agent,
@@ -229,6 +231,138 @@ class TestOpencodeSessionLength:
         call_kwargs = mock_run_command_and_config.call_args.kwargs
         assert call_kwargs["target_path"] == Path("/custom/path")
         assert call_kwargs["env"] == {"KEY": "val"}
+
+
+class TestOpencodeSessionTokens:
+    @pytest.fixture
+    def mock_run_command_and_config(self):
+        with (
+            patch("demetra.services.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_extracts_context_from_last_assistant_message(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            json.dumps(
+                {
+                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
+                    "messages": [
+                        {"info": {"role": "user"}},
+                        {
+                            "info": {
+                                "role": "assistant",
+                                "tokens": {
+                                    "input": 10,
+                                    "output": 5,
+                                    "reasoning": 2,
+                                    "cache": {"read": 100, "write": 0},
+                                },
+                            }
+                        },
+                        {
+                            "info": {
+                                "role": "assistant",
+                                "tokens": {
+                                    "input": 20,
+                                    "output": 8,
+                                    "reasoning": 3,
+                                    "cache": {"read": 200, "write": 0},
+                                },
+                            }
+                        },
+                    ],
+                }
+            ),
+            "",
+        )
+        result = await get_opencode_session_tokens(Path("/p"), "session-1")
+        assert result is not None
+        assert result.context == 220  # 20 + 200
+
+    @pytest.mark.asyncio
+    async def test_context_is_none_when_no_assistant_messages(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            json.dumps(
+                {
+                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
+                    "messages": [{"info": {"role": "user"}}],
+                }
+            ),
+            "",
+        )
+        result = await get_opencode_session_tokens(Path("/p"), "session-1")
+        assert result is not None
+        assert result.context is None
+
+    @pytest.mark.asyncio
+    async def test_context_is_none_when_messages_missing(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            json.dumps({"info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}}}),
+            "",
+        )
+        result = await get_opencode_session_tokens(Path("/p"), "session-1")
+        assert result is not None
+        assert result.context is None
+
+    @pytest.mark.asyncio
+    async def test_context_is_none_when_last_assistant_has_no_tokens(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            json.dumps(
+                {
+                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
+                    "messages": [
+                        {"info": {"role": "user"}},
+                        {"info": {"role": "assistant"}},
+                        {"info": {"role": "assistant", "tokens": {"input": 0, "output": 0, "reasoning": 0}}},
+                    ],
+                }
+            ),
+            "",
+        )
+        result = await get_opencode_session_tokens(Path("/p"), "session-1")
+        assert result is not None
+        assert result.context is None
+
+    @pytest.mark.asyncio
+    async def test_existing_fields_unaffected_by_context_extraction(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            json.dumps(
+                {
+                    "info": {
+                        "tokens": {"input": 100, "output": 50, "reasoning": 10, "cache": {"read": 30, "write": 2}}
+                    },
+                    "messages": [
+                        {
+                            "info": {
+                                "role": "assistant",
+                                "tokens": {
+                                    "input": 20,
+                                    "output": 8,
+                                    "reasoning": 3,
+                                    "cache": {"read": 200, "write": 0},
+                                },
+                            }
+                        }
+                    ],
+                }
+            ),
+            "",
+        )
+        result = await get_opencode_session_tokens(Path("/p"), "session-1")
+        assert result is not None
+        assert result.input == 100
+        assert result.output == 50
+        assert result.reasoning == 10
+        assert result.cache_read == 30
+        assert result.cache_write == 2
+        assert result.context == 220  # 20 + 200
 
 
 class TestOpencodeCompactSession:

@@ -106,5 +106,7 @@ session_history = Table(
     Column(name="reasoning_tokens", type_=Integer(), nullable=True),
     Column(name="cache_read_tokens", type_=Integer(), nullable=True),
     Column(name="cache_write_tokens", type_=Integer(), nullable=True),
+    Column(name="context_tokens", type_=Integer(), nullable=True),
+    Column(name="model", type_=String(), nullable=True),
     Column(name="created_at", type_=DateTime(timezone=True), server_default=text("now()"), nullable=False),
 )

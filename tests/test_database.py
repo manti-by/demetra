@@ -13,6 +13,7 @@ from demetra.services.database import (
     get_project_environments,
     get_session,
     get_session_history,
+    get_session_id_by_task_id,
     get_session_step_name,
     increment_listener_attempts,
     increment_run_attempts,
@@ -895,3 +896,57 @@ class TestSessionHistory:
         h1 = await record_session_history(session_id=db_session_id, step="a", length=1)
         h2 = await record_session_history(session_id=db_session_id, step="b", length=2)
         assert h1.id != h2.id
+
+    @pytest.mark.asyncio
+    async def test_persists_context_tokens_and_model(self, db_session_id: str):
+        history = await record_session_history(
+            session_id=db_session_id,
+            step="build",
+            length=1000,
+            context_tokens=500,
+            model="opencode-go/deepseek-v4-flash",
+        )
+        assert history.context_tokens == 500
+        assert history.model == "opencode-go/deepseek-v4-flash"
+
+        rows = await get_session_history(db_session_id)
+        assert len(rows) == 1
+        assert rows[0].context_tokens == 500
+        assert rows[0].model == "opencode-go/deepseek-v4-flash"
+
+    @pytest.mark.asyncio
+    async def test_context_tokens_defaults_to_none(self, db_session_id: str):
+        history = await record_session_history(
+            session_id=db_session_id,
+            step="plan",
+            length=1000,
+        )
+        assert history.context_tokens is None
+        assert history.model is None
+
+        rows = await get_session_history(db_session_id)
+        assert rows[0].context_tokens is None
+        assert rows[0].model is None
+
+
+class TestGetSessionIdByTaskId:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_returns_session_id_for_known_task(self, db_task_id: str, db_session_id: str):
+        await create_session(task_id=db_task_id, session_id=db_session_id)
+        session_id = await get_session_id_by_task_id(task_id=db_task_id)
+        assert session_id == db_session_id
+
+    @pytest.mark.asyncio
+    async def test_returns_none_for_unknown_task(self):
+        session_id = await get_session_id_by_task_id(task_id="nonexistent")
+        assert session_id is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_session_id_is_empty(self, db_task_id: str):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        session_id = await get_session_id_by_task_id(task_id=db_task_id)
+        assert session_id is None

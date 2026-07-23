@@ -42,9 +42,13 @@ class NumberedListOutputParser(BaseOutputParser[list[str]]):
     """Parse a numbered list (1. item / 1) item) into a Python list."""
 
     def parse(self, text: str) -> list[str]:
+        text = re.sub(r"(?s)```.*?```", "", text)
+        text = re.sub(r"(?s)<think>.*?</think>", "", text)
         lines = text.strip().splitlines()
         results: list[str] = []
         for line in lines:
+            if not re.match(r"^\s*\d+[.)]\s", line):
+                continue
             cleaned = re.sub(r"^\s*\d+[.)]\s*", "", line).strip()
             if cleaned:
                 results.append(cleaned)
@@ -168,7 +172,11 @@ async def process_all(
             table.add_row(model, parser_name, "[red]ERROR[/red]", "-")
         else:
             questions, out_path = payload
-            table.add_row(model, parser_name, str(len(questions)), str(out_path.relative_to(SCRIPTS_DIR)))
+            try:
+                display = str(out_path.relative_to(SCRIPTS_DIR))
+            except ValueError:
+                display = str(out_path)
+            table.add_row(model, parser_name, str(len(questions)), display)
 
     console.print(table)
 

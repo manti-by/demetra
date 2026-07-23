@@ -1,5 +1,5 @@
 import inspect
-from unittest.mock import patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -62,3 +62,32 @@ class TestGroqService:
         assert "build_plan" in params
         assert sig.return_annotation is str
         assert sig.parameters["build_plan"].default is None
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_truncates_long_input(self):
+        long_output = "HEAD" * 20_000  # 80k chars
+
+        with (
+            patch("demetra.services.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_result = AsyncMock()
+            mock_result.content = "summarized plan"
+            mock_chain.ainvoke.return_value = mock_result
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_plan(
+                plan_output=long_output,
+                task_description="task",
+                comments=[],
+            )
+
+            assert result == "summarized plan"
+            plan_passed = mock_chain.ainvoke.call_args.args[0]["plan_output"]
+            assert len(plan_passed) <= 32_000
+            assert plan_passed == long_output[-32_000:]

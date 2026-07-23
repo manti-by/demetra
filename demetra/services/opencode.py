@@ -144,7 +144,8 @@ async def get_opencode_session_tokens(
 ) -> TokenUsage | None:
     """Get token usage breakdown from an opencode session via `opencode export`.
 
-    Returns a TokenUsage with input, output, reasoning, cache_read, cache_write.
+    Returns a TokenUsage with input, output, reasoning, cache_read, cache_write,
+    and context (current context window size derived from the last assistant message).
     Returns None if the command fails or the export JSON is malformed.
     """
     command = [str(OPENCODE["path"]), "export", session_id]
@@ -189,6 +190,39 @@ async def get_opencode_session_tokens(
             usage.cache_read = cache_read
         if cache_write is not None:
             usage.cache_write = cache_write
+
+    messages = data.get("messages")
+    if isinstance(messages, list):
+        latest: dict | None = None
+        latest_ts: str | None = None
+        for msg in messages:
+            if not isinstance(msg, dict):
+                continue
+            msg_info = msg.get("info")
+            if not isinstance(msg_info, dict):
+                continue
+            if msg_info.get("role") != "assistant":
+                continue
+            msg_tokens = msg_info.get("tokens")
+            if not isinstance(msg_tokens, dict):
+                continue
+            msg_input = non_negative_int(msg_tokens.get("input"))
+            msg_output = non_negative_int(msg_tokens.get("output"))
+            if msg_input is None or not (msg_input > 0 or (msg_output is not None and msg_output > 0)):
+                continue
+            msg_ts = msg.get("timestamp") or msg_info.get("timestamp")
+            if latest_ts is None or (msg_ts is not None and msg_ts > latest_ts):
+                latest = msg
+                latest_ts = msg_ts
+        if latest is not None:
+            msg_tokens = latest["info"]["tokens"]
+            msg_input = non_negative_int(msg_tokens.get("input"))
+            msg_cache = msg_tokens.get("cache")
+            msg_cache_read = 0
+            if isinstance(msg_cache, dict):
+                msg_cache_read = non_negative_int(msg_cache.get("read")) or 0
+            if msg_input is not None:
+                usage.context = msg_input + msg_cache_read
 
     return usage
 

@@ -9,7 +9,7 @@ from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
 from demetra.services.tui import print_message
 from demetra.services.utils import NO_ISSUE_TOKENS
-from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS
+from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS, OPENCODE
 from demetra.workflows.resolve import run_resolve_step
 
 
@@ -83,6 +83,7 @@ async def run_plan_step(context: Context) -> str | None:
                     session_id=context.session_id,
                     step="plan",
                     usage=usage,
+                    model=OPENCODE["plan_model"],
                 )
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")

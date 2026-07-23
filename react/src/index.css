@@ -5,10 +5,10 @@
 :root,
 [data-theme="dark"] {
   /* Surface ladder */
-  --color-canvas: #0c0d0e;
-  --color-surface-1: #0f1011;
-  --color-surface-2: #141516;
-  --color-surface-3: #18191a;
+  --color-canvas: #0c0e0d;
+  --color-surface-1: #0f110f;
+  --color-surface-2: #141614;
+  --color-surface-3: #181a18;
 
   /* Borders */
   --color-border: #23252a;
@@ -16,13 +16,13 @@
 
   /* Text */
   --color-text-primary: #f7f8f8;
-  --color-text-secondary: #8a8f98;
+  --color-text-secondary: #a6bbab;
   --color-text-tertiary: #62666d;
 
-  /* Accent (lavender-blue) */
-  --color-accent: #5e6ad2;
-  --color-accent-hover: #828fff;
-  --color-accent-subtle: rgba(94, 106, 210, 0.12);
+  /* Accent (rainette green) */
+  --color-accent: #788860;
+  --color-accent-hover: #96a67e;
+  --color-accent-subtle: rgba(120, 136, 96, 0.12);
 
   /* Semantic */
   --color-success: #27a644;
@@ -66,9 +66,9 @@
   --color-text-tertiary: #9e9e9a;
 
   /* Accent */
-  --color-accent: #5e6ad2;
-  --color-accent-hover: #4a56c0;
-  --color-accent-subtle: rgba(94, 106, 210, 0.08);
+  --color-accent: #788860;
+  --color-accent-hover: #64744c;
+  --color-accent-subtle: rgba(120, 136, 96, 0.08);
 
   /* Semantic */
   --color-success: #1a8a3a;
@@ -117,4 +117,124 @@ a {
 
 a:hover {
   color: var(--color-accent-hover);
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+  margin-top: 0.25rem;
+  padding: 0.25rem 0;
+}
+
+h1 {
+  font-size: 1.75rem;
+  letter-spacing: -0.035em;
+}
+
+h2 {
+  font-size: 1.5rem;
+  letter-spacing: -0.03em;
+}
+
+h3 {
+  font-size: 1.25rem;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+}
+
+h4 {
+  font-size: 1rem;
+  letter-spacing: -0.015em;
+  font-weight: 500;
+}
+
+h5 {
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  font-weight: 500;
+}
+
+h6 {
+  font-size: 0.75rem;
+  letter-spacing: 0;
+  font-weight: 500;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+p {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+}
+
+small {
+  font-family: var(--font-ui);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+}
+
+strong {
+  font-weight: 500;
+}
+
+em {
+  font-style: italic;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
+  padding: 0.125rem 0.375rem;
+  border-radius: var(--radius-sm);
+}
+
+pre {
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.618;
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+}
+
+kbd {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 0.125rem 0.375rem;
+}
+
+ul, ol {
+  padding-left: 1.25rem;
+  color: var(--color-text-primary);
+}
+
+li {
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+blockquote {
+  border-left: 2px solid var(--color-border);
+  padding-left: 1rem;
+  color: var(--color-text-secondary);
+  font-style: italic;
+}
+
+hr {
+  margin: 1rem 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
 }

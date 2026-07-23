@@ -3,9 +3,14 @@ from typing import Annotated, get_args
 from fastapi import APIRouter, Cookie, HTTPException, Query
 from fastapi import Path as PathParam
 
-from demetra.library.models import StepType
+from demetra.library.models import SessionHistory, StepType
 from demetra.services.auth import get_current_user
-from demetra.services.database import delete_session, get_sessions
+from demetra.services.database import (
+    delete_session,
+    get_session_history,
+    get_session_id_by_task_id,
+    get_sessions,
+)
 
 
 router = APIRouter(prefix="/api/v1/sessions")
@@ -54,3 +59,39 @@ async def delete_session_endpoint(
         raise HTTPException(status_code=404, detail="Session not found")
 
     return {"success": True}
+
+
+@router.get("/{task_id}/history")
+async def get_session_history_endpoint(
+    task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
+    auth_token: str | None = Cookie(default=None),
+) -> list[dict]:
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    session_id = await get_session_id_by_task_id(task_id=task_id, user_id=user.id)
+    if session_id is None:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    rows = await get_session_history(session_id=session_id)
+    return [_serialize_history_row(r) for r in rows]
+
+
+def _serialize_history_row(row: SessionHistory) -> dict:
+    return {
+        "id": row.id,
+        "session_id": row.session_id,
+        "step": row.step,
+        "length": row.length,
+        "input_tokens": row.input_tokens,
+        "output_tokens": row.output_tokens,
+        "reasoning_tokens": row.reasoning_tokens,
+        "cache_read_tokens": row.cache_read_tokens,
+        "cache_write_tokens": row.cache_write_tokens,
+        "context_tokens": row.context_tokens,
+        "model": row.model,
+        "created_at": row.created_at,
+    }

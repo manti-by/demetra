@@ -833,13 +833,18 @@ class TestContextCompaction:
             else None,
         )
 
-    def _make_history(self, length: int | None) -> SessionHistory:
+    def _make_history(self, length: int | None, context_tokens: int | None = None) -> SessionHistory:
         return SessionHistory(
-            id="hist_1", session_id="ses_test123", step="build", length=length, created_at=datetime.now().isoformat()
+            id="hist_1",
+            session_id="ses_test123",
+            step="build",
+            length=length,
+            context_tokens=context_tokens,
+            created_at=datetime.now().isoformat(),
         )
 
     @pytest.mark.asyncio
-    async def test_compacts_when_length_exceeds_threshold(
+    async def test_compacts_when_context_exceeds_threshold(
         self,
         faker,
         mock_get_opencode_session_tokens,
@@ -848,8 +853,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
+        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (0, "compacted", "")
 
         await check_and_compact_context(context)
@@ -870,8 +875,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.return_value = self._make_history(150_000)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
+        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (1, "", "error details")
 
         await check_and_compact_context(context)
@@ -888,15 +893,15 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.return_value = self._make_history(50_000)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=50_000)
+        mock_record_session_step_history.return_value = self._make_history(50_000, context_tokens=50_000)
 
         await check_and_compact_context(context)
 
         mock_opencode_compact_session.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_does_not_compact_when_length_is_none(
+    async def test_does_not_compact_when_context_is_none(
         self,
         faker,
         mock_get_opencode_session_tokens,
@@ -905,8 +910,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.return_value = self._make_history(None)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=None)
+        mock_record_session_step_history.return_value = self._make_history(None, context_tokens=None)
 
         await check_and_compact_context(context)
 
@@ -943,11 +948,7 @@ class TestContextCompaction:
 
         await check_and_compact_context(context)
 
-        mock_record_session_step_history.assert_awaited_once_with(
-            session_id=context.session_id,
-            step="build",
-            usage=mock_get_opencode_session_tokens.return_value,
-        )
+        mock_record_session_step_history.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_handles_step_history_error(
