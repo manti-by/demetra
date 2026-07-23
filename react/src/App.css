@@ -235,6 +235,107 @@
   height: 18px;
 }
 
+/* ─── Password Auth Form ─────────────────────────────────── */
+.password-auth-form {
+  margin-top: 1.25rem;
+  max-width: 320px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.auth-divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1.25rem;
+  color: var(--color-text-secondary);
+  font-size: 0.8125rem;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+.password-auth-form form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+}
+
+.auth-field input {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s ease;
+}
+
+.auth-field input:focus {
+  border-color: var(--color-accent);
+}
+
+.auth-error {
+  margin: 0;
+  font-size: 0.8125rem;
+  color: var(--color-error);
+  text-align: left;
+}
+
+.auth-submit {
+  width: 100%;
+  padding: 0.5rem 1rem;
+  background: var(--color-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-ui);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.auth-toggle {
+  margin: 0.75rem 0 0;
+  font-size: 0.8125rem;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.auth-link {
+  background: none;
+  border: none;
+  color: var(--color-accent);
+  font-family: var(--font-ui);
+  font-size: 0.8125rem;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+}
+
+.auth-link:hover {
+  color: var(--color-accent-hover);
+}
+
 /* ─── Log Console ────────────────────────────────────────── */
 .console-container {
   display: flex;

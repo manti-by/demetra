@@ -4,21 +4,19 @@ from datetime import UTC, datetime, timedelta
 import aiohttp
 from jose import JWTError, jwt
 
-from demetra.library.exceptions import LinearError
+from demetra.library.exceptions import AuthError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
 from demetra.services.database import (
     create_user,
     delete_jwt_token,
     get_jwt_token,
+    get_user_by_email,
     get_user_by_github_id,
     get_user_by_id,
     save_jwt_token,
 )
+from demetra.services.passwords import hash_password, verify_password
 from demetra.settings import GITHUB, JWT
-
-
-class AuthError(LinearError):
-    pass
 
 
 def get_github_auth_url() -> tuple[str, str]:
@@ -126,9 +124,9 @@ async def get_or_create_user(github_user: GitHubUser) -> str:
         return existing_user["id"]
 
     return await create_user(
+        email=github_user.email or f"gh-{github_user.id}@github.local",
         github_id=github_user.id,
         github_username=github_user.login,
-        email=github_user.email,
         avatar_url=github_user.avatar_url,
     )
 
@@ -150,6 +148,60 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
             github_username=user_data["github_username"],
             email=user_data["email"],
             avatar_url=user_data.get("avatar_url"),
+        ),
+    )
+
+
+async def signup_with_password(email: str, password: str) -> AuthResponse:
+    if not email or "@" not in email:
+        raise AuthError("Invalid email address")
+
+    hash_password(password)
+
+    existing = await get_user_by_email(email)
+    if existing:
+        raise AuthError("Email already registered")
+
+    user_id = await create_user(
+        email=email,
+        password_hash=hash_password(password),
+    )
+
+    token, expires_at = create_jwt_token(user_id)
+    await save_jwt_token(token=token, user_id=user_id, expires_at=expires_at)
+
+    user_data = await get_user_by_id(user_id)
+    if not user_data:
+        raise AuthError("User not found after creation")
+
+    return AuthResponse(
+        token=token,
+        user=UserResponse(
+            id=user_data["id"],
+            email=user_data["email"],
+        ),
+    )
+
+
+async def login_with_password(email: str, password: str) -> AuthResponse:
+    user_data = await get_user_by_email(email)
+    if not user_data or not user_data.get("password_hash"):
+        raise AuthError("Invalid email or password")
+
+    if not verify_password(password, user_data["password_hash"]):
+        raise AuthError("Invalid email or password")
+
+    token, expires_at = create_jwt_token(user_data["id"])
+    await save_jwt_token(token=token, user_id=user_data["id"], expires_at=expires_at)
+
+    return AuthResponse(
+        token=token,
+        user=UserResponse(
+            id=user_data["id"],
+            github_username=user_data.get("github_username"),
+            email=user_data.get("email"),
+            avatar_url=user_data.get("avatar_url"),
+            role=user_data.get("role", "user"),
         ),
     )
 

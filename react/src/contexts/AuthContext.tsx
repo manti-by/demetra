@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('user');
     try {
-      await fetch(`${API_URL}/api/v1/github/logout`, {
+      await fetch(`${API_URL}/api/v1/auth/logout`, {
         method: 'POST',
         credentials: 'include',
       });

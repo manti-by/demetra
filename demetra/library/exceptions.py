@@ -36,3 +36,7 @@ class BuildError(DemetraError):
 
 class PullRequestError(DemetraError):
     pass
+
+
+class AuthError(DemetraError):
+    pass

@@ -6,6 +6,8 @@ import App from './App';
 vi.mock('./services/api', () => ({
   getCurrentUser: vi.fn().mockResolvedValue(null),
   login: vi.fn(),
+  signup: vi.fn(),
+  loginWithPassword: vi.fn(),
   logout: vi.fn(),
   deleteSession: vi.fn(),
   getSessions: vi.fn().mockResolvedValue([]),
