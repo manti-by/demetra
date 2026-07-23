@@ -85,7 +85,8 @@ Alembic migrations created the table and added the token columns:
 usage, records it, and shells out to `opencode_compact_session`
 (`demetra/services/opencode.py:204`) when `length > CONTEXT_COMPACTION_THRESHOLD`
 (`demetra/settings.py:40`, default 100 000). **Only caller:**
-`demetra/workflows/build.py:77` — currently commented out.
+`demetra/workflows/build.py:79` — was commented out at audit time (MNT-145);
+re-enabled in commit `47d428d` ("Optimize tokens consumption") after the audit.
 
 ## DB findings (Odin, 192.168.1.100:5432)
 
@@ -183,7 +184,7 @@ the only signal that `/compact` actually ran — returns **0 rows**.
    skewed.
 
 8. **Truncate long plan output before Groq summarisation** — `extract_plan` at
-   `demetra/services/groq.py:90` ships the full plan output. Capping the input to the
+   `demetra/services/groq.py:105` ships the full plan output. Capping the input to the
    last ~8 k tokens before the LLM call would cap cost on long planning iterations.
 
 ## Open questions
