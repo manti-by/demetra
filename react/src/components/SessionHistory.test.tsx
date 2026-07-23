@@ -16,6 +16,8 @@ const mockEntries = [
     reasoning_tokens: 100,
     cache_read_tokens: 50,
     cache_write_tokens: 50,
+    context_tokens: null,
+    model: null,
   },
   {
     id: '2',
@@ -28,6 +30,8 @@ const mockEntries = [
     reasoning_tokens: 300,
     cache_read_tokens: 100,
     cache_write_tokens: 100,
+    context_tokens: null,
+    model: null,
   },
   {
     id: '3',
@@ -40,6 +44,8 @@ const mockEntries = [
     reasoning_tokens: null,
     cache_read_tokens: null,
     cache_write_tokens: null,
+    context_tokens: null,
+    model: null,
   },
 ];
 
@@ -103,6 +109,8 @@ describe('SessionHistory', () => {
       reasoning_tokens: null,
       cache_read_tokens: null,
       cache_write_tokens: null,
+      context_tokens: null,
+      model: null,
     };
 
     render(

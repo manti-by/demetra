@@ -30,6 +30,8 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
     entry.reasoning_tokens != null ||
     entry.cache_read_tokens != null ||
     entry.cache_write_tokens != null ||
+    entry.context_tokens != null ||
+    entry.model != null ||
     entry.length != null;
 
   return (
@@ -56,6 +58,12 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
           )}
           {entry.cache_write_tokens != null && (
             <div><dt>Cache write</dt><dd>{entry.cache_write_tokens.toLocaleString()}</dd></div>
+          )}
+          {entry.context_tokens != null && (
+            <div><dt>Context</dt><dd>{entry.context_tokens.toLocaleString()}</dd></div>
+          )}
+          {entry.model != null && (
+            <div><dt>Model</dt><dd>{entry.model}</dd></div>
           )}
           {entry.length != null && (
             <div><dt>Total</dt><dd>{entry.length.toLocaleString()}</dd></div>

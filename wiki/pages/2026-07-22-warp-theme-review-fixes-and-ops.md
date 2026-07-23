@@ -194,7 +194,7 @@ th { font-weight: 500; font-size: 0.7rem; text-transform: uppercase; ... }
 
 ## Test Results
 
-```
+```shell
 tests/test_project.py::TestBumpProjectVersion::test_minor_version     PASSED
 tests/test_project.py::TestBumpProjectVersion::test_major_version_epic PASSED
 tests/test_project.py::TestBumpProjectVersion::test_missing_version_field_returns_none PASSED

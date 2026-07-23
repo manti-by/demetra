@@ -19,7 +19,9 @@ from demetra.workflows.review import run_review_agents
 async def check_and_compact_context(context: Context) -> None:
     """Check the opencode session context and run /compact if it exceeds the threshold.
 
-    Also records the session length in session_history for the 'build' step.
+    Also records the full TokenUsage breakdown (input, output, reasoning,
+    cache, and context tokens) along with the model in session_history
+    for the 'build' step.
     """
     if not context.session_id:
         return

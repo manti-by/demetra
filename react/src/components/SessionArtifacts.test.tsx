@@ -140,6 +140,8 @@ describe('SessionArtifacts', () => {
         reasoning_tokens: 50,
         cache_read_tokens: 25,
         cache_write_tokens: 25,
+        context_tokens: null,
+        model: null,
       },
     ]);
 

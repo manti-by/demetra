@@ -538,10 +538,13 @@ async def record_session_history(
     )
 
 
-async def get_session_id_by_task_id(task_id: str) -> str | None:
-    """Return the opencode session_id for a given task_id, or None."""
+async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) -> str | None:
+    """Return the opencode session_id for a given task_id, optionally scoped by user_id."""
+    query = select(sessions.c.session_id).where(sessions.c.task_id == task_id)
+    if user_id is not None:
+        query = query.where(sessions.c.user_id == user_id)
     async with get_connection() as connection:
-        result = await connection.execute(select(sessions.c.session_id).where(sessions.c.task_id == task_id))
+        result = await connection.execute(query)
         row = result.fetchone()
     if not row or not row.session_id:
         return None

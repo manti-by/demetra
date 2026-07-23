@@ -193,7 +193,7 @@ Source DB: `192.168.1.100:5432` (server address confirmed by PostgreSQL; timezon
 `Europe/Minsk`). Re-verified again 2026-07-23 with read-only queries — all figures below
 reproduced exactly.
 
-```
+```text
 total_rows:        192     unique_sessions: 18     first: 2026-07-16  last: 2026-07-22
 sum_length:        1,945,130,043
 median_length:     10,253,566
@@ -231,7 +231,7 @@ context pressure at that moment.
 
 All four predate the pipe-truncation fix (`f96b07f`, committed 2026-07-17 00:08 +03):
 
-```
+```text
 ses_093a105c8ffeAfoNF0eKjA9XXq   4 rows
 ses_09416fcdeffeegOO9AxgsFoN0i   12 rows
 ses_094e1f9ecffeNpkybkydRRlPYh   13 rows

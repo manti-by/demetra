@@ -89,6 +89,8 @@ export interface SessionHistoryEntry {
   reasoning_tokens: number | null;
   cache_read_tokens: number | null;
   cache_write_tokens: number | null;
+  context_tokens: number | null;
+  model: string | null;
 }
 
 export async function getSessionHistory(taskId: string): Promise<SessionHistoryEntry[]> {

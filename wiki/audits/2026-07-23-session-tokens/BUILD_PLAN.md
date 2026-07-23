@@ -1,7 +1,8 @@
 # Session Tokens Updates — Build Plan (MNT-145)
 
 > **Audience:** implementation agent (e.g. Sonnet). Full background in
-> `SESSION_TOKENS_AUDIT.md` (repo root, revalidated 2026-07-23). Read the
+> `wiki/audits/2026-07-23-session-tokens/RESULT.md` (revalidated 2026-07-23) and
+> `wiki/pages/2026-07-23-session-tokens-audit.md`. Read the
 > "Corrections" section there before changing anything — several intuitive
 > "fixes" were already refuted.
 

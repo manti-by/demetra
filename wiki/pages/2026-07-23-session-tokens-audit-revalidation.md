@@ -80,7 +80,7 @@ row is written in `commit_and_push` (`cleanup.py:69`), before `cleanup_workflow`
 The DB timeline instead matches the pipe-truncation fix from
 [[2026-07-16-session-history-tokens-null]] exactly: all 48 NULL rows are timestamped
 before `f96b07f` ("Fix session tokens countes", 2026-07-17 00:08 +03) — 44 on 07-16,
-the last 4 at 00:01–00:02 on 07-17 — and there are **zero** NULLs in the 136 rows
+the last 4 at 00:01–00:02 on 07-17 — and there are **zero** NULLs in the 144 rows
 since. Solved problem; no action needed.
 
 ## Smaller corrections
@@ -92,8 +92,8 @@ since. Solved problem; no action needed.
   added above it).
 - `cache_write_tokens = 0` in all 192 rows **and** in the live payload measured on Odin
   on 07-16 — likely genuine opencode behaviour for these models, not a parser bug.
-- The proposed 10 s TTL cache on the export is useless (one export per build iteration,
-  minutes apart) and the `length = -1` sentinel for NULL sessions would skew aggregates
+- The proposed 10 s TTL cache on the export has limited benefit (one export per build iteration,
+  minutes apart, so a cache would rarely hit) and the `length = -1` sentinel for NULL sessions would skew aggregates
   that currently ignore NULLs correctly.
 
 ## Open questions

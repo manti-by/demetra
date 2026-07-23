@@ -69,14 +69,14 @@ async def get_session_history_endpoint(
     if not auth_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
 
-    if not await get_current_user(token=auth_token):
+    if not (user := await get_current_user(token=auth_token)):
         raise HTTPException(status_code=401, detail="Invalid token")
 
-    session_id = await get_session_id_by_task_id(task_id=task_id)
+    session_id = await get_session_id_by_task_id(task_id=task_id, user_id=user.id)
     if session_id is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    rows = await get_session_history(session_id)
+    rows = await get_session_history(session_id=session_id)
     return [_serialize_history_row(r) for r in rows]
 
 
@@ -91,5 +91,7 @@ def _serialize_history_row(row: SessionHistory) -> dict:
         "reasoning_tokens": row.reasoning_tokens,
         "cache_read_tokens": row.cache_read_tokens,
         "cache_write_tokens": row.cache_write_tokens,
+        "context_tokens": row.context_tokens,
+        "model": row.model,
         "created_at": row.created_at,
     }

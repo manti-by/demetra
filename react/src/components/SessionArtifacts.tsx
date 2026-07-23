@@ -58,19 +58,35 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   }, []);
   const closeModal = useCallback(() => setModalOpen(false), []);
 
+  useEffect(() => {
+    setHistoryOpen(false);
+    setHistoryEntries([]);
+    setHistoryLoading(false);
+    setHistoryError(null);
+  }, [taskId]);
+
   const openHistory = useCallback(async () => {
     if (!taskId) return;
     setHistoryOpen(true);
     setHistoryLoading(true);
     setHistoryError(null);
+    let cancelled = false;
+    const currentTaskId = taskId;
     try {
-      const entries = await getSessionHistory(taskId);
-      setHistoryEntries(entries);
+      const entries = await getSessionHistory(currentTaskId);
+      if (!cancelled) {
+        setHistoryEntries(entries);
+      }
     } catch {
-      setHistoryError('Failed to load session history');
+      if (!cancelled) {
+        setHistoryError('Failed to load session history');
+      }
     } finally {
-      setHistoryLoading(false);
+      if (!cancelled) {
+        setHistoryLoading(false);
+      }
     }
+    return () => { cancelled = true; };
   }, [taskId]);
 
   const closeHistory = useCallback(() => {

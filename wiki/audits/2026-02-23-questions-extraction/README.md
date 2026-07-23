@@ -6,7 +6,7 @@ Run: `uv run wiki/audits/2026-02-23-questions-extraction/check_llm_parsers.py`
 
 ## Directory Structure
 
-```
+```text
 ├── README.md              ← this file
 ├── __init__.py            empty package marker
 ├── check_llm_parsers.py   benchmark runner (asyncio + langchain-groq)
@@ -53,8 +53,8 @@ Extract 4 clarifying questions from a "Process Manager" implementation plan docu
 ### Key Findings
 
 - **CSV parser fails universally** — multiline questions with bullet points get shattered into fragments. Never use CSV for multi-line extraction.
-- **JSON parser is most reliable** — every model that produced JSON output returned exactly 4 correct questions (except llama-3.1-8b-instant which added 1 extra non-question). JSON's structured format prevents stray text.
-- **numbered_list works well when models follow instructions** — 7 of 11 non-zero outputs were correct. Vulnerable to reasoning bleed (qwen3-32b) and over-splitting (llama-4-scout).
+- **JSON parser is most reliable** — 8 non-failed outputs; excluding the empty llama-4-scout result, each returned exactly 4 correct questions (except llama-3.1-8b-instant which added 1 extra non-question). JSON's structured format prevents stray text.
+- **numbered_list works well when models follow instructions** — 9 runs, 8 non-empty results, 5 exact four-question results. Vulnerable to reasoning bleed (qwen3-32b) and over-splitting (llama-4-scout).
 - **llama-guard-4-12b** is a safety classifier, not suitable for extraction.
 - **gpt-oss-20b** failed entirely (zero extraction).
 - **qwen3-32b** cannot suppress its `<think>` reasoning, inflating output.

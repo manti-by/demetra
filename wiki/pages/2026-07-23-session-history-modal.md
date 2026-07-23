@@ -298,7 +298,7 @@ No new CSS variables — only existing tokens from the warp theme.
 
 All tests pass:
 
-```
+```shell
 $ uv run ruff check .
 All checks passed!
 

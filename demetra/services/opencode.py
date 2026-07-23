@@ -193,7 +193,9 @@ async def get_opencode_session_tokens(
 
     messages = data.get("messages")
     if isinstance(messages, list):
-        for msg in reversed(messages):
+        latest: dict | None = None
+        latest_ts: str | None = None
+        for msg in messages:
             if not isinstance(msg, dict):
                 continue
             msg_info = msg.get("info")
@@ -206,13 +208,21 @@ async def get_opencode_session_tokens(
                 continue
             msg_input = non_negative_int(msg_tokens.get("input"))
             msg_output = non_negative_int(msg_tokens.get("output"))
+            if msg_input is None or not (msg_input > 0 or (msg_output is not None and msg_output > 0)):
+                continue
+            msg_ts = msg.get("timestamp") or msg_info.get("timestamp")
+            if latest_ts is None or (msg_ts is not None and msg_ts > latest_ts):
+                latest = msg
+                latest_ts = msg_ts
+        if latest is not None:
+            msg_tokens = latest["info"]["tokens"]
+            msg_input = non_negative_int(msg_tokens.get("input"))
             msg_cache = msg_tokens.get("cache")
             msg_cache_read = 0
             if isinstance(msg_cache, dict):
                 msg_cache_read = non_negative_int(msg_cache.get("read")) or 0
-            if msg_input is not None and (msg_input > 0 or (msg_output is not None and msg_output > 0)):
+            if msg_input is not None:
                 usage.context = msg_input + msg_cache_read
-                break
 
     return usage
 
