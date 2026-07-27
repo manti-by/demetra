@@ -17,6 +17,9 @@ export function PasswordAuthForm() {
       const fn = mode === 'login' ? loginWithPassword : signup;
       const response = await fn(email, password);
       localStorage.setItem('user', JSON.stringify(response.user));
+      if (response.token) {
+        localStorage.setItem('auth_token', response.token);
+      }
       window.location.reload();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Authentication failed');

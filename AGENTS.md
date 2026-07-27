@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-Demetra is a coding workflow orchestration tool that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and Cursor (code review) to create a seamless development workflow.
+Demetra is an autonomous coding platform that coordinates multiple AI coding agents to automate software development tasks. It acts as a supervisor that integrates with Linear (issue tracking), OpenCode (feature planning and building), and Cursor (code review) to create a seamless development workflow.
 
 ## Project Structure
 
@@ -122,11 +122,13 @@ uv run bandit -c pyproject.toml .
 - `demetra/services/<system>.py` — one external system per file; subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*`.
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
-- `demetra/tools/<system>.py` — MCP tool factories `create_<system>_tools(mcp)` registered in `mcp_server.py`.
+- `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
 
 **Imports**: Always place imports at the top of the file (global scope). Local imports inside functions are permitted only in rare cases where they are necessary to resolve circular import dependencies.
+
+**Feature flags**: `demetra/settings.py` defines a `FEATURES` dict (`is_ruff_enabled`, `is_pytest_enabled`) read from `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED` env vars (both default `False`). `demetra/workflows/lint.py` only runs `ruff` / `pytest` when both the package is installed *and* the matching flag is `True`, so lint and tests are opt-in.
 
 ## Testing Guidelines
 
@@ -149,7 +151,7 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`.
 
 ## Dependencies
 
-**Core**: aiofiles, aiohttp, alembic, asyncpg, fastapi, langchain-groq, langchain-core, mcp, psycopg, pydantic, python-jose, python-slugify, redis, rich, rq, rq-dashboard, ruff, sqlalchemy, uvicorn, websockets
+**Core**: aiofiles, aiohttp, alembic, asyncpg, fastapi, langchain-groq, langchain-core, langsmith, mcp, psycopg, pydantic, python-jose, python-slugify, redis, rich, rq, rq-dashboard, ruff, sqlalchemy, uvicorn, websockets
 **Development**: bandit, debugpy, faker, ipython, pytest, pytest-asyncio, pytest-cov, pre-commit, ty, uv-bump
 
 ## External Dependencies

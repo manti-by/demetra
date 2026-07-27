@@ -8,7 +8,7 @@ services: [listener]
 branch: -
 tickets: []
 tags: [notifications, bug-fix, merge, rebase, listener-attempts, infinite-loop]
-related: [2026-07-15-duplicated-log-messages.md]
+related: []
 ---
 
 # Fix notification mark-as-read and add infinite-loop protection
@@ -83,4 +83,4 @@ All 489 tests pass. New tests added:
 
 ## References
 
-- Related: [[2026-07-15-duplicated-log-messages]] — prior listener bug (duplicate log writes)
+- Related: none

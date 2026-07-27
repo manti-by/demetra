@@ -11,7 +11,6 @@ tags: [react, warp-theme, review-fixes, css, infrastructure, version-bump]
 related:
   - 2026-07-22-react-frontend-template-warp.md
   - 2026-07-22-feature-flag-settings-and-tests.md
-  - 2026-07-21-fixing-failing-tests.md
 ---
 
 # Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette
@@ -213,5 +212,5 @@ All 500+ tests continue to pass. Ruff and ty clean on the committed changes (gre
 
 ## References
 
-- Related: [[2026-07-22-react-frontend-template-warp.md]], [[2026-07-22-feature-flag-settings-and-tests.md]], [[2026-07-21-fixing-failing-tests.md]]
+- Related: [[2026-07-22-react-frontend-template-warp]], [[2026-07-22-feature-flag-settings-and-tests]]
 - External: MNT-142

@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback, memo, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { getSessions, getSessionHistory, type Session, type SessionHistoryEntry } from '../services/api';
+import { getSessionHistory, type Session, type SessionHistoryEntry } from '../services/api';
 import { SessionHistory } from './SessionHistory';
 interface SessionArtifactsProps {
   taskId: string | null;
+  sessions: Session[];
 }
 
 const CloseIcon = () => (
@@ -14,8 +15,11 @@ const CloseIcon = () => (
   </svg>
 );
 
-function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
-  const [session, setSession] = useState<Session | null>(null);
+function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
+  const session = useMemo(
+    () => sessions.find((s) => s.task_id === taskId) ?? null,
+    [sessions, taskId],
+  );
   const [modalOpen, setModalOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -23,35 +27,6 @@ function SessionArtifactsInner({ taskId }: SessionArtifactsProps) {
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyEntries, setHistoryEntries] = useState<SessionHistoryEntry[]>([]);
   const historyAbortRef = useRef<AbortController | null>(null);
-
-  useEffect(() => {
-    if (!taskId) {
-      setSession(null);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchSession = async () => {
-      try {
-        const sessions = await getSessions();
-        if (!cancelled) {
-          const found = sessions.find((s) => s.task_id === taskId) ?? null;
-          setSession(found);
-        }
-      } catch {
-        if (!cancelled) {
-          setSession(null);
-        }
-      }
-    };
-
-    fetchSession();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [taskId]);
 
   const openModal = useCallback(() => {
     setIsRendered(true);

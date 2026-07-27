@@ -1,6 +1,6 @@
 # Demetra
 
-Coding workflow orchestration tool that coordinates multiple AI agents to automate software development tasks. Integrates Linear (issues), OpenCode (plan/build/resolve/review), Cursor (review), CodeRabbit (review), with automatic linting (Ruff) and testing (pytest).
+An autonomous coding platform that coordinates multiple AI agents to automate software development. Integrates Linear (issues), OpenCode (plan/build/resolve/review), with automatic linting (Ruff) and testing (pytest).
 
 ![DAG Diagram](/media/interface.jpg)
 
@@ -39,4 +39,4 @@ make test          # Run tests
 make ci            # Run a full CI pipline
 ```
 
-See [AGENTS.md](AGENTS.md) and [DOCS.md](DOCS.md) for detailed development guidelines.
+See [AGENTS.md](AGENTS.md) and [Wiki](wiki/INDEX.md) for development guidelines and detailed info.

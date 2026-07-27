@@ -2,9 +2,9 @@
 
 > **Audience:** implementation agent (e.g. Sonnet). Full background in
 > `wiki/audits/2026-07-23-session-tokens/RESULT.md` (revalidated 2026-07-23) and
-> `wiki/pages/2026-07-23-session-tokens-audit.md`. Read the
-> "Corrections" section there before changing anything — several intuitive
-> "fixes" were already refuted.
+> `wiki/pages/2026-07-23-session-tokens-audit-revalidation.md`. Read the
+> "Recommendations" and "Smaller corrections" sections there before changing
+> anything — several intuitive "fixes" were already refuted.
 
 ## TL;DR
 

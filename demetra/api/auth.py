@@ -5,6 +5,7 @@ from fastapi import APIRouter, Cookie, HTTPException, Response
 from demetra.library.exceptions import AuthError
 from demetra.library.models import LoginRequest, SignupRequest
 from demetra.services.auth import login_with_password, logout, signup_with_password
+from demetra.settings import COOKIE_SECURE
 
 
 router = APIRouter(prefix="/api/v1/auth")
@@ -32,7 +33,7 @@ def _set_auth_cookie(*, response: Response, token: str) -> Response:
         key="auth_token",
         value=token,
         httponly=True,
-        secure=True,
+        secure=COOKIE_SECURE,
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
     )

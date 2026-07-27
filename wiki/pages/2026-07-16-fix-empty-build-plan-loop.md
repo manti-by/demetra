@@ -169,4 +169,4 @@ All checks passed!
 
 ## References
 
-- **External:** Q-001 (missing wiki pages [[2026-07-16-empty-build-output]] referenced in original session but never created)
+- Related: none

@@ -168,3 +168,5 @@ SECRET_KEY = os.environ.get("SECRET_KEY")
 ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")
 
 DEFAULT_USER_ID = os.environ.get("DEFAULT_USER_ID")
+
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() == "true"

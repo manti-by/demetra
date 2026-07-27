@@ -39,11 +39,10 @@ const mockSessionWithHistoryOnly = {
 };
 
 vi.mock('../services/api', () => ({
-  getSessions: vi.fn(),
   getSessionHistory: vi.fn(),
 }));
 
-import { getSessions, getSessionHistory } from '../services/api';
+import { getSessionHistory } from '../services/api';
 
 describe('SessionArtifacts', () => {
   beforeEach(() => {
@@ -51,83 +50,73 @@ describe('SessionArtifacts', () => {
   });
 
   it('renders empty container when taskId is null', () => {
-    const { container } = render(<SessionArtifacts taskId={null} />);
+    const { container } = render(<SessionArtifacts taskId={null} sessions={[]} />);
     expect(container.firstChild).toBeInTheDocument();
     expect(container.firstChild).toHaveClass('session-artifacts');
   });
 
-  it('renders empty container when session has no artifacts', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithoutArtifacts]);
-
-    const { container } = render(<SessionArtifacts taskId="TASK-123" />);
-    await vi.waitFor(() => {
-      expect(getSessions).toHaveBeenCalled();
-    });
-    // Wait for state update
-    await vi.waitFor(() => {
-      expect(container.firstChild).toBeInTheDocument();
-      expect(container.firstChild).toHaveClass('session-artifacts');
-    });
+  it('renders empty container when session has no artifacts', () => {
+    const { container } = render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithoutArtifacts]} />,
+    );
+    expect(container.firstChild).toBeInTheDocument();
+    expect(container.firstChild).toHaveClass('session-artifacts');
   });
 
-  it('renders PR link when session has pr_link', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+  it('renders PR link when session has pr_link', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View Pull Request');
+    const link = screen.getByText('View Pull Request');
     expect(link).toBeInTheDocument();
     expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/owner/repo/pull/42');
     expect(link.closest('a')).toHaveAttribute('target', '_blank');
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('renders Linear issue link when session has linear_link', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+  it('renders Linear issue link when session has linear_link', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View Linear Issue');
+    const link = screen.getByText('View Linear Issue');
     expect(link).toBeInTheDocument();
     expect(link.closest('a')).toHaveAttribute('href', 'https://linear.app/manti-by/issue/MNT-123');
     expect(link.closest('a')).toHaveAttribute('target', '_blank');
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('renders build plan link when session has build_plan', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithBuildPlanOnly]);
+  it('renders build plan link when session has build_plan', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithBuildPlanOnly]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View Build Plan');
+    const link = screen.getByText('View Build Plan');
     expect(link).toBeInTheDocument();
     expect(link.tagName).toBe('A');
   });
 
-  it('does not render PR link when pr_link is null', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithBuildPlanOnly]);
+  it('does not render PR link when pr_link is null', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithBuildPlanOnly]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    await vi.waitFor(() => {
-      expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
   });
 
-  it('renders history link when session has session_id', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
-    vi.mocked(getSessionHistory).mockResolvedValue([]);
+  it('renders history link when session has session_id', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View History');
+    const link = screen.getByText('View History');
     expect(link).toBeInTheDocument();
     expect(link.tagName).toBe('A');
   });
 
   it('opens history modal on link click', async () => {
     const user = userEvent.setup();
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
     vi.mocked(getSessionHistory).mockResolvedValue([
       {
         id: 'h1',
@@ -145,33 +134,30 @@ describe('SessionArtifacts', () => {
       },
     ]);
 
-    render(<SessionArtifacts taskId="TASK-123" />);
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
 
-    const link = await screen.findByText('View History');
+    const link = screen.getByText('View History');
     await user.click(link);
 
-    expect(screen.getByText('Session History')).toBeInTheDocument();
+    expect(screen.getByText('Session History [BETA]')).toBeInTheDocument();
     expect(screen.getByText('plan')).toBeInTheDocument();
   });
 
-  it('does not render history link when session_id is empty', async () => {
+  it('does not render history link when session_id is empty', () => {
     const noSessionId = { ...mockSessionWithPrLink, session_id: '' };
-    vi.mocked(getSessions).mockResolvedValue([noSessionId]);
+    render(<SessionArtifacts taskId="TASK-123" sessions={[noSessionId]} />);
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    await vi.waitFor(() => {
-      expect(screen.queryByText('View History')).not.toBeInTheDocument();
-    });
+    expect(screen.queryByText('View History')).not.toBeInTheDocument();
   });
 
-  it('renders history link when session has only session_id and no other artifacts', async () => {
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithHistoryOnly]);
-    vi.mocked(getSessionHistory).mockResolvedValue([]);
+  it('renders history link when session has only session_id and no other artifacts', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithHistoryOnly]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View History');
+    const link = screen.getByText('View History');
     expect(link).toBeInTheDocument();
     expect(screen.queryByText('View Build Plan')).not.toBeInTheDocument();
     expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
@@ -180,11 +166,11 @@ describe('SessionArtifacts', () => {
 
   it('opens build plan modal on link click and closes it', async () => {
     const user = userEvent.setup();
-    vi.mocked(getSessions).mockResolvedValue([mockSessionWithPrLink]);
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
 
-    render(<SessionArtifacts taskId="TASK-123" />);
-
-    const link = await screen.findByText('View Build Plan');
+    const link = screen.getByText('View Build Plan');
     await user.click(link);
 
     expect(screen.getByText('Build Plan')).toBeInTheDocument();
@@ -194,5 +180,24 @@ describe('SessionArtifacts', () => {
     await user.click(closeButton);
 
     expect(screen.queryByText('Build Plan')).not.toBeInTheDocument();
+  });
+
+  it('reflects PR link when sessions prop updates after initial render', () => {
+    const sessionWithoutPr = { ...mockSessionWithPrLink, pr_link: null };
+    const sessionWithPr = { ...mockSessionWithPrLink, pr_link: 'https://github.com/owner/repo/pull/99' };
+
+    const { rerender } = render(
+      <SessionArtifacts taskId="TASK-123" sessions={[sessionWithoutPr]} />,
+    );
+
+    expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
+
+    rerender(
+      <SessionArtifacts taskId="TASK-123" sessions={[sessionWithPr]} />,
+    );
+
+    const link = screen.getByText('View Pull Request');
+    expect(link).toBeInTheDocument();
+    expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/owner/repo/pull/99');
   });
 });

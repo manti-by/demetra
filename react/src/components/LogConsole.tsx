@@ -3,6 +3,13 @@ import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
 
+function generateId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 interface LogMessage {
   id: string;
   timestamp: string;
@@ -48,11 +55,10 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
 
     const cachedToken = localStorage.getItem("auth_token");
     tokenRef.current = cachedToken;
-    if (!cachedToken) return;
 
     setLogs([]);
     const params = new URLSearchParams({ task_id: taskId });
-    if (import.meta.env.DEV) {
+    if (cachedToken && import.meta.env.DEV) {
       params.set("token", cachedToken);
     }
     const wsUrl = `${API_URL.replace(/^http/, "ws")}/ws/v1/watcher/logs?${params}`;
@@ -76,7 +82,7 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
             const text = data?.text ?? "";
             if (text) {
               addLog({
-                id: crypto.randomUUID(),
+                id: generateId(),
                 message: text,
                 type: "info",
                 timestamp: new Date().toISOString(),
@@ -97,7 +103,7 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
         }
       } catch {
         addLog({
-          id: crypto.randomUUID(),
+          id: generateId(),
           message: event.data,
           type: "info",
           timestamp: new Date().toISOString(),
