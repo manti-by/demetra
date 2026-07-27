@@ -7,14 +7,18 @@ _PCTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 def hash_password(plain: str) -> str:
-    _validate_password(plain)
-    return _PCTX.hash(plain)
+    _validate_password(plain=plain)
+    return _PCTX.hash(secret=plain)
 
 
 def verify_password(plain: str, hashed: str) -> bool:
     if not plain:
         return False
-    return _PCTX.verify(plain, hashed)
+    try:
+        _validate_password(plain=plain)
+        return _PCTX.verify(secret=plain, hash=hashed)
+    except AuthError:
+        return False
 
 
 def _validate_password(plain: str) -> None:

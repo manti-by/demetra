@@ -102,9 +102,10 @@ export function Header({
     onOpenSettings?.();
   }, [onOpenSettings]);
 
+  const displayName = user?.github_username ?? user?.email ?? "User";
   const initial = useMemo(
-    () => (user?.github_username ? user.github_username.charAt(0).toUpperCase() : ""),
-    [user],
+    () => displayName.charAt(0).toUpperCase(),
+    [displayName],
   );
 
   return (
@@ -144,7 +145,7 @@ export function Header({
             )}
             <div className="user-info">
               <div className="user-avatar">{initial}</div>
-              <span className="user-name">{user.github_username ?? user.email ?? "User"}</span>
+              <span className="user-name">{displayName}</span>
             </div>
             <button
               className="burger-button"

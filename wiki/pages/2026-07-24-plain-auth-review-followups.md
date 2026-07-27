@@ -8,7 +8,7 @@ services: [auth, api, database, react]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, passwords, jwt, cookies, accessibility]
-related: []
+related: [2026-07-22-react-frontend-template-warp]
 ---
 
 # Plain Password Auth Implementation and Review Follow-ups
@@ -17,9 +17,12 @@ related: []
 
 Implemented password-based signup/login/logout alongside existing GitHub OAuth,
 with bcrypt password hashing, JWT cookie-based sessions, and a React auth form.
-Review follow-ups removed the token from the JSON response body (cookie-only),
-added email normalization, a `--resetpass` CLI command, database-level email
-migration for existing GitHub-only users, and accessibility improvements.
+Two passes of review follow-ups removed the token from the JSON response body
+(cookie-only), added email normalization, a `--resetpass` CLI command,
+database-level email migration for existing GitHub-only users, accessibility
+improvements, named-argument calls in the password helpers, hardened
+`verify_password` policy, structured CLI error handling, and a unified Header
+display-name fallback chain.
 
 ---
 
@@ -27,9 +30,9 @@ migration for existing GitHub-only users, and accessibility improvements.
 
 MNT-148 added a complete password authentication path to complement the existing
 GitHub OAuth flow. The implementation spans the backend (FastAPI endpoints, auth
-service, database layer, migration) and frontend (React form, API client). A
-second pass of review follow-ups refined the API surface, hardened edge cases,
-and cleaned up the implementation.
+service, database layer, migration) and frontend (React form, API client). Two
+passes of CodeRabbit review follow-ups refined the API surface, hardened edge
+cases, and cleaned up the implementation.
 
 ## Step 1 — Backend auth service and endpoints
 
@@ -49,17 +52,21 @@ extended `demetra/services/auth.py` with `signup_with_password` and
 
 **File:** `demetra/services/passwords.py`
 
-```
+```python
 _PCTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(plain: str) -> str:
-    _validate_password(plain)
-    return _PCTX.hash(plain)
+    _validate_password(plain=plain)
+    return _PCTX.hash(secret=plain)
 
 def verify_password(plain: str, hashed: str) -> bool:
     if not plain:
         return False
-    return _PCTX.verify(plain, hashed)
+    try:
+        _validate_password(plain=plain)
+        return _PCTX.verify(secret=plain, hash=hashed)
+    except AuthError:
+        return False
 ```
 
 Validation rejects empty, <8 char, and >72 byte passwords.
@@ -96,7 +103,7 @@ login/signup toggle, form validation, and error display.
 **File:** `react/src/App.css` — Added `.password-auth-form`, `.auth-field`,
 `.auth-submit`, `.auth-error`, `.auth-toggle`, `.auth-divider` styles.
 
-## Step 4 — Review follow-ups (uncommitted refinements)
+## Step 4 — First-pass review follow-ups
 
 Changes on top of the initial MNT-148 commit, applied to the same branch:
 
@@ -123,10 +130,11 @@ Changes on top of the initial MNT-148 commit, applied to the same branch:
 - **File:** `demetra/services/auth.py` — Added `reset_password` async
   function.
 
-### Verify password hardened
-- **File:** `demetra/services/passwords.py` — `verify_password` now returns
-  `False` for empty plain text instead of calling `_validate_password` (which
-  would raise). Prevents crash on missing/empty password during login.
+### Verify password short-circuit
+- **File:** `demetra/services/passwords.py` — `verify_password` returns
+  `False` for empty plain text instead of calling `_validate_password`
+  (which would raise). Prevents crash on missing/empty password during login.
+  (Superseded in the second pass — see Step 5.)
 
 ### Accessibility
 - **File:** `react/src/components/PasswordAuthForm.tsx` — Added `aria-label`
@@ -137,7 +145,51 @@ Changes on top of the initial MNT-148 commit, applied to the same branch:
   backfill NULL emails for existing GitHub users before applying NOT NULL
   constraint.
 
-## Step 5 — Tests
+## Step 5 — Second-pass review follow-ups
+
+A second CodeRabbit review surfaced four additional items, addressed in this
+session on top of commit `86712f4`.
+
+### Password helper hardening
+- **File:** `demetra/services/passwords.py` — All internal calls now use named
+  arguments: `_validate_password(plain=plain)`,
+  `_PCTX.hash(secret=plain)`, `_PCTX.verify(secret=plain, hash=hashed)`.
+  `verify_password` now re-validates the plain-text password before calling
+  `_PCTX.verify` and catches `AuthError` to return `False`, enforcing the same
+  72-byte UTF-8 policy as `hash_password` without raising on the login path.
+  The empty-password short-circuit is preserved.
+
+### CLI reset error handling
+- **File:** `main.py` — `reset_password_cli` moves `init_db()` inside the
+  try/except boundary so database initialization failures receive the same
+  formatted handling as reset failures. Catches `AuthError` and
+  `SQLAlchemyError` separately with a `Database error: ...` message. The
+  success message no longer includes the raw email address (redacted to
+  `"Password reset successfully"`). The function now returns `int` and the
+  caller propagates it through `sys.exit()`, so `--resetpass` exits non-zero
+  on failure.
+
+### Header fallback chain
+- **File:** `react/src/components/Header.tsx` — Introduced a shared
+  `displayName` (`user?.github_username ?? user?.email ?? "User"`) and used
+  it for both the avatar initial and the user name display. Email-only users
+  now get a non-empty initial.
+
+### Wiki metadata
+- **File:** `wiki/pages/2026-07-24-plain-auth-review-followups.md` — Added
+  `2026-07-22-react-frontend-template-warp` to the frontmatter `related`
+  field to match the existing body cross-link, and tagged the Python code
+  fence explicitly as `python` (was a bare fence, flagged by markdownlint).
+  Updated the embedded code example to match the new `passwords.py` content.
+
+### Note on the named-argument fix
+The review suggested `plain=plain` and `hashed=hashed` for the passlib calls,
+but passlib's actual parameter names are `secret` and `hash` (verified with
+`inspect.signature(ctx.hash)` and `inspect.signature(ctx.verify)`). The fix
+uses the library's real keyword names, which satisfies the AGENTS.md
+"named-args-only" rule without lying to the type checker or LSP.
+
+## Step 6 — Tests
 
 **New file:** `tests/test_passwords.py` (9 tests) — Hash properties,
 rejection of empty/short/long passwords, verify correctness.
@@ -151,7 +203,7 @@ for signup, login, logout endpoints using mocked services.
 
 ## Follow-ups
 
-- None — all review feedback applied on the same branch.
+- None — all review feedback applied across two passes on the same branch.
 
 ## References
 

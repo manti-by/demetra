@@ -1,6 +1,9 @@
 import argparse
 import asyncio
 import logging.config
+import sys
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import (
     AuthError,
@@ -134,25 +137,31 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             )
 
 
-async def reset_password_cli() -> None:
+async def reset_password_cli() -> int:
     import getpass
 
-    await init_db()
     email = input("Email: ").strip()
     password = getpass.getpass("New password: ")
 
     try:
+        await init_db()
         await reset_password(email=email, password=password)
-        print_message(f"Password reset successfully for {email}", style="success")
     except AuthError as e:
         print_message(str(e), style="error")
+        return 1
+    except SQLAlchemyError as e:
+        print_message(f"Database error: {e}", style="error")
+        return 1
+    else:
+        print_message("Password reset successfully", style="success")
+        return 0
 
 
 if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.resetpass:
-        asyncio.run(reset_password_cli())
+        sys.exit(asyncio.run(reset_password_cli()))
     else:
         asyncio.run(
             main(
