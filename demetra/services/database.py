@@ -680,6 +680,12 @@ async def update_user_keys(user_id: str, keys: dict) -> None:
         await connection.commit()
 
 
+async def update_user_password(user_id: str, password_hash: str) -> None:
+    async with get_connection() as connection:
+        await connection.execute(users.update().where(users.c.id == user_id).values(password_hash=password_hash))
+        await connection.commit()
+
+
 async def create_project(
     user_id: str,
     name: str,

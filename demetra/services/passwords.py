@@ -12,7 +12,8 @@ def hash_password(plain: str) -> str:
 
 
 def verify_password(plain: str, hashed: str) -> bool:
-    _validate_password(plain)
+    if not plain:
+        return False
     return _PCTX.verify(plain, hashed)
 
 

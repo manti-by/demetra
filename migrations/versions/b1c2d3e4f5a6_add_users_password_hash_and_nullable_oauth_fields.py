@@ -24,6 +24,7 @@ def upgrade() -> None:
     op.add_column("users", sa.Column("password_hash", sa.String(), nullable=True))
     op.alter_column("users", "github_id", existing_type=sa.String(), nullable=True)
     op.alter_column("users", "github_username", existing_type=sa.String(), nullable=True)
+    op.execute("UPDATE users SET email = 'gh-' || github_id || '@github.local' WHERE email IS NULL")
     op.alter_column("users", "email", existing_type=sa.String(), nullable=False)
     op.drop_constraint("users_github_id_key", "users", type_="unique")
     op.create_index(

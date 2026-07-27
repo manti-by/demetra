@@ -2,7 +2,14 @@ import argparse
 import asyncio
 import logging.config
 
-from demetra.library.exceptions import AutoCancelledError, DemetraError, InfiniteLoopError, UserCancelledError
+from demetra.library.exceptions import (
+    AuthError,
+    AutoCancelledError,
+    DemetraError,
+    InfiniteLoopError,
+    UserCancelledError,
+)
+from demetra.services.auth import reset_password
 from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
@@ -28,6 +35,11 @@ parser.add_argument(
     help="Loop between plan and resolve agents instead of posting questions to Linear",
     action=argparse.BooleanOptionalAction,
     default=False,
+)
+parser.add_argument(
+    "--resetpass",
+    help="Reset a user's password interactively",
+    action="store_true",
 )
 
 
@@ -122,13 +134,31 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             )
 
 
+async def reset_password_cli() -> None:
+    import getpass
+
+    await init_db()
+    email = input("Email: ").strip()
+    password = getpass.getpass("New password: ")
+
+    try:
+        await reset_password(email=email, password=password)
+        print_message(f"Password reset successfully for {email}", style="success")
+    except AuthError as e:
+        print_message(str(e), style="error")
+
+
 if __name__ == "__main__":
     args = parser.parse_args()
-    asyncio.run(
-        main(
-            project_name=args.project_name,
-            auto_mode=args.auto,
-            plan_loop=args.plan_loop,
-            task_id=args.task_id,
+
+    if args.resetpass:
+        asyncio.run(reset_password_cli())
+    else:
+        asyncio.run(
+            main(
+                project_name=args.project_name,
+                auto_mode=args.auto,
+                plan_loop=args.plan_loop,
+                task_id=args.task_id,
+            )
         )
-    )

@@ -14,7 +14,6 @@ def _auth_response(auth_response):
     return Response(
         content=json.dumps(
             {
-                "token": auth_response.token,
                 "user": {
                     "id": auth_response.user.id,
                     "github_username": auth_response.user.github_username,
@@ -28,7 +27,7 @@ def _auth_response(auth_response):
     )
 
 
-def _set_auth_cookie(response, token):
+def _set_auth_cookie(*, response: Response, token: str) -> Response:
     response.set_cookie(
         key="auth_token",
         value=token,
@@ -41,42 +40,35 @@ def _set_auth_cookie(response, token):
 
 
 @router.post("/signup")
-async def signup(request: SignupRequest):
-    """Register a new account with email and password.
-
-    Creates a user, issues a JWT, and sets the auth_token cookie.
-    The resulting session works with all existing authenticated endpoints.
-    """
+async def signup(request: SignupRequest) -> Response:
     try:
         auth_response = await signup_with_password(email=request.email, password=request.password)
     except AuthError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    return _set_auth_cookie(_auth_response(auth_response), auth_response.token)
+    return _set_auth_cookie(
+        response=_auth_response(auth_response=auth_response),
+        token=auth_response.token,
+    )
 
 
 @router.post("/login")
-async def login(request: LoginRequest):
-    """Authenticate with email and password.
-
-    Validates credentials, issues a JWT, and sets the auth_token cookie.
-    """
+async def login(request: LoginRequest) -> Response:
     try:
         auth_response = await login_with_password(email=request.email, password=request.password)
     except AuthError as e:
         raise HTTPException(status_code=401, detail=str(e)) from e
 
-    return _set_auth_cookie(_auth_response(auth_response), auth_response.token)
+    return _set_auth_cookie(
+        response=_auth_response(auth_response=auth_response),
+        token=auth_response.token,
+    )
 
 
 @router.post("/logout")
-async def do_logout(response: Response, auth_token: str | None = Cookie(default=None)):
-    """Log out the current user.
-
-    Invalidates the session and clears the auth_token cookie.
-    """
+async def do_logout(response: Response, auth_token: str | None = Cookie(default=None)) -> Response:
     if auth_token:
-        await logout(auth_token)
+        await logout(token=auth_token)
 
     response = Response(content='{"message": "Logged out"}', media_type="application/json")
     response.delete_cookie("auth_token")

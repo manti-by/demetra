@@ -39,5 +39,4 @@ class TestHashPassword:
         assert hashed.startswith("$2b$")
 
     def test_verify_rejects_empty(self):
-        with pytest.raises(AuthError, match="Password cannot be empty"):
-            verify_password("", "$2b$12$abc")
+        assert verify_password("", "$2b$12$abc") is False

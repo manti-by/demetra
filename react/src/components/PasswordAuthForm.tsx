@@ -16,7 +16,6 @@ export function PasswordAuthForm() {
     try {
       const fn = mode === 'login' ? loginWithPassword : signup;
       const response = await fn(email, password);
-      localStorage.setItem('auth_token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       window.location.reload();
     } catch (err) {
@@ -35,6 +34,7 @@ export function PasswordAuthForm() {
         <div className="auth-field">
           <input
             type="email"
+            aria-label="Email address"
             placeholder="Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -45,6 +45,7 @@ export function PasswordAuthForm() {
         <div className="auth-field">
           <input
             type="password"
+            aria-label="Password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -53,7 +54,7 @@ export function PasswordAuthForm() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
         </div>
-        {error && <p className="auth-error">{error}</p>}
+        {error && <p className="auth-error" role="alert">{error}</p>}
         <button type="submit" className="auth-submit" disabled={loading}>
           {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>

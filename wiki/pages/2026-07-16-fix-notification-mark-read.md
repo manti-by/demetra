@@ -15,7 +15,7 @@ related: [2026-07-15-duplicated-log-messages.md]
 
 ## TL;DR
 
-Two bugs in `listener.py`: (1) `process_merge_notification`/`process_rebase_notification` returned a `bool` indicating success, but `listener.py` discarded it and called `mark_notification_read` unconditionally, so failed enqueues were lost forever. (2) Without a retry counter, a persistently failing notification would poll indefinitely every cycle. Fixed by guarding `mark_notification_read` with the return value, and adding a `listener_attempts` column (with `MAX_LISTENER_ATTEMPTS=3`) that breaks the loop after 3 failures, mirroring the `run_attempts` pattern.
+Two bugs in `listener.py`: (1) `process_merge_notification`/`process_rebase_notification` returned a `bool` indicating success, but `listener.py` discarded it and called `mark_notification_read` unconditionally, so failed enqueues were lost forever. (2) Without a retry counter, a persistently failing notification would poll indefinitely every cycle. Fixed by guarding `mark_notification_read` with the return value, and adding a `listener_attempts` column (with `MAX_LISTENER_ATTEMPTS` default 3 at the time; later changed to 5 via env var) that breaks the loop after N failures, mirroring the `run_attempts` pattern.
 
 ---
 
@@ -56,7 +56,7 @@ Processing returns `False` when:
 **Schema & migration:**
 - `demetra/library/tables.py` — added `listener_attempts` column to `sessions` table (not null, default 0), positioned after `run_attempts`
 - `demetra/library/models.py` — added `listener_attempts: int = 0` to `Session` dataclass
-- `demetra/settings.py` — added `MAX_LISTENER_ATTEMPTS = 3`
+- `demetra/settings.py` — added `MAX_LISTENER_ATTEMPTS` (default 3 at the time; later changed to `int(os.environ.get("MAX_LISTENER_ATTEMPTS", 5))` in a subsequent commit)
 - `migrations/versions/b3c4d5e6f7a8_add_sessions_listener_attempts_column.py` — new Alembic migration (head `b3c4d5e6f7a8`)
 
 **Database layer:**

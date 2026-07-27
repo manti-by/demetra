@@ -43,9 +43,9 @@ class TestSignupEndpoint:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["token"] == auth_response.token
             assert data["user"]["id"] == auth_response.user.id
             assert data["user"]["email"] == auth_response.user.email
+            assert "token" not in data
             assert "auth_token" in response.cookies
             assert response.cookies["auth_token"] == auth_response.token
             mock_signup.assert_called_once_with(email="newuser@example.com", password="hunter2hunter2")
@@ -92,8 +92,8 @@ class TestLoginEndpoint:
 
             assert response.status_code == 200
             data = response.json()
-            assert data["token"] == auth_response.token
             assert data["user"]["id"] == auth_response.user.id
+            assert "token" not in data
             assert "auth_token" in response.cookies
             assert response.cookies["auth_token"] == auth_response.token
             mock_login.assert_called_once_with(email="user@example.com", password="hunter2hunter2")

@@ -1,0 +1,159 @@
+---
+title: Plain Password Auth Implementation and Review Follow-ups
+date: 2026-07-24
+type: implementation
+status: resolved
+session_id: mnt-148-plain-auth
+services: [auth, api, database, react]
+branch: mnt-148-plain-auth
+tickets: [MNT-148]
+tags: [auth, passwords, jwt, cookies, accessibility]
+related: []
+---
+
+# Plain Password Auth Implementation and Review Follow-ups
+
+## TL;DR
+
+Implemented password-based signup/login/logout alongside existing GitHub OAuth,
+with bcrypt password hashing, JWT cookie-based sessions, and a React auth form.
+Review follow-ups removed the token from the JSON response body (cookie-only),
+added email normalization, a `--resetpass` CLI command, database-level email
+migration for existing GitHub-only users, and accessibility improvements.
+
+---
+
+## Overview
+
+MNT-148 added a complete password authentication path to complement the existing
+GitHub OAuth flow. The implementation spans the backend (FastAPI endpoints, auth
+service, database layer, migration) and frontend (React form, API client). A
+second pass of review follow-ups refined the API surface, hardened edge cases,
+and cleaned up the implementation.
+
+## Step 1 — Backend auth service and endpoints
+
+Added `demetra/services/passwords.py` with bcrypt hashing via passlib, and
+extended `demetra/services/auth.py` with `signup_with_password` and
+`login_with_password` — both issue JWT tokens and persist them in the
+`jwt_tokens` table.
+
+`demetra/services/auth.py`:
+
+- `signup_with_password`: validates email format, checks uniqueness, hashes
+  password, creates user, issues JWT token
+- `login_with_password`: looks up user by email, verifies password hash,
+  issues JWT token
+- `reset_password`: looks up user by email, updates password hash (added
+  in follow-up pass)
+
+**File:** `demetra/services/passwords.py`
+
+```
+_PCTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def hash_password(plain: str) -> str:
+    _validate_password(plain)
+    return _PCTX.hash(plain)
+
+def verify_password(plain: str, hashed: str) -> bool:
+    if not plain:
+        return False
+    return _PCTX.verify(plain, hashed)
+```
+
+Validation rejects empty, <8 char, and >72 byte passwords.
+
+**File:** `demetra/api/auth.py` — Three endpoints:
+
+- `POST /api/v1/auth/signup` — creates account, sets `auth_token` cookie
+- `POST /api/v1/auth/login` — authenticates, sets `auth_token` cookie
+- `POST /api/v1/auth/logout` — deletes JWT token, clears cookie
+
+## Step 2 — Database migration
+
+**File:**
+`migrations/versions/b1c2d3e4f5a6_add_users_password_hash_and_nullable_oauth_fields.py`
+
+Adds `password_hash` column (nullable), makes `github_id` and
+`github_username` nullable, adds a unique index on `email`, a partial unique
+index on `github_id` (where not null), and a CHECK constraint ensuring every
+user has at least one auth method (`password_hash IS NOT NULL OR github_id IS
+NOT NULL`).
+
+For existing GitHub-only users with NULL email, the migration sets:
+`email = 'gh-' || github_id || '@github.local'` before applying the NOT NULL
+constraint.
+
+## Step 3 — React frontend
+
+**File:** `react/src/components/PasswordAuthForm.tsx` — New component with
+login/signup toggle, form validation, and error display.
+
+**File:** `react/src/services/api.ts` — Added `signup`, `loginWithPassword`,
+`logout` functions using `credentials: 'include'` for cookie-based auth.
+
+**File:** `react/src/App.css` — Added `.password-auth-form`, `.auth-field`,
+`.auth-submit`, `.auth-error`, `.auth-toggle`, `.auth-divider` styles.
+
+## Step 4 — Review follow-ups (uncommitted refinements)
+
+Changes on top of the initial MNT-148 commit, applied to the same branch:
+
+### Cookie-only auth
+- **File:** `demetra/api/auth.py` — Removed `token` from JSON response body.
+- **File:** `react/src/services/api.ts` — Removed `token` from `AuthResponse` interface.
+- **File:** `react/src/components/PasswordAuthForm.tsx` — Removed
+  `localStorage.setItem('auth_token', response.token)` — auth is now
+  cookie-only.
+- **File:** `tests/test_auth_password_api.py` — Tests still check the cookie
+  but no longer expect `token` in response body.
+
+### Email normalization and race-condition guard
+- **File:** `demetra/services/auth.py` — `signup_with_password` and
+  `login_with_password` now strip and lowercase email input. Added
+  `try/except IntegrityError` as a second line of defense against concurrent
+  duplicate signup.
+
+### Password reset CLI
+- **File:** `main.py` — Added `--resetpass` flag that runs
+  `reset_password_cli()`, prompting for email and new password interactively.
+- **File:** `demetra/services/database.py` — Added `update_user_password`
+  function.
+- **File:** `demetra/services/auth.py` — Added `reset_password` async
+  function.
+
+### Verify password hardened
+- **File:** `demetra/services/passwords.py` — `verify_password` now returns
+  `False` for empty plain text instead of calling `_validate_password` (which
+  would raise). Prevents crash on missing/empty password during login.
+
+### Accessibility
+- **File:** `react/src/components/PasswordAuthForm.tsx` — Added `aria-label`
+  to email and password inputs, `role="alert"` on error message.
+
+### Migration fix
+- **File:** Migration file — Added `UPDATE users SET email = ...` SQL to
+  backfill NULL emails for existing GitHub users before applying NOT NULL
+  constraint.
+
+## Step 5 — Tests
+
+**New file:** `tests/test_passwords.py` (9 tests) — Hash properties,
+rejection of empty/short/long passwords, verify correctness.
+
+**New file:** `tests/test_auth_password_api.py` (8 tests) — API-level tests
+for signup, login, logout endpoints using mocked services.
+
+**Updated:** `tests/test_auth.py` — Extended tests for password auth flow.
+
+---
+
+## Follow-ups
+
+- None — all review feedback applied on the same branch.
+
+## References
+
+- Linear: MNT-148
+- Related: [[2026-07-22-react-frontend-template-warp]] (auth context component)

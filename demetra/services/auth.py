@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import aiohttp
 from jose import JWTError, jwt
+from sqlalchemy.exc import IntegrityError
 
 from demetra.library.exceptions import AuthError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
@@ -14,6 +15,7 @@ from demetra.services.database import (
     get_user_by_github_id,
     get_user_by_id,
     save_jwt_token,
+    update_user_password,
 )
 from demetra.services.passwords import hash_password, verify_password
 from demetra.settings import GITHUB, JWT
@@ -153,24 +155,29 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
 
 
 async def signup_with_password(email: str, password: str) -> AuthResponse:
+    email = email.strip().lower()
+
     if not email or "@" not in email:
         raise AuthError("Invalid email address")
 
-    hash_password(password)
-
-    existing = await get_user_by_email(email)
+    existing = await get_user_by_email(email=email)
     if existing:
         raise AuthError("Email already registered")
 
-    user_id = await create_user(
-        email=email,
-        password_hash=hash_password(password),
-    )
+    password_hash = hash_password(plain=password)
 
-    token, expires_at = create_jwt_token(user_id)
+    try:
+        user_id = await create_user(
+            email=email,
+            password_hash=password_hash,
+        )
+    except IntegrityError as e:
+        raise AuthError("Email already registered") from e
+
+    token, expires_at = create_jwt_token(user_id=user_id)
     await save_jwt_token(token=token, user_id=user_id, expires_at=expires_at)
 
-    user_data = await get_user_by_id(user_id)
+    user_data = await get_user_by_id(user_id=user_id)
     if not user_data:
         raise AuthError("User not found after creation")
 
@@ -184,14 +191,16 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
 
 
 async def login_with_password(email: str, password: str) -> AuthResponse:
-    user_data = await get_user_by_email(email)
+    email = email.strip().lower()
+
+    user_data = await get_user_by_email(email=email)
     if not user_data or not user_data.get("password_hash"):
         raise AuthError("Invalid email or password")
 
-    if not verify_password(password, user_data["password_hash"]):
+    if not verify_password(plain=password, hashed=user_data["password_hash"]):
         raise AuthError("Invalid email or password")
 
-    token, expires_at = create_jwt_token(user_data["id"])
+    token, expires_at = create_jwt_token(user_id=user_data["id"])
     await save_jwt_token(token=token, user_id=user_data["id"], expires_at=expires_at)
 
     return AuthResponse(
@@ -233,3 +242,14 @@ def has_permission(user: UserResponse | dict, permission: str) -> bool:
         role = user.role if hasattr(user, "role") else user.get("role", "user")
         return role == "admin"
     return False
+
+
+async def reset_password(email: str, password: str) -> None:
+    email = email.strip().lower()
+    password_hash = hash_password(plain=password)
+
+    user_data = await get_user_by_email(email=email)
+    if not user_data:
+        raise AuthError(f"User with email '{email}' not found")
+
+    await update_user_password(user_id=user_data["id"], password_hash=password_hash)
