@@ -1,4 +1,4 @@
-# demetra Wiki
+# Demetra Wiki
 
 A persistent, compounding knowledge base for this project. Each page captures **one session** -
 a debugging chase, a code review, an investigation into how something works, or a set of changes

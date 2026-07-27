@@ -1,4 +1,4 @@
-# demetra Wiki — Index
+# Demetra Wiki - Index
 
 Session knowledge base for the demetra project - one Markdown page per debugging
 chase, investigation, code review, or set of changes. See [README.md](README.md) for conventions
@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Implemented password-based signup/login/logout with bcrypt hashing, JWT cookies, React auth form; review follow-ups: cookie-only auth, email normalization, `--resetpass` CLI, migration for existing GitHub users (2026-07-24)
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — Implemented: new `GET /sessions/{task_id}/history` endpoint, `get_session_id_by_task_id` resolver, SessionHistory React component, tests across all layers (2026-07-23)
 - [Session History & Token Consumption Audit](pages/2026-07-23-session-tokens-audit.md) — Original audit of session_history/length extraction, storage, and compaction: 192-row stats from Odin DB, 8 recommendations; two causal claims later refuted by revalidation (2026-07-23)
 - [Session Tokens Audit Revalidation — cumulative counter vs context threshold](pages/2026-07-23-session-tokens-audit-revalidation.md) — Revalidated SESSION_TOKENS_AUDIT.md against code, git history, and Odin DB: all stats confirmed, two causal claims refuted; `length` is cumulative so the compaction threshold was broken by design (2026-07-23)
@@ -27,8 +28,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend (3 pages)
+### React frontend (4 pages)
 
+- [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth form, cookie-based API client, review follow-ups
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — New endpoint, resolver, SessionHistory component, tests
 - [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md) — MNT-142 review cleanups, bump_project_version hardened, green-accent palette, infrastructure
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — Component tree map, gap removal, border-radius reorganization, SessionArtifacts always render, typography baseline, sidebar-footer, Playwright MCP
@@ -61,3 +63,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 ### Feature flags (1 page)
 
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — FEATURES dict with IS_RUFF_ENABLED/IS_PYTEST_ENABLED env flags, gated lint workflow
+
+### Auth (1 page)
+
+- [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth with bcrypt, JWT cookies, React form, review follow-ups

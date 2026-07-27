@@ -210,10 +210,22 @@ class AuthResponse:
 @dataclass
 class UserResponse:
     id: str
-    github_username: str
-    email: str | None
+    github_username: str | None = None
+    email: str | None = None
     avatar_url: str | None = None
     role: str = "user"
+
+
+@dataclass
+class SignupRequest:
+    email: str
+    password: str
+
+
+@dataclass
+class LoginRequest:
+    email: str
+    password: str
 
 
 @dataclass

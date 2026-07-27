@@ -2,12 +2,14 @@ const API_URL = import.meta.env.VITE_API_URL || '';
 
 export interface User {
   id: string;
-  github_username: string;
-  email: string;
+  github_username?: string | null;
+  email?: string | null;
+  avatar_url?: string | null;
+  role?: string | null;
 }
 
 export interface AuthResponse {
-  token: string;
+  token?: string;
   user: User;
 }
 
@@ -38,11 +40,39 @@ export async function exchangeCodeForToken(code: string, state: string): Promise
   return response.json();
 }
 
+export async function signup(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Signup failed');
+  }
+  return response.json();
+}
+
+export async function loginWithPassword(email: string, password: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ email, password }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Login failed');
+  }
+  return response.json();
+}
+
 export async function logout(): Promise<void> {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
   try {
-    await fetch(`${API_URL}/api/v1/github/logout`, {
+    await fetch(`${API_URL}/api/v1/auth/logout`, {
       method: 'POST',
       credentials: 'include',
     });

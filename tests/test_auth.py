@@ -5,9 +5,9 @@ import pytest
 from fastapi.testclient import TestClient
 
 from demetra.app import app
+from demetra.library.exceptions import AuthError
 from demetra.library.models import GitHubUser, UserResponse
 from demetra.services.auth import (
-    AuthError,
     authenticate_user,
     create_jwt_token,
     exchange_code_for_token,
@@ -15,6 +15,8 @@ from demetra.services.auth import (
     get_github_auth_url,
     get_github_user,
     has_permission,
+    login_with_password,
+    signup_with_password,
     verify_jwt_token,
 )
 
@@ -228,3 +230,54 @@ class TestHasPermission:
     def test_unknown_permission_returns_false(self):
         user = UserResponse(id="1", github_username="admin", email="admin@test.com", role="admin")
         assert has_permission(user, "unknown_permission") is False
+
+
+class TestSignupWithPassword:
+    @pytest.mark.asyncio
+    async def test_signup_creates_user_and_returns_auth_response(self, mock_jwt_settings):
+        email = f"signup-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        result = await signup_with_password(email=email, password="hunter2hunter2")
+
+        assert result.token is not None
+        assert result.user.id is not None
+        assert result.user.email == email
+        assert result.user.github_username is None
+
+    @pytest.mark.asyncio
+    async def test_signup_raises_on_duplicate_email(self, mock_jwt_settings):
+        email = f"dup-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        await signup_with_password(email=email, password="hunter2hunter2")
+
+        with pytest.raises(AuthError, match="Email already registered"):
+            await signup_with_password(email=email, password="anotherpass1")
+
+    @pytest.mark.asyncio
+    async def test_signup_raises_on_invalid_email(self, mock_jwt_settings):
+        with pytest.raises(AuthError, match="Invalid email"):
+            await signup_with_password(email="not-an-email", password="hunter2hunter2")
+
+
+class TestLoginWithPassword:
+    @pytest.mark.asyncio
+    async def test_login_returns_auth_response(self, mock_jwt_settings):
+        email = f"login-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        await signup_with_password(email=email, password="hunter2hunter2")
+
+        result = await login_with_password(email=email, password="hunter2hunter2")
+
+        assert result.token is not None
+        assert result.user.id is not None
+        assert result.user.email == email
+
+    @pytest.mark.asyncio
+    async def test_login_raises_on_wrong_password(self, mock_jwt_settings):
+        email = f"wrong-pw-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        await signup_with_password(email=email, password="hunter2hunter2")
+
+        with pytest.raises(AuthError, match="Invalid email or password"):
+            await login_with_password(email=email, password="wrongPassword1")
+
+    @pytest.mark.asyncio
+    async def test_login_raises_on_unknown_email(self, mock_jwt_settings):
+        with pytest.raises(AuthError, match="Invalid email or password"):
+            await login_with_password(email="nonexistent@example.com", password="hunter2hunter2")

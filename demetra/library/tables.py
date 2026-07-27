@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Index,
     Integer,
     MetaData,
     String,
@@ -48,13 +49,17 @@ users = Table(
     "users",
     metadata,
     Column("id", String(), primary_key=True),
-    Column("github_id", String(), nullable=False, unique=True),
-    Column("github_username", String(), nullable=False),
-    Column("email", String(), nullable=True),
+    Column("github_id", String(), nullable=True),
+    Column("github_username", String(), nullable=True),
+    Column("email", String(), nullable=False),
+    Column("password_hash", String(), nullable=True),
     Column("avatar_url", String(), nullable=True),
     Column("role", String(), nullable=False, server_default="user"),
     Column("keys", Text(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Index("uq_users_github_id", "github_id", unique=True, postgresql_where=text("github_id IS NOT NULL")),
+    Index("ix_users_email", "email", unique=True),
+    CheckConstraint("password_hash IS NOT NULL OR github_id IS NOT NULL", name="ck_users_has_auth"),
 )
 
 jwt_tokens = Table(

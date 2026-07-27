@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
+import { PasswordAuthForm } from "./components/PasswordAuthForm";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
@@ -36,6 +37,7 @@ function LoginView() {
       <h1 className="login-title">{LOGIN_TITLE}</h1>
       <p className="login-subtitle">{LOGIN_SUBTITLE}</p>
       <GitHubLoginButton />
+      <PasswordAuthForm />
     </div>
   );
 }

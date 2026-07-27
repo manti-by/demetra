@@ -1,4 +1,4 @@
-# Session Tokens Updates — Build Plan (MNT-145)
+# Session Tokens Updates - Build Plan (MNT-145)
 
 > **Audience:** implementation agent (e.g. Sonnet). Full background in
 > `wiki/audits/2026-07-23-session-tokens/RESULT.md` (revalidated 2026-07-23) and

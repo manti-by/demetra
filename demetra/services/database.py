@@ -587,7 +587,14 @@ async def get_pending_session_task_ids() -> set[str]:
     return {row.task_id for row in rows}
 
 
-async def create_user(github_id: str, github_username: str, email: str | None, avatar_url: str | None = None) -> str:
+async def create_user(
+    *,
+    email: str,
+    github_id: str | None = None,
+    github_username: str | None = None,
+    avatar_url: str | None = None,
+    password_hash: str | None = None,
+) -> str:
     user_id = str(uuid4())
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -597,6 +604,7 @@ async def create_user(github_id: str, github_username: str, email: str | None, a
                 github_id=github_id,
                 github_username=github_username,
                 email=email,
+                password_hash=password_hash,
                 avatar_url=avatar_url,
                 role="user",
                 created_at=now,
@@ -609,6 +617,13 @@ async def create_user(github_id: str, github_username: str, email: str | None, a
 async def get_user_by_github_id(github_id: str) -> dict | None:
     async with get_connection() as connection:
         result = await connection.execute(select(users).where(users.c.github_id == github_id))
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def get_user_by_email(email: str) -> dict | None:
+    async with get_connection() as connection:
+        result = await connection.execute(select(users).where(users.c.email == email))
         row = result.fetchone()
     return dict(row._mapping) if row else None
 
@@ -662,6 +677,12 @@ async def update_user_keys(user_id: str, keys: dict) -> None:
     encrypted_keys = encrypt(keys)
     async with get_connection() as connection:
         await connection.execute(users.update().where(users.c.id == user_id).values(keys=encrypted_keys))
+        await connection.commit()
+
+
+async def update_user_password(user_id: str, password_hash: str) -> None:
+    async with get_connection() as connection:
+        await connection.execute(users.update().where(users.c.id == user_id).values(password_hash=password_hash))
         await connection.commit()
 
 

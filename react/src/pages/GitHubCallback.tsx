@@ -10,6 +10,9 @@ export function GitHubCallback() {
   const handleCallback = useCallback(async (code: string, state: string) => {
     try {
       const response = await exchangeCodeForToken(code, state);
+      if (!response.token) {
+        throw new Error('No token in response');
+      }
       localStorage.setItem('auth_token', response.token);
       localStorage.setItem('user', JSON.stringify(response.user));
       navigate('/');

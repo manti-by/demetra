@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo } from "react";
 import { useTheme } from "../contexts/ThemeContext";
+import type { User } from "../services/api";
 
 interface HeaderProps {
-  user: { github_username: string; email: string } | null;
+  user: User | null;
   onLogout: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
@@ -101,9 +102,10 @@ export function Header({
     onOpenSettings?.();
   }, [onOpenSettings]);
 
+  const displayName = user?.github_username ?? user?.email ?? "User";
   const initial = useMemo(
-    () => (user ? user.github_username.charAt(0).toUpperCase() : ""),
-    [user],
+    () => displayName.charAt(0).toUpperCase(),
+    [displayName],
   );
 
   return (
@@ -143,7 +145,7 @@ export function Header({
             )}
             <div className="user-info">
               <div className="user-avatar">{initial}</div>
-              <span className="user-name">{user.github_username}</span>
+              <span className="user-name">{displayName}</span>
             </div>
             <button
               className="burger-button"

@@ -3,9 +3,9 @@ import json
 from fastapi import APIRouter, Cookie, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
+from demetra.library.exceptions import AuthError
 from demetra.library.models import UserResponse
 from demetra.services.auth import (
-    AuthError,
     authenticate_user,
     exchange_code_for_token,
     get_current_user,
