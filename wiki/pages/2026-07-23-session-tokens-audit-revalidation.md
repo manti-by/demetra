@@ -22,10 +22,13 @@ related:            [2026-07-16-session-history-tokens-null.md]
 > cache read, `demetra/services/opencode.py:225`), the `context_tokens` and `model`
 > columns exist (`demetra/library/tables.py:114-115`), and the Groq input is capped
 > (`PLAN_OUTPUT_MAX_CHARS`, `demetra/services/groq.py:106`) — all landed in commit
-> `47d428d`. Still open: recommendation 3 (the broad `except Exception` remains at
-> `demetra/workflows/cleanup.py:76,103`) and recommendation 4 (no TTL cache on the
-> export). The "dead code" / pending-recommendation framing below is kept as the
-> historical record of the audit.
+> `47d428d`. Still open: recommendation 2 (cached reads are still part of the
+> compaction decision — `usage.context = msg_input + msg_cache_read`,
+> `demetra/services/opencode.py:225`), recommendation 3 (the broad
+> `except Exception` remains at `demetra/workflows/cleanup.py:76,103`) and
+> recommendation 4 (no TTL cache on the export). The "dead code" /
+> pending-recommendation framing below is kept as the historical record of the
+> audit.
 
 ## TL;DR
 
@@ -265,7 +268,9 @@ since. Solved problem; no action needed.
 - ~~Execute `wiki/audits/2026-07-23-session-tokens/BUILD_PLAN.md` (repo root): context metric from last
   assistant message, re-enable `build.py:77`, `model` + `context_tokens` columns,
   Groq input cap.~~ **Done** in `47d428d` — see the status note at the top of this page.
-- Remaining from the recommendations: #3 (broad `except Exception` in
+- Remaining from the recommendations: #2 (exclude cached reads from the compaction
+  decision — `usage.context` still adds `msg_cache_read` at
+  `demetra/services/opencode.py:225`), #3 (broad `except Exception` in
   `demetra/workflows/cleanup.py:76,103`) and #4 (short-TTL cache on `opencode export`).
 
 ## References

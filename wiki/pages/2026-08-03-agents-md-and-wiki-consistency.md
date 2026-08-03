@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_unknown
 services: [docs, wiki, auth, workflow, mcp]
-branch: master
+branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
 related: [2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md, 2026-08-03-wiki-mcp-tools.md]
@@ -16,23 +16,23 @@ related: [2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-sess
 ## TL;DR
 
 Revalidated `AGENTS.md` against the current codebase (wiki section added, f-string
-exception for `demetra/services/prompt.py`, private-helper naming convention allowed, deps
+exception for `demetra/services/prompt.py`, underscore-helper naming ban confirmed, deps
 moved to a `pyproject.toml`/`uv.lock` pointer, GitHub + Groq added to external deps, AI
 Behavior condensed) and regenerated the `wiki/INDEX.md` "By topic" clusters from a fresh
 consistency cross-check of all pages. Resolved two stale "not yet committed"/"build plan not
 executed" claims by verifying the current master tree (PR #66 / #67 merged, `47d428d` landed),
-leaving two still-open recommendations filed as follow-ups.
+leaving three still-open recommendations filed as follow-ups.
 
 ---
 
 ## Overview
 
-Two related pieces of housekeeping on `master` (HEAD `aa8a09a`, changes uncommitted in the
-working tree):
+Two related pieces of housekeeping, committed on the `wiki-context-integration` feature
+branch and open as PR #68 against `master`:
 
 1. **AGENTS.md** drift revalidation — bring the agent playbook back in line with the actual
-   repo (MCP tool-module pattern, prompt.py f-string exception, underscore-prefixed helper
-   convention, dependency declarations, GitHub/Groq external deps).
+   repo (MCP tool-module pattern, prompt.py f-string exception, underscore-prefix naming ban,
+   dependency declarations, GitHub/Groq external deps).
 2. **Wiki consistency** — re-cluster `wiki/INDEX.md` "By topic", and reconcile old pages that
    claimed their work was "uncommitted" / "not yet executed" against the now-merged master.
 
@@ -44,9 +44,9 @@ working tree):
   before planning; record each session under `wiki/pages/` via the `wiki-*` commands).
 - Corrected the f-string rule to allow the sole exception: prompt-template substitution in
   `demetra/services/prompt.py`.
-- Reversed the blanket ban on `_`-prefixed functions: module-internal helpers may now use a
-  leading `_` (e.g. `_validate_password`, `_serialize_history_row`); public functions stay
-  unprefixed, CLI wrappers keep the `opencode_*`/`git_*`/`cursor_*` prefix.
+- Confirmed the blanket ban on `_`-prefixed functions stands: no private/underscore-prefixed
+  function names; public functions stay unprefixed, CLI wrappers keep the
+  `opencode_*`/`git_*`/`cursor_*` prefix.
 - Replaced the hardcoded core/dev dependency lists with a pointer to `pyproject.toml` +
   `uv.lock` (the lists had drifted from `[dependency-groups]`).
 - Documented **GitHub** and **Groq** in External Dependencies (with `demetra/listener.py` and
@@ -61,7 +61,7 @@ Re-clustered the `## By topic` section by semantic subject (largest first): new
 "Authentication & API security (4)" cluster, "React frontend / UI (4)",
 "Workflow state & retries (4)" (the notification/listener page moved here — the old
 "Notifications & listener (1)" cluster was dropped), "Logging infrastructure (3)",
-"Session history & tokens (2)", "Docs, feature flags & tooling (2)", "MCP / integrations (1)".
+"Session history & tokens (2)", "Docs, feature flags & tooling (3)", "MCP / integrations (2)".
 Fixed the `MAX_LISTENER_ATTEMPTS` summary text (default is now `5`, not `3`).
 
 ## Step 3 — Resolve stale claims against master
@@ -79,7 +79,7 @@ Verified the working tree and git history to correct outdated page statements:
   **done**: compaction is live at `demetra/workflows/build.py:79`, driven by the
   non-cumulative `context_tokens` metric (`demetra/services/opencode.py:225`,
   `usage.context = msg_input + msg_cache_read`), the `context_tokens`/`model` columns exist
-  (`demetra/library/tables.py:114-115`), and the Groq output is capped at
+  (`demetra/library/tables.py:114-115`), and the Groq input is capped at
   `PLAN_OUTPUT_MAX_CHARS = 32_000` (`demetra/services/groq.py:17,106`). All landed in `47d428d`.
 
 ## Test Results
@@ -95,14 +95,16 @@ Verified the working tree and git history to correct outdated page statements:
 
 ## Follow-ups
 
-- Still open from the audit recommendations: **#3** (broad `except Exception` in
+- Still open from the audit recommendations: **#2** (cached reads still included in the
+  compaction decision — `usage.context` at `demetra/services/opencode.py:225` adds
+  `msg_cache_read`), **#3** (broad `except Exception` in
   `demetra/workflows/cleanup.py` and `demetra/services/groq.py:76,143`) and **#4** (no short-TTL
   cache on `opencode export`).
 - The source-code companion to this page — the wiki MCP tools (`wiki_search`,
   `wiki_get_page`, `wiki_list_pages`) that AGENTS.md points agents to — is documented in
   [[2026-08-03-wiki-mcp-tools]].
-- Commit and PR these `AGENTS.md` + wiki edits (changes are currently staged/unstaged on
-  `master`).
+- ~~Commit and PR these `AGENTS.md` + wiki edits (changes are currently staged/unstaged on
+  `master`).~~ **Done** — committed on `wiki-context-integration`, open as PR #68.
 
 ## References
 

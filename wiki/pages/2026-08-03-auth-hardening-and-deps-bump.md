@@ -171,8 +171,6 @@ uv run pytest tests/
   update wiki") via PR #67 (`bcddc00`), with review fixes in `3d14f1d`. Master HEAD is at
   version `1.15.5` with a clean tree; the "not yet committed" framing in the TL;DR is kept
   as the session record.
-- Run the full lint/type/test gates above and confirm the `bcrypt` swap passes the auth tests
-  in `tests/`.
 - Verify end-to-end login in a deployment that sets `COOKIE_SAMESITE`, `COOKIE_SECURE`, and
   `CORS_ALLOWED_ORIGINS`.
 

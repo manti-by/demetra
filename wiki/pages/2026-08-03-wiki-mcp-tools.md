@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_unknown
 services: [wiki, mcp]
-branch: master
+branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
 related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md]
@@ -29,7 +29,8 @@ bumped to 1.15.6, and covered with 28 tests.
 
 `AGENTS.md` now instructs agents to "search the wiki first via the `wiki_search` MCP tool"
 (see [[2026-08-03-agents-md-and-wiki-consistency]]). This change set is the tooling that
-backs that instruction. All changes are staged on `master` (HEAD `aa8a09a`, uncommitted):
+backs that instruction. Committed on the `wiki-context-integration` feature branch and open
+as PR #68 against `master`:
 
 1. New `demetra/tools/wiki.py` — three MCP tools over `wiki/pages/*.md`.
 2. Aggregate wiring in `demetra/tools/__init__.py` (db + proj + wiki).
@@ -106,8 +107,8 @@ selection/truncation, path resolution incl. traversal rejection, every `call_too
 
 ## Follow-ups
 
-- Commit and PR the staged changes (`AGENTS.md`, wiki tools, tests, dep bump) against
-  `master`.
+- ~~Commit and PR the staged changes (`AGENTS.md`, wiki tools, tests, dep bump) against
+  `master`.~~ **Done** — committed on `wiki-context-integration`, open as PR #68.
 - The consistency/`wiki-*` commands in `.opencode/commands/` (e.g. `wiki-write.md`,
   `wiki-consistency.md`) are the manual companions to these tools; not reviewed this session.
 
