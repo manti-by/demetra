@@ -5,7 +5,6 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.testclient import WebSocketDisconnect
 
 from demetra.app import app
 from demetra.library.exceptions import LinearError
@@ -54,21 +53,23 @@ class TestWatcherLogsWebSocket:
 
     @pytest.mark.asyncio
     async def test_websocket_rejects_missing_auth_token(self):
-        with pytest.raises((WebSocketDisconnect, Exception)):
-            with TestClient(app).websocket_connect(self.WS_PATH) as _:
-                pass
+        with TestClient(app).websocket_connect(self.WS_PATH) as ws:
+            message = ws.receive()
+            assert message["type"] == "websocket.close"
+            assert message["code"] == 4001
 
     @pytest.mark.asyncio
     async def test_websocket_rejects_invalid_auth_token(self):
         with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
-            with pytest.raises((WebSocketDisconnect, Exception)):
-                with TestClient(app).websocket_connect(
-                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
-                    cookies={"auth_token": "valid_token"},
-                ) as _:
-                    pass
+            with TestClient(app).websocket_connect(
+                f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                cookies={"auth_token": "valid_token"},
+            ) as ws:
+                message = ws.receive()
+                assert message["type"] == "websocket.close"
+                assert message["code"] == 4003
 
     @pytest.mark.asyncio
     async def test_websocket_emits_log_envelope(

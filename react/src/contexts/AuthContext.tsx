@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, type ReactNode } from 'react';
-import { getCurrentUser, type User } from '../services/api';
+import { getCurrentUser, logout as apiLogout, type User } from '../services/api';
 
 interface AuthContextType {
   user: User | null;
@@ -8,8 +8,6 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true, logout: async () => {} });
-
-const API_URL = import.meta.env.VITE_API_URL || '';
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
@@ -41,16 +39,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
-    try {
-      await fetch(`${API_URL}/api/v1/auth/logout`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-    } catch {
-      // Ignore errors
-    }
+    await apiLogout();
     setUser(null);
   }, []);
 

@@ -3,7 +3,6 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
-from starlette.testclient import WebSocketDisconnect
 
 from demetra.app import app
 from demetra.library.models import UserResponse
@@ -134,12 +133,13 @@ class TestWatcherWebSocketOwnership:
             mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
             mock_get_session_id.return_value = None
 
-            with pytest.raises((WebSocketDisconnect, Exception)):
-                with TestClient(app).websocket_connect(
-                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
-                    cookies={"auth_token": "valid_token"},
-                ) as _:
-                    pass
+            with TestClient(app).websocket_connect(
+                f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                cookies={"auth_token": "valid_token"},
+            ) as ws:
+                message = ws.receive()
+                assert message["type"] == "websocket.close"
+                assert message["code"] == 4004
 
             mock_get_session_id.assert_called_once_with(task_id=self.TASK_ID, user_id="user-123")
 
