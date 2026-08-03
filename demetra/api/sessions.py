@@ -1,10 +1,10 @@
 from typing import Annotated, get_args
 
-from fastapi import APIRouter, Cookie, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import Path as PathParam
 
-from demetra.library.models import SessionHistory, StepType
-from demetra.services.auth import get_current_user
+from demetra.library.models import SessionHistory, StepType, UserResponse
+from demetra.services.auth import get_current_user_dep
 from demetra.services.database import (
     delete_session,
     get_session_history,
@@ -22,19 +22,13 @@ VALID_STEPS = set(get_args(StepType))
 
 @router.get("")
 async def list_sessions(
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
     step: str | None = Query(default=None),
 ) -> list[dict]:
     """List processing sessions for the authenticated user.
 
     Returns a list of session records with their current step and metadata.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     if step is not None and step not in VALID_STEPS:
         raise HTTPException(status_code=400, detail=f"Invalid step. Must be one of: {', '.join(VALID_STEPS)}")
 
@@ -45,15 +39,9 @@ async def list_sessions(
 @router.delete("/{task_id}")
 async def delete_session_endpoint(
     task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ) -> dict:
     """Delete a session and all related data (db record, log files)."""
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     deleted = await delete_session(task_id=task_id, user_id=user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -64,14 +52,8 @@ async def delete_session_endpoint(
 @router.get("/{task_id}/history")
 async def get_session_history_endpoint(
     task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ) -> list[dict]:
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     session_id = await get_session_id_by_task_id(task_id=task_id, user_id=user.id)
     if session_id is None:
         raise HTTPException(status_code=404, detail="Session not found")

@@ -5,11 +5,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
-from starlette.testclient import WebSocketDisconnect
 
 from demetra.app import app
 from demetra.library.exceptions import LinearError
-from demetra.library.models import SessionHistory
+from demetra.library.models import SessionHistory, UserResponse
 from demetra.services.linear import create_linear_ticket
 
 
@@ -54,21 +53,23 @@ class TestWatcherLogsWebSocket:
 
     @pytest.mark.asyncio
     async def test_websocket_rejects_missing_auth_token(self):
-        with pytest.raises((WebSocketDisconnect, Exception)):
-            with TestClient(app).websocket_connect(self.WS_PATH) as _:
-                pass
+        with TestClient(app).websocket_connect(self.WS_PATH) as ws:
+            message = ws.receive()
+            assert message["type"] == "websocket.close"
+            assert message["code"] == 4001
 
     @pytest.mark.asyncio
     async def test_websocket_rejects_invalid_auth_token(self):
         with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
-            with pytest.raises((WebSocketDisconnect, Exception)):
-                with TestClient(app).websocket_connect(
-                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
-                    cookies={"auth_token": "valid_token"},
-                ) as _:
-                    pass
+            with TestClient(app).websocket_connect(
+                f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                cookies={"auth_token": "valid_token"},
+            ) as ws:
+                message = ws.receive()
+                assert message["type"] == "websocket.close"
+                assert message["code"] == 4003
 
     @pytest.mark.asyncio
     async def test_websocket_emits_log_envelope(
@@ -86,9 +87,11 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
             ):
-                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_session_id.return_value = "session-abc"
                 mock_step.return_value = ("initial", "Test Session")
 
                 with TestClient(app).websocket_connect(
@@ -121,7 +124,7 @@ class TestWatcherLogsWebSocket:
 
             step_call_count = 0
 
-            async def mock_step_side_effect(task_id: str):
+            async def mock_step_side_effect(task_id: str, user_id: str | None = None):
                 nonlocal step_call_count
                 step_call_count += 1
                 if step_call_count <= 2:
@@ -131,9 +134,11 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
             ):
-                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_session_id.return_value = "session-abc"
                 mock_step.side_effect = mock_step_side_effect
 
                 with TestClient(app).websocket_connect(
@@ -164,7 +169,7 @@ class TestWatcherLogsWebSocket:
 
             step_call_count = 0
 
-            async def mock_step_side_effect(task_id: str):
+            async def mock_step_side_effect(task_id: str, user_id: str | None = None):
                 nonlocal step_call_count
                 step_call_count += 1
                 if step_call_count <= 2:
@@ -174,9 +179,11 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
             ):
-                mock_get_user.return_value = {"id": "user-123", "github_username": "testuser", "role": "admin"}
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_session_id.return_value = "session-abc"
                 mock_step.side_effect = mock_step_side_effect
 
                 with TestClient(app).websocket_connect(
@@ -200,7 +207,7 @@ class TestUserKeysEndpoint:
         assert response.status_code == 401
 
     def test_update_keys_returns_401_with_invalid_token(self):
-        with patch("demetra.api.users.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.services.auth.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -236,7 +243,7 @@ class TestProjectEndpoints:
         assert response.status_code == 401
 
     def test_list_projects_returns_401_with_invalid_token(self):
-        with patch("demetra.api.projects.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.services.auth.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             client = TestClient(app, raise_server_exceptions=False)
@@ -617,7 +624,7 @@ class TestSessionHistoryEndpoint:
         assert response.status_code == 401
 
     def test_returns_401_with_invalid_token(self):
-        with patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock) as mock_get_user:
+        with patch("demetra.services.auth.get_current_user", new_callable=AsyncMock) as mock_get_user:
             mock_get_user.return_value = None
 
             client = TestClient(app, raise_server_exceptions=False)

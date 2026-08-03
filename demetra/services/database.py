@@ -479,9 +479,12 @@ async def update_session_step(task_id: str, step: str) -> None:
         await connection.commit()
 
 
-async def get_session_step_name(task_id: str) -> tuple[str, str] | None:
+async def get_session_step_name(task_id: str, user_id: str | None = None) -> tuple[str, str] | None:
+    query = select(sessions.c.step, sessions.c.name).where(sessions.c.task_id == task_id)
+    if user_id is not None:
+        query = query.where(sessions.c.user_id == user_id)
     async with get_connection() as connection:
-        result = await connection.execute(select(sessions.c.step, sessions.c.name).where(sessions.c.task_id == task_id))
+        result = await connection.execute(query)
         row = result.fetchone()
     if not row:
         return None

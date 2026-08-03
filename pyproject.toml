@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.15.4"
+version = "1.16.0"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
@@ -135,6 +135,9 @@ ignore = [
 
 [tool.ruff.lint.pycodestyle]
 ignore-overlong-task-comments = true
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = ["fastapi.Depends"]
 
 [tool.ruff.lint.isort]
 section-order = ["future", "standard-library", "third-party", "first-party", "demetra", "local-folder"]
