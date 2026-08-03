@@ -123,13 +123,13 @@ class TestSubprocessService:
 
     @pytest.mark.asyncio
     async def test_run_command_handles_timeout(self, mock_subprocess_exec):
-        async def hanging_stream(*args, **kwargs):
-            await asyncio.sleep(3600)
+        async def timeout_stream(*args, **kwargs):
+            raise TimeoutError
 
         mock_process = _make_mock_process()
         mock_subprocess_exec.return_value = mock_process
 
-        with patch("demetra.services.subprocess.live_stream", side_effect=hanging_stream):
+        with patch("demetra.services.subprocess.live_stream", side_effect=timeout_stream):
             exit_code, _stdout, stderr = await run_command(["cmd"], Path("/test"), timeout=1)
 
         assert exit_code == -1
@@ -239,8 +239,8 @@ class TestSubprocessToFile:
 
     @pytest.mark.asyncio
     async def test_returns_timeout_exit_code(self, mock_subprocess_exec, mock_live_stream, tmp_path):
-        async def hanging_stream(*args, **kwargs):
-            await asyncio.sleep(3600)
+        async def timeout_stream(*args, **kwargs):
+            raise TimeoutError
 
         mock_process = MagicMock()
         mock_process.stderr = MagicMock()
@@ -248,7 +248,7 @@ class TestSubprocessToFile:
         mock_process.wait = AsyncMock(return_value=0)
         mock_subprocess_exec.return_value = mock_process
 
-        with patch("demetra.services.subprocess.live_stream", side_effect=hanging_stream):
+        with patch("demetra.services.subprocess.live_stream", side_effect=timeout_stream):
             exit_code, _stdout, stderr = await run_command_to_file(["cmd"], tmp_path, timeout=1)
 
         assert exit_code == -1

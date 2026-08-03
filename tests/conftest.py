@@ -4,6 +4,7 @@ from contextlib import ExitStack, contextmanager
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
+import bcrypt
 import pytest
 import pytest_asyncio
 from faker import Faker
@@ -33,6 +34,13 @@ from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
 fake = Faker()
 
 _test_db_engine = None
+
+
+@pytest.fixture(scope="session", autouse=True)
+def fast_bcrypt():
+    original_gensalt = bcrypt.gensalt
+    with patch.object(bcrypt, "gensalt", new=lambda: original_gensalt(rounds=4)):
+        yield
 
 
 @pytest.fixture(scope="session")

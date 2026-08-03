@@ -136,6 +136,7 @@ class TestWatcherLogsWebSocket:
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
                 patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
                 mock_session_id.return_value = "session-abc"
@@ -181,6 +182,7 @@ class TestWatcherLogsWebSocket:
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
                 patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
                 mock_session_id.return_value = "session-abc"

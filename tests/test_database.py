@@ -1,7 +1,11 @@
+import base64
 from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
+from cryptography.fernet import Fernet
+from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from sqlalchemy import insert, select
 
 from demetra.library.tables import project_environments
@@ -30,6 +34,24 @@ from demetra.services.database import (
 )
 from demetra.services.database import get_connection as _get_connection
 from demetra.services.encryption import decrypt_str
+
+
+_TEST_SECRET_KEY = "x7uKwdXjK-UPCdQ2DEoUoVoe1sAceCvG9iaJuTbwj20="
+_TEST_ENCRYPTION_SALT = "DajyYABtMczCRByZdRh1W"
+
+
+def _build_test_fernet():
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=_TEST_ENCRYPTION_SALT.encode(),
+        iterations=480_000,
+    )
+    key = base64.urlsafe_b64encode(kdf.derive(_TEST_SECRET_KEY.encode()))
+    return Fernet(key)
+
+
+_TEST_FERNET = _build_test_fernet()
 
 
 class TestDatabaseService:
@@ -445,8 +467,9 @@ class TestProjectEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
         with (
-            patch("demetra.services.encryption.SECRET_KEY", "x7uKwdXjK-UPCdQ2DEoUoVoe1sAceCvG9iaJuTbwj20="),
-            patch("demetra.services.encryption.ENCRYPTION_SALT", "DajyYABtMczCRByZdRh1W"),
+            patch("demetra.services.encryption.SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
+            patch("demetra.services.encryption.get_fernet", return_value=_TEST_FERNET),
         ):
             yield
 
