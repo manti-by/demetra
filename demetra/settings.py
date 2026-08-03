@@ -1,6 +1,7 @@
 import os
 from pathlib import Path
 
+from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
     CockieSamesite,
     GitConfig,
@@ -177,12 +178,16 @@ CORS_ALLOWED_ORIGINS = [
     for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8000").split(",")
     if origin.strip()
 ]
+if "*" in CORS_ALLOWED_ORIGINS:
+    raise SettingsError("CORS_ALLOWED_ORIGINS must contain explicit origins when credentials are enabled")
 
 
 def get_cookie_samesite() -> CockieSamesite:
     value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
     if value not in {"lax", "strict", "none"}:
         return "lax"
+    if value == "none" and not COOKIE_SECURE:
+        raise SettingsError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true")
     return value
 
 

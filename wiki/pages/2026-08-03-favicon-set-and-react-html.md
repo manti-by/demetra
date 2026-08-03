@@ -99,7 +99,7 @@ Result: a valid `MS Windows icon resource - 3 icons` (confirmed via `file favico
 
 ## Step 5 — Wire into `react/index.html`
 
-**File:** `react/index.html:8-14`
+**File:** `react/index.html:7-12`
 
 ```html
 <link rel="icon" href="/favicon.ico" sizes="48x48" />
@@ -110,7 +110,7 @@ Result: a valid `MS Windows icon resource - 3 icons` (confirmed via `file favico
 <meta name="theme-color" content="#25292e" />
 ```
 
-Order follows the realfavicon-style convention: `.ico` for legacy browsers, PNG for modern (16/32), apple-touch-icon (180) for iOS home screen, webmanifest for Android/PWA. Vite serves `react/public/` at `/` so all paths are root-relative.
+Order follows the real favicon-style convention: `.ico` for legacy browsers, PNG for modern (16/32), apple-touch-icon (180) for iOS home screen, webmanifest for Android/PWA. Vite serves `react/public/` at `/` so all paths are root-relative.
 
 ---
 

@@ -71,6 +71,9 @@ def verify_password(plain, hashed):
   hashes remain valid (no migration needed).
 - `_validate_password` still runs before both calls, preserving the `AuthError` -> `False`
   guard in `verify_password`.
+- Review follow-up: `verify_password` also catches `ValueError` (malformed bcrypt hash/salt)
+  and `UnicodeEncodeError` (non-ASCII stored hash) and returns `False`, so corrupt database
+  values fail closed instead of escaping as a server error.
 
 **File:** `pyproject.toml` — removed `passlib[bcrypt]>=1.7.4,<1.8`; added `bcrypt>=4.1.3,<4.2`.
 
@@ -81,13 +84,24 @@ with validation and a safe default.
 
 **File:** `demetra/settings.py`
 ```python
-COOKIE_SAMESITE = os.environ.get("COOKIE_SAMESITE", "lax").lower()
-if COOKIE_SAMESITE not in {"lax", "strict", "none"}:
-    COOKIE_SAMESITE = "lax"
-```
+def get_cookie_samesite() -> CockieSamesite:
+    value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
+    if value not in {"lax", "strict", "none"}:
+        return "lax"
+    if value == "none" and not COOKIE_SECURE:
+        raise SettingsError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true")
+    return value
 
-**Files:** `demetra/api/auth.py:37` and `demetra/api/github.py:31,76` — `samesite=COOKIE_SAMESITE`
-replaces the literal `"lax"` on both the auth-token and `oauth_state` cookies.
+
+COOKIE_SAMESITE = get_cookie_samesite()
+```
+- Review follow-up: `COOKIE_SAMESITE=none` without `COOKIE_SECURE=true` is rejected at startup,
+  because browsers drop `SameSite=None` cookies that lack the `Secure` attribute.
+
+**Files:** `demetra/api/auth.py:37` and `demetra/api/github.py:76` — `samesite=COOKIE_SAMESITE`
+replaces the literal `"lax"` on the `auth_token` cookie. `demetra/api/github.py:31` keeps the
+`oauth_state` cookie hardcoded to `lax`: it must survive the cross-site GitHub OAuth redirect,
+which a `strict` setting would block.
 
 ## Step 3 — Explicit CORS allowlist
 
@@ -115,9 +129,13 @@ CORS_ALLOWED_ORIGINS = [
     ).split(",")
     if origin.strip()
 ]
+if "*" in CORS_ALLOWED_ORIGINS:
+    raise SettingsError("CORS_ALLOWED_ORIGINS must contain explicit origins when credentials are enabled")
 ```
-Empty entries are filtered. Deployments must set `CORS_ALLOWED_ORIGINS` to the real frontend
-origin(s).
+Empty entries are filtered. Review follow-up: a `*` wildcard origin is rejected at startup —
+with `allow_credentials=True` (see `demetra/app.py`) Starlette forbids the wildcard origin, so
+the configuration now fails fast instead of misbehaving at runtime. Deployments must set
+`CORS_ALLOWED_ORIGINS` to the real frontend origin(s).
 
 ## Step 4 — Dependency bump, version, pre-commit, release command
 
@@ -132,10 +150,11 @@ origin(s).
 
 ## Test Results
 
-Not yet run in this session; dependency-only and config/constant substitutions (no behavior
-change beyond hashing backend and cookie/CORS provenance). Recommended before release:
+Initially not run in the first session (dependency-only and config/constant substitutions).
+After the review follow-ups (2026-08-03) the full gates were run and pass: `ruff`, `ty`,
+pre-commit, bandit, and the full suite (545 tests). Recommended gate set:
 
-```
+```shell
 uv run pre-commit run --all-files
 uv run ruff check .
 uv run ty check

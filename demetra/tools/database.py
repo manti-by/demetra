@@ -4,6 +4,8 @@ import re
 import asyncpg
 from mcp.types import TextContent, Tool
 
+from demetra.tools.result import ToolResult
+
 
 logger = logging.getLogger(__name__)
 
@@ -242,29 +244,38 @@ async def list_tools() -> list[Tool]:
     return AVAILABLE_TOOLS
 
 
-async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     args = arguments or {}
     try:
         pool = await get_db_pool()
         if name == "list_tables":
             tables = await list_tables(pool)
-            return [TextContent(type="text", text=str(tables))]
+            return ToolResult(content=[TextContent(type="text", text=str(tables))])
         if name == "get_table_definition":
             table_name = args.get("table_name")
             if not table_name:
-                return [TextContent(type="text", text="Error: table_name is required")]
+                return ToolResult(
+                    content=[TextContent(type="text", text="Error: table_name is required")],
+                    is_error=True,
+                )
             definition = await get_table_definition(pool, table_name)
-            return [TextContent(type="text", text=str(definition))]
+            return ToolResult(content=[TextContent(type="text", text=str(definition))])
         if name == "get_table_count":
             table_name = args.get("table_name")
             if not table_name:
-                return [TextContent(type="text", text="Error: table_name is required")]
+                return ToolResult(
+                    content=[TextContent(type="text", text="Error: table_name is required")],
+                    is_error=True,
+                )
             count = await get_table_count(pool, table_name)
-            return [TextContent(type="text", text=str(count))]
+            return ToolResult(content=[TextContent(type="text", text=str(count))])
         if name == "query_table":
             table_name = args.get("table_name")
             if not table_name:
-                return [TextContent(type="text", text="Error: table_name is required")]
+                return ToolResult(
+                    content=[TextContent(type="text", text="Error: table_name is required")],
+                    is_error=True,
+                )
             rows = await query_table(
                 pool,
                 table_name,
@@ -272,8 +283,14 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
                 args.get("limit", 100),
                 args.get("offset", 0),
             )
-            return [TextContent(type="text", text=str(rows))]
-        return [TextContent(type="text", text=f"Error: Unknown tool {name}")]
+            return ToolResult(content=[TextContent(type="text", text=str(rows))])
+        return ToolResult(
+            content=[TextContent(type="text", text=f"Error: Unknown tool {name}")],
+            is_error=True,
+        )
     except Exception:
         logger.exception(f"Error executing tool {name}")
-        return [TextContent(type="text", text="Error: Database operation failed")]
+        return ToolResult(
+            content=[TextContent(type="text", text="Error: Database operation failed")],
+            is_error=True,
+        )

@@ -2,6 +2,7 @@ from demetra.tools.database import call_tool as _call_database_tool
 from demetra.tools.database import list_tools as _list_database_tools
 from demetra.tools.projects import call_tool as _call_projects_tool
 from demetra.tools.projects import list_tools as _list_projects_tools
+from demetra.tools.result import ToolResult
 
 
 __all__: list[str] = []
@@ -13,7 +14,7 @@ async def list_tools() -> list:
     return db + proj
 
 
-async def call_tool(name: str, arguments: dict | None) -> list:
+async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     db_tools = await _list_database_tools()
     db_names = {t.name for t in db_tools}
     if name in db_names:

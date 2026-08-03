@@ -28,7 +28,7 @@ async def github_login():
     """
     auth_url, state = get_github_auth_url()
     response = RedirectResponse(url=auth_url)
-    response.set_cookie(key="oauth_state", value=state, httponly=True, secure=COOKIE_SECURE, samesite=COOKIE_SAMESITE)
+    response.set_cookie(key="oauth_state", value=state, httponly=True, secure=COOKIE_SECURE, samesite="lax")
     return response
 
 

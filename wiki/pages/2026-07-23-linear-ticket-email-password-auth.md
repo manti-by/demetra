@@ -5,7 +5,7 @@ type: investigation
 status: resolved
 session_id: ses_unknown
 services: [auth, linear]
-branch: -
+branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, linear, planning, email-password, github-oauth, bcrypt]
 related: []

@@ -35,8 +35,8 @@ async def handle_call_tool(
     ctx: ServerRequestContext,
     params: CallToolRequestParams,
 ) -> CallToolResult:
-    content = await call_tool(params.name, params.arguments)
-    return CallToolResult(content=content)
+    result = await call_tool(params.name, params.arguments)
+    return CallToolResult(content=result.content, is_error=result.is_error)
 
 
 mcp_server = Server(

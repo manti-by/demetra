@@ -5,7 +5,6 @@ type:               investigation
 status:             resolved
 session_id:         3eae8036-e679-4a09-be65-144e738741e0
 services:           [opencode, database, workflows, settings, groq]
-branch:             -
 tickets:            [MNT-145]
 tags:               [session-history, compaction, tokens, opencode-export, audit, cost]
 related:            [2026-07-16-session-history-tokens-null.md]
