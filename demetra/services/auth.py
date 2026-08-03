@@ -2,6 +2,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 
 import aiohttp
+from fastapi import Cookie, HTTPException
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError
 
@@ -235,6 +236,17 @@ async def get_current_user(token: str) -> UserResponse | None:
         avatar_url=user_data.get("avatar_url"),
         role=user_data.get("role", "user"),
     )
+
+
+async def get_current_user_dep(auth_token: str | None = Cookie(default=None)) -> UserResponse:
+    """FastAPI dependency that resolves the authenticated user from the auth cookie."""
+    if not auth_token:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+
+    if not (user := await get_current_user(token=auth_token)):
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+    return user
 
 
 def has_permission(user: UserResponse | dict, permission: str) -> bool:

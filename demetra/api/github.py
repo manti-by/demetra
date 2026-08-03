@@ -1,6 +1,6 @@
 import json
 
-from fastapi import APIRouter, Cookie, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
 from demetra.library.exceptions import AuthError
@@ -8,7 +8,7 @@ from demetra.library.models import UserResponse
 from demetra.services.auth import (
     authenticate_user,
     exchange_code_for_token,
-    get_current_user,
+    get_current_user_dep,
     get_github_auth_url,
     get_github_user,
     logout,
@@ -82,18 +82,12 @@ async def github_callback(
 
 
 @router.get("/me", response_model=UserResponse)
-async def get_me(auth_token: str | None = Cookie(default=None)):
+async def get_me(user: UserResponse = Depends(get_current_user_dep)):
     """Retrieve the currently authenticated user.
 
     Requires a valid authentication token in the cookie.
     Returns user profile information including ID, GitHub username, and email.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     return user
 
 

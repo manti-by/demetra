@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.services.database import get_session_step_name
+from demetra.services.database import get_session_id_by_task_id, get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 
@@ -50,12 +50,17 @@ async def watcher_logs(
         await websocket.close(code=4001, reason="Not authenticated")
         return
 
-    if not await get_current_user(token=auth_token):
+    user = await get_current_user(token=auth_token)
+    if not user:
         await websocket.close(code=4003, reason="Forbidden")
         return
 
     if not task_id or not UUID_PATTERN.match(task_id):
         await websocket.close(code=4000, reason="Invalid or missing task_id")
+        return
+
+    if not await get_session_id_by_task_id(task_id=task_id, user_id=user.id):
+        await websocket.close(code=4004, reason="Session not found")
         return
 
     log_path = LOG_DIR / f"sessions/{task_id}.log"
@@ -81,7 +86,7 @@ async def watcher_logs(
     last_seen_name: str = ""
 
     try:
-        status_info = await get_session_step_name(task_id=task_id)
+        status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
         if status_info is not None:
             last_seen_step, last_seen_name = status_info
             await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
@@ -128,7 +133,7 @@ async def watcher_logs(
 
                 if status_ticks >= 2:
                     status_ticks = 0
-                    status_info = await get_session_step_name(task_id=task_id)
+                    status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
                     if status_info is None:
                         await send_deleted(websocket=websocket)
                         break
