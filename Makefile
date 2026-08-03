@@ -10,8 +10,14 @@ run-demetra-auto:
 run-odin:
 	uv run main.py --project-name odin --no-auto
 
+run-odin-auto:
+	uv run main.py --project-name odin --auto --plan-loop
+
 run-coruscant:
 	uv run main.py --project-name coruscant --no-auto
+
+run-coruscant-auto:
+	uv run main.py --project-name coruscant --auto --plan-loop
 
 run-mgallery-auto:
 	uv run main.py --project-name mgallery --auto --plan-loop

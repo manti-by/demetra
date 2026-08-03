@@ -2,6 +2,7 @@ import os
 from pathlib import Path
 
 from demetra.library.types import (
+    CockieSamesite,
     GitConfig,
     GitHubConfig,
     GroqConfig,
@@ -170,3 +171,19 @@ ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")
 DEFAULT_USER_ID = os.environ.get("DEFAULT_USER_ID")
 
 COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "true").lower() == "true"
+
+CORS_ALLOWED_ORIGINS = [
+    origin.strip()
+    for origin in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:8000").split(",")
+    if origin.strip()
+]
+
+
+def get_cookie_samesite() -> CockieSamesite:
+    value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
+    if value not in {"lax", "strict", "none"}:
+        return "lax"
+    return value
+
+
+COOKIE_SAMESITE = get_cookie_samesite()

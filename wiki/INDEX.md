@@ -7,6 +7,9 @@ by the plugin.
 
 ## Pages
 
+- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — Debug: mcp 2.0.0 removed @server.list_tools()/@server.call_tool() decorators; rewrote demetra/mcp_server.py with on_list_tools/on_call_tool constructor callbacks returning ListToolsResult/CallToolResult, verified over stdio (2026-08-03)
+- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — Generated favicon set (.ico + PNGs + webmanifest) from media/logo.svg via sharp (cairosvg blocked by missing cairo), hand-built multi-size favicon.ico, wired icon links into react/index.html (2026-08-03)
+- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — Replaced passlib with direct bcrypt, made cookie SameSite and CORS origins env-configurable, released 1.15.5 with a dependency bump, added OpenCode release-naming command (2026-08-03)
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Implemented password-based signup/login/logout with bcrypt hashing, JWT cookies, React auth form; review follow-ups: cookie-only auth, email normalization, `--resetpass` CLI, migration for existing GitHub users (2026-07-24)
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — Investigation: mapped current GitHub-only auth (BE/FE/DB/tests), locked bcrypt + signup/login + single-table decisions via Q&A, produced [MNT-148](https://linear.app/mnt/issue/MNT-148) with file:line refs, AC, and out-of-scope follow-ups (2026-07-23)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — AGENTS.md drift fixes, DOCS.md deleted (391 lines), new OpenCode command for automated AGENTS.md maintenance, LangSmith plugin registration, wiki housekeeping (2026-07-23)
@@ -29,8 +32,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (4 pages)
+### React frontend / UI (5 pages)
 
+- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — Favicon set from logo.svg, sharp rendering, hand-built favicon.ico, manifest + HTML wiring
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth form, cookie-based API client, review follow-ups
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — New endpoint, resolver, SessionHistory component, tests
 - [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md) — MNT-142 review cleanups, bump_project_version hardened, green-accent palette, infrastructure
@@ -48,8 +52,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — Behavior-preserving refactor of setup_session_logging
 - [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — Path==str dedup bug causing double writes, build agent stdout discarded
 
-### Authentication (2 pages)
+### Authentication (3 pages)
 
+- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — passlib→bcrypt swap, env-configurable cookie SameSite and CORS origins, dep bump
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — Investigation of current GitHub-only auth; produced MNT-148 for adding email/password alongside it
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth with bcrypt, JWT cookies, React form, review follow-ups (also in React frontend)
 
@@ -62,6 +67,10 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — AGENTS.md drift fixes, DOCS.md deleted, new OpenCode command, LangSmith plugin, wiki housekeeping
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — FEATURES dict with IS_RUFF_ENABLED/IS_PYTEST_ENABLED env flags, gated lint workflow
+
+### MCP / integrations (1 page)
+
+- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — mcp 2.0 removed the list_tools/call_tool decorators; migrated to on_list_tools/on_call_tool constructor callbacks
 
 ### Notifications & listener (1 page)
 

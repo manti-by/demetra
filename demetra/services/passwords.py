@@ -1,14 +1,11 @@
-from passlib.context import CryptContext
+import bcrypt
 
 from demetra.library.exceptions import AuthError
 
 
-_PCTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-
 def hash_password(plain: str) -> str:
     _validate_password(plain=plain)
-    return _PCTX.hash(secret=plain)
+    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
 
 
 def verify_password(plain: str, hashed: str) -> bool:
@@ -16,7 +13,7 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
     try:
         _validate_password(plain=plain)
-        return _PCTX.verify(secret=plain, hash=hashed)
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("ascii"))
     except AuthError:
         return False
 
