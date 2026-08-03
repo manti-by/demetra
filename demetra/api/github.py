@@ -13,7 +13,7 @@ from demetra.services.auth import (
     get_github_user,
     logout,
 )
-from demetra.settings import COOKIE_SECURE
+from demetra.settings import COOKIE_SAMESITE, COOKIE_SECURE
 
 
 router = APIRouter(prefix="/api/v1/github")
@@ -73,7 +73,7 @@ async def github_callback(
             value=auth_response.token,
             httponly=True,
             secure=COOKIE_SECURE,
-            samesite="lax",
+            samesite=COOKIE_SAMESITE,
             max_age=14 * 24 * 60 * 60,
         )
         return response

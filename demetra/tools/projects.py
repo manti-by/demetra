@@ -4,6 +4,7 @@ from pathlib import Path
 from mcp.types import TextContent, Tool
 
 from demetra.settings import LOG_DIR
+from demetra.tools.result import ToolResult
 
 
 logger = logging.getLogger(__name__)
@@ -11,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 LOG_ROOT = LOG_DIR.resolve()
 
-_MAX_TAIL_LINES = 5000
-_DEFAULT_TAIL_LINES = 100
+MAX_TAIL_LINES = 5000
+DEFAULT_TAIL_LINES = 100
 
 
 def resolve_log_path(file_path: str) -> Path | None:
@@ -25,7 +26,7 @@ def resolve_log_path(file_path: str) -> Path | None:
 
 
 def tail_file(path: Path, lines: int) -> str:
-    lines = min(max(lines, 1), _MAX_TAIL_LINES)
+    lines = min(max(lines, 1), MAX_TAIL_LINES)
     BLOCK_SIZE = 8192
     file_size = path.stat().st_size
     if file_size == 0:
@@ -51,11 +52,11 @@ def tail_file(path: Path, lines: int) -> str:
         return b"\n".join(all_lines[-lines:]).decode("utf-8", errors="replace")
 
 
-_TOOLS = [
+AVALABLE_TOOLS = [
     Tool(
         name="list_log_files",
         description="List all log files in /var/log/demetra",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {},
         },
@@ -63,7 +64,7 @@ _TOOLS = [
     Tool(
         name="tail_logs",
         description="Tail log file from /var/log/demetra directory",
-        inputSchema={
+        input_schema={
             "type": "object",
             "properties": {
                 "file_path": {
@@ -73,7 +74,7 @@ _TOOLS = [
                 "lines": {
                     "type": "integer",
                     "description": "Number of lines to retrieve (default 100, max 5000)",
-                    "default": _DEFAULT_TAIL_LINES,
+                    "default": DEFAULT_TAIL_LINES,
                 },
             },
             "required": ["file_path"],
@@ -83,15 +84,18 @@ _TOOLS = [
 
 
 async def list_tools() -> list[Tool]:
-    return _TOOLS
+    return AVALABLE_TOOLS
 
 
-async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
+async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     args = arguments or {}
     try:
         if name == "list_log_files":
             if not LOG_ROOT.is_dir():
-                return [TextContent(type="text", text="Log directory not found")]
+                return ToolResult(
+                    content=[TextContent(type="text", text="Log directory not found")],
+                    is_error=True,
+                )
             files = sorted(LOG_ROOT.rglob("*.log"))
             result = []
             for f in files:
@@ -100,23 +104,37 @@ async def call_tool(name: str, arguments: dict | None) -> list[TextContent]:
                 mtime = f.stat().st_mtime
                 result.append(f"{rel}  ({size:,} bytes, modified {mtime:.0f})")
             if not result:
-                return [TextContent(type="text", text="No log files found")]
-            return [TextContent(type="text", text="\n".join(result))]
+                return ToolResult(content=[TextContent(type="text", text="No log files found")])
+            return ToolResult(content=[TextContent(type="text", text="\n".join(result))])
 
         if name == "tail_logs":
             file_path = args.get("file_path")
             if not file_path:
-                return [TextContent(type="text", text="Error: file_path is required")]
+                return ToolResult(
+                    content=[TextContent(type="text", text="Error: file_path is required")],
+                    is_error=True,
+                )
             resolved = resolve_log_path(file_path)
             if resolved is None:
-                return [
-                    TextContent(type="text", text=f"Error: file not found or path outside log directory: {file_path}")
-                ]
-            lines = args.get("lines", _DEFAULT_TAIL_LINES)
+                return ToolResult(
+                    content=[
+                        TextContent(
+                            type="text", text=f"Error: file not found or path outside log directory: {file_path}"
+                        )
+                    ],
+                    is_error=True,
+                )
+            lines = args.get("lines", DEFAULT_TAIL_LINES)
             content = tail_file(resolved, lines)
-            return [TextContent(type="text", text=content)]
+            return ToolResult(content=[TextContent(type="text", text=content)])
 
-        return [TextContent(type="text", text=f"Error: Unknown tool {name}")]
+        return ToolResult(
+            content=[TextContent(type="text", text=f"Error: Unknown tool {name}")],
+            is_error=True,
+        )
     except Exception:
         logger.exception(f"Error executing tool {name}")
-        return [TextContent(type="text", text="Error: Log operation failed")]
+        return ToolResult(
+            content=[TextContent(type="text", text="Error: Log operation failed")],
+            is_error=True,
+        )

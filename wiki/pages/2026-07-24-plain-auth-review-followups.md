@@ -8,7 +8,7 @@ services: [auth, api, database, react]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, passwords, jwt, cookies, accessibility]
-related: [2026-07-22-react-frontend-template-warp]
+related: [2026-07-22-react-frontend-template-warp, 2026-08-03-auth-hardening-and-deps-bump]
 ---
 
 # Plain Password Auth Implementation and Review Follow-ups
@@ -204,8 +204,17 @@ for signup, login, logout endpoints using mocked services.
 ## Follow-ups
 
 - None — all review feedback applied across two passes on the same branch.
+- _Historical note (2026-08-03):_ the `passlib`-based `passwords.py` shown above was
+  replaced with a direct `bcrypt` API, the auth-cookie `SameSite` was made env-driven
+  (`COOKIE_SAMESITE`), and the CORS origins were restricted via `CORS_ALLOWED_ORIGINS` —
+  see [[2026-08-03-auth-hardening-and-deps-bump]] for the current state.
+- _Review-fix note (2026-08-03):_ the auth hardening was further tightened after review —
+  `verify_password` now fails closed on malformed/non-ASCII stored hashes, the `oauth_state`
+  cookie is pinned to `SameSite=lax` so the GitHub redirect still works under `strict`,
+  `CORS_ALLOWED_ORIGINS=*` is rejected, and `COOKIE_SAMESITE=none` requires `COOKIE_SECURE=true`.
+  See [[2026-08-03-auth-hardening-and-deps-bump]].
 
 ## References
 
 - Linear: MNT-148
-- Related: [[2026-07-22-react-frontend-template-warp]] (auth context component)
+- Related: [[2026-07-22-react-frontend-template-warp]] (auth context component), [[2026-08-03-auth-hardening-and-deps-bump]] (subsequent hardening that replaces passlib)

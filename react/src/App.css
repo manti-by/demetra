@@ -452,7 +452,7 @@
 }
 
 .log-line {
-  padding: 1px 0;
+  padding: 0;
   animation: log-fade-in 0.15s ease;
 }
 

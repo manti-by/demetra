@@ -8,15 +8,16 @@ from demetra.api.sessions import router as sessions_router
 from demetra.api.users import router as users_router
 from demetra.api.watcher import router as watcher_router
 from demetra.api.webhooks import router as webhooks_router
+from demetra.settings import CORS_ALLOWED_ORIGINS
 
 
 app = FastAPI(title="Demetra API")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allows all origins
-    allow_methods=["*"],  # Allows all methods
-    allow_headers=["*"],  # Allows all headers
+    allow_origins=CORS_ALLOWED_ORIGINS,
+    allow_methods=["*"],
+    allow_headers=["*"],
     allow_credentials=True,
 )
 

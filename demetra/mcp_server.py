@@ -2,9 +2,15 @@ import asyncio
 import logging.config
 import sys
 
-from mcp.server import Server
+from mcp.server import ServerRequestContext
+from mcp.server.lowlevel import Server
 from mcp.server.stdio import stdio_server
-from mcp.types import TextContent, Tool
+from mcp.types import (
+    CallToolRequestParams,
+    CallToolResult,
+    ListToolsResult,
+    PaginatedRequestParams,
+)
 
 from demetra.settings import LOGGING
 from demetra.tools import call_tool, list_tools
@@ -17,17 +23,28 @@ APP_NAME = "Demetra MCP Server"
 VERSION = "1.0.0"
 
 
-mcp_server = Server(APP_NAME)
+async def handle_list_tools(
+    ctx: ServerRequestContext,
+    params: PaginatedRequestParams | None,
+) -> ListToolsResult:
+    tools = await list_tools()
+    return ListToolsResult(tools=tools)
 
 
-@mcp_server.list_tools()
-async def handle_list_tools() -> list[Tool]:
-    return await list_tools()
+async def handle_call_tool(
+    ctx: ServerRequestContext,
+    params: CallToolRequestParams,
+) -> CallToolResult:
+    result = await call_tool(params.name, params.arguments)
+    return CallToolResult(content=result.content, is_error=result.is_error)
 
 
-@mcp_server.call_tool()
-async def handle_call_tool(name: str, arguments: dict | None) -> list[TextContent]:
-    return await call_tool(name, arguments)
+mcp_server = Server(
+    APP_NAME,
+    version=VERSION,
+    on_list_tools=handle_list_tools,
+    on_call_tool=handle_call_tool,
+)
 
 
 async def main():

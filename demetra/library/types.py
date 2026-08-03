@@ -1,5 +1,8 @@
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, TypedDict
+
+
+CockieSamesite = Literal["lax", "strict", "none"]
 
 
 class LinearStates(TypedDict):
