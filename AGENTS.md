@@ -24,7 +24,16 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `migrations/`: Alembic database migrations
 - `tests/`: Comprehensive test suite (40+ files)
 - `configs/`: Systemd service files, nginx config
-- `.opencode/`: OpenCode agent definitions
+- `.opencode/`: OpenCode agent and command definitions
+- `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`)
+
+## Wiki
+
+The `wiki/` directory is a persistent, compounding knowledge base: one Markdown page per session (debug chase, investigation, code review, or set of changes), cross-linked into a knowledge graph. Conventions and the page template: [wiki/README.md](wiki/README.md); the catalog of all pages: [wiki/INDEX.md](wiki/INDEX.md).
+
+- Before planning or building, skim `wiki/INDEX.md` for prior sessions on the same subsystem.
+- For questions about past incidents, design decisions, or prior investigations, search the wiki first via the `wiki_search` MCP tool (browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
+- After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see the `wiki-*` commands in `.opencode/commands/`).
 
 ## Git Workflow
 
@@ -85,7 +94,7 @@ uv run main.py --project-name <project_name>
 - Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
-- Use only f-strings for string formatting (never use `.format()` or `%` formatting)
+- Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exception: prompt-template substitution in `demetra/services/prompt.py`)
 - Use list/dict/set comprehensions instead of `map`/`filter` where it improves readability
 - Prefer `pathlib.Path` over `os.path` for filesystem paths
 - Follow PEP 257 for docstrings where docstrings are used
@@ -151,8 +160,7 @@ Environment is controlled primarily via `demetra/settings.py` and `.env`.
 
 ## Dependencies
 
-**Core**: aiofiles, aiohttp, alembic, asyncpg, fastapi, langchain-groq, langchain-core, langsmith, mcp, psycopg, pydantic, python-jose, python-slugify, redis, rich, rq, rq-dashboard, ruff, sqlalchemy, uvicorn, websockets
-**Development**: bandit, debugpy, faker, ipython, pytest, pytest-asyncio, pytest-cov, pre-commit, ty, uv-bump
+Declared in `pyproject.toml` (core under `dependencies`, dev tooling under `[dependency-groups] dev`) and locked in `uv.lock`.
 
 ## External Dependencies
 
@@ -162,6 +170,8 @@ Demetra coordinates the following external tools:
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
+- **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
+- **Groq**: LLM API for plan/review summarisation (`demetra/services/groq.py`)
 
 ## Security Guidelines
 
@@ -172,15 +182,4 @@ Demetra coordinates the following external tools:
 
 ## AI Behavior
 
-Response style -- concise and minimal:
-
-- Provide minimal, working code without unnecessary explanation
-- Omit comments unless essential for understanding
-- Skip boilerplate and obvious patterns unless requested
-- Use type inference and shorthand syntax where possible
-- Prefer the core solution, skip tangential suggestions
-- Assume familiarity with language idioms and patterns
-- Let code speak for itself through clear naming and structure
-- Avoid over-explaining standard patterns and conventions
-- Provide just enough context to understand the solution
-- Trust the developer to handle obvious cases independently
+Response style — concise and minimal: working code without boilerplate or unnecessary explanation, clear naming over comments, no tangential suggestions.
