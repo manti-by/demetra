@@ -641,11 +641,8 @@ def auth_cookie() -> dict:
 def patch_get_current_user(user: UserResponse):
     with ExitStack() as stack:
         patches = [
-            patch("demetra.api.projects.get_current_user", new_callable=AsyncMock),
-            patch("demetra.api.users.get_current_user", new_callable=AsyncMock),
-            patch("demetra.api.github.get_current_user", new_callable=AsyncMock),
+            patch("demetra.services.auth.get_current_user", new_callable=AsyncMock),
             patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock),
-            patch("demetra.api.sessions.get_current_user", new_callable=AsyncMock),
         ]
         for p in patches:
             mock = stack.enter_context(p)
@@ -656,6 +653,20 @@ def patch_get_current_user(user: UserResponse):
 @pytest.fixture
 def authenticated_client(mock_user: UserResponse, auth_cookie: dict):
     with patch_get_current_user(mock_user):
+        client = TestClient(app, raise_server_exceptions=False)
+        client.cookies = auth_cookie
+        yield client
+
+
+@pytest.fixture
+def cross_user_client(mock_user: UserResponse, auth_cookie: dict):
+    other_user = UserResponse(
+        id="other_user_id",
+        github_username="otheruser",
+        email="other@example.com",
+        role="user",
+    )
+    with patch_get_current_user(other_user):
         client = TestClient(app, raise_server_exceptions=False)
         client.cookies = auth_cookie
         yield client

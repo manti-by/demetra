@@ -1,5 +1,27 @@
 const API_URL = import.meta.env.VITE_API_URL || '';
 
+const API_ORIGIN = resolveApiOrigin();
+
+function resolveApiOrigin(): string {
+  if (typeof window === 'undefined') return '';
+  if (API_URL) {
+    try {
+      return new URL(API_URL).origin;
+    } catch {
+      return window.location.origin;
+    }
+  }
+  return window.location.origin;
+}
+
+function assertTrustedOrigin(input: RequestInfo | URL): void {
+  if (typeof window === 'undefined' || !API_ORIGIN) return;
+  const target = new URL(input.toString(), window.location.origin);
+  if (target.origin !== API_ORIGIN) {
+    throw new Error(`Blocked credentialed request to untrusted origin: ${target.origin}`);
+  }
+}
+
 export interface User {
   id: string;
   github_username?: string | null;
@@ -13,11 +35,21 @@ export interface AuthResponse {
   user: User;
 }
 
+async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  return fetch(input, init);
+}
+
+async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    assertTrustedOrigin(input);
+  }
+  return fetch(input, { ...init, credentials: 'include' });
+}
+
 export async function getCurrentUser(): Promise<User | null> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/github/me`, {
-      credentials: 'include',
-    });
+    const response = await authenticatedFetch(`${API_URL}/api/v1/github/me`);
     if (!response.ok) {
       return null;
     }
@@ -30,9 +62,7 @@ export async function getCurrentUser(): Promise<User | null> {
 
 export async function exchangeCodeForToken(code: string, state: string): Promise<AuthResponse> {
   const params = new URLSearchParams({ code, state });
-  const response = await fetch(`${API_URL}/api/v1/github/callback?${params}`, {
-    credentials: 'include',
-  });
+  const response = await authFetch(`${API_URL}/api/v1/github/callback?${params}`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || 'Failed to exchange code');
@@ -41,10 +71,9 @@ export async function exchangeCodeForToken(code: string, state: string): Promise
 }
 
 export async function signup(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/signup`, {
+  const response = await authFetch(`${API_URL}/api/v1/auth/signup`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
@@ -55,10 +84,9 @@ export async function signup(email: string, password: string): Promise<AuthRespo
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<AuthResponse> {
-  const response = await fetch(`${API_URL}/api/v1/auth/login`, {
+  const response = await authFetch(`${API_URL}/api/v1/auth/login`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
@@ -72,9 +100,8 @@ export async function logout(): Promise<void> {
   localStorage.removeItem('auth_token');
   localStorage.removeItem('user');
   try {
-    await fetch(`${API_URL}/api/v1/auth/logout`, {
+    await authFetch(`${API_URL}/api/v1/auth/logout`, {
       method: 'POST',
-      credentials: 'include',
     });
   } catch {
     // Ignore errors
@@ -99,9 +126,7 @@ export interface Session {
 }
 
 export async function getSessions(): Promise<Session[]> {
-  const response = await fetch(`${API_URL}/api/v1/sessions`, {
-    credentials: 'include',
-  });
+  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions`);
   if (!response.ok) {
     throw new Error('Failed to fetch sessions');
   }
@@ -124,8 +149,7 @@ export interface SessionHistoryEntry {
 }
 
 export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryEntry[]> {
-  const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
-    credentials: 'include',
+  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
     signal,
   });
   if (response.status === 404) return [];
@@ -135,9 +159,8 @@ export async function getSessionHistory(taskId: string, signal?: AbortSignal): P
 
 export async function deleteSession(taskId: string): Promise<void> {
   try {
-    const response = await fetch(`${API_URL}/api/v1/sessions/${taskId}`, {
+    const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}`, {
       method: 'DELETE',
-      credentials: 'include',
     });
     if (!response.ok) {
       const error = await response.json();
@@ -161,9 +184,7 @@ export interface Project {
 }
 
 export async function getProjects(): Promise<Project[]> {
-  const response = await fetch(`${API_URL}/api/v1/projects`, {
-    credentials: 'include',
-  });
+  const response = await authenticatedFetch(`${API_URL}/api/v1/projects`);
   if (!response.ok) {
     throw new Error('Failed to fetch projects');
   }
@@ -175,10 +196,9 @@ export async function createProject(data: {
   repository_url: string;
   linear_project_id?: string;
 }): Promise<Project> {
-  const response = await fetch(`${API_URL}/api/v1/projects`, {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/projects`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -196,10 +216,9 @@ export async function updateProject(
     linear_project_id?: string;
   }
 ): Promise<Project> {
-  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
     body: JSON.stringify(data),
   });
   if (!response.ok) {
@@ -210,9 +229,8 @@ export async function updateProject(
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}`, {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}`, {
     method: 'DELETE',
-    credentials: 'include',
   });
   if (!response.ok) {
     const error = await response.json();
@@ -229,9 +247,7 @@ export interface ProjectEnvironmentEntry {
 }
 
 export async function getProjectEnvironment(projectId: string): Promise<ProjectEnvironmentEntry[]> {
-  const response = await fetch(`${API_URL}/api/v1/projects/${projectId}/environment`, {
-    credentials: 'include',
-  });
+  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}/environment`);
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || 'Failed to fetch project environment');
@@ -245,12 +261,11 @@ export async function upsertProjectEnvironment(
   value: string,
   type: 'text' | 'encrypted' = 'text'
 ): Promise<ProjectEnvironmentEntry> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
       body: JSON.stringify({ value, type }),
     }
   );
@@ -265,11 +280,10 @@ export async function deleteProjectEnvironment(
   projectId: string,
   key: string
 ): Promise<void> {
-  const response = await fetch(
+  const response = await authenticatedFetch(
     `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
     {
       method: 'DELETE',
-      credentials: 'include',
     }
   );
   if (!response.ok) {

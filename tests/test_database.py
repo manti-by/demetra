@@ -189,6 +189,24 @@ class TestDatabaseService:
         result = await get_session_step_name("nonexistent-task")
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_get_session_step_name_scopes_by_user_id(self, db_task_id: str, db_session_id: str):
+        await upsert_pending_session(
+            task_id=db_task_id,
+            session_id=db_session_id,
+            user_id="owner-user",
+            name="Owner Session",
+        )
+
+        result = await get_session_step_name(task_id=db_task_id, user_id="owner-user")
+        assert result is not None
+        step, name = result
+        assert step == "initial"
+        assert name == "Owner Session"
+
+        result = await get_session_step_name(task_id=db_task_id, user_id="other-user")
+        assert result is None
+
 
 class TestProjectEnvironments:
     @pytest.mark.asyncio

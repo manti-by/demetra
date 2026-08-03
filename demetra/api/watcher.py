@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.services.database import get_session_step_name
+from demetra.services.database import get_session_id_by_task_id, get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 
@@ -29,6 +29,19 @@ async def send_deleted(websocket: WebSocket) -> None:
     await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": ""}})
 
 
+async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> None:
+    """Accept the connection before closing so the application close code reaches the client.
+
+    Closing before accepting only fails the HTTP handshake, and servers like uvicorn
+    deliver an HTTP 403 instead of the requested close code (e.g. 4001, 4003, 4000, 4004).
+    """
+    try:
+        await websocket.accept()
+        await websocket.close(code=code, reason=reason)
+    except RuntimeError:
+        pass
+
+
 @router.websocket("/logs")
 async def watcher_logs(
     websocket: WebSocket,
@@ -47,15 +60,20 @@ async def watcher_logs(
         auth_token = token
 
     if not auth_token:
-        await websocket.close(code=4001, reason="Not authenticated")
+        await reject_connection(websocket=websocket, code=4001, reason="Not authenticated")
         return
 
-    if not await get_current_user(token=auth_token):
-        await websocket.close(code=4003, reason="Forbidden")
+    user = await get_current_user(token=auth_token)
+    if not user:
+        await reject_connection(websocket=websocket, code=4003, reason="Forbidden")
         return
 
     if not task_id or not UUID_PATTERN.match(task_id):
-        await websocket.close(code=4000, reason="Invalid or missing task_id")
+        await reject_connection(websocket=websocket, code=4000, reason="Invalid or missing task_id")
+        return
+
+    if not await get_session_id_by_task_id(task_id=task_id, user_id=user.id):
+        await reject_connection(websocket=websocket, code=4004, reason="Session not found")
         return
 
     log_path = LOG_DIR / f"sessions/{task_id}.log"
@@ -66,11 +84,11 @@ async def watcher_logs(
         resolved_path = log_path.resolve()
         log_dir_resolved = LOG_DIR.resolve()
     except OSError:
-        await websocket.close(code=4000, reason="Invalid log path")
+        await reject_connection(websocket=websocket, code=4000, reason="Invalid log path")
         return
 
     if not resolved_path.is_relative_to(log_dir_resolved):
-        await websocket.close(code=4000, reason="Invalid log path")
+        await reject_connection(websocket=websocket, code=4000, reason="Invalid log path")
         return
 
     resolved_path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +99,7 @@ async def watcher_logs(
     last_seen_name: str = ""
 
     try:
-        status_info = await get_session_step_name(task_id=task_id)
+        status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
         if status_info is not None:
             last_seen_step, last_seen_name = status_info
             await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
@@ -128,7 +146,7 @@ async def watcher_logs(
 
                 if status_ticks >= 2:
                     status_ticks = 0
-                    status_info = await get_session_step_name(task_id=task_id)
+                    status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
                     if status_info is None:
                         await send_deleted(websocket=websocket)
                         break

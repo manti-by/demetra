@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Cookie, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.models import (
@@ -9,8 +9,9 @@ from demetra.library.models import (
     ProjectEnvironmentEntry,
     ProjectEnvironmentUpsert,
     UpdateProject,
+    UserResponse,
 )
-from demetra.services.auth import get_current_user
+from demetra.services.auth import get_current_user_dep
 from demetra.services.database import (
     create_project,
     delete_project,
@@ -29,18 +30,12 @@ router = APIRouter(prefix="/api/v1/projects")
 
 
 @router.get("", response_model=list[Project])
-async def list_projects(auth_token: str | None = Cookie(default=None)):
+async def list_projects(user: UserResponse = Depends(get_current_user_dep)):
     """List all projects for the authenticated user.
 
     Returns a list of projects associated with the user's account,
     including project metadata such as name, state, repository info, and local path.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     projects = await get_projects_by_user(user_id=user.id)
     return [
         Project(
@@ -63,7 +58,7 @@ async def list_projects(auth_token: str | None = Cookie(default=None)):
 @router.post("", response_model=Project)
 async def create_project_endpoint(
     request: CreateProject,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Create a new project with GitHub repository integration.
 
@@ -71,12 +66,6 @@ async def create_project_endpoint(
     the project by cloning the repository and configuring resources.
     Returns the created project with its initial state.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid token")
-
     if not (project_name := request.name.strip()):
         raise HTTPException(status_code=400, detail="Project name cannot be empty")
 
@@ -139,19 +128,13 @@ async def create_project_endpoint(
 @router.get("/{project_id}", response_model=Project)
 async def get_project_endpoint(
     project_id: str,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Retrieve a specific project by ID.
 
     Returns the project details including metadata, repository info,
     and current state. Requires authentication and ownership verification.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     if not (project := await get_project_by_id(project_id=project_id, user_id=user.id)):
         raise HTTPException(status_code=404, detail="Project not found")
 
@@ -174,19 +157,13 @@ async def get_project_endpoint(
 async def update_project_endpoint(
     project_id: str,
     request: UpdateProject,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Update an existing project's properties.
 
     Allows updating the project name, repository URL, and Linear project ID.
     Validates ownership before applying changes.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     validated_name = request.name.strip() if request.name else None
     if validated_name == "":
         raise HTTPException(status_code=400, detail="Project name cannot be empty")
@@ -223,19 +200,13 @@ async def update_project_endpoint(
 @router.delete("/{project_id}")
 async def delete_project_endpoint(
     project_id: str,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Delete a project and its associated resources.
 
     Removes the project from the database and cleans up any
     associated local resources. Requires authentication and ownership.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     if not await delete_project(project_id=project_id, user_id=user.id):
         raise HTTPException(status_code=404, detail="Project not found")
     return {"message": "Project deleted successfully"}
@@ -244,19 +215,13 @@ async def delete_project_endpoint(
 @router.get("/{project_id}/environment", response_model=list[ProjectEnvironmentEntry])
 async def list_project_environment_endpoint(
     project_id: str,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """List environment variables for a specific project.
 
     Returns a list of key-value entries configured for the project.
     Requires authentication and ownership verification.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     try:
         entries = await list_project_environments(project_id=project_id, user_id=user.id)
     except LookupError as e:
@@ -279,7 +244,7 @@ async def upsert_project_environment_endpoint(
     project_id: str,
     key: str,
     request: ProjectEnvironmentUpsert,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Create or update a single environment variable for a project.
 
@@ -287,12 +252,6 @@ async def upsert_project_environment_endpoint(
     Encrypted values are stored encrypted and returned masked.
     Requires authentication and ownership verification.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     validated_key = key.strip()
     if not validated_key:
         raise HTTPException(status_code=400, detail="Environment key cannot be empty")
@@ -324,18 +283,12 @@ async def upsert_project_environment_endpoint(
 async def delete_project_environment_endpoint(
     project_id: str,
     key: str,
-    auth_token: str | None = Cookie(default=None),
+    user: UserResponse = Depends(get_current_user_dep),
 ):
     """Delete a single environment variable from a project.
 
     Requires authentication and ownership verification.
     """
-    if not auth_token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
-
-    if not (user := await get_current_user(token=auth_token)):
-        raise HTTPException(status_code=401, detail="Invalid or expired token")
-
     validated_key = key.strip()
     if not validated_key:
         raise HTTPException(status_code=400, detail="Environment key cannot be empty")
