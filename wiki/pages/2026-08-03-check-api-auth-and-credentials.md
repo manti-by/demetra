@@ -209,8 +209,11 @@ can be used in decorators without being flagged as mutable defaults.
 
 ## Follow-ups
 
-- None — changes are uncommitted in the working tree on top of `a1e479d`; commit and
-  open a PR for `mnt-156-check-api-auth` against `master`.
+- ~~None — changes are uncommitted in the working tree on top of `a1e479d`; commit and
+  open a PR for `mnt-156-check-api-auth` against `master`.~~ **Done** — merged as PR #66
+  (`8abcd8d`); the follow-up auth-filter/cors/mcp work landed as PR #67 (`bcddc00`).
+  _Status note (2026-08-03, Consistency Agent):_ the Step 6 version bump to `1.16.0`
+  (in `a1e479d`) was superseded by `1.15.5` in `5bcce84`; master HEAD is at `1.15.5`.
 
 ## References
 
