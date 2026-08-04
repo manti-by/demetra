@@ -23,12 +23,16 @@ consistency cross-check of all pages. Resolved two stale "not yet committed"/"bu
 executed" claims by verifying the current master tree (PR #66 / #67 merged, `47d428d` landed),
 leaving three still-open recommendations filed as follow-ups.
 
+> **Status update (2026-08-04, Consistency Agent):** PR #68 has been merged into `master`
+> (`ea754bc`, 2026-08-04); master has since advanced to `1.15.7` (was `1.15.5` when this
+> page was written). The "open as PR #68" framing below is kept as the session record.
+
 ---
 
 ## Overview
 
 Two related pieces of housekeeping, committed on the `wiki-context-integration` feature
-branch and open as PR #68 against `master`:
+branch and open as PR #68 against `master` (since merged):
 
 1. **AGENTS.md** drift revalidation — bring the agent playbook back in line with the actual
    repo (MCP tool-module pattern, prompt.py f-string exception, underscore-prefix naming ban,
@@ -104,7 +108,8 @@ Verified the working tree and git history to correct outdated page statements:
   `wiki_get_page`, `wiki_list_pages`) that AGENTS.md points agents to — is documented in
   [[2026-08-03-wiki-mcp-tools]].
 - ~~Commit and PR these `AGENTS.md` + wiki edits (changes are currently staged/unstaged on
-  `master`).~~ **Done** — committed on `wiki-context-integration`, open as PR #68.
+  `master`).~~ **Done** — committed on `wiki-context-integration`, merged as PR #68
+  (`ea754bc`, 2026-08-04).
 
 ## References
 

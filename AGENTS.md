@@ -22,7 +22,8 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/worker.py`: RQ worker
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
-- `tests/`: Comprehensive test suite (40+ files)
+- `alembic.ini`: Alembic configuration (drives the migration commands)
+- `tests/`: Comprehensive test suite (45+ files)
 - `configs/`: Systemd service files, nginx config
 - `.opencode/`: OpenCode agent and command definitions
 - `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`)
@@ -131,7 +132,7 @@ uv run bandit -c pyproject.toml .
 - `demetra/services/<system>.py` — one external system per file; subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*`.
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
-- `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
+- `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
 

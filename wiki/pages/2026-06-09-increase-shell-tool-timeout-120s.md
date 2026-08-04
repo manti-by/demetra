@@ -17,6 +17,13 @@ related: []
 
 The internal AI shell tool killed processes that ran longer than 120 seconds, terminating legitimate long builds/tests/installs. The subprocess runner now has automatic timeout protection: commands that exceed a configurable timeout (default 2 minutes) are terminated and reported with a timeout status. The timeout is configurable via environment. This is the timeout inside the agent tool layer; the workflow-level timeout was addressed separately by MNT-97.
 
+> **Status update (2026-08-04, Consistency Agent):** this setting was renamed to
+> `SUBPROCESS_TIMEOUT` and its default raised to 30 minutes by MNT-97 (`8eb72e9`,
+> 2026-06-10). Both MNT-112 and MNT-97 modify the same `run_command` timeout in
+> `demetra/services/subprocess.py` — there is no separate agent-tool-layer timeout. The
+> "default 2 minutes" claim below reflects the state before that change; the current default
+> is 1800s (`demetra/settings.py`).
+
 ---
 
 ## Overview

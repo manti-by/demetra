@@ -23,6 +23,12 @@ Added automatic context-length checks and compaction for OpenCode agent sessions
 
 Long agent sessions drift past usable context windows, degrading plan/build quality. This change tracks session length after every build iteration and compacts when over the threshold.
 
+> **Status update (2026-08-04, Consistency Agent):** the MNT-145 disable was reversed within
+> the same ticket — `5f8e428` commented out the `build.py` caller, and `47d428d` (also
+> 2026-07-23) re-enabled it driven by the non-cumulative `context_tokens` metric. Compaction
+> is live today (`demetra/workflows/build.py:96`); the "disabled in MNT-145" framing below is
+> kept as the historical record. See [[2026-07-23-session-tokens-audit-revalidation]].
+
 ## Step 1 — Persist session history
 
 **File:** `session_history` table + `SessionHistory` dataclass

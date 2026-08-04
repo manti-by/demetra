@@ -23,6 +23,10 @@ emits line-anchored snippets, and rejects path traversal. Wired into the aggrega
 `demetra/tools/__init__.py` `list_tools`/`call_tool`, added `pyyaml` as a dependency,
 bumped to 1.15.6, and covered with 28 tests.
 
+> **Status update (2026-08-04, Consistency Agent):** PR #68 has been merged into `master`
+> (`ea754bc`, 2026-08-04), so the `1.15.6` bump is on master; master has since advanced to
+> `1.15.7` (`05cbff5`). The "open as PR #68" framing below is kept as the session record.
+
 ---
 
 ## Overview
@@ -30,7 +34,7 @@ bumped to 1.15.6, and covered with 28 tests.
 `AGENTS.md` now instructs agents to "search the wiki first via the `wiki_search` MCP tool"
 (see [[2026-08-03-agents-md-and-wiki-consistency]]). This change set is the tooling that
 backs that instruction. Committed on the `wiki-context-integration` feature branch and open
-as PR #68 against `master`:
+as PR #68 against `master` (since merged):
 
 1. New `demetra/tools/wiki.py` — three MCP tools over `wiki/pages/*.md`.
 2. Aggregate wiring in `demetra/tools/__init__.py` (db + proj + wiki).
@@ -108,7 +112,8 @@ selection/truncation, path resolution incl. traversal rejection, every `call_too
 ## Follow-ups
 
 - ~~Commit and PR the staged changes (`AGENTS.md`, wiki tools, tests, dep bump) against
-  `master`.~~ **Done** — committed on `wiki-context-integration`, open as PR #68.
+  `master`.~~ **Done** — committed on `wiki-context-integration`, merged as PR #68
+  (`ea754bc`, 2026-08-04).
 - The consistency/`wiki-*` commands in `.opencode/commands/` (e.g. `wiki-write.md`,
   `wiki-consistency.md`) are the manual companions to these tools; not reviewed this session.
 

@@ -70,7 +70,7 @@ Mapped the current auth surface end-to-end to anchor the ticket in real code:
 
 Asked the user four questions to nail down scope before writing the ticket; all four answers were the recommended defaults:
 
-1. **Hashing library** → `bcrypt` via `passlib[bcrypt]` (mature, FastAPI-standard, one dep)
+1. **Hashing library** → `bcrypt` via `passlib[bcrypt]` (mature, FastAPI-standard, one dep) — *historical note (2026-08-04, Consistency Agent):* the implementation later dropped `passlib` in favor of a direct `bcrypt` dependency — see [[2026-08-03-auth-hardening-and-deps-bump]].
 2. **Scope** → signup + login only (no password reset, no email verification — separate tickets)
 3. **Account model** → single `users` table, shared email, `github_id` becomes nullable, same JWT/cookie for both flows
 4. **Team** → `M2` (chosen after listing both available teams: Vention and M2)
