@@ -25,6 +25,19 @@ TIMEOUT = 60 * 60
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
+    """Run the main workflow for a task as a subprocess.
+
+    Enforces the run-attempt limit, spawns ``main.py`` with the project name
+    and task id, streams its logs, and increments the run-attempt counter on
+    failure. Tasks that exceed the limit are moved to Awaiting Input.
+
+    Args:
+        project_name: The name of the project the task belongs to.
+        task_id: The Linear task identifier.
+
+    Returns:
+        bool: True when the workflow completed successfully.
+    """
     if not task_id:
         logger.error(f"Task ID is empty: {task_id}")
         return False
@@ -89,10 +102,27 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
 
 
 async def delay_run_workflow(project_name: str, task_id: str) -> Job:
+    """Enqueue a workflow run for a task on the RQ queue.
+
+    Args:
+        project_name: The name of the project the task belongs to.
+        task_id: The Linear task identifier.
+
+    Returns:
+        Job: The enqueued RQ job.
+    """
     return queue.enqueue(run_workflow, project_name=project_name, task_id=task_id)
 
 
 async def process_tasks(tasks: list[LinearTask]) -> None:
+    """Process a batch of TODO tasks, upserting sessions and queueing workflows.
+
+    Tasks already pending keep their session; new tasks get a pending session
+    row before their workflow is enqueued.
+
+    Args:
+        tasks: The TODO tasks to process.
+    """
     pending_ids = await get_pending_session_task_ids()
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
 

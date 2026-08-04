@@ -23,6 +23,12 @@ from demetra.settings import GITHUB, JWT
 
 
 def get_github_auth_url() -> tuple[str, str]:
+    """Build the GitHub OAuth authorization URL with a fresh state token.
+
+    Returns:
+        tuple[str, str]: The authorization URL and the state value to verify
+            the callback against.
+    """
     state = secrets.token_urlsafe(32)
     oauth = GITHUB["oauth"]
     params = {
@@ -36,6 +42,17 @@ def get_github_auth_url() -> tuple[str, str]:
 
 
 async def exchange_code_for_token(code: str) -> str:
+    """Exchange an OAuth authorization code for a GitHub access token.
+
+    Args:
+        code: The authorization code from the GitHub callback.
+
+    Returns:
+        str: The GitHub access token.
+
+    Raises:
+        AuthError: When OAuth settings are missing or the exchange fails.
+    """
     oauth = GITHUB["oauth"]
     if not oauth["client_id"] or not oauth["client_secret"]:
         raise AuthError("GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET must be set")
@@ -67,6 +84,17 @@ async def exchange_code_for_token(code: str) -> str:
 
 
 async def get_github_user(access_token: str) -> GitHubUser:
+    """Fetch the authenticated GitHub user profile with an access token.
+
+    Args:
+        access_token: A valid GitHub access token.
+
+    Returns:
+        GitHubUser: The GitHub user identity.
+
+    Raises:
+        AuthError: When the GitHub API request fails.
+    """
     oauth = GITHUB["oauth"]
     try:
         async with aiohttp.ClientSession() as session:
@@ -89,6 +117,17 @@ async def get_github_user(access_token: str) -> GitHubUser:
 
 
 def create_jwt_token(user_id: str) -> tuple[str, str]:
+    """Create a signed JWT for a user and its expiry timestamp.
+
+    Args:
+        user_id: The user id encoded in the token.
+
+    Returns:
+        tuple[str, str]: The JWT and its ISO-8601 expiry timestamp.
+
+    Raises:
+        AuthError: When no JWT secret key is configured.
+    """
     if not JWT["secret_key"]:
         raise AuthError("JWT_SECRET_KEY must be set")
 
@@ -102,6 +141,14 @@ def create_jwt_token(user_id: str) -> tuple[str, str]:
 
 
 async def verify_jwt_token(token: str) -> TokenData | None:
+    """Validate a JWT against its signature, stored session and expiry.
+
+    Args:
+        token: The JWT to verify.
+
+    Returns:
+        TokenData | None: The token payload when valid, otherwise None.
+    """
     if not JWT["secret_key"]:
         raise AuthError("JWT_SECRET_KEY must be set")
 
@@ -122,6 +169,14 @@ async def verify_jwt_token(token: str) -> TokenData | None:
 
 
 async def get_or_create_user(github_user: GitHubUser) -> str:
+    """Return the existing user id for a GitHub user, creating the user on first login.
+
+    Args:
+        github_user: The GitHub user identity.
+
+    Returns:
+        str: The user id, either newly created or already existing.
+    """
     existing_user = await get_user_by_github_id(github_user.id)
     if existing_user:
         return existing_user["id"]
@@ -135,6 +190,17 @@ async def get_or_create_user(github_user: GitHubUser) -> str:
 
 
 async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
+    """Authenticate a GitHub user, issuing a JWT and storing the session.
+
+    Args:
+        github_user: The GitHub user identity.
+
+    Returns:
+        AuthResponse: The issued token and the user payload.
+
+    Raises:
+        AuthError: When the user record cannot be found after creation.
+    """
     user_id = await get_or_create_user(github_user)
     token, expires_at = create_jwt_token(user_id)
 
@@ -156,6 +222,21 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
 
 
 async def signup_with_password(email: str, password: str) -> AuthResponse:
+    """Register a new user with an email and password.
+
+    Normalizes the email, validates the password, persists the password hash,
+    and returns an authenticated session.
+
+    Args:
+        email: The user's email address.
+        password: The plaintext password to hash and store.
+
+    Returns:
+        AuthResponse: The issued token and the new user payload.
+
+    Raises:
+        AuthError: When the email is invalid or already registered.
+    """
     email = email.strip().lower()
 
     if not email or "@" not in email:
@@ -192,6 +273,18 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
 
 
 async def login_with_password(email: str, password: str) -> AuthResponse:
+    """Authenticate a user with email and password credentials.
+
+    Args:
+        email: The user's email address.
+        password: The plaintext password to verify.
+
+    Returns:
+        AuthResponse: The issued token and the user payload.
+
+    Raises:
+        AuthError: When the credentials do not match a registered user.
+    """
     email = email.strip().lower()
 
     user_data = await get_user_by_email(email=email)
@@ -217,10 +310,24 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
 
 
 async def logout(token: str) -> None:
+    """Invalidate a JWT by deleting its stored session record.
+
+    Args:
+        token: The JWT to revoke.
+    """
     await delete_jwt_token(token)
 
 
 async def get_current_user(token: str) -> UserResponse | None:
+    """Resolve a valid token to its authenticated user, if any.
+
+    Args:
+        token: The JWT to verify.
+
+    Returns:
+        UserResponse | None: The user payload, or None when the token is
+            invalid, expired or revoked.
+    """
     token_data = await verify_jwt_token(token)
     if not token_data:
         return None
@@ -250,6 +357,15 @@ async def get_current_user_dep(auth_token: str | None = Cookie(default=None)) ->
 
 
 def has_permission(user: UserResponse | dict, permission: str) -> bool:
+    """Check whether a user holds a named permission.
+
+    Args:
+        user: The user payload as a UserResponse or a plain mapping.
+        permission: The permission name to check.
+
+    Returns:
+        bool: True when the user is granted the permission.
+    """
     if permission == "view_logs":
         role = user.role if hasattr(user, "role") else user.get("role", "user")
         return role == "admin"
@@ -257,6 +373,15 @@ def has_permission(user: UserResponse | dict, permission: str) -> bool:
 
 
 async def reset_password(email: str, password: str) -> None:
+    """Replace the password hash for the user with the given email.
+
+    Args:
+        email: The user's email address.
+        password: The new plaintext password to hash.
+
+    Raises:
+        AuthError: When no user exists for the email.
+    """
     email = email.strip().lower()
     password_hash = hash_password(plain=password)
 

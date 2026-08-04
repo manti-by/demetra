@@ -12,6 +12,11 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    """Poll Linear for TODO issues and enqueue their workflows.
+
+    Runs an infinite loop that fetches TODO tasks, upserts pending sessions
+    and queues a workflow run for each task.
+    """
     await init_db()
     logger.info(f"Process manager started, polling every {WATCHER_POLL_INTERVAL} seconds")
 

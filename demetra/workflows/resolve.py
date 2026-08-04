@@ -5,6 +5,19 @@ from demetra.services.tui import print_message
 
 
 async def run_resolve_step(context: Context, original_task: str, questions: list[str]) -> str:
+    """Run the resolve agent to answer a task's open questions.
+
+    Builds a numbered question prompt and returns the raw resolve agent
+    output.
+
+    Args:
+        context: The workflow context.
+        original_task: The original task description.
+        questions: The open questions to resolve.
+
+    Returns:
+        str: The resolve agent output.
+    """
     print_message("Running RESOLVE agent", style="heading")
 
     numbered_questions = "\n".join(f"{index}. {question}" for index, question in enumerate(questions, start=1))

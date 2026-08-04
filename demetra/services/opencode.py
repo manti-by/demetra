@@ -18,6 +18,20 @@ PLAN_HAS_QUESTIONS = "Please check my questions above."
 async def opencode_plan_agent(
     target_path: Path, task: str, task_title: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
+    """Run the opencode plan agent with plan-output formatting rules.
+
+    Appends instructions to avoid markdown tables and to signal readiness or
+    open questions with the terminal markers.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     task += (
         f"\nIMPORTANT:"
         f"\n- Do NOT use markdown tables in the implementation plan. Use lists or paragraphs instead."
@@ -42,6 +56,18 @@ async def opencode_build_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
+    """Run the opencode build agent, forbidding commits and pushes.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        session_id: Optional session id to continue.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     task += "\nDO NOT commit or push any changes, just stage them"
     return await run_opencode_agent(
         target_path=target_path,
@@ -57,6 +83,17 @@ async def opencode_build_agent(
 async def opencode_review_agent(
     target_path: Path, model: str, task_title: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
+    """Run the opencode review agent with the review prompt.
+
+    Args:
+        target_path: Directory to run the agent in.
+        model: The model to use for the review.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     task = await get_prompt(name="review_agent")
     return await run_opencode_agent(
         target_path=target_path,
@@ -69,6 +106,16 @@ async def opencode_review_agent(
 
 
 async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
+    """Run the opencode merge agent to resolve merge conflicts.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
@@ -81,6 +128,17 @@ async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str]
 async def opencode_resolve_agent(
     target_path: Path, task: str, task_title: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
+    """Run the opencode resolve agent to answer open plan questions.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
@@ -101,6 +159,21 @@ async def run_opencode_agent(
     disable_stdio: bool = False,
     env: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
+    """Run an opencode agent with the given model, task and session options.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        model: The model to use.
+        agent: The agent name, e.g. ``"plan-agent"``.
+        session_id: Optional session id to continue.
+        task_title: Optional session title.
+        disable_stdio: Whether to suppress live subprocess output.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     command = [str(OPENCODE["path"]), "run", "--dir", str(target_path), "--model", model, "--agent", agent]
 
     if session_id is not None:
@@ -113,12 +186,34 @@ async def run_opencode_agent(
 
 
 async def get_opencode_sessions(target_path: Path, env: dict[str, str] | None = None) -> list[dict[str, str]]:
+    """List opencode sessions as JSON records.
+
+    Args:
+        target_path: Directory to run the opencode CLI in.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        list[dict[str, str]]: The parsed session list.
+    """
     command = [str(OPENCODE["path"]), "session", "list", "--format", "json"]
     _, result, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
     return json.loads(result)
 
 
 async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[str, str] | None = None) -> str | None:
+    """Find the opencode session id for a task title, preferring matching directory.
+
+    Sessions are matched by title; among matches the newest one for the same
+    working directory wins, with the newest overall session as a fallback.
+
+    Args:
+        target_path: Directory to run the opencode CLI in.
+        task_title: The task title to match sessions on.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        str | None: The session id, or None when no matching session exists.
+    """
     sessions = await get_opencode_sessions(target_path=target_path, env=env)
     filtered_sessions = list(filter(lambda x: task_title == x.get("title", ""), sessions))
     if not filtered_sessions:
@@ -142,11 +237,20 @@ async def get_opencode_session_id(target_path: Path, task_title: str, env: dict[
 async def get_opencode_session_tokens(
     target_path: Path, session_id: str, env: dict[str, str] | None = None
 ) -> TokenUsage | None:
-    """Get token usage breakdown from an opencode session via `opencode export`.
+    """Read the token usage breakdown of an opencode session via export.
 
-    Returns a TokenUsage with input, output, reasoning, cache_read, cache_write,
-    and context (current context window size derived from the last assistant message).
-    Returns None if the command fails or the export JSON is malformed.
+    Returns a TokenUsage with input, output, reasoning, cache read/write, and
+    context (the current context window size derived from the last assistant
+    message).
+
+    Args:
+        target_path: Directory to run the opencode CLI in.
+        session_id: The opencode session id.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        TokenUsage | None: The token usage, or None when the export fails or
+            the JSON is malformed.
     """
     command = [str(OPENCODE["path"]), "export", session_id]
     exit_code, result, _ = await run_command_to_file(
@@ -230,7 +334,16 @@ async def get_opencode_session_tokens(
 async def get_opencode_session_length(
     target_path: Path, session_id: str, env: dict[str, str] | None = None
 ) -> int | None:
-    """Get the total token count for an opencode session via `opencode export`."""
+    """Return the total token count used by an opencode session.
+
+    Args:
+        target_path: Directory to run the opencode CLI in.
+        session_id: The opencode session id.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        int | None: The total token count, or None when unavailable.
+    """
     usage = await get_opencode_session_tokens(target_path=target_path, session_id=session_id, env=env)
     return usage.total if usage is not None else None
 
@@ -238,7 +351,16 @@ async def get_opencode_session_length(
 async def opencode_compact_session(
     target_path: Path, session_id: str, env: dict[str, str] | None = None
 ) -> tuple[int, str, str]:
-    """Run the /compact command within an existing opencode session."""
+    """Run the ``/compact`` command within an existing opencode session.
+
+    Args:
+        target_path: Directory to run the opencode CLI in.
+        session_id: The opencode session id to compact.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
     command = [
         str(OPENCODE["path"]),
         "run",
@@ -252,6 +374,17 @@ async def opencode_compact_session(
 
 
 async def extract_plan(plan_output: str) -> str:
+    """Slice the implementation plan section out of a plan agent output.
+
+    Trims leading text before the plan header and strips any trailing
+    readiness or question marker.
+
+    Args:
+        plan_output: The raw plan agent output.
+
+    Returns:
+        str: The extracted plan text.
+    """
     if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
         plan_output = plan_output[start_index:]
 

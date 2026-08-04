@@ -6,6 +6,21 @@ from demetra.settings import PROJECTS_PATH
 
 
 def get_project_root(project_name: str) -> Path:
+    """Return the filesystem root of a project directory.
+
+    Deprecated; kept for backward compatibility.
+
+    Args:
+        project_name: The name of the project directory.
+
+    Returns:
+        Path: The project directory path.
+
+    Raises:
+        SettingsError: When the projects directory is missing or not a
+            directory.
+        ProjectDoesNotExistsError: When the named project does not exist.
+    """
     # TODO: Deprecated since 28-04-2026, remove after 28-07-2026
     if not PROJECTS_PATH.exists():
         raise SettingsError(f"Projects directory '{PROJECTS_PATH}' does not exist")

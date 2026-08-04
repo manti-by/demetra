@@ -13,6 +13,20 @@ logger = logging.getLogger(__name__)
 
 
 async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
+    """Merge a pull request and resolve conflicts via the merge agent.
+
+    Loads the session and project, creates a worktree for the PR head branch,
+    performs the merge and cleans up the worktree afterwards.
+
+    Args:
+        task_id: The Linear task identifier.
+        project_id: The project id the PR belongs to.
+        pr_number: The pull request number.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+
+    Returns:
+        bool: True when the merge succeeded.
+    """
     session = await get_session(task_id=task_id)
     if not session:
         logger.error(f"Session not found for task_id: {task_id}")

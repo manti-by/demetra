@@ -30,6 +30,18 @@ _cache_lock = threading.Lock()
 
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
+    """Create an async SQLAlchemy engine for the given database.
+
+    Uses asyncpg over PostgreSQL with autocommit isolation and connection
+    pinging.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+        echo: Whether to log SQL statements.
+
+    Returns:
+        AsyncEngine: The configured async engine.
+    """
     database = db_name if db_name else DB_NAME
     url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
     return create_async_engine(
@@ -41,24 +53,61 @@ def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEng
 
 
 def get_async_session_maker(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:
+    """Create an async session maker bound to the given engine.
+
+    Args:
+        engine: The async engine to bind.
+
+    Returns:
+        async_sessionmaker[AsyncSession]: A factory for AsyncSession objects.
+    """
     return async_sessionmaker(bind=engine, class_=AsyncSession, expire_on_commit=False)
 
 
 async def get_db_session(
     engine: AsyncEngine,
 ) -> AsyncGenerator[AsyncSession]:
+    """Yield a database session as an async context manager.
+
+    Args:
+        engine: The async engine to create the session from.
+
+    Yields:
+        AsyncSession: An open async session.
+    """
     async_session_maker = get_async_session_maker(engine)
     async with async_session_maker() as session:
         yield session
 
 
 def get_sync_engine(db_name: str | None = None, echo: bool = False):
+    """Create a synchronous SQLAlchemy engine for the given database.
+
+    Uses psycopg over PostgreSQL.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+        echo: Whether to log SQL statements.
+
+    Returns:
+        Engine: The configured sync engine.
+    """
     database = db_name if db_name else DB_NAME
     url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
     return create_engine(url, echo=echo)
 
 
 async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
+    """Return a per-event-loop cached async engine, creating it on first use.
+
+    Engines are cached keyed by the running event loop and database name.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+
+    Returns:
+        AsyncEngine: The cached async engine.
+    """
     loop_id = id(asyncio.get_running_loop())
     key = (loop_id, db_name or "default")
     if key not in _engine_cache:
@@ -70,6 +119,14 @@ async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
 
 @asynccontextmanager
 async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
+    """Yield a session from the cached engine as an async context manager.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+
+    Yields:
+        AsyncSession: An open async session.
+    """
     engine = await get_cached_engine(db_name)
     async_session_maker = get_async_session_maker(engine)
     async with async_session_maker() as session:
@@ -77,6 +134,7 @@ async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSess
 
 
 async def init_db() -> None:
+    """Verify database connectivity with a trivial query."""
     async with get_connection() as connection:
         await connection.execute(text("SELECT 1"))
 
@@ -89,6 +147,25 @@ async def upsert_pending_session(
     name: str | None = None,
     linear_link: str | None = None,
 ) -> Session:
+    """Create or update a pending session row for a task.
+
+    Inserts a session in the ``initial`` step or, on conflict, refreshes the
+    mutable fields while preserving the existing step.
+
+    Args:
+        task_id: The Linear task identifier.
+        session_id: The opencode session id, or None while still pending.
+        project_id: Optional project id the session belongs to.
+        user_id: Optional user id the session belongs to.
+        name: Optional display name for the session.
+        linear_link: Optional link to the Linear issue.
+
+    Returns:
+        Session: The created or updated session record.
+
+    Raises:
+        BaseException: When the database returns no row.
+    """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         result = await connection.execute(
@@ -149,7 +226,14 @@ async def upsert_pending_session(
 
 
 async def increment_run_attempts(task_id: str) -> int:
-    """Increment run_attempts for a session and return the new value."""
+    """Increment the run attempt counter for a session.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The updated run attempt count, or 0 when the session is missing.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             text(
@@ -171,7 +255,14 @@ async def increment_run_attempts(task_id: str) -> int:
 
 
 async def reset_listener_attempts(task_id: str) -> int:
-    """Reset listener_attempts to 0 for a session and return the new value."""
+    """Reset the listener attempt counter for a session to zero.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The reset listener attempt count, or 0 when the session is missing.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             text(
@@ -193,7 +284,15 @@ async def reset_listener_attempts(task_id: str) -> int:
 
 
 async def increment_listener_attempts(task_id: str) -> int:
-    """Increment listener_attempts for a session and return the new value."""
+    """Increment the listener attempt counter for a session.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The updated listener attempt count, or 0 when the session is
+            missing.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             text(
@@ -215,10 +314,27 @@ async def increment_listener_attempts(task_id: str) -> int:
 
 
 async def create_session(task_id: str, session_id: str) -> Session:
+    """Create a pending session row linking a task to an opencode session.
+
+    Args:
+        task_id: The Linear task identifier.
+        session_id: The opencode session id.
+
+    Returns:
+        Session: The created session record.
+    """
     return await upsert_pending_session(task_id=task_id, session_id=session_id)
 
 
 async def get_session(task_id: str) -> Session | None:
+    """Fetch the session record for a task, if it exists.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        Session | None: The session record, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(sessions).where(sessions.c.task_id == task_id))
         row = result.fetchone()
@@ -245,6 +361,14 @@ async def get_session(task_id: str) -> Session | None:
 
 
 async def get_session_by_pr_link(pr_link: str) -> Session | None:
+    """Fetch the session record associated with a pull request link.
+
+    Args:
+        pr_link: The PR link to look up.
+
+    Returns:
+        Session | None: The session record, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(sessions).where(sessions.c.pr_link == pr_link))
         row = result.fetchone()
@@ -277,6 +401,20 @@ async def save_session(
     session_id: str | None = None,
     linear_link: str | None = None,
 ) -> Session:
+    """Persist a session with its build plan, advancing the step to ``plan``.
+
+    Upserts the session row by task id and returns the resulting record.
+
+    Args:
+        task_id: The Linear task identifier.
+        build_plan: The build plan markdown to store.
+        name: Optional display name for the session.
+        session_id: Optional opencode session id.
+        linear_link: Optional link to the Linear issue.
+
+    Returns:
+        Session: The saved session record.
+    """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
@@ -354,6 +492,11 @@ async def save_session(
 
 
 async def mark_session_posted(task_id: str) -> None:
+    """Mark a session's build plan as posted to Linear.
+
+    Args:
+        task_id: The Linear task identifier.
+    """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
@@ -363,6 +506,12 @@ async def mark_session_posted(task_id: str) -> None:
 
 
 async def update_session_pr_link(task_id: str, pr_link: str) -> None:
+    """Record the pull request link on a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        pr_link: The PR link to store.
+    """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
@@ -383,6 +532,12 @@ async def update_session_pr_link(task_id: str, pr_link: str) -> None:
 
 
 async def update_session_linear_link(task_id: str, linear_link: str) -> None:
+    """Record the Linear issue link on a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        linear_link: The Linear issue link to store.
+    """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
@@ -403,6 +558,17 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
 
 
 async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
+    """List sessions for a user, optionally filtered by current step.
+
+    Sessions are returned newest first.
+
+    Args:
+        user_id: The user id to scope the query to.
+        step: Optional step name to filter on.
+
+    Returns:
+        list[dict]: The matching session rows.
+    """
     query = select(sessions).where(sessions.c.user_id == user_id)
     if step is not None:
         query = query.where(sessions.c.step == step)
@@ -417,6 +583,14 @@ async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
 
 
 async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:
+    """Store or refresh an OAuth access token for a service.
+
+    Args:
+        service: The service identifier, e.g. ``"linear"``.
+        access_token: The access token to store.
+        refresh_token: Optional refresh token for the service.
+        expires_in: Token lifetime in seconds from now.
+    """
     expires_at = datetime.fromtimestamp(datetime.now(UTC).timestamp() + expires_in, tz=UTC)
     async with get_connection() as connection:
         if refresh_token is not None:
@@ -459,6 +633,15 @@ async def save_oauth_token(service: str, access_token: str, refresh_token: str |
 
 
 async def get_oauth_token(service: str) -> tuple[str, str] | None:
+    """Return a non-expired stored OAuth token for a service.
+
+    Args:
+        service: The service identifier.
+
+    Returns:
+        tuple[str, str] | None: The access token and its expiry timestamp, or
+            None when absent or expired.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(oauth_tokens).where(oauth_tokens.c.service == service))
         row = result.fetchone()
@@ -472,6 +655,12 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
 
 
 async def update_session_step(task_id: str, step: str) -> None:
+    """Update the current workflow step of a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        step: The new step value.
+    """
     async with get_connection() as connection:
         await connection.execute(
             sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=datetime.now(UTC))
@@ -480,6 +669,16 @@ async def update_session_step(task_id: str, step: str) -> None:
 
 
 async def get_session_step_name(task_id: str, user_id: str | None = None) -> tuple[str, str] | None:
+    """Return the current step and name of a session, optionally user-scoped.
+
+    Args:
+        task_id: The Linear task identifier.
+        user_id: Optional user id to scope the query to.
+
+    Returns:
+        tuple[str, str] | None: The step and name, or None when the session
+            does not exist.
+    """
     query = select(sessions.c.step, sessions.c.name).where(sessions.c.task_id == task_id)
     if user_id is not None:
         query = query.where(sessions.c.user_id == user_id)
@@ -503,7 +702,23 @@ async def record_session_history(
     context_tokens: int | None = None,
     model: str | None = None,
 ) -> SessionHistory:
-    """Insert a row into session_history recording an opencode session token usage at a workflow step."""
+    """Record an opencode session's token usage at a workflow step.
+
+    Args:
+        session_id: The opencode session id.
+        step: The workflow step name.
+        length: Optional message length in characters.
+        input_tokens: Optional input token count.
+        output_tokens: Optional output token count.
+        reasoning_tokens: Optional reasoning token count.
+        cache_read_tokens: Optional cache read token count.
+        cache_write_tokens: Optional cache write token count.
+        context_tokens: Optional context window token count.
+        model: Optional model identifier.
+
+    Returns:
+        SessionHistory: The persisted history record.
+    """
     history_id = str(uuid4())
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -542,7 +757,15 @@ async def record_session_history(
 
 
 async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) -> str | None:
-    """Return the opencode session_id for a given task_id, optionally scoped by user_id."""
+    """Return the opencode session id for a task, optionally user-scoped.
+
+    Args:
+        task_id: The Linear task identifier.
+        user_id: Optional user id to scope the query to.
+
+    Returns:
+        str | None: The opencode session id, or None when not set.
+    """
     query = select(sessions.c.session_id).where(sessions.c.task_id == task_id)
     if user_id is not None:
         query = query.where(sessions.c.user_id == user_id)
@@ -555,7 +778,14 @@ async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) ->
 
 
 async def get_session_history(session_id: str) -> list[SessionHistory]:
-    """Return all history rows for the given opencode session, ordered by creation time."""
+    """Return all history rows for an opencode session in creation order.
+
+    Args:
+        session_id: The opencode session id.
+
+    Returns:
+        list[SessionHistory]: The history records for the session.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             select(session_history)
@@ -584,6 +814,11 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
 
 
 async def get_pending_session_task_ids() -> set[str]:
+    """Return task ids of sessions that still lack an opencode session id.
+
+    Returns:
+        set[str]: The task ids of pending sessions.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(sessions.c.task_id).where(sessions.c.session_id == ""))
         rows = result.fetchall()
@@ -598,6 +833,18 @@ async def create_user(
     avatar_url: str | None = None,
     password_hash: str | None = None,
 ) -> str:
+    """Create a new user record and return its id.
+
+    Args:
+        email: The user's email address.
+        github_id: Optional GitHub account id.
+        github_username: Optional GitHub username.
+        avatar_url: Optional avatar image URL.
+        password_hash: Optional password hash for password auth.
+
+    Returns:
+        str: The id of the created user.
+    """
     user_id = str(uuid4())
     now = datetime.now(UTC)
     async with get_connection() as connection:
@@ -618,6 +865,14 @@ async def create_user(
 
 
 async def get_user_by_github_id(github_id: str) -> dict | None:
+    """Fetch a user by GitHub account id.
+
+    Args:
+        github_id: The GitHub account id.
+
+    Returns:
+        dict | None: The user row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(users).where(users.c.github_id == github_id))
         row = result.fetchone()
@@ -625,6 +880,14 @@ async def get_user_by_github_id(github_id: str) -> dict | None:
 
 
 async def get_user_by_email(email: str) -> dict | None:
+    """Fetch a user by email address.
+
+    Args:
+        email: The user's email address.
+
+    Returns:
+        dict | None: The user row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(users).where(users.c.email == email))
         row = result.fetchone()
@@ -632,6 +895,14 @@ async def get_user_by_email(email: str) -> dict | None:
 
 
 async def get_user_by_id(user_id: str) -> dict | None:
+    """Fetch a user by its internal id.
+
+    Args:
+        user_id: The user id.
+
+    Returns:
+        dict | None: The user row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(users).where(users.c.id == user_id))
         row = result.fetchone()
@@ -639,6 +910,13 @@ async def get_user_by_id(user_id: str) -> dict | None:
 
 
 async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
+    """Persist a JWT session record for a user.
+
+    Args:
+        token: The JWT to store.
+        user_id: The user id the token belongs to.
+        expires_at: ISO-8601 expiry timestamp.
+    """
     now = datetime.now(UTC)
     expires_at_dt = datetime.fromisoformat(expires_at)
 
@@ -662,6 +940,14 @@ async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
 
 
 async def get_jwt_token(token: str) -> dict | None:
+    """Fetch a stored JWT session record.
+
+    Args:
+        token: The JWT to look up.
+
+    Returns:
+        dict | None: The token row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(jwt_tokens).where(jwt_tokens.c.token == token))
         row = result.fetchone()
@@ -669,12 +955,23 @@ async def get_jwt_token(token: str) -> dict | None:
 
 
 async def delete_jwt_token(token: str) -> None:
+    """Delete a stored JWT session record, revoking the token.
+
+    Args:
+        token: The JWT to revoke.
+    """
     async with get_connection() as connection:
         await connection.execute(delete(jwt_tokens).where(jwt_tokens.c.token == token))
         await connection.commit()
 
 
 async def update_user_keys(user_id: str, keys: dict) -> None:
+    """Encrypt and store the API keys for a user.
+
+    Args:
+        user_id: The user id.
+        keys: The API keys to encrypt and persist.
+    """
     from demetra.services.encryption import encrypt
 
     encrypted_keys = encrypt(keys)
@@ -684,6 +981,12 @@ async def update_user_keys(user_id: str, keys: dict) -> None:
 
 
 async def update_user_password(user_id: str, password_hash: str) -> None:
+    """Replace the stored password hash for a user.
+
+    Args:
+        user_id: The user id.
+        password_hash: The new password hash.
+    """
     async with get_connection() as connection:
         await connection.execute(users.update().where(users.c.id == user_id).values(password_hash=password_hash))
         await connection.commit()
@@ -699,6 +1002,21 @@ async def create_project(
     local_path: str | None = None,
     state: str = "provisioning",
 ) -> dict:
+    """Create a project record and return its row as a dict.
+
+    Args:
+        user_id: The owning user id.
+        name: The project display name.
+        repository_url: The repository clone URL.
+        repository_owner: The repository owner.
+        repository_name: The repository name.
+        linear_project_id: Optional linked Linear project id.
+        local_path: Optional local checkout path.
+        state: Initial project state, defaulting to ``"provisioning"``.
+
+    Returns:
+        dict: The created project row.
+    """
     project_id = str(uuid4())
     now = datetime.now(UTC)
 
@@ -736,6 +1054,14 @@ async def create_project(
 
 
 async def search_projects_by_name(name: str) -> list[dict]:
+    """Search projects by an exact, case-insensitive name match.
+
+    Args:
+        name: The project name to search for.
+
+    Returns:
+        list[dict]: The matching project rows.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(projects).where(func.lower(projects.c.name) == name.lower()))
         rows = result.fetchall()
@@ -743,6 +1069,14 @@ async def search_projects_by_name(name: str) -> list[dict]:
 
 
 async def get_projects_by_user(user_id: str) -> list[dict]:
+    """List all projects owned by a user.
+
+    Args:
+        user_id: The owning user id.
+
+    Returns:
+        list[dict]: The project rows for the user.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(projects).where(projects.c.user_id == user_id))
         rows = result.fetchall()
@@ -750,6 +1084,14 @@ async def get_projects_by_user(user_id: str) -> list[dict]:
 
 
 async def get_project_by_id_system(project_id: str) -> dict | None:
+    """Fetch a project by id without user scoping (system access).
+
+    Args:
+        project_id: The project id.
+
+    Returns:
+        dict | None: The project row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(select(projects).where(projects.c.id == project_id))
         row = result.fetchone()
@@ -757,6 +1099,15 @@ async def get_project_by_id_system(project_id: str) -> dict | None:
 
 
 async def get_project_by_id(project_id: str, user_id: str) -> dict | None:
+    """Fetch a project by id, scoped to a specific user.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id.
+
+    Returns:
+        dict | None: The project row, or None when not found.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             select(projects).where(projects.c.id == project_id, projects.c.user_id == user_id)
@@ -774,6 +1125,23 @@ async def update_project(
     local_path: str | None = None,
     state: str | None = None,
 ) -> dict | None:
+    """Update mutable fields of a user-scoped project.
+
+    Only non-None fields are updated; the record must belong to the given
+    user.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id.
+        linear_project_id: Optional new Linear project link.
+        name: Optional new project name.
+        repository_url: Optional new repository URL.
+        local_path: Optional new local checkout path.
+        state: Optional new project state.
+
+    Returns:
+        dict | None: The updated project row, or None when not found.
+    """
     now = datetime.now(UTC)
     update_values: dict[str, datetime | str] = {"updated_at": now}
 
@@ -808,6 +1176,20 @@ async def update_project(
 
 
 async def get_project_environments(project_id: str, user_id: str | None = None) -> dict[str, str]:
+    """Return the decrypted environment variables of a project.
+
+    Encrypted values are decrypted on read; failures yield an empty value.
+
+    Args:
+        project_id: The project id.
+        user_id: Optional user id for ownership verification.
+
+    Returns:
+        dict[str, str]: The environment as a key-value mapping.
+
+    Raises:
+        LookupError: When a user is given and the project is not owned by them.
+    """
     from demetra.services.encryption import decrypt_str
 
     if user_id and not await get_project_by_id(project_id=project_id, user_id=user_id):
@@ -833,6 +1215,19 @@ async def get_project_environments(project_id: str, user_id: str | None = None) 
 
 
 async def list_project_environments(project_id: str, user_id: str) -> list[dict]:
+    """List a project's environment entries, masking encrypted values.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id for verification.
+
+    Returns:
+        list[dict]: One entry per environment variable; encrypted values are
+            replaced with a mask.
+
+    Raises:
+        LookupError: When the project is not owned by the user.
+    """
     from demetra.library.models import ENCRYPTED_VALUE_MASK
 
     if not await get_project_by_id(project_id=project_id, user_id=user_id):
@@ -862,6 +1257,25 @@ async def upsert_project_environment(
     value: str,
     env_type: str = "text",
 ) -> dict:
+    """Create or update a project environment variable.
+
+    Encrypted values are encrypted before storage.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id for verification.
+        key: The environment variable name.
+        value: The environment variable value.
+        env_type: ``"text"`` or ``"encrypted"``.
+
+    Returns:
+        dict: The created or updated entry with the value masked when
+            encrypted.
+
+    Raises:
+        LookupError: When the project is not owned by the user.
+        RuntimeError: When the database returns no row.
+    """
     from uuid import uuid4
 
     from demetra.library.models import ENCRYPTED_VALUE_MASK
@@ -912,6 +1326,16 @@ async def upsert_project_environment(
 
 
 async def delete_project_environment(project_id: str, user_id: str, key: str) -> None:
+    """Delete an environment variable from a project.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id for verification.
+        key: The environment variable name to delete.
+
+    Raises:
+        LookupError: When the project is not owned by the user.
+    """
     if not await get_project_by_id(project_id=project_id, user_id=user_id):
         raise LookupError("Project not found")
 
@@ -925,6 +1349,15 @@ async def delete_project_environment(project_id: str, user_id: str, key: str) ->
 
 
 async def delete_project(project_id: str, user_id: str) -> bool:
+    """Delete a user-scoped project together with its environment entries.
+
+    Args:
+        project_id: The project id.
+        user_id: The owning user id.
+
+    Returns:
+        bool: True when the project was deleted, False when it did not exist.
+    """
     async with get_connection() as connection:
         async with connection.begin():
             existing = await connection.execute(
@@ -942,6 +1375,15 @@ async def delete_project(project_id: str, user_id: str) -> bool:
 
 
 async def delete_session(task_id: str, user_id: str) -> bool:
+    """Delete a user-scoped session and its log file.
+
+    Args:
+        task_id: The Linear task identifier.
+        user_id: The owning user id.
+
+    Returns:
+        bool: True when the session existed and was deleted, otherwise False.
+    """
     from demetra.settings import LOG_DIR
 
     async with get_connection() as connection:
@@ -977,6 +1419,18 @@ async def record_session_step_history(
     usage: TokenUsage | None = None,
     model: str | None = None,
 ) -> SessionHistory | None:
+    """Record a workflow step's token usage for a session, when a session exists.
+
+    Args:
+        session_id: The opencode session id, or None to skip recording.
+        step: The workflow step name.
+        usage: Optional token usage summary to persist.
+        model: Optional model identifier.
+
+    Returns:
+        SessionHistory | None: The persisted history record, or None when no
+            session id is given.
+    """
     if not session_id:
         return None
 

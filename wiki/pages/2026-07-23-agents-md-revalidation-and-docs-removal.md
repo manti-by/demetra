@@ -38,7 +38,7 @@ Created an OpenCode command definition that revalidates `AGENTS.md` against the 
 
 1. **Project description** — "coding workflow orchestration tool" → "autonomous coding platform" (matches current positioning)
 2. **MCP tool module pattern** — Updated from `create_<system>_tools(mcp)` factory pattern to the current `list_tools()` / `call_tool(name, arguments)` async module pattern aggregated via `demetra/tools/__init__.py`
-3. **Feature flags section** — Added a new section documenting the `FEATURES` dict (`is_ruff_enabled`, `is_pytest_enabled`) with env vars and opt-in behavior from [[2026-07-22-feature-flag-settings-and-tests.md]]
+3. **Feature flags section** — Added a new section documenting the `FEATURES` dict (`is_ruff_enabled`, `is_pytest_enabled`) with env vars and opt-in behavior from [[2026-07-22-feature-flag-settings-and-tests]]
 4. **Dependencies** — Added `langsmith` to the core dependencies list (was already in `pyproject.toml` but missing from AGENTS.md)
 
 ## Step 3 — DOCS.md deletion
@@ -80,5 +80,5 @@ No test-impacting code changes. Lint/type/security checks are N/A for documentat
 
 ## References
 
-- Related: [[2026-07-22-feature-flag-settings-and-tests.md]]
+- Related: [[2026-07-22-feature-flag-settings-and-tests]]
 - External: [LangSmith OpenCode plugin](https://github.com/langchain-ai/langsmith-opencode)

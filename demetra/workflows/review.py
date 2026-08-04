@@ -9,12 +9,36 @@ from demetra.settings import OPENCODE
 
 
 def filter_meaningful_reviews(findings: list[str]) -> list[str]:
+    """Keep only review findings substantial enough to act on.
+
+    Drops short strings and no-issue tokens.
+
+    Args:
+        findings: The review findings to filter.
+
+    Returns:
+        list[str]: The meaningful findings.
+    """
     return [f for f in findings if len(f) >= 10 and f.casefold() not in NO_ISSUE_TOKENS_CASE]
 
 
 async def run_review_agents(
     target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
 ) -> str | None:
+    """Run all configured review agents in parallel and summarize their output.
+
+    Gathers review agent outputs, filters no-issue lines, summarizes them via
+    the LLM and keeps only meaningful findings.
+
+    Args:
+        target_path: Directory to run the reviews in.
+        session_id: Reserved; not used by the review agents.
+        task_id: Reserved; not used by the review agents.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        str | None: The numbered review comments, or None when there are none.
+    """
     print_message("Running REVIEW agents", style="heading")
 
     review_agents = []

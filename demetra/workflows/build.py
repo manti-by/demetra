@@ -20,8 +20,11 @@ async def check_and_compact_context(context: Context) -> None:
     """Check the opencode session context and run /compact if it exceeds the threshold.
 
     Also records the full TokenUsage breakdown (input, output, reasoning,
-    cache, and context tokens) along with the model in session_history
-    for the 'build' step.
+    cache, and context tokens) along with the model in session_history for the
+    ``build`` step.
+
+    Args:
+        context: The workflow context with the active session.
     """
     if not context.session_id:
         return
@@ -55,6 +58,20 @@ async def check_and_compact_context(context: Context) -> None:
 
 
 async def run_build_step(build_plan: str, context: Context) -> None:
+    """Run the build, review, version bump and lint/test loop.
+
+    Iterates the build agent, feeding it review comments or lint/test failures
+    as the next task until the pipeline is clean or the attempt budget is
+    exhausted. The project version is bumped once after the first clean pass.
+
+    Args:
+        build_plan: The plan to feed the build agent on the first iteration.
+        context: The workflow context.
+
+    Raises:
+        BuildError: When the build agent exits with an error.
+        InfiniteLoopError: When the attempt budget is exhausted.
+    """
     current_task: str = build_plan
     rerun_attempts = MAX_BUILD_ATTEMPTS
     review_attempts = MAX_REVIEW_ATTEMPTS

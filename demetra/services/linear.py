@@ -12,6 +12,14 @@ from demetra.settings import LINEAR
 
 
 def extract_comments(issue: dict) -> list[str]:
+    """Extract non-resolved comment bodies and their replies from an issue.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+
+    Returns:
+        list[str]: The comment bodies, including nested reply bodies.
+    """
     result = []
     comments = issue.get("comments", {}).get("nodes", [])
     for comment in comments:
@@ -25,11 +33,25 @@ def extract_comments(issue: dict) -> list[str]:
 
 
 def extract_labels(issue: dict) -> list[str]:
+    """Extract the label names attached to a Linear issue.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+
+    Returns:
+        list[str]: The non-empty label names.
+    """
     labels = issue.get("labels", {}).get("nodes", [])
     return [label["name"] for label in labels if label.get("name")]
 
 
 async def get_linked_projects() -> dict[str, tuple[str, str]]:
+    """Build a lookup of Linear project names and ids to Demetra projects.
+
+    Returns:
+        dict[str, tuple[str, str]]: Maps a lowercased Linear project id or
+            name to a tuple of ``(project_id, user_id)``.
+    """
     async with get_connection() as connection:
         result = await connection.execute(
             select(projects.c.id, projects.c.user_id, projects.c.linear_project_id, projects.c.name)
@@ -46,6 +68,17 @@ async def get_linked_projects() -> dict[str, tuple[str, str]]:
 
 
 async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
+    """Fetch TODO issues from Linear, filtered by project and labels.
+
+    Only issues belonging to a project are considered; an optional project
+    name narrows the results, and configured filter labels are applied.
+
+    Args:
+        project_name: Optional Linear project name to filter on.
+
+    Returns:
+        list[LinearTask]: The matching TODO issues as tasks.
+    """
     query = await get_query(name="get_all_issues")
     result = await graphql_request(query=query, variables={"state_id": LINEAR["states"]["todo"]})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
@@ -96,6 +129,14 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
 
 
 async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
+    """Fetch a single Linear task by its id.
+
+    Args:
+        task_id: The Linear issue id.
+
+    Returns:
+        LinearTask | None: The task, or None when the issue does not exist.
+    """
     query = await get_query(name="get_issue_by_id")
     result = await graphql_request(query, {"issueId": task_id})
     issue = result.get("data", {}).get("issue", {})
@@ -126,6 +167,16 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
 
 
 async def get_linear_task(project_name: str) -> LinearTask | None:
+    """Return the highest-priority TODO task for a project, if any.
+
+    Tasks are sorted by priority and creation date before picking the first.
+
+    Args:
+        project_name: The Linear project name to filter on.
+
+    Returns:
+        LinearTask | None: The selected task, or None when there are none.
+    """
     issues = await get_todo_issues(project_name=project_name)
     issues = sorted(issues, key=lambda x: (-(x.priority or 0), x.created_at or ""), reverse=True)
     if issues:
@@ -134,6 +185,15 @@ async def get_linear_task(project_name: str) -> LinearTask | None:
 
 
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
+    """Move a Linear issue to a given state.
+
+    Args:
+        task_id: The Linear issue id.
+        state_id: The target Linear state id.
+
+    Returns:
+        bool: True when the update succeeded.
+    """
     query = await get_query(name="update_issue_status")
     result = await graphql_request(query=query, variables={"issueId": task_id, "stateId": state_id})
     if result is None:
@@ -145,6 +205,15 @@ async def update_ticket_status(task_id: str, state_id: str) -> bool:
 
 
 async def post_comment(task_id: str, body: str) -> bool:
+    """Post a comment on a Linear issue.
+
+    Args:
+        task_id: The Linear issue id.
+        body: The comment body markdown.
+
+    Returns:
+        bool: True when the comment was created successfully.
+    """
     query = await get_query(name="create_issue_comment")
     result = await graphql_request(query=query, variables={"issueId": task_id, "body": body})
     if result is None:
@@ -156,6 +225,12 @@ async def post_comment(task_id: str, body: str) -> bool:
 
 
 async def linear_cleanup(context: Context, is_success: bool):
+    """Move the task to In Review on success, or back to TODO on failure.
+
+    Args:
+        context: The workflow context with the Linear task.
+        is_success: Whether the workflow completed successfully.
+    """
     if is_success:
         print_message("Workflow complete", style="heading")
         await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_review"])
@@ -174,6 +249,26 @@ async def create_linear_ticket(
     state_id: str | None = None,
     project_id: str | None = None,
 ) -> dict[str, Any]:
+    """Create a new Linear issue from structured ticket fields.
+
+    Composes the description sections, applies defaults from settings for any
+    missing ids, and returns the created issue.
+
+    Args:
+        title: The issue title.
+        description: The issue description body.
+        technical_requirements: Technical requirements section content.
+        acceptance_criteria: Acceptance criteria section content.
+        team_id: Optional team id; defaults to the configured team.
+        state_id: Optional initial state id; defaults to the configured state.
+        project_id: Optional project id to attach the issue to.
+
+    Returns:
+        dict[str, Any]: The created issue with its id, identifier and title.
+
+    Raises:
+        LinearError: When the ticket creation fails or returns no issue.
+    """
     full_description = (
         f"### Description\n{description}\n\n"
         f"### Tech Requirements\n{technical_requirements}\n\n"

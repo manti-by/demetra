@@ -54,6 +54,18 @@ async def get_session_history_endpoint(
     task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
     user: UserResponse = Depends(get_current_user_dep),
 ) -> list[dict]:
+    """Return the history of recorded step runs for a session.
+
+    Args:
+        task_id: Identifier of the session's task.
+        user: The authenticated user.
+
+    Returns:
+        list[dict]: Serialized session history rows.
+
+    Raises:
+        HTTPException: 404 when no session exists for the task.
+    """
     session_id = await get_session_id_by_task_id(task_id=task_id, user_id=user.id)
     if session_id is None:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -63,6 +75,14 @@ async def get_session_history_endpoint(
 
 
 def _serialize_history_row(row: SessionHistory) -> dict:
+    """Convert a session history record into its JSON representation.
+
+    Args:
+        row: The SessionHistory record to serialize.
+
+    Returns:
+        dict: The history row with all public fields.
+    """
     return {
         "id": row.id,
         "session_id": row.session_id,

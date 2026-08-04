@@ -14,6 +14,22 @@ async def run_command(
     env: dict[str, str] | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
 ) -> tuple[int, str, str]:
+    """Run a command as a subprocess and capture its output.
+
+    Streams stdout and stderr while the process runs, optionally suppressing
+    live output, and returns the exit code and captured streams.
+
+    Args:
+        command: The command to run as a list of arguments.
+        target_path: The working directory for the process.
+        disable_stdio: Whether to suppress live output to stdout.
+        env: Optional environment overrides merged over the current env.
+        timeout: Timeout in seconds; on expiry the process is killed and exit
+            code -1 is returned.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr.
+    """
     # TODO: MNT-111 - Process environment
     merged_env = os.environ.copy()
     if env:
@@ -51,12 +67,22 @@ async def run_command_to_file(
     env: dict[str, str] | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
 ) -> tuple[int, str, str]:
-    """Run command with stdout redirected to a temp file, then read it back.
+    """Run a command with stdout redirected to a temp file, then read it back.
 
-    Necessary for subprocesses (e.g. `opencode export`) that truncate output to the
-    OS pipe buffer (64KB) when stdout is a PIPE instead of a regular file or TTY.
-    Behaves like `run_command` but redirects stdout to a temp file, reads it back
-    after the process exits, and deletes the file.
+    Necessary for subprocesses (e.g. ``opencode export``) that truncate output
+    to the OS pipe buffer (64KB) when stdout is a PIPE instead of a regular
+    file or TTY. Behaves like ``run_command`` but redirects stdout to a temp
+    file, reads it back after the process exits, and deletes the file.
+
+    Args:
+        command: The command to run as a list of arguments.
+        target_path: The working directory for the process.
+        disable_stdio: Whether to suppress live stderr output.
+        env: Optional environment overrides merged over the current env.
+        timeout: Timeout in seconds; on expiry the process is killed.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr.
     """
     # TODO: MNT-111 - Process environment
     merged_env = os.environ.copy()

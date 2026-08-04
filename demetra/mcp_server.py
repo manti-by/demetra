@@ -27,6 +27,15 @@ async def handle_list_tools(
     ctx: ServerRequestContext,
     params: PaginatedRequestParams | None,
 ) -> ListToolsResult:
+    """Handle the MCP ``list_tools`` request.
+
+    Args:
+        ctx: The MCP server request context.
+        params: Pagination parameters, if any.
+
+    Returns:
+        ListToolsResult: The aggregated tool definitions.
+    """
     tools = await list_tools()
     return ListToolsResult(tools=tools)
 
@@ -35,6 +44,15 @@ async def handle_call_tool(
     ctx: ServerRequestContext,
     params: CallToolRequestParams,
 ) -> CallToolResult:
+    """Handle the MCP ``call_tool`` request.
+
+    Args:
+        ctx: The MCP server request context.
+        params: The tool name and arguments to invoke.
+
+    Returns:
+        CallToolResult: The tool call outcome.
+    """
     result = await call_tool(params.name, params.arguments)
     return CallToolResult(content=result.content, is_error=result.is_error)
 
@@ -48,6 +66,10 @@ mcp_server = Server(
 
 
 async def main():
+    """Run the MCP server over stdio until the transport closes.
+
+    Serves the registered tool handlers over a stdio JSON-RPC transport.
+    """
     async with stdio_server() as (read_stream, write_stream):
         await mcp_server.run(
             read_stream,

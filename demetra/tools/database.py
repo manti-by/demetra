@@ -37,6 +37,17 @@ db_pool: asyncpg.Pool | None = None
 
 
 async def get_db_pool() -> asyncpg.Pool:
+    """Return the lazily-initialized shared asyncpg connection pool.
+
+    Creates the pool on first use from the settings-defined database
+    credentials and reuses it for the lifetime of the process.
+
+    Returns:
+        asyncpg.Pool: The shared database connection pool.
+
+    Raises:
+        ValueError: If no DB_PASSWORD is configured.
+    """
     from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
     global db_pool
@@ -56,6 +67,10 @@ async def get_db_pool() -> asyncpg.Pool:
 
 
 async def close_db_pool() -> None:
+    """Close the shared database pool, if it has been created.
+
+    Releases all pooled connections and resets the module-level pool handle.
+    """
     global db_pool
     if db_pool is not None:
         await db_pool.close()
@@ -63,6 +78,14 @@ async def close_db_pool() -> None:
 
 
 async def list_tables(pool: asyncpg.Pool) -> list[dict]:
+    """List the names of all tables in the public schema.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+
+    Returns:
+        list[dict]: One entry per table with a ``table_name`` key.
+    """
     async with pool.acquire() as conn:
         rows = await conn.fetch("""
             SELECT table_name
@@ -74,6 +97,16 @@ async def list_tables(pool: asyncpg.Pool) -> list[dict]:
 
 
 async def get_table_definition(pool: asyncpg.Pool, table_name: str) -> list[dict]:
+    """Return the column schema of a table, including primary-key markers.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+        table_name: Name of the table to describe.
+
+    Returns:
+        list[dict]: One entry per column with name, data type, nullability,
+            default value and whether it is part of the primary key.
+    """
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             """
@@ -111,6 +144,14 @@ async def get_table_definition(pool: asyncpg.Pool, table_name: str) -> list[dict
 
 
 async def _load_allowed_tables(pool: asyncpg.Pool) -> set[str]:
+    """Load and cache the set of tables in the public schema.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+
+    Returns:
+        set[str]: The names of all tables currently in the public schema.
+    """
     global allowed_tables
     if allowed_tables is None:
         async with pool.acquire() as conn:
@@ -124,6 +165,20 @@ async def _load_allowed_tables(pool: asyncpg.Pool) -> set[str]:
 
 
 def _validate_table_name(table_name: str, allowed_tables: set[str] | None = None) -> str:
+    """Validate a table name against identifier rules and the allow-list.
+
+    Args:
+        table_name: The table name to validate.
+        allowed_tables: Optional set of known tables; a name outside it is
+            rejected.
+
+    Returns:
+        str: The validated table name.
+
+    Raises:
+        ValueError: If the name is not a valid identifier or not in the
+            allow-list.
+    """
     if not TABLE_NAME_RE.match(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
     if allowed_tables and table_name not in allowed_tables:
@@ -132,6 +187,19 @@ def _validate_table_name(table_name: str, allowed_tables: set[str] | None = None
 
 
 def _validate_column_name(column_name: str, allowed_columns: set[str]) -> str:
+    """Validate a column name against identifier rules and the table columns.
+
+    Args:
+        column_name: The column name to validate.
+        allowed_columns: Set of columns that exist on the target table.
+
+    Returns:
+        str: The validated column name.
+
+    Raises:
+        ValueError: If the name is not a valid identifier or is not present in
+            the table.
+    """
     if not TABLE_NAME_RE.match(column_name):
         raise ValueError(f"Invalid column name: {column_name}")
     if column_name not in allowed_columns:
@@ -140,6 +208,15 @@ def _validate_column_name(column_name: str, allowed_columns: set[str]) -> str:
 
 
 async def _get_table_columns(pool: asyncpg.Pool, table_name: str) -> set[str]:
+    """Return the set of column names for a given table.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+        table_name: Name of the table to inspect.
+
+    Returns:
+        set[str]: The column names of the table.
+    """
     async with pool.acquire() as conn:
         rows = await conn.fetch(
             "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
@@ -149,10 +226,27 @@ async def _get_table_columns(pool: asyncpg.Pool, table_name: str) -> set[str]:
 
 
 def _filter_sensitive_columns(row: dict) -> dict:
+    """Drop sensitive columns (tokens, passwords, etc.) from a result row.
+
+    Args:
+        row: A raw result row as a mapping.
+
+    Returns:
+        dict: The row with any sensitive columns removed.
+    """
     return {k: v for k, v in row.items() if k.lower() not in SENSITIVE_COLUMNS}
 
 
 async def get_table_count(pool: asyncpg.Pool, table_name: str) -> dict:
+    """Count the rows of a validated table.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+        table_name: Name of the table to count.
+
+    Returns:
+        dict: A mapping with the original ``table_name`` and its row ``count``.
+    """
     allowed_tables = await _load_allowed_tables(pool)
     validated_name = _validate_table_name(table_name, allowed_tables)
     async with pool.acquire() as conn:
@@ -167,6 +261,21 @@ async def query_table(
     limit: int = 100,
     offset: int = 0,
 ) -> list[dict]:
+    """Query a validated table with optional equality filters.
+
+    Limits the result set to 1-1000 rows, validates the table and filter
+    column names, and strips sensitive columns from every returned row.
+
+    Args:
+        pool: The asyncpg connection pool to query.
+        table_name: Name of the table to query.
+        filters: Optional equality filters as ``{column: value}`` pairs.
+        limit: Maximum number of rows to return.
+        offset: Row offset for pagination.
+
+    Returns:
+        list[dict]: The matching rows with sensitive columns removed.
+    """
     limit = min(max(limit, 1), 1000)
     allowed_tables = await _load_allowed_tables(pool)
     validated_name = _validate_table_name(table_name, allowed_tables)
@@ -241,10 +350,27 @@ AVAILABLE_TOOLS = [
 
 
 async def list_tools() -> list[Tool]:
+    """Return the database MCP tool definitions.
+
+    Returns:
+        list[Tool]: The static list of available database tools.
+    """
     return AVAILABLE_TOOLS
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
+    """Dispatch a database MCP tool call by name.
+
+    Executes the requested operation against the shared database pool and
+    wraps both results and errors into a ToolResult.
+
+    Args:
+        name: The name of the database tool to invoke.
+        arguments: Optional tool arguments as a mapping.
+
+    Returns:
+        ToolResult: The tool output, or an error result on failure.
+    """
     args = arguments or {}
     try:
         pool = await get_db_pool()

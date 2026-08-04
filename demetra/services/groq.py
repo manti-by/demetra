@@ -18,10 +18,18 @@ PLAN_OUTPUT_MAX_CHARS = 32_000
 
 
 async def extract_questions(plan_output: str) -> list[str]:
-    """
-    The plan agent emits an explicit terminal marker. Only run extraction when it
-    signalled open questions; otherwise the LLM tends to fabricate questions out of
-    the plan's build steps and verification notes.
+    """Extract open questions from a plan output when explicitly signalled.
+
+    The plan agent emits an explicit terminal marker; extraction only runs
+    when that marker is present, otherwise the LLM tends to fabricate
+    questions out of the plan's build steps and verification notes.
+
+    Args:
+        plan_output: The raw plan agent output.
+
+    Returns:
+        list[str]: The extracted questions, or an empty list when none were
+            signalled.
     """
     if PLAN_HAS_QUESTIONS not in plan_output:
         return []
@@ -45,10 +53,17 @@ async def extract_questions(plan_output: str) -> list[str]:
 
 
 async def summarize_review(review_output: str) -> list[str]:
-    """
-    The review agent output is noisy (thinking prose, no-issue affirmations) and
-    the LLM is good at telling actual CRITICAL/ERROR findings apart from the
-    rest. Skip the LLM call entirely when there is nothing to feed it.
+    """Summarize the critical findings from a noisy review agent output.
+
+    The review agent output is noisy (thinking prose, no-issue affirmations)
+    and the LLM is good at telling actual CRITICAL/ERROR findings apart from
+    the rest. The LLM call is skipped entirely when there is no input.
+
+    Args:
+        review_output: The raw review agent output.
+
+    Returns:
+        list[str]: De-duplicated review findings, or an empty list.
     """
     if not review_output or not review_output.strip():
         return []
@@ -80,6 +95,18 @@ async def summarize_review(review_output: str) -> list[str]:
 
 
 async def process_text_with_groq(text: str) -> dict[str, str]:
+    """Analyze a task text and return a structured ticket breakdown.
+
+    Uses an LLM to split the text into title, description, technical
+    requirements, acceptance criteria and project name. Falls back to a
+    naive breakdown when the LLM returns nothing.
+
+    Args:
+        text: The raw task text to analyze.
+
+    Returns:
+        dict[str, str]: The structured ticket fields.
+    """
     llm = ChatGroq(model=GROQ["model"], temperature=0.3, max_tokens=2048, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(
         [
@@ -103,6 +130,19 @@ async def process_text_with_groq(text: str) -> dict[str, str]:
 
 
 async def extract_plan(plan_output: str, task_description: str, comments: list[str]) -> str:
+    """Condense a raw plan output into a concise build plan summary.
+
+    Truncates the plan output to the last PLAN_OUTPUT_MAX_CHARS and asks the
+    LLM to summarize it in the context of the task description and comments.
+
+    Args:
+        plan_output: The raw plan agent output.
+        task_description: The original task description.
+        comments: Any additional comments on the task.
+
+    Returns:
+        str: The summarized build plan.
+    """
     plan_output = plan_output[-PLAN_OUTPUT_MAX_CHARS:]
 
     task_description_full = (
@@ -123,6 +163,16 @@ async def extract_plan(plan_output: str, task_description: str, comments: list[s
 
 
 async def generate_pr_description(task_details: str, build_plan: str | None = None) -> str:
+    """Generate a pull request description from task details and build plan.
+
+    Args:
+        task_details: The task details to base the description on.
+        build_plan: Optional build plan to include; a placeholder is used when
+            absent.
+
+    Returns:
+        str: The generated PR description, or an empty string on failure.
+    """
     llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=1024, max_retries=2)
     prompt = ChatPromptTemplate.from_messages(
         [

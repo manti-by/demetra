@@ -17,7 +17,15 @@ logger = logging.getLogger(__name__)
 
 
 def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
-    """Verify GitHub webhook signature."""
+    """Verify a GitHub webhook payload against its HMAC-SHA256 signature.
+
+    Args:
+        payload_body: The raw webhook request body.
+        signature_header: The ``X-Hub-Signature-256`` header value.
+
+    Returns:
+        bool: True when the signature matches the configured webhook secret.
+    """
     secret = GITHUB.get("webhook", {}).get("secret")
     if not secret:
         logger.warning("Webhook secret is not configured — rejecting all webhooks")
@@ -32,7 +40,14 @@ def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
 
 
 def extract_pr_link(stdout: str) -> str | None:
-    """Extract PR URL from command output."""
+    """Extract the PR URL from a command output line.
+
+    Args:
+        stdout: The command output to scan.
+
+    Returns:
+        str | None: The first GitHub pull request URL found, or None.
+    """
     for line in stdout.splitlines():
         line = line.strip()
         if "github.com" in line and "/pull/" in line:
@@ -41,7 +56,18 @@ def extract_pr_link(stdout: str) -> str | None:
 
 
 async def get_pr_info(pr_number: int, full_name: str, target_path: Path, env: dict) -> tuple[str, str] | None:
-    """Retrieves PR head and base branch names using GitHub CLI."""
+    """Fetch the head and base branch names of a pull request.
+
+    Args:
+        pr_number: The pull request number.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+        target_path: Directory to run the GitHub CLI in.
+        env: Environment overrides for the subprocess.
+
+    Returns:
+        tuple[str, str] | None: The head and base branch names, or None on
+            failure.
+    """
     pr_cmd = [
         str(GITHUB["path"]),
         "pr",
@@ -73,7 +99,19 @@ async def create_pull_request(
     body: str | None = None,
     env: dict | None = None,
 ) -> tuple[int, str, str]:
-    """Create a pull request using GitHub CLI."""
+    """Create a pull request for a branch using the GitHub CLI.
+
+    Args:
+        target_path: Directory to run the GitHub CLI in.
+        branch_name: The head branch of the pull request.
+        title: The pull request title.
+        base: The base branch, defaulting to ``"master"``.
+        body: Optional pull request body.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the command.
+    """
     cmd = [
         str(GITHUB["path"]),
         "pr",
@@ -91,7 +129,18 @@ async def create_pull_request(
 
 
 async def pr_comment(pr_number: int, full_name: str, body: str, target_path: Path, env: dict) -> bool:
-    """Add a comment to a GitHub PR using GitHub CLI."""
+    """Post a comment on a GitHub pull request using the GitHub CLI.
+
+    Args:
+        pr_number: The pull request number.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+        body: The comment body.
+        target_path: Directory to run the GitHub CLI in.
+        env: Environment overrides for the subprocess.
+
+    Returns:
+        bool: True when the comment was posted successfully.
+    """
     cmd = [
         str(GITHUB["path"]),
         "pr",
@@ -110,7 +159,20 @@ async def pr_comment(pr_number: int, full_name: str, body: str, target_path: Pat
 
 
 async def clone_repo(repo_url: str, parent_path: Path, target_path: Path) -> dict:
-    """Clone a repository."""
+    """Clone a repository into the target path if it does not exist yet.
+
+    Args:
+        repo_url: The repository clone URL.
+        parent_path: Directory to run the GitHub CLI in.
+        target_path: Destination directory for the clone.
+
+    Returns:
+        dict: ``{"cloned": False}`` when the target already exists, otherwise
+            ``{"cloned": True}``.
+
+    Raises:
+        RuntimeError: When the clone fails.
+    """
     if target_path.exists():
         return {"cloned": False}
     cmd = [str(GITHUB["path"]), "repo", "clone", repo_url, str(target_path)]
@@ -121,6 +183,17 @@ async def clone_repo(repo_url: str, parent_path: Path, target_path: Path) -> dic
 
 
 async def _is_pr_authorization(payload: dict) -> bool:
+    """Check whether a comment author is authorized to trigger PR actions.
+
+    The author is authorized when they own the repository or hold write/admin
+    collaborator permission on it.
+
+    Args:
+        payload: The GitHub webhook payload.
+
+    Returns:
+        bool: True when the comment author is authorized.
+    """
     comment = payload.get("comment", {})
     repository = payload.get("repository", {})
 
@@ -160,6 +233,19 @@ async def _is_pr_authorization(payload: dict) -> bool:
 
 
 async def webhook_rebase_handler(payload: dict) -> dict:
+    """Handle a GitHub webhook payload for merge/rebase commands on PR comments.
+
+    Authorizes the comment author, looks up the session for the PR, and
+    enqueues the matching merge or rebase workflow when the comment body
+    contains the recognized command.
+
+    Args:
+        payload: The GitHub webhook payload.
+
+    Returns:
+        dict: A result describing the action taken or the reason it was
+            ignored.
+    """
     comment = payload.get("comment", {})
     body = comment.get("body", "")
     if not body:

@@ -13,11 +13,27 @@ ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
 
 def ansi_strip(text: str) -> str:
+    """Remove ANSI escape sequences from a string.
+
+    Args:
+        text: The text to clean.
+
+    Returns:
+        str: The text without ANSI escape codes.
+    """
     return ANSI_ESCAPE_RE.sub("", text)
 
 
 class AnsiStrippingFilter(logging.Filter):
     def filter(self, record: LogRecord) -> bool:
+        """Strip ANSI escape codes from log records before they are emitted.
+
+        Args:
+            record: The log record to filter.
+
+        Returns:
+            bool: Always True; the record is always allowed through.
+        """
         record.msg = ansi_strip(record.msg)
         return True
 
@@ -50,6 +66,16 @@ NO_ISSUE_TOKENS_CASE = {t.casefold() for t in NO_ISSUE_TOKENS}
 async def live_stream(
     stream: asyncio.StreamReader, result: list[str] | None = None, disable_stdio: bool = False
 ) -> None:
+    """Stream lines from a subprocess stream until EOF.
+
+    Lines are ANSI-stripped, optionally collected and optionally echoed to
+    stdout and the stream logger.
+
+    Args:
+        stream: The stream reader to consume.
+        result: Optional list to append decoded lines to.
+        disable_stdio: Whether to suppress live output to stdout.
+    """
     while True:
         if not (line := await stream.readline()):
             break
@@ -65,6 +91,12 @@ async def live_stream(
 
 
 async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) -> None:
+    """Forward lines from a subprocess stream to a logging callable.
+
+    Args:
+        stream: The stream reader to consume.
+        logger_callable: The callable invoked with each decoded line.
+    """
     while True:
         if not (line := await stream.readline()):
             break
@@ -74,6 +106,16 @@ async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) ->
 
 
 async def is_package_installed(target_path: Path, package_name: str, env: dict[str, str] | None = None) -> bool:
+    """Check whether a package is installed in the project's environment.
+
+    Args:
+        target_path: Directory of the project whose environment to query.
+        package_name: The package name to look for.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        bool: True when the package appears in the dependency tree.
+    """
     from demetra.services.subprocess import run_command
     from demetra.settings import UV
 
@@ -87,6 +129,14 @@ async def is_package_installed(target_path: Path, package_name: str, env: dict[s
 
 
 async def setup_session_logging(task_id: str) -> None:
+    """Route logging for a workflow session into its own log file.
+
+    Installs a file handler for the session's log path on the root and stream
+    loggers, replacing the previous root file handler to avoid duplication.
+
+    Args:
+        task_id: The task identifier used to name the session log file.
+    """
     session_dir = LOG_DIR if LOG_DIR.name == "sessions" else LOG_DIR / "sessions"
     session_dir.mkdir(parents=True, exist_ok=True)
     session_log_path = session_dir / f"{task_id}.log"
@@ -117,6 +167,16 @@ async def setup_session_logging(task_id: str) -> None:
 
 
 def non_negative_int(value: object) -> int | None:
+    """Coerce a value to a non-negative int, or None when unsuitable.
+
+    Rejects booleans, non-ints and negative values.
+
+    Args:
+        value: The value to coerce.
+
+    Returns:
+        int | None: The non-negative int, or None.
+    """
     if isinstance(value, bool):
         return None
     if not isinstance(value, int):

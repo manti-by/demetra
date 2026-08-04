@@ -11,6 +11,14 @@ __all__: list[str] = []
 
 
 async def list_tools() -> list:
+    """Return the aggregated tool definitions from all tool modules.
+
+    Combines the database, project and wiki MCP tool lists into a single
+    response for the MCP server.
+
+    Returns:
+        list: The concatenated list of Tool definitions.
+    """
     db = await _list_database_tools()
     proj = await _list_projects_tools()
     wiki = await _list_wiki_tools()
@@ -18,6 +26,18 @@ async def list_tools() -> list:
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
+    """Dispatch a tool call to the module that owns the named tool.
+
+    Resolves the tool name against the database and wiki tool sets first and
+    falls back to the projects module for any remaining names.
+
+    Args:
+        name: The name of the MCP tool to invoke.
+        arguments: Optional tool arguments as a mapping.
+
+    Returns:
+        ToolResult: The outcome of the underlying tool call.
+    """
     db_tools = await _list_database_tools()
     db_names = {t.name for t in db_tools}
     if name in db_names:

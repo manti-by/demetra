@@ -18,14 +18,32 @@ router = APIRouter(prefix="/ws/v1/watcher")
 
 
 async def send_log(websocket: WebSocket, line: str) -> None:
+    """Send a single log line over the websocket as a "log" envelope.
+
+    Args:
+        websocket: The connected websocket.
+        line: The log line to send.
+    """
     await websocket.send_json({"type": "log", "data": {"text": line}})
 
 
 async def send_status(websocket: WebSocket, step: str, name: str = "") -> None:
+    """Send a session status update over the websocket as a "status" envelope.
+
+    Args:
+        websocket: The connected websocket.
+        step: The current session step.
+        name: Optional session or task name.
+    """
     await websocket.send_json({"type": "status", "data": {"step": step, "name": name}})
 
 
 async def send_deleted(websocket: WebSocket) -> None:
+    """Notify the client that the session has been deleted.
+
+    Args:
+        websocket: The connected websocket.
+    """
     await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": ""}})
 
 

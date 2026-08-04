@@ -28,16 +28,35 @@ class LinearTask:
 
     @property
     def full_title(self) -> str:
+        """Return the identifier and title combined into a single display string.
+
+        Returns:
+            str: The stripped identifier and title separated by a colon,
+                e.g. ``"DEMETRA-123: Add auth"``.
+        """
         return f"{self.identifier.strip()}: {self.title.strip()}"
 
     @property
     def text(self) -> str:
+        """Return the task body formatted for LLM consumption.
+
+        Includes the title and description, and appends any comments when
+        present.
+
+        Returns:
+            str: The prompt-ready task text, optionally with comments.
+        """
         if self.comments:
             return f"{self.title.strip()}\n({self.description.strip()})\n\nComments:\n{'\n'.join(self.comments)}"
         return f"{self.title.strip()}\n({self.description.strip()})"
 
     @property
     def slug(self) -> str:
+        """Return a URL-friendly slug derived from the identifier and title.
+
+        Returns:
+            str: A slugified string, e.g. ``"demetra-123-add-auth"``.
+        """
         return slugify(f"{self.identifier.strip()}-{self.title.strip()}")
 
 
@@ -52,6 +71,12 @@ class TokenUsage:
 
     @property
     def total(self) -> int:
+        """Return the sum of all recorded token counts.
+
+        Returns:
+            int: Total tokens across input, output, reasoning, cache reads and
+                cache writes.
+        """
         return self.input + self.output + self.reasoning + self.cache_read + self.cache_write
 
 
@@ -133,12 +158,23 @@ class Project:
 
     @property
     def environment(self) -> dict[str, str]:
+        """Return the cached environment variables for the project.
+
+        Returns:
+            dict[str, str]: The environment mapping, or an empty dict when no
+                environment has been loaded yet.
+        """
         if self._environment is None:
             return {}
         return self._environment
 
     @environment.setter
     def environment(self, value: dict[str, str]) -> None:
+        """Set the cached environment variables for the project.
+
+        Args:
+            value: The environment mapping to cache.
+        """
         self._environment = value
 
 
@@ -168,10 +204,22 @@ class Context:
 
     @property
     def session_id(self) -> str | None:
+        """Return the linked session id when a session is present.
+
+        Returns:
+            str | None: The session id, or None when the context has no
+                session.
+        """
         return self.session.session_id if self.session is not None else None
 
     @property
     def build_plan(self) -> str | None:
+        """Return the build plan when a session is present.
+
+        Returns:
+            str | None: The session build plan, or None when the context has
+                no session.
+        """
         return self.session.build_plan if self.session is not None else None
 
 

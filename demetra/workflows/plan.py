@@ -14,6 +14,24 @@ from demetra.workflows.resolve import run_resolve_step
 
 
 async def run_plan_step(context: Context) -> str | None:
+    """Run the plan agent and finalize a build plan for the task.
+
+    Iterates the plan agent, extracts and saves the build plan, records
+    session token history, and resolves open questions either automatically
+    (plan loop / resolve agent), via Linear comments, or through user input.
+
+    Args:
+        context: The workflow context.
+
+    Returns:
+        str | None: The finalized build plan, or None when the plan is empty.
+
+    Raises:
+        PlanError: When the plan agent exits with an error.
+        AutoCancelledError: In auto mode when questions are posted to Linear.
+        UserCancelledError: When the user exits the workflow.
+        InfiniteLoopError: When the plan loop attempt budget is exhausted.
+    """
     current_task: str = context.linear_task.text
     plan_attempts = MAX_PLAN_ATTEMPTS if context.plan_loop else 1
     while plan_attempts > 0:

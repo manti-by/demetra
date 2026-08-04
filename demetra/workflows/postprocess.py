@@ -6,6 +6,19 @@ from demetra.services.utils import is_package_installed
 
 
 async def postprocess_with_ruff(target_path: Path, env: dict[str, str] | None = None) -> tuple[bool, str | None]:
+    """Auto-format and auto-fix a directory with ruff and report remaining issues.
+
+    Runs ruff format and ruff check --fix, then computes the diff of issues
+    that could not be fixed automatically.
+
+    Args:
+        target_path: Directory to post-process.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[bool, str | None]: Whether unresolved ruff issues remain, and
+            the diff feedback when they do.
+    """
     if not await is_package_installed(target_path=target_path, package_name="ruff", env=env):
         return False, None
 

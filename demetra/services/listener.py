@@ -18,6 +18,11 @@ logger = logging.getLogger(__name__)
 
 
 async def get_notifications() -> list[dict]:
+    """Fetch the current GitHub notifications for the authenticated user.
+
+    Returns:
+        list[dict]: The parsed notifications, or an empty list on failure.
+    """
     command = [
         str(GITHUB["path"]),
         "api",
@@ -39,10 +44,29 @@ async def get_notifications() -> list[dict]:
 
 
 def should_process_notification(notification: dict) -> bool:
+    """Decide whether a notification is worth processing.
+
+    Only notifications triggered by a mention or a subscription are handled.
+
+    Args:
+        notification: The GitHub notification payload.
+
+    Returns:
+        bool: True when the notification should be processed.
+    """
     return notification.get("reason") in ("mention", "subscribed")
 
 
 def extract_pr_info(notification: dict) -> dict | None:
+    """Extract pull request info from a notification.
+
+    Args:
+        notification: The GitHub notification payload.
+
+    Returns:
+        dict | None: The PR number, full repository name and title, or None
+            when the notification is not about a pull request.
+    """
     subject = notification.get("subject", {})
     if subject.get("type") != "PullRequest":
         return None
@@ -71,6 +95,17 @@ def extract_pr_info(notification: dict) -> dict | None:
 
 
 async def fetch_subject_body(subject: dict) -> str | None:
+    """Fetch the latest comment body for a notification subject.
+
+    Falls back to the subject title when no comment URL is available or the
+    request fails.
+
+    Args:
+        subject: The notification subject payload.
+
+    Returns:
+        str | None: The comment body or the subject title.
+    """
     latest_comment_url = subject.get("latest_comment_url")
     if not latest_comment_url:
         return subject.get("title")
@@ -90,18 +125,39 @@ async def fetch_subject_body(subject: dict) -> str | None:
 
 
 def mentions_demetra_ai_and_merge(body: str | None) -> bool:
+    """Check whether a comment body contains the merge command.
+
+    Args:
+        body: The comment body, or None.
+
+    Returns:
+        bool: True when the merge command pattern is found.
+    """
     if not body:
         return False
     return bool(MERGE_COMMAND_PATTERN.search(body))
 
 
 def mentions_demetra_ai_and_rebase(body: str | None) -> bool:
+    """Check whether a comment body contains the rebase command.
+
+    Args:
+        body: The comment body, or None.
+
+    Returns:
+        bool: True when the rebase command pattern is found.
+    """
     if not body:
         return False
     return bool(REBASE_COMMAND_PATTERN.search(body))
 
 
 async def mark_notification_read(notification: dict) -> None:
+    """Mark a GitHub notification thread as read.
+
+    Args:
+        notification: The GitHub notification payload.
+    """
     thread_id = notification.get("id")
     if not thread_id:
         return
@@ -119,6 +175,20 @@ async def mark_notification_read(notification: dict) -> None:
 
 
 async def process_notification(pr_info: dict, action: str) -> bool:
+    """Enqueue a merge or rebase workflow for a PR notification.
+
+    Resolves the session for the PR link, enforces the listener attempt limit,
+    and enqueues the matching workflow. The listener attempt counter is reset
+    after a successful enqueue.
+
+    Args:
+        pr_info: The PR info dict with ``pr_number`` and ``full_name``.
+        action: The workflow action, ``"merge"`` or ``"rebase"``.
+
+    Returns:
+        bool: True when the workflow was enqueued or the attempt limit was
+            reached, otherwise False.
+    """
     pr_number, full_name = pr_info["pr_number"], pr_info["full_name"]
     pr_link = f"https://github.com/{full_name}/pull/{pr_number}"
 
@@ -161,8 +231,24 @@ async def process_notification(pr_info: dict, action: str) -> bool:
 
 
 async def process_merge_notification(pr_info: dict) -> bool:
+    """Process a notification as a merge command.
+
+    Args:
+        pr_info: The PR info dict for the notification.
+
+    Returns:
+        bool: True when the merge workflow was enqueued.
+    """
     return await process_notification(pr_info=pr_info, action="merge")
 
 
 async def process_rebase_notification(pr_info: dict) -> bool:
+    """Process a notification as a rebase command.
+
+    Args:
+        pr_info: The PR info dict for the notification.
+
+    Returns:
+        bool: True when the rebase workflow was enqueued.
+    """
     return await process_notification(pr_info=pr_info, action="rebase")

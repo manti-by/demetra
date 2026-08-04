@@ -17,6 +17,15 @@ DEFAULT_TAIL_LINES = 100
 
 
 def resolve_log_path(file_path: str) -> Path | None:
+    """Resolve a relative log path and ensure it stays inside the log root.
+
+    Args:
+        file_path: Relative path to a log file, e.g. ``"sessions/abc.log"``.
+
+    Returns:
+        Path | None: The resolved path if it is a file inside the log
+            directory, otherwise None.
+    """
     target = (LOG_ROOT / file_path).resolve()
     try:
         target.relative_to(LOG_ROOT)
@@ -26,6 +35,19 @@ def resolve_log_path(file_path: str) -> Path | None:
 
 
 def tail_file(path: Path, lines: int) -> str:
+    """Read the trailing lines of a log file without loading it fully.
+
+    Reads backwards in blocks from the end of the file and decodes only the
+    last requested lines.
+
+    Args:
+        path: Path of the file to read.
+        lines: Number of trailing lines to return, clamped to 1..MAX_TAIL_LINES.
+
+    Returns:
+        str: The requested trailing lines, or an empty string for an empty
+            file.
+    """
     lines = min(max(lines, 1), MAX_TAIL_LINES)
     BLOCK_SIZE = 8192
     file_size = path.stat().st_size
@@ -84,10 +106,27 @@ AVALABLE_TOOLS = [
 
 
 async def list_tools() -> list[Tool]:
+    """Return the project/log MCP tool definitions.
+
+    Returns:
+        list[Tool]: The static list of available log tools.
+    """
     return AVALABLE_TOOLS
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
+    """Dispatch a project log MCP tool call by name.
+
+    Handles listing log files and tailing individual log files, wrapping both
+    results and errors into a ToolResult.
+
+    Args:
+        name: The name of the log tool to invoke.
+        arguments: Optional tool arguments as a mapping.
+
+    Returns:
+        ToolResult: The tool output, or an error result on failure.
+    """
     args = arguments or {}
     try:
         if name == "list_log_files":

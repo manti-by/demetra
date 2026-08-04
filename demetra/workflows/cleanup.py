@@ -13,6 +13,22 @@ from demetra.settings import OPENCODE
 
 
 async def commit_and_push(context: Context) -> bool:
+    """Commit, push and open a pull request for the current branch.
+
+    Stages changes, commits with the task title, pushes the branch, generates
+    a PR description, creates the PR and records the PR link and final session
+    history.
+
+    Args:
+        context: The workflow context.
+
+    Returns:
+        bool: True when the PR was created, False when there were no files to
+            commit.
+
+    Raises:
+        PullRequestError: When the PR creation fails.
+    """
     print_message("Committing changes", style="heading")
 
     has_files = await git_add_all(target_path=context.worktree_path, env=context.project.environment)
@@ -85,6 +101,18 @@ async def cleanup_workflow(
     should_update_linear_status: bool,
     failure_step: str = "failed",
 ) -> None:
+    """Finalize a workflow run: record history, clean up git and update Linear.
+
+    On failure the session step and token history are recorded under
+    ``failure_step``. The worktree is always removed and, when requested, the
+    Linear ticket is moved according to the outcome.
+
+    Args:
+        context: The workflow context.
+        is_success: Whether the workflow completed successfully.
+        should_update_linear_status: Whether to move the Linear ticket.
+        failure_step: Step name to record on failure.
+    """
     if not is_success:
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
         if context.session_id:

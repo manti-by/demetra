@@ -4,6 +4,19 @@ from demetra.services.tui import print_message
 
 
 async def user_input(options: list[tuple[str, str]]) -> tuple[str, str | None]:
+    """Prompt the user to choose a numbered option from an interactive menu.
+
+    Reads input from stdin; option ``"1"`` is treated as the default when the
+    user enters nothing. If the chosen action is ``"comment"``, a non-empty
+    comment is also collected.
+
+    Args:
+        options: List of ``(index, label)`` pairs to present as choices.
+
+    Returns:
+        tuple[str, str | None]: The chosen action label and an optional
+            comment.
+    """
     print_message("How would you like to proceed?")
 
     choices = []

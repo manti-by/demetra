@@ -8,6 +8,20 @@ from demetra.settings import PARENT_HOME
 
 
 async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None = None) -> Context | None:
+    """Prepare a project and task into a runnable workflow context.
+
+    Loads the project, its environment and auth, resolves the Linear task
+    (from a task id or the next TODO), pulls latest changes and creates a
+    feature worktree.
+
+    Args:
+        project_name: The name of the project to run.
+        auto_mode: Whether the workflow runs without user interaction.
+        task_id: Optional Linear task id; otherwise the next TODO is picked.
+
+    Returns:
+        Context | None: The prepared context, or None when setup fails.
+    """
     projects = await search_projects_by_name(name=project_name)
     if not projects:
         print_message(f"Project {project_name} not found", style="error")

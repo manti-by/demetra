@@ -60,6 +60,18 @@ TERM_RE = re.compile(r"[a-z0-9][a-z0-9_.\-]*")
 
 
 def _parse_page(path: Path) -> dict[str, Any] | None:
+    """Parse a wiki page file into metadata and body content.
+
+    Reads YAML frontmatter delimited by ``---`` lines; pages with invalid or
+    non-mapping frontmatter are skipped with a warning.
+
+    Args:
+        path: Path of the ``.md`` page file.
+
+    Returns:
+        dict[str, Any] | None: A mapping with ``name``, ``meta`` and ``body``
+            keys, or None when the frontmatter cannot be parsed.
+    """
     text = path.read_text(encoding="utf-8")
     meta: dict[str, Any] = {}
     body = text
@@ -80,6 +92,14 @@ def _parse_page(path: Path) -> dict[str, Any] | None:
 
 
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
+    """Load all valid wiki pages from a directory, sorted by name.
+
+    Args:
+        pages_root: Directory containing ``*.md`` wiki page files.
+
+    Returns:
+        list[dict[str, Any]]: The parsed pages in sorted filename order.
+    """
     pages: list[dict[str, Any]] = []
     for path in sorted(pages_root.glob("*.md")):
         page = _parse_page(path)
@@ -89,6 +109,19 @@ def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
 
 
 def _resolve_page(pages_root: Path, name: str) -> Path | None:
+    """Resolve a page name to a file path confined to the pages directory.
+
+    Appends the ``.md`` suffix when needed and rejects any path that escapes
+    the pages root.
+
+    Args:
+        pages_root: Directory containing the wiki page files.
+        name: Page file name, with or without the ``.md`` suffix.
+
+    Returns:
+        Path | None: The resolved file path if the page exists, otherwise
+            None.
+    """
     slug = name.strip().removeprefix("pages/")
     if not slug.endswith(".md"):
         slug = f"{slug}.md"
@@ -101,10 +134,28 @@ def _resolve_page(pages_root: Path, name: str) -> Path | None:
 
 
 def _tokenize(query: str) -> list[str]:
+    """Split a query into lowercase terms, dropping stop words and short terms.
+
+    Args:
+        query: The raw search query.
+
+    Returns:
+        list[str]: The meaningful search terms.
+    """
     return [term for term in TERM_RE.findall(query.lower()) if term not in STOP_WORDS and len(term) > 1]
 
 
 def _metadata_text(meta: dict[str, Any]) -> str:
+    """Flatten searchable frontmatter fields into a lowercase string.
+
+    Combines tags, services, tickets and type values for scoring.
+
+    Args:
+        meta: The page frontmatter mapping.
+
+    Returns:
+        str: A space-joined lowercase string of metadata values.
+    """
     parts = []
     for key in ("tags", "services", "tickets", "type"):
         value = meta.get(key)
@@ -116,6 +167,17 @@ def _metadata_text(meta: dict[str, Any]) -> str:
 
 
 def _score_page(page: dict[str, Any], terms: list[str]) -> int:
+    """Rank a page against search terms using weighted term counts.
+
+    Title matches count most heavily, followed by metadata and then body text.
+
+    Args:
+        page: The parsed wiki page.
+        terms: The search terms to match.
+
+    Returns:
+        int: The cumulative relevance score for the page.
+    """
     title = str(page["meta"].get("title") or "").lower()
     metadata = _metadata_text(page["meta"])
     body = page["body"].lower()
@@ -128,6 +190,18 @@ def _score_page(page: dict[str, Any], terms: list[str]) -> int:
 
 
 def _extract_snippets(body: str, terms: list[str]) -> list[str]:
+    """Pick the most relevant line snippets from a page body.
+
+    Lines are scored by term hits, capped at MAX_SNIPPETS, and returned in
+    line-number order with a length cap per snippet.
+
+    Args:
+        body: The page body text.
+        terms: The search terms to match against lines.
+
+    Returns:
+        list[str]: Snippet lines prefixed with their line number.
+    """
     scored: list[tuple[int, int, str]] = []
     for lineno, line in enumerate(body.splitlines(), start=1):
         stripped = line.strip()
@@ -143,6 +217,17 @@ def _extract_snippets(body: str, terms: list[str]) -> list[str]:
 
 
 def _search_pages(pages_root: Path, query: str, limit: int) -> list[dict[str, Any]]:
+    """Search the wiki pages and return the top matches for a query.
+
+    Args:
+        pages_root: Directory containing the wiki page files.
+        query: The raw search query.
+        limit: Maximum number of results to return.
+
+    Returns:
+        list[dict[str, Any]]: Ranked results, each holding ``page``, ``score``
+            and ``terms``, or an empty list when the query has no terms.
+    """
     terms = _tokenize(query)
     if not terms:
         return []
@@ -156,6 +241,14 @@ def _search_pages(pages_root: Path, query: str, limit: int) -> list[dict[str, An
 
 
 def _summarize_meta(meta: dict[str, Any]) -> str:
+    """Render the key frontmatter fields of a page as a readable summary.
+
+    Args:
+        meta: The page frontmatter mapping.
+
+    Returns:
+        str: A comma-joined summary of type, date, status and list fields.
+    """
     parts = [
         f"type: {meta.get('type') or '-'}",
         f"date: {meta.get('date') or '-'}",
@@ -171,6 +264,14 @@ def _summarize_meta(meta: dict[str, Any]) -> str:
 
 
 def _page_title(page: dict[str, Any]) -> str:
+    """Return the display title of a page, falling back to its filename.
+
+    Args:
+        page: The parsed wiki page.
+
+    Returns:
+        str: The frontmatter title, or the page file name when absent.
+    """
     return str(page["meta"].get("title") or page["name"])
 
 
@@ -227,10 +328,23 @@ AVAILABLE_TOOLS = [
 
 
 async def list_tools() -> list[Tool]:
+    """Return the wiki MCP tool definitions.
+
+    Returns:
+        list[Tool]: The static list of available wiki tools.
+    """
     return AVAILABLE_TOOLS
 
 
 def _format_search_results(results: list[dict[str, Any]]) -> str:
+    """Format ranked search results into a readable text block.
+
+    Args:
+        results: The ranked search results from ``_search_pages``.
+
+    Returns:
+        str: A numbered, snippet-bearing summary of each result.
+    """
     blocks = []
     for position, result in enumerate(results, start=1):
         page = result["page"]
@@ -245,6 +359,18 @@ def _format_search_results(results: list[dict[str, Any]]) -> str:
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
+    """Dispatch a wiki MCP tool call by name.
+
+    Supports listing, searching and fetching wiki pages, wrapping both
+    results and errors into a ToolResult.
+
+    Args:
+        name: The name of the wiki tool to invoke.
+        arguments: Optional tool arguments as a mapping.
+
+    Returns:
+        ToolResult: The tool output, or an error result on failure.
+    """
     args = arguments or {}
     try:
         if not PAGES_ROOT.is_dir():

@@ -12,6 +12,14 @@ router = APIRouter(prefix="/api/v1/auth")
 
 
 def _auth_response(auth_response):
+    """Build the JSON response body describing the authenticated user.
+
+    Args:
+        auth_response: An AuthResponse instance with the user payload.
+
+    Returns:
+        Response: A JSON response containing only the public user fields.
+    """
     return Response(
         content=json.dumps(
             {
@@ -29,6 +37,15 @@ def _auth_response(auth_response):
 
 
 def _set_auth_cookie(*, response: Response, token: str) -> Response:
+    """Set the httpOnly authentication cookie on a response.
+
+    Args:
+        response: The response to attach the cookie to.
+        token: The JWT to store in the cookie.
+
+    Returns:
+        Response: The same response with the auth cookie set.
+    """
     response.set_cookie(
         key="auth_token",
         value=token,
@@ -42,6 +59,17 @@ def _set_auth_cookie(*, response: Response, token: str) -> Response:
 
 @router.post("/signup")
 async def signup(request: SignupRequest) -> Response:
+    """Register a new user with email and password.
+
+    Args:
+        request: The signup payload with email and password.
+
+    Returns:
+        Response: A JSON user payload with an auth cookie set.
+
+    Raises:
+        HTTPException: 400 when the credentials are invalid.
+    """
     try:
         auth_response = await signup_with_password(email=request.email, password=request.password)
     except AuthError as e:
@@ -55,6 +83,17 @@ async def signup(request: SignupRequest) -> Response:
 
 @router.post("/login")
 async def login(request: LoginRequest) -> Response:
+    """Authenticate an existing user and set an auth cookie.
+
+    Args:
+        request: The login payload with email and password.
+
+    Returns:
+        Response: A JSON user payload with an auth cookie set.
+
+    Raises:
+        HTTPException: 401 when the credentials are invalid.
+    """
     try:
         auth_response = await login_with_password(email=request.email, password=request.password)
     except AuthError as e:
@@ -68,6 +107,15 @@ async def login(request: LoginRequest) -> Response:
 
 @router.post("/logout")
 async def do_logout(response: Response, auth_token: str | None = Cookie(default=None)) -> Response:
+    """Invalidate the session token and clear the auth cookie.
+
+    Args:
+        response: The response to clear the cookie on.
+        auth_token: The current auth cookie value, if any.
+
+    Returns:
+        Response: A confirmation response with the auth cookie deleted.
+    """
     if auth_token:
         await logout(token=auth_token)
 

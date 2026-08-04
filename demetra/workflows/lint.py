@@ -11,6 +11,22 @@ from demetra.settings import FEATURES
 async def run_lint_and_test(
     target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
 ) -> tuple[bool, str | None]:
+    """Run the optional ruff and pytest steps over a project directory.
+
+    Ruff and pytest only run when the package is installed and the matching
+    feature flag is enabled. The first failing step returns its output as
+    feedback for the build agent.
+
+    Args:
+        target_path: Directory to lint and test.
+        session_id: Reserved; not used by the commands.
+        task_id: Optional task id used to update the session step.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[bool, str | None]: Whether a step failed, and the failure
+            output when one did.
+    """
     if (
         await is_package_installed(target_path=target_path, package_name="ruff", env=env)
         and FEATURES["is_ruff_enabled"]

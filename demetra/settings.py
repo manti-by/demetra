@@ -183,6 +183,18 @@ if "*" in CORS_ALLOWED_ORIGINS:
 
 
 def get_cookie_samesite() -> CockieSamesite:
+    """Resolve the cookie SameSite value from the environment.
+
+    Validates the ``COOKIE_SAMESITE`` setting and enforces that ``none``
+    requires secure cookies.
+
+    Returns:
+        CockieSamesite: ``"lax"``, ``"strict"`` or ``"none"``, defaulting to
+            ``"lax"`` for unknown values.
+
+    Raises:
+        SettingsError: When ``none`` is requested without secure cookies.
+    """
     value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
     if value not in {"lax", "strict", "none"}:
         return "lax"

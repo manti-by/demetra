@@ -15,6 +15,15 @@ console = Console()
 
 
 def print_message(message: str, style: str | None = None):
+    """Print a message to the console with a style, mirroring it to the log.
+
+    Supported styles are ``heading``, ``result``, ``info``, ``error`` and the
+    default unstyled text.
+
+    Args:
+        message: The message text to print.
+        style: Optional display style name.
+    """
     safe = escape(message) if message else ""
     if style == "heading":
         console.print("\n\u25cf ", style="bold bright_green", end="")
@@ -39,6 +48,7 @@ def print_message(message: str, style: str | None = None):
 
 
 async def print_heading():
+    """Print the styled application header banner to the console."""
     text = Text(header)
     text.stylize("magenta", 0, 150)
     text.stylize("cyan", 150, 250)

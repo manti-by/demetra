@@ -21,6 +21,12 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
+    """Poll GitHub notifications and process merge/rebase command mentions.
+
+    Runs an infinite loop that fetches notifications, extracts PR info,
+    matches merge/rebase commands in the comment bodies, enqueues the
+    corresponding workflows and marks processed notifications as read.
+    """
     await init_db()
     logger.info(f"GitHub notification listener started, polling every {LISTENER_POLL_INTERVAL} seconds")
 

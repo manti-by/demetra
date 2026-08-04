@@ -6,6 +6,17 @@ from demetra.settings import LINEAR
 
 
 async def get_valid_token() -> str:
+    """Return a valid OAuth access token, refreshing it when expired.
+
+    Returns a stored non-expired token when available, otherwise fetches a new
+    one via client credentials.
+
+    Returns:
+        str: A valid access token.
+
+    Raises:
+        LinearError: When OAuth settings are missing or the fetch fails.
+    """
     token_data = await get_oauth_token(LINEAR["service_name"])
     if token_data and token_data[0]:
         return token_data[0]
@@ -18,6 +29,15 @@ async def get_valid_token() -> str:
 
 
 async def fetch_new_token() -> str:
+    """Fetch and persist a fresh OAuth access token via client credentials.
+
+    Returns:
+        str: The newly fetched access token.
+
+    Raises:
+        LinearError: When OAuth settings are missing, the response contains no
+            token, or the request fails.
+    """
     if not LINEAR["client_id"] or not LINEAR["client_secret"]:
         raise LinearError("LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET must be set")
 

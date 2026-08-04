@@ -9,6 +9,17 @@ from demetra.settings import ENCRYPTION_SALT, SECRET_KEY
 
 
 def get_fernet() -> Fernet:
+    """Create a Fernet cipher derived from the app secret key.
+
+    Derives a 32-byte key via PBKDF2-HMAC-SHA256 from the configured secret
+    key and salt.
+
+    Returns:
+        Fernet: A configured Fernet instance for encrypting and decrypting.
+
+    Raises:
+        ValueError: When SECRET_KEY or ENCRYPTION_SALT is not configured.
+    """
     if not SECRET_KEY or not ENCRYPTION_SALT:
         raise ValueError("SECRET_KEY and/or ENCRYPTION_SALT is not configured")
 
@@ -19,6 +30,14 @@ def get_fernet() -> Fernet:
 
 
 def encrypt(data: dict) -> str:
+    """Encrypt a dict as a JSON Fernet token.
+
+    Args:
+        data: The mapping to serialize and encrypt.
+
+    Returns:
+        str: The encrypted token string.
+    """
     fernet = get_fernet()
     json_data = json.dumps(data)
     encrypted = fernet.encrypt(json_data.encode())
@@ -26,6 +45,17 @@ def encrypt(data: dict) -> str:
 
 
 def decrypt(encrypted_data: str) -> dict:
+    """Decrypt a Fernet token back into a dict.
+
+    Args:
+        encrypted_data: The encrypted token string.
+
+    Returns:
+        dict: The decrypted mapping.
+
+    Raises:
+        ValueError: When the token is invalid or corrupted.
+    """
     try:
         fernet = get_fernet()
         decrypted = fernet.decrypt(encrypted_data.encode())
@@ -35,12 +65,31 @@ def decrypt(encrypted_data: str) -> dict:
 
 
 def encrypt_str(plaintext: str) -> str:
+    """Encrypt a plain string into a Fernet token.
+
+    Args:
+        plaintext: The string to encrypt.
+
+    Returns:
+        str: The encrypted token string.
+    """
     fernet = get_fernet()
     encrypted = fernet.encrypt(plaintext.encode())
     return encrypted.decode()
 
 
 def decrypt_str(ciphertext: str) -> str:
+    """Decrypt a Fernet token back into a plain string.
+
+    Args:
+        ciphertext: The encrypted token string.
+
+    Returns:
+        str: The decrypted string.
+
+    Raises:
+        ValueError: When the token is invalid or corrupted.
+    """
     try:
         fernet = get_fernet()
         decrypted = fernet.decrypt(ciphertext.encode())

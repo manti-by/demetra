@@ -9,12 +9,34 @@ from demetra.settings import BASE_PATH, LINEAR
 
 
 async def get_query(name: str) -> str:
+    """Load a GraphQL query document from the queries directory.
+
+    Args:
+        name: The query file name without extension.
+
+    Returns:
+        str: The GraphQL query string.
+    """
     async with aiofiles.open(BASE_PATH / f"demetra/queries/{name}.gql") as file:
         content = await file.read()
     return content
 
 
 async def graphql_request(query: str, variables: dict[str, Any] | None = None) -> dict:
+    """Send a GraphQL request to the Linear API and return its raw payload.
+
+    Resolves a valid OAuth token automatically.
+
+    Args:
+        query: The GraphQL query string.
+        variables: Optional query variables.
+
+    Returns:
+        dict: The raw JSON response payload.
+
+    Raises:
+        LinearError: When the request fails or the payload is unexpected.
+    """
     token = await get_valid_token()
 
     payload = {"query": query}

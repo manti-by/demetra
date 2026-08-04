@@ -10,6 +10,15 @@ logger = logging.getLogger(__name__)
 
 
 async def copy_auth_from_parent(parent_home: Path | None) -> None:
+    """Copy auth configuration from a parent home directory when running in a sandbox.
+
+    Copies the opencode and GitHub CLI config directories from the parent home
+    into the current user's home when they differ, so that tooling inside the
+    sandbox inherits the host's credentials.
+
+    Args:
+        parent_home: Path of the parent OS home directory, or None to skip.
+    """
     if not parent_home or not parent_home.is_dir():
         return
 
