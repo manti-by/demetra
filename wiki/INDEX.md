@@ -7,6 +7,9 @@ by the plugin.
 
 ## Pages
 
+- [MNT-123: Game current role would her.](pages/2026-08-04-mnt-123-risk-many-finally-character.md) — Implementation of MNT-123: Game current role would her. (2026-08-04)
+- [MNT-123: Risk many finally character.](pages/2026-08-04-mnt-123-risk-many-finally-character.md) — Implementation of MNT-123: Risk many finally character. (2026-08-04)
+- [MNT-128: Create Bare React Application](pages/2026-08-04-mnt-128-create-bare-react-application.md) — Implementation of MNT-128: Create Bare React Application (2026-08-04)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — Implementation: new demetra/tools/wiki.py exposing wiki_search/wiki_get_page/wiki_list_pages (frontmatter parsing, weighted ranking, line snippets, traversal-safe resolution), aggregate wiring, pyyaml dep, 1.15.6 bump, 28 tests; merged as PR #68 (2026-08-03)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — Revalidated AGENTS.md (wiki section, prompt.py f-string exception, underscore-prefix naming ban, deps pointer, GitHub+Groq), regenerated INDEX topic clusters, resolved stale PR #66/#67 + `47d428d` merge claims against master; PR #68 merged (2026-08-03)
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — Debug: mcp 2.0.0 removed @server.list_tools()/@server.call_tool() decorators; rewrote demetra/mcp_server.py with on_list_tools/on_call_tool constructor callbacks returning ListToolsResult/CallToolResult, verified over stdio (2026-08-03)
@@ -191,6 +194,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — mcp 2.0 migration
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — MNT-90: standalone `mcp_server.py`
 
+- [MNT-128: Create Bare React Application](pages/2026-08-04-mnt-128-create-bare-react-application.md) — 2026-08-04
+- [MNT-123: Risk many finally character.](pages/2026-08-04-mnt-123-risk-many-finally-character.md) — 2026-08-04
+- [MNT-123: Game current role would her.](pages/2026-08-04-mnt-123-risk-many-finally-character.md) — 2026-08-04
 ### Testing & tooling (3 pages)
 
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — FEATURES dict gating

@@ -1,12 +1,16 @@
 import logging
 from pathlib import Path
 
-from demetra.library.models import Project
+from demetra.library.models import Context, Project
 from demetra.services.database import get_project_by_id_system, get_project_environments, get_session
 from demetra.services.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
 from demetra.services.github import get_pr_info
+from demetra.services.linear import get_linear_task_by_id
 from demetra.services.merge import perform_git_merge
+from demetra.services.queue import queue
 from demetra.services.utils import setup_session_logging
+from demetra.services.wiki import run_wiki_revalidation, write_session_wiki_page
+from demetra.settings import WIKI_REVALIDATION_ENABLED
 
 
 logger = logging.getLogger(__name__)
@@ -46,6 +50,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
     project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
 
     worktree_path = None
+    merge_succeeded = False
     try:
         pr_info = await get_pr_info(
             pr_number=pr_number, full_name=full_name, target_path=project.local_path, env=project.environment
@@ -64,7 +69,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
             project=project, branch_name=head_branch, env=project.environment, create_branch=False
         )
 
-        success = await perform_git_merge(
+        merge_succeeded = await perform_git_merge(
             worktree_path=worktree_path,
             head_branch=head_branch,
             base_branch=base_branch,
@@ -72,7 +77,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
             pr_number=pr_number,
             full_name=full_name,
         )
-        if success:
+        if merge_succeeded:
             logger.info(f"Successfully merged and resolved conflicts for PR #{pr_number}")
             return True
 
@@ -81,6 +86,26 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
         return False
 
     finally:
+        if worktree_path and merge_succeeded:
+            try:
+                linear_task = await get_linear_task_by_id(task_id=task_id)
+                if linear_task is not None:
+                    context = Context(
+                        project=project,
+                        auto_mode=True,
+                        linear_task=linear_task,
+                        branch_name=head_branch,
+                        worktree_path=worktree_path,
+                        session=session,
+                    )
+                    await write_session_wiki_page(context=context)
+            except Exception:  # noqa: BLE001
+                logger.warning("Failed to write wiki page for merge session, continuing")
+            if WIKI_REVALIDATION_ENABLED:
+                try:
+                    queue.enqueue(run_wiki_revalidation)
+                except Exception:  # noqa: BLE001
+                    logger.warning("Failed to enqueue wiki revalidation, merge result unaffected")
         if worktree_path:
             try:
                 await git_worktree_remove(

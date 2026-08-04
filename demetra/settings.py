@@ -46,6 +46,11 @@ FEATURES: dict = {
     "is_pytest_enabled": os.environ.get("IS_PYTEST_ENABLED", "False").lower() == "true",
 }
 
+WIKI_GROQ_BUDGET_FILES = int(os.environ.get("WIKI_GROQ_BUDGET_FILES", 8))
+WIKI_GROQ_BUDGET_LINES = int(os.environ.get("WIKI_GROQ_BUDGET_LINES", 200))
+WIKI_DIFF_HUNK_CAP = int(os.environ.get("WIKI_DIFF_HUNK_CAP", 200))
+WIKI_REVALIDATION_ENABLED = os.environ.get("WIKI_REVALIDATION_ENABLED", "true").lower() == "true"
+
 WATCHER_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", 60))
 LISTENER_POLL_INTERVAL = int(os.environ.get("LISTENER_POLL_INTERVAL", 60))
 

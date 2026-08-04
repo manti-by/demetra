@@ -139,3 +139,61 @@ class TestRunMergeWorkflow:
 
         assert result is False
         base_mocks["mock_wt_remove"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_merge_succeeds_when_revalidation_enqueue_fails(self, base_mocks):
+        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
+        base_mocks["mock_perform_merge"].return_value = True
+
+        with (
+            patch("demetra.workflows.merge.WIKI_REVALIDATION_ENABLED", True),
+            patch(
+                "demetra.workflows.merge.queue.enqueue",
+                side_effect=ConnectionError("Redis down"),
+            ) as mock_enqueue,
+            patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+        ):
+            mock_get_task.return_value = None
+
+            result = await run_merge_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+            )
+
+        assert result is True
+        mock_enqueue.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_merge_enqueues_revalidation_after_wiki_page_write(self, base_mocks):
+        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
+        base_mocks["mock_perform_merge"].return_value = True
+        calls: list[str] = []
+
+        with (
+            patch("demetra.workflows.merge.WIKI_REVALIDATION_ENABLED", True),
+            patch("demetra.workflows.merge.queue.enqueue") as mock_enqueue,
+            patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+            patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
+        ):
+
+            async def fake_write(context):
+                calls.append("write")
+
+            def fake_enqueue(job):
+                calls.append("enqueue")
+
+            mock_get_task.return_value = "task"
+            mock_write_page.side_effect = fake_write
+            mock_enqueue.side_effect = fake_enqueue
+
+            result = await run_merge_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+            )
+
+        assert result is True
+        assert calls == ["write", "enqueue"]

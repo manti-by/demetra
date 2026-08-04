@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.services.groq import extract_plan, generate_pr_description, summarize_review
+from demetra.services.groq import extract_plan, generate_pr_description, summarize_review, summarize_session
 
 
 class TestGroqService:
@@ -91,3 +91,93 @@ class TestGroqService:
             plan_passed = mock_chain.ainvoke.call_args.args[0]["plan_output"]
             assert len(plan_passed) <= 32_000
             assert plan_passed == long_output[-32_000:]
+
+
+class TestSummarizeSession:
+    @pytest.mark.asyncio
+    async def test_summarize_session_function_exists(self):
+        assert callable(summarize_session)
+
+    @pytest.mark.asyncio
+    async def test_summarize_session_signature(self):
+        sig = inspect.signature(summarize_session)
+        params = list(sig.parameters.keys())
+        assert "ticket_text" in params
+        assert "description" in params
+        assert "build_plan" in params
+        assert "diff_summary" in params
+
+    @pytest.mark.asyncio
+    async def test_summarize_session_returns_tldr_and_overview(self):
+        with (
+            patch("demetra.services.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.groq.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = {"tldr": "Short TL;DR", "overview": "Body overview."}
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await summarize_session(
+                ticket_text="MNT-147: Wiki processes",
+                description="Automate wiki maintenance.",
+                build_plan="Build steps.",
+                diff_summary="2 files changed.",
+            )
+
+            assert result == {"tldr": "Short TL;DR", "overview": "Body overview."}
+
+    @pytest.mark.asyncio
+    async def test_summarize_session_returns_empty_on_failure(self):
+        with (
+            patch("demetra.services.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.groq.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await summarize_session(
+                ticket_text="MNT-147: Wiki processes",
+                description="Automate wiki maintenance.",
+                build_plan="Build steps.",
+                diff_summary="2 files changed.",
+            )
+
+            assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_summarize_session_returns_empty_for_non_dict_output(self):
+        with (
+            patch("demetra.services.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.groq.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = ["tldr", "overview"]
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await summarize_session(
+                ticket_text="MNT-147: Wiki processes",
+                description="Automate wiki maintenance.",
+                build_plan="Build steps.",
+                diff_summary="2 files changed.",
+            )
+
+            assert result == {}
