@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from demetra.library.models import Session, SessionHistory, TokenUsage
 from demetra.library.tables import (
+    allowlist_entries,
     jwt_tokens,
     oauth_tokens,
     project_environments,
@@ -907,6 +908,128 @@ async def get_user_by_id(user_id: str) -> dict | None:
         result = await connection.execute(select(users).where(users.c.id == user_id))
         row = result.fetchone()
     return dict(row._mapping) if row else None
+
+
+async def get_user_by_github_username(github_username: str) -> dict | None:
+    """Fetch a user by its GitHub username (login).
+
+    Args:
+        github_username: The GitHub username.
+
+    Returns:
+        dict | None: The user row, or None when not found.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(select(users).where(users.c.github_username == github_username))
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def find_allowlist_entry(entry_type: str, value: str) -> dict | None:
+    """Fetch an allowlist entry by its type and normalized value.
+
+    Args:
+        entry_type: The entry type, ``"email"`` or ``"github_username"``.
+        value: The normalized entry value.
+
+    Returns:
+        dict | None: The entry row, or None when not found.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(allowlist_entries).where(
+                (allowlist_entries.c.entry_type == entry_type) & (allowlist_entries.c.value == value)
+            )
+        )
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def insert_allowlist_entry(entry_type: str, value: str, note: str | None, added_by: str | None) -> str:
+    """Create a new allowlist entry and return its id.
+
+    Args:
+        entry_type: The entry type, ``"email"`` or ``"github_username"``.
+        value: The normalized entry value.
+        note: Optional operational note.
+        added_by: Optional user id who added the entry, or None for system seed.
+
+    Returns:
+        str: The id of the created entry.
+    """
+    entry_id = str(uuid4())
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(allowlist_entries).values(
+                id=entry_id,
+                entry_type=entry_type,
+                value=value,
+                note=note,
+                added_by=added_by,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        await connection.commit()
+    return entry_id
+
+
+async def delete_allowlist_entry(entry_type: str, value: str) -> bool:
+    """Delete an allowlist entry by its type and value.
+
+    Args:
+        entry_type: The entry type, ``"email"`` or ``"github_username"``.
+        value: The normalized entry value.
+
+    Returns:
+        bool: True when a row was deleted, False when none matched.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            delete(allowlist_entries)
+            .where((allowlist_entries.c.entry_type == entry_type) & (allowlist_entries.c.value == value))
+            .returning(allowlist_entries.c.id)
+        )
+        row = result.fetchone()
+        await connection.commit()
+    return row is not None
+
+
+async def list_allowlist_entries() -> list[dict]:
+    """List all allowlist entries, ordered by type then value.
+
+    Returns:
+        list[dict]: The allowlist entry rows.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(allowlist_entries).order_by(allowlist_entries.c.entry_type, allowlist_entries.c.value)
+        )
+        rows = result.fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+async def list_user_allowlist_seed_rows() -> list[dict]:
+    """Return one allowlist seed row per user email and GitHub username field.
+
+    Each current user yields an ``email`` row and a ``github_username`` row.
+    A missing field is represented with a ``None`` ``value`` so the seeding
+    routine can count it as skipped.
+
+    Returns:
+        list[dict]: Mappings of ``entry_type``, ``value`` and ``source_user_id``
+            for every current user.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(select(users.c.id, users.c.email, users.c.github_username))
+        rows = result.fetchall()
+
+    seed_rows: list[dict] = []
+    for row in rows:
+        seed_rows.append({"entry_type": "email", "value": row.email, "source_user_id": row.id})
+        seed_rows.append({"entry_type": "github_username", "value": row.github_username, "source_user_id": row.id})
+    return seed_rows
 
 
 async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:

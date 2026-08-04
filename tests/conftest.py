@@ -103,6 +103,20 @@ def faker():
 
 
 @pytest.fixture
+def allowlist_seeded(monkeypatch):
+    """Enable the allowlist gate for a single test.
+
+    ``IS_ALLOWLIST_ENABLED`` is read per-call by
+    :func:`demetra.services.allowlist.is_allowlist_enabled`, so a
+    ``monkeypatch.setenv`` here is enough to turn enforcement on without
+    reloading the settings module. Opt-in by requesting this fixture; the
+    default leave the gate off so existing tests are unaffected.
+    """
+    monkeypatch.setenv("IS_ALLOWLIST_ENABLED", "true")
+    yield
+
+
+@pytest.fixture
 def linear_team_id() -> str:
     return f"team-{uuid4().hex[:8]}"
 

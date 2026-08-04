@@ -76,6 +76,19 @@ class TestSignupEndpoint:
             assert response.status_code == 400
             assert "Password" in response.json()["detail"]
 
+    def test_signup_returns_403_when_email_not_authorized(self):
+        with patch("demetra.api.auth.signup_with_password", new_callable=AsyncMock) as mock_signup:
+            mock_signup.side_effect = AuthServiceError("Email not authorized for registration")
+
+            client = TestClient(app, raise_server_exceptions=False)
+            response = client.post(
+                f"{AUTH_BASE}/signup",
+                json={"email": "blocked@example.com", "password": "hunter2hunter2"},
+            )
+
+            assert response.status_code == 403
+            assert "Email not authorized for registration" in response.json()["detail"]
+
 
 class TestLoginEndpoint:
     def test_login_returns_200_and_sets_cookie(self):

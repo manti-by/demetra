@@ -73,7 +73,8 @@ async def signup(request: SignupRequest) -> Response:
     try:
         auth_response = await signup_with_password(email=request.email, password=request.password)
     except AuthError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        status_code = 403 if str(e) == "Email not authorized for registration" else 400
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return _set_auth_cookie(
         response=_auth_response(auth_response=auth_response),

@@ -78,7 +78,8 @@ async def github_callback(
         )
         return response
     except AuthError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        status_code = 403 if str(e) == "GitHub account not authorized" else 400
+        raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 
 @router.get("/me", response_model=UserResponse)

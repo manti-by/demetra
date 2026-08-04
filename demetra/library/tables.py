@@ -71,6 +71,21 @@ jwt_tokens = Table(
     Column("created_at", DateTime(timezone=True), nullable=False),
 )
 
+allowlist_entries = Table(
+    "allowlist_entries",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("entry_type", String(), nullable=False),
+    Column("value", String(), nullable=False),
+    Column("note", String(), nullable=True),
+    Column("added_by", String(), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("entry_type", "value", name="uq_allowlist_entries_type_value"),
+    Index("ix_allowlist_entries_value", "value"),
+    CheckConstraint("entry_type IN ('email', 'github_username')", name="ck_allowlist_entries_type"),
+)
+
 projects = Table(
     "projects",
     metadata,
