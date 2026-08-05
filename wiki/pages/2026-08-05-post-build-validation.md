@@ -1,5 +1,5 @@
 ---
-title: Post build validation — plan-coverage validate-agent between build and review
+title: Post-build validation — plan-coverage validate-agent between build and review
 date: 2026-08-05
 type: implementation
 status: resolved
@@ -11,7 +11,7 @@ tags: [validate-agent, build-plan, coverage, review-loop, stdin]
 related: [2026-02-23-add-multiagent-code-review, 2026-02-21-add-plan-cleanup-middleware, 2026-07-16-fix-empty-build-plan-loop, 2026-06-08-session-step-attribute]
 ---
 
-# Post build validation — plan-coverage validate-agent between build and review
+# Post-build validation — plan-coverage validate-agent between build and review
 
 ## TL;DR
 
@@ -36,7 +36,7 @@ work adds a cheap, plan-coverage-only check that runs before the expensive revie
 agents, forcing the build loop to address missing items instead of pushing an
 incomplete implementation forward.
 
-```
+```text
 build agent ──► validate-agent (plan coverage) ──► review agents ──► lint/tests
                     │                                    ▲
                     └── missing items ──► feed build     │ (silence = fully covered)

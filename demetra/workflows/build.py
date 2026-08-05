@@ -112,9 +112,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     review_attempts -= 1
                     continue
 
-                result, _ = await user_input([("1", "apply missing plan items"), ("2", "skip")])
+                result, _ = await user_input(options=[("1", "apply missing plan items"), ("2", "skip")])
                 if result == "apply missing plan items":
-                    print_message("Applying missing plan items.")
+                    print_message(message="Applying missing plan items.")
                     current_task = missing_items
                     rerun_attempts -= 1
                     review_attempts -= 1

@@ -25,7 +25,7 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
     Raises:
         BuildError: When the validate agent exits with a non-zero exit code.
     """
-    print_message("Running VALIDATE agent", style="heading")
+    print_message(message="Running VALIDATE agent", style="heading")
 
     exit_code, stdout, stderr = await opencode_validate_agent(target_path=target_path, build_plan=build_plan, env=env)
     if exit_code != 0:
@@ -33,7 +33,7 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
             f"Validate agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
         )
 
-    parts = []
+    parts: list[str] = []
     for line in stdout.splitlines():
         stripped = line.strip()
         if not stripped:
@@ -42,10 +42,10 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
             continue
         parts.append(stripped)
     if not parts:
-        print_message("All plan steps are covered, continuing the workflow.", style="result")
+        print_message(message="All plan steps are covered, continuing the workflow.", style="result")
         return None
 
     missing_items = "\n".join(parts)
-    print_message("Validate agent returned missing plan items", style="result")
-    print_message(missing_items, style="result")
+    print_message(message="Validate agent returned missing plan items", style="result")
+    print_message(message=missing_items, style="result")
     return missing_items

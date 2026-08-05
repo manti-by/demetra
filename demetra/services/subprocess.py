@@ -2,6 +2,7 @@ import asyncio
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from demetra.services.utils import live_stream
 from demetra.settings import SUBPROCESS_TIMEOUT
@@ -10,13 +11,22 @@ from demetra.settings import SUBPROCESS_TIMEOUT
 async def pipe_stdin_input(stdin: asyncio.StreamWriter, text: str) -> None:
     """Write text to a subprocess stdin stream and close it.
 
+    The child may exit before reading stdin, raising BrokenPipeError or
+    ConnectionResetError; those are expected and ignored so run_command's
+    gather flow still reaches process.wait. The writer is always closed.
+
     Args:
         stdin: The process stdin stream writer.
         text: The text to pipe to the process.
     """
-    stdin.write(text.encode())
-    await stdin.drain()
-    stdin.close()
+    try:
+        stdin.write(data=text.encode())
+        await stdin.drain()
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+    finally:
+        stdin.close()
+    await stdin.wait_closed()
 
 
 async def run_command(
@@ -52,7 +62,7 @@ async def run_command(
     if env:
         merged_env.update(env)
     merged_env["PWD"] = str(target_path)
-    process_kwargs: dict = {
+    process_kwargs: dict[str, Any] = {
         "cwd": target_path,
         "env": merged_env,
         "stdout": asyncio.subprocess.PIPE,
@@ -76,7 +86,7 @@ async def run_command(
                 if process.stdin is None:
                     process.kill()
                     raise AttributeError("stdin is None")
-                streams.append(pipe_stdin_input(process.stdin, input_text))
+                streams.append(pipe_stdin_input(stdin=process.stdin, text=input_text))
             await asyncio.gather(*streams)
 
             exit_code = await process.wait()
