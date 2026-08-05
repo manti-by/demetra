@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from demetra.library.exceptions import BuildError
 from demetra.workflows.validate import run_validate_agent
 
 
@@ -58,13 +59,12 @@ class TestWorkflowValidate:
         assert "Plan step 3:" in result
 
     @pytest.mark.asyncio
-    async def test_nonzero_exit_returns_none(self, faker, mock_validate_agent):
+    async def test_nonzero_exit_raises_build_error(self, faker, mock_validate_agent):
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_validate_agent.return_value = (1, "", "agent failed")
 
-        result = await run_validate_agent(target_path, "build plan")
-
-        assert result is None
+        with pytest.raises(BuildError):
+            await run_validate_agent(target_path, "build plan")
 
     @pytest.mark.asyncio
     async def test_passes_build_plan_and_env(self, faker, mock_validate_agent):

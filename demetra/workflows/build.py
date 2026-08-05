@@ -72,7 +72,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         context: The workflow context.
 
     Raises:
-        BuildError: When the build agent exits with an error.
+        BuildError: When the build or validate agent exits with an error.
         InfiniteLoopError: When the attempt budget is exhausted.
     """
     current_task: str = build_plan

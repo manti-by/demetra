@@ -89,6 +89,20 @@ class TestOpencodeService:
         assert "plan" in command
 
     @pytest.mark.asyncio
+    async def test_run_opencode_agent_passes_full_task_via_stdin(self, mock_run_command_and_opencode_config):
+
+        mock_run_command_and_opencode_config.return_value = (0, "", "")
+        long_task = "Plan step: implement the feature and stage the diff.\n" * 200
+
+        await run_opencode_agent(Path("/test"), long_task, model="opencode/minimax-m2.5-free", agent="validate")
+
+        call_args = mock_run_command_and_opencode_config.call_args
+        assert call_args.kwargs["input_text"] == long_task
+        assert len(call_args.kwargs["input_text"]) == len(long_task)
+        command = call_args.kwargs["command"]
+        assert all(arg != long_task for arg in command)
+
+    @pytest.mark.asyncio
     async def test_plan_constants_are_defined(self):
 
         assert PLAN_IS_READY_STRING == "Ready to proceed to build."

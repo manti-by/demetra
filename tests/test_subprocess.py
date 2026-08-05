@@ -83,6 +83,34 @@ class TestSubprocessService:
         assert call_kwargs["stderr"] == asyncio.subprocess.PIPE
 
     @pytest.mark.asyncio
+    async def test_run_command_pipes_stdin_input(self, mock_subprocess_exec, mock_live_stream):
+
+        mock_stdin = MagicMock()
+        mock_stdin.write = MagicMock()
+        mock_stdin.drain = AsyncMock()
+        mock_stdin.close = MagicMock()
+        mock_process = _make_mock_process()
+        mock_process.stdin = mock_stdin
+        mock_subprocess_exec.return_value = mock_process
+
+        await run_command(["cmd"], Path("/test"), input_text="long task")
+
+        call_kwargs = mock_subprocess_exec.call_args.kwargs
+        assert call_kwargs["stdin"] == asyncio.subprocess.PIPE
+        mock_stdin.write.assert_called_once_with(b"long task")
+        mock_stdin.close.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_command_without_input_inherits_stdin(self, mock_subprocess_exec, mock_live_stream):
+
+        mock_process = _make_mock_process()
+        mock_subprocess_exec.return_value = mock_process
+        await run_command(["cmd"], Path("/test"))
+
+        call_kwargs = mock_subprocess_exec.call_args.kwargs
+        assert "stdin" not in call_kwargs
+
+    @pytest.mark.asyncio
     async def test_run_command_accepts_env_parameter(self, mock_subprocess_exec, mock_live_stream):
 
         mock_process = _make_mock_process()

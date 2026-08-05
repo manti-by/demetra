@@ -1,5 +1,4 @@
 import json
-import shlex
 from pathlib import Path
 
 from demetra.library.models import TokenUsage
@@ -110,6 +109,9 @@ async def opencode_validate_agent(
 ) -> tuple[int, str, str]:
     """Run the opencode validate agent with the validate prompt and build plan.
 
+    The entire build plan is appended to the validate prompt and delivered via
+    stdin, so no plan step is dropped for length.
+
     Args:
         target_path: Directory to run the agent in.
         build_plan: The finalized build plan to check coverage against.
@@ -187,6 +189,10 @@ async def run_opencode_agent(
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
+    The task prompt is delivered to the ``opencode run`` message slot via stdin,
+    so arbitrarily long prompts (e.g. full build plans) reach the agent intact
+    instead of being truncated to fit a command-line argument.
+
     Args:
         target_path: Directory to run the agent in.
         task: The task prompt for the agent.
@@ -207,8 +213,13 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
-    command.append(shlex.quote(task)[:4095])
-    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
+    return await run_command(
+        command=command,
+        target_path=target_path,
+        disable_stdio=disable_stdio,
+        env=env,
+        input_text=task,
+    )
 
 
 async def get_opencode_sessions(target_path: Path, env: dict[str, str] | None = None) -> list[dict[str, str]]:

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from demetra.library.exceptions import BuildError
 from demetra.services.opencode import opencode_validate_agent
 from demetra.services.tui import print_message
 from demetra.services.utils import NO_ISSUE_TOKENS_CASE
@@ -20,13 +21,17 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
     Returns:
         str | None: The numbered missing plan items, or None when the plan is
             fully covered.
+
+    Raises:
+        BuildError: When the validate agent exits with a non-zero exit code.
     """
     print_message("Running VALIDATE agent", style="heading")
 
-    exit_code, stdout, _ = await opencode_validate_agent(target_path=target_path, build_plan=build_plan, env=env)
+    exit_code, stdout, stderr = await opencode_validate_agent(target_path=target_path, build_plan=build_plan, env=env)
     if exit_code != 0:
-        print_message(f"Validate agent failed (exit {exit_code}), continuing the workflow.", style="error")
-        return None
+        raise BuildError(
+            f"Validate agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
+        )
 
     parts = []
     for line in stdout.splitlines():
