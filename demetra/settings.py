@@ -115,9 +115,10 @@ OPENCODE: OpenCodeConfig = {
     "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
     "resolve_model": os.environ.get("OPENCODE_RESOLVE_MODEL", "opencode-go/qwen3.7-max"),
     "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode-go/deepseek-v4-flash"),
+    "validate_model": os.environ.get("OPENCODE_VALIDATE_MODEL", "opencode-go/deepseek-v4-flash"),
     "review_models": os.environ.get(
         "OPENCODE_REVIEW_MODELS",
-        "opencode-go/qwen3.7-plus,opencode-go/glm-5.2,opencode-go/kimi-k2.7-code",
+        "opencode-go/qwen3.7-plus,opencode-go/glm-5.2,opencode-go/minimax-m3",
     ).split(","),
 }
 

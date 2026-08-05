@@ -2,9 +2,31 @@ import asyncio
 import os
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from demetra.services.utils import live_stream
 from demetra.settings import SUBPROCESS_TIMEOUT
+
+
+async def pipe_stdin_input(stdin: asyncio.StreamWriter, text: str) -> None:
+    """Write text to a subprocess stdin stream and close it.
+
+    The child may exit before reading stdin, raising BrokenPipeError or
+    ConnectionResetError; those are expected and ignored so run_command's
+    gather flow still reaches process.wait. The writer is always closed.
+
+    Args:
+        stdin: The process stdin stream writer.
+        text: The text to pipe to the process.
+    """
+    try:
+        stdin.write(data=text.encode())
+        await stdin.drain()
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+    finally:
+        stdin.close()
+    await stdin.wait_closed()
 
 
 async def run_command(
@@ -12,18 +34,23 @@ async def run_command(
     target_path: Path,
     disable_stdio: bool = False,
     env: dict[str, str] | None = None,
+    input_text: str | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
 ) -> tuple[int, str, str]:
     """Run a command as a subprocess and capture its output.
 
     Streams stdout and stderr while the process runs, optionally suppressing
-    live output, and returns the exit code and captured streams.
+    live output, and returns the exit code and captured streams. When
+    ``input_text`` is given it is piped to the process on stdin, which lets
+    callers deliver large payloads (e.g. prompts) without command-line length
+    limits.
 
     Args:
         command: The command to run as a list of arguments.
         target_path: The working directory for the process.
         disable_stdio: Whether to suppress live output to stdout.
         env: Optional environment overrides merged over the current env.
+        input_text: Optional text to pipe to the process on stdin.
         timeout: Timeout in seconds; on expiry the process is killed and exit
             code -1 is returned.
 
@@ -35,9 +62,15 @@ async def run_command(
     if env:
         merged_env.update(env)
     merged_env["PWD"] = str(target_path)
-    process = await asyncio.create_subprocess_exec(
-        *command, cwd=target_path, env=merged_env, stdout=asyncio.subprocess.PIPE, stderr=asyncio.subprocess.PIPE
-    )
+    process_kwargs: dict[str, Any] = {
+        "cwd": target_path,
+        "env": merged_env,
+        "stdout": asyncio.subprocess.PIPE,
+        "stderr": asyncio.subprocess.PIPE,
+    }
+    if input_text is not None:
+        process_kwargs["stdin"] = asyncio.subprocess.PIPE
+    process = await asyncio.create_subprocess_exec(*command, **process_kwargs)
     if not process.stdout or not process.stderr:
         process.kill()
         raise AttributeError("stdout/stderr is None")
@@ -45,10 +78,16 @@ async def run_command(
     result, error = [], []
     try:
         async with asyncio.timeout(timeout):
-            await asyncio.gather(
+            streams = [
                 live_stream(process.stdout, result=result, disable_stdio=disable_stdio),
                 live_stream(process.stderr, result=error, disable_stdio=disable_stdio),
-            )
+            ]
+            if input_text is not None:
+                if process.stdin is None:
+                    process.kill()
+                    raise AttributeError("stdin is None")
+                streams.append(pipe_stdin_input(stdin=process.stdin, text=input_text))
+            await asyncio.gather(*streams)
 
             exit_code = await process.wait()
     except TimeoutError:

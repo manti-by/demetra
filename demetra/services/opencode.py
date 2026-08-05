@@ -104,6 +104,35 @@ async def opencode_review_agent(
     )
 
 
+async def opencode_validate_agent(
+    target_path: Path, build_plan: str, task_title: str | None = None, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    """Run the opencode validate agent with the validate prompt and build plan.
+
+    The entire build plan is appended to the validate prompt and delivered via
+    stdin, so no plan step is dropped for length.
+
+    Args:
+        target_path: Directory to run the agent in.
+        build_plan: The finalized build plan to check coverage against.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
+    task = await get_prompt(name="validate_agent")
+    task += f"\n\nBuild Plan:\n{build_plan}"
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=task,
+        task_title=task_title,
+        model=OPENCODE["validate_model"],
+        agent="validate-agent",
+        env=env,
+    )
+
+
 async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     """Run the opencode merge agent to resolve merge conflicts.
 
@@ -160,18 +189,9 @@ async def run_opencode_agent(
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
-    The task is passed as a raw positional argument: the subprocess is
-    spawned with ``asyncio.create_subprocess_exec`` (no shell), so no
-    quoting is applied and the task reaches opencode verbatim. There is
-    no per-call length cap; the transport bounds are the host's exec
-    limits — ``ARG_MAX`` (~1 MB on macOS, ~2 MB on Linux) for the combined
-    argv + environment, and Linux's 128 KB ``MAX_ARG_STRLEN`` per single
-    argument. Exceeding them makes the exec fail with ``OSError``
-    (``E2BIG``, "Argument list too long"), which ``main.py`` catches as an
-    "OS Error" — well above any realistic Linear ticket + plan/resolve
-    prompt in practice. (An earlier ``[:4095]`` cap silently dropped the
-    plan agent's open questions from the resolve agent's prompt, which is
-    why the limit was removed.)
+    The task prompt is delivered to the ``opencode run`` message slot via stdin,
+    so arbitrarily long prompts (e.g. full build plans) reach the agent intact
+    instead of being truncated to fit a command-line argument.
 
     Args:
         target_path: Directory to run the agent in.
@@ -193,8 +213,13 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
-    command.append(task)
-    return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
+    return await run_command(
+        command=command,
+        target_path=target_path,
+        disable_stdio=disable_stdio,
+        env=env,
+        input_text=task,
+    )
 
 
 async def get_opencode_sessions(target_path: Path, env: dict[str, str] | None = None) -> list[dict[str, str]]:

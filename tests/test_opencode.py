@@ -14,6 +14,7 @@ from demetra.services.opencode import (
     opencode_compact_session,
     opencode_plan_agent,
     opencode_resolve_agent,
+    opencode_validate_agent,
     run_opencode_agent,
 )
 from demetra.settings import OPENCODE
@@ -86,8 +87,9 @@ class TestOpencodeService:
         assert "opencode/minimax-m2.5-free" in command
         assert "--agent" in command
         assert "plan" in command
-        # Task is passed as a raw positional argument (direct exec, unquoted) and is the last token.
-        assert command[-1] == "task"
+        # Task is delivered via stdin, not as a command-line argument.
+        assert all(arg != "task" for arg in command)
+        assert call_args.kwargs["input_text"] == "task"
 
     @pytest.mark.asyncio
     async def test_run_opencode_agent_passes_full_task_without_truncation(self, mock_run_command_and_opencode_config):
@@ -95,10 +97,25 @@ class TestOpencodeService:
         long_task = "line with 'quotes' and\nnewlines\n" + "x" * 20000
         await run_opencode_agent(Path("/test"), long_task, model="m", agent="resolve-agent")
 
-        command = mock_run_command_and_opencode_config.call_args.kwargs["command"]
-        # The raw task arrives verbatim as the last positional argument: direct
-        # exec means no shell quoting, so quotes and newlines are untouched.
-        assert command[-1] == long_task
+        call_args = mock_run_command_and_opencode_config.call_args.kwargs
+        # The raw task arrives verbatim via stdin so quotes and newlines stay
+        # untouched and no argument length limit can truncate it.
+        assert call_args["input_text"] == long_task
+        assert all(arg != long_task for arg in call_args["command"])
+
+    @pytest.mark.asyncio
+    async def test_run_opencode_agent_passes_full_task_via_stdin(self, mock_run_command_and_opencode_config):
+
+        mock_run_command_and_opencode_config.return_value = (0, "", "")
+        long_task = "Plan step: implement the feature and stage the diff.\n" * 200
+
+        await run_opencode_agent(Path("/test"), long_task, model="opencode/minimax-m2.5-free", agent="validate")
+
+        call_args = mock_run_command_and_opencode_config.call_args
+        assert call_args.kwargs["input_text"] == long_task
+        assert len(call_args.kwargs["input_text"]) == len(long_task)
+        command = call_args.kwargs["command"]
+        assert all(arg != long_task for arg in command)
 
     @pytest.mark.asyncio
     async def test_plan_constants_are_defined(self):
@@ -131,6 +148,48 @@ class TestOpencodeService:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs.get("session_id") is None
         assert call_kwargs.get("agent") == "resolve-agent"
+
+
+class TestOpencodeValidateAgent:
+    @pytest.fixture
+    def mock_run_opencode_agent(self):
+        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_get_prompt(self):
+        with patch("demetra.services.opencode.get_prompt", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_validate_agent_uses_validate_model_and_prompt(self, mock_run_opencode_agent, mock_get_prompt):
+        mock_run_opencode_agent.return_value = "validate result"
+        mock_get_prompt.return_value = "validate prompt body"
+
+        result = await opencode_validate_agent(Path("/test/path"), "build plan")
+
+        mock_get_prompt.assert_awaited_once_with(name="validate_agent")
+        mock_run_opencode_agent.assert_called_once_with(
+            target_path=Path("/test/path"),
+            task="validate prompt body\n\nBuild Plan:\nbuild plan",
+            task_title=None,
+            model=OPENCODE["validate_model"],
+            agent="validate-agent",
+            env=None,
+        )
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_validate_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
+        mock_run_opencode_agent.return_value = "validate result"
+        mock_get_prompt.return_value = "validate prompt body"
+
+        await opencode_validate_agent(Path("/test/path"), "build plan", task_title="validate-title", env={"KEY": "val"})
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs.get("task_title") == "validate-title"
+        assert call_kwargs.get("env") == {"KEY": "val"}
+        assert call_kwargs.get("agent") == "validate-agent"
 
 
 class TestOpencodeSessionId:
