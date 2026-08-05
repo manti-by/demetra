@@ -119,6 +119,7 @@ OPENCODE: OpenCodeConfig = {
         "OPENCODE_REVIEW_MODELS",
         "opencode-go/qwen3.7-plus,opencode-go/glm-5.2,opencode-go/kimi-k2.7-code",
     ).split(","),
+    "validate_model": os.environ.get("OPENCODE_VALIDATE_MODEL", "opencode-go/minimax-m3"),
 }
 
 CURSOR: PathConfig = {

@@ -702,6 +702,11 @@ class TestWorkflowBuild:
             yield m
 
     @pytest.fixture
+    def mock_run_validate_agent(self):
+        with patch("demetra.workflows.build.run_validate_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
     def mock_run_lint_and_test(self):
         with patch("demetra.workflows.build.run_lint_and_test", new_callable=AsyncMock) as m:
             yield m
@@ -727,6 +732,7 @@ class TestWorkflowBuild:
         faker,
         mock_build_agent,
         mock_run_review_agents,
+        mock_run_validate_agent,
         mock_run_lint_and_test,
         mock_user_input,
         mock_bump_version,
@@ -761,6 +767,7 @@ class TestWorkflowBuild:
         )
 
         mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
         mock_run_review_agents.return_value = None
         mock_run_lint_and_test.return_value = (False, None)
         mock_user_input.return_value = ("1", None)
@@ -769,6 +776,123 @@ class TestWorkflowBuild:
 
         assert result is None
         mock_bump_version.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_build_step_feeds_missing_items_back_to_build_agent(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+        mock_is_epic_label,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        missing_items = "Plan step 1: Add endpoint — not implemented (no corresponding change in diff)"
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.side_effect = [missing_items, None]
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        result = await run_build_step("test build plan", context)
+
+        assert result is None
+        assert mock_build_agent.call_count == 2
+        assert mock_run_validate_agent.call_count == 2
+        first_task = mock_build_agent.call_args_list[0].kwargs["task"]
+        second_task = mock_build_agent.call_args_list[1].kwargs["task"]
+        assert first_task == "test build plan"
+        assert second_task == missing_items
+        mock_run_review_agents.assert_awaited_once()
+        mock_bump_version.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_run_build_step_review_skipped_until_validate_passes(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+        mock_is_epic_label,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.side_effect = [
+            "Plan step 1: Add endpoint — not implemented (no corresponding change in diff)",
+            "Plan step 2: Wire tests — not implemented (no corresponding change in diff)",
+            None,
+        ]
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        result = await run_build_step("test build plan", context)
+
+        assert result is None
+        assert mock_build_agent.call_count == 3
+        assert mock_run_validate_agent.call_count == 3
+        assert mock_run_review_agents.call_count == 1
+        assert mock_run_review_agents.await_count == 1
 
 
 class TestContextCompaction:

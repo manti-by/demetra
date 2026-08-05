@@ -105,6 +105,32 @@ async def opencode_review_agent(
     )
 
 
+async def opencode_validate_agent(
+    target_path: Path, build_plan: str, task_title: str | None = None, env: dict[str, str] | None = None
+) -> tuple[int, str, str]:
+    """Run the opencode validate agent with the validate prompt and build plan.
+
+    Args:
+        target_path: Directory to run the agent in.
+        build_plan: The finalized build plan to check coverage against.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
+    task = await get_prompt(name="validate_agent")
+    task += f"\n\nBuild Plan:\n{build_plan}"
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=task,
+        task_title=task_title,
+        model=OPENCODE["validate_model"],
+        agent="validate-agent",
+        env=env,
+    )
+
+
 async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
     """Run the opencode merge agent to resolve merge conflicts.
 

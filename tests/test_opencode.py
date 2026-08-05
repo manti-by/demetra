@@ -14,6 +14,7 @@ from demetra.services.opencode import (
     opencode_compact_session,
     opencode_plan_agent,
     opencode_resolve_agent,
+    opencode_validate_agent,
     run_opencode_agent,
 )
 from demetra.settings import OPENCODE
@@ -118,6 +119,48 @@ class TestOpencodeService:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs.get("session_id") is None
         assert call_kwargs.get("agent") == "resolve-agent"
+
+
+class TestOpencodeValidateAgent:
+    @pytest.fixture
+    def mock_run_opencode_agent(self):
+        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_get_prompt(self):
+        with patch("demetra.services.opencode.get_prompt", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_validate_agent_uses_validate_model_and_prompt(self, mock_run_opencode_agent, mock_get_prompt):
+        mock_run_opencode_agent.return_value = "validate result"
+        mock_get_prompt.return_value = "validate prompt body"
+
+        result = await opencode_validate_agent(Path("/test/path"), "build plan")
+
+        mock_get_prompt.assert_awaited_once_with(name="validate_agent")
+        mock_run_opencode_agent.assert_called_once_with(
+            target_path=Path("/test/path"),
+            task="validate prompt body\n\nBuild Plan:\nbuild plan",
+            task_title=None,
+            model=OPENCODE["validate_model"],
+            agent="validate-agent",
+            env=None,
+        )
+        assert result is not None
+
+    @pytest.mark.asyncio
+    async def test_validate_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
+        mock_run_opencode_agent.return_value = "validate result"
+        mock_get_prompt.return_value = "validate prompt body"
+
+        await opencode_validate_agent(Path("/test/path"), "build plan", task_title="validate-title", env={"KEY": "val"})
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs.get("task_title") == "validate-title"
+        assert call_kwargs.get("env") == {"KEY": "val"}
+        assert call_kwargs.get("agent") == "validate-agent"
 
 
 class TestOpencodeSessionId:

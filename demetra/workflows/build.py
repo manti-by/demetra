@@ -14,6 +14,7 @@ from demetra.services.tui import print_message
 from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
+from demetra.workflows.validate import run_validate_agent
 
 
 async def check_and_compact_context(context: Context) -> None:
@@ -58,11 +59,13 @@ async def check_and_compact_context(context: Context) -> None:
 
 
 async def run_build_step(build_plan: str, context: Context) -> None:
-    """Run the build, review, version bump and lint/test loop.
+    """Run the build, validate, review, version bump and lint/test loop.
 
-    Iterates the build agent, feeding it review comments or lint/test failures
-    as the next task until the pipeline is clean or the attempt budget is
-    exhausted. The project version is bumped once after the first clean pass.
+    Iterates the build agent, feeding it missing plan items, review comments or
+    lint/test failures as the next task until the pipeline is clean or the
+    attempt budget is exhausted. The validate agent checks the staged diff for
+    plan coverage before the review agents run; the project version is bumped
+    once after the first clean pass.
 
     Args:
         build_plan: The plan to feed the build agent on the first iteration.
@@ -96,6 +99,31 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await check_and_compact_context(context)
 
         if review_attempts > 0 and not review_step_finished:
+            await update_session_step(task_id=context.linear_task.id, step="validate")
+            missing_items = await run_validate_agent(
+                target_path=context.worktree_path,
+                build_plan=build_plan,
+                env=context.project.environment,
+            )
+            if missing_items:
+                if context.auto_mode:
+                    current_task = missing_items
+                    rerun_attempts -= 1
+                    review_attempts -= 1
+                    continue
+
+                result, _ = await user_input([("1", "apply missing plan items"), ("2", "skip")])
+                if result == "apply missing plan items":
+                    print_message("Applying missing plan items.")
+                    current_task = missing_items
+                    rerun_attempts -= 1
+                    review_attempts -= 1
+                    continue
+                else:
+                    print_message("Continuing the workflow.", style="result")
+                    rerun_attempts = MAX_BUILD_ATTEMPTS
+                    review_attempts = MAX_REVIEW_ATTEMPTS
+
             await update_session_step(task_id=context.linear_task.id, step="review")
             review_comments = await run_review_agents(
                 target_path=context.worktree_path,
