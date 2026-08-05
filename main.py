@@ -10,6 +10,7 @@ from demetra.library.exceptions import (
     AutoCancelledError,
     DemetraError,
     InfiniteLoopError,
+    PullRequestError,
     UserCancelledError,
 )
 from demetra.services.auth import reset_password
@@ -116,6 +117,28 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     except ValueError as e:
         print_message(f"Configuration error: {e}", style="error")
+
+    except PullRequestError as e:
+        print_message(f"Pull request creation failed: {e}", style="error")
+        failure_step = "awaiting_input"
+        should_update_linear_status = False
+        body = (
+            "## PR creation failed\n\n"
+            "The build, commit, and push steps succeeded, but creating the "
+            "GitHub pull request failed. The branch has been pushed; the PR has "
+            "not been created.\n\n"
+            f"**Branch:** `{context.branch_name}`\n"
+            f"**Open manually:** "
+            f"https://github.com/{context.project.repository_owner}/"
+            f"{context.project.repository_name}/compare/{context.branch_name}\n\n"
+            "### Error\n\n"
+            f"```\n{e}\n```\n\n"
+            "Please create the PR manually, then move the ticket back to "
+            "`In Progress` to continue."
+        )
+        if not await post_comment(task_id=context.linear_task.id, body=body):
+            print_message("Failed to post PR-creation-failure comment to Linear", style="error")
+        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")

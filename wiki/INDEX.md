@@ -7,6 +7,8 @@ by the plugin.
 
 ## Pages
 
+- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — Debug: in `--auto --plan-loop`, `shlex.quote(task)[:4095]` clipped the resolve-agent prompt so the numbered questions were dropped and the agent refused to act; first fix (`--file` temp file) broke every agent with "must provide a message", reverted to positional arg with the cap removed (2026-08-04)
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — When `gh pr create` fails after the branch was pushed, a dedicated `except PullRequestError` in `main.py` posts a Linear comment (branch + compare URL + error), moves the ticket to `Awaiting Input` and records the session step as `awaiting_input` instead of silently reverting to TODO (2026-08-05)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — Implementation: new demetra/tools/wiki.py exposing wiki_search/wiki_get_page/wiki_list_pages (frontmatter parsing, weighted ranking, line snippets, traversal-safe resolution), aggregate wiring, pyyaml dep, 1.15.6 bump, 28 tests; merged as PR #68 (2026-08-03)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — Revalidated AGENTS.md (wiki section, prompt.py f-string exception, underscore-prefix naming ban, deps pointer, GitHub+Groq), regenerated INDEX topic clusters, resolved stale PR #66/#67 + `47d428d` merge claims against master; PR #68 merged (2026-08-03)
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — Debug: mcp 2.0.0 removed @server.list_tools()/@server.call_tool() decorators; rewrote demetra/mcp_server.py with on_list_tools/on_call_tool constructor callbacks returning ListToolsResult/CallToolResult, verified over stdio (2026-08-03)
@@ -49,7 +51,7 @@ by the plugin.
 - [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md) — MNT-99: squashed migrations into one baseline; `alembic upgrade` runs clean; `repository_url` required (2026-06-03)
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md) — MNT-105: debug — fixed `cwd` for plan/build/review/resolve subprocesses so agents scan the isolated worktree (v1.11.7) (2026-06-03)
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md) — MNT-92: CSS truncation of session titles fixes sidebar/console layout break, following `.session-plan` 120px (2026-06-02)
-- [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — MNT-79: `--plan-loop` + `.opencode/agents/resolve-agent.md` loop between plan and resolve agents (max 30 attempts) (2026-06-02)
+- [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — MNT-79: `--plan-loop` + `.opencode/agents/resolve-agent.md` loop between plan and resolve agents (max 30 attempts) (2026-06-02) — see also [[2026-08-04-fix-resolve-agent-truncated-context]]
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — MNT-86: delete button removes session + DB records + log files; list auto-refreshes (2026-06-02)
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — MNT-77: renamed `hera` frontend to `react`, tightened GitHub auth validation, removed legacy docs, bumped 1.10.0 (2026-06-01)
 - [Refactor API](pages/2026-06-01-refactor-api.md) — MNT-81: split `demetra/api.py` into a package of per-prefix routers; added missing API tests (2026-06-01)

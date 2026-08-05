@@ -161,6 +161,13 @@ async def run_opencode_agent(
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
+    The task is shell-quoted and passed as a positional argument. There is
+    no per-call length cap: the only hard limit is the OS ``ARG_MAX``
+    (~1 MB on macOS, larger on Linux), which is well above any Linear
+    ticket + plan/resolve prompt in practice. (An earlier ``[:4095]`` cap
+    silently dropped the plan agent's open questions from the resolve
+    agent's prompt, which is why the limit was removed.)
+
     Args:
         target_path: Directory to run the agent in.
         task: The task prompt for the agent.
@@ -181,7 +188,7 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
-    command.append(shlex.quote(task)[:4095])
+    command.append(shlex.quote(task))
     return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
 
 

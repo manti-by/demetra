@@ -86,6 +86,23 @@ class TestOpencodeService:
         assert "opencode/minimax-m2.5-free" in command
         assert "--agent" in command
         assert "plan" in command
+        # Task is passed as a positional argument (shlex-quoted) and is the last token.
+        assert command[-1] == "task"
+
+    @pytest.mark.asyncio
+    async def test_run_opencode_agent_passes_full_task_without_truncation(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = "output"
+        long_task = "line with 'quotes' and\nnewlines\n" + "x" * 20000
+        await run_opencode_agent(Path("/test"), long_task, model="m", agent="resolve-agent")
+
+        command = mock_run_command_and_opencode_config.call_args.kwargs["command"]
+        quoted_task = command[-1]
+        # No truncation: length should be at least the original task length
+        # (shlex.quote may add single-quote wrapping, but never drops content).
+        assert len(quoted_task) >= len(long_task)
+        assert quoted_task.count("x") == 20000
+        # And the trailing marker of the original task is still present.
+        assert quoted_task.rstrip("'").endswith("x" * 100)
 
     @pytest.mark.asyncio
     async def test_plan_constants_are_defined(self):
