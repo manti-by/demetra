@@ -1,5 +1,4 @@
 import json
-import shlex
 from pathlib import Path
 
 from demetra.library.models import TokenUsage
@@ -161,6 +160,19 @@ async def run_opencode_agent(
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
+    The task is passed as a raw positional argument: the subprocess is
+    spawned with ``asyncio.create_subprocess_exec`` (no shell), so no
+    quoting is applied and the task reaches opencode verbatim. There is
+    no per-call length cap; the transport bounds are the host's exec
+    limits — ``ARG_MAX`` (~1 MB on macOS, ~2 MB on Linux) for the combined
+    argv + environment, and Linux's 128 KB ``MAX_ARG_STRLEN`` per single
+    argument. Exceeding them makes the exec fail with ``OSError``
+    (``E2BIG``, "Argument list too long"), which ``main.py`` catches as an
+    "OS Error" — well above any realistic Linear ticket + plan/resolve
+    prompt in practice. (An earlier ``[:4095]`` cap silently dropped the
+    plan agent's open questions from the resolve agent's prompt, which is
+    why the limit was removed.)
+
     Args:
         target_path: Directory to run the agent in.
         task: The task prompt for the agent.
@@ -181,7 +193,7 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
-    command.append(shlex.quote(task)[:4095])
+    command.append(task)
     return await run_command(command=command, target_path=target_path, disable_stdio=disable_stdio, env=env)
 
 
