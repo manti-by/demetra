@@ -9,7 +9,7 @@ import pytest
 
 from demetra.library.exceptions import AutoCancelledError, PullRequestError
 from demetra.library.models import Context, LinearTask, Project, Session
-from demetra.settings import LINEAR, WATCHER_POLL_INTERVAL
+from demetra.settings import WATCHER_POLL_INTERVAL
 from demetra.worker import connection
 
 
@@ -107,6 +107,7 @@ class TestMainReplanning:
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
+            patch("main.process_pr_failure", new_callable=AsyncMock) as mock_process_pr_failure,
             patch("main.cleanup_workflow", new_callable=AsyncMock) as mock_cleanup_workflow,
         ):
             mock_commit_and_push.return_value = True
@@ -117,6 +118,7 @@ class TestMainReplanning:
                 "run_plan_step": mock_run_plan_step,
                 "run_build_step": mock_run_build_step,
                 "commit_and_push": mock_commit_and_push,
+                "process_pr_failure": mock_process_pr_failure,
                 "cleanup_workflow": mock_cleanup_workflow,
             }
 
@@ -182,7 +184,7 @@ class TestMainReplanning:
         )
 
     @pytest.mark.asyncio
-    async def test_main_handles_pr_creation_failure(self, mock_main_deps):
+    async def test_main_delegates_pr_creation_failure_to_failure_step(self, mock_main_deps):
         from main import main
 
         context = _build_context(step="push", build_plan="existing build plan")
@@ -191,16 +193,11 @@ class TestMainReplanning:
 
         await main(project_name="demetra", auto_mode=True)
 
-        body = mock_main_deps["post_comment"].await_args.kwargs["body"]
-        assert "PR creation failed" in body
-        assert "mnt-128-create-bare-react-application" in body
-        assert "https://github.com/test/demetra/compare/mnt-128-create-bare-react-application" in body
-        assert "gh: could not create PR" in body
-
-        mock_main_deps["update_ticket_status"].assert_any_await(
-            task_id=context.linear_task.id,
-            state_id=LINEAR["states"]["awaiting_input"],
-        )
+        mock_main_deps["process_pr_failure"].assert_awaited_once()
+        call_kwargs = mock_main_deps["process_pr_failure"].call_args.kwargs
+        assert call_kwargs["context"] is context
+        assert isinstance(call_kwargs["error"], PullRequestError)
+        assert "gh: could not create PR" in str(call_kwargs["error"])
         mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
             context=context,
             is_success=False,

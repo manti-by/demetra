@@ -15,7 +15,7 @@ related: [2026-06-02-plan-loop-resolve-questions, 2026-07-16-session-history-tok
 
 ## TL;DR
 
-In `--auto --plan-loop` mode, the resolve agent was being handed only a truncated original task with no question list because `run_opencode_agent` passed the task as a `shlex.quote(task)[:4095]` positional argument. The 4 095-byte cap was a silent defence against `ARG_MAX`; the rendered `resolve_questions` prompt (template + original task + numbered questions) routinely crosses it, and the questions — sitting at the tail of the prompt — are the first thing sliced off. Fix: drop the `[:4095]` cap. The OS `ARG_MAX` (~1 MB on macOS, larger on Linux) is the real limit, and is well above any realistic Linear ticket + prompt in practice. The first attempt of the fix swapped the positional arg for a temp file via `opencode run --file`; that broke every agent with `Error: You must provide a message or a command` because `--file` is an attachment, not a message substitute. Reverted to the positional-arg path.
+In `--auto --plan-loop` mode, the resolve agent was being handed only a truncated original task with no question list because `run_opencode_agent` passed the task as a `shlex.quote(task)[:4095]` positional argument. The 4 095-character cap (Python string slicing counts characters, not bytes) was a silent defence against `ARG_MAX`; the rendered `resolve_questions` prompt (template + original task + numbered questions) routinely crosses it, and the questions — sitting at the tail of the prompt — are the first thing sliced off. Fix: drop the `[:4095]` cap. The OS `ARG_MAX` (~1 MB on macOS, ~2 MB on Linux) is the real limit, and is well above any realistic Linear ticket + prompt in practice. The first attempt of the fix swapped the positional arg for a temp file via `opencode run --file`; that broke every agent with `Error: You must provide a message or a command` because `--file` is an attachment, not a message substitute. Reverted to the positional-arg path.
 
 ---
 
@@ -46,7 +46,7 @@ Open Questions to Resolve:
 </numbered_questions>
 ```
 
-For a normal Linear ticket (3 KB description) + 5 plan-agent questions (~1 KB), the rendered task is ~4.9 KB before `shlex.quote`. With shell escaping it crosses 5 KB — well past the 4 KB cap. The numbered questions sit at the tail of the prompt, so they are the first thing sliced off.
+For a normal Linear ticket (3 KB description) + 5 plan-agent questions (~1 KB), the rendered task is ~4 900 characters before `shlex.quote`. With shell escaping it crosses ~5 000 characters — well past the 4 095-character cap. The numbered questions sit at the tail of the prompt, so they are the first thing sliced off.
 
 ## Step 2 — Locate the cap
 
@@ -82,13 +82,13 @@ Every agent (build, plan, resolve, review, merge) failed identically, so the fil
 
 **File:** `demetra/services/opencode.py:184-189`
 
-- Reverted to passing the task as a positional argument; dropped the `[:4095]` cap. The only hard limit is now the OS `ARG_MAX` (~1 MB on macOS, larger on Linux), which is well above any realistic Linear ticket + prompt in practice.
+- Reverted to passing the task as a positional argument; dropped the `[:4095]` cap. The transport bounds are the host's exec limits: `ARG_MAX` (~1 MB on macOS, ~2 MB on Linux) for the combined argv + environment, and Linux's 128 KB `MAX_ARG_STRLEN` per single argument. Both are well above any realistic Linear ticket + prompt in practice.
 - Updated the `run_opencode_agent` docstring to record the `[:4095]` history so the cap is not re-introduced in a future refactor.
 
 **File:** `tests/test_opencode.py`
 
 - Reverted `test_run_opencode_agent_uses_correct_command` to assert the task is the last positional command token.
-- Added `test_run_opencode_agent_passes_full_task_without_truncation` (20 000-char task with newlines and quotes; asserts full content survives `shlex.quote`) — the regression guard for this bug.
+- Added `test_run_opencode_agent_passes_full_task_without_truncation` (20 000-char task with newlines and quotes; asserts the raw task arrives verbatim as the positional argument) — the regression guard for this bug.
 
 ## Verification
 
@@ -115,7 +115,7 @@ Without the fix this same input would have been clipped at 4 095 chars, dropping
 
 ## Known follow-up (not fixed this session)
 
-- The 4 095 cap was effectively a hard limit on every `run_opencode_agent` caller. With the cap removed, the only limit is `ARG_MAX`. If a future ticket ever produces a multi-MB prompt (very unlikely), the only diagnostic will be a shell-level `Argument list too long` error — acceptable.
+- The 4 095 cap was effectively a hard limit on every `run_opencode_agent` caller. With the cap removed, the only limits are `ARG_MAX` and Linux's per-argument `MAX_ARG_STRLEN`. If a future ticket ever produces a multi-MB prompt (very unlikely), `asyncio.create_subprocess_exec` fails with `OSError` (`E2BIG`, `Argument list too long`), which `main.py` catches as an "OS Error" and reports to the console — verified in the code path, not left to a shell-level diagnostic.
 - Any future agent CLI that requires a positional `message` and supports `--file` as an attachment is a hazard for the same kind of refactor; the lesson is to always pass a real message, not just an attachment.
 
 ---

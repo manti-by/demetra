@@ -21,6 +21,7 @@ from demetra.services.utils import setup_session_logging
 from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING, MAX_BUILD_ATTEMPTS
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
+from demetra.workflows.failure import process_pr_failure
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.setup import setup_workflow
 
@@ -112,36 +113,17 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     except AutoCancelledError:
         print_message("User cancelled, exiting the workflow.", style="error")
-        should_update_linear_status = False
-        failure_step = "awaiting_input"
-
-    except ValueError as e:
-        print_message(f"Configuration error: {e}", style="error")
+        failure_step, should_update_linear_status = "awaiting_input", False
 
     except PullRequestError as e:
-        print_message(f"Pull request creation failed: {e}", style="error")
-        failure_step = "awaiting_input"
-        should_update_linear_status = False
-        body = (
-            "## PR creation failed\n\n"
-            "The build, commit, and push steps succeeded, but creating the "
-            "GitHub pull request failed. The branch has been pushed; the PR has "
-            "not been created.\n\n"
-            f"**Branch:** `{context.branch_name}`\n"
-            f"**Open manually:** "
-            f"https://github.com/{context.project.repository_owner}/"
-            f"{context.project.repository_name}/compare/{context.branch_name}\n\n"
-            "### Error\n\n"
-            f"```\n{e}\n```\n\n"
-            "Please create the PR manually, then move the ticket back to "
-            "`In Progress` to continue."
-        )
-        if not await post_comment(task_id=context.linear_task.id, body=body):
-            print_message("Failed to post PR-creation-failure comment to Linear", style="error")
-        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
+        await process_pr_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")
+
+    except ValueError as e:
+        print_message(f"Configuration error: {e}", style="error")
 
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")
