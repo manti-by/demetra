@@ -87,8 +87,9 @@ class TestOpencodeService:
         assert "opencode/minimax-m2.5-free" in command
         assert "--agent" in command
         assert "plan" in command
-        # Task is passed as a raw positional argument (direct exec, unquoted) and is the last token.
-        assert command[-1] == "task"
+        # Task is delivered via stdin, not as a command-line argument.
+        assert all(arg != "task" for arg in command)
+        assert call_args.kwargs["input_text"] == "task"
 
     @pytest.mark.asyncio
     async def test_run_opencode_agent_passes_full_task_without_truncation(self, mock_run_command_and_opencode_config):
@@ -96,10 +97,11 @@ class TestOpencodeService:
         long_task = "line with 'quotes' and\nnewlines\n" + "x" * 20000
         await run_opencode_agent(Path("/test"), long_task, model="m", agent="resolve-agent")
 
-        command = mock_run_command_and_opencode_config.call_args.kwargs["command"]
-        # The raw task arrives verbatim as the last positional argument: direct
-        # exec means no shell quoting, so quotes and newlines are untouched.
-        assert command[-1] == long_task
+        call_args = mock_run_command_and_opencode_config.call_args.kwargs
+        # The raw task arrives verbatim via stdin so quotes and newlines stay
+        # untouched and no argument length limit can truncate it.
+        assert call_args["input_text"] == long_task
+        assert all(arg != long_task for arg in call_args["command"])
 
     @pytest.mark.asyncio
     async def test_run_opencode_agent_passes_full_task_via_stdin(self, mock_run_command_and_opencode_config):
