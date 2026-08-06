@@ -100,18 +100,18 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
                     )
                     await write_session_wiki_page(context=context)
             except Exception:  # noqa: BLE001
-                logger.warning("Failed to write wiki page for merge session, continuing")
+                logger.warning(msg="Failed to write wiki page for merge session, continuing")
             if WIKI_REVALIDATION_ENABLED:
                 try:
-                    queue.enqueue(run_wiki_revalidation)
+                    queue.enqueue(f=run_wiki_revalidation)
                 except Exception:  # noqa: BLE001
-                    logger.warning("Failed to enqueue wiki revalidation, merge result unaffected")
+                    logger.warning(msg="Failed to enqueue wiki revalidation, merge result unaffected")
         if worktree_path:
             try:
                 await git_worktree_remove(
                     target_path=project.local_path, worktree_path=worktree_path, env=project.environment, force=True
                 )
             except (OSError, RuntimeError):
-                logger.warning(f"Failed to clean up worktree at {worktree_path}")
+                logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
 
     return False

@@ -53,21 +53,6 @@ STOP_WORDS = frozenset(
 TERM_RE = re.compile(r"[a-z0-9][a-z0-9_.\-]*")
 
 
-def _parse_page(path: Path) -> dict[str, Any] | None:
-    """Parse a wiki page file into metadata and body content.
-
-    Delegates to the shared frontmatter parser in ``demetra.services.wiki``.
-
-    Args:
-        path: Path of the ``.md`` page file.
-
-    Returns:
-        dict[str, Any] | None: A mapping with ``name``, ``meta`` and ``body``
-            keys, or None when the frontmatter cannot be parsed.
-    """
-    return parse_page_file(path)
-
-
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
     """Load all valid wiki pages from a directory, sorted by name.
 
@@ -79,7 +64,7 @@ def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
     """
     pages: list[dict[str, Any]] = []
     for path in sorted(pages_root.glob("*.md")):
-        page = _parse_page(path)
+        page = parse_page_file(path=path)
         if page is not None:
             pages.append(page)
     return pages

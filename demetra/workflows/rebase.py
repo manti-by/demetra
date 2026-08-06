@@ -99,12 +99,12 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
                         )
                         await write_session_wiki_page(context=context)
                 except Exception:  # noqa: BLE001
-                    logger.warning("Failed to write wiki page for rebase session, continuing")
+                    logger.warning(msg="Failed to write wiki page for rebase session, continuing")
             try:
                 await git_worktree_remove(
                     target_path=project.local_path, worktree_path=worktree_path, env=project.environment, force=True
                 )
             except (OSError, RuntimeError):
-                logger.warning(f"Failed to clean up worktree at {worktree_path}")
+                logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
 
     return False

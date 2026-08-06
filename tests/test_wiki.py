@@ -79,7 +79,7 @@ FIXED_DIFF = {
 class TestSessionFilename:
     def test_uses_ticket_key_and_slug(self):
         name = service.session_filename(ticket_identifier="MNT-147", title="Wiki processes")
-        assert name == f"{service._today()}-mnt-147-wiki-processes.md"
+        assert name == f"{service.today()}-mnt-147-wiki-processes.md"
 
     def test_normalizes_identifier_and_title(self):
         name = service.session_filename(ticket_identifier=" MNT-148 ", title="Email/Password Auth")
@@ -133,42 +133,42 @@ class TestExistingPageForTicket:
 
 class TestInferServices:
     def test_service_files_mapped_to_names(self):
-        assert service._infer_services(["demetra/services/wiki.py", "demetra/settings.py"]) == ["wiki", "settings"]
+        assert service.infer_services(["demetra/services/wiki.py", "demetra/settings.py"]) == ["wiki", "settings"]
 
     def test_other_demetra_modules_use_second_segment(self):
-        assert service._infer_services(["demetra/workflows/merge.py"]) == ["workflows"]
+        assert service.infer_services(["demetra/workflows/merge.py"]) == ["workflows"]
 
     def test_top_level_files_use_first_segment(self):
-        assert service._infer_services(["main.py"]) == ["main"]
+        assert service.infer_services(["main.py"]) == ["main"]
 
     def test_deduplicated_and_ordered(self):
-        assert service._infer_services(["demetra/services/wiki.py", "demetra/services/groq.py"]) == ["groq", "wiki"]
+        assert service.infer_services(["demetra/services/wiki.py", "demetra/services/groq.py"]) == ["groq", "wiki"]
 
 
 class TestInferTags:
     def test_slugs_labels_and_prepends_wiki(self):
         task = make_linear_task(labels=["Feature", "Backend Hardening"])
-        assert service._infer_tags(linear_task=task) == ["wiki", "feature", "backend-hardening"]
+        assert service.infer_tags(linear_task=task) == ["wiki", "feature", "backend-hardening"]
 
     def test_empty_labels_keeps_wiki_tag(self):
         task = make_linear_task(labels=[])
-        assert service._infer_tags(linear_task=task) == ["wiki"]
+        assert service.infer_tags(linear_task=task) == ["wiki"]
 
 
 class TestBudgetExceeded:
     def test_under_budget_not_exceeded(self):
         facts = {"files": ["a.py", "b.py"], "changed_lines": 50}
-        assert service._budget_exceeded(facts=facts) is False
+        assert service.budget_exceeded(facts=facts) is False
 
     def test_too_many_files_exceeded(self, monkeypatch):
         monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_FILES", 8)
         facts = {"files": [f"f{i}.py" for i in range(9)], "changed_lines": 1}
-        assert service._budget_exceeded(facts=facts) is True
+        assert service.budget_exceeded(facts=facts) is True
 
     def test_too_many_lines_exceeded(self, monkeypatch):
         monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_LINES", 200)
         facts = {"files": ["a.py"], "changed_lines": 201}
-        assert service._budget_exceeded(facts=facts) is True
+        assert service.budget_exceeded(facts=facts) is True
 
 
 class TestSessionLogTail:
@@ -179,7 +179,7 @@ class TestSessionLogTail:
         log_path.write_text("\n".join(f"line {i}" for i in range(250)) + "\n")
         monkeypatch.setattr(service, "LOG_DIR", tmp_path)
 
-        tail = service._session_log_tail(task_id="MNT-147")
+        tail = service.session_log_tail(task_id="MNT-147")
 
         assert tail.splitlines()[0] == "line 50"
         assert tail.splitlines()[-1] == "line 249"
@@ -191,18 +191,18 @@ class TestSessionLogTail:
         (log_dir / "MNT-147.log").write_text("only one line\n")
         monkeypatch.setattr(service, "LOG_DIR", tmp_path)
 
-        assert service._session_log_tail(task_id="MNT-147") == "only one line"
+        assert service.session_log_tail(task_id="MNT-147") == "only one line"
 
     def test_missing_log_returns_empty(self, tmp_path, monkeypatch):
         monkeypatch.setattr(service, "LOG_DIR", tmp_path)
-        assert service._session_log_tail(task_id="MNT-147") == ""
+        assert service.session_log_tail(task_id="MNT-147") == ""
 
     def test_nested_sessions_dir(self, tmp_path, monkeypatch):
         log_dir = tmp_path / "sessions"
         log_dir.mkdir()
         (log_dir / "MNT-147.log").write_text("hello\nworld\n")
         monkeypatch.setattr(service, "LOG_DIR", tmp_path / "sessions")
-        assert service._session_log_tail(task_id="MNT-147") == "hello\nworld"
+        assert service.session_log_tail(task_id="MNT-147") == "hello\nworld"
 
 
 class TestGitDiffFacts:
@@ -220,9 +220,9 @@ class TestGitDiffFacts:
             return 0, "1 file changed\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service._git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
         assert facts["files"] == ["a.py"]
-        assert any("main..HEAD" in command for command in commands)
+        assert any("origin/main..HEAD" in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
     async def test_falls_back_to_master_without_origin_head(self, monkeypatch):
@@ -239,16 +239,16 @@ class TestGitDiffFacts:
             return 0, "", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service._git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
         assert facts["files"] == []
-        assert any("master..HEAD" in command for command in commands)
+        assert any("origin/master..HEAD" in command for command in commands)
 
     async def test_errors_are_swallowed(self, monkeypatch):
         async def fake_run_command(command, target_path, disable_stdio=False, env=None):
             raise OSError("git missing")
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service._git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
         assert facts == {"files": [], "numstat": [], "changed_lines": 0, "stat_text": ""}
 
 
@@ -256,27 +256,27 @@ class TestInsertPagesEntry:
     def test_inserts_into_empty_pages_section(self):
         contents = "# Index\n\n## Pages\n\n## By topic\n"
         entry = "- [New page](pages/2026-08-04-new.md) — New"
-        updated = service._insert_pages_entry(contents=contents, entry=entry)
+        updated = service.insert_pages_entry(contents=contents, entry=entry)
         assert entry in updated
         assert updated.index("## Pages") < updated.index(entry) < updated.index("## By topic")
 
     def test_inserts_before_existing_bullets(self):
         contents = "# Index\n\n## Pages\n\n- [Old page](pages/2026-08-01-old.md) — Old\n\n## By topic\n"
         entry = "- [New page](pages/2026-08-04-new.md) — New"
-        updated = service._insert_pages_entry(contents=contents, entry=entry)
+        updated = service.insert_pages_entry(contents=contents, entry=entry)
         assert updated.index("New page") < updated.index("Old page")
 
     def test_creates_section_when_pages_missing(self):
         contents = "# Index\n\n## By topic\n"
         entry = "- [New page](pages/2026-08-04-new.md) — New"
-        updated = service._insert_pages_entry(contents=contents, entry=entry)
+        updated = service.insert_pages_entry(contents=contents, entry=entry)
         assert "## Pages" in updated
         assert entry in updated
 
     def test_idempotent(self):
         contents = "# Index\n\n## Pages\n\n- [New page](pages/2026-08-04-new.md) — New\n"
         entry = "- [New page](pages/2026-08-04-new.md) — New"
-        assert service._insert_pages_entry(contents=contents, entry=entry) == contents
+        assert service.insert_pages_entry(contents=contents, entry=entry) == contents
 
 
 class TestMergePageContent:
@@ -301,7 +301,7 @@ class TestMergePageContent:
             raise OSError("disk full")
 
         monkeypatch.setattr(Path, "write_text", boom)
-        assert service._merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is False
+        assert service.merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is False
 
     def test_returns_true_when_write_succeeds(self, tmp_path):
         survivor = tmp_path / "2026-08-04-survivor.md"
@@ -312,7 +312,7 @@ class TestMergePageContent:
             survivor: service.parse_page_file(survivor),
             loser: service.parse_page_file(loser),
         }
-        assert service._merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is True
+        assert service.merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is True
 
     async def test_dedup_keeps_loser_when_merge_write_fails(self, tmp_path, wiki_dirs, monkeypatch):
         survivor = wiki_dirs["pages"] / "2026-08-04-dupe.md"
@@ -324,8 +324,8 @@ class TestMergePageContent:
             raise OSError("disk full")
 
         monkeypatch.setattr(Path, "write_text", boom)
-        merged, deleted = await service._dedup_pages()
-        assert merged == 1
+        merged, deleted = await service.dedup_pages()
+        assert merged == 0
         assert deleted == 0
         assert survivor.is_file()
         assert loser.is_file()
@@ -340,7 +340,7 @@ class TestSessionLogTailSanitization:
         (tmp_path / "secret.log").write_text("secret data\n")
         monkeypatch.setattr(service, "LOG_DIR", tmp_path)
 
-        result = service._session_log_tail(task_id="../secret")
+        result = service.session_log_tail(task_id="../secret")
         assert "secret data" not in result
 
 
@@ -393,7 +393,7 @@ class TestPatchIndexWithoutTopicSection:
             "related": [],
         }
 
-        await service._patch_index(meta=meta, filename="2026-08-04-mnt-147-wiki-processes.md")
+        await service.patch_index(meta=meta, filename="2026-08-04-mnt-147-wiki-processes.md")
 
         text = wiki_dirs["index"].read_text()
         assert "## By topic" in text
@@ -432,7 +432,7 @@ class TestRenderWikiPage:
         meta = self._meta()
         meta["title"] = "MNT-147: Fix \\path issue"
         body = service.render_wiki_page(meta=meta, facts=FIXED_DIFF)
-        assert 'title: "MNT-147: Fix \\\\path issue"' in body
+        assert "title: 'MNT-147: Fix \\path issue'" in body
         path = tmp_path / "page.md"
         path.write_text(body)
         page = service.parse_page_file(path)
@@ -459,8 +459,8 @@ class TestRenderWikiPage:
 
 class TestWriteSessionWikiPage:
     async def test_writes_page_and_patches_index(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         wiki_dirs["index"].write_text(
             "# Demetra Wiki - Index\n\n## Pages\n\n- [Old page](pages/2026-08-01-old.md) — Old\n\n## By topic\n\n### Workflow orchestration & agents (1 page)\n\n- [Old page](pages/2026-08-01-old.md) — Old\n"
         )
@@ -475,8 +475,8 @@ class TestWriteSessionWikiPage:
         assert index_text.index("2026-08-04-mnt-147") < index_text.index("2026-08-01-old.md")
 
     async def test_rerun_does_not_duplicate_index_entries(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         wiki_dirs["index"].write_text(
             "# Index\n\n## Pages\n\n## By topic\n\n### Workflow orchestration & agents (1 page)\n\n- [x](p.md) — x\n"
         )
@@ -492,8 +492,8 @@ class TestWriteSessionWikiPage:
         assert topic_section.count("[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)") == 1
 
     async def test_update_keeps_related_clean(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         existing = wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md"
         existing.write_text(
             '---\ntitle: "MNT-147: Wiki processes"\ntickets: [MNT-147]\nrelated: [2026-08-01-other.md]\n---\n\nOld body'
@@ -508,8 +508,8 @@ class TestWriteSessionWikiPage:
         assert existing.name not in page["meta"]["related"]
 
     async def test_updates_existing_page_in_place(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         existing = wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md"
         existing.write_text("---\ntitle: MNT-147: Wiki processes\ntickets: [MNT-147]\n---\n\nOld body")
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
@@ -525,15 +525,15 @@ class TestWriteSessionWikiPage:
         async def boom(target_path, env=None):
             raise OSError("git unavailable")
 
-        monkeypatch.setattr(service, "_git_diff_facts", boom)
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", boom)
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
 
         # must not raise
         await service.write_session_wiki_page(context=make_context(tmp_path))
 
     async def test_groq_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_FILES", 1)
         monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_LINES", 10)
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
@@ -547,8 +547,8 @@ class TestWriteSessionWikiPage:
         assert "TLDR" in page_text
 
     async def test_cheap_run_skips_groq(self, tmp_path, wiki_dirs, monkeypatch):
-        monkeypatch.setattr(service, "_git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
-        monkeypatch.setattr(service, "_today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
 
         with patch("demetra.services.wiki.summarize_session", new=AsyncMock()) as mock:
@@ -561,7 +561,7 @@ class TestAnswerSweep:
         wiki_dirs["questions"].write_text(
             "# Questions\n\n## Open\n\n### Q-001 — Something\n\n- **Date:** 2026-08-04\n- **Answer:** it was the cache\n\n## Resolved\n\n"
         )
-        count = await service._answer_sweep()
+        count = await service.answer_sweep()
         assert count == 1
         text = wiki_dirs["questions"].read_text()
         assert "it was the cache" in text.partition("## Resolved")[2]
@@ -571,7 +571,7 @@ class TestAnswerSweep:
         wiki_dirs["questions"].write_text(
             "# Questions\n\n## Open\n\n### Q-001 — Something\n\n- **Date:** 2026-08-04\n- **Answer:** _(human writes here)_\n\n## Resolved\n\n"
         )
-        count = await service._answer_sweep()
+        count = await service.answer_sweep()
         assert count == 0
         assert "Q-001" in wiki_dirs["questions"].read_text().partition("## Open")[2]
 
@@ -579,7 +579,7 @@ class TestAnswerSweep:
         wiki_dirs["questions"].write_text(
             "# Questions\n\n## Open\n\n### Q-001 — Something\n\n- **Date:** 2026-08-04\n- **Answer:**\n\n## Resolved\n\n"
         )
-        count = await service._answer_sweep()
+        count = await service.answer_sweep()
         assert count == 0
         assert "Q-001" in wiki_dirs["questions"].read_text().partition("## Open")[2]
 
@@ -587,12 +587,12 @@ class TestAnswerSweep:
         wiki_dirs["questions"].write_text(
             "# Questions\n\n## Open\n\n### Q-001 — Something\n\n- **Date:** 2026-08-04\n- **Answer:**   \n\n## Resolved\n\n"
         )
-        count = await service._answer_sweep()
+        count = await service.answer_sweep()
         assert count == 0
         assert "Q-001" in wiki_dirs["questions"].read_text().partition("## Open")[2]
 
     async def test_missing_questions_file_is_noop(self, wiki_dirs):
-        assert await service._answer_sweep() == 0
+        assert await service.answer_sweep() == 0
 
 
 class TestDedupPages:
@@ -610,7 +610,7 @@ class TestDedupPages:
         (wiki_dirs["pages"] / "2026-08-03-mnt-147-wiki-processes.md").write_text(
             self._page("2026-08-03-mnt-147-wiki-processes.md", "MNT-147: Wiki processes", "2026-08-03")
         )
-        merged, deleted = await service._dedup_pages()
+        merged, deleted = await service.dedup_pages()
         assert merged == 1
         assert deleted == 1
         remaining = list(wiki_dirs["pages"].glob("*.md"))
@@ -626,7 +626,7 @@ class TestDedupPages:
                 "MNT-147", "MNT-200"
             )
         )
-        merged, deleted = await service._dedup_pages()
+        merged, deleted = await service.dedup_pages()
         assert merged == 0
         assert deleted == 0
         assert len(list(wiki_dirs["pages"].glob("*.md"))) == 2
@@ -651,7 +651,7 @@ class TestRegenerateByTopic:
             "# Index\n\n## Pages\n\n- [x](p.md) — x\n\n## By topic\n\n### Old cluster (1 page)\n\n- [x](p.md) — x\n"
         )
 
-        clusters = await service._regenerate_by_topic()
+        clusters = await service.regenerate_by_topic()
         assert clusters == 2
         text = wiki_dirs["index"].read_text()
         assert "### MCP / integrations" in text
@@ -662,7 +662,7 @@ class TestRegenerateByTopic:
 class TestAgentsDrift:
     async def test_flags_missing_anchors(self, wiki_dirs):
         wiki_dirs["agents"].write_text("# AGENTS.md\n\nNo anchors here.\n")
-        drift = await service._check_agents_drift()
+        drift = await service.check_agents_drift()
         assert "demetra/services/wiki.py" in drift
         assert "Groq" in drift
 
@@ -670,7 +670,7 @@ class TestAgentsDrift:
         wiki_dirs["agents"].write_text(
             "demetra/services/wiki.py\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq\nnever prefix with\n"
         )
-        assert await service._check_agents_drift() == []
+        assert await service.check_agents_drift() == []
 
 
 class TestRevalidateAndCommit:

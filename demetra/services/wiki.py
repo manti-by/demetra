@@ -16,7 +16,7 @@ from demetra.settings import (
     BASE_PATH,
     GIT,
     LOG_DIR,
-    WIKI_DIFF_HUNK_CAP,
+    WIKI_BUILD_PLAN_CAP,
     WIKI_GROQ_BUDGET_FILES,
     WIKI_GROQ_BUDGET_LINES,
 )
@@ -29,6 +29,7 @@ PAGES_ROOT = WIKI_ROOT / "pages"
 
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
 BARE_DASH_RE = re.compile(r"^(\s*[A-Za-z_][\w]*\s*:\s*)-$", re.MULTILINE)
+PAGE_LINK_RE = re.compile(r"\]\(pages/([^)]+)\)")
 
 PAGE_TYPE = "implementation"
 PAGE_STATUS = "resolved"
@@ -50,7 +51,7 @@ AGENTS_DRIFT_ANCHORS = (
 )
 
 
-def _today() -> str:
+def today() -> str:
     """Return the current UTC date in ``YYYY-MM-DD`` form.
 
     Returns:
@@ -73,7 +74,7 @@ def session_filename(ticket_identifier: str, title: str) -> str:
         str: The deterministic page filename, e.g.
             ``2026-08-04-mnt-147-wiki-processes.md``.
     """
-    return f"{_today()}-{slugify(f'{ticket_identifier.strip()}-{title.strip()}')}.md"
+    return f"{today()}-{slugify(f'{ticket_identifier.strip()}-{title.strip()}')}.md"
 
 
 def parse_page_file(path: Path) -> dict | None:
@@ -123,7 +124,7 @@ def existing_page_for_ticket(ticket_identifier: str) -> Path | None:
         return None
     for path in sorted(PAGES_ROOT.glob("*.md")):
         try:
-            meta = _parse_frontmatter(path.read_text(encoding="utf-8"))
+            meta = parse_frontmatter(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError):
             continue
         if ticket_identifier in (meta.get("tickets") or []):
@@ -131,7 +132,7 @@ def existing_page_for_ticket(ticket_identifier: str) -> Path | None:
     return None
 
 
-def _parse_frontmatter(text: str) -> dict:
+def parse_frontmatter(text: str) -> dict:
     """Parse YAML frontmatter delimited by ``---`` lines.
 
     Tolerant mirror of the read side used for quick ticket lookups.
@@ -153,7 +154,7 @@ def _parse_frontmatter(text: str) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def _infer_services(changed_files: list[str]) -> list[str]:
+def infer_services(changed_files: list[str]) -> list[str]:
     """Infer the affected ``services`` from changed file paths.
 
     Args:
@@ -178,7 +179,7 @@ def _infer_services(changed_files: list[str]) -> list[str]:
     return services
 
 
-def _infer_tags(linear_task: LinearTask) -> list[str]:
+def infer_tags(linear_task: LinearTask) -> list[str]:
     """Infer the wiki page ``tags`` from Linear labels.
 
     Args:
@@ -195,7 +196,7 @@ def _infer_tags(linear_task: LinearTask) -> list[str]:
     return tags[:8]
 
 
-def _session_log_tail(task_id: str) -> str:
+def session_log_tail(task_id: str) -> str:
     """Read the tail of a session's log file.
 
     Streams the file line-by-line into a bounded deque so verbose build logs do
@@ -222,29 +223,35 @@ def _session_log_tail(task_id: str) -> str:
     return "\n".join(tail)
 
 
-async def _default_branch(target_path: Path, env: dict[str, str] | None) -> str:
-    """Resolve the remote default branch for a worktree.
+async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> str:
+    """Resolve the remote-tracking default branch for a worktree.
 
-    Reads ``origin/HEAD``; falls back to ``"master"`` when the symbolic ref is
-    missing or the lookup fails.
+    Reads ``refs/remotes/origin/HEAD``; falls back to ``"origin/master"`` when
+    the symbolic ref is missing or the lookup fails.
 
     Args:
         target_path: The repository worktree.
         env: Optional environment overrides for the subprocess.
 
     Returns:
-        str: The default branch name, e.g. ``"main"``.
+        str: The remote-tracking default branch ref, e.g. ``"origin/main"``.
     """
     command = [str(GIT["path"]), "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
     try:
-        _, stdout, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
+        exit_code, stdout, _ = await run_command(command=command, target_path=target_path, disable_stdio=True, env=env)
     except (OSError, RuntimeError):
-        return "master"
-    branch = stdout.strip().removeprefix("origin/")
-    return branch or "master"
+        return "origin/master"
+    if exit_code != 0:
+        return "origin/master"
+    branch = stdout.strip()
+    if not branch:
+        return "origin/master"
+    if branch.startswith("origin/"):
+        return branch
+    return f"origin/{branch.removeprefix('refs/remotes/origin/')}"
 
 
-async def _git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
+async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
     """Collect deterministic diff facts against the default branch for a worktree.
 
     Args:
@@ -255,27 +262,33 @@ async def _git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict
         dict: The changed file list, per-file numstat counts, total changed
             lines and the ``--stat`` text. Falls back to empty values on error.
     """
-    base_ref = await _default_branch(target_path=target_path, env=env)
+    base_ref = await git_default_branch(target_path=target_path, env=env)
     base = [str(GIT["path"]), "diff", f"{base_ref}..HEAD"]
     files: list[str] = []
     numstat: list[tuple[str, str, str]] = []
     stat_text = ""
     try:
-        _, name_only, _ = await run_command(
+        exit_code, name_only, name_only_err = await run_command(
             command=[*base, "--name-only"], target_path=target_path, disable_stdio=True, env=env
         )
+        if exit_code != 0:
+            raise RuntimeError(f"git diff --name-only failed: {name_only_err.strip()}")
         files = [line for line in name_only.splitlines() if line.strip()]
 
-        _, numstat_out, _ = await run_command(
+        exit_code, numstat_out, numstat_err = await run_command(
             command=[*base, "--numstat"], target_path=target_path, disable_stdio=True, env=env
         )
+        if exit_code != 0:
+            raise RuntimeError(f"git diff --numstat failed: {numstat_err.strip()}")
         for line in numstat_out.splitlines():
             added, deleted, path = line.split("\t", 2)
             numstat.append((path, added, deleted))
 
-        _, stat_out, _ = await run_command(
+        exit_code, stat_out, stat_err = await run_command(
             command=[*base, "--stat"], target_path=target_path, disable_stdio=True, env=env
         )
+        if exit_code != 0:
+            raise RuntimeError(f"git diff --stat failed: {stat_err.strip()}")
         stat_text = stat_out.strip()
     except (OSError, AttributeError, RuntimeError, ValueError):
         logger.exception("Failed to collect git diff facts for wiki page")
@@ -289,7 +302,7 @@ async def _git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict
     return {"files": files, "numstat": numstat, "changed_lines": changed_lines, "stat_text": stat_text}
 
 
-def _budget_exceeded(facts: dict) -> bool:
+def budget_exceeded(facts: dict) -> bool:
     """Decide whether a session warrants the Groq polish pass.
 
     Args:
@@ -302,7 +315,7 @@ def _budget_exceeded(facts: dict) -> bool:
     return len(facts["files"]) > WIKI_GROQ_BUDGET_FILES or facts["changed_lines"] > WIKI_GROQ_BUDGET_LINES
 
 
-def _truncate(text: str, limit: int) -> str:
+def truncate(text: str, limit: int) -> str:
     """Truncate text to a maximum length with an ellipsis marker.
 
     Args:
@@ -317,31 +330,11 @@ def _truncate(text: str, limit: int) -> str:
     return f"{text[:limit]}…"
 
 
-def _yaml_scalar(value: object) -> str:
-    """Quote a YAML scalar when it needs quoting.
-
-    Titles like ``MNT-147: Wiki processes`` contain ``: `` and break bare
-    scalar parsing, so any value with YAML-significant characters is quoted.
-
-    Args:
-        value: The scalar value to render.
-
-    Returns:
-        str: The value, quoted when necessary.
-    """
-    if value is None:
-        return ""
-    text = str(value)
-    if not text:
-        return ""
-    if any(character in text for character in (":", "#", "[", "]", "{", "}", '"', "'", "`", "*", "&", "\\")):
-        escaped = text.replace("\\", "\\\\").replace('"', '\\"')
-        return f'"{escaped}"'
-    return text
-
-
-def _dump_frontmatter(meta: dict) -> str:
+def dump_frontmatter(meta: dict) -> str:
     """Serialize the frontmatter mapping to a ``---``-delimited YAML block.
+
+    Uses PyYAML ``safe_dump`` so every value is quoted correctly instead of the
+    hand-rolled scalar quoting it replaces.
 
     Args:
         meta: The frontmatter mapping.
@@ -349,27 +342,20 @@ def _dump_frontmatter(meta: dict) -> str:
     Returns:
         str: The YAML block with a leading and trailing ``---``.
     """
-
-    def _inline(key: str) -> str:
-        values = meta.get(key) or []
-        return f"{key}: [{', '.join(values)}]" if values else f"{key}: []"
-
-    return "\n".join(
-        [
-            "---",
-            f"title: {_yaml_scalar(meta.get('title') or '')}",
-            f"date: {_yaml_scalar(meta.get('date') or '')}",
-            f"type: {_yaml_scalar(meta.get('type') or '')}",
-            f"status: {_yaml_scalar(meta.get('status') or '')}",
-            f"session_id: {_yaml_scalar(meta.get('session_id') or '')}",
-            _inline("services"),
-            f"branch: {_yaml_scalar(meta.get('branch') or '-')}",
-            _inline("tickets"),
-            _inline("tags"),
-            _inline("related"),
-            "---",
-        ]
-    )
+    ordered = {
+        "title": meta.get("title") or "",
+        "date": meta.get("date") or "",
+        "type": meta.get("type") or "",
+        "status": meta.get("status") or "",
+        "session_id": meta.get("session_id") or "",
+        "services": meta.get("services") or [],
+        "branch": meta.get("branch") or "-",
+        "tickets": meta.get("tickets") or [],
+        "tags": meta.get("tags") or [],
+        "related": meta.get("related") or [],
+    }
+    block = yaml.safe_dump(data=ordered, default_flow_style=None, sort_keys=False, allow_unicode=True).strip()
+    return f"---\n{block}\n---"
 
 
 def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = None) -> str:
@@ -399,11 +385,11 @@ def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = No
 
     file_lines = "\n".join(f"- `{path}` ({added}/{deleted})" for path, added, deleted in facts.get("numstat", []))
     build_plan = (facts.get("build_plan") or "").strip() or "No build plan recorded."
-    build_plan = _truncate(build_plan, WIKI_DIFF_HUNK_CAP * 4)
+    build_plan = truncate(text=build_plan, limit=WIKI_BUILD_PLAN_CAP)
 
     return "\n".join(
         [
-            _dump_frontmatter(meta),
+            dump_frontmatter(meta),
             f"# {title}",
             "",
             "## TL;DR",
@@ -422,7 +408,7 @@ def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = No
             "",
             "## Stat",
             "",
-            f"```\n{facts.get('stat_text') or '- no stat'}\n```",
+            f"```text\n{facts.get('stat_text') or '- no stat'}\n```",
             "",
             "## Build plan",
             "",
@@ -447,7 +433,7 @@ def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = No
     )
 
 
-def _index_entry(meta: dict, filename: str) -> str:
+def index_entry(meta: dict, filename: str) -> str:
     """Build the INDEX ``## Pages`` line for a page.
 
     Args:
@@ -461,7 +447,7 @@ def _index_entry(meta: dict, filename: str) -> str:
     return f"- [{meta['title']}](pages/{filename}) — {summary}"
 
 
-async def _read_index() -> str:
+async def read_index() -> str:
     """Read the wiki INDEX file.
 
     Returns:
@@ -473,7 +459,7 @@ async def _read_index() -> str:
         return await handle.read()
 
 
-async def _write_index(contents: str) -> None:
+async def write_index(contents: str) -> None:
     """Atomically write the wiki INDEX file.
 
     Args:
@@ -486,12 +472,12 @@ async def _write_index(contents: str) -> None:
     os.replace(tmp, INDEX_PATH)
 
 
-def _insert_pages_entry(contents: str, entry: str) -> str:
+def insert_pages_entry(contents: str, entry: str) -> str:
     """Insert a new entry at the top of the ``## Pages`` section.
 
     The ``## Pages`` section is newest-first; the new page is inserted
-    immediately after the section header. Idempotent: an identical entry is
-    left untouched.
+    immediately after the section header. Idempotent by page link target: a line
+    already linking ``pages/{filename}`` is replaced with the new entry.
 
     Args:
         contents: The current INDEX contents.
@@ -500,34 +486,76 @@ def _insert_pages_entry(contents: str, entry: str) -> str:
     Returns:
         str: The updated INDEX contents.
     """
-    if entry in contents:
-        return contents
+    page_match = PAGE_LINK_RE.search(entry)
+    page_link = f"](pages/{page_match.group(1)})" if page_match else entry
     lines = contents.splitlines()
     in_pages = False
     insert_at = None
+    modified = False
     for index, line in enumerate(lines):
         if line.strip() == "## Pages":
             in_pages = True
             insert_at = index + 1
             continue
-        if in_pages and line.strip().startswith("## "):
+        if not in_pages:
+            continue
+        if line.strip().startswith("## "):
             if insert_at is not None:
                 lines.insert(insert_at, entry)
+                modified = True
             break
-        if in_pages and line.startswith("- ["):
+        if page_link in line:
+            if line != entry:
+                lines[index] = entry
+                modified = True
+            break
+        if line.lstrip().startswith("- ["):
             lines.insert(index, entry)
+            modified = True
             break
-        if in_pages and insert_at is not None:
+        if insert_at is not None:
             insert_at = index + 1
     else:
         if in_pages and insert_at is not None:
             lines.insert(insert_at, entry)
+            modified = True
         else:
             lines.extend(["", "## Pages", "", entry])
-    return "\n".join(lines)
+            modified = True
+    return "\n".join(lines) if modified else contents
 
 
-def _find_topic_cluster(contents: str, meta: dict) -> str:
+async def prune_index_pages(deleted_names: list[str]) -> None:
+    """Remove ``## Pages`` bullets that link to the given page files.
+
+    Args:
+        deleted_names: The page file names that were removed.
+    """
+    contents = await read_index()
+    if not contents:
+        return
+    lines = contents.splitlines()
+    in_pages = False
+    pruned = False
+    kept: list[str] = []
+    for line in lines:
+        if line.strip() == "## Pages":
+            in_pages = True
+            kept.append(line)
+            continue
+        if in_pages and line.strip().startswith("## "):
+            in_pages = False
+            kept.append(line)
+            continue
+        if in_pages and any(f"](pages/{name})" in line for name in deleted_names):
+            pruned = True
+            continue
+        kept.append(line)
+    if pruned:
+        await write_index(contents="\n".join(kept))
+
+
+def find_topic_cluster(contents: str, meta: dict) -> str:
     """Return the header of the most relevant ``## By topic`` cluster.
 
     Scores each cluster by matching its accumulated text against the page's
@@ -562,10 +590,13 @@ def _find_topic_cluster(contents: str, meta: dict) -> str:
     return "### Workflow orchestration & agents"
 
 
-def _insert_cluster_entry(contents: str, cluster_header: str, entry: str) -> str:
+def insert_cluster_entry(contents: str, cluster_header: str, entry: str) -> str:
     """Append a page bullet under a ``## By topic`` cluster.
 
-    Idempotent: an identical entry is left untouched.
+    Idempotent by page link target: a line already linking the same page file
+    is left untouched. Headers are matched on their stripped form, the blank
+    separator before the next cluster is preserved, and appending at the end
+    keeps a trailing blank line.
 
     Args:
         contents: The current INDEX contents.
@@ -575,27 +606,36 @@ def _insert_cluster_entry(contents: str, cluster_header: str, entry: str) -> str
     Returns:
         str: The updated INDEX contents.
     """
-    if entry in contents:
-        return contents
-    target = cluster_header.split(" (", 1)[0]
+    page_match = PAGE_LINK_RE.search(entry)
+    page_link = f"](pages/{page_match.group(1)})" if page_match else entry
+    target = cluster_header.strip().split(" (", 1)[0]
     lines = contents.splitlines()
     in_cluster = False
     for index, line in enumerate(lines):
-        if line.strip().startswith("### ") and line.split(" (", 1)[0] == target:
+        stripped = line.strip()
+        if stripped.startswith("### ") and stripped.split(" (", 1)[0] == target:
             in_cluster = True
             continue
-        if in_cluster and line.strip().startswith("### "):
-            lines.insert(index, entry)
+        if not in_cluster:
+            continue
+        if page_link in line:
             break
-        if in_cluster and index == len(lines) - 1:
+        if stripped.startswith("### "):
+            if lines[index - 1].strip() == "":
+                lines.insert(index - 1, entry)
+            else:
+                lines.insert(index, entry)
+            break
+        if index == len(lines) - 1:
             lines.append(entry)
+            lines.append("")
             break
     else:
         return contents
     return "\n".join(lines)
 
 
-async def _patch_index(meta: dict, filename: str) -> None:
+async def patch_index(meta: dict, filename: str) -> None:
     """Update ``INDEX.md`` with a new page entry.
 
     Inserts the entry into ``## Pages`` (newest-first) and appends a bullet
@@ -607,19 +647,20 @@ async def _patch_index(meta: dict, filename: str) -> None:
         meta: The page frontmatter mapping.
         filename: The page file name.
     """
-    contents = await _read_index()
-    pages_entry = _index_entry(meta=meta, filename=filename)
-    updated = _insert_pages_entry(contents=contents, entry=pages_entry)
+    contents = await read_index()
+    pages_entry = index_entry(meta=meta, filename=filename)
+    updated = insert_pages_entry(contents=contents, entry=pages_entry)
     if "## By topic" not in updated:
-        await _regenerate_by_topic()
-        updated = await _read_index()
-    cluster = _find_topic_cluster(contents=updated, meta=meta)
+        await write_index(contents=updated)
+        await regenerate_by_topic()
+        updated = await read_index()
+    cluster = find_topic_cluster(contents=updated, meta=meta)
     cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
-    updated = _insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
-    await _write_index(contents=updated)
+    updated = insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
+    await write_index(contents=updated)
 
 
-async def _write_page(path: Path, body: str) -> None:
+async def write_page(path: Path, body: str) -> None:
     """Atomically write a wiki page file.
 
     Args:
@@ -656,7 +697,7 @@ def collect_session_facts(context: Context) -> dict:
         "session_id": context.session_id,
         "pr_link": context.session.pr_link if context.session is not None else None,
         "task_id": linear_task.id,
-        "log_tail": _session_log_tail(task_id=linear_task.id),
+        "log_tail": session_log_tail(task_id=linear_task.id),
     }
 
 
@@ -681,12 +722,12 @@ async def write_session_wiki_page(context: Context) -> None:
         related: list[str] = []
         if existing is not None:
             try:
-                existing_meta = _parse_frontmatter(existing.read_text(encoding="utf-8"))
+                existing_meta = parse_frontmatter(existing.read_text(encoding="utf-8"))
             except OSError:
                 existing_meta = {}
             related = [item for item in (existing_meta.get("related") or []) if item != filename]
 
-        diff = await _git_diff_facts(target_path=context.worktree_path, env=context.project.environment)
+        diff = await git_diff_facts(target_path=context.worktree_path, env=context.project.environment)
         facts["files"] = diff["files"]
         facts["numstat"] = diff["numstat"]
         facts["changed_lines"] = diff["changed_lines"]
@@ -694,20 +735,20 @@ async def write_session_wiki_page(context: Context) -> None:
 
         meta = {
             "title": f"{identifier}: {title}",
-            "date": _today(),
+            "date": today(),
             "type": PAGE_TYPE,
             "status": PAGE_STATUS,
             "session_id": facts["session_id"] or "",
-            "services": _infer_services(facts["files"]),
+            "services": infer_services(facts["files"]),
             "branch": facts["branch"],
             "tickets": [identifier],
-            "tags": _infer_tags(linear_task=context.linear_task),
+            "tags": infer_tags(linear_task=context.linear_task),
             "related": related,
             "linear_url": facts["url"] or "-",
         }
 
         polished_summary: dict | None = None
-        if _budget_exceeded(facts=facts):
+        if budget_exceeded(facts=facts):
             polished_summary = await summarize_session(
                 ticket_text=context.linear_task.text,
                 description=facts["description"],
@@ -716,8 +757,8 @@ async def write_session_wiki_page(context: Context) -> None:
             )
 
         body = render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)
-        await _write_page(path=PAGES_ROOT / filename, body=body)
-        await _patch_index(meta=meta, filename=filename)
+        await write_page(path=PAGES_ROOT / filename, body=body)
+        await patch_index(meta=meta, filename=filename)
         logger.info("Wrote wiki page %s for ticket %s", filename, identifier)
     except Exception:  # noqa: BLE001
         logger.exception("Failed to write wiki page for session; wiki failure is non-fatal")
@@ -753,7 +794,7 @@ TOPIC_KEYWORDS: dict[str, tuple[str, ...]] = {
 }
 
 
-def _page_tokens(meta: dict, body: str) -> set[str]:
+def page_tokens(meta: dict, body: str) -> set[str]:
     """Split a page's metadata and body into a token set for dedup scoring.
 
     Args:
@@ -774,7 +815,7 @@ def _page_tokens(meta: dict, body: str) -> set[str]:
     return {token for token in re.findall(r"[a-z0-9]+", text.casefold()) if len(token) > 2}
 
 
-def _similarity(left: set[str], right: set[str]) -> float:
+def similarity(left: set[str], right: set[str]) -> float:
     """Compute the Jaccard similarity of two token sets.
 
     Args:
@@ -789,7 +830,7 @@ def _similarity(left: set[str], right: set[str]) -> float:
     return len(left & right) / len(left | right)
 
 
-async def _answer_sweep() -> int:
+async def answer_sweep() -> int:
     """Apply answered ``## Open`` entries in QUESTIONS.md and move them to Resolved.
 
     Returns:
@@ -812,7 +853,7 @@ async def _answer_sweep() -> int:
         if line.strip().startswith("### "):
             if current:
                 entry_text = "\n".join(current)
-                if _has_answer(entry_text):
+                if has_answer(entry_text):
                     count += 1
                     resolved.append(entry_text)
                 else:
@@ -822,7 +863,7 @@ async def _answer_sweep() -> int:
             current.append(line)
     if current:
         entry_text = "\n".join(current)
-        if _has_answer(entry_text):
+        if has_answer(entry_text):
             count += 1
             resolved.append(entry_text)
         else:
@@ -844,7 +885,7 @@ async def _answer_sweep() -> int:
     return count
 
 
-def _has_answer(entry_text: str) -> bool:
+def has_answer(entry_text: str) -> bool:
     """Check whether a question entry has a filled-in answer.
 
     A question counts as answered only when the ``**Answer:**`` field holds
@@ -867,7 +908,7 @@ def _has_answer(entry_text: str) -> bool:
     return True
 
 
-async def _dedup_pages() -> tuple[int, int]:
+async def dedup_pages() -> tuple[int, int]:
     """Merge near-duplicate wiki pages keeping the most recent version.
 
     Returns:
@@ -877,7 +918,7 @@ async def _dedup_pages() -> tuple[int, int]:
         return 0, 0
     parsed: dict[Path, dict] = {}
     for path in sorted(PAGES_ROOT.glob("*.md")):
-        page = parse_page_file(path)
+        page = parse_page_file(path=path)
         if page is not None:
             parsed[path] = page
 
@@ -891,18 +932,18 @@ async def _dedup_pages() -> tuple[int, int]:
             if right_path in deleted:
                 continue
             left, right = parsed[left_path], parsed[right_path]
-            tokens_left = _page_tokens(left["meta"], left["body"])
-            tokens_right = _page_tokens(right["meta"], right["body"])
-            if _similarity(tokens_left, tokens_right) < DEDUP_SIMILARITY_THRESHOLD:
+            tokens_left = page_tokens(meta=left["meta"], body=left["body"])
+            tokens_right = page_tokens(meta=right["meta"], body=right["body"])
+            if similarity(tokens_left, tokens_right) < DEDUP_SIMILARITY_THRESHOLD:
                 continue
-            survivor = _pick_survivor(left_path=left_path, right_path=right_path)
+            survivor = pick_survivor(left_path=left_path, right_path=right_path)
             if survivor is None:
                 continue
             survivor_path, loser_path = survivor
-            merged += 1
-            if _merge_page_content(survivor_path=survivor_path, loser_path=loser_path, parsed=parsed):
+            if merge_page_content(survivor_path=survivor_path, loser_path=loser_path, parsed=parsed):
+                merged += 1
                 deleted.append(loser_path)
-                refreshed = parse_page_file(survivor_path)
+                refreshed = parse_page_file(path=survivor_path)
                 if refreshed is not None:
                     parsed[survivor_path] = refreshed
 
@@ -911,10 +952,12 @@ async def _dedup_pages() -> tuple[int, int]:
             path.unlink(missing_ok=True)
         except OSError:
             logger.warning(f"Failed to delete duplicate wiki page {path.name}")
+    if deleted:
+        await prune_index_pages(deleted_names=[path.name for path in deleted])
     return merged, len(deleted)
 
 
-def _pick_survivor(left_path: Path, right_path: Path) -> tuple[Path, Path] | None:
+def pick_survivor(left_path: Path, right_path: Path) -> tuple[Path, Path] | None:
     """Pick the survivor of a near-duplicate pair by frontmatter date.
 
     Args:
@@ -925,8 +968,8 @@ def _pick_survivor(left_path: Path, right_path: Path) -> tuple[Path, Path] | Non
         tuple[Path, Path] | None: The ``(survivor, loser)`` paths, or None when
             both dates are equal.
     """
-    left_date = _page_date(left_path)
-    right_date = _page_date(right_path)
+    left_date = page_date(left_path)
+    right_date = page_date(right_path)
     if left_date == right_date:
         return None
     if left_date > right_date:
@@ -934,7 +977,7 @@ def _pick_survivor(left_path: Path, right_path: Path) -> tuple[Path, Path] | Non
     return right_path, left_path
 
 
-def _page_date(path: Path) -> str:
+def page_date(path: Path) -> str:
     """Return the frontmatter ``date`` of a page, defaulting to its filename date.
 
     Args:
@@ -944,7 +987,7 @@ def _page_date(path: Path) -> str:
         str: The page date in ``YYYY-MM-DD`` form.
     """
     try:
-        meta = _parse_frontmatter(path.read_text(encoding="utf-8"))
+        meta = parse_frontmatter(path.read_text(encoding="utf-8"))
         if meta.get("date"):
             return str(meta["date"])
     except (OSError, yaml.YAMLError):
@@ -953,7 +996,7 @@ def _page_date(path: Path) -> str:
     return match.group(1) if match else "0000-00-00"
 
 
-def _merge_page_content(survivor_path: Path, loser_path: Path, parsed: dict) -> bool:
+def merge_page_content(survivor_path: Path, loser_path: Path, parsed: dict) -> bool:
     """Merge a duplicate page's frontmatter lists and body into the survivor.
 
     Args:
@@ -983,7 +1026,7 @@ def _merge_page_content(survivor_path: Path, loser_path: Path, parsed: dict) -> 
             merged_body = f"{merged_body.rstrip()}\n\n{section.strip()}"
     survivor_meta["related"] = [item for item in (survivor_meta.get("related") or []) if item != loser_path.name]
 
-    body = _dump_frontmatter(survivor_meta) + "\n" + merged_body.lstrip()
+    body = dump_frontmatter(survivor_meta) + "\n" + merged_body.lstrip()
     try:
         survivor_path.write_text(encoding="utf-8", data=body)
     except OSError:
@@ -992,7 +1035,7 @@ def _merge_page_content(survivor_path: Path, loser_path: Path, parsed: dict) -> 
     return True
 
 
-def _cluster_for(meta: dict) -> str:
+def cluster_for(meta: dict) -> str:
     """Assign a page to a ``## By topic`` cluster by keyword scoring.
 
     Args:
@@ -1014,7 +1057,7 @@ def _cluster_for(meta: dict) -> str:
     return best[0]
 
 
-async def _regenerate_by_topic() -> int:
+async def regenerate_by_topic() -> int:
     """Rebuild the ``## By topic`` section of INDEX.md from page frontmatter.
 
     Returns:
@@ -1024,10 +1067,10 @@ async def _regenerate_by_topic() -> int:
         return 0
     clusters: dict[str, list[dict]] = {}
     for path in sorted(PAGES_ROOT.glob("*.md")):
-        page = parse_page_file(path)
+        page = parse_page_file(path=path)
         if page is None:
             continue
-        cluster = _cluster_for(meta=page["meta"])
+        cluster = cluster_for(meta=page["meta"])
         clusters.setdefault(cluster, []).append(page)
 
     lines = [
@@ -1044,17 +1087,27 @@ async def _regenerate_by_topic() -> int:
             lines.append(f"- [{title}](pages/{page['name']}) — {page['meta'].get('date') or ''}")
         lines.append("")
 
-    contents = await _read_index()
-    if "## By topic" in contents:
-        head, _, _ = contents.partition("## By topic")
-        updated = f"{head.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n"
+    contents = await read_index()
+    marker = "## By topic"
+    if marker in contents:
+        head, _, tail = contents.partition(marker)
+        tail_lines = tail.splitlines()
+        next_index = next(
+            (index for index, line in enumerate(tail_lines[1:], start=1) if line.startswith("## ")),
+            None,
+        )
+        if next_index is None:
+            updated = f"{head.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n"
+        else:
+            trailing = "\n".join(tail_lines[next_index:])
+            updated = f"{head.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n\n" + trailing.rstrip() + "\n"
     else:
         updated = f"{contents.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n"
-    await _write_index(contents=updated)
+    await write_index(contents=updated)
     return len(clusters)
 
 
-async def _check_agents_drift() -> list[str]:
+async def check_agents_drift() -> list[str]:
     """Check AGENTS.md for the anchors the 2026-08-03 revalidation maintains.
 
     Returns:
@@ -1085,25 +1138,54 @@ async def revalidate_wiki_and_agents() -> dict:
         "agents_drift": [],
     }
     try:
-        stats["questions_resolved"] = await _answer_sweep()
-        merged, deleted = await _dedup_pages()
+        stats["questions_resolved"] = await answer_sweep()
+        merged, deleted = await dedup_pages()
         stats["pages_merged"] = merged
         stats["pages_deleted"] = deleted
-        stats["clusters_rebuilt"] = await _regenerate_by_topic()
-        stats["agents_drift"] = await _check_agents_drift()
+        stats["clusters_rebuilt"] = await regenerate_by_topic()
+        stats["agents_drift"] = await check_agents_drift()
     except Exception:  # noqa: BLE001
         logger.exception("Wiki revalidation failed")
     return stats
 
 
+REVALIDATION_RETRYABLE = "__wiki_revalidation_retryable__"
+
+
+async def on_default_branch(target_path: Path) -> bool:
+    """Check whether a worktree is on the repository's default branch.
+
+    Args:
+        target_path: The repository worktree.
+
+    Returns:
+        bool: True when HEAD is on the default branch.
+    """
+    default_ref = await git_default_branch(target_path=target_path, env=None)
+    default_name = default_ref.removeprefix("origin/")
+    command = [str(GIT["path"]), "rev-parse", "--abbrev-ref", "HEAD"]
+    try:
+        exit_code, stdout, _ = await run_command(command=command, target_path=target_path, disable_stdio=True)
+    except (OSError, RuntimeError):
+        return False
+    if exit_code != 0:
+        return False
+    return stdout.strip() == default_name
+
+
 async def commit_revalidation(stats: dict) -> str | None:
     """Commit the revalidation changes to ``wiki/`` and ``AGENTS.md``.
+
+    Only runs on the repository's default branch. When another process holds
+    the git index lock, ``REVALIDATION_RETRYABLE`` is returned so the caller can
+    classify the failure as transient rather than permanent.
 
     Args:
         stats: The revision statistics from ``revalidate_wiki_and_agents``.
 
     Returns:
-        str | None: The commit SHA, or None when there was nothing to commit.
+        str | None: The commit SHA, ``REVALIDATION_RETRYABLE`` on index lock
+            contention, or None when there was nothing to commit.
     """
     if not any(
         (
@@ -1111,31 +1193,40 @@ async def commit_revalidation(stats: dict) -> str | None:
             stats.get("pages_deleted"),
             stats.get("questions_resolved"),
             stats.get("clusters_rebuilt"),
-            stats.get("agents_drift"),
         )
     ):
+        return None
+
+    if not await on_default_branch(target_path=BASE_PATH):
+        logger.warning(msg="Skipping wiki revalidation commit: BASE_PATH is not on the default branch")
         return None
 
     command = [str(GIT["path"]), "add", "wiki/", "AGENTS.md"]
     exit_code, _, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
-        logger.warning(f"Failed to stage revalidation changes: {stderr.strip()}")
+        if "index.lock" in stderr:
+            return REVALIDATION_RETRYABLE
+        logger.warning(msg=f"Failed to stage revalidation changes: {stderr.strip()}")
         return None
 
     diff_cmd = [str(GIT["path"]), "diff", "--staged", "--name-only"]
-    _, staged, _ = await run_command(command=diff_cmd, target_path=BASE_PATH, disable_stdio=True)
-    if not staged.strip():
+    exit_code, staged, _ = await run_command(command=diff_cmd, target_path=BASE_PATH, disable_stdio=True)
+    if exit_code != 0 or not staged.strip():
         return None
 
     message = "Revalidate wiki and AGENTS.md (post-merge)"
     commit_cmd = [str(GIT["path"]), "commit", "-m", message, "--", "wiki/", "AGENTS.md"]
     exit_code, _, stderr = await run_command(command=commit_cmd, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
-        logger.warning(f"Failed to commit revalidation changes: {stderr.strip()}")
+        if "index.lock" in stderr:
+            return REVALIDATION_RETRYABLE
+        logger.warning(msg=f"Failed to commit revalidation changes: {stderr.strip()}")
         return None
 
     rev_cmd = [str(GIT["path"]), "rev-parse", "HEAD"]
-    _, sha, _ = await run_command(command=rev_cmd, target_path=BASE_PATH, disable_stdio=True)
+    exit_code, sha, _ = await run_command(command=rev_cmd, target_path=BASE_PATH, disable_stdio=True)
+    if exit_code != 0:
+        return None
     return sha.strip() or None
 
 
@@ -1150,7 +1241,12 @@ async def run_wiki_revalidation() -> dict:
     """
     stats = await revalidate_wiki_and_agents()
     try:
-        stats["commit_sha"] = await commit_revalidation(stats=stats)
+        commit_result = await commit_revalidation(stats=stats)
+        if commit_result == REVALIDATION_RETRYABLE:
+            stats["retryable"] = True
+            logger.warning(msg="Wiki revalidation commit blocked by git index.lock; retry later")
+            commit_result = None
+        stats["commit_sha"] = commit_result
     except Exception:  # noqa: BLE001
         logger.exception("Failed to commit wiki revalidation")
         stats["commit_sha"] = None

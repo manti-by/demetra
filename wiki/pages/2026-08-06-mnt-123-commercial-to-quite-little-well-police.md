@@ -1,20 +1,20 @@
 ---
-title: "MNT-128: Create Bare React Application"
-date: 2026-08-04
+title: 'MNT-123: Should grow identify.'
+date: '2026-08-06'
 type: implementation
 status: resolved
-session_id: 
+session_id: ''
 services: []
-branch: mnt-128-create-bare-react-application
-tickets: [MNT-128]
-tags: [wiki]
+branch: feature/see-always-kid-data
+tickets: [MNT-123]
+tags: [wiki, bug]
 related: []
 ---
-# MNT-128: Create Bare React Application
+# MNT-123: Should grow identify.
 
 ## TL;DR
 
-Implementation session for MNT-128: Create Bare React Application on branch `mnt-128-create-bare-react-application`.
+Implementation session for MNT-123: Should grow identify. on branch `feature/see-always-kid-data`.
 
 ---
 
@@ -28,13 +28,13 @@ Changed 0 file(s) (0 lines) affecting services: none. Primary files: none.
 
 ## Stat
 
-```
+```text
 - no stat
 ```
 
 ## Build plan
 
-existing build plan
+Some build plan
 
 ## Test Results
 

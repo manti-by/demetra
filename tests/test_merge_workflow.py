@@ -181,7 +181,7 @@ class TestRunMergeWorkflow:
             async def fake_write(context):
                 calls.append("write")
 
-            def fake_enqueue(job):
+            def fake_enqueue(f):
                 calls.append("enqueue")
 
             mock_get_task.return_value = "task"

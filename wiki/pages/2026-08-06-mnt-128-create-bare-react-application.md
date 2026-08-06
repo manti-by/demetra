@@ -1,20 +1,20 @@
 ---
-title: "MNT-123: Game current role would her."
-date: 2026-08-04
+title: 'MNT-128: Create Bare React Application'
+date: '2026-08-06'
 type: implementation
 status: resolved
-session_id: 
+session_id: ''
 services: []
-branch: feature/structure-toward
-tickets: [MNT-123]
-tags: [wiki, bug]
+branch: mnt-128-create-bare-react-application
+tickets: [MNT-128]
+tags: [wiki]
 related: []
 ---
-# MNT-123: Game current role would her.
+# MNT-128: Create Bare React Application
 
 ## TL;DR
 
-Implementation session for MNT-123: Game current role would her. on branch `feature/structure-toward`.
+Implementation session for MNT-128: Create Bare React Application on branch `mnt-128-create-bare-react-application`.
 
 ---
 
@@ -28,13 +28,13 @@ Changed 0 file(s) (0 lines) affecting services: none. Primary files: none.
 
 ## Stat
 
-```
+```text
 - no stat
 ```
 
 ## Build plan
 
-Some build plan
+existing build plan
 
 ## Test Results
 
