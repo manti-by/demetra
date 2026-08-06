@@ -37,6 +37,7 @@ class OpenCodeConfig(PathConfig):
     resolve_model: str
     build_model: str
     review_models: list[str]
+    validate_model: str
 
 
 class GitConfig(PathConfig):

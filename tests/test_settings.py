@@ -27,6 +27,33 @@ class TestSettings:
         finally:
             importlib.reload(settings_module)
 
+    def test_opencode_validate_model_default(self, monkeypatch):
+        monkeypatch.delenv("OPENCODE_VALIDATE_MODEL", raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert "opencode" in settings_module.OPENCODE["validate_model"]
+        finally:
+            importlib.reload(settings_module)
+
+    def test_opencode_validate_model_env_override(self, monkeypatch):
+        monkeypatch.setenv("OPENCODE_VALIDATE_MODEL", "opencode-go/custom-validate")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OPENCODE["validate_model"] == "opencode-go/custom-validate"
+        finally:
+            monkeypatch.delenv("OPENCODE_VALIDATE_MODEL", raising=False)
+            importlib.reload(settings_module)
+
     def test_max_plan_attempts_default(self, monkeypatch):
         monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
         import importlib

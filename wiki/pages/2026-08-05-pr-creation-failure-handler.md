@@ -1,0 +1,80 @@
+---
+title: PR creation failure moves ticket to Awaiting Input
+date: 2026-08-05
+type: implementation
+status: resolved
+session_id: -
+services: [main, workflows, linear, github]
+branch: -
+tickets: []
+tags: [pr, pull-request, error-handling, awaiting-input, linear]
+related: [2026-07-21-awaiting-input-status-for-session.md]
+---
+
+# PR creation failure moves ticket to Awaiting Input
+
+## TL;DR
+
+When `gh pr create` fails at the end of the workflow (after the branch was already pushed), the ticket used to be silently moved back to TODO with no trace on the Linear side. A dedicated `except PullRequestError` handler in `main.py` now posts a Linear comment with the branch, a manual compare URL and the `gh` error, then moves the ticket to `Awaiting Input` and records the session step as `awaiting_input`. Tests added.
+
+---
+
+## Overview
+
+Before this change a `PullRequestError` raised in `commit_and_push` (`demetra/workflows/cleanup.py:67`) fell through to the generic `except DemetraError` in `main.py`, which set `is_success=False` and `failure_step="failed"`. `cleanup_workflow` then called `linear_cleanup(... is_success=False)`, moving the ticket back to TODO — no comment, no explanation, and the pushed branch left dangling with no PR.
+
+## Step 1 — Dedicated handler in `main.py`
+
+**File:** `main.py:121`
+
+Added an `except PullRequestError` clause before the generic `DemetraError` handler:
+
+```python
+except PullRequestError as e:
+    print_message(f"Pull request creation failed: {e}", style="error")
+    failure_step = "awaiting_input"
+    should_update_linear_status = False
+    body = (
+        "## PR creation failed\n\n"
+        "The build, commit, and push steps succeeded, but creating the "
+        "GitHub pull request failed. The branch has been pushed; the PR has "
+        "not been created.\n\n"
+        f"**Branch:** `{context.branch_name}`\n"
+        f"**Open manually:** "
+        f"https://github.com/{context.project.repository_owner}/"
+        f"{context.project.repository_name}/compare/{context.branch_name}\n\n"
+        "### Error\n\n"
+        f"```\n{e}\n```\n\n"
+        "Please create the PR manually, then move the ticket back to "
+        "`In Progress` to continue."
+    )
+    if not await post_comment(task_id=context.linear_task.id, body=body):
+        print_message("Failed to post PR-creation-failure comment to Linear", style="error")
+    await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
+```
+
+Key mechanics:
+- `failure_step="awaiting_input"` makes `cleanup_workflow` record the session step as `awaiting_input` (`cleanup.py:117`), matching the `AutoCancelledError` path.
+- `should_update_linear_status=False` stops `linear_cleanup` from reverting the ticket to TODO (`cleanup.py:135-136`).
+- The `PullRequestError` message already carries `stderr or stdout` from `gh pr create`, so `str(e)` is the actionable error. The comment adds the branch and a `compare/<branch>` URL for a manual PR.
+- The worktree is still cleaned up by `git_cleanup` in the `finally` — correct, because the branch lives on the remote.
+
+## Step 2 — Tests
+
+**File:** `tests/test_entrypoints.py`
+
+Extended the `mock_main_deps` fixture to also expose `post_comment` / `update_ticket_status` mocks, and added `test_main_handles_pr_creation_failure`: `commit_and_push` raises `PullRequestError("gh: could not create PR")`, then asserts the comment body contains the branch, the compare URL and the error text, that `update_ticket_status` is called with the `awaiting_input` state, and that `cleanup_workflow` receives `should_update_linear_status=False` with `failure_step="awaiting_input"`.
+
+## Test Results
+
+`tests/test_entrypoints.py` (full file) and `tests/test_workflows.py` pass; full suite `587 passed`. `ruff`, `ty` and `pre-commit` (incl. bandit) all pass.
+
+---
+
+## Follow-ups
+
+None.
+
+## References
+
+- Related: [[2026-07-21-awaiting-input-status-for-session]]
