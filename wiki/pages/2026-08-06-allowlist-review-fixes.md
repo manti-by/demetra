@@ -94,7 +94,7 @@ file path calls it too, so dry-run reports counts without writing.
 
 CI "Run checks" failed with:
 
-```
+```text
 sqlalchemy.exc.IntegrityError: new row for relation "users" violates check constraint
 "ck_users_has_auth"
 ```
@@ -114,7 +114,9 @@ IS NOT NULL` constraint. Fixed by passing `password_hash="test-hash"`.
 
 ## Follow-ups
 
-- Changes are staged but not yet committed/pushed, so CI has not re-run with the fixes.
+- ~~Changes are staged but not yet committed/pushed, so CI has not re-run with the fixes.~~
+  **Done** — committed as `d1df1d2` ("MNT-155: Fix tests and update wiki") and pushed to
+  PR #71 (branch `mnt-155-add-allow-list-for-registration-and-github-login`).
 - The `_dispose_engines` teardown in `tests/test_allowlist_cli.py` logs noisy
   "Event loop is closed" errors; harmless (tests still pass) but could be cleaned up later.
 
