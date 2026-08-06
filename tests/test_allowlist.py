@@ -30,15 +30,15 @@ async def _create_password_user(email: str) -> None:
 
 @pytest.mark.asyncio
 async def test_is_allowlist_enabled_defaults_false(monkeypatch):
-    monkeypatch.delenv("IS_ALLOWLIST_ENABLED", raising=False)
+    monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", False)
     assert is_allowlist_enabled() is False
 
 
 @pytest.mark.asyncio
-async def test_is_allowlist_enabled_reads_env_per_call(monkeypatch):
-    monkeypatch.setenv("IS_ALLOWLIST_ENABLED", "true")
+async def test_is_allowlist_enabled_reads_setting_per_call(monkeypatch):
+    monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", True)
     assert is_allowlist_enabled() is True
-    monkeypatch.setenv("IS_ALLOWLIST_ENABLED", "false")
+    monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", False)
     assert is_allowlist_enabled() is False
 
 
@@ -91,7 +91,7 @@ class TestLoginWithPassword:
     async def test_login_rejects_non_allowlisted_existing_user(self, mock_jwt_settings, monkeypatch):
         email = _unique_email()
         await _create_password_user(email)
-        monkeypatch.setenv("IS_ALLOWLIST_ENABLED", "true")
+        monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", True)
         with pytest.raises(AuthError, match="Invalid email or password"):
             await login_with_password(email=email, password="hunter2hunter2")
 
@@ -100,7 +100,7 @@ class TestLoginWithPassword:
         email = _unique_email()
         await _create_password_user(email)
         await add_entry(entry_type="email", value=email, note=None, added_by=None)
-        monkeypatch.setenv("IS_ALLOWLIST_ENABLED", "true")
+        monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", True)
         result = await login_with_password(email=email, password="hunter2hunter2")
         assert result.user.email == email
 
@@ -195,6 +195,24 @@ class TestAdminBypass:
         github_user = GitHubUser(id=github_id, login=login, email=email)
         result = await authenticate_user(github_user)
         assert result.user.github_username == login
+
+    @pytest.mark.asyncio
+    async def test_admin_github_gate_rejects_reassigned_username(self, mock_jwt_settings, allowlist_seeded):
+        email = _unique_email()
+        login = f"gh-{uuid4().hex[:8]}"
+        admin_github_id = str(uuid4().int)
+        await add_entry(entry_type="github_username", value=login, note=None, added_by=None)
+        user_id = (await authenticate_user(GitHubUser(id=admin_github_id, login=login, email=email))).user.id
+        async with _database_module.get_connection() as connection:
+            from sqlalchemy import text
+
+            await connection.execute(text("UPDATE users SET role = 'admin' WHERE id = :id"), {"id": user_id})
+            await connection.commit()
+
+        await remove_entry(entry_type="github_username", value=login)
+        intruder = GitHubUser(id=str(uuid4().int), login=login, email=_unique_email())
+        with pytest.raises(AuthError, match="GitHub account not authorized"):
+            await authenticate_user(intruder)
 
 
 class TestEntryCrud:

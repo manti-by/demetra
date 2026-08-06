@@ -19,6 +19,7 @@ from demetra.services.allowlist import (
     list_entries,
     load_seed_file,
     remove_entry,
+    seed_allowlist_rows,
     seed_existing_users,
 )
 from demetra.services.auth import reset_password
@@ -183,13 +184,13 @@ async def reset_password_cli() -> int:
         return 0
 
 
-async def _allowlist_add(entry_type: str, value: str, note: str | None) -> int:
+async def allowlist_add(entry_type: str, value: str, note: str | None) -> int:
     await add_entry(entry_type=entry_type, value=value, note=note, added_by=None)
     print_message("Allowlist entry added", style="success")
     return 0
 
 
-async def _allowlist_remove(entry_type: str, value: str) -> int:
+async def allowlist_remove(entry_type: str, value: str) -> int:
     if await remove_entry(entry_type=entry_type, value=value):
         print_message("Allowlist entry removed", style="success")
     else:
@@ -197,7 +198,7 @@ async def _allowlist_remove(entry_type: str, value: str) -> int:
     return 0
 
 
-async def _allowlist_list() -> int:
+async def allowlist_list() -> int:
     entries = await list_entries()
     if not entries:
         print_message("No allowlist entries", style="info")
@@ -218,26 +219,20 @@ async def _allowlist_list() -> int:
     return 0
 
 
-async def _allowlist_seed_existing(dry_run: bool) -> int:
+async def allowlist_seed_existing(dry_run: bool) -> int:
     if ALLOWLIST_SEED_FILE:
         try:
-            seed_rows = load_seed_file(ALLOWLIST_SEED_FILE)
+            rows = load_seed_file(ALLOWLIST_SEED_FILE)
         except ValueError as e:
             print_message(str(e), style="error")
             return 1
-        inserted = 0
-        for row in seed_rows:
-            try:
-                await add_entry(
-                    entry_type=row["entry_type"],
-                    value=row["value"],
-                    note=row.get("note"),
-                    added_by=None,
-                )
-            except AuthError:
-                continue
-            inserted += 1
-        print_message(f"Seeded {inserted} entries from {ALLOWLIST_SEED_FILE}", style="result")
+        counts = await seed_allowlist_rows(dry_run=dry_run, rows=rows)
+        prefix = "(dry-run) " if dry_run else ""
+        print_message(
+            f"{prefix}seeded {counts['inserted']} entries from {ALLOWLIST_SEED_FILE}: "
+            f"{counts['already_present']} already present, {counts['skipped']} skipped",
+            style="result",
+        )
         return 0
 
     counts = await seed_existing_users(dry_run=dry_run)
@@ -271,13 +266,13 @@ async def allowlist_cli(action: str, entry_type: str | None, value: str | None, 
 
     try:
         if action == "add":
-            return await _allowlist_add(entry_type=entry_type or "", value=value or "", note=note)
+            return await allowlist_add(entry_type=entry_type or "", value=value or "", note=note)
         if action == "remove":
-            return await _allowlist_remove(entry_type=entry_type or "", value=value or "")
+            return await allowlist_remove(entry_type=entry_type or "", value=value or "")
         if action == "list":
-            return await _allowlist_list()
+            return await allowlist_list()
         if action == "seed-existing":
-            return await _allowlist_seed_existing(dry_run=dry_run)
+            return await allowlist_seed_existing(dry_run=dry_run)
         print_message(f"Unknown allowlist action: {action}", style="error")
         return 1
     except AuthError as e:

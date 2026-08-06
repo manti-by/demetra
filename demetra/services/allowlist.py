@@ -1,5 +1,4 @@
 import json
-import os
 from pathlib import Path
 
 from sqlalchemy.exc import IntegrityError
@@ -9,11 +8,12 @@ from demetra.services.database import (
     delete_allowlist_entry,
     find_allowlist_entry,
     get_user_by_email,
-    get_user_by_github_username,
+    get_user_by_github_id,
     insert_allowlist_entry,
     list_allowlist_entries,
     list_user_allowlist_seed_rows,
 )
+from demetra.settings import ALLOWLIST_ENABLED
 
 
 VALID_ENTRY_TYPES = ("email", "github_username")
@@ -22,13 +22,10 @@ VALID_ENTRY_TYPES = ("email", "github_username")
 def is_allowlist_enabled() -> bool:
     """Return whether the allowlist gate is enabled.
 
-    Reads ``IS_ALLOWLIST_ENABLED`` from the environment on every call so test
-    suites can flip it with ``monkeypatch.setenv`` without reloading settings.
-
     Returns:
-        bool: True when the environment variable resolves to ``"true"``.
+        bool: The ``ALLOWLIST_ENABLED`` constant from ``demetra.settings``.
     """
-    return os.environ.get("IS_ALLOWLIST_ENABLED", "false").lower() == "true"
+    return ALLOWLIST_ENABLED
 
 
 def normalize_email(value: str) -> str:
@@ -55,7 +52,7 @@ def normalize_github_login(value: str) -> str:
     return value.strip().lower()
 
 
-def _normalize_value(entry_type: str, value: str) -> str:
+def normalize_value(entry_type: str, value: str) -> str:
     if entry_type == "email":
         return normalize_email(value)
     if entry_type == "github_username":
@@ -90,16 +87,18 @@ async def is_email_allowed(email: str, user_data: dict | None = None) -> bool:
     return await find_allowlist_entry(entry_type="email", value=normalized) is not None
 
 
-async def is_github_login_allowed(login: str, email: str | None) -> bool:
+async def is_github_login_allowed(login: str, email: str | None, github_id: str | None) -> bool:
     """Return whether a GitHub login may authenticate.
 
     Disabled allowlist always permits. An existing admin user (matched by the
-    GitHub login) always passes. Otherwise a ``github_username`` entry for the
-    login or an ``email`` entry for the non-null email is required (OR-match).
+    immutable GitHub account id) always passes. Otherwise a
+    ``github_username`` entry for the login or an ``email`` entry for the
+    non-null email is required (OR-match).
 
     Args:
         login: The GitHub login (username).
         email: The GitHub profile email, if any.
+        github_id: The immutable GitHub account id.
 
     Returns:
         bool: True when the GitHub login is allowed.
@@ -107,10 +106,12 @@ async def is_github_login_allowed(login: str, email: str | None) -> bool:
     if not is_allowlist_enabled():
         return True
 
+    if github_id:
+        user_data = await get_user_by_github_id(github_id=github_id)
+        if user_data and user_data.get("role") == "admin":
+            return True
+
     normalized_login = normalize_github_login(login)
-    user_data = await get_user_by_github_username(github_username=normalized_login)
-    if user_data and user_data.get("role") == "admin":
-        return True
 
     if await find_allowlist_entry(entry_type="github_username", value=normalized_login):
         return True
@@ -142,7 +143,7 @@ async def add_entry(entry_type: str, value: str, note: str | None, added_by: str
     if entry_type not in VALID_ENTRY_TYPES:
         raise ValueError(f"Invalid entry type: {entry_type}")
 
-    normalized = _normalize_value(entry_type, value)
+    normalized = normalize_value(entry_type, value)
     existing = await find_allowlist_entry(entry_type=entry_type, value=normalized)
     if existing:
         raise AuthError("Entry already exists")
@@ -166,7 +167,7 @@ async def remove_entry(entry_type: str, value: str) -> bool:
     if entry_type not in VALID_ENTRY_TYPES:
         raise ValueError(f"Invalid entry type: {entry_type}")
 
-    normalized = _normalize_value(entry_type, value)
+    normalized = normalize_value(entry_type, value)
     return await delete_allowlist_entry(entry_type=entry_type, value=normalized)
 
 
@@ -177,6 +178,61 @@ async def list_entries() -> list[dict]:
         list[dict]: The allowlist entry rows.
     """
     return await list_allowlist_entries()
+
+
+async def seed_allowlist_rows(dry_run: bool, rows: list[dict]) -> dict[str, int]:
+    """Insert allowlist seed rows, reporting inserted/already-present/skipped counts.
+
+    Each row must carry ``entry_type`` and ``value`` keys; ``note`` and
+    ``source_user_id`` are optional. Rows with a missing or empty normalized
+    value are counted as skipped. In dry-run mode the report is computed
+    without writing.
+
+    Args:
+        dry_run: When True, report counts without inserting rows.
+        rows: The seed rows to process.
+
+    Returns:
+        dict[str, int]: Counts of ``inserted``, ``already_present`` and
+            ``skipped`` rows.
+    """
+    inserted = 0
+    already_present = 0
+    skipped = 0
+
+    for row in rows:
+        entry_type = row["entry_type"]
+        value = row["value"]
+        if value is None:
+            skipped += 1
+            continue
+
+        normalized = normalize_value(entry_type, value)
+        if not normalized:
+            skipped += 1
+            continue
+
+        if await find_allowlist_entry(entry_type=entry_type, value=normalized):
+            already_present += 1
+            continue
+
+        if dry_run:
+            inserted += 1
+            continue
+
+        try:
+            await insert_allowlist_entry(
+                entry_type=entry_type,
+                value=normalized,
+                note=row.get("note"),
+                added_by=row.get("source_user_id"),
+            )
+        except IntegrityError:
+            already_present += 1
+        else:
+            inserted += 1
+
+    return {"inserted": inserted, "already_present": already_present, "skipped": skipped}
 
 
 async def seed_existing_users(dry_run: bool) -> dict[str, int]:
@@ -193,49 +249,16 @@ async def seed_existing_users(dry_run: bool) -> dict[str, int]:
         dict[str, int]: Counts of ``inserted``, ``already_present`` and
             ``skipped`` rows.
     """
-    seed_rows = await list_user_allowlist_seed_rows()
-
-    inserted = 0
-    already_present = 0
-    skipped = 0
-
-    for row in seed_rows:
-        entry_type = row["entry_type"]
-        value = row["value"]
-        if value is None:
-            skipped += 1
-            continue
-
-        normalized = _normalize_value(entry_type, value)
-        if not normalized:
-            skipped += 1
-            continue
-
-        if await find_allowlist_entry(entry_type=entry_type, value=normalized):
-            already_present += 1
-            continue
-
-        if dry_run:
-            inserted += 1
-            continue
-
-        try:
-            await insert_allowlist_entry(
-                entry_type=entry_type, value=normalized, note=None, added_by=row["source_user_id"]
-            )
-        except IntegrityError:
-            already_present += 1
-        else:
-            inserted += 1
-
-    return {"inserted": inserted, "already_present": already_present, "skipped": skipped}
+    rows = await list_user_allowlist_seed_rows()
+    return await seed_allowlist_rows(dry_run=dry_run, rows=rows)
 
 
 def load_seed_file(path: str) -> list[dict]:
     """Load allowlist seed entries from a JSON file.
 
-    The file must contain a JSON array of objects with ``entry_type`` and
-    ``value`` keys, and optionally ``note``.
+    The file must contain a JSON array of objects. Each object requires a
+    supported ``entry_type`` (``"email"`` or ``"github_username"``) and a
+    non-empty string ``value``; ``note`` is optional and must be a string.
 
     Args:
         path: Filesystem path to the JSON seed file.
@@ -244,14 +267,32 @@ def load_seed_file(path: str) -> list[dict]:
         list[dict]: The parsed seed entries.
 
     Raises:
-        ValueError: When the file cannot be read or parsed into a list.
+        ValueError: When the file cannot be read or parsed, or any entry is
+            malformed.
     """
     try:
-        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        raw = json.loads(Path(path).read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError) as e:
         raise ValueError(f"Failed to load seed file {path}: {e}") from e
-
-    if not isinstance(data, list):
+    if not isinstance(raw, list):
         raise ValueError(f"Seed file {path} must contain a JSON array")
 
-    return data
+    entries: list[dict] = []
+    for index, entry in enumerate(raw):
+        if not isinstance(entry, dict):
+            raise ValueError(f"Seed file {path}: entry {index} must be an object")
+        entry_type = entry.get("entry_type")
+        if entry_type not in VALID_ENTRY_TYPES:
+            raise ValueError(
+                f"Seed file {path}: entry {index} has invalid entry_type {entry_type!r}; "
+                f"expected one of {', '.join(VALID_ENTRY_TYPES)}"
+            )
+        value = entry.get("value")
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError(f"Seed file {path}: entry {index} must have a non-empty string value")
+        note = entry.get("note")
+        if note is not None and not isinstance(note, str):
+            raise ValueError(f"Seed file {path}: entry {index} note must be a string")
+        entries.append(entry)
+
+    return entries

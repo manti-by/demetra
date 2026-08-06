@@ -125,7 +125,7 @@ def test_list_non_empty(capsys):
 
 def test_seed_existing_dry_run_reports_counts(capsys):
     email = _unique_email()
-    user_id = _async_run(create_user(email=email))
+    user_id = _async_run(create_user(email=email, password_hash="test-hash"))
     code = _run_cli(action="seed-existing", dry_run=True)
     assert code == 0
     out = capsys.readouterr().out
@@ -140,7 +140,7 @@ def test_seed_existing_dry_run_reports_counts(capsys):
 
 def test_seed_existing_inserts_and_is_idempotent(capsys):
     email = _unique_email()
-    user_id = _async_run(create_user(email=email))
+    user_id = _async_run(create_user(email=email, password_hash="test-hash"))
     code = _run_cli(action="seed-existing")
     assert code == 0
 

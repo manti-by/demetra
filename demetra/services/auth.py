@@ -203,7 +203,7 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
         AuthError: When the user record cannot be found after creation, or the
             GitHub account is not on the allowlist.
     """
-    if not await is_github_login_allowed(login=github_user.login, email=github_user.email):
+    if not await is_github_login_allowed(login=github_user.login, email=github_user.email, github_id=github_user.id):
         raise AuthError("GitHub account not authorized")
 
     user_id = await get_or_create_user(github_user)
