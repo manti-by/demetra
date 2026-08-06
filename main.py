@@ -12,6 +12,7 @@ from demetra.library.exceptions import (
     AutoCancelledError,
     DemetraError,
     InfiniteLoopError,
+    PullRequestError,
     UserCancelledError,
 )
 from demetra.services.allowlist import (
@@ -36,6 +37,7 @@ from demetra.settings import (
 )
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
+from demetra.workflows.failure import process_pr_failure
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.setup import setup_workflow
 
@@ -138,14 +140,17 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     except AutoCancelledError:
         print_message("User cancelled, exiting the workflow.", style="error")
-        should_update_linear_status = False
-        failure_step = "awaiting_input"
+        failure_step, should_update_linear_status = "awaiting_input", False
 
-    except ValueError as e:
-        print_message(f"Configuration error: {e}", style="error")
+    except PullRequestError as e:
+        await process_pr_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")
+
+    except ValueError as e:
+        print_message(f"Configuration error: {e}", style="error")
 
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")

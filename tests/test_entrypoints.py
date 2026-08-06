@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AutoCancelledError
+from demetra.library.exceptions import AutoCancelledError, PullRequestError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import WATCHER_POLL_INTERVAL
 from demetra.worker import connection
@@ -101,20 +101,24 @@ class TestMainReplanning:
             patch("main.init_db", new_callable=AsyncMock),
             patch("main.setup_workflow", new_callable=AsyncMock) as mock_setup_workflow,
             patch("main.setup_session_logging", new_callable=AsyncMock),
-            patch("main.update_ticket_status", new_callable=AsyncMock),
-            patch("main.post_comment", new_callable=AsyncMock),
+            patch("main.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("main.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("main.mark_session_posted", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
+            patch("main.process_pr_failure", new_callable=AsyncMock) as mock_process_pr_failure,
             patch("main.cleanup_workflow", new_callable=AsyncMock) as mock_cleanup_workflow,
         ):
             mock_commit_and_push.return_value = True
             yield {
                 "setup_workflow": mock_setup_workflow,
+                "update_ticket_status": mock_update_ticket_status,
+                "post_comment": mock_post_comment,
                 "run_plan_step": mock_run_plan_step,
                 "run_build_step": mock_run_build_step,
                 "commit_and_push": mock_commit_and_push,
+                "process_pr_failure": mock_process_pr_failure,
                 "cleanup_workflow": mock_cleanup_workflow,
             }
 
@@ -172,6 +176,28 @@ class TestMainReplanning:
 
         await main(project_name="demetra", auto_mode=True)
 
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+        )
+
+    @pytest.mark.asyncio
+    async def test_main_delegates_pr_creation_failure_to_failure_step(self, mock_main_deps):
+        from main import main
+
+        context = _build_context(step="push", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+        mock_main_deps["commit_and_push"].side_effect = PullRequestError("gh: could not create PR")
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["process_pr_failure"].assert_awaited_once()
+        call_kwargs = mock_main_deps["process_pr_failure"].call_args.kwargs
+        assert call_kwargs["context"] is context
+        assert isinstance(call_kwargs["error"], PullRequestError)
+        assert "gh: could not create PR" in str(call_kwargs["error"])
         mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
             context=context,
             is_success=False,

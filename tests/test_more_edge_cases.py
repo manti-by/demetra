@@ -29,6 +29,15 @@ class TestWorkflowBuildEdgeCases:
             yield
 
     @pytest.fixture(autouse=True)
+    def mock_run_validate_agent(self):
+        with patch(
+            "demetra.workflows.build.run_validate_agent",
+            new_callable=AsyncMock,
+            return_value=None,
+        ):
+            yield
+
+    @pytest.fixture(autouse=True)
     def mock_run_lint_and_test(self):
         with patch(
             "demetra.workflows.build.run_lint_and_test",
