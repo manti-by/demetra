@@ -1,12 +1,14 @@
 import asyncio
 import logging
+import os
 import re
 import sys
 from collections.abc import Callable
 from logging import Formatter, LogRecord
 from pathlib import Path
 
-from demetra.settings import LOG_DIR, LOGGING
+from demetra.library.exceptions import SettingsError
+from demetra.library.types import CockieSamesite
 
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
@@ -137,6 +139,8 @@ async def setup_session_logging(task_id: str) -> None:
     Args:
         task_id: The task identifier used to name the session log file.
     """
+    from demetra.settings import LOG_DIR, LOGGING
+
     session_dir = LOG_DIR if LOG_DIR.name == "sessions" else LOG_DIR / "sessions"
     session_dir.mkdir(parents=True, exist_ok=True)
     session_log_path = session_dir / f"{task_id}.log"
@@ -184,3 +188,77 @@ def non_negative_int(value: object) -> int | None:
     if value < 0:
         return None
     return value
+
+
+def get_cookie_samesite(is_cockie_secure: bool) -> CockieSamesite:
+    """Resolve the cookie SameSite value from the environment.
+
+    Validates the ``COOKIE_SAMESITE`` setting and enforces that ``none``
+    requires secure cookies.
+
+    Returns:
+        CockieSamesite: ``"lax"``, ``"strict"`` or ``"none"``, defaulting to
+            ``"lax"`` for unknown values.
+
+    Raises:
+        SettingsError: When ``none`` is requested without secure cookies.
+    """
+    value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
+    if value not in {"lax", "strict", "none"}:
+        return "lax"
+    if value == "none" and not is_cockie_secure:
+        raise SettingsError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true")
+    return value
+
+
+def env_get_int(name: str, default: int) -> int:
+    """Read a nonnegative integer from the environment, falling back on invalid values.
+
+    Args:
+        name: The environment variable name.
+        default: The fallback value when the variable is unset, not an int,
+            or negative.
+
+    Returns:
+        int: The parsed value, or the default.
+    """
+    try:
+        return int(os.environ.get(name, default))
+    except ValueError:
+        pass
+    return default
+
+
+def env_get_bool(name: str, default: bool) -> bool:
+    """Read a string boolean from the environment, falling back on invalid values.
+
+    Args:
+        name: The environment variable name.
+        default: The fallback value when the variable is unset.
+
+    Returns:
+        bool: The parsed value, or the default.
+    """
+    try:
+        return os.environ.get(name, "false").lower() == "true"
+    except ValueError:
+        pass
+    return default
+
+
+def env_get_list(name: str, default: list) -> list:
+    """Read a string and split into list, falling back on invalid values.
+
+    Args:
+        name: The environment variable name.
+        default: The fallback value when the variable is unset, not an list.
+
+    Returns:
+        list: The parsed value, or the default.
+    """
+    try:
+        list_value = os.environ.get(name, "").split(",")
+        return [x.strip() for x in list_value if x.strip()]
+    except ValueError:
+        pass
+    return default
