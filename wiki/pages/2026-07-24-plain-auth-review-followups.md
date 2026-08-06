@@ -8,7 +8,7 @@ services: [auth, api, database, react]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, passwords, jwt, cookies, accessibility]
-related: [2026-07-22-react-frontend-template-warp, 2026-08-03-auth-hardening-and-deps-bump]
+related: [2026-07-22-react-frontend-template-warp, 2026-08-03-auth-hardening-and-deps-bump, 2026-08-06-allowlist-review-fixes]
 ---
 
 # Plain Password Auth Implementation and Review Follow-ups

@@ -46,6 +46,9 @@ FEATURES: dict = {
     "is_pytest_enabled": os.environ.get("IS_PYTEST_ENABLED", "False").lower() == "true",
 }
 
+ALLOWLIST_ENABLED = os.environ.get("IS_ALLOWLIST_ENABLED", "false").lower() == "true"
+ALLOWLIST_SEED_FILE = os.environ.get("ALLOWLIST_SEED_FILE")
+
 WATCHER_POLL_INTERVAL = int(os.environ.get("WATCHER_POLL_INTERVAL", 60))
 LISTENER_POLL_INTERVAL = int(os.environ.get("LISTENER_POLL_INTERVAL", 60))
 

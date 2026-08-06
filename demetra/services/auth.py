@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from demetra.library.exceptions import AuthError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
+from demetra.services.allowlist import is_email_allowed, is_github_login_allowed
 from demetra.services.database import (
     create_user,
     delete_jwt_token,
@@ -199,8 +200,12 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
         AuthResponse: The issued token and the user payload.
 
     Raises:
-        AuthError: When the user record cannot be found after creation.
+        AuthError: When the user record cannot be found after creation, or the
+            GitHub account is not on the allowlist.
     """
+    if not await is_github_login_allowed(login=github_user.login, email=github_user.email, github_id=github_user.id):
+        raise AuthError("GitHub account not authorized")
+
     user_id = await get_or_create_user(github_user)
     token, expires_at = create_jwt_token(user_id)
 
@@ -235,7 +240,8 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
         AuthResponse: The issued token and the new user payload.
 
     Raises:
-        AuthError: When the email is invalid or already registered.
+        AuthError: When the email is invalid, already registered, or not
+            authorized for registration.
     """
     email = email.strip().lower()
 
@@ -245,6 +251,9 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
     existing = await get_user_by_email(email=email)
     if existing:
         raise AuthError("Email already registered")
+
+    if not await is_email_allowed(email=email):
+        raise AuthError("Email not authorized for registration")
 
     password_hash = hash_password(plain=password)
 
@@ -288,6 +297,10 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
     email = email.strip().lower()
 
     user_data = await get_user_by_email(email=email)
+
+    if not await is_email_allowed(email=email, user_data=user_data):
+        raise AuthError("Invalid email or password")
+
     if not user_data or not user_data.get("password_hash"):
         raise AuthError("Invalid email or password")
 
