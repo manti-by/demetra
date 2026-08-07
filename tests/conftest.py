@@ -15,9 +15,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from demetra.app import app
 from demetra.library.models import LinearTask, UserResponse
 from demetra.library.tables import metadata
-from demetra.services import database as _database_module
 from demetra.services.auth import create_jwt_token
-from demetra.services.database import (
+from demetra.services.persistence import database as _database_module
+from demetra.services.persistence.database import (
     _engine_cache,
     create_user,
     get_async_engine,
@@ -25,7 +25,7 @@ from demetra.services.database import (
     get_user_by_id,
     upsert_pending_session,
 )
-from demetra.services.database import (
+from demetra.services.persistence.database import (
     get_connection as _get_connection,
 )
 from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
@@ -124,12 +124,12 @@ def faker():
 def allowlist_seeded(monkeypatch):
     """Enable the allowlist gate for a single test.
 
-    :func:`demetra.services.allowlist.is_allowlist_enabled` returns the
+    :func:`demetra.services.auth.allowlist.is_allowlist_enabled` returns the
     module-level ``ALLOWLIST_ENABLED`` constant, so patching it here is enough
     to turn enforcement on. Opt-in by requesting this fixture; the default
     leaves the gate off so existing tests are unaffected.
     """
-    monkeypatch.setattr("demetra.services.allowlist.ALLOWLIST_ENABLED", True)
+    monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", True)
     yield
 
 
@@ -255,7 +255,7 @@ async def mock_graphql_request(
 @pytest.fixture
 async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
     with patch(
-        "demetra.services.groq.process_text_with_groq",
+        "demetra.services.llm.groq.process_text_with_groq",
         new_callable=AsyncMock,
     ) as mock:
         mock.return_value = groq_processed_data

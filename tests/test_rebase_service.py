@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.rebase import perform_git_rebase
+from demetra.services.vcs.rebase import perform_git_rebase
 
 
 WORKTREE_PATH = Path("/tmp/worktree/feature-branch")
@@ -13,19 +13,19 @@ ENV = {"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@test.com"}
 class TestPerformGitRebase:
     @pytest.fixture
     def mock_run_command(self):
-        with patch("demetra.services.rebase.run_command", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.rebase.run_command", new_callable=AsyncMock) as mock:
             mock.return_value = (0, "", "")
             yield mock
 
     @pytest.fixture
     def mock_git_force_push(self):
-        with patch("demetra.services.rebase.git_force_push", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.rebase.git_force_push", new_callable=AsyncMock) as mock:
             mock.return_value = True
             yield mock
 
     @pytest.fixture
     def mock_pr_comment(self):
-        with patch("demetra.services.rebase.pr_comment", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.rebase.pr_comment", new_callable=AsyncMock) as mock:
             mock.return_value = True
             yield mock
 
@@ -126,9 +126,9 @@ class TestPerformGitRebase:
             (0, "", ""),  # diff (after loop) — no remaining conflicts
         ]
         with (
-            patch("demetra.services.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
-            patch("demetra.services.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
+            patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
+            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (0, "", "")
@@ -159,8 +159,8 @@ class TestPerformGitRebase:
             (0, "file.txt\n", ""),  # diff (loop attempt 1) — shows conflicts
         ]
         with (
-            patch("demetra.services.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
+            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (1, "", "agent failed")
@@ -186,9 +186,9 @@ class TestPerformGitRebase:
             (1, "", "rebase --continue failed"),  # git rebase --continue fails
         ]
         with (
-            patch("demetra.services.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
-            patch("demetra.services.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
+            patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
+            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (0, "", "")

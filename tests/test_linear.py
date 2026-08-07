@@ -8,12 +8,6 @@ import pytest_asyncio
 from demetra.library.exceptions import LinearError
 from demetra.library.models import Context, LinearTask, Project
 from demetra.library.tables import project_environments, projects
-from demetra.services.database import (
-    create_project,
-)
-from demetra.services.database import (
-    get_connection as _get_connection,
-)
 from demetra.services.linear import (
     create_linear_ticket,
     extract_comments,
@@ -25,6 +19,12 @@ from demetra.services.linear import (
     linear_cleanup,
     post_comment,
     update_ticket_status,
+)
+from demetra.services.persistence.database import (
+    create_project,
+)
+from demetra.services.persistence.database import (
+    get_connection as _get_connection,
 )
 
 

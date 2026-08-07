@@ -1,10 +1,10 @@
 import asyncio
 from pathlib import Path
 
-from demetra.services.groq import summarize_review
-from demetra.services.opencode import opencode_review_agent
-from demetra.services.tui import print_message
-from demetra.services.utils import NO_ISSUE_TOKENS_CASE
+from demetra.services.agents.opencode import opencode_review_agent
+from demetra.services.llm.groq import summarize_review
+from demetra.services.runtime.tui import print_message
+from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 from demetra.settings import OPENCODE
 
 

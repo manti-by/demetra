@@ -3,14 +3,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.library.exceptions import LinearError
-from demetra.services.oauth import get_valid_token
+from demetra.services.linear.oauth import get_valid_token
 
 
 class TestOAuthService:
     @pytest.fixture
     def mock_get_oauth_token(self):
         with patch(
-            "demetra.services.oauth.get_oauth_token",
+            "demetra.services.linear.oauth.get_oauth_token",
             new_callable=AsyncMock,
         ) as mock:
             yield mock
@@ -18,7 +18,7 @@ class TestOAuthService:
     @pytest.fixture
     def mock_linear_config_with_creds(self):
         with patch(
-            "demetra.services.oauth.LINEAR",
+            "demetra.services.linear.oauth.LINEAR",
             {
                 "client_id": "test_id",
                 "client_secret": "test_secret",
@@ -32,7 +32,7 @@ class TestOAuthService:
     @pytest.fixture
     def mock_linear_config_without_creds(self):
         with patch(
-            "demetra.services.oauth.LINEAR",
+            "demetra.services.linear.oauth.LINEAR",
             {
                 "client_id": None,
                 "client_secret": None,
@@ -44,7 +44,7 @@ class TestOAuthService:
     @pytest.fixture
     def mock_fetch_new_token(self):
         with patch(
-            "demetra.services.oauth.fetch_new_token",
+            "demetra.services.linear.oauth.fetch_new_token",
             new_callable=AsyncMock,
             return_value="new_token",
         ):

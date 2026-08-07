@@ -1,7 +1,7 @@
 from demetra.library.models import Context
-from demetra.services.opencode import opencode_resolve_agent
-from demetra.services.prompt import get_prompt
-from demetra.services.tui import print_message
+from demetra.services.agents.opencode import opencode_resolve_agent
+from demetra.services.llm.prompt import get_prompt
+from demetra.services.runtime.tui import print_message
 
 
 async def run_resolve_step(context: Context, original_task: str, questions: list[str]) -> str:

@@ -3,13 +3,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.lint import run_ruff_check_diff, run_ruff_checks, run_ruff_fix
+from demetra.services.quality.lint import run_ruff_check_diff, run_ruff_checks, run_ruff_fix
 
 
 class TestLintService:
     @pytest.fixture
     def mock_run_command(self):
-        with patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.quality.lint.run_command", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.mark.asyncio

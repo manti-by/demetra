@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.opencode import (
+from demetra.services.agents.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
     get_opencode_session_id,
@@ -23,14 +23,14 @@ from demetra.settings import OPENCODE
 class TestOpencodeService:
     @pytest.fixture
     def mock_run_opencode_agent(self):
-        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.agents.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_run_command_and_opencode_config(self):
         with (
-            patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
         ):
             yield mock_run
 
@@ -153,12 +153,12 @@ class TestOpencodeService:
 class TestOpencodeValidateAgent:
     @pytest.fixture
     def mock_run_opencode_agent(self):
-        with patch("demetra.services.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.agents.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_get_prompt(self):
-        with patch("demetra.services.opencode.get_prompt", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.agents.opencode.get_prompt", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.mark.asyncio
@@ -200,7 +200,7 @@ class TestOpencodeSessionId:
 
     @pytest.fixture
     def mock_get_opencode_sessions(self):
-        with patch("demetra.services.opencode.get_opencode_sessions", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.opencode.get_opencode_sessions", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
@@ -240,8 +240,8 @@ class TestOpencodeSessionLength:
     @pytest.fixture
     def mock_run_command_and_config(self):
         with (
-            patch("demetra.services.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+            patch("demetra.services.agents.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
             yield mock_run
 
@@ -309,8 +309,8 @@ class TestOpencodeSessionTokens:
     @pytest.fixture
     def mock_run_command_and_config(self):
         with (
-            patch("demetra.services.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+            patch("demetra.services.agents.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
             yield mock_run
 
@@ -441,8 +441,8 @@ class TestOpencodeCompactSession:
     @pytest.fixture
     def mock_run_command_and_config(self):
         with (
-            patch("demetra.services.opencode.run_command", new_callable=AsyncMock) as mock_run,
-            patch("demetra.services.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
             yield mock_run
 

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.services.subprocess import run_command, run_command_to_file
+from demetra.services.runtime.subprocess import run_command, run_command_to_file
 
 
 def _make_mock_process(
@@ -28,7 +28,7 @@ def _make_mock_process(
 class TestSubprocessService:
     @pytest.fixture
     def mock_live_stream(self):
-        with patch("demetra.services.subprocess.live_stream", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.runtime.subprocess.live_stream", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
@@ -53,7 +53,7 @@ class TestSubprocessService:
         )
         mock_subprocess_exec.return_value = mock_process
 
-        with patch("demetra.services.subprocess.live_stream", side_effect=capture_stream):
+        with patch("demetra.services.runtime.subprocess.live_stream", side_effect=capture_stream):
             exit_code, stdout, stderr = await run_command(["cmd"], Path("/test"))
 
         assert "line 1" in stdout
@@ -197,7 +197,7 @@ class TestSubprocessService:
         mock_process = _make_mock_process()
         mock_subprocess_exec.return_value = mock_process
 
-        with patch("demetra.services.subprocess.live_stream", side_effect=timeout_stream):
+        with patch("demetra.services.runtime.subprocess.live_stream", side_effect=timeout_stream):
             exit_code, _stdout, stderr = await run_command(["cmd"], Path("/test"), timeout=1)
 
         assert exit_code == -1
@@ -225,7 +225,7 @@ class TestSubprocessToFile:
 
     @pytest.fixture
     def mock_live_stream(self):
-        with patch("demetra.services.subprocess.live_stream", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.runtime.subprocess.live_stream", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
@@ -316,7 +316,7 @@ class TestSubprocessToFile:
         mock_process.wait = AsyncMock(return_value=0)
         mock_subprocess_exec.return_value = mock_process
 
-        with patch("demetra.services.subprocess.live_stream", side_effect=timeout_stream):
+        with patch("demetra.services.runtime.subprocess.live_stream", side_effect=timeout_stream):
             exit_code, _stdout, stderr = await run_command_to_file(["cmd"], tmp_path, timeout=1)
 
         assert exit_code == -1

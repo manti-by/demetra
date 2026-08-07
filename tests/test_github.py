@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.services.github import (
+from demetra.services.vcs.github import (
     _is_pr_authorization,
     clone_repo,
     create_pull_request,
@@ -78,19 +78,19 @@ class TestVerifySignature:
         self.payload = b'{"test": "data"}'
 
     def test_returns_false_when_no_secret_configured(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": None}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": None}}):
             assert verify_signature(self.payload, "sha256=abc") is False
 
     def test_returns_false_when_signature_header_missing(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
             assert verify_signature(self.payload, None) is False
 
     def test_returns_false_when_signature_has_wrong_prefix(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
             assert verify_signature(self.payload, "md5=abc") is False
 
     def test_returns_false_when_signature_mismatch(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
             result = verify_signature(self.payload, "sha256=wrongsignature")
             assert result is False
 
@@ -99,7 +99,7 @@ class TestVerifySignature:
 
         secret = "mysecret"
         expected_digest = hmac.new(key=secret.encode(), msg=self.payload, digestmod="sha256").hexdigest()
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": secret}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": secret}}):
             result = verify_signature(self.payload, f"sha256={expected_digest}")
             assert result is True
 
@@ -157,7 +157,7 @@ class TestIsPrAuthorization:
 
     @pytest.fixture(autouse=True)
     def _setup_github_token(self):
-        with patch("demetra.services.github.GITHUB", {"token": "test_token"}):
+        with patch("demetra.services.vcs.github.GITHUB", {"token": "test_token"}):
             yield
 
     def _mock_github_api(self, permission: str):
@@ -240,7 +240,7 @@ class TestIsPrAuthorization:
 
     @pytest.mark.asyncio
     async def test_no_token_returns_false(self, collaborator_payload):
-        with patch("demetra.services.github.GITHUB", {"token": None}):
+        with patch("demetra.services.vcs.github.GITHUB", {"token": None}):
             result = await _is_pr_authorization(collaborator_payload)
             assert result is False
 
@@ -248,7 +248,7 @@ class TestIsPrAuthorization:
 class TestWebhookRebaseHandler:
     @pytest.fixture(autouse=True)
     def _setup_github_token(self):
-        with patch("demetra.services.github.GITHUB", {"token": "test_token"}):
+        with patch("demetra.services.vcs.github.GITHUB", {"token": "test_token"}):
             yield
 
     def _mock_github_api(self, permission: str):
@@ -339,7 +339,7 @@ class TestWebhookRebaseHandler:
         }
         with (
             self._mock_github_api("write"),
-            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.vcs.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
         ):
             mock_db.return_value = None
             result = await webhook_rebase_handler(payload)
@@ -377,8 +377,8 @@ class TestWebhookRebaseHandler:
         )
         with (
             self._mock_github_api("write"),
-            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.github.queue") as mock_queue,
+            patch("demetra.services.vcs.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.vcs.github.queue") as mock_queue,
         ):
             mock_db.return_value = session
             result = await webhook_rebase_handler(payload)
@@ -401,8 +401,8 @@ class TestWebhookRebaseHandler:
         )
         with (
             self._mock_github_api("write"),
-            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.github.queue") as mock_queue,
+            patch("demetra.services.vcs.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.vcs.github.queue") as mock_queue,
         ):
             mock_db.return_value = session
             result = await webhook_rebase_handler(payload)
@@ -454,8 +454,8 @@ class TestWebhookRebaseHandler:
         )
         with (
             self._mock_github_api("write"),
-            patch("demetra.services.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.github.queue") as mock_queue,
+            patch("demetra.services.vcs.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.vcs.github.queue") as mock_queue,
         ):
             mock_db.return_value = session
             result = await webhook_rebase_handler(payload)
@@ -466,7 +466,7 @@ class TestWebhookRebaseHandler:
 class TestCreatePullRequest:
     @pytest.mark.asyncio
     async def test_calls_run_command_with_correct_args(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "https://github.com/owner/repo/pull/1\n", "")
             result = await create_pull_request(
                 target_path=Path("/tmp/test"),
@@ -488,7 +488,7 @@ class TestCreatePullRequest:
 
     @pytest.mark.asyncio
     async def test_accepts_custom_base_branch(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             await create_pull_request(
                 target_path=Path("/tmp/test"),
@@ -501,7 +501,7 @@ class TestCreatePullRequest:
 class TestGetPrInfo:
     @pytest.mark.asyncio
     async def test_returns_parsed_json_on_success(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (
                 0,
                 '{"headRefName": "feature/test", "baseRefName": "main"}',
@@ -512,7 +512,7 @@ class TestGetPrInfo:
 
     @pytest.mark.asyncio
     async def test_raises_on_nonzero_exit(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "PR not found")
             result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"), env={})
             assert result is None
@@ -521,7 +521,7 @@ class TestGetPrInfo:
 class TestCloneRepo:
     @pytest.mark.asyncio
     async def test_returns_cloned_dict_on_success(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             result = await clone_repo(
                 repo_url="https://github.com/owner/repo.git",
@@ -532,7 +532,7 @@ class TestCloneRepo:
 
     @pytest.mark.asyncio
     async def test_raises_on_failure(self):
-        with patch("demetra.services.github.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (128, "", "Repository not found")
             with pytest.raises(RuntimeError, match="Failed to clone repository"):
                 await clone_repo(

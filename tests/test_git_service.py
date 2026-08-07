@@ -6,7 +6,7 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.models import Context, LinearTask, Project
-from demetra.services.git import (
+from demetra.services.vcs.git import (
     get_worktree_path,
     git_add_all,
     git_branch_delete,
@@ -61,18 +61,18 @@ def _make_context(faker) -> Context:
 class TestGitService:
     @pytest.fixture
     def mock_run_command(self):
-        with patch("demetra.services.git.run_command", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock) as mock:
             mock.return_value = (0, "", "")
             yield mock
 
     @pytest.fixture
     def mock_git_worktree_remove(self):
-        with patch("demetra.services.git.git_worktree_remove", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_git_branch_delete(self):
-        with patch("demetra.services.git.git_branch_delete", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.mark.asyncio

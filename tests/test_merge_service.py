@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.merge import perform_git_merge
+from demetra.services.vcs.merge import perform_git_merge
 
 
 WORKTREE_PATH = Path("/tmp/worktree/feature-branch")
@@ -13,19 +13,19 @@ ENV = {"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@test.com"}
 class TestPerformGitMerge:
     @pytest.fixture
     def mock_run_command(self):
-        with patch("demetra.services.merge.run_command", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.merge.run_command", new_callable=AsyncMock) as mock:
             mock.return_value = (0, "", "")
             yield mock
 
     @pytest.fixture
     def mock_git_force_push(self):
-        with patch("demetra.services.merge.git_force_push", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.merge.git_force_push", new_callable=AsyncMock) as mock:
             mock.return_value = True
             yield mock
 
     @pytest.fixture
     def mock_pr_comment(self):
-        with patch("demetra.services.merge.pr_comment", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.vcs.merge.pr_comment", new_callable=AsyncMock) as mock:
             mock.return_value = True
             yield mock
 
@@ -127,9 +127,9 @@ class TestPerformGitMerge:
             (0, "", ""),  # git commit
         ]
         with (
-            patch("demetra.services.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
-            patch("demetra.services.merge.git_add_all", new_callable=AsyncMock) as mock_add_all,
+            patch("demetra.services.vcs.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
+            patch("demetra.services.vcs.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.merge.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (0, "", "")
@@ -160,8 +160,8 @@ class TestPerformGitMerge:
             (0, "file.txt\n", ""),  # diff (loop attempt 1) — shows conflicts
         ]
         with (
-            patch("demetra.services.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
+            patch("demetra.services.vcs.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (1, "", "agent failed")

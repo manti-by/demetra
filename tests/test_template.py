@@ -2,7 +2,7 @@ from unittest.mock import patch
 
 import pytest
 
-from demetra.services.template import get_template
+from demetra.services.runtime.template import get_template
 
 
 class TestGetTemplate:
@@ -10,7 +10,7 @@ class TestGetTemplate:
     def mock_base_path(self, tmp_path):
         templates_dir = tmp_path / "demetra" / "templates"
         templates_dir.mkdir(parents=True)
-        with patch("demetra.services.template.BASE_PATH", tmp_path):
+        with patch("demetra.services.runtime.template.BASE_PATH", tmp_path):
             yield templates_dir
 
     @pytest.mark.asyncio

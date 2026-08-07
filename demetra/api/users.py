@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends
 
 from demetra.library.models import UserKeysUpdateRequest, UserResponse
 from demetra.services.auth import get_current_user_dep
-from demetra.services.database import update_user_keys
+from demetra.services.persistence.database import update_user_keys
 
 
 router = APIRouter(prefix="/api/v1/users")

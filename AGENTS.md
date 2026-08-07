@@ -134,7 +134,7 @@ uv run bandit -c pyproject.toml .
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
 - `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
-**Do NOT use**: `print()` (use `print_message` from `demetra.services.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
+**Do NOT use**: `print()` (use `print_message` from `demetra.services.runtime.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
 
 **Imports**: Always place imports at the top of the file (global scope). Local imports inside functions are permitted only in rare cases where they are necessary to resolve circular import dependencies.
 

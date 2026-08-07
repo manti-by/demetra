@@ -1,8 +1,8 @@
 from pathlib import Path
 
-from demetra.services.lint import run_ruff_check_diff, run_ruff_fix, run_ruff_format
-from demetra.services.tui import print_message
-from demetra.services.utils import is_package_installed
+from demetra.services.quality.lint import run_ruff_check_diff, run_ruff_fix, run_ruff_format
+from demetra.services.runtime.tui import print_message
+from demetra.services.runtime.utils import is_package_installed
 
 
 async def postprocess_with_ruff(target_path: Path, env: dict[str, str] | None = None) -> tuple[bool, str | None]:

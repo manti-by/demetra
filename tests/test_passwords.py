@@ -1,7 +1,7 @@
 import pytest
 
 from demetra.services.auth import AuthError
-from demetra.services.passwords import hash_password, verify_password
+from demetra.services.auth.passwords import hash_password, verify_password
 
 
 class TestHashPassword:

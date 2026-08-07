@@ -12,7 +12,7 @@ from demetra.library.models import (
     UserResponse,
 )
 from demetra.services.auth import get_current_user_dep
-from demetra.services.database import (
+from demetra.services.persistence.database import (
     create_project,
     delete_project,
     delete_project_environment,
@@ -22,7 +22,7 @@ from demetra.services.database import (
     update_project,
     upsert_project_environment,
 )
-from demetra.services.project import cleanup_project_resources, parse_github_url, setup_project
+from demetra.services.runtime.project import cleanup_project_resources, parse_github_url, setup_project
 
 
 logger = logging.getLogger(__name__)

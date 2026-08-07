@@ -1,9 +1,9 @@
 from demetra.library.models import Context, Project
-from demetra.services.auth_copy import copy_auth_from_parent
-from demetra.services.database import get_project_environments, get_session, search_projects_by_name
-from demetra.services.git import git_pull, git_worktree_create
+from demetra.services.auth.copy import copy_auth_from_parent
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
-from demetra.services.tui import print_message
+from demetra.services.persistence.database import get_project_environments, get_session, search_projects_by_name
+from demetra.services.runtime.tui import print_message
+from demetra.services.vcs.git import git_pull, git_worktree_create
 from demetra.settings import PARENT_HOME
 
 

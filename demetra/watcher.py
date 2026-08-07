@@ -1,9 +1,9 @@
 import asyncio
 import logging.config
 
-from demetra.services.database import init_db
+from demetra.services.daemons.watcher import process_tasks
 from demetra.services.linear import get_todo_issues
-from demetra.services.watcher import process_tasks
+from demetra.services.persistence.database import init_db
 from demetra.settings import LOGGING, WATCHER_POLL_INTERVAL
 
 

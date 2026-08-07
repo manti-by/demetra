@@ -1,6 +1,6 @@
 import inspect
 
-from demetra.services.git import (
+from demetra.services.vcs.git import (
     git_branch_delete,
     git_cleanup,
     git_commit,

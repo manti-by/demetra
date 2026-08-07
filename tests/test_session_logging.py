@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from demetra.app import app
-from demetra.services.database import (
+from demetra.services.persistence.database import (
     get_session,
     save_session,
     update_session_pr_link,

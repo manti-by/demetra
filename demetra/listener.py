@@ -1,8 +1,7 @@
 import asyncio
 import logging.config
 
-from demetra.services.database import init_db
-from demetra.services.listener import (
+from demetra.services.daemons.listener import (
     extract_pr_info,
     fetch_subject_body,
     get_notifications,
@@ -13,6 +12,7 @@ from demetra.services.listener import (
     process_rebase_notification,
     should_process_notification,
 )
+from demetra.services.persistence.database import init_db
 from demetra.settings import LISTENER_POLL_INTERVAL, LOGGING
 
 

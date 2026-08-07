@@ -2,13 +2,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError, UserCancelledError
 from demetra.library.models import Context
-from demetra.services.database import record_session_step_history, save_session, update_session_step
-from demetra.services.flow import user_input
-from demetra.services.groq import extract_plan, extract_questions
+from demetra.services.agents.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
-from demetra.services.tui import print_message
-from demetra.services.utils import NO_ISSUE_TOKENS
+from demetra.services.llm.groq import extract_plan, extract_questions
+from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
+from demetra.services.runtime.flow import user_input
+from demetra.services.runtime.tui import print_message
+from demetra.services.runtime.utils import NO_ISSUE_TOKENS
 from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS, OPENCODE
 from demetra.workflows.resolve import run_resolve_step
 

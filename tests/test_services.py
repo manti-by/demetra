@@ -2,9 +2,9 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.parser import NumberedListOutputParser
-from demetra.services.prompt import get_prompt
-from demetra.services.queue import queue
+from demetra.services.llm.parser import NumberedListOutputParser
+from demetra.services.llm.prompt import get_prompt
+from demetra.services.persistence.queue import queue
 
 
 class TestPrompt:
@@ -12,7 +12,7 @@ class TestPrompt:
     async def test_get_prompt_without_kwargs(self):
         content = "Hello world"
         with (
-            patch("demetra.services.prompt.aiofiles.open") as mock_open,
+            patch("demetra.services.llm.prompt.aiofiles.open") as mock_open,
         ):
             mock_file = AsyncMock()
             mock_file.__aenter__.return_value = mock_file
@@ -26,7 +26,7 @@ class TestPrompt:
     async def test_get_prompt_with_kwargs(self):
         content = "Hello {subject}"
         with (
-            patch("demetra.services.prompt.aiofiles.open") as mock_open,
+            patch("demetra.services.llm.prompt.aiofiles.open") as mock_open,
         ):
             mock_file = AsyncMock()
             mock_file.__aenter__.return_value = mock_file
@@ -71,8 +71,8 @@ class TestQueue:
 class TestTuiPrintHeading:
     @pytest.mark.asyncio
     async def test_print_heading_calls_console(self):
-        with patch("demetra.services.tui.console") as mock_console:
-            from demetra.services.tui import print_heading
+        with patch("demetra.services.runtime.tui.console") as mock_console:
+            from demetra.services.runtime.tui import print_heading
 
             await print_heading()
             mock_console.print.assert_called_once()
@@ -82,14 +82,14 @@ class TestGraphqlGetQuery:
     @pytest.mark.asyncio
     async def test_get_query_returns_content(self):
         with (
-            patch("demetra.services.graphql.aiofiles.open") as mock_open,
+            patch("demetra.services.linear.graphql.aiofiles.open") as mock_open,
         ):
             mock_file = AsyncMock()
             mock_file.__aenter__.return_value = mock_file
             mock_file.read = AsyncMock(return_value="query { issues { id } }")
             mock_open.return_value = mock_file
 
-            from demetra.services.graphql import get_query
+            from demetra.services.linear.graphql import get_query
 
             result = await get_query("test_query")
             assert result == "query { issues { id } }"

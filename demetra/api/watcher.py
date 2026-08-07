@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.services.database import get_session_id_by_task_id, get_session_step_name
+from demetra.services.persistence.database import get_session_id_by_task_id, get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 

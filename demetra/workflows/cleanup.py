@@ -2,13 +2,17 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import PullRequestError
 from demetra.library.models import Context
-from demetra.services.database import record_session_step_history, update_session_pr_link, update_session_step
-from demetra.services.git import git_add_all, git_cleanup, git_commit, git_push
-from demetra.services.github import create_pull_request, extract_pr_link
-from demetra.services.groq import generate_pr_description
+from demetra.services.agents.opencode import get_opencode_session_tokens
 from demetra.services.linear import linear_cleanup
-from demetra.services.opencode import get_opencode_session_tokens
-from demetra.services.tui import print_message
+from demetra.services.llm.groq import generate_pr_description
+from demetra.services.persistence.database import (
+    record_session_step_history,
+    update_session_pr_link,
+    update_session_step,
+)
+from demetra.services.runtime.tui import print_message
+from demetra.services.vcs.git import git_add_all, git_cleanup, git_commit, git_push
+from demetra.services.vcs.github import create_pull_request, extract_pr_link
 from demetra.settings import OPENCODE
 
 

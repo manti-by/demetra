@@ -4,7 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.library.models import Session
-from demetra.services.listener import (
+from demetra.services.daemons.listener import (
     extract_pr_info,
     fetch_subject_body,
     get_notifications,
@@ -19,14 +19,14 @@ from demetra.services.listener import (
 class TestGetNotifications:
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_api_error(self):
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "API error")
             result = await get_notifications()
             assert result == []
 
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_empty_response(self):
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             result = await get_notifications()
             assert result == []
@@ -40,14 +40,14 @@ class TestGetNotifications:
                 "subject": {"type": "PullRequest", "url": "https://api.github.com/repos/owner/repo/pulls/42"},
             }
         ]
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, json.dumps(notifications), "")
             result = await get_notifications()
             assert result == notifications
 
     @pytest.mark.asyncio
     async def test_handles_invalid_json(self):
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "invalid json", "")
             result = await get_notifications()
             assert result == []
@@ -125,7 +125,7 @@ class TestFetchSubjectBody:
             "title": "PR Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "demetra-ai please rebase", "")
             result = await fetch_subject_body(subject)
             assert result == "demetra-ai please rebase"
@@ -142,7 +142,7 @@ class TestFetchSubjectBody:
             "title": "Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "Not found")
             result = await fetch_subject_body(subject)
             assert result == "Title"
@@ -153,7 +153,7 @@ class TestFetchSubjectBody:
             "title": "Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             result = await fetch_subject_body(subject)
             assert result == "Title"
@@ -240,8 +240,8 @@ class TestProcessMergeNotification:
     @pytest.mark.asyncio
     async def test_returns_false_when_no_session_found(self):
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
         ):
             mock_db.return_value = None
             result = await process_merge_notification(self.PR_INFO)
@@ -260,10 +260,10 @@ class TestProcessMergeNotification:
             project_id=None,
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
             mock_inc.return_value = 1
@@ -284,10 +284,10 @@ class TestProcessMergeNotification:
             project_id="proj-123",
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
             mock_inc.return_value = 1
@@ -316,11 +316,11 @@ class TestProcessMergeNotification:
             project_id="proj-123",
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
-            patch("demetra.services.listener.MAX_LISTENER_ATTEMPTS", 3),
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.MAX_LISTENER_ATTEMPTS", 3),
         ):
             mock_db.return_value = session
             mock_inc.return_value = 4
@@ -338,8 +338,8 @@ class TestProcessRebaseNotification:
     @pytest.mark.asyncio
     async def test_returns_false_when_no_session_found(self):
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
         ):
             mock_db.return_value = None
             result = await process_rebase_notification(self.PR_INFO)
@@ -358,10 +358,10 @@ class TestProcessRebaseNotification:
             project_id=None,
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
             mock_inc.return_value = 1
@@ -382,10 +382,10 @@ class TestProcessRebaseNotification:
             project_id="proj-123",
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
         ):
             mock_db.return_value = session
             mock_inc.return_value = 1
@@ -414,11 +414,11 @@ class TestProcessRebaseNotification:
             project_id="proj-123",
         )
         with (
-            patch("demetra.services.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
-            patch("demetra.services.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
-            patch("demetra.services.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
-            patch("demetra.services.listener.queue") as mock_queue,
-            patch("demetra.services.listener.MAX_LISTENER_ATTEMPTS", 3),
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
+            patch("demetra.services.daemons.listener.MAX_LISTENER_ATTEMPTS", 3),
         ):
             mock_db.return_value = session
             mock_inc.return_value = 4

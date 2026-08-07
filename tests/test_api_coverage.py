@@ -5,20 +5,20 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.models import LinearTask
-from demetra.services.project import parse_github_url
-from demetra.services.tui import print_message
-from demetra.services.watcher import process_tasks
+from demetra.services.daemons.watcher import process_tasks
+from demetra.services.runtime.project import parse_github_url
+from demetra.services.runtime.tui import print_message
 
 
 class TestTuiService:
     @pytest.fixture
     def mock_console(self):
-        with patch("demetra.services.tui.console") as mock:
+        with patch("demetra.services.runtime.tui.console") as mock:
             yield mock
 
     @pytest.fixture
     def mock_logger(self):
-        with patch("demetra.services.tui.logger") as mock:
+        with patch("demetra.services.runtime.tui.logger") as mock:
             yield mock
 
     def test_print_message_heading(self, faker, mock_console):
@@ -48,7 +48,7 @@ class TestTuiService:
     def test_print_message_escapes_rich_markup(self, style):
         from rich.markup import escape as rich_escape
 
-        from demetra.services.tui import console as real_console
+        from demetra.services.runtime.tui import console as real_console
 
         message = (
             '`frontend/src/sw.ts:19` — `new NavigationRoute(createHandlerBoundToURL("/static/index.html"))` '
@@ -87,7 +87,7 @@ class TestWatcherService:
     @pytest.fixture
     def mock_get_pending_session_task_ids(self):
         with patch(
-            "demetra.services.watcher.get_pending_session_task_ids",
+            "demetra.services.daemons.watcher.get_pending_session_task_ids",
             new_callable=AsyncMock,
             return_value=[],
         ):
