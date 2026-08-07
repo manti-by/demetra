@@ -12,10 +12,12 @@ from demetra.services.allowlist import is_email_allowed, is_github_login_allowed
 from demetra.services.database import (
     create_user,
     delete_jwt_token,
+    get_connection,
     get_jwt_token,
     get_user_by_email,
     get_user_by_github_id,
     get_user_by_id,
+    get_user_jwt_tokens,
     init_db,
     save_jwt_token,
     update_user_password,
@@ -388,7 +390,8 @@ def has_permission(user: UserResponse | dict, permission: str) -> bool:
 
 
 async def reset_password(email: str, password: str) -> None:
-    """Replace the password hash for the user with the given email.
+    """Replace the password hash for the user with the given email, revoking
+    every stored JWT session for that user in the same transaction.
 
     Args:
         email: The user's email address.
@@ -404,7 +407,13 @@ async def reset_password(email: str, password: str) -> None:
     if not user_data:
         raise AuthError(f"User with email '{email}' not found")
 
-    await update_user_password(user_id=user_data["id"], password_hash=password_hash)
+    user_id = user_data["id"]
+    tokens = await get_user_jwt_tokens(user_id=user_id)
+    async with get_connection() as connection:
+        async with connection.begin():
+            for token_data in tokens:
+                await delete_jwt_token(token=token_data["token"], connection=connection)
+            await update_user_password(user_id=user_id, password_hash=password_hash, connection=connection)
 
 
 async def reset_password_cli() -> int:

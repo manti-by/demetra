@@ -234,15 +234,19 @@ def env_get_bool(name: str, default: bool) -> bool:
 
     Args:
         name: The environment variable name.
-        default: The fallback value when the variable is unset.
+        default: The fallback value when the variable is unset or invalid.
 
     Returns:
         bool: The parsed value, or the default.
     """
-    try:
-        return os.environ.get(name, "false").lower() == "true"
-    except ValueError:
-        pass
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    normalized = value.lower()
+    if normalized == "true":
+        return True
+    if normalized == "false":
+        return False
     return default
 
 
@@ -251,14 +255,13 @@ def env_get_list(name: str, default: list) -> list:
 
     Args:
         name: The environment variable name.
-        default: The fallback value when the variable is unset, not an list.
+        default: The fallback value when the variable is unset.
 
     Returns:
         list: The parsed value, or the default.
     """
-    try:
-        list_value = os.environ.get(name, "").split(",")
-        return [x.strip() for x in list_value if x.strip()]
-    except ValueError:
-        pass
-    return default
+    value = os.environ.get(name)
+    if value is None:
+        return default
+    list_value = value.split(",")
+    return [x.strip() for x in list_value if x.strip()]

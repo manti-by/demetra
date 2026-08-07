@@ -15,7 +15,7 @@ related: [2026-08-06-allowlist-review-fixes.md, 2026-08-03-wiki-mcp-tools.md]
 
 ## TL;DR
 
-PR #70 (mnt-147-wiki-processes → master) is open but GitHub reports it CONFLICTING/DIRTY and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is one local merge behind master (MNT-155 allowlist, PR #71); a merge of master into the branch is already staged locally and only needs committing.
+PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
 
 ---
 
@@ -47,13 +47,13 @@ def env_get_list(name: str, default: list) -> list:
 
 **Fix:** use the default as the fallback string, e.g. `os.environ.get(name, ",".join(default)).split(",")`, or early-return `default` when `name not in os.environ`.
 
-### 2. GitHub marks PR #70 mergeable as CONFLICTING / DIRTY
+### 2. GitHub marked PR #70 as CONFLICTING / DIRTY (now resolved)
 
-**File:** PR manti-by/demetra#70 (headSha `f3edc44`, baseSha `99b5880`)
+**File:** PR manti-by/demetra#70 (headSha `be8cde5`, baseSha `99b5880`)
 
-**Severity:** Blocker.
+**Severity:** Resolved — was Blocker.
 
-The PR head is the branch HEAD (`f3edc44`), but master has advanced past the branch's last merge (PR #71 MNT-155 allowlist merged via `f9c791f`). Git Flow requires the branch to be rebased/merged on latest master before it can merge; also 2 of 3 check runs fail.
+The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155 allowlist merged via `f9c791f`). Git Flow requires the branch to be rebased/merged on latest master before it can merge. The master merge is now committed and pushed as `be8cde5`; GitHub reports the PR MERGEABLE. The remaining check failures are finding 3, caused by finding 1.
 
 ### 3. Both CI "Run checks" runs fail on the same review test
 
@@ -76,7 +76,7 @@ The PR head is the branch HEAD (`f3edc44`), but master has advanced past the bra
 | # | Severity | Repo | File | Description |
 |---|----------|------|------|-------------|
 | 1 | High | demetra | demetra/services/utils.py:249 | `env_get_list` returns `[]` instead of default when env var unset |
-| 2 | Blocker | github | PR #70 | CONFLICTING/DIRTY — branch behind master (MNT-155 merged) |
+| 2 | Blocker | GitHub | PR #70 | CI checks failing on #1; merge committed as `be8cde5`, GitHub reports MERGEABLE |
 | 3 | High | demetra | tests/test_workflows.py:1147 | CI failure caused by #1; reproduces with `env -u OPENCODE_REVIEW_MODELS` |
 | 4 | Low/Med | linear | CodeRabbit threads | 3 unresolved: named args, `msg=`, enqueue callable, docstring coverage |
 
@@ -84,16 +84,16 @@ The PR head is the branch HEAD (`f3edc44`), but master has advanced past the bra
 
 ## Branch state
 
-- `HEAD`: `f3edc44` "Merge branch 'master' into mnt-147-wiki-processes" (matches PR #70 headSha).
-- Branch-only commits: `2bed1c7` (MNT-147: Wiki processes), `618184a` (Fix review findings), `bcbe0dc` (Isolate wiki tests), `f3edc44` (merge).
-- Master-only since last sync: `f9c791f` (Merge PR #71 MNT-155 allowlist), `6bc3092`, `a99897f`, `d1df1d2`, `789134a`.
-- Diff `master...HEAD`: 17 files, +2394/−106 (new `demetra/services/wiki.py` 1254 lines, `tests/test_wiki.py` 731 lines, `demetra/prompts/summarize_session.md`, groq/utils/settings/tools/wiki/merge/rebase changes).
-- Local merge of master (MNT-155) into the branch is already staged with conflicts resolved; needs only `git commit` then push.
+- `HEAD`: `be8cde5` "Merge branch 'master' into mnt-147-wiki-processes" (matches PR #70 headSha).
+- Branch-only commits: `2bed1c7` (MNT-147: Wiki processes), `618184a` (Fix review findings), `bcbe0dc` (Isolate wiki tests), `f3edc44` (merge), `be8cde5` (merge).
+- Master-only since last sync: none — branch is up to date with master.
+- Diff `master...HEAD`: 21 files, +2640/−251 (new `demetra/services/wiki.py` 1254 lines, `tests/test_wiki.py` 731 lines, this review page, `demetra/prompts/summarize_session.md`, groq/utils/settings/tools/wiki/merge/rebase changes).
+- Master merge (MNT-155) committed as `be8cde5` and pushed; PR #70 is no longer CONFLICTING.
 
 ## Follow-ups
 
 - Fix `env_get_list` unset handling and re-run the two CI checks.
-- Conclude the staged master merge (commit + push) to clear PR #70's CONFLICTING state.
+- Once CI passes, PR #70 is ready to merge (branch is up to date with master).
 - Address the 3 open CodeRabbit threads (or mark resolved).
 - MNT-147 Linear ticket is In Review — will move to Done on merge.
 
