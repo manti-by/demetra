@@ -36,6 +36,24 @@ fake = Faker()
 _test_db_engine = None
 
 
+@pytest.fixture(autouse=True)
+def isolate_wiki(tmp_path, monkeypatch):
+    """Redirect all wiki I/O to a per-test temp dir so tests can never create
+    or patch pages in the real ``wiki/`` directory."""
+    from demetra.services import wiki as wiki_service
+    from demetra.tools import wiki as wiki_tools
+
+    wiki_root = tmp_path / "wiki"
+    pages_dir = wiki_root / "pages"
+    pages_dir.mkdir(parents=True, exist_ok=True)
+    monkeypatch.setattr(wiki_service, "WIKI_ROOT", wiki_root)
+    monkeypatch.setattr(wiki_service, "PAGES_ROOT", pages_dir)
+    monkeypatch.setattr(wiki_service, "INDEX_PATH", wiki_root / "INDEX.md")
+    monkeypatch.setattr(wiki_service, "QUESTIONS_PATH", wiki_root / "QUESTIONS.md")
+    monkeypatch.setattr(wiki_service, "AGENTS_PATH", wiki_root / "AGENTS.md")
+    monkeypatch.setattr(wiki_tools, "PAGES_ROOT", pages_dir)
+
+
 @pytest.fixture(scope="session", autouse=True)
 def fast_bcrypt():
     original_gensalt = bcrypt.gensalt

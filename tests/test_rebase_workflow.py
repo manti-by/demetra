@@ -45,6 +45,7 @@ def base_mocks():
         patch("demetra.workflows.rebase.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
         patch("demetra.workflows.rebase.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.rebase.perform_git_rebase", new_callable=AsyncMock) as mock_perform_rebase,
+        patch("demetra.workflows.rebase.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
@@ -59,6 +60,7 @@ def base_mocks():
             "mock_wt_remove": mock_wt_remove,
             "mock_pr_info": mock_pr_info,
             "mock_perform_rebase": mock_perform_rebase,
+            "mock_write_page": mock_write_page,
         }
 
 

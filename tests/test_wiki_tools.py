@@ -59,7 +59,7 @@ class TestParsePage:
     def test_valid_frontmatter(self, tmp_path):
         path = tmp_path / "page.md"
         path.write_text(ANSI_PAGE)
-        page = wiki._parse_page(path)
+        page = wiki.parse_page_file(path=path)
         assert page is not None
         assert page["name"] == "page.md"
         assert page["meta"]["title"] == "ANSI Color Escapes in Logs"
@@ -70,7 +70,7 @@ class TestParsePage:
     def test_no_frontmatter(self, tmp_path):
         path = tmp_path / "plain.md"
         path.write_text("# Just a heading\n\nSome body text.")
-        page = wiki._parse_page(path)
+        page = wiki.parse_page_file(path=path)
         assert page is not None
         assert page["meta"] == {}
         assert "Just a heading" in page["body"]
@@ -78,17 +78,17 @@ class TestParsePage:
     def test_invalid_frontmatter_skipped(self, tmp_path):
         path = tmp_path / "broken.md"
         path.write_text("---\ntitle: [unclosed\n---\n\nBody")
-        assert wiki._parse_page(path) is None
+        assert wiki.parse_page_file(path=path) is None
 
     def test_non_mapping_frontmatter_skipped(self, tmp_path):
         path = tmp_path / "list.md"
         path.write_text("---\n- just\n- a\n- list\n---\n\nBody")
-        assert wiki._parse_page(path) is None
+        assert wiki.parse_page_file(path=path) is None
 
     def test_bare_dash_empty_placeholder_accepted(self, tmp_path):
         path = tmp_path / "dash.md"
         path.write_text("---\ntitle: Some page\nbranch: -\ntickets: []\n---\n\nBody")
-        page = wiki._parse_page(path)
+        page = wiki.parse_page_file(path=path)
         assert page is not None
         assert page["meta"]["branch"] == "-"
 

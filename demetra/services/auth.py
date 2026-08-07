@@ -4,7 +4,7 @@ from datetime import UTC, datetime, timedelta
 import aiohttp
 from fastapi import Cookie, HTTPException
 from jose import JWTError, jwt
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
@@ -12,14 +12,18 @@ from demetra.services.allowlist import is_email_allowed, is_github_login_allowed
 from demetra.services.database import (
     create_user,
     delete_jwt_token,
+    get_connection,
     get_jwt_token,
     get_user_by_email,
     get_user_by_github_id,
     get_user_by_id,
+    get_user_jwt_tokens,
+    init_db,
     save_jwt_token,
     update_user_password,
 )
 from demetra.services.passwords import hash_password, verify_password
+from demetra.services.tui import print_message
 from demetra.settings import GITHUB, JWT
 
 
@@ -386,7 +390,8 @@ def has_permission(user: UserResponse | dict, permission: str) -> bool:
 
 
 async def reset_password(email: str, password: str) -> None:
-    """Replace the password hash for the user with the given email.
+    """Replace the password hash for the user with the given email, revoking
+    every stored JWT session for that user in the same transaction.
 
     Args:
         email: The user's email address.
@@ -402,4 +407,35 @@ async def reset_password(email: str, password: str) -> None:
     if not user_data:
         raise AuthError(f"User with email '{email}' not found")
 
-    await update_user_password(user_id=user_data["id"], password_hash=password_hash)
+    user_id = user_data["id"]
+    tokens = await get_user_jwt_tokens(user_id=user_id)
+    async with get_connection() as connection:
+        async with connection.begin():
+            for token_data in tokens:
+                await delete_jwt_token(token=token_data["token"], connection=connection)
+            await update_user_password(user_id=user_id, password_hash=password_hash, connection=connection)
+
+
+async def reset_password_cli() -> int:
+    """Reset a user's password interactively via the CLI.
+
+    Returns:
+        int: The process exit code, 0 on success.
+    """
+    import getpass
+
+    email = input("Email: ").strip()
+    password = getpass.getpass("New password: ")
+
+    try:
+        await init_db()
+        await reset_password(email=email, password=password)
+    except AuthError as e:
+        print_message(str(e), style="error")
+        return 1
+    except SQLAlchemyError as e:
+        print_message(f"Database error: {e}", style="error")
+        return 1
+    else:
+        print_message("Password reset successfully", style="success")
+        return 0

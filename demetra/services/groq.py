@@ -162,6 +162,58 @@ async def extract_plan(plan_output: str, task_description: str, comments: list[s
     return str(result.content)
 
 
+async def summarize_session(ticket_text: str, description: str, build_plan: str, diff_summary: str) -> dict[str, str]:
+    """Generate a wiki page TL;DR and overview for an implementation session.
+
+    The wiki write side uses this as its optional second pass: when the
+    deterministic scaffold exceeds the Groq budget, the LLM polishes the
+    TL;DR and overview sections from the ticket, plan and diff facts.
+
+    Args:
+        ticket_text: The Linear ticket body formatted for LLM consumption.
+        description: The Linear ticket description.
+        build_plan: The session build plan, or an empty string.
+        diff_summary: The git diff stat text, or an empty string.
+
+    Returns:
+        dict[str, str]: A mapping with ``tldr`` and ``overview`` keys, or an
+            empty dict when the LLM call fails.
+    """
+    llm = ChatGroq(model=GROQ["model"], temperature=0.1, max_tokens=1024, max_retries=2)
+    prompt = ChatPromptTemplate.from_messages(
+        [
+            ("system", await get_prompt(name="summarize_session")),
+            (
+                "human",
+                "Ticket:\n{ticket_text}\n\nDescription:\n{description}\n\n"
+                "Build plan:\n{build_plan}\n\nDiff summary:\n{diff_summary}",
+            ),
+        ]
+    )
+    output_parser = JsonOutputParser()
+
+    chain = prompt | llm | output_parser
+    try:
+        result = await chain.ainvoke(
+            {
+                "ticket_text": ticket_text,
+                "description": description,
+                "build_plan": build_plan,
+                "diff_summary": diff_summary,
+            }
+        )
+        if not isinstance(result, dict):
+            logger.warning("summarize_session returned non-dict output: %r", type(result).__name__)
+            return {}
+        return {
+            "tldr": str(result.get("tldr") or "").strip(),
+            "overview": str(result.get("overview") or "").strip(),
+        }
+    except Exception:
+        logger.exception("LLM call failed in summarize_session")
+        return {}
+
+
 async def generate_pr_description(task_details: str, build_plan: str | None = None) -> str:
     """Generate a pull request description from task details and build plan.
 

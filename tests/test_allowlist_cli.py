@@ -3,9 +3,7 @@ from uuid import uuid4
 
 import pytest
 
-from main import allowlist_cli
-
-from demetra.services.allowlist import list_entries, remove_entry
+from demetra.services.allowlist import allowlist_cli, list_entries, remove_entry
 from demetra.services.database import _engine_cache, create_user, delete_allowlist_entry, get_connection, text
 
 

@@ -104,6 +104,7 @@ class TestMainReplanning:
             patch("main.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("main.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("main.mark_session_posted", new_callable=AsyncMock),
+            patch("main.write_session_wiki_page", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,

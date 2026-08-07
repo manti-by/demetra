@@ -16,9 +16,11 @@ from demetra.services.auth import (
     get_github_user,
     has_permission,
     login_with_password,
+    reset_password,
     signup_with_password,
     verify_jwt_token,
 )
+from demetra.services.database import get_jwt_token
 
 
 class TestAuthService:
@@ -288,3 +290,25 @@ class TestLoginWithPassword:
     async def test_login_raises_on_unknown_email(self, mock_jwt_settings):
         with pytest.raises(AuthError, match="Invalid email or password"):
             await login_with_password(email="nonexistent@example.com", password="hunter2hunter2")
+
+
+class TestResetPassword:
+    @pytest.mark.asyncio
+    async def test_reset_password_revokes_all_tokens_and_updates_hash(self, mock_jwt_settings):
+        email = f"reset-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        first_token = (await signup_with_password(email=email, password="hunter2hunter2")).token
+        second_token = (await login_with_password(email=email, password="hunter2hunter2")).token
+
+        await reset_password(email=email, password="brandnewpass1")
+
+        assert await get_jwt_token(token=first_token) is None
+        assert await get_jwt_token(token=second_token) is None
+        with pytest.raises(AuthError, match="Invalid email or password"):
+            await login_with_password(email=email, password="hunter2hunter2")
+        result = await login_with_password(email=email, password="brandnewpass1")
+        assert result.token is not None
+
+    @pytest.mark.asyncio
+    async def test_reset_password_raises_for_unknown_email(self, mock_jwt_settings):
+        with pytest.raises(AuthError, match="not found"):
+            await reset_password(email="nonexistent@example.com", password="brandnewpass1")

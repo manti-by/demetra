@@ -1,7 +1,9 @@
 import json
 from pathlib import Path
 
-from sqlalchemy.exc import IntegrityError
+from rich.console import Console
+from rich.table import Table
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
 from demetra.services.database import (
@@ -9,11 +11,13 @@ from demetra.services.database import (
     find_allowlist_entry,
     get_user_by_email,
     get_user_by_github_id,
+    init_db,
     insert_allowlist_entry,
     list_allowlist_entries,
     list_user_allowlist_seed_rows,
 )
-from demetra.settings import ALLOWLIST_ENABLED
+from demetra.services.tui import print_message
+from demetra.settings import ALLOWLIST_ENABLED, ALLOWLIST_SEED_FILE
 
 
 VALID_ENTRY_TYPES = ("email", "github_username")
@@ -296,3 +300,105 @@ def load_seed_file(path: str) -> list[dict]:
         entries.append(entry)
 
     return entries
+
+
+async def allowlist_add(entry_type: str, value: str, note: str | None) -> int:
+    await add_entry(entry_type=entry_type, value=value, note=note, added_by=None)
+    print_message("Allowlist entry added", style="success")
+    return 0
+
+
+async def allowlist_remove(entry_type: str, value: str) -> int:
+    if await remove_entry(entry_type=entry_type, value=value):
+        print_message("Allowlist entry removed", style="success")
+    else:
+        print_message("No allowlist entry to remove", style="info")
+    return 0
+
+
+async def allowlist_list() -> int:
+    entries = await list_entries()
+    if not entries:
+        print_message("No allowlist entries", style="info")
+        return 0
+
+    table = Table(title="Allowlist entries")
+    for column in ("type", "value", "note", "added_by", "created_at"):
+        table.add_column(column)
+    for entry in entries:
+        table.add_row(
+            entry["entry_type"],
+            entry["value"],
+            entry["note"] or "",
+            entry["added_by"] or "",
+            entry["created_at"].isoformat(),
+        )
+    Console(width=200).print(table)
+    return 0
+
+
+async def allowlist_seed_existing(dry_run: bool) -> int:
+    if ALLOWLIST_SEED_FILE:
+        try:
+            rows = load_seed_file(ALLOWLIST_SEED_FILE)
+        except ValueError as e:
+            print_message(str(e), style="error")
+            return 1
+        counts = await seed_allowlist_rows(dry_run=dry_run, rows=rows)
+        prefix = "(dry-run) " if dry_run else ""
+        print_message(
+            f"{prefix}seeded {counts['inserted']} entries from {ALLOWLIST_SEED_FILE}: "
+            f"{counts['already_present']} already present, {counts['skipped']} skipped",
+            style="result",
+        )
+        return 0
+
+    counts = await seed_existing_users(dry_run=dry_run)
+    prefix = "(dry-run) " if dry_run else ""
+    print_message(
+        f"{prefix}seed-existing: {counts['inserted']} inserted, "
+        f"{counts['already_present']} already present, {counts['skipped']} skipped",
+        style="result",
+    )
+    return 0
+
+
+async def allowlist_cli(action: str, entry_type: str | None, value: str | None, note: str | None, dry_run: bool) -> int:
+    """Run an allowlist management subcommand.
+
+    Args:
+        action: The sub-action: ``add``, ``remove``, ``list`` or ``seed-existing``.
+        entry_type: Entry type for add/remove.
+        value: Entry value for add/remove.
+        note: Optional note for add.
+        dry_run: Whether seed-existing should avoid writing.
+
+    Returns:
+        int: The process exit code.
+    """
+    try:
+        await init_db()
+    except SQLAlchemyError as e:
+        print_message(f"Database error: {e}", style="error")
+        return 1
+
+    try:
+        if action == "add":
+            return await allowlist_add(entry_type=entry_type or "", value=value or "", note=note)
+        if action == "remove":
+            return await allowlist_remove(entry_type=entry_type or "", value=value or "")
+        if action == "list":
+            return await allowlist_list()
+        if action == "seed-existing":
+            return await allowlist_seed_existing(dry_run=dry_run)
+        print_message(f"Unknown allowlist action: {action}", style="error")
+        return 1
+    except AuthError as e:
+        print_message(str(e), style="error")
+        return 1
+    except ValueError as e:
+        print_message(str(e), style="error")
+        return 1
+    except SQLAlchemyError as e:
+        print_message(f"Database error: {e}", style="error")
+        return 1

@@ -3,17 +3,13 @@ import re
 from pathlib import Path
 from typing import Any
 
-import yaml
 from mcp.types import TextContent, Tool
 
-from demetra.settings import BASE_PATH
+from demetra.services.wiki import PAGES_ROOT, parse_page_file
 from demetra.tools.result import ToolResult
 
 
 logger = logging.getLogger(__name__)
-
-WIKI_ROOT = (BASE_PATH / "wiki").resolve()
-PAGES_ROOT = WIKI_ROOT / "pages"
 
 DEFAULT_SEARCH_LIMIT = 5
 MAX_SEARCH_RESULTS = 20
@@ -54,41 +50,7 @@ STOP_WORDS = frozenset(
     )
 )
 
-FRONTMATTER_RE = re.compile(r"\A---\s*\n(.*?)\n---\s*\n?", re.DOTALL)
-BARE_DASH_RE = re.compile(r"^(\s*[A-Za-z_][\w]*\s*:\s*)-$", re.MULTILINE)
 TERM_RE = re.compile(r"[a-z0-9][a-z0-9_.\-]*")
-
-
-def _parse_page(path: Path) -> dict[str, Any] | None:
-    """Parse a wiki page file into metadata and body content.
-
-    Reads YAML frontmatter delimited by ``---`` lines; pages with invalid or
-    non-mapping frontmatter are skipped with a warning.
-
-    Args:
-        path: Path of the ``.md`` page file.
-
-    Returns:
-        dict[str, Any] | None: A mapping with ``name``, ``meta`` and ``body``
-            keys, or None when the frontmatter cannot be parsed.
-    """
-    text = path.read_text(encoding="utf-8")
-    meta: dict[str, Any] = {}
-    body = text
-    match = FRONTMATTER_RE.match(text)
-    if match:
-        block = BARE_DASH_RE.sub(r'\1"-"', match.group(1))
-        try:
-            parsed = yaml.safe_load(block)
-        except yaml.YAMLError:
-            logger.warning(f"Skipping page with invalid frontmatter: {path.name}")
-            return None
-        if parsed is not None and not isinstance(parsed, dict):
-            logger.warning(f"Skipping page with non-mapping frontmatter: {path.name}")
-            return None
-        meta = parsed or {}
-        body = text[match.end() :]
-    return {"name": path.name, "meta": meta, "body": body}
 
 
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
@@ -102,7 +64,7 @@ def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
     """
     pages: list[dict[str, Any]] = []
     for path in sorted(pages_root.glob("*.md")):
-        page = _parse_page(path)
+        page = parse_page_file(path=path)
         if page is not None:
             pages.append(page)
     return pages

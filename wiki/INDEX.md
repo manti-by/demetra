@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 open but CONFLICTING/DIRTY; CI fails on `test_run_review_agents_filters_thinking_prose` because `env_get_list` (demetra/services/utils.py) returns `[]` instead of defaults when env var unset, emptying `OPENCODE_REVIEW_MODELS`; branch one merge behind master (MNT-155); 3 CodeRabbit threads open (2026-08-07)
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — Applied CodeRabbit findings on PR #71 (MNT-155): renamed `_`-prefixed functions, flag from `demetra.settings`, admin bypass bound to immutable `github_id`, seed-file validation + dry-run, fixed `ck_users_has_auth` CI failures (2026-08-06)
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — Implementation: new read-only validate-agent + prompt checking staged diff against the build plan before review; missing items loop inside MAX_REVIEW_ATTEMPTS; OPENCODE_VALIDATE_MODEL; fix replaced 4095-char prompt truncation with stdin piping and added BuildError on non-zero validate exit; version 1.16.0; PR #72 open (2026-08-05)
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — Debug: in `--auto --plan-loop`, `shlex.quote(task)[:4095]` clipped the resolve-agent prompt so the numbered questions were dropped and the agent refused to act; first fix (`--file` temp file) broke every agent with "must provide a message", reverted to positional arg with the cap removed (2026-08-04)
@@ -95,8 +96,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (15 pages)
+### Workflow orchestration & agents (16 pages)
 
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 blocked: `env_get_list` regression empties `OPENCODE_REVIEW_MODELS`, branch behind master, 3 CodeRabbit threads open
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — MNT-146: validate-agent checks staged diff vs build plan before review; stdin delivery + BuildError on failure
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 4095-char `[:4095]` cap clipped resolve-agent questions; dropped the cap (later superseded by stdin piping)
 - [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — MNT-140: session Awaiting Input state after questions

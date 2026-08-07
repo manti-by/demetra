@@ -1077,15 +1077,36 @@ async def get_jwt_token(token: str) -> dict | None:
     return dict(row._mapping) if row else None
 
 
-async def delete_jwt_token(token: str) -> None:
+async def get_user_jwt_tokens(user_id: str) -> list[dict]:
+    """Fetch all stored JWT session records for a user.
+
+    Args:
+        user_id: The user id the tokens belong to.
+
+    Returns:
+        list[dict]: The token rows for the user.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(select(jwt_tokens).where(jwt_tokens.c.user_id == user_id))
+        rows = result.fetchall()
+    return [dict(row._mapping) for row in rows]
+
+
+async def delete_jwt_token(token: str, connection: AsyncSession | None = None) -> None:
     """Delete a stored JWT session record, revoking the token.
 
     Args:
         token: The JWT to revoke.
+        connection: An optional shared connection to run within; when omitted
+            a new connection is opened and the change is committed.
     """
-    async with get_connection() as connection:
-        await connection.execute(delete(jwt_tokens).where(jwt_tokens.c.token == token))
-        await connection.commit()
+    statement = delete(jwt_tokens).where(jwt_tokens.c.token == token)
+    if connection is None:
+        async with get_connection() as conn:
+            await conn.execute(statement)
+            await conn.commit()
+        return
+    await connection.execute(statement)
 
 
 async def update_user_keys(user_id: str, keys: dict) -> None:
@@ -1103,16 +1124,26 @@ async def update_user_keys(user_id: str, keys: dict) -> None:
         await connection.commit()
 
 
-async def update_user_password(user_id: str, password_hash: str) -> None:
+async def update_user_password(
+    user_id: str,
+    password_hash: str,
+    connection: AsyncSession | None = None,
+) -> None:
     """Replace the stored password hash for a user.
 
     Args:
         user_id: The user id.
         password_hash: The new password hash.
+        connection: An optional shared connection to run within; when omitted
+            a new connection is opened and the change is committed.
     """
-    async with get_connection() as connection:
-        await connection.execute(users.update().where(users.c.id == user_id).values(password_hash=password_hash))
-        await connection.commit()
+    statement = users.update().where(users.c.id == user_id).values(password_hash=password_hash)
+    if connection is None:
+        async with get_connection() as conn:
+            await conn.execute(statement)
+            await conn.commit()
+        return
+    await connection.execute(statement)
 
 
 async def create_project(
