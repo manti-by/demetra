@@ -26,6 +26,9 @@ leaving three still-open recommendations filed as follow-ups.
 > **Status update (2026-08-04, Consistency Agent):** PR #68 has been merged into `master`
 > (`ea754bc`, 2026-08-04); master has since advanced to `1.15.7` (was `1.15.5` when this
 > page was written). The "open as PR #68" framing below is kept as the session record.
+>
+> **Status update (2026-08-06, Consistency Agent):** master has since advanced to `1.16.0`
+> (PR #72, `99b5880`, MNT-146 post-build validation).
 
 ---
 

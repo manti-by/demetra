@@ -244,6 +244,13 @@ class TestSignupWithPassword:
         assert result.user.github_username is None
 
     @pytest.mark.asyncio
+    async def test_signup_rejects_email_when_allowlist_enforced(self, mock_jwt_settings, allowlist_seeded):
+        email = f"blocked-{__import__('uuid').uuid4().hex[:8]}@example.com"
+
+        with pytest.raises(AuthError, match="Email not authorized for registration"):
+            await signup_with_password(email=email, password="hunter2hunter2")
+
+    @pytest.mark.asyncio
     async def test_signup_raises_on_duplicate_email(self, mock_jwt_settings):
         email = f"dup-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         await signup_with_password(email=email, password="hunter2hunter2")

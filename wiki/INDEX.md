@@ -7,6 +7,8 @@ by the plugin.
 
 ## Pages
 
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 open but CONFLICTING/DIRTY; CI fails on `test_run_review_agents_filters_thinking_prose` because `env_get_list` (demetra/services/utils.py) returns `[]` instead of defaults when env var unset, emptying `OPENCODE_REVIEW_MODELS`; branch one merge behind master (MNT-155); 3 CodeRabbit threads open (2026-08-07)
+- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — Applied CodeRabbit findings on PR #71 (MNT-155): renamed `_`-prefixed functions, flag from `demetra.settings`, admin bypass bound to immutable `github_id`, seed-file validation + dry-run, fixed `ck_users_has_auth` CI failures (2026-08-06)
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — Implementation: new read-only validate-agent + prompt checking staged diff against the build plan before review; missing items loop inside MAX_REVIEW_ATTEMPTS; OPENCODE_VALIDATE_MODEL; fix replaced 4095-char prompt truncation with stdin piping and added BuildError on non-zero validate exit; version 1.16.0; PR #72 open (2026-08-05)
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — Debug: in `--auto --plan-loop`, `shlex.quote(task)[:4095]` clipped the resolve-agent prompt so the numbered questions were dropped and the agent refused to act; first fix (`--file` temp file) broke every agent with "must provide a message", reverted to positional arg with the cap removed (2026-08-04)
 - [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — When `gh pr create` fails after the branch was pushed, a dedicated `except PullRequestError` in `main.py` posts a Linear comment (branch + compare URL + error), moves the ticket to `Awaiting Input` and records the session step as `awaiting_input` instead of silently reverting to TODO (2026-08-05)
@@ -35,14 +37,13 @@ by the plugin.
 - [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — Path==str dedup bug causing double writes, plus build agent stdout discarded instead of logged (2026-07-15)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — MNT-119: `Makefile deploy` target + `configs/bootstrap.sh` + systemd/nginx units for fast setup; GitHub/OpenCode auth via `.env` `EnvironmentFile` (2026-07-07)
 - [Add context compaction](pages/2026-07-07-add-context-compaction.md) — MNT-122: `session_history` table + OpenCode length/compact helpers + `CONTEXT_COMPACTION_THRESHOLD` (100k); disabled by MNT-145 (`5f8e428`), re-enabled live in `47d428d` (2026-07-07)
-- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — MNT-101: rebuilt the session-log websocket to typed JSON (`log`/`status`) with frontend parsing and deduped status emission (2026-06-25)
+- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — MNT-101: rebuilt the session-log websocket to typed JSON (`log`/`status`) with frontend parsing and deduped status emission; supersedes MNT-53 raw-text log streaming (2026-06-25)
 - [Update project version](pages/2026-06-25-update-project-version.md) — MNT-116: auto version bump in `pyproject.toml` (minor per feature/bug, major on `EPIC` label) with rollback on failure (2026-06-25)
 - [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — MNT-114: added `sessions.linear_link`, set on first save, exposed via API, shown as "View Linear Issue" in the artifacts panel (2026-06-22)
 - [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq-generated PR description passed to GitHub PR creation, replacing the empty/placeholder body (2026-06-22)
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — MNT-106: replaced patch mocks with fixtures/factories + real local calls, added amd64/ARM64 Docker support, trivial-review filtering (v1.13.0) (2026-06-15)
-- [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — MNT-97: removed the 120s timeout from OpenCode subprocess calls; renamed `SHELL_TIMEOUT_MS` -> `SUBPROCESS_TIMEOUT` (2026-06-10)
+- [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — MNT-97: removed the 120s timeout from OpenCode subprocess calls; renamed `SHELL_TIMEOUT_MS` -> `SUBPROCESS_TIMEOUT` (30-min default); merged MNT-112 configurable timeout protection (2026-06-10)
 - [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — MNT-113: added `marked` (^15.0.12) and a build-plan modal button that renders markdown to HTML (2026-06-09)
-- [Increase shell tool timeout - 120s](pages/2026-06-09-increase-shell-tool-timeout-120s.md) — MNT-112: added configurable subprocess timeout (then 2 min) with termination + timeout status; renamed `SUBPROCESS_TIMEOUT` with 30-min default by MNT-97 (`8eb72e9`) (2026-06-09)
 - [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: investigation validating `LinearTicket.text`; improved renderer (state filters, branch/labels, comment metadata, nested replies) (2026-06-09)
 - [Build artifacts](pages/2026-06-09-build-artifacts.md) — MNT-108: persisted `pr_link` via migration, returned `pr_link`+`build_plan` from API, rendered artifacts block in React session log (2026-06-09)
 - [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — MNT-83: `step` field on `Session` (initial/plan/build/lint/review/completed) for resuming interrupted workflows (2026-06-08)
@@ -63,14 +64,13 @@ by the plugin.
 - [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — MNT-63: user-scoped tasks/sessions, `task_status` merged into `sessions` with `user_id`/`project_id` (2026-04-02)
 - [Project model and space](pages/2026-03-31-project-model-and-space.md) — MNT-75: `Project` DB model with clone + Postgres role/db provisioning on add, user-scoped CRUD, React list (2026-03-31)
 - [Add SQLAlchemy Core support](pages/2026-03-13-sqlalchemy-core-support.md) — MNT-62: raw SQL replaced with SQLAlchemy Core, Alembic added, Postgres-backed transactional tests (2026-03-13)
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: `extract_plan` moved to `groq.py`, Groq+llama summarizes plan + task description + comments (2026-03-11)
+- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: `extract_plan` moved to `groq.py`, Groq+llama summarizes plan + task description + comments; supersedes MNT-20 marker-trimming (2026-03-11)
 - [Separate Linear comments](pages/2026-03-11-separate-linear-comments.md) — MNT-60: one Linear comment per question; GraphQL-synced `comments` on the task model (2026-03-11)
 - [UI for sessions](pages/2026-03-10-ui-for-sessions.md) — MNT-59: collapsible sidebar, `/api/v1/sessions` list with statuses, LogConsole websocket per task id (2026-03-10)
 - [Add user setting to the frontend app](pages/2026-03-09-user-settings-frontend.md) — MNT-57: React user-settings component editing `keys` pairs, PATCHed to the user API (2026-03-09)
 - [Isolate user sessions](pages/2026-03-09-isolate-user-sessions.md) — MNT-54: per-session log files (ticket-keyed or temp+rename), append-only, websocket scoped to the session (2026-03-09)
 - [Encrypted user settings](pages/2026-03-09-encrypted-user-settings.md) — MNT-56: encrypted `keys` field on `User` with `SECRET_KEY`/`ENCRYPTION_SALT` and a user-update API (2026-03-09)
 - [Worktree path already exists](pages/2026-03-05-worktree-path-already-exists.md) — MNT-47: `create_worktree` detects and cleans a stale worktree reference/path before creating fresh (2026-03-05)
-- [Stream logs on frontend](pages/2026-03-05-stream-logs-websocket.md) — MNT-53: FastAPI websocket tails the watcher log and streams lines with graceful error handling (2026-03-05)
 - [Postgres Support](pages/2026-03-05-postgres-support.md) — MNT-51: replaced SQLite with async PostgreSQL (`psycopg-binary`) and env-driven `DB_*` settings (2026-03-05)
 - [Add support for GitHub login](pages/2026-03-05-github-login.md) — MNT-48: GitHub OAuth login on the FastAPI backend with token-based sessions (login/logout/current-user), models, README setup (2026-03-05)
 - [GitHub login for React app](pages/2026-03-05-github-login-react-app.md) — MNT-50: GitHub login button wired to FastAPI with loading state and greeting/sign-in conditional rendering (2026-03-05)
@@ -84,7 +84,6 @@ by the plugin.
 - [Add multiagent code review](pages/2026-02-23-add-multiagent-code-review.md) — MNT-35: review consolidates opencode + cursor + coderabbit, sending comments back to build or proceeding to lint; role-based tool config (2026-02-23)
 - [OpenCode sessions isolation](pages/2026-02-21-opencode-sessions-isolation.md) — MNT-22: investigation — OpenCode `run` accepts a custom `--session` id, now passed per workflow step and stored on `sessions`, unblocking parallel workflows (2026-02-21)
 - [Create GitHub PR](pages/2026-02-21-create-github-pr.md) — MNT-31: `gh`-CLI PR service from `branch_name` after push, prints PR URL, `GH_PATH` setting (2026-02-21)
-- [Add plan cleanup middleware](pages/2026-02-21-add-plan-cleanup-middleware.md) — MNT-20: `extract_plan()` in `opencode.py` trims plan markers and feeds the cleaned plan to build/Linear; empty plans halt processing (2026-02-21)
 - [Add a build plan to linear task](pages/2026-02-21-add-build-plan-to-linear-task.md) — MNT-29: async post-comment Linear service wired in right after the plan step (2026-02-21)
 - [Add pre-commit checks and tests](pages/2026-02-20-add-pre-commit-checks-and-tests.md) — MNT-21: `make check` + `make test` subprocess runners after build, feeding failures back to the build agent (2026-02-20)
 - [Update ticket status](pages/2026-02-16-update-ticket-status.md) — MNT-23: `update_ticket_status` + `get_ticket_states` GraphQL services; `main.py` sets In Progress/In Review; graceful fallback (2026-02-16)
@@ -97,27 +96,29 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (14 pages)
+### Workflow orchestration & agents (16 pages)
 
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 blocked: `env_get_list` regression empties `OPENCODE_REVIEW_MODELS`, branch behind master, 3 CodeRabbit threads open
+- [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — MNT-146: validate-agent checks staged diff vs build plan before review; stdin delivery + BuildError on failure
+- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 4095-char `[:4095]` cap clipped resolve-agent questions; dropped the cap (later superseded by stdin piping)
 - [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — MNT-140: session Awaiting Input state after questions
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — replan on missing build_plan, Linear payload validation
 - [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md) — MNT-100: run-attempts guard (default 5)
 - [Review summarization](pages/2026-06-04-review-summarization.md) — MNT-98: Groq+llama review findings summary
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — MNT-79: resolve-agent loop between plan and resolve agents
 - [Async review](pages/2026-05-25-async-review.md) — MNT-87: parallel review agents
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: Groq+llama plan summarization in groq.py
+- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: Groq+llama plan summarization in groq.py; supersedes MNT-20 marker-trimming
 - [Refactor workflow into modular steps](pages/2026-02-23-refactor-workflow-into-modular-steps.md) — MNT-37: `main.py` split into `demetra/workflows/*.py`
 - [Plan agent output triggers](pages/2026-02-23-plan-agent-output-triggers.md) — MNT-30: `--auto` plan output triggers (build / questions)
 - [Add multiagent code review](pages/2026-02-23-add-multiagent-code-review.md) — MNT-35: opencode + cursor + coderabbit review consolidation
 - [OpenCode sessions isolation](pages/2026-02-21-opencode-sessions-isolation.md) — MNT-22: custom `--session` ids per workflow step
-- [Add plan cleanup middleware](pages/2026-02-21-add-plan-cleanup-middleware.md) — MNT-20: `extract_plan()` trims plan markers
 - [Add pre-commit checks and tests](pages/2026-02-20-add-pre-commit-checks-and-tests.md) — MNT-21: `make check`/`make test` after build
 - [Subagent output streaming](pages/2026-02-15-subagent-output-streaming.md) — MNT-18: live subprocess output streaming
 
-### Sessions, status & resume (11 pages)
+### Sessions, status & resume (10 pages)
 
 - [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — unified StepType/VALID_STEPS, API `status`→`step`
-- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — MNT-101: typed JSON websocket (`log`/`status`)
+- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — MNT-101: typed JSON websocket (`log`/`status`); supersedes MNT-53
 - [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — MNT-114: Linear ticket link artifact
 - [Build artifacts](pages/2026-06-09-build-artifacts.md) — MNT-108: PR link + build plan artifacts
 - [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — MNT-83: `step` field for resuming interrupted workflows
@@ -126,7 +127,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — MNT-63: user/project scoping, task_status merge
 - [UI for sessions](pages/2026-03-10-ui-for-sessions.md) — MNT-59: sidebar session list + websocket
 - [Isolate user sessions](pages/2026-03-09-isolate-user-sessions.md) — MNT-54: per-session log files
-- [Stream logs on frontend](pages/2026-03-05-stream-logs-websocket.md) — MNT-53: websocket log streaming
 
 ### React frontend / UI (9 pages)
 
@@ -140,8 +140,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add user setting to the frontend app](pages/2026-03-09-user-settings-frontend.md) — MNT-57: user-settings component
 - [Add basic React app](pages/2026-03-04-basic-react-app.md) — MNT-49: React scaffold (Vite + bun)
 
-### Linear & GitHub integrations (8 pages)
+### Linear & GitHub integrations (9 pages)
 
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `except PullRequestError` posts Linear comment + moves ticket to Awaiting Input, session step `awaiting_input`
 - [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — listener mark-read gating + attempts cap
 - [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq PR description
 - [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: renderer + comment metadata
@@ -151,8 +152,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add a build plan to linear task](pages/2026-02-21-add-build-plan-to-linear-task.md) — MNT-29: post plan as comment
 - [Update ticket status](pages/2026-02-16-update-ticket-status.md) — MNT-23: In Progress/In Review transitions
 
-### Authentication & API security (7 pages)
+### Authentication & API security (8 pages)
 
+- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — MNT-155: allowlist review fixes (admin-by-github-id, seed validation)
 - [Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene](pages/2026-08-03-check-api-auth-and-credentials.md) — auth dependency consolidation, session ownership, WebSocket close codes
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — passlib→bcrypt swap, env-configurable cookie SameSite and CORS origins
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth with bcrypt, JWT cookies, React form
@@ -211,11 +213,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — MNT-119: Makefile deploy + bootstrap.sh + systemd
 - [Process manager](pages/2026-03-02-process-manager.md) — MNT-40: watcher daemon + systemd
 
-### Subprocess & timeouts (2 pages)
-
-- [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — MNT-97: `SUBPROCESS_TIMEOUT` (30 min) from OpenCode calls
-- [Increase shell tool timeout - 120s](pages/2026-06-09-increase-shell-tool-timeout-120s.md) — MNT-112: subprocess timeout protection
-
 ### Git & worktrees (2 pages)
 
 - [Worktree path already exists](pages/2026-03-05-worktree-path-already-exists.md) — MNT-47: worktree cleanup
@@ -225,3 +222,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — MNT-136: markup escaping in `print_message`
 - [Add TUI support](pages/2026-02-14-add-tui-support.md) — MNT-17: Rich-based TUI + interactive loop
+
+### Subprocess & timeouts (1 page)
+
+- [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — MNT-97: `SUBPROCESS_TIMEOUT` (30 min) from OpenCode calls; merged MNT-112 timeout protection

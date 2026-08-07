@@ -8,7 +8,7 @@ services: [opencode, workflows, subprocess, settings]
 branch: mnt-146-post-build-validation
 tickets: [MNT-146]
 tags: [validate-agent, build-plan, coverage, review-loop, stdin]
-related: [2026-02-23-add-multiagent-code-review, 2026-02-21-add-plan-cleanup-middleware, 2026-07-16-fix-empty-build-plan-loop, 2026-06-08-session-step-attribute]
+related: [2026-02-23-add-multiagent-code-review, 2026-03-11-task-plan-summarization, 2026-07-16-fix-empty-build-plan-loop, 2026-06-08-session-step-attribute]
 ---
 
 # Post-build validation — plan-coverage validate-agent between build and review
@@ -25,6 +25,10 @@ findings also replaced the 4095-char command-line truncation of agent prompts wi
 stdin piping, so long build plans reach the agent intact.
 
 Branch: 2 commits ahead of master, open as **PR #72** (base `master`, +536/−25).
+
+> **Status update (2026-08-06, Consistency Agent):** PR #72 has been **merged** into
+> `master` (`99b5880`, 2026-08-05) and carries the `1.16.0` version bump. The
+> "open as PR #72" framing below is kept as the session record.
 
 ---
 
@@ -154,7 +158,7 @@ stdin piping in `run_command`, and `validate_model` settings/`OPENCODE_VALIDATE_
 
 ## Follow-ups
 
-- PR #72 open, awaiting review/merge.
+- ~~PR #72 open, awaiting review/merge.~~ **Done** — merged via `99b5880` (2026-08-05).
 - CodeRabbit review was `COMMENTED`; its two actionable findings were addressed in
   commit `78edceb` (stdin delivery, `BuildError` on failure). The two nitpicks (type
   annotation, named arguments) were also applied.
@@ -166,6 +170,6 @@ stdin piping in `run_command`, and `validate_model` settings/`OPENCODE_VALIDATE_
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)
 - GitHub: [PR #72](https://github.com/manti-by/demetra/pull/72)
 - Related: [[2026-02-23-add-multiagent-code-review]] (the review stage this slots before)
-- Related: [[2026-02-21-add-plan-cleanup-middleware]] (build-plan extraction pipeline)
+- Related: [[2026-03-11-task-plan-summarization]] (build-plan extraction/summarization pipeline)
 - Related: [[2026-07-16-fix-empty-build-plan-loop]] (prior build-loop hardening)
 - Related: [[2026-06-08-session-step-attribute]] (session `step` attribute, now `validate`)

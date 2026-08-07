@@ -56,6 +56,9 @@ WIKI_REVALIDATION_ENABLED = env_get_bool("WIKI_REVALIDATION_ENABLED", False)
 WATCHER_POLL_INTERVAL = env_get_int("WATCHER_POLL_INTERVAL", 60)
 LISTENER_POLL_INTERVAL = env_get_int("LISTENER_POLL_INTERVAL", 60)
 
+ALLOWLIST_ENABLED = env_get_bool("IS_ALLOWLIST_ENABLED", False)
+ALLOWLIST_SEED_FILE = os.environ.get("ALLOWLIST_SEED_FILE")
+
 LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
 
 LOG_DIR = LOG_PATH.parent

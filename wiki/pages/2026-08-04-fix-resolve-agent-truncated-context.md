@@ -33,6 +33,11 @@ Please provide the planning agent's open questions. The message currently includ
 
 Every iteration of the plan loop lost the questions, so the resolve agent refused to act and the loop wasted an attempt.
 
+> **Status update (2026-08-06, Consistency Agent):** the positional-argument delivery
+> described below was later superseded — PR #72 (MNT-146, commit `78edceb`) replaced it
+> with stdin piping (`run_command(input_text=task)`), removing the argv-bound
+> transport entirely. See [[2026-08-05-post-build-validation]] Step 5.
+
 ## Step 1 — Reproduce the math
 
 The resolve-agent task is built in `demetra/workflows/resolve.py:23-28` as a `get_prompt("resolve_questions", ...)` render. The template (`demetra/prompts/resolve_questions.md`, ~890 chars) appends `numbered_questions` last:

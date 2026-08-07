@@ -4,10 +4,11 @@ from datetime import UTC, datetime, timedelta
 import aiohttp
 from fastapi import Cookie, HTTPException
 from jose import JWTError, jwt
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
+from demetra.services.allowlist import is_email_allowed, is_github_login_allowed
 from demetra.services.database import (
     create_user,
     delete_jwt_token,
@@ -15,10 +16,12 @@ from demetra.services.database import (
     get_user_by_email,
     get_user_by_github_id,
     get_user_by_id,
+    init_db,
     save_jwt_token,
     update_user_password,
 )
 from demetra.services.passwords import hash_password, verify_password
+from demetra.services.tui import print_message
 from demetra.settings import GITHUB, JWT
 
 
@@ -199,8 +202,12 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
         AuthResponse: The issued token and the user payload.
 
     Raises:
-        AuthError: When the user record cannot be found after creation.
+        AuthError: When the user record cannot be found after creation, or the
+            GitHub account is not on the allowlist.
     """
+    if not await is_github_login_allowed(login=github_user.login, email=github_user.email, github_id=github_user.id):
+        raise AuthError("GitHub account not authorized")
+
     user_id = await get_or_create_user(github_user)
     token, expires_at = create_jwt_token(user_id)
 
@@ -235,7 +242,8 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
         AuthResponse: The issued token and the new user payload.
 
     Raises:
-        AuthError: When the email is invalid or already registered.
+        AuthError: When the email is invalid, already registered, or not
+            authorized for registration.
     """
     email = email.strip().lower()
 
@@ -245,6 +253,9 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
     existing = await get_user_by_email(email=email)
     if existing:
         raise AuthError("Email already registered")
+
+    if not await is_email_allowed(email=email):
+        raise AuthError("Email not authorized for registration")
 
     password_hash = hash_password(plain=password)
 
@@ -288,6 +299,10 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
     email = email.strip().lower()
 
     user_data = await get_user_by_email(email=email)
+
+    if not await is_email_allowed(email=email, user_data=user_data):
+        raise AuthError("Invalid email or password")
+
     if not user_data or not user_data.get("password_hash"):
         raise AuthError("Invalid email or password")
 
@@ -390,3 +405,28 @@ async def reset_password(email: str, password: str) -> None:
         raise AuthError(f"User with email '{email}' not found")
 
     await update_user_password(user_id=user_data["id"], password_hash=password_hash)
+
+
+async def reset_password_cli() -> int:
+    """Reset a user's password interactively via the CLI.
+
+    Returns:
+        int: The process exit code, 0 on success.
+    """
+    import getpass
+
+    email = input("Email: ").strip()
+    password = getpass.getpass("New password: ")
+
+    try:
+        await init_db()
+        await reset_password(email=email, password=password)
+    except AuthError as e:
+        print_message(str(e), style="error")
+        return 1
+    except SQLAlchemyError as e:
+        print_message(f"Database error: {e}", style="error")
+        return 1
+    else:
+        print_message("Password reset successfully", style="success")
+        return 0

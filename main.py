@@ -3,23 +3,26 @@ import asyncio
 import logging.config
 import sys
 
-from sqlalchemy.exc import SQLAlchemyError
-
 from demetra.library.exceptions import (
-    AuthError,
     AutoCancelledError,
     DemetraError,
     InfiniteLoopError,
     PullRequestError,
     UserCancelledError,
 )
-from demetra.services.auth import reset_password
+from demetra.services.allowlist import allowlist_cli
+from demetra.services.auth import reset_password_cli
 from demetra.services.database import init_db, mark_session_posted
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.tui import print_heading, print_message
 from demetra.services.utils import setup_session_logging
 from demetra.services.wiki import write_session_wiki_page
-from demetra.settings import DEFAULT_USER_ID, LINEAR, LOGGING, MAX_BUILD_ATTEMPTS
+from demetra.settings import (
+    DEFAULT_USER_ID,
+    LINEAR,
+    LOGGING,
+    MAX_BUILD_ATTEMPTS,
+)
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.failure import process_pr_failure
@@ -47,6 +50,17 @@ parser.add_argument(
     help="Reset a user's password interactively",
     action="store_true",
 )
+
+parser.add_argument(
+    "--allowlist",
+    help="Allowlist management sub-action: add, remove, list, seed-existing",
+    choices=["add", "remove", "list", "seed-existing"],
+    default=None,
+)
+parser.add_argument("--type", help="Allowlist entry type (email or github_username)", default=None)
+parser.add_argument("--value", help="Allowlist entry value", default=None)
+parser.add_argument("--note", help="Optional note for the allowlist entry", default=None)
+parser.add_argument("--dry-run", help="Report seed-existing counts without writing", action="store_true")
 
 
 async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None):
@@ -145,31 +159,23 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             )
 
 
-async def reset_password_cli() -> int:
-    import getpass
-
-    email = input("Email: ").strip()
-    password = getpass.getpass("New password: ")
-
-    try:
-        await init_db()
-        await reset_password(email=email, password=password)
-    except AuthError as e:
-        print_message(str(e), style="error")
-        return 1
-    except SQLAlchemyError as e:
-        print_message(f"Database error: {e}", style="error")
-        return 1
-    else:
-        print_message("Password reset successfully", style="success")
-        return 0
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
 
     if args.resetpass:
         sys.exit(asyncio.run(reset_password_cli()))
+    elif args.allowlist:
+        sys.exit(
+            asyncio.run(
+                allowlist_cli(
+                    action=args.allowlist,
+                    entry_type=args.type,
+                    value=args.value,
+                    note=args.note,
+                    dry_run=args.dry_run,
+                )
+            )
+        )
     else:
         asyncio.run(
             main(
