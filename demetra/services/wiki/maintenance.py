@@ -247,6 +247,41 @@ async def check_agents_drift() -> list[str]:
     return [anchor for anchor in service.AGENTS_DRIFT_ANCHORS if anchor not in text]
 
 
+async def revalidation_changed_files() -> set[str]:
+    """List uncommitted paths under ``wiki/`` and ``AGENTS.md``.
+
+    Used to scope the revalidation commit to the exact files the sweep
+    touched instead of staging the whole ``wiki/`` directory.
+
+    Returns:
+        set[str]: The relative paths with working-tree changes (added,
+            modified, deleted or untracked), or an empty set on failure.
+    """
+    command = [
+        str(service.GIT["path"]),
+        "status",
+        "--porcelain",
+        "--untracked-files=all",
+        "--",
+        "wiki/",
+        "AGENTS.md",
+    ]
+    try:
+        exit_code, stdout, _ = await service.run_command(
+            command=command, target_path=service.BASE_PATH, disable_stdio=True
+        )
+    except (OSError, RuntimeError):
+        return set()
+    if exit_code != 0:
+        return set()
+    changed: set[str] = set()
+    for line in stdout.splitlines():
+        path = line[3:].strip()
+        if path:
+            changed.add(path)
+    return changed
+
+
 async def revalidate_wiki_and_agents() -> dict:
     """Run the post-merge wiki/AGENTS.md revalidation sweep.
 
@@ -256,7 +291,8 @@ async def revalidate_wiki_and_agents() -> dict:
 
     Returns:
         dict: Revision statistics keyed by pages merged, pages deleted,
-            questions resolved, clusters rebuilt and drifted anchors.
+            questions resolved, clusters rebuilt, drifted anchors and the
+            exact files changed by the sweep.
     """
     stats = {
         "pages_merged": 0,
@@ -264,14 +300,17 @@ async def revalidate_wiki_and_agents() -> dict:
         "questions_resolved": 0,
         "clusters_rebuilt": 0,
         "agents_drift": [],
+        "changed_files": [],
     }
     try:
+        before = await service.revalidation_changed_files()
         stats["questions_resolved"] = await service.answer_sweep()
         merged, deleted = await service.dedup_pages()
         stats["pages_merged"] = merged
         stats["pages_deleted"] = deleted
         stats["clusters_rebuilt"] = await service.regenerate_by_topic()
         stats["agents_drift"] = await service.check_agents_drift()
+        stats["changed_files"] = sorted(await service.revalidation_changed_files() - before)
     except Exception:  # noqa: BLE001
         service.logger.exception("Wiki revalidation failed")
     return stats
@@ -299,11 +338,13 @@ async def on_default_branch(target_path: Path) -> bool:
 
 
 async def commit_revalidation(stats: dict) -> str | None:
-    """Commit the revalidation changes to ``wiki/`` and ``AGENTS.md``.
+    """Commit the revalidation changes to the tracked files in ``stats``.
 
-    Only runs on the repository's default branch. When another process holds
-    the git index lock, ``REVALIDATION_RETRYABLE`` is returned so the caller can
-    classify the failure as transient rather than permanent.
+    Only runs on the repository's default branch. Only the specific files the
+    revalidation sweep changed are staged and committed, never the whole
+    ``wiki/`` directory. When another process holds the git index lock,
+    ``REVALIDATION_RETRYABLE`` is returned so the caller can classify the
+    failure as transient rather than permanent.
 
     Args:
         stats: The revision statistics from ``revalidate_wiki_and_agents``.
@@ -312,21 +353,15 @@ async def commit_revalidation(stats: dict) -> str | None:
         str | None: The commit SHA, ``REVALIDATION_RETRYABLE`` on index lock
             contention, or None when there was nothing to commit.
     """
-    if not any(
-        (
-            stats.get("pages_merged"),
-            stats.get("pages_deleted"),
-            stats.get("questions_resolved"),
-            stats.get("clusters_rebuilt"),
-        )
-    ):
+    changed = sorted(stats.get("changed_files") or [])
+    if not changed:
         return None
 
     if not await service.on_default_branch(target_path=service.BASE_PATH):
         service.logger.warning(msg="Skipping wiki revalidation commit: BASE_PATH is not on the default branch")
         return None
 
-    command = [str(service.GIT["path"]), "add", "wiki/", "AGENTS.md"]
+    command = [str(service.GIT["path"]), "add", *changed]
     exit_code, _, stderr = await service.run_command(command=command, target_path=service.BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         if "index.lock" in stderr:
@@ -342,7 +377,7 @@ async def commit_revalidation(stats: dict) -> str | None:
         return None
 
     message = "Revalidate wiki and AGENTS.md (post-merge)"
-    commit_cmd = [str(service.GIT["path"]), "commit", "-m", message, "--", "wiki/", "AGENTS.md"]
+    commit_cmd = [str(service.GIT["path"]), "commit", "-m", message, "--", *changed]
     exit_code, _, stderr = await service.run_command(
         command=commit_cmd, target_path=service.BASE_PATH, disable_stdio=True
     )

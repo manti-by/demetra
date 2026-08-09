@@ -34,6 +34,7 @@ from demetra.services.wiki.maintenance import (
     page_tokens,
     pick_survivor,
     revalidate_wiki_and_agents,
+    revalidation_changed_files,
     run_wiki_revalidation,
     similarity,
 )
@@ -171,6 +172,7 @@ __all__ = [
     "regenerate_by_topic",
     "render_wiki_page",
     "revalidate_wiki_and_agents",
+    "revalidation_changed_files",
     "run_command",
     "run_wiki_revalidation",
     "session_filename",
