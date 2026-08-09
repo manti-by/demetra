@@ -120,3 +120,8 @@ class TestEnvHelpers:
     def test_env_get_int_returns_default_when_negative(self, monkeypatch):
         monkeypatch.setenv("TEST_INT", "-1")
         assert env_get_int("TEST_INT", 7) == 7
+
+    def test_env_get_int_rejects_negative_default(self, monkeypatch):
+        monkeypatch.delenv("TEST_INT", raising=False)
+        with pytest.raises(ValueError, match="default must be nonnegative"):
+            env_get_int("TEST_INT", -1)

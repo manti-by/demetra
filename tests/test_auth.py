@@ -1,12 +1,15 @@
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import aiohttp
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import insert
 
 from demetra.app import app
 from demetra.library.exceptions import AuthError
 from demetra.library.models import GitHubUser, UserResponse
+from demetra.library.tables import jwt_tokens
 from demetra.services.auth import (
     authenticate_user,
     create_jwt_token,
@@ -20,7 +23,7 @@ from demetra.services.auth import (
     signup_with_password,
     verify_jwt_token,
 )
-from demetra.services.persistence.database import get_jwt_token
+from demetra.services.persistence.database import get_connection, get_jwt_token
 
 
 class TestAuthService:
@@ -312,3 +315,27 @@ class TestResetPassword:
     async def test_reset_password_raises_for_unknown_email(self, mock_jwt_settings):
         with pytest.raises(AuthError, match="not found"):
             await reset_password(email="nonexistent@example.com", password="brandnewpass1")
+
+    @pytest.mark.asyncio
+    async def test_reset_password_rejects_token_minted_before_reset(self, mock_jwt_settings):
+        email = f"race-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
+        result = await signup_with_password(email=email, password="hunter2hunter2")
+
+        await reset_password(email=email, password="brandnewpass1")
+
+        # A session minted concurrently after the reset snapshot carries the
+        # old password_version and must be rejected even if the delete loop
+        # missed it.
+        stale_token, stale_expires_at = create_jwt_token(user_id=result.user.id)
+        async with get_connection() as connection:
+            await connection.execute(
+                insert(jwt_tokens).values(
+                    token=stale_token,
+                    user_id=result.user.id,
+                    expires_at=datetime.fromisoformat(stale_expires_at),
+                    created_at=datetime.now(UTC),
+                    password_version=1,
+                )
+            )
+
+        assert await verify_jwt_token(stale_token) is None

@@ -164,6 +164,13 @@ async def verify_jwt_token(token: str) -> TokenData | None:
         if not token_data:
             return None
 
+        user_data = await get_user_by_id(token_data["user_id"])
+        if not user_data:
+            return None
+
+        if user_data.get("password_version", 1) != token_data.get("password_version", 1):
+            return None
+
         expires_at = token_data["expires_at"]
         if expires_at is None or datetime.now(UTC) > expires_at:
             return None
@@ -392,6 +399,10 @@ def has_permission(user: UserResponse | dict, permission: str) -> bool:
 async def reset_password(email: str, password: str) -> None:
     """Replace the password hash for the user with the given email, revoking
     every stored JWT session for that user in the same transaction.
+
+    The password update bumps the user's ``password_version``, so any session
+    minted concurrently after the token snapshot is rejected by
+    :func:`verify_jwt_token` once the reset commits.
 
     Args:
         email: The user's email address.

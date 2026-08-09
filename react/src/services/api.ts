@@ -14,7 +14,7 @@ function resolveApiOrigin(): string {
   return window.location.origin;
 }
 
-function assertTrustedOrigin(input: RequestInfo | URL): void {
+function assertTrustedOrigin(input: RequestInfo | URL | string): void {
   if (typeof window === 'undefined' || !API_ORIGIN) return;
   const target = new URL(input.toString(), window.location.origin);
   if (target.origin !== API_ORIGIN) {
@@ -36,17 +36,19 @@ export interface AuthResponse {
 }
 
 async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const method = (init.method ?? 'GET').toUpperCase();
+  const request = input instanceof Request ? input : undefined;
+  const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
   if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-    assertTrustedOrigin(input);
+    assertTrustedOrigin(request?.url ?? input);
   }
   return fetch(input, { ...init, credentials: 'include' });
 }
 
 async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  const method = (init.method ?? 'GET').toUpperCase();
+  const request = input instanceof Request ? input : undefined;
+  const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
   if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-    assertTrustedOrigin(input);
+    assertTrustedOrigin(request?.url ?? input);
   }
   return fetch(input, { ...init, credentials: 'include' });
 }

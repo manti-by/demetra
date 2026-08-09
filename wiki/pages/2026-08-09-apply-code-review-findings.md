@@ -111,10 +111,10 @@ Guarded behind `WIKI_REVALIDATION_ENABLED` (default `False`), but the guard now 
 
 **File:** demetra/services/wiki/maintenance.py:289
 
-`line[3:]` on `git status --porcelain` mishandled renames (`R  old -> new` became `"old -> new"`, so `git add` failed and the revalidation commit silently did nothing) and quoted paths with spaces. Switched to NUL-separated v1 output and skipped the rename/copy destination record:
+`line[3:]` on `git status --porcelain` mishandled renames (`R  old -> new` became `"old -> new"`, so `git add` failed and the revalidation commit silently did nothing) and quoted paths with spaces. Switched to NUL-separated v1 output scoped to `wiki/` and `AGENTS.md`. For renames/copies `--porcelain=v1 -z` emits the destination path in the first record and the source path in a second NUL-delimited record; the parser consumes that second record:
 
 ```python
-command = [str(service.GIT["path"]), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/"]
+command = [str(service.GIT["path"]), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/", "AGENTS.md"]
 ...
 records = stdout.split("\0")
 ...
