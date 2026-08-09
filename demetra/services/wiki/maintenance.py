@@ -1,3 +1,4 @@
+import asyncio
 import re
 from pathlib import Path
 
@@ -48,7 +49,7 @@ async def answer_sweep() -> int:
     """
     if not service.QUESTIONS_PATH.is_file():
         return 0
-    text = service.QUESTIONS_PATH.read_text(encoding="utf-8")
+    text = await asyncio.to_thread(service.QUESTIONS_PATH.read_text, encoding="utf-8")
     if "## Open" not in text:
         return 0
 
@@ -58,6 +59,8 @@ async def answer_sweep() -> int:
     kept: list[str] = []
     resolved: list[str] = []
     current: list[str] = []
+    preamble: list[str] = []
+    in_entries = False
     count = 0
     for line in open_block.splitlines():
         if line.strip().startswith("### "):
@@ -69,8 +72,11 @@ async def answer_sweep() -> int:
                 else:
                     kept.append(entry_text)
             current = [line]
-        else:
+            in_entries = True
+        elif in_entries:
             current.append(line)
+        else:
+            preamble.append(line)
     if current:
         entry_text = "\n".join(current)
         if service.has_answer(entry_text):
@@ -83,6 +89,9 @@ async def answer_sweep() -> int:
         return 0
 
     open_section = "\n\n".join(kept)
+    preamble_text = "\n".join(preamble).strip()
+    if open_section.strip() and preamble_text:
+        open_section = f"{preamble_text}\n\n{open_section}"
     resolved_section = (
         "\n\n".join([*resolved, resolved_block.strip()]) if resolved_block.strip() else "\n\n".join(resolved)
     )
@@ -91,7 +100,7 @@ async def answer_sweep() -> int:
         if open_section.strip()
         else f"{header}## Open\n\n_Newest first._\n\n## Resolved\n\n{resolved_section}\n"
     )
-    service.QUESTIONS_PATH.write_text(encoding="utf-8", data=new_text)
+    await asyncio.to_thread(service.QUESTIONS_PATH.write_text, encoding="utf-8", data=new_text)
     return count
 
 

@@ -18,9 +18,13 @@ def parse_page_file(path: Path) -> dict | None:
 
     Returns:
         dict | None: A mapping with ``name``, ``meta`` and ``body`` keys, or
-            None when the frontmatter cannot be parsed.
+            None when the file cannot be read or its frontmatter parsed.
     """
-    text = path.read_text(encoding="utf-8")
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        service.logger.warning(f"Skipping unreadable page: {path.name}")
+        return None
     meta: dict = {}
     body = text
     match = service.FRONTMATTER_RE.match(text)

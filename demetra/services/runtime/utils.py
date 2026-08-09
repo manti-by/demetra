@@ -311,6 +311,6 @@ def env_get_path(name: str, default: Path | None) -> Path | None:
         Path | None: The value, or the default.
     """
     value = os.environ.get(name)
-    if value is None:
+    if not value or value.strip() == "":
         return default
     return Path(value).resolve()

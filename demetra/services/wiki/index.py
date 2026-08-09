@@ -144,6 +144,7 @@ def find_topic_cluster(contents: str, meta: dict) -> str:
     terms = [str(term).casefold() for term in (meta.get("services") or []) + (meta.get("tags") or [])]
     best_header = None
     best_score = -1
+    scores: dict[str, int] = {}
     current_header = None
     for line in contents.splitlines():
         stripped = line.strip()
@@ -151,9 +152,11 @@ def find_topic_cluster(contents: str, meta: dict) -> str:
             current_header = stripped
         elif stripped.startswith("- [") and current_header:
             score = sum(stripped.casefold().count(term) for term in terms)
-            if score > best_score:
-                best_score = score
-                best_header = current_header
+            scores[current_header] = scores.get(current_header, 0) + score
+    for header, score in scores.items():
+        if score > best_score:
+            best_score = score
+            best_header = header
     if best_score > 0 and best_header:
         return best_header
     for line in contents.splitlines():
@@ -203,6 +206,10 @@ def insert_cluster_entry(contents: str, cluster_header: str, entry: str) -> str:
             lines.append("")
             break
     else:
+        if in_cluster:
+            lines.append(entry)
+            lines.append("")
+            return "\n".join(lines)
         return contents
     return "\n".join(lines)
 
