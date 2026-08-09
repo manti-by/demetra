@@ -1,9 +1,13 @@
+import re
 from pathlib import Path
 
 from demetra.library.exceptions import BuildError
 from demetra.services.agents.opencode import opencode_validate_agent
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
+
+
+MISSING_ITEM_RE = re.compile(r"^Plan step \d+:", re.IGNORECASE)
 
 
 async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, str] | None = None) -> str | None:
@@ -39,6 +43,8 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
         if not stripped:
             continue
         if stripped.casefold() in NO_ISSUE_TOKENS_CASE:
+            continue
+        if not MISSING_ITEM_RE.match(stripped):
             continue
         parts.append(stripped)
     if not parts:

@@ -6,15 +6,15 @@ from fastapi import Cookie, HTTPException
 from jose import JWTError, jwt
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError, RegistrationNotAllowedError
 from demetra.library.models import AuthResponse, GitHubUser, TokenData, UserResponse
 from demetra.services.auth.allowlist import is_email_allowed, is_github_login_allowed
 from demetra.services.auth.passwords import hash_password, verify_password
 from demetra.services.persistence.database import (
     create_user,
     delete_jwt_token,
-    get_connection,
     get_jwt_token,
+    get_transaction,
     get_user_by_email,
     get_user_by_github_id,
     get_user_by_id,
@@ -164,6 +164,13 @@ async def verify_jwt_token(token: str) -> TokenData | None:
         if not token_data:
             return None
 
+        user_data = await get_user_by_id(token_data["user_id"])
+        if not user_data:
+            return None
+
+        if user_data.get("password_version", 1) != token_data.get("password_version", 1):
+            return None
+
         expires_at = token_data["expires_at"]
         if expires_at is None or datetime.now(UTC) > expires_at:
             return None
@@ -208,7 +215,7 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
             GitHub account is not on the allowlist.
     """
     if not await is_github_login_allowed(login=github_user.login, email=github_user.email, github_id=github_user.id):
-        raise AuthError("GitHub account not authorized")
+        raise GitHubAccountNotAuthorizedError("GitHub account not authorized")
 
     user_id = await get_or_create_user(github_user)
     token, expires_at = create_jwt_token(user_id)
@@ -257,7 +264,7 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
         raise AuthError("Email already registered")
 
     if not await is_email_allowed(email=email):
-        raise AuthError("Email not authorized for registration")
+        raise RegistrationNotAllowedError("Email not authorized for registration")
 
     password_hash = hash_password(plain=password)
 
@@ -393,6 +400,10 @@ async def reset_password(email: str, password: str) -> None:
     """Replace the password hash for the user with the given email, revoking
     every stored JWT session for that user in the same transaction.
 
+    The password update bumps the user's ``password_version``, so any session
+    minted concurrently after the token snapshot is rejected by
+    :func:`verify_jwt_token` once the reset commits.
+
     Args:
         email: The user's email address.
         password: The new plaintext password to hash.
@@ -409,11 +420,10 @@ async def reset_password(email: str, password: str) -> None:
 
     user_id = user_data["id"]
     tokens = await get_user_jwt_tokens(user_id=user_id)
-    async with get_connection() as connection:
-        async with connection.begin():
-            for token_data in tokens:
-                await delete_jwt_token(token=token_data["token"], connection=connection)
-            await update_user_password(user_id=user_id, password_hash=password_hash, connection=connection)
+    async with get_transaction() as connection:
+        for token_data in tokens:
+            await delete_jwt_token(token=token_data["token"], connection=connection)
+        await update_user_password(user_id=user_id, password_hash=password_hash, connection=connection)
 
 
 async def reset_password_cli() -> int:

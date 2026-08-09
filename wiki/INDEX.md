@@ -7,6 +7,8 @@ by the plugin.
 
 ## Pages
 
+- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 CodeRabbit findings on PR #75: `password_version` column closes the reset-token snapshot race, `authFetch`/`authenticatedFetch` handle `Request` inputs, `env_get_int` rejects negative defaults, `get_transaction` named arg, Step 6 wiki doc synced; migration a4b5c6d7e8f9, 739 passed in 4.95s (2026-08-09)
+- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 review findings (v1.15.4..HEAD): cross-origin auth cookies restored, `env_get_int` rejects negatives, validate-agent marker filter, `get_transaction()` atomicity for reset_password/delete_project, dedup keeps distinct tickets, porcelain `-z` parsing, typed auth exceptions; 1.16.3, 737 passed in 4.84s (2026-08-09)
 - [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — Hardened wiki edge cases (blank env paths, cluster scoring/insertion, unreadable pages, answer_sweep preamble + async I/O), scoped revalidation commits to changed files only; optimized slowest tests (seed rows patch, get_linear_task_by_id mock) — full suite 729 passed in 4.60s (2026-08-09)
 - [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — Implementation: split `demetra/services/wiki.py` (1254 lines) into a `wiki/` package — six submodules (parsing, naming, facts, index, render, maintenance) behind a facade `__init__.py` re-exporting all 55 symbols; submodules read state via `service.<NAME>` at call time so patch/monkeypatch seams hold; 728 tests + full gates pass (2026-08-07)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 open but CONFLICTING/DIRTY; CI fails on `test_run_review_agents_filters_thinking_prose` because `env_get_list` (demetra/services/utils.py) returns `[]` instead of defaults when env var unset, emptying `OPENCODE_REVIEW_MODELS`; branch one merge behind master (MNT-155); 3 CodeRabbit threads open (2026-08-07)
@@ -98,8 +100,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (16 pages)
+### Workflow orchestration & agents (17 pages)
 
+- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — validate-agent marker filter; all 7 review findings (v1.15.4..HEAD)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 blocked: `env_get_list` regression empties `OPENCODE_REVIEW_MODELS`, branch behind master, 3 CodeRabbit threads open
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — MNT-146: validate-agent checks staged diff vs build plan before review; stdin delivery + BuildError on failure
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 4095-char `[:4095]` cap clipped resolve-agent questions; dropped the cap (later superseded by stdin piping)
@@ -154,8 +157,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add a build plan to linear task](pages/2026-02-21-add-build-plan-to-linear-task.md) — MNT-29: post plan as comment
 - [Update ticket status](pages/2026-02-16-update-ticket-status.md) — MNT-23: In Progress/In Review transitions
 
-### Authentication & API security (8 pages)
+### Authentication & API security (9 pages)
 
+- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — cross-origin auth cookies, typed auth exceptions, atomic reset_password/delete_project
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — MNT-155: allowlist review fixes (admin-by-github-id, seed validation)
 - [Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene](pages/2026-08-03-check-api-auth-and-credentials.md) — auth dependency consolidation, session ownership, WebSocket close codes
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — passlib→bcrypt swap, env-configurable cookie SameSite and CORS origins

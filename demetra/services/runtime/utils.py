@@ -222,12 +222,17 @@ def env_get_int(name: str, default: int) -> int:
 
     Returns:
         int: The parsed value, or the default.
+
+    Raises:
+        ValueError: When the default is negative.
     """
+    if default < 0:
+        raise ValueError(f"{name} default must be nonnegative")
     try:
-        return int(os.environ.get(name, default))
+        value = int(os.environ.get(name, default))
     except ValueError:
-        pass
-    return default
+        return default
+    return value if value >= 0 else default
 
 
 def env_get_bool(name: str, default: bool) -> bool:

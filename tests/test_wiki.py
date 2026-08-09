@@ -632,6 +632,29 @@ class TestDedupPages:
         assert deleted == 0
         assert len(list(wiki_dirs["pages"].glob("*.md"))) == 2
 
+    async def test_similar_pages_with_distinct_tickets_kept(self, wiki_dirs):
+        def _auth_page(name: str, title: str, ticket: str, date: str) -> str:
+            return (
+                f'---\ntitle: "{title}"\ndate: {date}\ntype: implementation\nstatus: resolved\n'
+                f"services: [auth]\nbranch: master\ntickets: [{ticket}]\ntags: [auth]\nrelated: []\n---\n\n"
+                f"# {title}\n\n## TL;DR\n\nImplementation session for {title} tracking the authentication "
+                f"registration flow on branch `master`. The change touches the allowlist service, the password "
+                f"hashing module, the jwt token store, the login endpoint and the github callback handler before "
+                f"being reviewed and merged.\n\n## Details\n\n- Linear ticket {ticket}\n"
+                f"- Services: auth, allowlist, passwords\n- Status: resolved\n"
+            )
+
+        (wiki_dirs["pages"] / "2026-08-04-mnt-147-auth-session.md").write_text(
+            _auth_page("2026-08-04-mnt-147-auth-session.md", "MNT-147: Auth session", "MNT-147", "2026-08-04")
+        )
+        (wiki_dirs["pages"] / "2026-08-03-mnt-200-auth-session.md").write_text(
+            _auth_page("2026-08-03-mnt-200-auth-session.md", "MNT-200: Auth session", "MNT-200", "2026-08-03")
+        )
+        merged, deleted = await service.dedup_pages()
+        assert merged == 0
+        assert deleted == 0
+        assert len(list(wiki_dirs["pages"].glob("*.md"))) == 2
+
 
 class TestRegenerateByTopic:
     def _page(self, name: str, title: str, services: list[str], tags: list[str]) -> str:
@@ -747,3 +770,13 @@ class TestRevalidateAndCommit:
         }
         monkeypatch.setattr(service, "run_command", AsyncMock())
         assert await service.commit_revalidation(stats=stats) is None
+
+    async def test_revalidation_changed_files_parses_rename_and_spaces(self, monkeypatch):
+        stdout = "R  wiki/pages/new.md\0wiki/pages/old.md\0?? wiki/pages/has space.md\0M  AGENTS.md\0"
+        monkeypatch.setattr(service, "run_command", AsyncMock(return_value=(0, stdout, "")))
+        changed = await service.revalidation_changed_files()
+        assert changed == {"wiki/pages/new.md", "wiki/pages/has space.md", "AGENTS.md"}
+
+    async def test_revalidation_changed_files_returns_empty_on_failure(self, monkeypatch):
+        monkeypatch.setattr(service, "run_command", AsyncMock(return_value=(1, "", "boom")))
+        assert await service.revalidation_changed_files() == set()

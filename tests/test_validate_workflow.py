@@ -88,3 +88,17 @@ class TestWorkflowValidate:
         result = await run_validate_agent(target_path, injected_plan)
 
         assert result == missing
+
+    @pytest.mark.asyncio
+    async def test_stray_prose_is_not_reported_as_missing(self, faker, mock_validate_agent):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        output = (
+            "I reviewed the staged diff and everything looks good.\n"
+            "Plan step 2: Wire tests — not implemented (no corresponding change in diff)\n"
+            "No further action required."
+        )
+        mock_validate_agent.return_value = (0, output, None)
+
+        result = await run_validate_agent(target_path, "build plan")
+
+        assert result == "Plan step 2: Wire tests — not implemented (no corresponding change in diff)"

@@ -53,6 +53,7 @@ users = Table(
     Column("github_username", String(), nullable=True),
     Column("email", String(), nullable=False),
     Column("password_hash", String(), nullable=True),
+    Column("password_version", Integer(), nullable=False, server_default="1"),
     Column("avatar_url", String(), nullable=True),
     Column("role", String(), nullable=False, server_default="user"),
     Column("keys", Text(), nullable=True),
@@ -69,6 +70,7 @@ jwt_tokens = Table(
     Column("user_id", String(), nullable=False),
     Column("expires_at", DateTime(timezone=True), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("password_version", Integer(), nullable=False, server_default="1"),
 )
 
 allowlist_entries = Table(

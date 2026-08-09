@@ -2,7 +2,7 @@ import json
 
 from fastapi import APIRouter, Cookie, HTTPException, Response
 
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, RegistrationNotAllowedError
 from demetra.library.models import LoginRequest, SignupRequest
 from demetra.services.auth import login_with_password, logout, signup_with_password
 from demetra.settings import COOKIE_SAMESITE, COOKIE_SECURE
@@ -73,7 +73,7 @@ async def signup(request: SignupRequest) -> Response:
     try:
         auth_response = await signup_with_password(email=request.email, password=request.password)
     except AuthError as e:
-        status_code = 403 if str(e) == "Email not authorized for registration" else 400
+        status_code = 403 if isinstance(e, RegistrationNotAllowedError) else 400
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
     return _set_auth_cookie(

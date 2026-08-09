@@ -41,6 +41,30 @@ def similarity(left: set[str], right: set[str]) -> float:
     return len(left & right) / len(left | right)
 
 
+def is_duplicate_pair(left_meta: dict, right_meta: dict) -> bool:
+    """Return whether two pages genuinely track the same work item.
+
+    Two pages are duplicates only when they reference the same ticket (via
+    ``tickets`` frontmatter) or share an identical normalized title. High
+    vocabulary similarity alone is not enough: two different tickets with
+    overlapping wording must never be merged.
+
+    Args:
+        left_meta: The frontmatter of the first page.
+        right_meta: The frontmatter of the second page.
+
+    Returns:
+        bool: True when the pages are genuine duplicates.
+    """
+    left_tickets = {str(item).casefold() for item in (left_meta.get("tickets") or [])}
+    right_tickets = {str(item).casefold() for item in (right_meta.get("tickets") or [])}
+    if left_tickets & right_tickets:
+        return True
+    left_title = str(left_meta.get("title") or "").casefold().strip()
+    right_title = str(right_meta.get("title") or "").casefold().strip()
+    return bool(left_title) and left_title == right_title
+
+
 async def answer_sweep() -> int:
     """Apply answered ``## Open`` entries in QUESTIONS.md and move them to Resolved.
 
@@ -155,6 +179,8 @@ async def dedup_pages() -> tuple[int, int]:
             tokens_right = service.page_tokens(meta=right["meta"], body=right["body"])
             if service.similarity(tokens_left, tokens_right) < service.DEDUP_SIMILARITY_THRESHOLD:
                 continue
+            if not is_duplicate_pair(left_meta=left["meta"], right_meta=right["meta"]):
+                continue
             survivor = service.pick_survivor(left_path=left_path, right_path=right_path)
             if survivor is None:
                 continue
@@ -260,7 +286,8 @@ async def revalidation_changed_files() -> set[str]:
     command = [
         str(service.GIT["path"]),
         "status",
-        "--porcelain",
+        "--porcelain=v1",
+        "-z",
         "--untracked-files=all",
         "--",
         "wiki/",
@@ -275,8 +302,17 @@ async def revalidation_changed_files() -> set[str]:
     if exit_code != 0:
         return set()
     changed: set[str] = set()
-    for line in stdout.splitlines():
-        path = line[3:].strip()
+    records = stdout.split("\0")
+    index = 0
+    while index < len(records):
+        record = records[index]
+        index += 1
+        if len(record) < 4 or record[2] != " ":
+            continue
+        code = record[:2]
+        path = record[3:]
+        if code[0] in ("R", "C") and index < len(records):
+            index += 1
         if path:
             changed.add(path)
     return changed

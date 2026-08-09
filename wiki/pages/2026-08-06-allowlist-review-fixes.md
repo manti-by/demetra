@@ -8,7 +8,7 @@ services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
 tags: [allowlist, code-review, coderabbit, security, auth, tests]
-related: [2026-07-24-plain-auth-review-followups, 2026-08-03-check-api-auth-and-credentials]
+related: [2026-07-24-plain-auth-review-followups, 2026-08-03-check-api-auth-and-credentials, 2026-08-09-apply-code-review-findings]
 ---
 
 # Allowlist CodeRabbit Review Fixes and CI Test Fix

@@ -134,6 +134,32 @@ async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSess
         yield session
 
 
+@asynccontextmanager
+async def get_transaction(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
+    """Yield a session running inside an explicitly opened transaction.
+
+    The application engine runs at ``AUTOCOMMIT`` isolation, where
+    ``session.begin()`` is a no-op and every statement commits immediately.
+    This manager issues the transaction control itself (``BEGIN`` /
+    ``COMMIT`` / ``ROLLBACK``), so the yielded block runs atomically.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+
+    Yields:
+        AsyncSession: A session inside an open transaction.
+    """
+    async with get_connection(db_name=db_name) as connection:
+        await connection.execute(text("BEGIN"))
+        try:
+            yield connection
+        except BaseException:
+            await connection.execute(text("ROLLBACK"))
+            raise
+        else:
+            await connection.execute(text("COMMIT"))
+
+
 async def init_db() -> None:
     """Verify database connectivity with a trivial query."""
     async with get_connection() as connection:
@@ -1035,20 +1061,35 @@ async def list_user_allowlist_seed_rows() -> list[dict]:
 async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
     """Persist a JWT session record for a user.
 
+    The stored ``password_version`` is read from the user row at issuance, so
+    any token minted before a password reset carries the old version and is
+    rejected by :func:`verify_jwt_token` after the reset commits.
+
     Args:
         token: The JWT to store.
         user_id: The user id the token belongs to.
         expires_at: ISO-8601 expiry timestamp.
+
+    Raises:
+        RuntimeError: When no user row exists for the id.
     """
     now = datetime.now(UTC)
     expires_at_dt = datetime.fromisoformat(expires_at)
 
     async with get_connection() as connection:
+        version_result = await connection.execute(
+            text("SELECT password_version FROM users WHERE id = :user_id"),
+            {"user_id": user_id},
+        )
+        version_row = version_result.fetchone()
+        if version_row is None:
+            raise RuntimeError(f"User {user_id} not found while saving JWT session")
+
         await connection.execute(
             text(
                 """
-                INSERT INTO jwt_tokens (token, user_id, expires_at, created_at)
-                VALUES (:token, :user_id, :expires_at, :created_at)
+                INSERT INTO jwt_tokens (token, user_id, expires_at, created_at, password_version)
+                VALUES (:token, :user_id, :expires_at, :created_at, :password_version)
                 ON CONFLICT (token) DO NOTHING
                 """
             ),
@@ -1057,6 +1098,7 @@ async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:
                 "user_id": user_id,
                 "expires_at": expires_at_dt,
                 "created_at": now,
+                "password_version": version_row[0],
             },
         )
         await connection.commit()
@@ -1129,7 +1171,10 @@ async def update_user_password(
     password_hash: str,
     connection: AsyncSession | None = None,
 ) -> None:
-    """Replace the stored password hash for a user.
+    """Replace the stored password hash for a user, invalidating prior sessions.
+
+    Bumps ``password_version`` so every JWT minted before the change is
+    rejected by :func:`verify_jwt_token`.
 
     Args:
         user_id: The user id.
@@ -1137,7 +1182,11 @@ async def update_user_password(
         connection: An optional shared connection to run within; when omitted
             a new connection is opened and the change is committed.
     """
-    statement = users.update().where(users.c.id == user_id).values(password_hash=password_hash)
+    statement = (
+        users.update()
+        .where(users.c.id == user_id)
+        .values(password_hash=password_hash, password_version=users.c.password_version + 1)
+    )
     if connection is None:
         async with get_connection() as conn:
             await conn.execute(statement)
@@ -1512,19 +1561,16 @@ async def delete_project(project_id: str, user_id: str) -> bool:
     Returns:
         bool: True when the project was deleted, False when it did not exist.
     """
-    async with get_connection() as connection:
-        async with connection.begin():
-            existing = await connection.execute(
-                select(projects.c.id).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
-            )
-            if not existing.fetchone():
-                return False
-            await connection.execute(
-                delete(project_environments).where(project_environments.c.project_id == project_id)
-            )
-            await connection.execute(
-                delete(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
-            )
+    async with get_transaction() as connection:
+        existing = await connection.execute(
+            select(projects.c.id).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        )
+        if not existing.fetchone():
+            return False
+        await connection.execute(delete(project_environments).where(project_environments.c.project_id == project_id))
+        await connection.execute(
+            delete(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        )
     return True
 
 
