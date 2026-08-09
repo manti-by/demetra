@@ -8,7 +8,7 @@ services: [wiki, tests, runtime]
 branch: -
 tickets: []
 tags: [wiki, tests, performance, env, index, revalidation, bug]
-related: [2026-08-07-split-wiki-service-into-subpackage]
+related: [2026-08-07-split-wiki-service-into-subpackage, 2026-08-09-apply-code-review-findings]
 ---
 
 # Wiki edge-case fixes and slow-test optimization

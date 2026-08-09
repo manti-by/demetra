@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from demetra.app import app
 from demetra.library.exceptions import AuthError as AuthServiceError
+from demetra.library.exceptions import RegistrationNotAllowedError
 from demetra.library.models import AuthResponse, UserResponse
 
 
@@ -78,7 +79,7 @@ class TestSignupEndpoint:
 
     def test_signup_returns_403_when_email_not_authorized(self):
         with patch("demetra.api.auth.signup_with_password", new_callable=AsyncMock) as mock_signup:
-            mock_signup.side_effect = AuthServiceError("Email not authorized for registration")
+            mock_signup.side_effect = RegistrationNotAllowedError("Email not authorized for registration")
 
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(

@@ -3,7 +3,14 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from demetra.services.runtime.utils import env_get_bool, env_get_list, env_get_path, env_get_str, live_stream
+from demetra.services.runtime.utils import (
+    env_get_bool,
+    env_get_int,
+    env_get_list,
+    env_get_path,
+    env_get_str,
+    live_stream,
+)
 
 
 class TestUtilsService:
@@ -97,3 +104,19 @@ class TestEnvHelpers:
     def test_env_get_path_returns_none_when_unset_without_default(self, monkeypatch):
         monkeypatch.delenv("TEST_PATH", raising=False)
         assert env_get_path("TEST_PATH", None) is None
+
+    def test_env_get_int_returns_value(self, monkeypatch):
+        monkeypatch.setenv("TEST_INT", "42")
+        assert env_get_int("TEST_INT", 7) == 42
+
+    def test_env_get_int_returns_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("TEST_INT", raising=False)
+        assert env_get_int("TEST_INT", 7) == 7
+
+    def test_env_get_int_returns_default_when_invalid(self, monkeypatch):
+        monkeypatch.setenv("TEST_INT", "abc")
+        assert env_get_int("TEST_INT", 7) == 7
+
+    def test_env_get_int_returns_default_when_negative(self, monkeypatch):
+        monkeypatch.setenv("TEST_INT", "-1")
+        assert env_get_int("TEST_INT", 7) == 7

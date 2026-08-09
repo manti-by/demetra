@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError
 from demetra.library.models import UserResponse
 from demetra.services.auth import (
     authenticate_user,
@@ -78,7 +78,7 @@ async def github_callback(
         )
         return response
     except AuthError as e:
-        status_code = 403 if str(e) == "GitHub account not authorized" else 400
+        status_code = 403 if isinstance(e, GitHubAccountNotAuthorizedError) else 400
         raise HTTPException(status_code=status_code, detail=str(e)) from e
 
 

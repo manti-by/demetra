@@ -134,6 +134,32 @@ async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSess
         yield session
 
 
+@asynccontextmanager
+async def get_transaction(db_name: str | None = None) -> AsyncGenerator[AsyncSession]:
+    """Yield a session running inside an explicitly opened transaction.
+
+    The application engine runs at ``AUTOCOMMIT`` isolation, where
+    ``session.begin()`` is a no-op and every statement commits immediately.
+    This manager issues the transaction control itself (``BEGIN`` /
+    ``COMMIT`` / ``ROLLBACK``), so the yielded block runs atomically.
+
+    Args:
+        db_name: Optional database name; defaults to the configured DB_NAME.
+
+    Yields:
+        AsyncSession: A session inside an open transaction.
+    """
+    async with get_connection(db_name) as connection:
+        await connection.execute(text("BEGIN"))
+        try:
+            yield connection
+        except BaseException:
+            await connection.execute(text("ROLLBACK"))
+            raise
+        else:
+            await connection.execute(text("COMMIT"))
+
+
 async def init_db() -> None:
     """Verify database connectivity with a trivial query."""
     async with get_connection() as connection:
@@ -1512,19 +1538,16 @@ async def delete_project(project_id: str, user_id: str) -> bool:
     Returns:
         bool: True when the project was deleted, False when it did not exist.
     """
-    async with get_connection() as connection:
-        async with connection.begin():
-            existing = await connection.execute(
-                select(projects.c.id).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
-            )
-            if not existing.fetchone():
-                return False
-            await connection.execute(
-                delete(project_environments).where(project_environments.c.project_id == project_id)
-            )
-            await connection.execute(
-                delete(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
-            )
+    async with get_transaction() as connection:
+        existing = await connection.execute(
+            select(projects.c.id).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        )
+        if not existing.fetchone():
+            return False
+        await connection.execute(delete(project_environments).where(project_environments.c.project_id == project_id))
+        await connection.execute(
+            delete(projects).where((projects.c.id == project_id) & (projects.c.user_id == user_id))
+        )
     return True
 
 

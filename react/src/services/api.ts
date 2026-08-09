@@ -36,7 +36,11 @@ export interface AuthResponse {
 }
 
 async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
-  return fetch(input, init);
+  const method = (init.method ?? 'GET').toUpperCase();
+  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+    assertTrustedOrigin(input);
+  }
+  return fetch(input, { ...init, credentials: 'include' });
 }
 
 async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {

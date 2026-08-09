@@ -40,3 +40,11 @@ class PullRequestError(DemetraError):
 
 class AuthError(DemetraError):
     pass
+
+
+class RegistrationNotAllowedError(AuthError):
+    pass
+
+
+class GitHubAccountNotAuthorizedError(AuthError):
+    pass
