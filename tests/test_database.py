@@ -9,7 +9,7 @@ from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from sqlalchemy import insert, select
 
 from demetra.library.tables import project_environments
-from demetra.services.database import (
+from demetra.services.persistence.database import (
     create_project,
     create_session,
     delete_project,
@@ -32,8 +32,8 @@ from demetra.services.database import (
     upsert_pending_session,
     upsert_project_environment,
 )
-from demetra.services.database import get_connection as _get_connection
-from demetra.services.encryption import decrypt_str
+from demetra.services.persistence.database import get_connection as _get_connection
+from demetra.services.persistence.encryption import decrypt_str
 
 
 _TEST_SECRET_KEY = "x7uKwdXjK-UPCdQ2DEoUoVoe1sAceCvG9iaJuTbwj20="
@@ -467,9 +467,9 @@ class TestProjectEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
         with (
-            patch("demetra.services.encryption.SECRET_KEY", _TEST_SECRET_KEY),
-            patch("demetra.services.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
-            patch("demetra.services.encryption.get_fernet", return_value=_TEST_FERNET),
+            patch("demetra.services.persistence.encryption.SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
+            patch("demetra.services.persistence.encryption.get_fernet", return_value=_TEST_FERNET),
         ):
             yield
 

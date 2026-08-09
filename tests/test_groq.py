@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.services.groq import extract_plan, generate_pr_description, summarize_review, summarize_session
+from demetra.services.llm.groq import extract_plan, generate_pr_description, summarize_review, summarize_session
 
 
 class TestGroqService:
@@ -35,7 +35,7 @@ class TestGroqService:
 
     @pytest.mark.asyncio
     async def test_summarize_review_returns_empty_for_empty_input(self):
-        with patch("demetra.services.groq.ChatGroq") as mock_llm:
+        with patch("demetra.services.llm.groq.ChatGroq") as mock_llm:
             result = await summarize_review(review_output="")
 
         assert result == []
@@ -43,7 +43,7 @@ class TestGroqService:
 
     @pytest.mark.asyncio
     async def test_summarize_review_returns_empty_for_whitespace_input(self):
-        with patch("demetra.services.groq.ChatGroq") as mock_llm:
+        with patch("demetra.services.llm.groq.ChatGroq") as mock_llm:
             result = await summarize_review(review_output="   \n\t  ")
 
         assert result == []
@@ -68,9 +68,9 @@ class TestGroqService:
         long_output = "HEAD" * 20_000  # 80k chars
 
         with (
-            patch("demetra.services.groq.ChatGroq") as mock_llm,
-            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
-            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.llm.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
         ):
             mock_chain = AsyncMock()
             mock_result = AsyncMock()
@@ -110,10 +110,10 @@ class TestSummarizeSession:
     @pytest.mark.asyncio
     async def test_summarize_session_returns_tldr_and_overview(self):
         with (
-            patch("demetra.services.groq.ChatGroq") as mock_llm,
-            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
-            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.groq.JsonOutputParser"),
+            patch("demetra.services.llm.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.llm.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.groq.JsonOutputParser"),
         ):
             mock_chain = AsyncMock()
             mock_chain.ainvoke.return_value = {"tldr": "Short TL;DR", "overview": "Body overview."}
@@ -135,10 +135,10 @@ class TestSummarizeSession:
     @pytest.mark.asyncio
     async def test_summarize_session_returns_empty_on_failure(self):
         with (
-            patch("demetra.services.groq.ChatGroq") as mock_llm,
-            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
-            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.groq.JsonOutputParser"),
+            patch("demetra.services.llm.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.llm.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.groq.JsonOutputParser"),
         ):
             mock_chain = AsyncMock()
             mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
@@ -160,10 +160,10 @@ class TestSummarizeSession:
     @pytest.mark.asyncio
     async def test_summarize_session_returns_empty_for_non_dict_output(self):
         with (
-            patch("demetra.services.groq.ChatGroq") as mock_llm,
-            patch("demetra.services.groq.ChatPromptTemplate") as mock_template,
-            patch("demetra.services.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.groq.JsonOutputParser"),
+            patch("demetra.services.llm.groq.ChatGroq") as mock_llm,
+            patch("demetra.services.llm.groq.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.groq.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.groq.JsonOutputParser"),
         ):
             mock_chain = AsyncMock()
             mock_chain.ainvoke.return_value = ["tldr", "overview"]

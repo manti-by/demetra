@@ -51,6 +51,9 @@ update:
 test:
 	uv run pytest tests/
 
+test-slow:
+	uv run pytest tests/ --durations=10
+
 test-cov:
 	uv run pytest tests/ --cov=demetra --cov-report=term-missing --cov-report=html --cov-fail-under=65
 

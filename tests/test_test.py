@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.test import run_pytests
+from demetra.services.quality.test import run_pytests
 
 
 class TestTestService:
@@ -11,7 +11,7 @@ class TestTestService:
 
     @pytest.fixture
     def mock_run(self):
-        with patch("demetra.services.test.run_command", new_callable=AsyncMock) as m:
+        with patch("demetra.services.quality.test.run_command", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio

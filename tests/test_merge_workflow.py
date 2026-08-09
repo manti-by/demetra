@@ -46,12 +46,14 @@ def base_mocks():
         patch("demetra.workflows.merge.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.merge.perform_git_merge", new_callable=AsyncMock) as mock_perform_merge,
         patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
+        patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
         mock_get_env.return_value = {}
         mock_fetch.return_value = None
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
+        mock_get_task.return_value = None
         yield {
             "mock_get_session": mock_get_session,
             "mock_get_project": mock_get_project,
@@ -62,6 +64,7 @@ def base_mocks():
             "mock_pr_info": mock_pr_info,
             "mock_perform_merge": mock_perform_merge,
             "mock_write_page": mock_write_page,
+            "mock_get_task": mock_get_task,
         }
 
 

@@ -352,6 +352,7 @@ class TestCommitRevalidationScoped:
             "questions_resolved": 0,
             "clusters_rebuilt": 0,
             "agents_drift": [],
+            "changed_files": ["AGENTS.md", "wiki/INDEX.md"],
         }
         commit_commands = []
 
@@ -370,7 +371,7 @@ class TestCommitRevalidationScoped:
         assert commit_commands
         commit = commit_commands[0]
         assert "--" in commit
-        assert commit[commit.index("--") + 1 :] == ["wiki/", "AGENTS.md"]
+        assert commit[commit.index("--") + 1 :] == ["AGENTS.md", "wiki/INDEX.md"]
 
 
 class TestPatchIndexWithoutTopicSection:
@@ -698,6 +699,7 @@ class TestRevalidateAndCommit:
             "questions_resolved": 0,
             "clusters_rebuilt": 0,
             "agents_drift": [],
+            "changed_files": [],
         }
         monkeypatch.setattr(service, "run_command", AsyncMock())
         assert await service.commit_revalidation(stats=stats) is None
@@ -709,7 +711,9 @@ class TestRevalidateAndCommit:
             "questions_resolved": 0,
             "clusters_rebuilt": 0,
             "agents_drift": [],
+            "changed_files": ["wiki/INDEX.md", "AGENTS.md"],
         }
+        add_calls = []
         calls = {
             "add": (0, "", ""),
             "staged": (0, "wiki/INDEX.md\nAGENTS.md", ""),
@@ -718,7 +722,8 @@ class TestRevalidateAndCommit:
         }
 
         async def fake_run_command(command, target_path, disable_stdio=False, env=None):
-            if command[-2:] == ["add", "AGENTS.md"]:
+            if command[1] == "add":
+                add_calls.append(command)
                 return calls["add"]
             if command[1:4] == ["diff", "--staged", "--name-only"]:
                 return calls["staged"]
@@ -729,3 +734,16 @@ class TestRevalidateAndCommit:
         monkeypatch.setattr(service, "run_command", fake_run_command)
         sha = await service.commit_revalidation(stats=stats)
         assert sha == "abc123"
+        assert add_calls == [[str(service.GIT["path"]), "add", "AGENTS.md", "wiki/INDEX.md"]]
+
+    async def test_commit_revalidation_noop_without_changed_files(self, monkeypatch):
+        stats = {
+            "pages_merged": 1,
+            "pages_deleted": 0,
+            "questions_resolved": 0,
+            "clusters_rebuilt": 0,
+            "agents_drift": [],
+            "changed_files": [],
+        }
+        monkeypatch.setattr(service, "run_command", AsyncMock())
+        assert await service.commit_revalidation(stats=stats) is None

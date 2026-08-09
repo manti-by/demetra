@@ -3,12 +3,12 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.services.database import (
+from demetra.services.linear import get_todo_issues
+from demetra.services.persistence.database import (
     get_pending_session_task_ids,
     get_session,
     upsert_pending_session,
 )
-from demetra.services.linear import get_todo_issues
 
 
 class TestProcessManager:

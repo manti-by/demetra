@@ -7,6 +7,8 @@ by the plugin.
 
 ## Pages
 
+- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — Hardened wiki edge cases (blank env paths, cluster scoring/insertion, unreadable pages, answer_sweep preamble + async I/O), scoped revalidation commits to changed files only; optimized slowest tests (seed rows patch, get_linear_task_by_id mock) — full suite 729 passed in 4.60s (2026-08-09)
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — Implementation: split `demetra/services/wiki.py` (1254 lines) into a `wiki/` package — six submodules (parsing, naming, facts, index, render, maintenance) behind a facade `__init__.py` re-exporting all 55 symbols; submodules read state via `service.<NAME>` at call time so patch/monkeypatch seams hold; 728 tests + full gates pass (2026-08-07)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 open but CONFLICTING/DIRTY; CI fails on `test_run_review_agents_filters_thinking_prose` because `env_get_list` (demetra/services/utils.py) returns `[]` instead of defaults when env var unset, emptying `OPENCODE_REVIEW_MODELS`; branch one merge behind master (MNT-155); 3 CodeRabbit threads open (2026-08-07)
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — Applied CodeRabbit findings on PR #71 (MNT-155): renamed `_`-prefixed functions, flag from `demetra.settings`, admin bypass bound to immutable `github_id`, seed-file validation + dry-run, fixed `ck_users_has_auth` CI failures (2026-08-06)
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — Implementation: new read-only validate-agent + prompt checking staged diff against the build plan before review; missing items loop inside MAX_REVIEW_ATTEMPTS; OPENCODE_VALIDATE_MODEL; fix replaced 4095-char prompt truncation with stdin piping and added BuildError on non-zero validate exit; version 1.16.0; PR #72 open (2026-08-05)
@@ -190,8 +192,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — behavior-preserving refactor
 - [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — Path==str dedup bug
 
-### MCP / integrations (3 pages)
+### MCP / integrations (4 pages)
 
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — wiki service split into 6 submodules + facade
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — wiki tools over MCP
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — mcp 2.0 migration
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — MNT-90: standalone `mcp_server.py`

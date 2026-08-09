@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from demetra.services.database import update_session_step
-from demetra.services.lint import run_ruff_checks, run_ruff_format
-from demetra.services.test import run_pytests
-from demetra.services.tui import print_message
-from demetra.services.utils import is_package_installed
+from demetra.services.persistence.database import update_session_step
+from demetra.services.quality.lint import run_ruff_checks, run_ruff_format
+from demetra.services.quality.test import run_pytests
+from demetra.services.runtime.tui import print_message
+from demetra.services.runtime.utils import is_package_installed
 from demetra.settings import FEATURES
 
 

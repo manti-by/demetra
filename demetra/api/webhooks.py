@@ -3,8 +3,8 @@ import logging
 from fastapi import APIRouter, Header, Request
 from fastapi.responses import JSONResponse
 
-from demetra.services.github import verify_signature, webhook_rebase_handler
-from demetra.services.queue import queue
+from demetra.services.persistence.queue import queue
+from demetra.services.vcs.github import verify_signature, webhook_rebase_handler
 
 
 logger = logging.getLogger(__name__)

@@ -2,15 +2,15 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
-from demetra.services.database import record_session_step_history, update_session_step
-from demetra.services.flow import user_input
-from demetra.services.opencode import (
+from demetra.services.agents.opencode import (
     get_opencode_session_tokens,
     opencode_build_agent,
     opencode_compact_session,
 )
-from demetra.services.project import bump_project_version, is_epic_label
-from demetra.services.tui import print_message
+from demetra.services.persistence.database import record_session_step_history, update_session_step
+from demetra.services.runtime.flow import user_input
+from demetra.services.runtime.project import bump_project_version, is_epic_label
+from demetra.services.runtime.tui import print_message
 from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents

@@ -3,8 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.lint import run_ruff_checks
-from demetra.services.test import run_pytests
+from demetra.services.quality.lint import run_ruff_checks
+from demetra.services.quality.test import run_pytests
 
 
 @pytest.mark.asyncio
@@ -12,8 +12,8 @@ class TestWorkflowIntegration:
     @pytest.fixture
     def mock_commands(self):
         with (
-            patch("demetra.services.lint.run_command", new_callable=AsyncMock) as mock_precommit,
-            patch("demetra.services.test.run_command", new_callable=AsyncMock) as mock_test,
+            patch("demetra.services.quality.lint.run_command", new_callable=AsyncMock) as mock_precommit,
+            patch("demetra.services.quality.test.run_command", new_callable=AsyncMock) as mock_test,
         ):
             yield mock_precommit, mock_test
 

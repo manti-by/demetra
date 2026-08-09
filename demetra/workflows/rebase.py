@@ -2,12 +2,12 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project
-from demetra.services.database import get_project_by_id_system, get_project_environments, get_session
-from demetra.services.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
-from demetra.services.github import get_pr_info
 from demetra.services.linear import get_linear_task_by_id
-from demetra.services.rebase import perform_git_rebase
-from demetra.services.utils import setup_session_logging
+from demetra.services.persistence.database import get_project_by_id_system, get_project_environments, get_session
+from demetra.services.runtime.utils import setup_session_logging
+from demetra.services.vcs.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
+from demetra.services.vcs.github import get_pr_info
+from demetra.services.vcs.rebase import perform_git_rebase
 from demetra.services.wiki import write_session_wiki_page
 
 

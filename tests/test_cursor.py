@@ -3,23 +3,23 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.services.cursor import cursor_review_agent, run_cursor_agent
+from demetra.services.agents.cursor import cursor_review_agent, run_cursor_agent
 
 
 class TestCursorService:
     @pytest.fixture
     def mock_run_command(self):
-        with patch("demetra.services.cursor.run_command", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.agents.cursor.run_command", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_cursor_path(self):
-        with patch("demetra.services.cursor.CURSOR", {"path": Path("/bin/cursor")}):
+        with patch("demetra.services.agents.cursor.CURSOR", {"path": Path("/bin/cursor")}):
             yield
 
     @pytest.fixture
     def mock_run_cursor_agent(self):
-        with patch("demetra.services.cursor.run_cursor_agent", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.agents.cursor.run_cursor_agent", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.mark.asyncio

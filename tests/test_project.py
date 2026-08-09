@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from demetra.services.project import bump_project_version, is_epic_label
+from demetra.services.runtime.project import bump_project_version, is_epic_label
 
 
 class TestIsEpicLabel:

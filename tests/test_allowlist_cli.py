@@ -1,10 +1,17 @@
 import asyncio
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
 
-from demetra.services.allowlist import allowlist_cli, list_entries, remove_entry
-from demetra.services.database import _engine_cache, create_user, delete_allowlist_entry, get_connection, text
+from demetra.services.auth.allowlist import allowlist_cli, list_entries, remove_entry
+from demetra.services.persistence.database import (
+    _engine_cache,
+    create_user,
+    delete_allowlist_entry,
+    get_connection,
+    text,
+)
 
 
 _test_loop: asyncio.AbstractEventLoop | None = None
@@ -70,6 +77,23 @@ async def _cleanup_user(user_id: str) -> None:
         await connection.commit()
 
 
+def _patch_seed_rows(email: str, user_id: str):
+    """Scope ``seed-existing`` to a single user instead of the whole users table.
+
+    ``list_user_allowlist_seed_rows`` scans every user in the shared dev
+    database; the CLI tests only need the created user to flow through the
+    seeding routine, so the source rows are narrowed to that one user.
+    """
+
+    async def _seed_rows():
+        return [
+            {"entry_type": "email", "value": email, "source_user_id": user_id},
+            {"entry_type": "github_username", "value": None, "source_user_id": user_id},
+        ]
+
+    return patch("demetra.services.auth.allowlist.list_user_allowlist_seed_rows", new=_seed_rows)
+
+
 def test_add_happy_path(capsys):
     email = _unique_email()
     code = _run_cli(action="add", entry_type="email", value=email)
@@ -124,7 +148,8 @@ def test_list_non_empty(capsys):
 def test_seed_existing_dry_run_reports_counts(capsys):
     email = _unique_email()
     user_id = _async_run(create_user(email=email, password_hash="test-hash"))
-    code = _run_cli(action="seed-existing", dry_run=True)
+    with _patch_seed_rows(email=email, user_id=user_id):
+        code = _run_cli(action="seed-existing", dry_run=True)
     assert code == 0
     out = capsys.readouterr().out
     assert "(dry-run)" in out
@@ -139,16 +164,17 @@ def test_seed_existing_dry_run_reports_counts(capsys):
 def test_seed_existing_inserts_and_is_idempotent(capsys):
     email = _unique_email()
     user_id = _async_run(create_user(email=email, password_hash="test-hash"))
-    code = _run_cli(action="seed-existing")
-    assert code == 0
+    with _patch_seed_rows(email=email, user_id=user_id):
+        code = _run_cli(action="seed-existing")
+        assert code == 0
 
-    entries = _async_run(list_entries())
-    assert any(e["entry_type"] == "email" and e["value"] == email for e in entries)
+        entries = _async_run(list_entries())
+        assert any(e["entry_type"] == "email" and e["value"] == email for e in entries)
 
-    code = _run_cli(action="seed-existing")
-    assert code == 0
-    out = capsys.readouterr().out
-    assert "0 inserted" in out and "already present" in out and "skipped" in out
+        code = _run_cli(action="seed-existing")
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "0 inserted" in out and "already present" in out and "skipped" in out
 
     _async_run(_cleanup_user(user_id))
     _async_run(delete_allowlist_entry(entry_type="email", value=email))

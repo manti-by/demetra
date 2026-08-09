@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from demetra.library.exceptions import LinearError
-from demetra.services.graphql import get_query, graphql_request
+from demetra.services.linear.graphql import get_query, graphql_request
 
 
 class TestGraphqlService:
@@ -41,8 +41,8 @@ class TestGraphqlRequest:
     @pytest.mark.asyncio
     async def test_graphql_request_returns_dict_payload(self):
         with (
-            patch("demetra.services.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
-            patch("demetra.services.graphql.aiohttp.ClientSession") as mock_client_session,
+            patch("demetra.services.linear.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
+            patch("demetra.services.linear.graphql.aiohttp.ClientSession") as mock_client_session,
         ):
             mock_token.return_value = "token"
             mock_client_session.return_value = self._mock_session({"data": {"issueUpdate": {"success": True}}})
@@ -54,8 +54,8 @@ class TestGraphqlRequest:
     @pytest.mark.asyncio
     async def test_graphql_request_raises_linear_error_on_null_payload(self):
         with (
-            patch("demetra.services.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
-            patch("demetra.services.graphql.aiohttp.ClientSession") as mock_client_session,
+            patch("demetra.services.linear.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
+            patch("demetra.services.linear.graphql.aiohttp.ClientSession") as mock_client_session,
         ):
             mock_token.return_value = "token"
             mock_client_session.return_value = self._mock_session(None)
@@ -66,8 +66,8 @@ class TestGraphqlRequest:
     @pytest.mark.asyncio
     async def test_graphql_request_raises_linear_error_on_list_payload(self):
         with (
-            patch("demetra.services.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
-            patch("demetra.services.graphql.aiohttp.ClientSession") as mock_client_session,
+            patch("demetra.services.linear.graphql.get_valid_token", new_callable=AsyncMock) as mock_token,
+            patch("demetra.services.linear.graphql.aiohttp.ClientSession") as mock_client_session,
         ):
             mock_token.return_value = "token"
             mock_client_session.return_value = self._mock_session([])

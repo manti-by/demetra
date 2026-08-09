@@ -5,7 +5,7 @@ from fastapi import Path as PathParam
 
 from demetra.library.models import SessionHistory, StepType, UserResponse
 from demetra.services.auth import get_current_user_dep
-from demetra.services.database import (
+from demetra.services.persistence.database import (
     delete_session,
     get_session_history,
     get_session_id_by_task_id,

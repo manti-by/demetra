@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
@@ -11,7 +10,14 @@ from demetra.library.types import (
     OpenCodeConfig,
     PathConfig,
 )
-from demetra.services.utils import env_get_bool, env_get_int, env_get_list, get_cookie_samesite
+from demetra.services.runtime.utils import (
+    env_get_bool,
+    env_get_int,
+    env_get_list,
+    env_get_path,
+    env_get_str,
+    get_cookie_samesite,
+)
 
 
 DEBUG = env_get_bool("DEBUG", False)
@@ -20,15 +26,15 @@ HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
 
-DB_HOST = os.environ.get("DB_HOST", "localhost")
+DB_HOST = env_get_str("DB_HOST", "localhost")
 DB_PORT = env_get_int("DB_PORT", 5432)
-DB_USER = os.environ.get("DB_USER", "demetra")
-DB_NAME = os.environ.get("DB_NAME", "demetra")
-DB_PASSWORD = os.environ.get("DB_PASSWORD")
+DB_USER = env_get_str("DB_USER", "demetra")
+DB_NAME = env_get_str("DB_NAME", "demetra")
+DB_PASSWORD = env_get_str("DB_PASSWORD", None)
 
-PARENT_HOME: Path | None = Path(os.environ["PARENT_HOME"]) if "PARENT_HOME" in os.environ else None
+PARENT_HOME: Path | None = env_get_path("PARENT_HOME", None)
 
-PROJECTS_PATH = Path(os.environ.get("PROJECTS_PATH", HOME_PATH / "www")).resolve()
+PROJECTS_PATH = env_get_path("PROJECTS_PATH", HOME_PATH / "www")
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
 MAX_BUILD_ATTEMPTS = env_get_int("MAX_BUILD_ATTEMPTS", 50)
@@ -57,9 +63,9 @@ WATCHER_POLL_INTERVAL = env_get_int("WATCHER_POLL_INTERVAL", 60)
 LISTENER_POLL_INTERVAL = env_get_int("LISTENER_POLL_INTERVAL", 60)
 
 ALLOWLIST_ENABLED = env_get_bool("IS_ALLOWLIST_ENABLED", False)
-ALLOWLIST_SEED_FILE = os.environ.get("ALLOWLIST_SEED_FILE")
+ALLOWLIST_SEED_FILE = env_get_str("ALLOWLIST_SEED_FILE", None)
 
-LOG_PATH = Path(os.environ.get("LOG_PATH", "/var/log/demetra/demetra.log")).resolve()
+LOG_PATH = env_get_path("LOG_PATH", Path("/var/log/demetra/demetra.log"))
 
 LOG_DIR = LOG_PATH.parent
 
@@ -68,7 +74,7 @@ LOGGING: dict = {
     "disable_existing_loggers": False,
     "filters": {
         "ansi_strip": {
-            "()": "demetra.services.utils.AnsiStrippingFilter",
+            "()": "demetra.services.runtime.utils.AnsiStrippingFilter",
         },
     },
     "formatters": {
@@ -93,93 +99,93 @@ LOGGING: dict = {
         },
     },
     "loggers": {
-        "": {"handlers": ["console", "file"], "level": os.environ.get("LOG_LEVEL", "DEBUG"), "propagate": True},
+        "": {"handlers": ["console", "file"], "level": env_get_str("LOG_LEVEL", "DEBUG"), "propagate": True},
     },
 }
 
-REDIS_URL = os.environ.get("REDIS_URL", "redis://localhost:6379/1")
+REDIS_URL = env_get_str("REDIS_URL", "redis://localhost:6379/1")
 
 LINEAR: LinearConfig = {
     "api_url": "https://api.linear.app/graphql",
-    "client_id": os.environ.get("LINEAR_CLIENT_ID"),
-    "client_secret": os.environ.get("LINEAR_CLIENT_SECRET"),
-    "oauth_scope": os.environ.get("LINEAR_OAUTH_SCOPE", "read,write,comments:create"),
-    "team_id": os.environ.get("LINEAR_TEAM_ID"),
+    "client_id": env_get_str("LINEAR_CLIENT_ID", None),
+    "client_secret": env_get_str("LINEAR_CLIENT_SECRET", None),
+    "oauth_scope": env_get_str("LINEAR_OAUTH_SCOPE", "read,write,comments:create"),
+    "team_id": env_get_str("LINEAR_TEAM_ID", None),
     "oauth_token_url": "https://api.linear.app/oauth/token",
     "service_name": "linear",
-    "feature_label_id": os.environ.get("LINEAR_FEATURE_LABEL_ID", "242cd332-e78c-42db-acc2-34441db373ab"),
+    "feature_label_id": env_get_str("LINEAR_FEATURE_LABEL_ID", "242cd332-e78c-42db-acc2-34441db373ab"),
     "states": {
-        "prd": os.environ.get("LINEAR_STATE_PRD_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
-        "todo": os.environ.get("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5"),
-        "in_progress": os.environ.get("LINEAR_STATE_IN_PROGRESS_ID", "ded08079-9ddf-43cb-8aa8-722ba107b691"),
-        "in_review": os.environ.get("LINEAR_STATE_IN_REVIEW_ID", "34829892-5ab6-40a4-af4e-7a73636a78a4"),
-        "awaiting_input": os.environ.get("LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"),
-        "done": os.environ.get("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
+        "prd": env_get_str("LINEAR_STATE_PRD_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
+        "todo": env_get_str("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5"),
+        "in_progress": env_get_str("LINEAR_STATE_IN_PROGRESS_ID", "ded08079-9ddf-43cb-8aa8-722ba107b691"),
+        "in_review": env_get_str("LINEAR_STATE_IN_REVIEW_ID", "34829892-5ab6-40a4-af4e-7a73636a78a4"),
+        "awaiting_input": env_get_str("LINEAR_STATE_AWAITING_INPUT_ID", "e733f22b-fe21-401a-bf68-d2d374507f06"),
+        "done": env_get_str("LINEAR_STATE_DONE_ID", "9f3c586f-640a-4f78-8170-90217270a0c6"),
     },
-    "default_state": os.environ.get("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
+    "default_state": env_get_str("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
     "filter_labels": env_get_list("LINEAR_FILTER_LABELS", []),
 }
 
 OPENCODE: OpenCodeConfig = {
-    "path": Path(os.environ.get("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode")).resolve(),
-    "plan_model": os.environ.get("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
-    "resolve_model": os.environ.get("OPENCODE_RESOLVE_MODEL", "opencode-go/qwen3.7-max"),
-    "build_model": os.environ.get("OPENCODE_BUILD_MODEL", "opencode-go/deepseek-v4-flash"),
-    "validate_model": os.environ.get("OPENCODE_VALIDATE_MODEL", "opencode-go/deepseek-v4-flash"),
+    "path": env_get_path("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"),
+    "plan_model": env_get_str("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
+    "resolve_model": env_get_str("OPENCODE_RESOLVE_MODEL", "opencode-go/qwen3.7-max"),
+    "build_model": env_get_str("OPENCODE_BUILD_MODEL", "opencode-go/deepseek-v4-flash"),
+    "validate_model": env_get_str("OPENCODE_VALIDATE_MODEL", "opencode-go/deepseek-v4-flash"),
     "review_models": env_get_list(
         "OPENCODE_REVIEW_MODELS", ["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]
     ),
 }
 
 CURSOR: PathConfig = {
-    "path": Path(os.environ.get("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent")).resolve(),
+    "path": env_get_path("CURSOR_PATH", HOME_PATH / ".local/bin/cursor-agent"),
 }
 
 CODERABBIT: PathConfig = {
-    "path": Path(os.environ.get("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit")).resolve(),
+    "path": env_get_path("CODERABBIT_PATH", HOME_PATH / ".local/bin/coderabbit"),
 }
 
 UV: PathConfig = {
-    "path": Path(os.environ.get("UV_PATH", HOME_PATH / ".local/bin/uv")).resolve(),
+    "path": env_get_path("UV_PATH", HOME_PATH / ".local/bin/uv"),
 }
 
 GIT: GitConfig = {
-    "path": Path(os.environ.get("GIT_PATH", "/usr/bin/git")).resolve(),
-    "worktree_path": Path(os.environ.get("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/")).resolve(),
+    "path": env_get_path("GIT_PATH", Path("/usr/bin/git")),
+    "worktree_path": env_get_path("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"),
 }
 
 GITHUB: GitHubConfig = {
-    "path": Path(os.environ.get("GH_PATH", "/usr/bin/gh")).resolve(),
+    "path": env_get_path("GH_PATH", Path("/usr/bin/gh")),
     "oauth": {
-        "client_id": os.environ.get("GITHUB_CLIENT_ID"),
-        "client_secret": os.environ.get("GITHUB_CLIENT_SECRET"),
-        "redirect_uri": os.environ.get("GITHUB_REDIRECT_URI", "https://demetra.manti.by/github/callback"),
+        "client_id": env_get_str("GITHUB_CLIENT_ID", None),
+        "client_secret": env_get_str("GITHUB_CLIENT_SECRET", None),
+        "redirect_uri": env_get_str("GITHUB_REDIRECT_URI", "https://demetra.manti.by/github/callback"),
         "oauth_url": "https://github.com/login/oauth/authorize",
         "token_url": "https://github.com/login/oauth/access_token",
         "user_url": "https://api.github.com/user",
     },
     "webhook": {
-        "secret": os.environ.get("GITHUB_WEBHOOK_SECRET"),
+        "secret": env_get_str("GITHUB_WEBHOOK_SECRET", None),
     },
-    "token": os.environ.get("GITHUB_TOKEN"),
+    "token": env_get_str("GITHUB_TOKEN", None),
 }
 
 JWT: JWTConfig = {
-    "secret_key": os.environ.get("JWT_SECRET_KEY"),
+    "secret_key": env_get_str("JWT_SECRET_KEY", None),
     "algorithm": "HS256",
     "expiration_days": 14,
 }
 
 GROQ: GroqConfig = {
-    "api_key": os.environ.get("GROQ_API_KEY"),
-    "model": os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant"),
+    "api_key": env_get_str("GROQ_API_KEY", None),
+    "model": env_get_str("GROQ_MODEL", "llama-3.1-8b-instant"),
 }
 
-SECRET_KEY = os.environ.get("SECRET_KEY")
+SECRET_KEY = env_get_str("SECRET_KEY", None)
 
-ENCRYPTION_SALT = os.environ.get("ENCRYPTION_SALT")
+ENCRYPTION_SALT = env_get_str("ENCRYPTION_SALT", None)
 
-DEFAULT_USER_ID = os.environ.get("DEFAULT_USER_ID")
+DEFAULT_USER_ID = env_get_str("DEFAULT_USER_ID", None)
 
 COOKIE_SECURE = env_get_bool("COOKIE_SECURE", True)
 

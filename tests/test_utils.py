@@ -1,8 +1,9 @@
+from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
 
-from demetra.services.utils import env_get_bool, env_get_list, live_stream
+from demetra.services.runtime.utils import env_get_bool, env_get_list, env_get_path, env_get_str, live_stream
 
 
 class TestUtilsService:
@@ -72,3 +73,27 @@ class TestEnvHelpers:
     def test_env_get_list_returns_empty_for_explicitly_empty(self, monkeypatch):
         monkeypatch.setenv("TEST_LIST", "")
         assert env_get_list("TEST_LIST", ["x"]) == []
+
+    def test_env_get_str_returns_value(self, monkeypatch):
+        monkeypatch.setenv("TEST_STR", "hello")
+        assert env_get_str("TEST_STR", "fallback") == "hello"
+
+    def test_env_get_str_returns_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("TEST_STR", raising=False)
+        assert env_get_str("TEST_STR", "fallback") == "fallback"
+
+    def test_env_get_str_returns_none_when_unset_without_default(self, monkeypatch):
+        monkeypatch.delenv("TEST_STR", raising=False)
+        assert env_get_str("TEST_STR", None) is None
+
+    def test_env_get_path_returns_value(self, monkeypatch):
+        monkeypatch.setenv("TEST_PATH", "/tmp/foo")
+        assert env_get_path("TEST_PATH", None) == Path("/tmp/foo").resolve()
+
+    def test_env_get_path_returns_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("TEST_PATH", raising=False)
+        assert env_get_path("TEST_PATH", Path("/var/fallback")) == Path("/var/fallback")
+
+    def test_env_get_path_returns_none_when_unset_without_default(self, monkeypatch):
+        monkeypatch.delenv("TEST_PATH", raising=False)
+        assert env_get_path("TEST_PATH", None) is None

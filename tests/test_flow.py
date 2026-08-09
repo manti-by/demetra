@@ -2,13 +2,13 @@ from unittest.mock import patch
 
 import pytest
 
-from demetra.services.flow import user_input
+from demetra.services.runtime.flow import user_input
 
 
 class TestUserInput:
     @pytest.fixture(autouse=True)
     def _suppress_print_message(self):
-        with patch("demetra.services.flow.print_message"):
+        with patch("demetra.services.runtime.flow.print_message"):
             yield
 
     @pytest.mark.asyncio

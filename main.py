@@ -10,12 +10,12 @@ from demetra.library.exceptions import (
     PullRequestError,
     UserCancelledError,
 )
-from demetra.services.allowlist import allowlist_cli
 from demetra.services.auth import reset_password_cli
-from demetra.services.database import init_db, mark_session_posted
+from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.tui import print_heading, print_message
-from demetra.services.utils import setup_session_logging
+from demetra.services.persistence.database import init_db, mark_session_posted
+from demetra.services.runtime.tui import print_heading, print_message
+from demetra.services.runtime.utils import setup_session_logging
 from demetra.services.wiki import write_session_wiki_page
 from demetra.settings import (
     DEFAULT_USER_ID,

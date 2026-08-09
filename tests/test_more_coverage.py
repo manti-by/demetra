@@ -4,16 +4,16 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from demetra.library.models import Session
-from demetra.services.coderabbit import coderabbit_review_agent
-from demetra.services.encryption import get_fernet
-from demetra.services.watcher import process_tasks, run_workflow
+from demetra.services.agents.coderabbit import coderabbit_review_agent
+from demetra.services.daemons.watcher import process_tasks, run_workflow
+from demetra.services.persistence.encryption import get_fernet
 
 
 class TestCodeRabbitService:
     @pytest.fixture(autouse=True)
     def mock_run_command(self):
         with patch(
-            "demetra.services.coderabbit.run_command",
+            "demetra.services.agents.coderabbit.run_command",
             new_callable=AsyncMock,
             return_value=("output", "", ""),
         ):
@@ -32,15 +32,15 @@ class TestCodeRabbitService:
 class TestEncryptionService:
     @pytest.fixture
     def mock_secret_key_none(self):
-        with patch("demetra.services.encryption.SECRET_KEY", None):
+        with patch("demetra.services.persistence.encryption.SECRET_KEY", None):
             yield
 
     @pytest.fixture
     def mock_encryption_config_valid(self):
         with (
             patch.dict("os.environ", {"SECRET_KEY": "test-key", "ENCRYPTION_SALT": "test-salt"}),
-            patch("demetra.services.encryption.SECRET_KEY", "test-key"),
-            patch("demetra.services.encryption.ENCRYPTION_SALT", "test-salt"),
+            patch("demetra.services.persistence.encryption.SECRET_KEY", "test-key"),
+            patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", "test-salt"),
         ):
             yield
 
@@ -60,32 +60,32 @@ class TestEncryptionService:
 class TestWatcherService:
     @pytest.fixture
     def mock_increment_run_attempts(self):
-        with patch("demetra.services.watcher.increment_run_attempts", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.increment_run_attempts", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_get_session(self):
-        with patch("demetra.services.watcher.get_session", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.get_session", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture(autouse=True)
     def mock_max_run_attempts(self):
-        with patch("demetra.services.watcher.MAX_RUN_ATTEMPTS", 3):
+        with patch("demetra.services.daemons.watcher.MAX_RUN_ATTEMPTS", 3):
             yield
 
     @pytest.fixture
     def mock_post_comment(self):
-        with patch("demetra.services.watcher.post_comment", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.post_comment", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_update_ticket_status(self):
-        with patch("demetra.services.watcher.update_ticket_status", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.update_ticket_status", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
     def mock_create_subprocess_exec(self):
-        with patch("demetra.services.watcher.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.mark.asyncio
@@ -236,7 +236,7 @@ class TestWatcherService:
         mock_increment_run_attempts.return_value = 1
 
         with patch(
-            "demetra.services.watcher.asyncio.wait_for",
+            "demetra.services.daemons.watcher.asyncio.wait_for",
             side_effect=TimeoutError,
         ):
             result = await run_workflow("demetra", task_id)

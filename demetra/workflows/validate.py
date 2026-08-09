@@ -1,9 +1,9 @@
 from pathlib import Path
 
 from demetra.library.exceptions import BuildError
-from demetra.services.opencode import opencode_validate_agent
-from demetra.services.tui import print_message
-from demetra.services.utils import NO_ISSUE_TOKENS_CASE
+from demetra.services.agents.opencode import opencode_validate_agent
+from demetra.services.runtime.tui import print_message
+from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 
 
 async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, str] | None = None) -> str | None:

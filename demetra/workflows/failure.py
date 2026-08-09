@@ -1,8 +1,8 @@
 from demetra.library.exceptions import LinearError, PullRequestError
 from demetra.library.models import Context
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.template import get_template
-from demetra.services.tui import print_message
+from demetra.services.runtime.template import get_template
+from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR
 
 

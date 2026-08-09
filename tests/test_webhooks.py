@@ -14,7 +14,7 @@ class TestWebhookAPI:
             yield
 
     def test_returns_401_on_invalid_signature(self):
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "mysecret"}}):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
                 "/api/v1/webhooks/github",
@@ -30,7 +30,7 @@ class TestWebhookAPI:
     def test_ignores_non_issue_comment_events(self):
         payload_body = b"{}"
         digest = hmac.new(key=b"secret", msg=payload_body, digestmod="sha256").hexdigest()
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": "secret"}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "secret"}}):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
                 "/api/v1/webhooks/github",
@@ -63,7 +63,7 @@ class TestWebhookAPI:
         payload_body = _json.dumps(payload).encode()
         digest = hmac.new(key=b"secret", msg=payload_body, digestmod="sha256").hexdigest()
         with (
-            patch("demetra.services.github.GITHUB", {"webhook": {"secret": "secret"}}),
+            patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": "secret"}}),
             patch("demetra.api.webhooks.queue.enqueue") as mock_enqueue,
         ):
             client = TestClient(app, raise_server_exceptions=False)
@@ -85,7 +85,7 @@ class TestWebhookAPI:
         payload_body = b'{"comment": {"body": "rebase"}}'
         expected_digest = hmac.new(key=secret.encode(), msg=payload_body, digestmod="sha256").hexdigest()
 
-        with patch("demetra.services.github.GITHUB", {"webhook": {"secret": secret}}):
+        with patch("demetra.services.vcs.github.GITHUB", {"webhook": {"secret": secret}}):
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
                 "/api/v1/webhooks/github",

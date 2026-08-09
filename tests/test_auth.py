@@ -20,7 +20,7 @@ from demetra.services.auth import (
     signup_with_password,
     verify_jwt_token,
 )
-from demetra.services.database import get_jwt_token
+from demetra.services.persistence.database import get_jwt_token
 
 
 class TestAuthService:
