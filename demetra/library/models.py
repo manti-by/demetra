@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Literal
@@ -117,13 +118,56 @@ class Session:
 EnvironmentType = Literal["text", "encrypted"]
 ENCRYPTED_VALUE_MASK = "********"
 
+EnvironmentScope = Literal["project", "user"]
+
+SENSITIVE_KEY_PATTERN = re.compile(r"(?:^|[\W_])(?:TOKEN|SECRET|KEY|PASSWORD)(?:[\W_]|$)", re.IGNORECASE)
+
+
+def is_sensitive_key(key: str) -> bool:
+    """Return whether an environment key should be treated as sensitive.
+
+    Keys containing the whole words ``TOKEN``, ``SECRET``, ``KEY`` or
+    ``PASSWORD`` (case-insensitive, delimited by start/end or a non-alnum
+    character like ``_``, ``-`` or ``.``) are masked in API responses and the
+    React UI, even when stored as plaintext. Delimiter matching avoids false
+    positives such as ``KEYBOARD_LAYOUT``, ``MONKEY_BUSINESS`` or
+    ``TOKENIZATION`` while still matching ``GITHUB_TOKEN``, ``API_KEY`` and
+    ``DB_PASSWORD``.
+
+    Args:
+        key: The environment variable name.
+
+    Returns:
+        bool: True when the key matches the sensitive-key pattern.
+    """
+    return SENSITIVE_KEY_PATTERN.search(key) is not None
+
 
 @dataclass
 class Environment:
-    project_id: str
     key: str
     value: str
     type: EnvironmentType = "text"
+    project_id: str | None = None
+    user_id: str | None = None
+    scope: EnvironmentScope = "project"
+
+
+@dataclass
+class EnvironmentUpsert:
+    value: str
+    type: EnvironmentType = "text"
+
+
+@dataclass
+class EnvironmentEntry:
+    id: str
+    key: str
+    value: str
+    type: EnvironmentType = "text"
+    scope: EnvironmentScope = "project"
+    project_id: str | None = None
+    user_id: str | None = None
 
 
 @dataclass
@@ -155,6 +199,7 @@ class Project:
     created_at: str
     updated_at: str
     _environment: dict[str, str] | None = None
+    _user_environment: dict[str, str] | None = None
 
     @property
     def environment(self) -> dict[str, str]:
@@ -176,6 +221,27 @@ class Project:
             value: The environment mapping to cache.
         """
         self._environment = value
+
+    @property
+    def user_environment(self) -> dict[str, str]:
+        """Return the cached user-shared environment for the project's owner.
+
+        Returns:
+            dict[str, str]: The user-shared environment mapping, or an empty
+                dict when no environment has been loaded yet.
+        """
+        if self._user_environment is None:
+            return {}
+        return self._user_environment
+
+    @user_environment.setter
+    def user_environment(self, value: dict[str, str]) -> None:
+        """Set the cached user-shared environment for the project's owner.
+
+        Args:
+            value: The user-shared environment mapping to cache.
+        """
+        self._user_environment = value
 
 
 @dataclass

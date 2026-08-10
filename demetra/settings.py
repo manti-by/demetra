@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
@@ -64,6 +65,72 @@ LISTENER_POLL_INTERVAL = env_get_int("LISTENER_POLL_INTERVAL", 60)
 
 ALLOWLIST_ENABLED = env_get_bool("IS_ALLOWLIST_ENABLED", False)
 ALLOWLIST_SEED_FILE = env_get_str("ALLOWLIST_SEED_FILE", None)
+
+OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
+    {
+        "PATH",
+        "HOME",
+        "USER",
+        "LOGNAME",
+        "SHELL",
+        "LANG",
+        "LC_ALL",
+        "LC_CTYPE",
+        "TZ",
+        "TERM",
+        "PWD",
+        "VIRTUAL_ENV",
+        "UV_PROJECT_ENVIRONMENT",
+        "UV_PYTHON",
+        # SSH agent / git-over-SSH auth required by credential-bearing git and
+        # gh commands; without these every clone/fetch/push would silently fail.
+        "SSH_AUTH_SOCK",
+        "SSH_AGENT_PID",
+        "GIT_SSH_COMMAND",
+        # Proxy variables so outbound clone/fetch/push and gh API calls keep
+        # working behind a proxy.
+        "http_proxy",
+        "https_proxy",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "NO_PROXY",
+        "no_proxy",
+        "all_proxy",
+        "ALL_PROXY",
+    }
+)
+
+_OS_ENV_OPTIN_PATTERN = re.compile(r"(?P<project_id>[^=]+)=(?P<keys>[^;]*)")
+
+
+def _parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:
+    """Parse the ``OS_ENV_PROJECT_OPTINS`` env var into a project opt-in registry.
+
+    The value is a semicolon-separated list of ``PROJECT_ID=KEY1,KEY2`` pairs,
+    e.g. ``project-a=GITHUB_TOKEN,GITHUB_ACTIONS;project-b=AWS_PROFILE``.
+
+    Args:
+        raw: The raw env var value, or None.
+
+    Returns:
+        dict[str, list[str]]: Mapping of project id to the list of extra OS
+            env keys that may be forwarded for that project.
+    """
+    if not raw:
+        return {}
+    optins: dict[str, list[str]] = {}
+    for part in raw.split(";"):
+        match = _OS_ENV_OPTIN_PATTERN.fullmatch(part.strip())
+        if not match:
+            continue
+        project_id = match.group("project_id").strip()
+        keys = [key.strip() for key in match.group("keys").split(",") if key.strip()]
+        if project_id and keys:
+            optins[project_id] = keys
+    return optins
+
+
+OS_ENV_PROJECT_OPTINS = _parse_os_env_project_optins(env_get_str("OS_ENV_PROJECT_OPTINS", None))
 
 LOG_PATH = env_get_path("LOG_PATH", Path("/var/log/demetra/demetra.log"))
 
@@ -182,6 +249,8 @@ GROQ: GroqConfig = {
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)
+
+DEMETRA_SECRET_KEY = env_get_str("DEMETRA_SECRET_KEY", SECRET_KEY)
 
 ENCRYPTION_SALT = env_get_str("ENCRYPTION_SALT", None)
 

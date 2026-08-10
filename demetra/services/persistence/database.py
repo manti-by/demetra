@@ -1382,6 +1382,8 @@ async def get_project_environments(project_id: str, user_id: str | None = None) 
     """Return the decrypted environment variables of a project.
 
     Encrypted values are decrypted on read; failures yield an empty value.
+    Only rows scoped to ``"project"`` are returned; user-shared rows are
+    resolved separately via :func:`get_user_environments_decrypted`.
 
     Args:
         project_id: The project id.
@@ -1400,7 +1402,9 @@ async def get_project_environments(project_id: str, user_id: str | None = None) 
 
     async with get_connection() as connection:
         result = await connection.execute(
-            select(project_environments).where(project_environments.c.project_id == project_id)
+            select(project_environments).where(
+                (project_environments.c.project_id == project_id) & (project_environments.c.scope == "project")
+            )
         )
         rows = result.fetchall()
 
@@ -1420,6 +1424,8 @@ async def get_project_environments(project_id: str, user_id: str | None = None) 
 async def list_project_environments(project_id: str, user_id: str) -> list[dict]:
     """List a project's environment entries, masking encrypted values.
 
+    Only rows scoped to ``"project"`` are returned.
+
     Args:
         project_id: The project id.
         user_id: The owning user id for verification.
@@ -1438,7 +1444,9 @@ async def list_project_environments(project_id: str, user_id: str) -> list[dict]
 
     async with get_connection() as connection:
         result = await connection.execute(
-            select(project_environments).where(project_environments.c.project_id == project_id)
+            select(project_environments).where(
+                (project_environments.c.project_id == project_id) & (project_environments.c.scope == "project")
+            )
         )
         rows = result.fetchall()
     return [
@@ -1462,7 +1470,8 @@ async def upsert_project_environment(
 ) -> dict:
     """Create or update a project environment variable.
 
-    Encrypted values are encrypted before storage.
+    Encrypted values are encrypted before storage. The row is scoped to
+    ``"project"``.
 
     Args:
         project_id: The project id.
@@ -1497,9 +1506,9 @@ async def upsert_project_environment(
         result = await connection.execute(
             text(
                 """
-                INSERT INTO project_environment (id, project_id, key, value, type)
-                VALUES (:id, :project_id, :key, :value, :type)
-                ON CONFLICT (project_id, key) DO UPDATE SET
+                INSERT INTO project_environment (id, project_id, key, value, type, scope)
+                VALUES (:id, :project_id, :key, :value, :type, 'project')
+                ON CONFLICT (project_id, key) WHERE project_id IS NOT NULL DO UPDATE SET
                     value = EXCLUDED.value,
                     type = EXCLUDED.type
                 RETURNING id, type
@@ -1545,7 +1554,171 @@ async def delete_project_environment(project_id: str, user_id: str, key: str) ->
     async with get_connection() as connection:
         await connection.execute(
             delete(project_environments).where(
-                (project_environments.c.project_id == project_id) & (project_environments.c.key == key)
+                (project_environments.c.project_id == project_id)
+                & (project_environments.c.key == key)
+                & (project_environments.c.scope == "project")
+            )
+        )
+        await connection.commit()
+
+
+async def get_user_environments_decrypted(user_id: str) -> dict[str, str]:
+    """Return the decrypted user-shared environment variables of a user.
+
+    Encrypted values are decrypted on read; failures yield an empty value.
+    Only rows scoped to ``"user"`` are returned.
+
+    Args:
+        user_id: The user id.
+
+    Returns:
+        dict[str, str]: The user-shared environment as a key-value mapping.
+    """
+    from demetra.services.persistence.encryption import decrypt_str
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(project_environments).where(
+                (project_environments.c.user_id == user_id) & (project_environments.c.scope == "user")
+            )
+        )
+        rows = result.fetchall()
+
+    env: dict[str, str] = {}
+    for row in rows:
+        if row.type == "encrypted":
+            try:
+                env[row.key] = decrypt_str(row.value)
+            except ValueError:
+                logger.exception("Failed to decrypt user env var '%s' for user '%s'", row.key, user_id)
+                env[row.key] = ""
+        else:
+            env[row.key] = row.value
+    return env
+
+
+async def list_user_environments(user_id: str) -> list[dict]:
+    """List a user's shared environment entries, masking sensitive values.
+
+    Values are masked when the row is encrypted or when the key matches the
+    sensitive-key pattern (``*TOKEN*|*SECRET*|*KEY*|*PASSWORD*``).
+
+    Args:
+        user_id: The user id.
+
+    Returns:
+        list[dict]: One entry per environment variable; sensitive values are
+            replaced with a mask.
+    """
+    from demetra.library.models import ENCRYPTED_VALUE_MASK, is_sensitive_key
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(project_environments).where(
+                (project_environments.c.user_id == user_id) & (project_environments.c.scope == "user")
+            )
+        )
+        rows = result.fetchall()
+    return [
+        {
+            "id": row.id,
+            "user_id": row.user_id,
+            "key": row.key,
+            "value": (ENCRYPTED_VALUE_MASK if row.type == "encrypted" or is_sensitive_key(row.key) else row.value),
+            "type": row.type,
+        }
+        for row in rows
+    ]
+
+
+async def upsert_user_environment(user_id: str, key: str, value: str, env_type: str = "text") -> dict:
+    """Create or update a user-shared environment variable.
+
+    Encrypted values are encrypted before storage. The row is scoped to
+    ``"user"`` with no project link.
+
+    Args:
+        user_id: The user id.
+        key: The environment variable name.
+        value: The environment variable value.
+        env_type: ``"text"`` or ``"encrypted"``.
+
+    Returns:
+        dict: The created or updated entry with the value masked when
+            encrypted.
+
+    Raises:
+        LookupError: When the user does not exist.
+        RuntimeError: When the database returns no row.
+    """
+    from uuid import uuid4
+
+    from demetra.library.models import ENCRYPTED_VALUE_MASK
+
+    if not await get_user_by_id(user_id=user_id):
+        raise LookupError("User not found")
+
+    if env_type == "encrypted":
+        from demetra.services.persistence.encryption import encrypt_str
+
+        stored_value = encrypt_str(value)
+    else:
+        stored_value = value
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                INSERT INTO project_environment (id, user_id, key, value, type, scope)
+                VALUES (:id, :user_id, :key, :value, :type, 'user')
+                ON CONFLICT (user_id, key) WHERE user_id IS NOT NULL DO UPDATE SET
+                    value = EXCLUDED.value,
+                    type = EXCLUDED.type
+                RETURNING id, type
+                """
+            ),
+            {
+                "id": str(uuid4()),
+                "user_id": user_id,
+                "key": key,
+                "value": stored_value,
+                "type": env_type,
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+
+    if row is None:
+        raise RuntimeError("Failed to insert user environment")
+
+    return {
+        "id": row.id,
+        "user_id": user_id,
+        "key": key,
+        "value": ENCRYPTED_VALUE_MASK if env_type == "encrypted" else value,
+        "type": row.type,
+    }
+
+
+async def delete_user_environment(user_id: str, key: str) -> None:
+    """Delete a user-shared environment variable.
+
+    Args:
+        user_id: The user id.
+        key: The environment variable name to delete.
+
+    Raises:
+        LookupError: When the user does not exist.
+    """
+    if not await get_user_by_id(user_id=user_id):
+        raise LookupError("User not found")
+
+    async with get_connection() as connection:
+        await connection.execute(
+            delete(project_environments).where(
+                (project_environments.c.user_id == user_id)
+                & (project_environments.c.key == key)
+                & (project_environments.c.scope == "user")
             )
         )
         await connection.commit()

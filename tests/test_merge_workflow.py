@@ -40,6 +40,8 @@ def base_mocks():
         patch("demetra.workflows.merge.setup_session_logging", new_callable=AsyncMock),
         patch("demetra.workflows.merge.get_project_by_id_system", new_callable=AsyncMock) as mock_get_project,
         patch("demetra.workflows.merge.get_project_environments", new_callable=AsyncMock) as mock_get_env,
+        patch("demetra.workflows.merge.get_user_environments_decrypted", new_callable=AsyncMock) as mock_get_user_env,
+        patch("demetra.workflows.merge.setup_project_venv", new_callable=AsyncMock) as mock_venv,
         patch("demetra.workflows.merge.git_fetch", new_callable=AsyncMock) as mock_fetch,
         patch("demetra.workflows.merge.git_worktree_create", new_callable=AsyncMock) as mock_wt_create,
         patch("demetra.workflows.merge.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
@@ -51,6 +53,7 @@ def base_mocks():
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
         mock_get_env.return_value = {}
+        mock_get_user_env.return_value = {}
         mock_fetch.return_value = None
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
         mock_get_task.return_value = None
@@ -58,6 +61,8 @@ def base_mocks():
             "mock_get_session": mock_get_session,
             "mock_get_project": mock_get_project,
             "mock_get_env": mock_get_env,
+            "mock_get_user_env": mock_get_user_env,
+            "mock_venv": mock_venv,
             "mock_fetch": mock_fetch,
             "mock_wt_create": mock_wt_create,
             "mock_wt_remove": mock_wt_remove,

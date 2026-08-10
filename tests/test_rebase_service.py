@@ -43,6 +43,7 @@ class TestPerformGitRebase:
             target_path=WORKTREE_PATH,
             branch_name="feature/branch",
             env=ENV,
+            project_id=None,
         )
 
     @pytest.mark.asyncio
@@ -89,6 +90,7 @@ class TestPerformGitRebase:
             body="Base branch `main` has no new changes to rebase onto \u2014 already up-to-date.",
             target_path=WORKTREE_PATH,
             env=ENV,
+            project_id=None,
         )
 
     @pytest.mark.asyncio
@@ -146,6 +148,7 @@ class TestPerformGitRebase:
                 target_path=WORKTREE_PATH,
                 branch_name="feature/branch",
                 env=ENV,
+                project_id=None,
             )
 
     @pytest.mark.asyncio

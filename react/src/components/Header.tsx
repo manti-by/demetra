@@ -7,6 +7,7 @@ interface HeaderProps {
   onLogout: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
+  onOpenSharedEnv?: () => void;
 }
 
 const LOGOUT_ICON = (
@@ -85,6 +86,7 @@ export function Header({
   onLogout,
   onOpenSettings,
   onOpenPalette,
+  onOpenSharedEnv,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -101,6 +103,11 @@ export function Header({
     setMenuOpen(false);
     onOpenSettings?.();
   }, [onOpenSettings]);
+
+  const handleOpenSharedEnv = useCallback(() => {
+    setMenuOpen(false);
+    onOpenSharedEnv?.();
+  }, [onOpenSharedEnv]);
 
   const displayName = user?.github_username ?? user?.email ?? "User";
   const initial = useMemo(
@@ -160,6 +167,12 @@ export function Header({
                   <button onClick={handleOpenSettings}>
                     {SETTINGS_ICON}
                     Settings
+                  </button>
+                )}
+                {onOpenSharedEnv && (
+                  <button onClick={handleOpenSharedEnv}>
+                    <span className="empty-icon"></span>
+                    Shared environment
                   </button>
                 )}
                 <a

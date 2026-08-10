@@ -11,10 +11,11 @@ from urllib.parse import urlparse
 from slugify import slugify
 from sqlalchemy import text
 
+from demetra.library.models import Project
 from demetra.services.persistence.database import get_connection
 from demetra.services.runtime.constants import PG_RESERVED_WORDS
 from demetra.services.runtime.subprocess import run_command
-from demetra.settings import DB_USER, GIT, WORKTREE_PATH
+from demetra.settings import DB_USER, GIT, UV, WORKTREE_PATH
 
 
 logger = logging.getLogger(__name__)
@@ -138,9 +139,53 @@ async def setup_project_directory(project: dict[str, Any]) -> Path:
     await run_command(
         command=[str(GIT["path"]), "clone", project["repository_url"], str(project_path)],
         target_path=project_path.parent,
+        project_id=project["id"],
     )
 
     return project_path
+
+
+async def setup_project_venv(project: Project) -> Path:
+    """Bootstrap a per-project UV virtualenv inside the project checkout.
+
+    Creates ``<local_path>/.venv`` with ``uv venv --seed`` on first use and
+    reuses it on subsequent runs. The venv path is exposed to subprocesses by
+    setting ``VIRTUAL_ENV`` and ``UV_PROJECT_ENVIRONMENT`` on the cached
+    project environment, which the OS env allowlist forwards.
+
+    Args:
+        project: The project to set up the venv for.
+
+    Returns:
+        Path: The venv directory.
+
+    Raises:
+        RuntimeError: When the local path is missing or the venv bootstrap fails.
+    """
+    if not project.local_path:
+        raise RuntimeError("Project local path is not set")
+
+    local_path = Path(project.local_path)
+    venv_path = local_path / ".venv"
+
+    if not venv_path.exists():
+        logger.info(f"Bootstrapping UV venv for {project.name} at {venv_path}")
+        exit_code, _, stderr = await run_command(
+            command=[str(UV["path"]), "venv", "--seed", str(venv_path)],
+            target_path=local_path,
+            project_id=project.id,
+        )
+        if exit_code != 0:
+            # A failed bootstrap may leave a partial .venv behind; remove it so
+            # the next run retries instead of treating the broken venv as valid.
+            shutil.rmtree(venv_path, ignore_errors=True)
+            raise RuntimeError(f"Failed to create UV venv at {venv_path}: {stderr.strip() or 'unknown error'}")
+
+    env = dict(project.environment)
+    env["VIRTUAL_ENV"] = str(venv_path)
+    env["UV_PROJECT_ENVIRONMENT"] = str(venv_path)
+    project.environment = env
+    return venv_path
 
 
 async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[str, str, str]:

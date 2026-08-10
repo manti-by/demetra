@@ -55,7 +55,13 @@ def extract_pr_link(stdout: str) -> str | None:
     return None
 
 
-async def get_pr_info(pr_number: int, full_name: str, target_path: Path, env: dict) -> tuple[str, str] | None:
+async def get_pr_info(
+    pr_number: int,
+    full_name: str,
+    target_path: Path,
+    env: dict,
+    project_id: str | None = None,
+) -> tuple[str, str] | None:
     """Fetch the head and base branch names of a pull request.
 
     Args:
@@ -63,6 +69,7 @@ async def get_pr_info(pr_number: int, full_name: str, target_path: Path, env: di
         full_name: The repository full name, e.g. ``"owner/repo"``.
         target_path: Directory to run the GitHub CLI in.
         env: Environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         tuple[str, str] | None: The head and base branch names, or None on
@@ -78,7 +85,9 @@ async def get_pr_info(pr_number: int, full_name: str, target_path: Path, env: di
         "-R",
         full_name,
     ]
-    exit_code, stdout, stderr = await run_command(command=pr_cmd, target_path=target_path, env=env)
+    exit_code, stdout, stderr = await run_command(
+        command=pr_cmd, target_path=target_path, env=env, project_id=project_id
+    )
     if exit_code != 0:
         logger.error(f"Failed to get PR info for PR #{pr_number}: {stderr.strip()}")
         return None
@@ -98,6 +107,7 @@ async def create_pull_request(
     base: str = "master",
     body: str | None = None,
     env: dict | None = None,
+    project_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Create a pull request for a branch using the GitHub CLI.
 
@@ -108,6 +118,7 @@ async def create_pull_request(
         base: The base branch, defaulting to ``"master"``.
         body: Optional pull request body.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the command.
@@ -125,10 +136,17 @@ async def create_pull_request(
     ]
     if body:
         cmd.extend(["--body", body])
-    return await run_command(command=cmd, target_path=target_path, env=env)
+    return await run_command(command=cmd, target_path=target_path, env=env, project_id=project_id)
 
 
-async def pr_comment(pr_number: int, full_name: str, body: str, target_path: Path, env: dict) -> bool:
+async def pr_comment(
+    pr_number: int,
+    full_name: str,
+    body: str,
+    target_path: Path,
+    env: dict,
+    project_id: str | None = None,
+) -> bool:
     """Post a comment on a GitHub pull request using the GitHub CLI.
 
     Args:
@@ -137,6 +155,7 @@ async def pr_comment(pr_number: int, full_name: str, body: str, target_path: Pat
         body: The comment body.
         target_path: Directory to run the GitHub CLI in.
         env: Environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         bool: True when the comment was posted successfully.
@@ -151,7 +170,7 @@ async def pr_comment(pr_number: int, full_name: str, body: str, target_path: Pat
         "-R",
         full_name,
     ]
-    exit_code, _, stderr = await run_command(command=cmd, target_path=target_path, env=env)
+    exit_code, _, stderr = await run_command(command=cmd, target_path=target_path, env=env, project_id=project_id)
     if exit_code != 0:
         logger.error(f"Failed to comment on PR #{pr_number}: {stderr.strip()[:500]}")
         return False

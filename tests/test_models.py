@@ -2,7 +2,7 @@ from pathlib import Path
 
 from faker import Faker
 
-from demetra.library.models import Environment, LinearTask, Project, SessionHistory
+from demetra.library.models import Environment, LinearTask, Project, SessionHistory, is_sensitive_key
 
 
 fake = Faker()
@@ -66,6 +66,58 @@ class TestEnvironment:
         assert env.project_id == "proj-123"
         assert env.key == "MY_KEY"
         assert env.value == "my_value"
+
+    def test_environment_defaults_to_project_scope(self):
+        env = Environment(key="MY_KEY", value="my_value")
+
+        assert env.scope == "project"
+        assert env.project_id is None
+        assert env.user_id is None
+        assert env.type == "text"
+
+    def test_environment_supports_user_scope(self):
+        env = Environment(key="SHARED_KEY", value="v", user_id="user-1", scope="user")
+
+        assert env.user_id == "user-1"
+        assert env.scope == "user"
+        assert env.project_id is None
+
+
+class TestIsSensitiveKey:
+    def test_matches_token_suffix(self):
+        assert is_sensitive_key("GITHUB_TOKEN") is True
+        assert is_sensitive_key("API_TOKEN") is True
+        assert is_sensitive_key("JWT_ACCESS_TOKEN") is True
+
+    def test_matches_secret(self):
+        assert is_sensitive_key("CLIENT_SECRET") is True
+        assert is_sensitive_key("secret_key") is True
+
+    def test_matches_key_suffix(self):
+        assert is_sensitive_key("STRIPE_API_KEY") is True
+        assert is_sensitive_key("access_key_id") is True
+
+    def test_matches_password(self):
+        assert is_sensitive_key("DB_PASSWORD") is True
+        assert is_sensitive_key("password") is True
+
+    def test_matches_standalone_and_dotted_keys(self):
+        assert is_sensitive_key("TOKEN") is True
+        assert is_sensitive_key("MY.API_KEY") is True
+
+    def test_does_not_match_plain_keys(self):
+        assert is_sensitive_key("DATABASE_URL") is False
+        assert is_sensitive_key("LOG_LEVEL") is False
+        assert is_sensitive_key("PORT") is False
+        assert is_sensitive_key("DEBUG") is False
+
+    def test_does_not_match_partial_words(self):
+        assert is_sensitive_key("KEYBOARD_LAYOUT") is False
+        assert is_sensitive_key("MONKEY_BUSINESS") is False
+        assert is_sensitive_key("TOKENIZATION") is False
+        assert is_sensitive_key("PASSWORDLESS") is False
+        assert is_sensitive_key("KEYSTORE") is False
+        assert is_sensitive_key("KEYNOTE") is False
 
 
 class TestProjectEnvironment:

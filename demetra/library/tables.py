@@ -108,12 +108,23 @@ project_environments = Table(
     "project_environment",
     metadata,
     Column("id", String(), primary_key=True),
-    Column("project_id", String(), ForeignKey("projects.id"), nullable=False),
+    Column("project_id", String(), ForeignKey("projects.id"), nullable=True),
+    Column("user_id", String(), ForeignKey("users.id"), nullable=True),
     Column("key", String(), nullable=False),
     Column("value", Text(), nullable=False),
     Column("type", String(), nullable=False, server_default="text"),
-    UniqueConstraint("project_id", "key"),
+    Column("scope", String(), nullable=False, server_default="project"),
+    Index(
+        "uq_environment_project_key", "project_id", "key", unique=True, postgresql_where=text("project_id IS NOT NULL")
+    ),
+    Index("uq_environment_user_key", "user_id", "key", unique=True, postgresql_where=text("user_id IS NOT NULL")),
     CheckConstraint("type IN ('text', 'encrypted')", name="ck_project_environment_type"),
+    CheckConstraint("scope IN ('project', 'user')", name="ck_environment_scope"),
+    CheckConstraint(
+        "(scope = 'project' AND project_id IS NOT NULL AND user_id IS NULL) "
+        "OR (scope = 'user' AND user_id IS NOT NULL AND project_id IS NULL)",
+        name="ck_environment_owner",
+    ),
 )
 
 session_history = Table(

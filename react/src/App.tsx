@@ -7,6 +7,7 @@ import { Header } from "./components/Header";
 import { PasswordAuthForm } from "./components/PasswordAuthForm";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
+import { SharedEnvSettings } from "./components/SharedEnvSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { CommandPalette, type CommandPaletteHandle } from "./components/CommandPalette";
 import { deleteSession, type Session } from "./services/api";
@@ -46,6 +47,7 @@ function AppContent() {
   const { user, loading, logout } = useAuth();
   const { toggleTheme, theme } = useTheme();
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [sharedEnvOpen, setSharedEnvOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
@@ -73,6 +75,14 @@ function AppContent() {
 
   const handleCloseSettings = useCallback(() => {
     setSettingsOpen(false);
+  }, []);
+
+  const handleOpenSharedEnv = useCallback(() => {
+    setSharedEnvOpen(true);
+  }, []);
+
+  const handleCloseSharedEnv = useCallback(() => {
+    setSharedEnvOpen(false);
   }, []);
 
   const handleSelectSession = useCallback((taskId: string) => {
@@ -109,6 +119,7 @@ function AppContent() {
         onLogout={handleLogout}
         onOpenSettings={handleOpenSettings}
         onOpenPalette={handleOpenPalette}
+        onOpenSharedEnv={handleOpenSharedEnv}
       />
       {user ? (
         <main className="main-content">
@@ -138,6 +149,7 @@ function AppContent() {
         <LoginView />
       )}
       <UserSettings isOpen={settingsOpen} onClose={handleCloseSettings} />
+      <SharedEnvSettings isOpen={sharedEnvOpen} onClose={handleCloseSharedEnv} />
       {user && <CommandPalette ref={paletteRef} commands={commands} />}
     </div>
   );

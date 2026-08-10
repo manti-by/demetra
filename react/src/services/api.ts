@@ -297,3 +297,53 @@ export async function deleteProjectEnvironment(
     throw new Error(error.detail || 'Failed to delete environment variable');
   }
 }
+
+export interface UserEnvironmentEntry {
+  id: string;
+  user_id: string | null;
+  key: string;
+  value: string;
+  type: 'text' | 'encrypted';
+}
+
+export async function getUserEnvironment(): Promise<UserEnvironmentEntry[]> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/users/me/env`);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to fetch shared environment');
+  }
+  return response.json();
+}
+
+export async function upsertUserEnvironment(
+  key: string,
+  value: string,
+  type: 'text' | 'encrypted' = 'text'
+): Promise<UserEnvironmentEntry> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/users/me/env/${encodeURIComponent(key)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value, type }),
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to save shared environment variable');
+  }
+  return response.json();
+}
+
+export async function deleteUserEnvironment(key: string): Promise<void> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/users/me/env/${encodeURIComponent(key)}`,
+    {
+      method: 'DELETE',
+    }
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to delete shared environment variable');
+  }
+}

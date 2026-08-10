@@ -165,3 +165,111 @@ class TestSettings:
         finally:
             monkeypatch.delenv("IS_RUFF_ENABLED", raising=False)
             importlib.reload(settings_module)
+
+    def test_os_env_allowlist_contains_expected_keys(self, monkeypatch):
+        monkeypatch.delenv("OS_ENV_PROJECT_OPTINS", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert "PATH" in settings_module.OS_ENV_ALLOWLIST
+            assert "HOME" in settings_module.OS_ENV_ALLOWLIST
+            assert "VIRTUAL_ENV" in settings_module.OS_ENV_ALLOWLIST
+            assert "PWD" in settings_module.OS_ENV_ALLOWLIST
+            assert "GITHUB_TOKEN" not in settings_module.OS_ENV_ALLOWLIST
+        finally:
+            importlib.reload(settings_module)
+
+    def test_os_env_allowlist_includes_ssh_and_proxy_keys(self, monkeypatch):
+        monkeypatch.delenv("OS_ENV_PROJECT_OPTINS", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            for key in (
+                "SSH_AUTH_SOCK",
+                "SSH_AGENT_PID",
+                "GIT_SSH_COMMAND",
+                "http_proxy",
+                "https_proxy",
+                "HTTP_PROXY",
+                "HTTPS_PROXY",
+                "NO_PROXY",
+                "no_proxy",
+                "all_proxy",
+                "ALL_PROXY",
+            ):
+                assert key in settings_module.OS_ENV_ALLOWLIST
+        finally:
+            importlib.reload(settings_module)
+
+    def test_os_env_project_optins_default_empty(self, monkeypatch):
+        monkeypatch.delenv("OS_ENV_PROJECT_OPTINS", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OS_ENV_PROJECT_OPTINS == {}
+        finally:
+            importlib.reload(settings_module)
+
+    def test_os_env_project_optins_parses_registry(self, monkeypatch):
+        monkeypatch.setenv("OS_ENV_PROJECT_OPTINS", "project-a=GITHUB_TOKEN,GITHUB_ACTIONS;project-b=AWS_PROFILE")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OS_ENV_PROJECT_OPTINS == {
+                "project-a": ["GITHUB_TOKEN", "GITHUB_ACTIONS"],
+                "project-b": ["AWS_PROFILE"],
+            }
+        finally:
+            monkeypatch.delenv("OS_ENV_PROJECT_OPTINS", raising=False)
+            importlib.reload(settings_module)
+
+    def test_demetra_secret_key_falls_back_to_secret_key(self, monkeypatch):
+        monkeypatch.setenv("SECRET_KEY", "fallback-secret")
+        monkeypatch.delenv("DEMETRA_SECRET_KEY", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.DEMETRA_SECRET_KEY == "fallback-secret"
+        finally:
+            monkeypatch.delenv("SECRET_KEY", raising=False)
+            importlib.reload(settings_module)
+
+    def test_demetra_secret_key_env_override(self, monkeypatch):
+        monkeypatch.setenv("DEMETRA_SECRET_KEY", "dedicated-secret")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.DEMETRA_SECRET_KEY == "dedicated-secret"
+        finally:
+            monkeypatch.delenv("DEMETRA_SECRET_KEY", raising=False)
+            importlib.reload(settings_module)
