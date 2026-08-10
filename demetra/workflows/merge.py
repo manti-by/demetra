@@ -57,11 +57,12 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
     if project.user_id:
         project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
         project.environment = {**project.user_environment, **project.environment}
-    await setup_project_venv(project=project)
 
     worktree_path = None
     merge_succeeded = False
     try:
+        await setup_project_venv(project=project)
+
         pr_info = await get_pr_info(
             pr_number=pr_number,
             full_name=full_name,

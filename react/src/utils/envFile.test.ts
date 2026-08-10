@@ -43,6 +43,16 @@ describe("parseEnvFile", () => {
     expect(entries).toEqual([{ key: "EMPTY", value: "" }]);
   });
 
+  it("strips quotes from continued quoted values", () => {
+    const entries = parseEnvFile('FOO="a\\\nb"\n');
+    expect(entries).toEqual([{ key: "FOO", value: "ab" }]);
+  });
+
+  it("handles single-quoted continuation", () => {
+    const entries = parseEnvFile("FOO='a\\\nb'\n");
+    expect(entries).toEqual([{ key: "FOO", value: "ab" }]);
+  });
+
   it("returns empty array for empty input", () => {
     expect(parseEnvFile("")).toEqual([]);
     expect(parseEnvFile("   \n# comment\n")).toEqual([]);

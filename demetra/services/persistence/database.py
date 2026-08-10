@@ -1653,7 +1653,7 @@ async def upsert_user_environment(user_id: str, key: str, value: str, env_type: 
     """
     from uuid import uuid4
 
-    from demetra.library.models import ENCRYPTED_VALUE_MASK
+    from demetra.library.models import ENCRYPTED_VALUE_MASK, is_sensitive_key
 
     if not await get_user_by_id(user_id=user_id):
         raise LookupError("User not found")
@@ -1695,7 +1695,7 @@ async def upsert_user_environment(user_id: str, key: str, value: str, env_type: 
         "id": row.id,
         "user_id": user_id,
         "key": key,
-        "value": ENCRYPTED_VALUE_MASK if env_type == "encrypted" else value,
+        "value": ENCRYPTED_VALUE_MASK if env_type == "encrypted" or is_sensitive_key(key) else value,
         "type": row.type,
     }
 

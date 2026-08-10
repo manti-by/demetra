@@ -29,7 +29,7 @@ Previously ([MNT-110](https://linear.app/mnt/issue/MNT-110)) every subprocess re
 
 - `OS_ENV_ALLOWLIST` — a frozenset of safe host-OS keys (`PATH`, `HOME`, `USER`, `LANG`, `TZ`, `VIRTUAL_ENV`, `UV_PROJECT_ENVIRONMENT`, SSH agent vars `SSH_AUTH_SOCK`/`SSH_AGENT_PID`/`GIT_SSH_COMMAND`, proxy vars `http_proxy`/`https_proxy`/`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`/`all_proxy`, …) that are forwarded verbatim. Anything else from the host OS is dropped. SSH-agent and proxy keys are allowlisted unconditionally so credential-bearing git/gh commands (clone/fetch/push/`gh api`) keep working even from daemon/wiki call sites that have no project context.
 - `OS_ENV_PROJECT_OPTINS` — parsed from the `OS_ENV_PROJECT_OPTINS` env var (`project-a=GITHUB_TOKEN,GITHUB_ACTIONS;project-b=AWS_PROFILE`) into a per-project registry of extra keys to forward.
-- `DEMETRA_SECRET_KEY` — new setting that falls back to `SECRET_KEY`; the encryption service now derives the Fernet key from it (rotate-friendly).
+- `DEMETRA_SECRET_KEY` — new setting that falls back to `SECRET_KEY`; the encryption service derives the Fernet key from it. The key is not versioned and there is no previous-key fallback: changing `DEMETRA_SECRET_KEY` requires re-encrypting existing encrypted environment values, so treat it as a stable long-lived secret.
 
 ## Step 2 — Data model: scope + user_id
 
@@ -58,13 +58,13 @@ Project-env functions were updated to filter `scope = 'project'` explicitly, and
 
 **File:** `demetra/services/runtime/subprocess.py`
 
-`filter_os_env(project_id)` returns `os.environ` restricted to `OS_ENV_ALLOWLIST` plus the project's opt-in keys. `build_subprocess_env(extra, *, project_id, user_environment, project_environment, target_path)` merges the layers in order and sets `PWD`. Both `run_command` and `run_command_to_file` call it — this is the one place the subprocess environment is assembled. The workflow call sites (setup/merge/rebase/cleanup) pre-merge the user-shared env under the project env into `project.environment`, so project overrides user-shared on key conflict; per-step overrides flow through the existing `env=` argument, and `project_id` is threaded through the git/gh services so per-project OS opt-ins apply consistently.
+`filter_os_env(project_id)` returns `os.environ` restricted to `OS_ENV_ALLOWLIST` plus the project's opt-in keys. `build_subprocess_env(extra, *, project_id, user_environment, project_environment, target_path)` merges the layers in order and sets `PWD`. `PWD` is reserved: it is always assigned from `target_path` after the layer merge, so `extra["PWD"]` (or any other layer value) is overwritten by the working directory. All other keys follow the documented precedence (OS → user-shared → project → step). Both `run_command` and `run_command_to_file` call it — this is the one place the subprocess environment is assembled. The workflow call sites (setup/merge/rebase/cleanup) pre-merge the user-shared env under the project env into `project.environment`, so project overrides user-shared on key conflict; per-step overrides flow through the existing `env=` argument, and `project_id` is threaded through the git/gh services so per-project OS opt-ins apply consistently.
 
 ## Step 5 — Per-project UV venv
 
 **File:** `demetra/services/runtime/project.py`
 
-`setup_project_venv(project)` runs `uv venv --seed <local_path>/.venv` on first use and reuses the existing directory afterwards. It sets `VIRTUAL_ENV` and `UV_PROJECT_ENVIRONMENT` on the cached project environment (both are in the OS allowlist), so every subprocess runs inside the project venv. `setup_workflow`, merge, and rebase workflows all call it. No Docker.
+`setup_project_venv(project)` runs `uv venv --seed <local_path>/.venv` on first use and reuses the existing directory afterward. It sets `VIRTUAL_ENV` and `UV_PROJECT_ENVIRONMENT` on the cached project environment (both are in the OS allowlist) and prepends the venv's `bin` directory to `PATH`, so bare commands such as `python` resolve executables from the project venv instead of the host. `setup_workflow`, merge, and rebase workflows all call it. No Docker.
 
 ## Step 6 — API
 
@@ -74,7 +74,7 @@ Project-env functions were updated to filter `scope = 'project'` explicitly, and
 ## Step 7 — React
 
 - New burger-menu entry **Shared environment** (`Header.tsx`) opens `SharedEnvSettings` (`App.tsx`), which reuses the project env editor UX (masked display, add/remove, encrypted checkbox) against `/users/me/env`.
-- Both the project and shared env editors render an **Upload .env** button (`EnvFileUploadButton.tsx`) backed by a client-side parser (`utils/envFile.ts`, handles `export` prefix, quotes, comments, line continuations). Parsed entries are upserted as new rows via the existing env APIs — no dedicated upload endpoint. Entries whose key contains a whole sensitive word default to `encrypted` so uploaded secrets are never stored in plaintext.
+- Both the project and shared env editors render an **Upload .env** button (`EnvFileUploadButton.tsx`) backed by a client-side parser (`utils/envFile.ts`, handles `export` prefix, quotes, comments, line continuations). Parsed entries are upserted via the existing env APIs; an existing key in the target scope is updated, and a row is created only when the key is absent — no dedicated upload endpoint. Entries whose key contains a whole sensitive word default to `encrypted` so uploaded secrets are never stored in plaintext.
 - Help text on both screens: "User-shared env is applied to all your projects. Project env overrides user-shared on key conflict."
 
 ## Test Results

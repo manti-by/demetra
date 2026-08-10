@@ -126,36 +126,45 @@ export function EnvSettings({
     async (fileEntries: EnvFileEntry[]) => {
       setSaving(true);
       setError(null);
+      let upsertedCount = 0;
       try {
-        const upserted: ProjectEnvironmentEntry[] = [];
         for (const fileEntry of fileEntries) {
-          // Sensitive keys default to encrypted so plaintext secrets are never
-          // stored in the database.
-          const type = isSensitiveKey(fileEntry.key) ? "encrypted" : "text";
-          const entry = await upsertProjectEnvironment(
-            projectId,
-            fileEntry.key,
-            fileEntry.value,
-            type,
-          );
-          upserted.push(entry);
-        }
-        setEntries((prev) => {
-          const next = [...prev];
-          for (const entry of upserted) {
-            const index = next.findIndex((e) => e.key === entry.key);
-            if (index >= 0) {
-              next[index] = entry;
+          try {
+            // Sensitive keys default to encrypted so plaintext secrets are
+            // never stored in the database.
+            const type = isSensitiveKey(fileEntry.key) ? "encrypted" : "text";
+            const entry = await upsertProjectEnvironment(
+              projectId,
+              fileEntry.key,
+              fileEntry.value,
+              type,
+            );
+            // Apply each successful entry immediately so local state stays in
+            // sync with the server even when a later entry in the import fails.
+            setEntries((prev) => {
+              const next = [...prev];
+              const index = next.findIndex((e) => e.key === entry.key);
+              if (index >= 0) {
+                next[index] = entry;
+              } else {
+                next.push(entry);
+              }
+              return next;
+            });
+            upsertedCount += 1;
+          } catch (e) {
+            const message =
+              e instanceof Error
+                ? e.message
+                : "Failed to import environment variables";
+            if (upsertedCount > 0) {
+              setError(`Import partially completed: ${message}`);
             } else {
-              next.push(entry);
+              setError(message);
             }
+            break;
           }
-          return next;
-        });
-      } catch (e) {
-        setError(
-          e instanceof Error ? e.message : "Failed to import environment variables",
-        );
+        }
       } finally {
         setSaving(false);
       }

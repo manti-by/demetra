@@ -72,6 +72,7 @@ async def perform_git_merge(
             target_path=worktree_path,
             task=task,
             env=env,
+            project_id=project_id,
         )
 
         if agent_exit != 0:

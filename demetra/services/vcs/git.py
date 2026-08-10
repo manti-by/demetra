@@ -102,7 +102,7 @@ async def git_worktree_remove(
     force: bool = False,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-):
+) -> None:
     """Remove a git worktree, optionally forcing removal.
 
     Args:
@@ -144,7 +144,9 @@ async def git_add_all(target_path: Path, env: dict[str, str] | None = None, proj
     return bool(stdout.strip())
 
 
-async def git_commit(target_path: Path, message: str, env: dict[str, str] | None = None, project_id: str | None = None):
+async def git_commit(
+    target_path: Path, message: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> None:
     """Commit the staged changes with the given message.
 
     Args:
@@ -169,7 +171,7 @@ async def git_pull(
     branch_name: str = "master",
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-):
+) -> None:
     """Pull updates for a branch from the origin remote.
 
     Args:
@@ -184,7 +186,7 @@ async def git_pull(
 
 async def git_push(
     target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
-):
+) -> None:
     """Push a branch to origin, setting its upstream tracking.
 
     Args:
@@ -206,7 +208,7 @@ async def git_push(
 
 async def git_branch_delete(
     target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
-):
+) -> None:
     """Force-delete a local branch.
 
     Args:
@@ -219,7 +221,7 @@ async def git_branch_delete(
     await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
 
 
-async def git_fetch(target_path: Path, env: dict[str, str] | None = None, project_id: str | None = None):
+async def git_fetch(target_path: Path, env: dict[str, str] | None = None, project_id: str | None = None) -> None:
     """Fetch updates from all configured remotes.
 
     Args:
@@ -238,7 +240,7 @@ async def git_fetch(target_path: Path, env: dict[str, str] | None = None, projec
 
 async def git_checkout(
     target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
-):
+) -> None:
     """Check out a branch in a repository.
 
     Args:

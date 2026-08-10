@@ -276,7 +276,7 @@ async def upsert_project_environment_endpoint(
         id=entry["id"],
         project_id=entry["project_id"],
         key=entry["key"],
-        value=entry["value"],
+        value=ENCRYPTED_VALUE_MASK if is_sensitive_key(entry["key"]) else entry["value"],
         type=entry["type"],
     )
 

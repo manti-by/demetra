@@ -84,24 +84,16 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
 
   const handleAddEntry = useCallback(
     async (key: string, value: string, encrypted: boolean) => {
-      setSaving(true);
-      setError(null);
-      try {
-        const entry = await upsertUserEnvironment(key, value, encrypted ? "encrypted" : "text");
-        setEntries((prev) => {
-          const existing = prev.findIndex((e) => e.key === key);
-          if (existing >= 0) {
-            const next = [...prev];
-            next[existing] = entry;
-            return next;
-          }
-          return [...prev, entry];
-        });
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Failed to add environment variable");
-      } finally {
-        setSaving(false);
-      }
+      const entry = await upsertUserEnvironment(key, value, encrypted ? "encrypted" : "text");
+      setEntries((prev) => {
+        const existing = prev.findIndex((e) => e.key === key);
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = entry;
+          return next;
+        }
+        return [...prev, entry];
+      });
     },
     [],
   );
@@ -112,10 +104,18 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
       setError("Environment key is required");
       return;
     }
-    await handleAddEntry(key, draftValue, draftEncrypted);
-    setDraftKey("");
-    setDraftValue("");
-    setDraftEncrypted(false);
+    setSaving(true);
+    setError(null);
+    try {
+      await handleAddEntry(key, draftValue, draftEncrypted);
+      setDraftKey("");
+      setDraftValue("");
+      setDraftEncrypted(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add environment variable");
+    } finally {
+      setSaving(false);
+    }
   }, [draftKey, draftValue, draftEncrypted, handleAddEntry]);
 
   const handleUpload = useCallback(
@@ -128,6 +128,8 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
           // stored in the database.
           await handleAddEntry(fileEntry.key, fileEntry.value, isSensitiveKey(fileEntry.key));
         }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to import environment variables");
       } finally {
         setSaving(false);
       }

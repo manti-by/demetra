@@ -53,7 +53,7 @@ export function parseEnvFile(text: string): EnvFileEntry[] {
 
   const flush = () => {
     if (pendingKey !== null) {
-      entries.push({ key: pendingKey, value: pendingValue });
+      entries.push({ key: pendingKey, value: stripQuotes(pendingValue) });
       pendingKey = null;
       pendingValue = '';
     }

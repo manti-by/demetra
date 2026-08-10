@@ -103,7 +103,7 @@ OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
 _OS_ENV_OPTIN_PATTERN = re.compile(r"(?P<project_id>[^=]+)=(?P<keys>[^;]*)")
 
 
-def _parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:
+def parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:
     """Parse the ``OS_ENV_PROJECT_OPTINS`` env var into a project opt-in registry.
 
     The value is a semicolon-separated list of ``PROJECT_ID=KEY1,KEY2`` pairs,
@@ -130,7 +130,7 @@ def _parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:
     return optins
 
 
-OS_ENV_PROJECT_OPTINS = _parse_os_env_project_optins(env_get_str("OS_ENV_PROJECT_OPTINS", None))
+OS_ENV_PROJECT_OPTINS = parse_os_env_project_optins(env_get_str("OS_ENV_PROJECT_OPTINS", None))
 
 LOG_PATH = env_get_path("LOG_PATH", Path("/var/log/demetra/demetra.log"))
 

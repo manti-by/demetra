@@ -653,33 +653,52 @@ class TestUserEnvironments:
 
         entry = await upsert_user_environment(
             user_id=user_id,
-            key="SHARED_KEY",
+            key="SHARED",
             value="shared-value",
         )
 
-        assert entry["key"] == "SHARED_KEY"
+        assert entry["key"] == "SHARED"
         assert entry["value"] == "shared-value"
         assert entry["user_id"] == user_id
         assert entry["id"]
 
         env = await get_user_environments_decrypted(user_id=user_id)
-        assert env == {"SHARED_KEY": "shared-value"}
+        assert env == {"SHARED": "shared-value"}
 
     @pytest.mark.asyncio
     async def test_upsert_updates_existing_entry(self, faker, setup_test_db):
         user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
 
-        await upsert_user_environment(user_id=user_id, key="SHARED_KEY", value="first")
-        second = await upsert_user_environment(user_id=user_id, key="SHARED_KEY", value="second")
+        await upsert_user_environment(user_id=user_id, key="SHARED", value="first")
+        second = await upsert_user_environment(user_id=user_id, key="SHARED", value="second")
 
         assert second["value"] == "second"
         env = await get_user_environments_decrypted(user_id=user_id)
-        assert env == {"SHARED_KEY": "second"}
+        assert env == {"SHARED": "second"}
 
     @pytest.mark.asyncio
     async def test_upsert_raises_for_missing_user(self, setup_test_db):
         with pytest.raises(LookupError):
             await upsert_user_environment(user_id="nonexistent", key="X", value="Y")
+
+    @pytest.mark.asyncio
+    async def test_upsert_masks_sensitive_plaintext_key(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        entry = await upsert_user_environment(
+            user_id=user_id,
+            key="STRIPE_API_KEY",
+            value="sk_live_123",
+            env_type="text",
+        )
+
+        assert entry["key"] == "STRIPE_API_KEY"
+        assert entry["value"] == "********"
+        assert entry["type"] == "text"
+
+        # The plaintext must still be stored and decrypted for subprocess use.
+        env = await get_user_environments_decrypted(user_id=user_id)
+        assert env == {"STRIPE_API_KEY": "sk_live_123"}
 
     @pytest.mark.asyncio
     async def test_delete_removes_entry(self, faker, setup_test_db):

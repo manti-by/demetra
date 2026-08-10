@@ -1,3 +1,5 @@
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 
 from demetra.library.models import EnvironmentEntry, EnvironmentUpsert, UserKeysUpdateRequest, UserResponse
@@ -11,6 +13,8 @@ from demetra.services.persistence.database import (
 
 
 router = APIRouter(prefix="/api/v1/users")
+
+ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*\Z")
 
 
 @router.patch("/me/keys")
@@ -30,7 +34,7 @@ async def update_user_keys_endpoint(
 @router.get("/me/env", response_model=list[EnvironmentEntry])
 async def list_user_environment_endpoint(
     user: UserResponse = Depends(get_current_user_dep),
-):
+) -> list[EnvironmentEntry]:
     """List the authenticated user's shared environment variables.
 
     User-shared env is applied to every project the user owns or
@@ -55,7 +59,7 @@ async def upsert_user_environment_endpoint(
     key: str,
     request: EnvironmentUpsert,
     user: UserResponse = Depends(get_current_user_dep),
-):
+) -> EnvironmentEntry:
     """Create or update a single shared environment variable for the current user.
 
     The value applies to every project the user owns or collaborates on.
@@ -64,9 +68,14 @@ async def upsert_user_environment_endpoint(
     validated_key = key.strip()
     if not validated_key:
         raise HTTPException(status_code=400, detail="Environment key cannot be empty")
+    if not ENV_KEY_RE.fullmatch(validated_key):
+        raise HTTPException(status_code=400, detail="Environment key must match [A-Za-z_][A-Za-z0-9_.-]*")
 
     if request.type not in ("text", "encrypted"):
         raise HTTPException(status_code=400, detail="Environment type must be 'text' or 'encrypted'")
+
+    if request.type == "text" and "\x00" in request.value:
+        raise HTTPException(status_code=400, detail="Environment value cannot contain NUL bytes")
 
     try:
         entry = await upsert_user_environment(
@@ -92,7 +101,7 @@ async def upsert_user_environment_endpoint(
 async def delete_user_environment_endpoint(
     key: str,
     user: UserResponse = Depends(get_current_user_dep),
-):
+) -> dict[str, str]:
     """Delete a shared environment variable for the current user."""
     validated_key = key.strip()
     if not validated_key:

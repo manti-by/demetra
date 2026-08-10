@@ -535,11 +535,45 @@ class TestProjectEnvironmentEndpoints:
             return_value={
                 "id": "env-1",
                 "project_id": "project-id",
+                "key": "DATABASE_URL",
+                "value": "postgres://localhost/db",
+                "type": "text",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/projects/project-id/environment/DATABASE_URL",
+                json={"value": "postgres://localhost/db"},
+            )
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["key"] == "DATABASE_URL"
+            assert data["value"] == "postgres://localhost/db"
+            assert data["type"] == "text"
+            mock_upsert.assert_called_once_with(
+                project_id="project-id",
+                user_id="test_user_id",
+                key="DATABASE_URL",
+                value="postgres://localhost/db",
+                env_type="text",
+            )
+
+    @pytest.mark.asyncio
+    async def test_upsert_environment_masks_sensitive_plaintext_key(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.upsert_project_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "project_id": "project-id",
                 "key": "API_KEY",
                 "value": "secret",
                 "type": "text",
             },
-        ) as mock_upsert:
+        ):
             response = authenticated_client.put(
                 "/api/v1/projects/project-id/environment/API_KEY",
                 json={"value": "secret"},
@@ -548,15 +582,8 @@ class TestProjectEnvironmentEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["key"] == "API_KEY"
-            assert data["value"] == "secret"
+            assert data["value"] == "********"
             assert data["type"] == "text"
-            mock_upsert.assert_called_once_with(
-                project_id="project-id",
-                user_id="test_user_id",
-                key="API_KEY",
-                value="secret",
-                env_type="text",
-            )
 
     @pytest.mark.asyncio
     async def test_upsert_environment_with_encrypted_type(
