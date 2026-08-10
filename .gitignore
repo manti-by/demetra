@@ -17,6 +17,7 @@ venv/
 .python-version
 .coverage
 .env
+.env.docker
 
 .opencode/package-lock.json
 

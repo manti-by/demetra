@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.17.0"
+version = "1.18.0"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
@@ -21,6 +21,7 @@ dependencies = [
     "mcp==2.0.0",
     "bcrypt==5.0.0",
     "psycopg==3.3.4",
+    "psycopg-binary==3.3.4",
     "pydantic==2.13.4",
     "pyyaml==6.0.3",
     "python-jose[cryptography]==3.5.0",

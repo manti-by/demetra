@@ -1,0 +1,162 @@
+name: demetra
+
+services:
+  db:
+    image: postgres:18-alpine
+    env_file: .env.docker
+    volumes:
+      - demetra_db_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - demetra_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  migrate:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["alembic", "upgrade", "head"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+    volumes:
+      - ./migrations:/app/migrations:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["uvicorn", "demetra.app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/1
+      PARENT_HOME: /home/demetra/
+      LOG_PATH: /root/demetra.log
+    volumes:
+      - demetra_app_data:/root
+      - ${HOME}:/home/demetra:ro
+    ports:
+      - "127.0.0.1:8001:8001"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  worker:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["python", "-m", "demetra.worker"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/1
+      PARENT_HOME: /home/demetra/
+      LOG_PATH: /root/demetra.log
+    volumes:
+      - demetra_app_data:/root
+      - ${HOME}:/home/demetra:ro
+    deploy:
+      replicas: 4
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  watcher:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["python", "-m", "demetra.watcher"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/1
+      PARENT_HOME: /home/demetra/
+      LOG_PATH: /root/demetra.log
+    volumes:
+      - demetra_app_data:/root
+      - ${HOME}:/home/demetra:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  listener:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["python", "-m", "demetra.listener"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/1
+      PARENT_HOME: /home/demetra/
+      LOG_PATH: /root/demetra.log
+    volumes:
+      - demetra_app_data:/root
+      - ${HOME}:/home/demetra:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  rq-dashboard:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command: ["rq-dashboard", "--redis-url", "redis://redis:6379/1", "--port", "9181"]
+    env_file: .env.docker
+    environment:
+      DB_HOST: db
+      REDIS_URL: redis://redis:6379/1
+      PARENT_HOME: /home/demetra/
+      LOG_PATH: /root/demetra.log
+    ports:
+      - "127.0.0.1:9181:9181"
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  react-build:
+    image: oven/bun:1
+    working_dir: /app
+    command: ["sh", "-c", "bun install --frozen-lockfile && bun run build"]
+    volumes:
+      - ./react:/app
+      - demetra_react_dist:/app/dist
+    restart: "no"
+
+volumes:
+  demetra_db_data:
+    name: demetra_db_data
+  demetra_redis_data:
+    name: demetra_redis_data
+  demetra_react_dist:
+    name: demetra_react_dist
+  demetra_app_data:
+    name: demetra_app_data

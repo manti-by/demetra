@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: parallel `docker-compose.yaml` path (Postgres + Redis + api/worker x4/watcher/listener/rq-dashboard + one-shot React build) on `mantiby/demetra`; `make docker-deploy` + `docker-*` targets; runtime fixes: pg18 mount, LOG_PATH, one-shot sequencing, rq-dashboard loopback, app-data volume, psycopg-binary (2026-08-10)
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: OS (allowlisted) → user-shared → project → step merged in one `build_subprocess_env`; Fernet encryption via `DEMETRA_SECRET_KEY`; sensitive-key masking (`TOKEN|SECRET|KEY|PASSWORD`); `/users/me/env` CRUD; per-project `uv venv` bootstrap; FE Shared Environment screen + client-side `.env` upload (2026-08-10)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 CodeRabbit findings on PR #75: `password_version` column closes the reset-token snapshot race, `authFetch`/`authenticatedFetch` handle `Request` inputs, `env_get_int` rejects negative defaults, `get_transaction` named arg, Step 6 wiki doc synced; migration a4b5c6d7e8f9, 739 passed in 4.95s (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 review findings (v1.15.4..HEAD): cross-origin auth cookies restored, `env_get_int` rejects negatives, validate-agent marker filter, `get_transaction()` atomicity for reset_password/delete_project, dedup keeps distinct tickets, porcelain `-z` parsing, typed auth exceptions; 1.16.3, 737 passed in 4.84s (2026-08-09)
@@ -217,8 +218,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — DOCS.md deleted, OpenCode command
 - [Update project version](pages/2026-06-25-update-project-version.md) — MNT-116: auto version bump with rollback
 
-### Deploy & infrastructure (2 pages)
+### Deploy & infrastructure (3 pages)
 
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: docker-compose parallel deploy path (api/worker/watcher/listener/rq-dashboard + React build)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — MNT-119: Makefile deploy + bootstrap.sh + systemd
 - [Process manager](pages/2026-03-02-process-manager.md) — MNT-40: watcher daemon + systemd
 

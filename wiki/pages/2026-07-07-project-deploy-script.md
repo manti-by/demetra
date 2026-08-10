@@ -8,7 +8,7 @@ services: [deploy, configs]
 branch: -
 tickets: [MNT-119]
 tags: [deploy, setup, systemd, makefile]
-related: []
+related: [2026-08-10-docker-compose-deploy.md]
 ---
 
 # Project deploy script
@@ -48,7 +48,7 @@ GitHub integration and OpenCode auth are the main setup pain point. Credentials 
 
 ## Step 4 — Alternative: Docker
 
-Docker support added in MNT-106 provides an alternative deployment path to the systemd setup.
+Docker support added in MNT-106 provides an alternative deployment path to the systemd setup; a full compose stack on the `mantiby/demetra` image is documented in [[2026-08-10-docker-compose-deploy]].
 
 ## Test Results
 
