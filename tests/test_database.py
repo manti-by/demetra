@@ -12,16 +12,20 @@ from demetra.library.tables import project_environments
 from demetra.services.persistence.database import (
     create_project,
     create_session,
+    create_user,
     delete_project,
     delete_project_environment,
+    delete_user_environment,
     get_project_environments,
     get_session,
     get_session_history,
     get_session_id_by_task_id,
     get_session_step_name,
+    get_user_environments_decrypted,
     increment_listener_attempts,
     increment_run_attempts,
     list_project_environments,
+    list_user_environments,
     mark_session_posted,
     record_session_history,
     reset_listener_attempts,
@@ -31,6 +35,7 @@ from demetra.services.persistence.database import (
     update_session_step,
     upsert_pending_session,
     upsert_project_environment,
+    upsert_user_environment,
 )
 from demetra.services.persistence.database import get_connection as _get_connection
 from demetra.services.persistence.encryption import decrypt_str
@@ -467,7 +472,7 @@ class TestProjectEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
         with (
-            patch("demetra.services.persistence.encryption.SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", _TEST_SECRET_KEY),
             patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
             patch("demetra.services.persistence.encryption.get_fernet", return_value=_TEST_FERNET),
         ):
@@ -634,6 +639,249 @@ class TestProjectEnvironmentType:
     async def test_list_environments_raises_for_missing_project(self, setup_test_db):
         with pytest.raises(LookupError):
             await list_project_environments(project_id="missing", user_id="test-user")
+
+
+class TestUserEnvironments:
+    @pytest.mark.asyncio
+    async def test_get_user_environments_returns_empty_dict_when_none(self, setup_test_db):
+        result = await get_user_environments_decrypted("nonexistent-user")
+        assert result == {}
+
+    @pytest.mark.asyncio
+    async def test_upsert_creates_new_entry(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        entry = await upsert_user_environment(
+            user_id=user_id,
+            key="SHARED",
+            value="shared-value",
+        )
+
+        assert entry["key"] == "SHARED"
+        assert entry["value"] == "shared-value"
+        assert entry["user_id"] == user_id
+        assert entry["id"]
+
+        env = await get_user_environments_decrypted(user_id=user_id)
+        assert env == {"SHARED": "shared-value"}
+
+    @pytest.mark.asyncio
+    async def test_upsert_updates_existing_entry(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        await upsert_user_environment(user_id=user_id, key="SHARED", value="first")
+        second = await upsert_user_environment(user_id=user_id, key="SHARED", value="second")
+
+        assert second["value"] == "second"
+        env = await get_user_environments_decrypted(user_id=user_id)
+        assert env == {"SHARED": "second"}
+
+    @pytest.mark.asyncio
+    async def test_upsert_raises_for_missing_user(self, setup_test_db):
+        with pytest.raises(LookupError):
+            await upsert_user_environment(user_id="nonexistent", key="X", value="Y")
+
+    @pytest.mark.asyncio
+    async def test_upsert_masks_sensitive_plaintext_key(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        entry = await upsert_user_environment(
+            user_id=user_id,
+            key="STRIPE_API_KEY",
+            value="sk_live_123",
+            env_type="text",
+        )
+
+        assert entry["key"] == "STRIPE_API_KEY"
+        assert entry["value"] == "********"
+        assert entry["type"] == "text"
+
+        # The plaintext must still be stored and decrypted for subprocess use.
+        env = await get_user_environments_decrypted(user_id=user_id)
+        assert env == {"STRIPE_API_KEY": "sk_live_123"}
+
+    @pytest.mark.asyncio
+    async def test_delete_removes_entry(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        await upsert_user_environment(user_id=user_id, key="SHARED_KEY", value="secret")
+
+        await delete_user_environment(user_id=user_id, key="SHARED_KEY")
+
+        env = await get_user_environments_decrypted(user_id=user_id)
+        assert env == {}
+
+    @pytest.mark.asyncio
+    async def test_delete_raises_for_missing_user(self, setup_test_db):
+        with pytest.raises(LookupError):
+            await delete_user_environment(user_id="nonexistent", key="X")
+
+    @pytest.mark.asyncio
+    async def test_user_env_is_isolated_between_users(self, faker, setup_test_db):
+        user_a = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        user_b = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        await upsert_user_environment(user_id=user_a, key="ONLY_A", value="value_a")
+        await upsert_user_environment(user_id=user_b, key="ONLY_B", value="value_b")
+
+        env_a = await get_user_environments_decrypted(user_id=user_a)
+        env_b = await get_user_environments_decrypted(user_id=user_b)
+        assert env_a == {"ONLY_A": "value_a"}
+        assert env_b == {"ONLY_B": "value_b"}
+
+    @pytest.mark.asyncio
+    async def test_user_env_is_isolated_from_project_env(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        project_id = (
+            await create_project(
+                user_id=user_id,
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+
+        await upsert_user_environment(user_id=user_id, key="SHARED", value="user-value")
+        await upsert_project_environment(
+            project_id=project_id,
+            user_id=user_id,
+            key="PROJECT_ONLY",
+            value="project-value",
+        )
+
+        user_env = await get_user_environments_decrypted(user_id=user_id)
+        project_env = await get_project_environments(project_id=project_id)
+        assert user_env == {"SHARED": "user-value"}
+        assert project_env == {"PROJECT_ONLY": "project-value"}
+
+    @pytest.mark.asyncio
+    async def test_delete_project_keeps_user_env(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        project_id = (
+            await create_project(
+                user_id=user_id,
+                name=faker.unique.word(),
+                repository_url="https://github.com/owner/repo",
+                repository_owner="owner",
+                repository_name="repo",
+            )
+        )["id"]
+        await upsert_user_environment(user_id=user_id, key="SHARED", value="user-value")
+
+        await delete_project(project_id=project_id, user_id=user_id)
+
+        user_env = await get_user_environments_decrypted(user_id=user_id)
+        assert user_env == {"SHARED": "user-value"}
+
+
+class TestUserEnvironmentType:
+    @pytest.fixture(autouse=True)
+    def _encryption_keys(self):
+        with (
+            patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
+            patch("demetra.services.persistence.encryption.get_fernet", return_value=_TEST_FERNET),
+        ):
+            yield
+
+    @pytest.mark.asyncio
+    async def test_encrypted_value_is_stored_encrypted(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        entry = await upsert_user_environment(
+            user_id=user_id,
+            key="API_TOKEN",
+            value="topsecret",
+            env_type="encrypted",
+        )
+
+        assert entry["type"] == "encrypted"
+        assert entry["value"] == "********"
+
+        async with _get_connection() as conn:
+            row = (
+                await conn.execute(
+                    select(project_environments).where(
+                        (project_environments.c.user_id == user_id)
+                        & (project_environments.c.key == "API_TOKEN")
+                        & (project_environments.c.scope == "user")
+                    )
+                )
+            ).fetchone()
+        assert row is not None
+        assert row.type == "encrypted"
+        assert row.value != "topsecret"
+        assert decrypt_str(row.value) == "topsecret"
+
+    @pytest.mark.asyncio
+    async def test_list_environments_masks_encrypted_values(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        await upsert_user_environment(
+            user_id=user_id,
+            key="API_TOKEN",
+            value="topsecret",
+            env_type="encrypted",
+        )
+        await upsert_user_environment(
+            user_id=user_id,
+            key="API_URL",
+            value="https://example.com",
+            env_type="text",
+        )
+
+        entries = await list_user_environments(user_id=user_id)
+
+        by_key = {entry["key"]: entry for entry in entries}
+        assert by_key["API_TOKEN"]["value"] == "********"
+        assert by_key["API_TOKEN"]["type"] == "encrypted"
+        assert by_key["API_URL"]["value"] == "https://example.com"
+        assert by_key["API_URL"]["type"] == "text"
+
+    @pytest.mark.asyncio
+    async def test_list_environments_masks_sensitive_plaintext_keys(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        await upsert_user_environment(
+            user_id=user_id,
+            key="STRIPE_API_KEY",
+            value="sk_live_123",
+            env_type="text",
+        )
+        await upsert_user_environment(
+            user_id=user_id,
+            key="DATABASE_URL",
+            value="postgres://localhost/db",
+            env_type="text",
+        )
+
+        entries = await list_user_environments(user_id=user_id)
+
+        by_key = {entry["key"]: entry for entry in entries}
+        assert by_key["STRIPE_API_KEY"]["value"] == "********"
+        assert by_key["STRIPE_API_KEY"]["type"] == "text"
+        assert by_key["DATABASE_URL"]["value"] == "postgres://localhost/db"
+
+    @pytest.mark.asyncio
+    async def test_get_user_environments_decrypts_encrypted_values(self, faker, setup_test_db):
+        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+
+        await upsert_user_environment(
+            user_id=user_id,
+            key="API_TOKEN",
+            value="topsecret",
+            env_type="encrypted",
+        )
+        await upsert_user_environment(
+            user_id=user_id,
+            key="API_URL",
+            value="https://example.com",
+            env_type="text",
+        )
+
+        env = await get_user_environments_decrypted(user_id=user_id)
+
+        assert env == {"API_TOKEN": "topsecret", "API_URL": "https://example.com"}
 
 
 class TestRunAttempts:

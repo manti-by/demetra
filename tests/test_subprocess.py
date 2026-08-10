@@ -5,7 +5,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.services.runtime.subprocess import run_command, run_command_to_file
+from demetra.services.runtime.subprocess import (
+    build_subprocess_env,
+    filter_os_env,
+    run_command,
+    run_command_to_file,
+)
 
 
 def _make_mock_process(
@@ -334,3 +339,127 @@ class TestSubprocessToFile:
         with pytest.raises(AttributeError, match="stderr is None"):
             await run_command_to_file(["cmd"], tmp_path)
         mock_process.kill.assert_called_once()
+
+
+class TestFilterOsEnv:
+    def test_accepts_allowlisted_keys(self, monkeypatch):
+        monkeypatch.setenv("PATH", "/usr/bin:/bin")
+        monkeypatch.setenv("HOME", "/home/user")
+        monkeypatch.setenv("GITHUB_TOKEN", "secret-token")
+
+        filtered = filter_os_env()
+
+        assert filtered["PATH"] == "/usr/bin:/bin"
+        assert filtered["HOME"] == "/home/user"
+        assert "GITHUB_TOKEN" not in filtered
+
+    def test_rejects_non_listed_keys(self, monkeypatch):
+        monkeypatch.setenv("SOME_RANDOM_VAR", "value")
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "akid")
+
+        filtered = filter_os_env()
+
+        assert "SOME_RANDOM_VAR" not in filtered
+        assert "AWS_ACCESS_KEY_ID" not in filtered
+
+    def test_case_sensitivity_per_os(self, monkeypatch):
+        monkeypatch.setenv("Path", "/custom")
+        monkeypatch.delenv("PATH", raising=False)
+
+        filtered = filter_os_env()
+
+        # Linux env var names are case-sensitive: lowercase "Path" is NOT the
+        # allowlisted "PATH".
+        assert "Path" not in filtered
+        assert "PATH" not in filtered
+
+    def test_project_optin_tokens_forwarded_only_for_that_project(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_TOKEN", "token-a")
+        monkeypatch.setenv("AWS_PROFILE", "prod")
+        monkeypatch.setattr(
+            "demetra.services.runtime.subprocess.OS_ENV_PROJECT_OPTINS",
+            {"project-a": ["GITHUB_TOKEN"]},
+        )
+
+        project_a_env = filter_os_env(project_id="project-a")
+        project_b_env = filter_os_env(project_id="project-b")
+        no_project_env = filter_os_env()
+
+        assert project_a_env.get("GITHUB_TOKEN") == "token-a"
+        assert "GITHUB_TOKEN" not in project_b_env
+        assert "GITHUB_TOKEN" not in no_project_env
+        assert "AWS_PROFILE" not in project_a_env
+
+    def test_ssh_and_proxy_vars_forwarded_even_without_project(self, monkeypatch):
+        monkeypatch.setenv("SSH_AUTH_SOCK", "/run/user/1000/ssh-agent.sock")
+        monkeypatch.setenv("GIT_SSH_COMMAND", "ssh -o StrictHostKeyChecking=no")
+        monkeypatch.setenv("https_proxy", "http://proxy.internal:3128")
+        monkeypatch.setenv("NO_PROXY", "localhost,127.0.0.1")
+
+        env = filter_os_env()
+
+        assert env.get("SSH_AUTH_SOCK") == "/run/user/1000/ssh-agent.sock"
+        assert env.get("GIT_SSH_COMMAND") == "ssh -o StrictHostKeyChecking=no"
+        assert env.get("https_proxy") == "http://proxy.internal:3128"
+        assert env.get("NO_PROXY") == "localhost,127.0.0.1"
+
+
+class TestBuildSubprocessEnv:
+    def test_merge_order_os_user_project_extra(self, monkeypatch):
+        monkeypatch.setenv("SHARED", "os-value")
+        monkeypatch.setenv("PROJECT_ONLY", "os-project-value")
+        monkeypatch.setenv("EXTRA_ONLY", "os-extra-value")
+
+        merged = build_subprocess_env(
+            user_environment={"SHARED": "user-value", "USER_ONLY": "user-only"},
+            project_environment={"PROJECT_ONLY": "project-value"},
+            extra={"EXTRA_ONLY": "extra-value"},
+            target_path=Path("/work"),
+        )
+
+        assert merged["SHARED"] == "user-value"
+        assert merged["USER_ONLY"] == "user-only"
+        assert merged["PROJECT_ONLY"] == "project-value"
+        assert merged["EXTRA_ONLY"] == "extra-value"
+        assert merged["PWD"] == "/work"
+
+    def test_project_overrides_user_shared_on_conflict(self, monkeypatch):
+        merged = build_subprocess_env(
+            user_environment={"CONFLICT_KEY": "user-value"},
+            project_environment={"CONFLICT_KEY": "project-value"},
+        )
+
+        assert merged["CONFLICT_KEY"] == "project-value"
+
+    def test_extra_overrides_project_on_conflict(self, monkeypatch):
+        merged = build_subprocess_env(
+            project_environment={"CONFLICT_KEY": "project-value"},
+            extra={"CONFLICT_KEY": "extra-value"},
+        )
+
+        assert merged["CONFLICT_KEY"] == "extra-value"
+
+    def test_os_layer_filtered_in_builder(self, monkeypatch):
+        monkeypatch.setenv("RANDOM_HOST_VAR", "should-be-dropped")
+        monkeypatch.setenv("PATH", "/usr/bin")
+
+        merged = build_subprocess_env()
+
+        assert "RANDOM_HOST_VAR" not in merged
+        assert merged["PATH"] == "/usr/bin"
+
+    def test_project_optins_apply_in_builder(self, monkeypatch):
+        monkeypatch.setenv("GITHUB_TOKEN", "token-a")
+        monkeypatch.setattr(
+            "demetra.services.runtime.subprocess.OS_ENV_PROJECT_OPTINS",
+            {"project-a": ["GITHUB_TOKEN"]},
+        )
+
+        merged = build_subprocess_env(project_id="project-a")
+
+        assert merged.get("GITHUB_TOKEN") == "token-a"
+
+    def test_user_environment_none_leaves_os_layer_only(self, monkeypatch):
+        merged = build_subprocess_env(user_environment=None)
+
+        assert merged is not None

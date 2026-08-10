@@ -133,13 +133,19 @@ async def opencode_validate_agent(
     )
 
 
-async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str] | None = None) -> tuple[int, str, str]:
+async def opencode_merge_agent(
+    target_path: Path,
+    task: str,
+    env: dict[str, str] | None = None,
+    project_id: str | None = None,
+) -> tuple[int, str, str]:
     """Run the opencode merge agent to resolve merge conflicts.
 
     Args:
         target_path: Directory to run the agent in.
         task: The task prompt for the agent.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -150,6 +156,7 @@ async def opencode_merge_agent(target_path: Path, task: str, env: dict[str, str]
         model=OPENCODE["build_model"],
         agent="merge-agent",
         env=env,
+        project_id=project_id,
     )
 
 
@@ -186,6 +193,7 @@ async def run_opencode_agent(
     task_title: str | None = None,
     disable_stdio: bool = False,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
@@ -202,6 +210,7 @@ async def run_opencode_agent(
         task_title: Optional session title.
         disable_stdio: Whether to suppress live subprocess output.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -219,6 +228,7 @@ async def run_opencode_agent(
         disable_stdio=disable_stdio,
         env=env,
         input_text=task,
+        project_id=project_id,
     )
 
 

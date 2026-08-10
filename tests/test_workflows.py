@@ -28,6 +28,16 @@ class TestWorkflowSetup:
             yield m
 
     @pytest.fixture
+    def mock_get_user_environments(self):
+        with patch("demetra.workflows.setup.get_user_environments_decrypted", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_setup_project_venv(self):
+        with patch("demetra.workflows.setup.setup_project_venv", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
     def mock_get_linear_task(self):
         with patch("demetra.workflows.setup.get_linear_task", new_callable=AsyncMock) as m:
             yield m
@@ -52,6 +62,8 @@ class TestWorkflowSetup:
         self,
         mock_search_projects,
         mock_get_environments,
+        mock_get_user_environments,
+        mock_setup_project_venv,
         mock_get_linear_task,
         mock_get_session,
         mock_git_pull,
@@ -60,6 +72,8 @@ class TestWorkflowSetup:
         return (
             mock_search_projects,
             mock_get_environments,
+            mock_get_user_environments,
+            mock_setup_project_venv,
             mock_get_linear_task,
             mock_get_session,
             mock_git_pull,
@@ -68,7 +82,16 @@ class TestWorkflowSetup:
 
     @pytest.mark.asyncio
     async def test_setup_workflow_returns_context(self, faker, mock_setup_deps):
-        mock_search, mock_env, mock_task, mock_sess, _mock_pull, mock_wt = mock_setup_deps
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            _mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
         project_data = {
             "id": str(uuid4()),
             "user_id": str(uuid4()),
@@ -94,6 +117,7 @@ class TestWorkflowSetup:
 
         mock_search.return_value = [project_data]
         mock_env.return_value = {}
+        mock_user_env.return_value = {}
         mock_task.return_value = LinearTask(**linear_task_data)  # ty: ignore
         mock_sess.return_value = None
         mock_wt.return_value = f"/tmp/worktree/{faker.slug()}"

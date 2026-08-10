@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: OS (allowlisted) → user-shared → project → step merged in one `build_subprocess_env`; Fernet encryption via `DEMETRA_SECRET_KEY`; sensitive-key masking (`TOKEN|SECRET|KEY|PASSWORD`); `/users/me/env` CRUD; per-project `uv venv` bootstrap; FE Shared Environment screen + client-side `.env` upload (2026-08-10)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 CodeRabbit findings on PR #75: `password_version` column closes the reset-token snapshot race, `authFetch`/`authenticatedFetch` handle `Request` inputs, `env_get_int` rejects negative defaults, `get_transaction` named arg, Step 6 wiki doc synced; migration a4b5c6d7e8f9, 739 passed in 4.95s (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 review findings (v1.15.4..HEAD): cross-origin auth cookies restored, `env_get_int` rejects negatives, validate-agent marker filter, `get_transaction()` atomicity for reset_password/delete_project, dedup keeps distinct tickets, porcelain `-z` parsing, typed auth exceptions; 1.16.3, 737 passed in 4.84s (2026-08-09)
 - [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — Hardened wiki edge cases (blank env paths, cluster scoring/insertion, unreadable pages, answer_sweep preamble + async I/O), scoped revalidation commits to changed files only; optimized slowest tests (seed rows patch, get_linear_task_by_id mock) — full suite 729 passed in 4.60s (2026-08-09)
@@ -177,8 +178,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Postgres Support](pages/2026-03-05-postgres-support.md) — MNT-51: SQLite → async PostgreSQL
 - [Save build plan to a database](pages/2026-02-23-save-build-plan-to-database.md) — MNT-39: `build_plan`/`posted_to_linear` columns
 
-### API & services (4 pages)
+### API & services (5 pages)
 
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: 3-layer env merge + encryption + venv + .env upload
 - [Project environment](pages/2026-06-08-project-environment.md) — MNT-110: per-project env vars
 - [Refactor API](pages/2026-06-01-refactor-api.md) — MNT-81: router package split
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — MNT-88: removed tickets.py + ticket_provider.py

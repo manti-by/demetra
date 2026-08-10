@@ -1,18 +1,16 @@
 import { useState, useCallback, useEffect } from "react";
 import {
-  ProjectEnvironmentEntry,
-  getProjectEnvironment,
-  upsertProjectEnvironment,
-  deleteProjectEnvironment,
+  UserEnvironmentEntry,
+  getUserEnvironment,
+  upsertUserEnvironment,
+  deleteUserEnvironment,
 } from "../services/api";
 import { EnvFileUploadButton } from "./EnvFileUploadButton";
 import { isSensitiveKey, type EnvFileEntry } from "../utils/envFile";
 
-interface EnvSettingsProps {
+interface SharedEnvSettingsProps {
   isOpen: boolean;
   onClose: () => void;
-  projectId: string;
-  projectName: string;
 }
 
 const CloseIcon = () => (
@@ -43,7 +41,7 @@ const TrashIcon = () => (
   </svg>
 );
 
-function formatValue(entry: ProjectEnvironmentEntry): string {
+function formatValue(entry: UserEnvironmentEntry): string {
   if (!entry.value) {
     return "(empty)";
   }
@@ -53,13 +51,8 @@ function formatValue(entry: ProjectEnvironmentEntry): string {
   return entry.value;
 }
 
-export function EnvSettings({
-  isOpen,
-  onClose,
-  projectId,
-  projectName,
-}: EnvSettingsProps) {
-  const [entries, setEntries] = useState<ProjectEnvironmentEntry[]>([]);
+export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
+  const [entries, setEntries] = useState<UserEnvironmentEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -70,15 +63,15 @@ export function EnvSettings({
   const fetchEnvironment = useCallback(async () => {
     try {
       setLoading(true);
-      const data = await getProjectEnvironment(projectId);
+      const data = await getUserEnvironment();
       setEntries(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to load environment");
+      setError(e instanceof Error ? e.message : "Failed to load shared environment");
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, []);
 
   useEffect(() => {
     if (isOpen) {
@@ -89,87 +82,59 @@ export function EnvSettings({
     }
   }, [isOpen, fetchEnvironment]);
 
-  const handleAddEntry = useCallback(async () => {
+  const handleAddEntry = useCallback(
+    async (key: string, value: string, encrypted: boolean) => {
+      const entry = await upsertUserEnvironment(key, value, encrypted ? "encrypted" : "text");
+      setEntries((prev) => {
+        const existing = prev.findIndex((e) => e.key === key);
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = entry;
+          return next;
+        }
+        return [...prev, entry];
+      });
+    },
+    [],
+  );
+
+  const handleAddDraft = useCallback(async () => {
     const key = draftKey.trim();
     if (!key) {
       setError("Environment key is required");
       return;
     }
-    if (entries.some((entry) => entry.key === key)) {
-      setError(`Environment key "${key}" already exists`);
-      return;
-    }
-
     setSaving(true);
     setError(null);
     try {
-      const entry = await upsertProjectEnvironment(
-        projectId,
-        key,
-        draftValue,
-        draftEncrypted ? "encrypted" : "text",
-      );
-      setEntries((prev) => [...prev, entry]);
+      await handleAddEntry(key, draftValue, draftEncrypted);
       setDraftKey("");
       setDraftValue("");
       setDraftEncrypted(false);
     } catch (e) {
-      setError(
-        e instanceof Error ? e.message : "Failed to add environment variable",
-      );
+      setError(e instanceof Error ? e.message : "Failed to add environment variable");
     } finally {
       setSaving(false);
     }
-  }, [draftKey, draftValue, draftEncrypted, entries, projectId]);
+  }, [draftKey, draftValue, draftEncrypted, handleAddEntry]);
 
   const handleUpload = useCallback(
     async (fileEntries: EnvFileEntry[]) => {
       setSaving(true);
       setError(null);
-      let upsertedCount = 0;
       try {
         for (const fileEntry of fileEntries) {
-          try {
-            // Sensitive keys default to encrypted so plaintext secrets are
-            // never stored in the database.
-            const type = isSensitiveKey(fileEntry.key) ? "encrypted" : "text";
-            const entry = await upsertProjectEnvironment(
-              projectId,
-              fileEntry.key,
-              fileEntry.value,
-              type,
-            );
-            // Apply each successful entry immediately so local state stays in
-            // sync with the server even when a later entry in the import fails.
-            setEntries((prev) => {
-              const next = [...prev];
-              const index = next.findIndex((e) => e.key === entry.key);
-              if (index >= 0) {
-                next[index] = entry;
-              } else {
-                next.push(entry);
-              }
-              return next;
-            });
-            upsertedCount += 1;
-          } catch (e) {
-            const message =
-              e instanceof Error
-                ? e.message
-                : "Failed to import environment variables";
-            if (upsertedCount > 0) {
-              setError(`Import partially completed: ${message}`);
-            } else {
-              setError(message);
-            }
-            break;
-          }
+          // Sensitive keys default to encrypted so plaintext secrets are never
+          // stored in the database.
+          await handleAddEntry(fileEntry.key, fileEntry.value, isSensitiveKey(fileEntry.key));
         }
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Failed to import environment variables");
       } finally {
         setSaving(false);
       }
     },
-    [projectId],
+    [handleAddEntry],
   );
 
   const handleDeleteEntry = useCallback(
@@ -177,7 +142,7 @@ export function EnvSettings({
       setSaving(true);
       setError(null);
       try {
-        await deleteProjectEnvironment(projectId, key);
+        await deleteUserEnvironment(key);
         setEntries((prev) => prev.filter((entry) => entry.key !== key));
       } catch (e) {
         setError(
@@ -189,7 +154,7 @@ export function EnvSettings({
         setSaving(false);
       }
     },
-    [projectId],
+    [],
   );
 
   if (!isOpen) return null;
@@ -198,7 +163,7 @@ export function EnvSettings({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Environment - {projectName}</h2>
+          <h2>Shared Environment</h2>
           <button className="modal-close" onClick={onClose} aria-label="Close">
             <CloseIcon />
           </button>
@@ -219,7 +184,7 @@ export function EnvSettings({
               <div className="env-list">
                 {entries.length === 0 ? (
                   <p className="empty-message">
-                    No environment variables yet. Add your first one!
+                    No shared environment variables yet. Add your first one!
                   </p>
                 ) : (
                   entries.map((entry) => (
@@ -267,7 +232,7 @@ export function EnvSettings({
                 </label>
                 <button
                   className="btn-primary"
-                  onClick={handleAddEntry}
+                  onClick={handleAddDraft}
                   disabled={saving || !draftKey.trim()}
                 >
                   {saving ? "Saving..." : "Add"}

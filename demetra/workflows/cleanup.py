@@ -35,18 +35,28 @@ async def commit_and_push(context: Context) -> bool:
     """
     print_message("Committing changes", style="heading")
 
-    has_files = await git_add_all(target_path=context.worktree_path, env=context.project.environment)
+    has_files = await git_add_all(
+        target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+    )
     if not has_files:
         print_message("No files to commit, looping back to build agent", style="warning")
         return False
 
     await update_session_step(task_id=context.linear_task.id, step="push")
     await git_commit(
-        target_path=context.worktree_path, message=context.linear_task.full_title, env=context.project.environment
+        target_path=context.worktree_path,
+        message=context.linear_task.full_title,
+        env=context.project.environment,
+        project_id=context.project.id,
     )
 
     print_message("Pushing changes", style="heading")
-    await git_push(target_path=context.worktree_path, branch_name=context.branch_name, env=context.project.environment)
+    await git_push(
+        target_path=context.worktree_path,
+        branch_name=context.branch_name,
+        env=context.project.environment,
+        project_id=context.project.id,
+    )
 
     print_message("Generating PR description", style="heading")
     task_details = f"{context.linear_task.full_title}\n\n{context.linear_task.description}"
@@ -66,6 +76,7 @@ async def commit_and_push(context: Context) -> bool:
         title=context.linear_task.full_title,
         body=pr_body,
         env=context.project.environment,
+        project_id=context.project.id,
     )
     if exit_code != 0:
         raise PullRequestError(f"Failed to create PR: {stderr or stdout}")

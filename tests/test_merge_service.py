@@ -43,6 +43,7 @@ class TestPerformGitMerge:
             target_path=WORKTREE_PATH,
             branch_name="feature/branch",
             env=ENV,
+            project_id=None,
         )
 
     @pytest.mark.asyncio
@@ -89,6 +90,7 @@ class TestPerformGitMerge:
             body="Base branch `main` has no new changes to merge into `feature/branch` — already up-to-date.",
             target_path=WORKTREE_PATH,
             env=ENV,
+            project_id=None,
         )
 
     @pytest.mark.asyncio
@@ -147,6 +149,7 @@ class TestPerformGitMerge:
                 target_path=WORKTREE_PATH,
                 branch_name="feature/branch",
                 env=ENV,
+                project_id=None,
             )
 
     @pytest.mark.asyncio
