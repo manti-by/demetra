@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: react
+.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -97,7 +97,31 @@ docker-build-arm:
 	docker build --platform linux/arm64 -t mantiby/demetra:arm .
 
 docker-run:
-	docker run -e PARENT_HOME=/home/manti/ -v "$(HOME):/home/manti/:ro" demetra
+	docker run -v ".:/srv/demetra/src/:ro" mantiby/demetra:latest
+
+docker-up:
+	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
+
+docker-down:
+	docker compose --env-file .env.docker down
+
+docker-logs:
+	docker compose --env-file .env.docker logs -f
+
+docker-ps:
+	docker compose --env-file .env.docker ps
+
+docker-migrate:
+	docker compose --env-file .env.docker run --rm migrate
+
+docker-clean:
+	docker compose --env-file .env.docker down -v --remove-orphans
+
+docker-deploy: docker-build
+	docker compose --env-file .env.docker pull postgres redis react-build || true
+	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
+	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
+	docker compose --env-file .env.docker ps
 
 container-build:
 	container build --tag demetra:latest --file Dockerfile .

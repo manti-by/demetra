@@ -7,6 +7,9 @@ by the plugin.
 
 ## Pages
 
+- [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — code review of the in-progress `mnt-164-docker-compose` branch: 20 findings — 7 blockers (no source COPY, venv path mismatch, WORKDIR typo, missing healthchecks, watcher/listener DB_HOST, image-tag mismatch, missing psycopg-binary), 1 security-critical (`.keys/` baked into image via missing `.dockerignore` entry), 1 security regression (api + rq-dashboard published on `0.0.0.0` instead of loopback) (2026-08-17)
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: parallel `docker-compose.yaml` path (Postgres + Redis + api/worker x4/watcher/listener/rq-dashboard + one-shot React build) on `mantiby/demetra`; `make docker-deploy` + `docker-*` targets; runtime fixes: pg18 mount, LOG_PATH, one-shot sequencing, rq-dashboard loopback, app-data volume, psycopg-binary (2026-08-10)
+- [MNT-164: Docker compose](pages/2026-08-10-mnt-164-docker-compose.md) — Implementation of MNT-164: Docker compose (2026-08-10)
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: OS (allowlisted) → user-shared → project → step merged in one `build_subprocess_env`; Fernet encryption via `DEMETRA_SECRET_KEY`; sensitive-key masking (`TOKEN|SECRET|KEY|PASSWORD`); `/users/me/env` CRUD; per-project `uv venv` bootstrap; FE Shared Environment screen + client-side `.env` upload (2026-08-10)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 CodeRabbit findings on PR #75: `password_version` column closes the reset-token snapshot race, `authFetch`/`authenticatedFetch` handle `Request` inputs, `env_get_int` rejects negative defaults, `get_transaction` named arg, Step 6 wiki doc synced; migration a4b5c6d7e8f9, 739 passed in 4.95s (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 review findings (v1.15.4..HEAD): cross-origin auth cookies restored, `env_get_int` rejects negatives, validate-agent marker filter, `get_transaction()` atomicity for reset_password/delete_project, dedup keeps distinct tickets, porcelain `-z` parsing, typed auth exceptions; 1.16.3, 737 passed in 4.84s (2026-08-09)
@@ -204,6 +207,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — wiki tools over MCP
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — mcp 2.0 migration
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — MNT-90: standalone `mcp_server.py`
+- [MNT-164: Docker compose](pages/2026-08-10-mnt-164-docker-compose.md) — 2026-08-10
 
 ### Testing & tooling (3 pages)
 
@@ -217,8 +221,10 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — DOCS.md deleted, OpenCode command
 - [Update project version](pages/2026-06-25-update-project-version.md) — MNT-116: auto version bump with rollback
 
-### Deploy & infrastructure (2 pages)
+### Deploy & infrastructure (4 pages)
 
+- [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — code review of in-progress branch: 7 blockers + 1 security-critical (`.keys/` baked into image)
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: docker-compose parallel deploy path (api/worker/watcher/listener/rq-dashboard + React build)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — MNT-119: Makefile deploy + bootstrap.sh + systemd
 - [Process manager](pages/2026-03-02-process-manager.md) — MNT-40: watcher daemon + systemd
 

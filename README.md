@@ -31,6 +31,21 @@ uv run main.py --project-name <project_name>
 
 Set environment variables via `.env` or shell, check [settings.py](demetra/settings.py) for the options.
 
+## Docker Compose
+
+Alternative deployment path that runs the full app layer (Postgres, Redis, API, 4 workers, watcher, listener, RQ dashboard and a one-shot React build) on top of the `mantiby/demetra` image. The systemd `make deploy` path is untouched.
+
+Prerequisites: Docker Compose v2 (the compose file declares `deploy.replicas: 4` for the workers — honoured by `docker compose up` from v2.20; the `docker-up`/`docker-deploy` targets pass `--scale worker=4` so 4 workers run on any v2), the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`, which `docker-deploy` runs as a prerequisite; the `db`/`redis`/`oven/bun` images are pulled automatically), and `docker-build` needs Docker BuildKit.
+
+```bash
+cp .env.docker.example .env.docker   # then fill in real values
+make docker-deploy                   # build image + pull infra + migrate/react one-shots + up long-running + ps
+```
+
+Port map: API on `http://localhost:8001` (published on host loopback only — host nginx `/api/` and `/ws/` proxies to `127.0.0.1:8001` are the only ingress, matching the systemd `api.service` uvicorn default bind). The RQ dashboard is also loopback-only (`127.0.0.1:9181`) via the host nginx `/rq/` proxy.
+
+`make docker-up` brings up the long-running services only — the `migrate`/`react-build` one-shots run as part of `make docker-deploy` (foreground, failure-fatal) and their output (schema, frontend `dist`) persists in the named volumes across restarts. See `make docker-up`, `docker-down`, `docker-logs`, `docker-ps`, `docker-migrate`, `docker-clean` for the remaining lifecycle commands. The React build writes to the `demetra_react_dist` named volume — mount it where host nginx serves `react/dist` (default `/home/manti/www/demetra/react/dist`). App state (worktrees, projects, session logs, copied auth) persists in the `demetra_app_data` volume mounted on `/root`; the host home is mounted read-only at `/home/demetra` for `PARENT_HOME` auth copying. See `make docker-up`, `docker-down`, `docker-logs`, `docker-ps`, `docker-migrate`, `docker-clean` for the remaining lifecycle commands.
+
 ## Development
 
 ```bash

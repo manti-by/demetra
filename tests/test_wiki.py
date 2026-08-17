@@ -225,6 +225,20 @@ class TestGitDiffFacts:
         assert any("origin/main..HEAD" in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
+    async def test_numstat_ignores_blank_lines_from_run_command(self, monkeypatch):
+        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+            if "--name-only" in command:
+                return 0, "a.py\n", ""
+            if "--numstat" in command:
+                return 0, "1\t1\ta.py\n\n2\t2\tb.py\n", ""
+            return 0, "2 files changed\n", ""
+
+        monkeypatch.setattr(service, "run_command", fake_run_command)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        assert facts["files"] == ["a.py"]
+        assert facts["numstat"] == [("a.py", "1", "1"), ("b.py", "2", "2")]
+        assert facts["changed_lines"] == 6
+
     async def test_falls_back_to_master_without_origin_head(self, monkeypatch):
         commands = []
 
