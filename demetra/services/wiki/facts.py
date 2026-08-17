@@ -93,7 +93,12 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
         if exit_code != 0:
             raise RuntimeError(f"git diff --numstat failed: {numstat_err.strip()}")
         for line in numstat_out.splitlines():
-            added, deleted, path = line.split("\t", 2)
+            if not line.strip():
+                continue
+            parts = line.split("\t", 2)
+            if len(parts) != 3:
+                continue
+            added, deleted, path = parts
             numstat.append((path, added, deleted))
 
         exit_code, stat_out, stat_err = await service.run_command(

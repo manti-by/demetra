@@ -12,6 +12,7 @@ __pycache__/
 *$py.class
 *~
 
+.keys/
 venv/
 .venv/
 .python-version

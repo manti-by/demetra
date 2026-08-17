@@ -1,21 +1,27 @@
 name: demetra
 
 services:
-  db:
-    image: postgres:18-alpine
-    env_file: .env.docker
+  postgres:
+    image: postgres:18
+    restart: unless-stopped
+    container_name: demetra-postgres
+    environment:
+      - POSTGRES_DB=demetra
+      - POSTGRES_USER=demetra
+      - POSTGRES_PASSWORD=demetra
     volumes:
-      - demetra_db_data:/var/lib/postgresql
+      - demetra_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      test: ["CMD-SHELL", "pg_isready -U demetra -d demetra"]
       interval: 5s
       timeout: 5s
       retries: 12
       start_period: 10s
-    restart: unless-stopped
 
   redis:
-    image: redis:7-alpine
+    image: redis:7
+    restart: unless-stopped
+    container_name: demetra-redis
     volumes:
       - demetra_redis_data:/data
     healthcheck:
@@ -23,137 +29,166 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
-    restart: unless-stopped
 
   migrate:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    image: mantiby/demetra:latest
     command: ["alembic", "upgrade", "head"]
+    restart: "no"
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
     volumes:
-      - ./migrations:/app/migrations:ro
+      - .:/srv/demetra/src/
     depends_on:
-      db:
+      postgres:
         condition: service_healthy
-    restart: "no"
 
   api:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
-    command: ["uvicorn", "demetra.app:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "4"]
+    image: mantiby/demetra:latest
+    command:
+      [
+        "uvicorn",
+        "demetra.app:app",
+        "--host",
+        "127.0.0.1",
+        "--port",
+        "8001",
+        "--workers",
+        "4",
+      ]
+    restart: unless-stopped
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
       REDIS_URL: redis://redis:6379/1
-      PARENT_HOME: /home/demetra/
-      LOG_PATH: /root/demetra.log
+      LOG_PATH: /var/log/demetra/api.log
     volumes:
-      - demetra_app_data:/root
-      - ${HOME}:/home/demetra:ro
+      - demetra_app_data:/home/demetra/
+      - .:/srv/demetra/src/
+      - /mnt/data/www/demetra/log/:/var/log/demetra/
+      - .keys/.ssh:/home/demetra/.ssh
+      - .keys/.gnupg:/home/demetra/.gnupg
+      - .keys/.gitconfig:/home/demetra/.gitconfig
+      - .keys/.git-credentials:/home/demetra/.git-credentials
     ports:
       - "127.0.0.1:8001:8001"
     depends_on:
       migrate:
         condition: service_completed_successfully
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
 
   worker:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    image: mantiby/demetra:latest
     command: ["python", "-m", "demetra.worker"]
+    restart: unless-stopped
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
       REDIS_URL: redis://redis:6379/1
-      PARENT_HOME: /home/demetra/
-      LOG_PATH: /root/demetra.log
+      LOG_PATH: /var/log/demetra/worker.log
     volumes:
-      - demetra_app_data:/root
-      - ${HOME}:/home/demetra:ro
+      - demetra_app_data:/home/demetra/
+      - .:/srv/demetra/src/
+      - /mnt/data/www/demetra/log/:/var/log/demetra/
+      - .keys/.ssh:/home/demetra/.ssh
+      - .keys/.gnupg:/home/demetra/.gnupg
+      - .keys/.gitconfig:/home/demetra/.gitconfig
+      - .keys/.git-credentials:/home/demetra/.git-credentials
     deploy:
       replicas: 4
     depends_on:
       migrate:
         condition: service_completed_successfully
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
 
   watcher:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    image: mantiby/demetra:latest
     command: ["python", "-m", "demetra.watcher"]
+    restart: unless-stopped
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
       REDIS_URL: redis://redis:6379/1
-      PARENT_HOME: /home/demetra/
-      LOG_PATH: /root/demetra.log
+      LOG_PATH: /var/log/demetra/worker.log
     volumes:
-      - demetra_app_data:/root
-      - ${HOME}:/home/demetra:ro
+      - demetra_app_data:/home/demetra/
+      - .:/srv/demetra/src/
+      - /mnt/data/www/demetra/log/:/var/log/demetra/
+      - .keys/.ssh:/home/demetra/.ssh
+      - .keys/.gnupg:/home/demetra/.gnupg
+      - .keys/.gitconfig:/home/demetra/.gitconfig
+      - .keys/.git-credentials:/home/demetra/.git-credentials
+    deploy:
+      replicas: 4
     depends_on:
       migrate:
         condition: service_completed_successfully
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
 
   listener:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    image: mantiby/demetra:latest
     command: ["python", "-m", "demetra.listener"]
+    restart: unless-stopped
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
       REDIS_URL: redis://redis:6379/1
-      PARENT_HOME: /home/demetra/
-      LOG_PATH: /root/demetra.log
+      LOG_PATH: /var/log/demetra/listener.log
     volumes:
-      - demetra_app_data:/root
-      - ${HOME}:/home/demetra:ro
+      - demetra_app_data:/home/demetra/
+      - .:/srv/demetra/src/
+      - /mnt/data/www/demetra/log/:/var/log/demetra/
+      - .keys/.ssh:/home/demetra/.ssh
+      - .keys/.gnupg:/home/demetra/.gnupg
+      - .keys/.gitconfig:/home/demetra/.gitconfig
+      - .keys/.git-credentials:/home/demetra/.git-credentials
+    deploy:
+      replicas: 4
     depends_on:
       migrate:
         condition: service_completed_successfully
-      db:
+      postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
 
   rq-dashboard:
-    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
-    command: ["rq-dashboard", "--redis-url", "redis://redis:6379/1", "--port", "9181"]
+    image: mantiby/demetra:latest
+    command:
+      ["rq-dashboard", "--redis-url", "redis://redis:6379/1", "--port", "9181"]
+    restart: unless-stopped
     env_file: .env.docker
     environment:
-      DB_HOST: db
+      DB_HOST: postgres
       REDIS_URL: redis://redis:6379/1
-      PARENT_HOME: /home/demetra/
-      LOG_PATH: /root/demetra.log
+      LOG_PATH: /var/log/demetra/rq-dashboard.log
     ports:
       - "127.0.0.1:9181:9181"
     depends_on:
       redis:
         condition: service_healthy
-    restart: unless-stopped
 
   react-build:
-    image: oven/bun:1
-    working_dir: /app
+    image: oven/bun:latest
+    working_dir: /srv/demetra/src/
     command: ["sh", "-c", "bun install --frozen-lockfile && bun run build"]
-    volumes:
-      - ./react:/app
-      - demetra_react_dist:/app/dist
     restart: "no"
+    volumes:
+      - ./react:/srv/demetra/src
+      - demetra_react_dist:/srv/demetra/src/dist
 
 volumes:
-  demetra_db_data:
-    name: demetra_db_data
+  demetra_postgres_data:
+    name: demetra_postgres_data
   demetra_redis_data:
     name: demetra_redis_data
   demetra_react_dist:
