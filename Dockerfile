@@ -1,4 +1,4 @@
-FROM python:3.13-slim AS builder
+FROM python:3.13.9-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg git \
@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get update && apt-get install -y --no-install-recommends gh \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /uvx /bin/
+COPY --from=ghcr.io/astral-sh/uv:0.7.21 /uv /uvx /bin/
 
 RUN curl -fsSL https://opencode.ai/install | bash
 
@@ -17,34 +17,31 @@ WORKDIR /app/
 
 COPY pyproject.toml uv.lock ./
 
+ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
+
 RUN uv sync --frozen --no-dev --no-cache
 
-FROM python:3.13-slim
+FROM python:3.13.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git gnupg openssh-client gosu \
+    git gnupg openssh-client \
     && rm -rf /var/lib/apt/lists/*
-
-RUN useradd --create-home --shell /bin/bash demetra
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
 COPY --from=builder /usr/bin/gh /usr/bin/gh
 COPY --from=builder /bin/uv /bin/uvx /bin/
-COPY --from=builder /app/.venv /srv/demetra/src/.venv
+COPY --from=builder /opt/venv /opt/venv
+
+RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/
-RUN chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/
+RUN chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
 
-ENV PATH="/srv/demetra/src/.venv/bin:$PATH"
+ENV PATH="/opt/venv/bin:$PATH"
+ENV UV_PATH="/bin/uv"
 
-RUN { \
-        echo '#!/bin/sh'; \
-        echo 'set -e'; \
-        echo 'chown demetra:demetra /home/demetra'; \
-        echo 'exec gosu demetra "$@"'; \
-    } > /usr/local/bin/demetra-entrypoint.sh \
-    && chmod +x /usr/local/bin/demetra-entrypoint.sh
+USER demetra
 
 WORKDIR /srv/demetra/src/
-ENTRYPOINT ["/usr/local/bin/demetra-entrypoint.sh"]
+
 CMD ["python", "main.py", "--help"]

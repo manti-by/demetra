@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [main, workflows, linear, github]
 branch: -
-tickets: []
-tags: [pr, pull-request, error-handling, awaiting-input, linear]
-related: [2026-07-21-awaiting-input-status-for-session.md]
+tickets: [MNT-23, MNT-31]
+tags: [pr, pull-request, error-handling, awaiting-input, linear, status, workflow, github, gh]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md]
 ---
 
 # PR creation failure moves ticket to Awaiting Input
@@ -70,6 +70,25 @@ Extended the `mock_main_deps` fixture to also expose `post_comment` / `update_ti
 `tests/test_entrypoints.py` (full file) and `tests/test_workflows.py` pass; full suite `587 passed`. `ruff`, `ty` and `pre-commit` (incl. bandit) all pass.
 
 ---
+
+## Source — [[2026-02-16-update-ticket-status]]
+
+Originally added in [[2026-02-16-update-ticket-status]] on 2026-02-16 (MNT-23): the
+Linear service exposes `update_ticket_status(ticket_id, state)` (GraphQL mutation) and
+`get_ticket_states(...)` (valid state names for the team). `main.py` moves the ticket to
+`In Progress` before the plan agent runs and to `In Review` after pushing to GitHub.
+Status updates are wrapped so a Linear API failure does not abort the workflow — the
+failure is surfaced, not raised (the current error handling raises `LinearError` for
+malformed payloads; see [[2026-07-16-fix-empty-build-plan-loop]]).
+
+## Source — [[2026-02-21-create-github-pr]]
+
+Originally added in [[2026-02-21-create-github-pr]] on 2026-02-21 (MNT-31): after
+`git push`, the workflow creates the GitHub PR itself via the `gh` CLI — the
+`create_pull_request(branch_name)` service in `demetra/services/github.py` returns
+`(exit_code, stdout, stderr)`. The PR URL is printed and the run continues (including
+the `In Review` ticket update from MNT-23). The `gh` CLI path is configurable via the
+`GH_PATH` setting (default `/usr/bin/gh`).
 
 ## Follow-ups
 

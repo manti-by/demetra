@@ -1,18 +1,46 @@
 name: demetra
 
+x-demetra-env: &demetra-env
+  DB_HOST: postgres
+  REDIS_URL: redis://redis:6379/1
+
+x-demetra-base: &demetra-base
+  image: mantiby/demetra:latest
+  restart: unless-stopped
+  env_file: .env.docker
+
+x-demetra-app: &demetra-app
+  <<: *demetra-base
+  volumes:
+    - demetra_app_data:/home/demetra/
+    - .:/srv/demetra/src/
+    - .keys/.ssh:/home/demetra/.ssh
+    - .keys/.gnupg:/home/demetra/.gnupg
+    - .keys/.gitconfig:/home/demetra/.gitconfig
+    - .keys/.git-credentials:/home/demetra/.git-credentials
+    - ${DEMETRA_LOG_DIR:-./log}:/var/log/demetra/
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:18
     restart: unless-stopped
     container_name: demetra-postgres
+    env_file: .env.docker
     environment:
-      - POSTGRES_DB=demetra
-      - POSTGRES_USER=demetra
-      - POSTGRES_PASSWORD=demetra
+      POSTGRES_DB: ${DB_NAME:-demetra}
+      POSTGRES_USER: ${DB_USER:-demetra}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-demetra}
     volumes:
       - demetra_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U demetra -d demetra"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 12
@@ -31,12 +59,11 @@ services:
       retries: 10
 
   migrate:
-    image: mantiby/demetra:latest
+    <<: *demetra-base
     command: ["alembic", "upgrade", "head"]
     restart: "no"
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
+      <<: *demetra-env
     volumes:
       - .:/srv/demetra/src/
     depends_on:
@@ -44,132 +71,53 @@ services:
         condition: service_healthy
 
   api:
-    image: mantiby/demetra:latest
+    <<: *demetra-app
     command:
       [
         "uvicorn",
         "demetra.app:app",
         "--host",
-        "127.0.0.1",
+        "0.0.0.0",
         "--port",
         "8001",
         "--workers",
         "4",
       ]
-    restart: unless-stopped
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
-      REDIS_URL: redis://redis:6379/1
+      <<: *demetra-env
       LOG_PATH: /var/log/demetra/api.log
-    volumes:
-      - demetra_app_data:/home/demetra/
-      - .:/srv/demetra/src/
-      - /mnt/data/www/demetra/log/:/var/log/demetra/
-      - .keys/.ssh:/home/demetra/.ssh
-      - .keys/.gnupg:/home/demetra/.gnupg
-      - .keys/.gitconfig:/home/demetra/.gitconfig
-      - .keys/.git-credentials:/home/demetra/.git-credentials
     ports:
       - "127.0.0.1:8001:8001"
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   worker:
-    image: mantiby/demetra:latest
+    <<: *demetra-app
     command: ["python", "-m", "demetra.worker"]
-    restart: unless-stopped
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
-      REDIS_URL: redis://redis:6379/1
+      <<: *demetra-env
       LOG_PATH: /var/log/demetra/worker.log
-    volumes:
-      - demetra_app_data:/home/demetra/
-      - .:/srv/demetra/src/
-      - /mnt/data/www/demetra/log/:/var/log/demetra/
-      - .keys/.ssh:/home/demetra/.ssh
-      - .keys/.gnupg:/home/demetra/.gnupg
-      - .keys/.gitconfig:/home/demetra/.gitconfig
-      - .keys/.git-credentials:/home/demetra/.git-credentials
     deploy:
       replicas: 4
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   watcher:
-    image: mantiby/demetra:latest
+    <<: *demetra-app
     command: ["python", "-m", "demetra.watcher"]
-    restart: unless-stopped
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
-      REDIS_URL: redis://redis:6379/1
-      LOG_PATH: /var/log/demetra/worker.log
-    volumes:
-      - demetra_app_data:/home/demetra/
-      - .:/srv/demetra/src/
-      - /mnt/data/www/demetra/log/:/var/log/demetra/
-      - .keys/.ssh:/home/demetra/.ssh
-      - .keys/.gnupg:/home/demetra/.gnupg
-      - .keys/.gitconfig:/home/demetra/.gitconfig
-      - .keys/.git-credentials:/home/demetra/.git-credentials
-    deploy:
-      replicas: 4
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      <<: *demetra-env
+      LOG_PATH: /var/log/demetra/watcher.log
 
   listener:
-    image: mantiby/demetra:latest
+    <<: *demetra-app
     command: ["python", "-m", "demetra.listener"]
-    restart: unless-stopped
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
-      REDIS_URL: redis://redis:6379/1
+      <<: *demetra-env
       LOG_PATH: /var/log/demetra/listener.log
-    volumes:
-      - demetra_app_data:/home/demetra/
-      - .:/srv/demetra/src/
-      - /mnt/data/www/demetra/log/:/var/log/demetra/
-      - .keys/.ssh:/home/demetra/.ssh
-      - .keys/.gnupg:/home/demetra/.gnupg
-      - .keys/.gitconfig:/home/demetra/.gitconfig
-      - .keys/.git-credentials:/home/demetra/.git-credentials
-    deploy:
-      replicas: 4
-    depends_on:
-      migrate:
-        condition: service_completed_successfully
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
 
   rq-dashboard:
-    image: mantiby/demetra:latest
+    <<: *demetra-base
     command:
       ["rq-dashboard", "--redis-url", "redis://redis:6379/1", "--port", "9181"]
-    restart: unless-stopped
-    env_file: .env.docker
     environment:
-      DB_HOST: postgres
-      REDIS_URL: redis://redis:6379/1
+      <<: *demetra-env
       LOG_PATH: /var/log/demetra/rq-dashboard.log
     ports:
       - "127.0.0.1:9181:9181"
@@ -178,20 +126,17 @@ services:
         condition: service_healthy
 
   react-build:
-    image: oven/bun:latest
+    image: oven/bun:1
     working_dir: /srv/demetra/src/
     command: ["sh", "-c", "bun install --frozen-lockfile && bun run build"]
     restart: "no"
     volumes:
       - ./react:/srv/demetra/src
-      - demetra_react_dist:/srv/demetra/src/dist
 
 volumes:
   demetra_postgres_data:
     name: demetra_postgres_data
   demetra_redis_data:
     name: demetra_redis_data
-  demetra_react_dist:
-    name: demetra_react_dist
   demetra_app_data:
     name: demetra_app_data

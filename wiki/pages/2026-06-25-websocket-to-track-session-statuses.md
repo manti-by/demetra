@@ -4,11 +4,11 @@ date: 2026-06-25
 type: implementation
 status: resolved
 session_id: -
-services: [api, react, workflows]
+services: [api, react, workflows, sessions]
 branch: -
-tickets: [MNT-101]
-tags: [websocket, json, status, react, logs, streaming]
-related: []
+tickets: [MNT-101, MNT-54]
+tags: [websocket, json, status, react, logs, streaming, sessions, isolation]
+related: [2026-03-09-isolate-user-sessions.md]
 ---
 
 # Websocket to track session statuses
@@ -62,6 +62,17 @@ The workflow sends a status message whenever the session status changes in the D
 Tests for the websocket message shape and for the sidebar/session rendering on both `log` and `status` frames.
 
 ---
+
+## Source — [[2026-03-09-isolate-user-sessions]]
+
+Originally added in [[2026-03-09-isolate-user-sessions]] on 2026-03-09 (MNT-54): each
+workflow run writes its log to a **per-session log file** — written to a temp file
+first, then renamed to the session's task id once known, under a centralized
+append-only log directory (`LOG_PATH`/`sessions`). This per-session file layout is
+exactly what the MNT-101 websocket tails, and the MNT-53 → MNT-101 streaming line
+above exists to surface it. The MNT-101 Step 4 "emit only on actual change" rule also
+keeps `Session` updates minimal, matching MNT-54's dedup intent. Session ids are
+validated as UUIDs.
 
 ## Follow-ups
 

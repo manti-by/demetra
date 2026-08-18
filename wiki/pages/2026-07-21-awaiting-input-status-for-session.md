@@ -4,11 +4,11 @@ date: 2026-07-21
 type: implementation
 status: resolved
 session_id: -
-services: [sessions, workflows, linear]
+services: [sessions, workflows, linear, main]
 branch: -
-tickets: [MNT-140]
-tags: [awaiting-input, session-status, linear]
-related: []
+tickets: [MNT-140, MNT-30]
+tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
+related: [2026-02-23-plan-agent-output-triggers.md]
 ---
 
 # Awaiting Input status for session
@@ -44,6 +44,17 @@ Workflows can now record custom failure states instead of a single generic `Fail
 Tests cover the new session state, the transition after posting questions, and that Awaiting Input survives cleanup/history updates.
 
 ---
+
+## Source — [[2026-02-23-plan-agent-output-triggers]]
+
+Originally added in [[2026-02-23-plan-agent-output-triggers]] on 2026-02-23 (MNT-30):
+the plan agent's output markers drive the workflow. `PLAN_IS_READY_STRING` triggers an
+automatic build with no user input; when `PLAN_HAS_QUESTIONS` is present the workflow
+extracts the questions, posts them as a Linear comment, and moves the ticket to an
+awaiting-input state — and does **not** post the build plan (only the questions).
+`--auto` runs this headless; interactively the loop waits for user input. This page
+(MNT-140) later made that awaiting-input state a first-class `Session` state instead of
+a generic `Failed`.
 
 ## Follow-ups
 

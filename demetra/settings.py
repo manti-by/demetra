@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
@@ -18,6 +17,7 @@ from demetra.services.runtime.utils import (
     env_get_path,
     env_get_str,
     get_cookie_samesite,
+    parse_os_env_project_optins,
 )
 
 
@@ -99,35 +99,6 @@ OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
         "ALL_PROXY",
     }
 )
-
-_OS_ENV_OPTIN_PATTERN = re.compile(r"(?P<project_id>[^=]+)=(?P<keys>[^;]*)")
-
-
-def parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:
-    """Parse the ``OS_ENV_PROJECT_OPTINS`` env var into a project opt-in registry.
-
-    The value is a semicolon-separated list of ``PROJECT_ID=KEY1,KEY2`` pairs,
-    e.g. ``project-a=GITHUB_TOKEN,GITHUB_ACTIONS;project-b=AWS_PROFILE``.
-
-    Args:
-        raw: The raw env var value, or None.
-
-    Returns:
-        dict[str, list[str]]: Mapping of project id to the list of extra OS
-            env keys that may be forwarded for that project.
-    """
-    if not raw:
-        return {}
-    optins: dict[str, list[str]] = {}
-    for part in raw.split(";"):
-        match = _OS_ENV_OPTIN_PATTERN.fullmatch(part.strip())
-        if not match:
-            continue
-        project_id = match.group("project_id").strip()
-        keys = [key.strip() for key in match.group("keys").split(",") if key.strip()]
-        if project_id and keys:
-            optins[project_id] = keys
-    return optins
 
 
 OS_ENV_PROJECT_OPTINS = parse_os_env_project_optins(env_get_str("OS_ENV_PROJECT_OPTINS", None))
@@ -245,7 +216,7 @@ JWT: JWTConfig = {
 
 GROQ: GroqConfig = {
     "api_key": env_get_str("GROQ_API_KEY", None),
-    "model": env_get_str("GROQ_MODEL", "llama-3.1-8b-instant"),
+    "model": env_get_str("GROQ_MODEL", "openai/gpt-oss-120b"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

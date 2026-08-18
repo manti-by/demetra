@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [workflows, review]
 branch: -
-tickets: [MNT-87]
-tags: [review, async, parallelism]
-related: []
+tickets: [MNT-87, MNT-35]
+tags: [review, async, parallelism, multiagent, cursor, coderabbit]
+related: [2026-02-23-add-multiagent-code-review.md]
 ---
 
 # Async review
@@ -51,6 +51,16 @@ Fixed the review test mocks to match the parallel execution, and added the sessi
 Review tests were updated and pass with the parallel execution model.
 
 ---
+
+## Source — [[2026-02-23-add-multiagent-code-review]]
+
+Originally added in [[2026-02-23-add-multiagent-code-review]] on 2026-02-23 (MNT-35):
+the review stage runs **three agents — opencode, cursor, and coderabbit** — and
+consolidates their output into one set of comments. The consolidated comments go back
+to the build agent for another iteration; if there are none, the workflow proceeds to
+lint. Build and review steps were moved out of `main.py` into their own files here (a
+precursor to the full `demetra/workflows/` layout of MNT-37), and role-based agent
+config controls tool permissions per role (plan/build/review).
 
 ## Follow-ups
 

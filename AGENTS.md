@@ -23,8 +23,10 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (45+ files)
+- `tests/`: Comprehensive test suite (50+ files)
 - `configs/`: Systemd service files, nginx config
+- `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
+- `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and command definitions
 - `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`)
 
@@ -90,12 +92,18 @@ From the project root, after creating a virtualenv and installing dependencies:
 uv run main.py --project-name <project_name>
 ```
 
+### Containerized Deploy
+
+```bash
+make docker-deploy
+```
+
 ## Language & Environment
 
 - Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
-- Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exception: prompt-template substitution in `demetra/services/prompt.py`)
+- Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exception: prompt-template substitution in `demetra/services/llm/prompt.py`)
 - Use list/dict/set comprehensions instead of `map`/`filter` where it improves readability
 - Prefer `pathlib.Path` over `os.path` for filesystem paths
 - Follow PEP 257 for docstrings where docstrings are used
@@ -129,7 +137,7 @@ uv run bandit -c pyproject.toml .
 
 **Architecture** (strict layering, no skipping):
 - `demetra/library/` — pure: dataclasses, TypedDicts, exceptions. No I/O.
-- `demetra/services/<system>.py` — one external system per file; subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
+- `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); `demetra/services/__init__.py` keeps a relocation shim so the old flat import paths still resolve. Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*`.
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
 - `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
@@ -172,7 +180,7 @@ Demetra coordinates the following external tools:
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
-- **Groq**: LLM API for plan/review summarisation (`demetra/services/groq.py`)
+- **Groq**: LLM API for plan/review summarisation (`demetra/services/llm/groq.py`)
 
 ## Security Guidelines
 

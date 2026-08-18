@@ -4,11 +4,11 @@ date: 2026-06-09
 type: investigation
 status: resolved
 session_id: -
-services: [linear, graphql]
+services: [linear, graphql, auth]
 branch: -
-tickets: [MNT-103]
-tags: [linear, comments, research]
-related: []
+tickets: [MNT-103, MNT-34, MNT-60]
+tags: [linear, comments, research, oauth, tokens, graphql]
+related: [2026-02-23-linear-oauth-2.0.md, 2026-03-11-separate-linear-comments.md]
 ---
 
 # Check Linear ticket text
@@ -48,6 +48,26 @@ The watcher/log socket accepts a `token` query parameter in dev, so the frontend
 None — the research outcome was applied directly in the same PR.
 
 ---
+
+## Source — [[2026-02-23-linear-oauth-2.0]]
+
+Originally added in [[2026-02-23-linear-oauth-2.0]] on 2026-02-23 (MNT-34): the Linear
+integration authenticates via **OAuth 2.0** (replacing a static header token) so
+comments/updates are posted on behalf of a bot. The OAuth service handles token
+persistence between runs, expiry validation before each use, and auto-refresh, and
+every Linear API call is authorized dynamically through it. Credentials are
+env-configurable: `LINEAR_CLIENT_ID` / `LINEAR_CLIENT_SECRET` in `demetra/settings.py`.
+`--auto` CLI mode was added here.
+
+## Source — [[2026-03-11-separate-linear-comments]]
+
+Originally added in [[2026-03-11-separate-linear-comments]] on 2026-03-11 (MNT-60): a
+`comments` field is bound to the Linear task model and synced via GraphQL (the sync
+never deletes comments — it only reflects what Linear holds). `LinearTask.text`
+includes the task's comments so downstream summarization and plan steps have the full
+discussion context. Plan questions are posted as **individual Linear comments, one per
+question**, instead of one aggregated comment — a human can answer each thread
+individually. This is the model the comment rendering above builds on.
 
 ## Follow-ups
 

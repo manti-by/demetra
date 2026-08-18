@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [api, react]
 branch: -
-tickets: [MNT-84]
-tags: [sessions, api, react, title]
-related: []
+tickets: [MNT-84, MNT-59]
+tags: [sessions, api, react, title, sidebar, websocket]
+related: [2026-03-10-ui-for-sessions.md]
 ---
 
 # Use task title for session listing
@@ -50,6 +50,15 @@ Improved the API auth error messages surfaced to the client during session reque
 Tests were updated for the new name field and status filtering.
 
 ---
+
+## Source — [[2026-03-10-ui-for-sessions]]
+
+Originally added in [[2026-03-10-ui-for-sessions]] on 2026-03-10 (MNT-59): the session
+list UI came together here — a collapsible sidebar that minimizes to an icon, the
+session list fed by `GET /api/v1/sessions` (including `pending` statuses from the
+watcher/process-manager), and a `LogConsole` component that opens a websocket per
+`task_id`. This is the layout MNT-84's title-based listing and the later
+`SessionSidebar`/`LogConsole` components build on.
 
 ## Follow-ups
 

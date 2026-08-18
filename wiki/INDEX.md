@@ -7,9 +7,9 @@ by the plugin.
 
 ## Pages
 
+- [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — DRY refactor of the merged compose: `x-demetra-env` / `x-demetra-base` / `x-demetra-app` YAML anchors shared across migrate/api/worker/watcher/listener/rq-dashboard via `<<:`; each service declares only `command`, `LOG_PATH`, `ports`, `replicas`; render-diff-verified equivalent (2026-08-18)
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — code review of the in-progress `mnt-164-docker-compose` branch: 20 findings — 7 blockers (no source COPY, venv path mismatch, WORKDIR typo, missing healthchecks, watcher/listener DB_HOST, image-tag mismatch, missing psycopg-binary), 1 security-critical (`.keys/` baked into image via missing `.dockerignore` entry), 1 security regression (api + rq-dashboard published on `0.0.0.0` instead of loopback) (2026-08-17)
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: parallel `docker-compose.yaml` path (Postgres + Redis + api/worker x4/watcher/listener/rq-dashboard + one-shot React build) on `mantiby/demetra`; `make docker-deploy` + `docker-*` targets; runtime fixes: pg18 mount, LOG_PATH, one-shot sequencing, rq-dashboard loopback, app-data volume, psycopg-binary (2026-08-10)
-- [MNT-164: Docker compose](pages/2026-08-10-mnt-164-docker-compose.md) — Implementation of MNT-164: Docker compose (2026-08-10)
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: OS (allowlisted) → user-shared → project → step merged in one `build_subprocess_env`; Fernet encryption via `DEMETRA_SECRET_KEY`; sensitive-key masking (`TOKEN|SECRET|KEY|PASSWORD`); `/users/me/env` CRUD; per-project `uv venv` bootstrap; FE Shared Environment screen + client-side `.env` upload (2026-08-10)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 CodeRabbit findings on PR #75: `password_version` column closes the reset-token snapshot race, `authFetch`/`authenticatedFetch` handle `Request` inputs, `env_get_int` rejects negative defaults, `get_transaction` named arg, Step 6 wiki doc synced; migration a4b5c6d7e8f9, 739 passed in 4.95s (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 review findings (v1.15.4..HEAD): cross-origin auth cookies restored, `env_get_int` rejects negatives, validate-agent marker filter, `get_transaction()` atomicity for reset_password/delete_project, dedup keeps distinct tickets, porcelain `-z` parsing, typed auth exceptions; 1.16.3, 737 passed in 4.84s (2026-08-09)
@@ -69,42 +69,13 @@ by the plugin.
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — MNT-88: removed `demetra/api/tickets.py` + `demetra/services/ticket_provider.py` in favor of the Linear-native flow (2026-05-25)
 - [Async review](pages/2026-05-25-async-review.md) — MNT-87: review agents run in parallel; `merge_review_results` handles `None` output; no empty commits (2026-05-25)
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — MNT-84: sessions API with status filter; session list shows task title with truncated-id fallback (2026-05-22)
-- [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — MNT-63: user-scoped tasks/sessions, `task_status` merged into `sessions` with `user_id`/`project_id` (2026-04-02)
-- [Project model and space](pages/2026-03-31-project-model-and-space.md) — MNT-75: `Project` DB model with clone + Postgres role/db provisioning on add, user-scoped CRUD, React list (2026-03-31)
-- [Add SQLAlchemy Core support](pages/2026-03-13-sqlalchemy-core-support.md) — MNT-62: raw SQL replaced with SQLAlchemy Core, Alembic added, Postgres-backed transactional tests (2026-03-13)
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: `extract_plan` moved to `groq.py`, Groq+llama summarizes plan + task description + comments; supersedes MNT-20 marker-trimming (2026-03-11)
-- [Separate Linear comments](pages/2026-03-11-separate-linear-comments.md) — MNT-60: one Linear comment per question; GraphQL-synced `comments` on the task model (2026-03-11)
-- [UI for sessions](pages/2026-03-10-ui-for-sessions.md) — MNT-59: collapsible sidebar, `/api/v1/sessions` list with statuses, LogConsole websocket per task id (2026-03-10)
-- [Add user setting to the frontend app](pages/2026-03-09-user-settings-frontend.md) — MNT-57: React user-settings component editing `keys` pairs, PATCHed to the user API (2026-03-09)
-- [Isolate user sessions](pages/2026-03-09-isolate-user-sessions.md) — MNT-54: per-session log files (ticket-keyed or temp+rename), append-only, websocket scoped to the session (2026-03-09)
-- [Encrypted user settings](pages/2026-03-09-encrypted-user-settings.md) — MNT-56: encrypted `keys` field on `User` with `SECRET_KEY`/`ENCRYPTION_SALT` and a user-update API (2026-03-09)
-- [Worktree path already exists](pages/2026-03-05-worktree-path-already-exists.md) — MNT-47: `create_worktree` detects and cleans a stale worktree reference/path before creating fresh (2026-03-05)
-- [Postgres Support](pages/2026-03-05-postgres-support.md) — MNT-51: replaced SQLite with async PostgreSQL (`psycopg-binary`) and env-driven `DB_*` settings (2026-03-05)
-- [Add support for GitHub login](pages/2026-03-05-github-login.md) — MNT-48: GitHub OAuth login on the FastAPI backend with token-based sessions (login/logout/current-user), models, README setup (2026-03-05)
-- [GitHub login for React app](pages/2026-03-05-github-login-react-app.md) — MNT-50: GitHub login button wired to FastAPI with loading state and greeting/sign-in conditional rendering (2026-03-05)
-- [Add basic React app](pages/2026-03-04-basic-react-app.md) — MNT-49: scaffolded the React (TS + Vite) app under `react/` built with bun, theme, Makefile targets, Vitest tests, systemd service (2026-03-04)
-- [Process manager](pages/2026-03-02-process-manager.md) — MNT-40: `watcher.py` polls Linear TODO every 5 min, spawns workflow per task (up to `num_cpu-1`), `sessions.status` column, systemd config (2026-03-02)
-- [Create LLM test script](pages/2026-02-26-create-llm-test-script.md) — MNT-41: LangChain+Groq harness runs LLMs x parsers to extract questions; fed the MNT-61/MNT-98 chains (2026-02-26)
-- [Save build plan to a database](pages/2026-02-23-save-build-plan-to-database.md) — MNT-39: `build_plan` + `posted_to_linear` columns on `sessions`; existing plan skips planning; double-post guarded (2026-02-23)
-- [Refactor workflow into modular steps](pages/2026-02-23-refactor-workflow-into-modular-steps.md) — MNT-37: `main.py` split into `demetra/workflows/*.py` (worktree helper, plan agent, lint/test runner, finalize, centralized cleanup) (2026-02-23)
-- [Plan agent output triggers](pages/2026-02-23-plan-agent-output-triggers.md) — MNT-30: `PLAN_IS_READY_STRING` auto-builds, `PLAN_HAS_QUESTIONS` posts questions and parks ticket in awaiting-input; `--auto` flag (2026-02-23)
-- [Linear OAuth 2.0](pages/2026-02-23-linear-oauth-2.0.md) — MNT-34: OAuth 2.0 service with token persistence/expiry/auto-refresh and dynamic authorization of every Linear call; `--auto` mode (2026-02-23)
-- [Add multiagent code review](pages/2026-02-23-add-multiagent-code-review.md) — MNT-35: review consolidates opencode + cursor + coderabbit, sending comments back to build or proceeding to lint; role-based tool config (2026-02-23)
-- [OpenCode sessions isolation](pages/2026-02-21-opencode-sessions-isolation.md) — MNT-22: investigation — OpenCode `run` accepts a custom `--session` id, now passed per workflow step and stored on `sessions`, unblocking parallel workflows (2026-02-21)
-- [Create GitHub PR](pages/2026-02-21-create-github-pr.md) — MNT-31: `gh`-CLI PR service from `branch_name` after push, prints PR URL, `GH_PATH` setting (2026-02-21)
-- [Add a build plan to linear task](pages/2026-02-21-add-build-plan-to-linear-task.md) — MNT-29: async post-comment Linear service wired in right after the plan step (2026-02-21)
-- [Add pre-commit checks and tests](pages/2026-02-20-add-pre-commit-checks-and-tests.md) — MNT-21: `make check` + `make test` subprocess runners after build, feeding failures back to the build agent (2026-02-20)
-- [Update ticket status](pages/2026-02-16-update-ticket-status.md) — MNT-23: `update_ticket_status` + `get_ticket_states` GraphQL services; `main.py` sets In Progress/In Review; graceful fallback (2026-02-16)
-- [Subagent output streaming](pages/2026-02-15-subagent-output-streaming.md) — MNT-18: subagent stdout/stderr streams line-by-line via `run_command` + `live_stream` helper, with a `disable_stdio` opt-out (2026-02-15)
-- [Git cleanup on error](pages/2026-02-15-git-cleanup-on-error.md) — MNT-19: `cleanup_workflow` always removes the worktree and force-deletes the branch on error, guarded against `None` context (2026-02-15)
-- [Add TUI support](pages/2026-02-14-add-tui-support.md) — MNT-17: chose a Rich-based `print_message` TUI service; `main.py` became an interactive plan/build/review loop with `--auto`/`--project-name` flags (2026-02-14)
 _Newest first._
 
 ## By topic
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (17 pages)
+### Workflow orchestration & agents (10 pages)
 
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — validate-agent marker filter; all 7 review findings (v1.15.4..HEAD)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 blocked: `env_get_list` regression empties `OPENCODE_REVIEW_MODELS`, branch behind master, 3 CodeRabbit threads open
@@ -116,15 +87,8 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Review summarization](pages/2026-06-04-review-summarization.md) — MNT-98: Groq+llama review findings summary
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — MNT-79: resolve-agent loop between plan and resolve agents
 - [Async review](pages/2026-05-25-async-review.md) — MNT-87: parallel review agents
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — MNT-61: Groq+llama plan summarization in groq.py; supersedes MNT-20 marker-trimming
-- [Refactor workflow into modular steps](pages/2026-02-23-refactor-workflow-into-modular-steps.md) — MNT-37: `main.py` split into `demetra/workflows/*.py`
-- [Plan agent output triggers](pages/2026-02-23-plan-agent-output-triggers.md) — MNT-30: `--auto` plan output triggers (build / questions)
-- [Add multiagent code review](pages/2026-02-23-add-multiagent-code-review.md) — MNT-35: opencode + cursor + coderabbit review consolidation
-- [OpenCode sessions isolation](pages/2026-02-21-opencode-sessions-isolation.md) — MNT-22: custom `--session` ids per workflow step
-- [Add pre-commit checks and tests](pages/2026-02-20-add-pre-commit-checks-and-tests.md) — MNT-21: `make check`/`make test` after build
-- [Subagent output streaming](pages/2026-02-15-subagent-output-streaming.md) — MNT-18: live subprocess output streaming
 
-### Sessions, status & resume (10 pages)
+### Sessions, status & resume (7 pages)
 
 - [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — unified StepType/VALID_STEPS, API `status`→`step`
 - [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — MNT-101: typed JSON websocket (`log`/`status`); supersedes MNT-53
@@ -133,11 +97,8 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — MNT-83: `step` field for resuming interrupted workflows
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — MNT-86: delete session + related records
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — MNT-84: task title in session list
-- [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — MNT-63: user/project scoping, task_status merge
-- [UI for sessions](pages/2026-03-10-ui-for-sessions.md) — MNT-59: sidebar session list + websocket
-- [Isolate user sessions](pages/2026-03-09-isolate-user-sessions.md) — MNT-54: per-session log files
 
-### React frontend / UI (9 pages)
+### React frontend / UI (7 pages)
 
 - [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — Favicon set from logo.svg
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — history endpoint + SessionHistory component
@@ -146,22 +107,8 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — MNT-113: `marked` in the build-plan modal
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md) — MNT-92: CSS truncation of session titles
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — MNT-77: `hera` → `react`
-- [Add user setting to the frontend app](pages/2026-03-09-user-settings-frontend.md) — MNT-57: user-settings component
-- [Add basic React app](pages/2026-03-04-basic-react-app.md) — MNT-49: React scaffold (Vite + bun)
 
-### Linear & GitHub integrations (9 pages)
-
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `except PullRequestError` posts Linear comment + moves ticket to Awaiting Input, session step `awaiting_input`
-- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — listener mark-read gating + attempts cap
-- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq PR description
-- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: renderer + comment metadata
-- [Separate Linear comments](pages/2026-03-11-separate-linear-comments.md) — MNT-60: one comment per question
-- [Linear OAuth 2.0](pages/2026-02-23-linear-oauth-2.0.md) — MNT-34: OAuth tokens, refresh, bot auth
-- [Create GitHub PR](pages/2026-02-21-create-github-pr.md) — MNT-31: `gh` PR creation
-- [Add a build plan to linear task](pages/2026-02-21-add-build-plan-to-linear-task.md) — MNT-29: post plan as comment
-- [Update ticket status](pages/2026-02-16-update-ticket-status.md) — MNT-23: In Progress/In Review transitions
-
-### Authentication & API security (9 pages)
+### Authentication & API security (6 pages)
 
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — cross-origin auth cookies, typed auth exceptions, atomic reset_password/delete_project
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — MNT-155: allowlist review fixes (admin-by-github-id, seed validation)
@@ -169,25 +116,25 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — passlib→bcrypt swap, env-configurable cookie SameSite and CORS origins
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth with bcrypt, JWT cookies, React form
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — Investigation; produced MNT-148
-- [Encrypted user settings](pages/2026-03-09-encrypted-user-settings.md) — MNT-56: encrypted `keys` on `User`
-- [GitHub login for React app](pages/2026-03-05-github-login-react-app.md) — MNT-50: GitHub login button
-- [Add support for GitHub login](pages/2026-03-05-github-login.md) — MNT-48: GitHub OAuth on the backend
 
-### Database & migrations (5 pages)
+### Linear & GitHub integrations (4 pages)
+
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `except PullRequestError` posts Linear comment + moves ticket to Awaiting Input, session step `awaiting_input`
+- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — listener mark-read gating + attempts cap
+- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq PR description
+- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: renderer + comment metadata
+
+### Database & migrations (2 pages)
 
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — NULL token columns from pipe truncation
 - [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md) — MNT-99: squashed migration baseline
-- [Add SQLAlchemy Core support](pages/2026-03-13-sqlalchemy-core-support.md) — MNT-62: SQLAlchemy Core + Alembic + transactional tests
-- [Postgres Support](pages/2026-03-05-postgres-support.md) — MNT-51: SQLite → async PostgreSQL
-- [Save build plan to a database](pages/2026-02-23-save-build-plan-to-database.md) — MNT-39: `build_plan`/`posted_to_linear` columns
 
-### API & services (5 pages)
+### API & services (4 pages)
 
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: 3-layer env merge + encryption + venv + .env upload
 - [Project environment](pages/2026-06-08-project-environment.md) — MNT-110: per-project env vars
 - [Refactor API](pages/2026-06-01-refactor-api.md) — MNT-81: router package split
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — MNT-88: removed tickets.py + ticket_provider.py
-- [Project model and space](pages/2026-03-31-project-model-and-space.md) — MNT-75: Project model + provisioning
 
 ### Context, tokens & compaction (3 pages)
 
@@ -207,13 +154,11 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — wiki tools over MCP
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — mcp 2.0 migration
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — MNT-90: standalone `mcp_server.py`
-- [MNT-164: Docker compose](pages/2026-08-10-mnt-164-docker-compose.md) — 2026-08-10
 
-### Testing & tooling (3 pages)
+### Testing & tooling (2 pages)
 
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — FEATURES dict gating
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — MNT-106: fixtures/factories + Docker
-- [Create LLM test script](pages/2026-02-26-create-llm-test-script.md) — MNT-41: LLM x parser question-extraction harness
 
 ### Docs, feature flags & release tooling (3 pages)
 
@@ -223,20 +168,14 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 
 ### Deploy & infrastructure (4 pages)
 
+- [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — behavior-preserving YAML-anchor DRY refactor of the merged compose
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — code review of in-progress branch: 7 blockers + 1 security-critical (`.keys/` baked into image)
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — MNT-164: docker-compose parallel deploy path (api/worker/watcher/listener/rq-dashboard + React build)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — MNT-119: Makefile deploy + bootstrap.sh + systemd
-- [Process manager](pages/2026-03-02-process-manager.md) — MNT-40: watcher daemon + systemd
 
-### Git & worktrees (2 pages)
-
-- [Worktree path already exists](pages/2026-03-05-worktree-path-already-exists.md) — MNT-47: worktree cleanup
-- [Git cleanup on error](pages/2026-02-15-git-cleanup-on-error.md) — MNT-19: worktree/branch cleanup on error
-
-### TUI & CLI (2 pages)
+### TUI & CLI (1 page)
 
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — MNT-136: markup escaping in `print_message`
-- [Add TUI support](pages/2026-02-14-add-tui-support.md) — MNT-17: Rich-based TUI + interactive loop
 
 ### Subprocess & timeouts (1 page)
 

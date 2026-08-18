@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [database, subprocess, workflows]
 branch: -
-tickets: [MNT-110]
-tags: [environment, subprocess, per-project]
-related: []
+tickets: [MNT-110, MNT-75]
+tags: [environment, subprocess, per-project, projects, provisioning, postgres]
+related: [2026-03-31-project-model-and-space.md]
 ---
 
 # Project environment
@@ -53,6 +53,17 @@ Review/build/resolve workflows and agent executions honor the overrides.
 Tests cover the `Environment` model, the cached dict construction, and that subprocess calls receive the merged per-project environment.
 
 ---
+
+## Source — [[2026-03-31-project-model-and-space]]
+
+Originally added in [[2026-03-31-project-model-and-space]] on 2026-03-31 (MNT-75): the
+`Project` model (user_id, linear_project_id, name, repository_url) and its table were
+introduced here, with user-scoped CRUD, replacing the earlier `LINEAR["projects"]`
+config-driven approach. A project's workspace is provisioned at
+`~/.demetra/projects/<owner>/<repo>/` with a git clone and a dedicated Postgres
+role/database (names slugified). This is the model this page's `Project` dataclass and
+`Environment` records hang off, and the origin of the per-project workspace the
+MNT-161 UV venv lives in.
 
 ## Follow-ups
 

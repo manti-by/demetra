@@ -4,11 +4,11 @@ date: 2026-08-10
 type: implementation
 status: resolved
 session_id: -
-services: [deploy, configs]
+services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
-tickets: [MNT-164]
-tags: [docker, compose, deploy, makefile]
-related: [2026-07-07-project-deploy-script.md]
+tickets: [MNT-164, MNT-40]
+tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon]
+related: [2026-07-07-project-deploy-script.md, 2026-08-18-compose-anchors-refactor.md, 2026-03-02-process-manager.md]
 ---
 
 # Docker Compose deploy
@@ -71,6 +71,10 @@ New targets beside the existing `docker-build`/`deploy` targets, all passing `--
 
 Running `migrate` inside the image exposed a latent packaging bug: `psycopg==3.3.4` is declared pure, and the slim base image has neither `psycopg-binary` nor system libpq, so `alembic upgrade head` died with `ImportError: no pq wrapper available`. The systemd path never hit this — it runs alembic on the host, where brew libpq satisfies psycopg. `psycopg-binary==3.3.4` (removed in an earlier "Review updates" commit) was restored to the dependencies; it is inert on the host and bundles libpq in the image. No `Dockerfile` change was needed — the image's `uv sync` picks it up.
 
+## Session note
+
+Implementation session on branch `mnt-164-docker-compose` (OpenCode session `ses_013d53a7fffeEP8eYmZpldT5PW`).
+
 ## Test Results
 
 - `docker compose --env-file .env.docker config -q` passes; rendered config shows the healthchecks, the `service_completed_successfully` gates on `api`/`worker`/`watcher`/`listener`, and `deploy.replicas: 4` on `worker`.
@@ -84,6 +88,16 @@ Running `migrate` inside the image exposed a latent packaging bug: `psycopg==3.3
 
 ---
 
+## Source — [[2026-03-02-process-manager]]
+
+Originally added in [[2026-03-02-process-manager]] on 2026-03-02 (MNT-40): the
+`watcher` process polls Linear's `TODO` queue every 5 minutes and spawns one
+`main.py` subprocess per pending task, up to `num_cpu - 1` in parallel. Each run is
+tracked in `sessions` with status `pending` → `processed` (only on full success) or
+`failed` (returned to `TODO` for retry). The compose `watcher`/`worker` services and
+the four workers above are the containerized continuation of this daemon design; the
+original also shipped systemd unit files in `configs/` (the pre-MNT-119 deploy path).
+
 ## Follow-ups
 
 - Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; bridging the compose `demetra_react_dist` volume to that path (bind-mount or copy) is an operator step, not automated.
@@ -91,4 +105,5 @@ Running `migrate` inside the image exposed a latent packaging bug: `psycopg==3.3
 ## References
 
 - Related: [[2026-07-07-project-deploy-script]]
+- Related: [[2026-08-18-compose-anchors-refactor]] (the compose was later DRY-refactored onto shared YAML anchors)
 - External: [MNT-164 — Docker compose (Linear)](https://linear.app/mnt/issue/MNT-164)
