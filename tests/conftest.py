@@ -105,6 +105,21 @@ async def setup_test_db(test_db_engine):
         await _test_db_engine.dispose()
 
 
+@pytest_asyncio.fixture(autouse=True)
+async def dispose_cached_engines():
+    """Dispose per-event-loop engines and return their connections after each test.
+
+    Async tests run on fresh event loops (pytest-asyncio 1.x), so every
+    DB-touching test registers a new engine keyed by loop id in
+    ``_engine_cache``. Disposing all cached engines here closes their pooled
+    Postgres connections and prevents connection exhaustion across the suite.
+    """
+    yield
+    for engine in _engine_cache.values():
+        await engine.dispose()
+    _engine_cache.clear()
+
+
 @pytest_asyncio.fixture(scope="function")
 async def db_connection(test_db_engine, setup_test_db):
     async_session_maker = get_async_session_maker(test_db_engine)

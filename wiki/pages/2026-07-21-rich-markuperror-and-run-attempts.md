@@ -4,11 +4,11 @@ date: 2026-07-21
 type: debug
 status: resolved
 session_id: -
-services: [watcher, tui]
+services: [watcher, tui, main]
 branch: -
-tickets: [MNT-136]
-tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents]
-related: []
+tickets: [MNT-136, MNT-17]
+tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation]
+related: [2026-02-14-add-tui-support.md]
 ---
 
 # Rich MarkupError kills workflow subprocess and run_attempts counter overcounts
@@ -233,6 +233,17 @@ Updated `tests/test_more_coverage.py::TestWatcherService` and
 
 Full suite: **500 passed**. `ruff check`, `ruff format --check`, `ty check`,
 `bandit -c pyproject.toml`, and `pre-commit run` all pass on the touched files.
+
+## Source — [[2026-02-14-add-tui-support]]
+
+Originally decided in [[2026-02-14-add-tui-support]] on 2026-02-14 (MNT-17): the
+CLI TUI is **Rich-based, not a full TUI library**. A `print_message` service in
+`demetra/services/tui.py` is the single output path for all workflow output and
+replaces bare `print()` calls. `main.py` is an interactive plan → build → review
+loop with argparse flags `--auto` (headless, later extended by MNT-30/MNT-34) and
+`--project-name <name>`, rendered through Rich formatters and status widgets. MNT-17
+originally started as an investigation of TUI frameworks; Rich was chosen because it
+is Python-native with no heavy runtime dependency.
 
 ## Known follow-up (not fixed this session)
 

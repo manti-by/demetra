@@ -6,9 +6,9 @@ status: resolved
 session_id: ses_075b8479fffe27O59Q22Ob4k0b
 services: [react]
 branch: mnt-142-warp-theme-for-react
-tickets: [MNT-142]
-tags: [react, css, warptheme, frontend, components, layout, template]
-related: []
+tickets: [MNT-142, MNT-49, MNT-57]
+tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings]
+related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
@@ -222,6 +222,24 @@ This gives AI agents browser automation capabilities directly via MCP.
 All existing tests pass — CSS changes are purely presentational and TypeScript changes are type-safe. The `SessionArtifacts` early-return change is covered by existing rendering tests (loading / no-artifacts states).
 
 ---
+
+## Source — [[2026-03-04-basic-react-app]]
+
+Originally added in [[2026-03-04-basic-react-app]] on 2026-03-04 (MNT-49): the
+frontend is **React + TypeScript + Vite** (bundler `bun`), scaffolded under `react/`.
+The design system is a dark theme: grey `#2b2b2b`, green `#60843d`, dark-green
+`#274e13`, black background — the origin of the design tokens this page's Warp theme
+refines. Tooling: Vitest + testing-library; Makefile targets `make react`,
+`react-install`, `react-build`, `react-test`. Deployment originally via systemd
+serving the built `dist/`.
+
+## Source — [[2026-03-09-user-settings-frontend]]
+
+Originally added in [[2026-03-09-user-settings-frontend]] on 2026-03-09 (MNT-57): a
+`user-settings` component with a "keys" group renders and edits the current user's
+encrypted settings. It PATCHes the user update API (`/users/me`) with the settings
+object as the request body — the API layer this page's `UserSettings.tsx` and
+`services/api.ts` continue to build on.
 
 ## Follow-ups
 

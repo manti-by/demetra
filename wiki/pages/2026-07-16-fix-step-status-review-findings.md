@@ -4,11 +4,11 @@ date: 2026-07-16
 type: implementation
 status: resolved
 session_id: e6a4e432-a337-46a5-8e3a-a027d7cb0cdd
-services: [main, api, database]
+services: [main, api, database, workflows, linear, sessions]
 branch: -
-tickets: []
-tags: [sessions, step, status, code-review, database]
-related: [2026-07-16-simplify-session-logging-setup.md]
+tickets: [MNT-37, MNT-63]
+tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
+related: [2026-07-16-simplify-session-logging-setup.md, 2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md]
 ---
 
 # Fix code-review findings on step/status refactor
@@ -154,9 +154,35 @@ step = EXCLUDED.step,  -- Unlike upsert_pending_session, this call marks the pla
 
 ---
 
+## Source — [[2026-02-23-refactor-workflow-into-modular-steps]]
+
+Originally added in [[2026-02-23-refactor-workflow-into-modular-steps]] on 2026-02-23
+(MNT-37): the monolithic workflow in `main.py` was split into `demetra/workflows/*.py`
+— a worktree-creation helper, an integrated plan agent, the lint/test runner from
+MNT-21, and unified finalize actions (commit & push, PR creation, centralized cleanup
+from MNT-19). Error handling is consolidated so every path terminates through the same
+finalize/cleanup machinery. This is the basis of the current `demetra/workflows/`
+layout.
+
+## Source — [[2026-04-02-link-user-tasks-sessions]]
+
+Originally added in [[2026-04-02-link-user-tasks-sessions]] on 2026-04-02 (MNT-63):
+tasks and sessions are scoped to the logged-in user — every retrieved task and session
+is linked to its user, and Linear task retrieval is filtered to projects linked to
+that user. The separate `task_status` table was merged into `sessions` (status moved
+onto the session; table and stale tests removed), and `sessions` gained `project_id`
+and `user_id` columns with improved upserts. The `step`-based lifecycle this page
+documents is the successor of that merged status concept.
+
 ## Follow-ups
 
 - None.
+
+> **Update (2026-08-18, Q-001 resolution):** `validate` was added to `StepType` in
+> `demetra/library/models.py` (between `build` and `review`) to cover the
+> validate-agent step set in `demetra/workflows/build.py:102`, which had previously
+> been written without a matching enum value. `VALID_STEPS` in
+> `demetra/api/sessions.py` now accepts `step=validate`.
 
 ## References
 

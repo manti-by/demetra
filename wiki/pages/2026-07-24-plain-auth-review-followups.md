@@ -6,9 +6,9 @@ status: resolved
 session_id: mnt-148-plain-auth
 services: [auth, api, database, react]
 branch: mnt-148-plain-auth
-tickets: [MNT-148]
-tags: [auth, passwords, jwt, cookies, accessibility]
-related: [2026-07-22-react-frontend-template-warp, 2026-08-03-auth-hardening-and-deps-bump, 2026-08-06-allowlist-review-fixes]
+tickets: [MNT-148, MNT-50, MNT-48]
+tags: [auth, passwords, jwt, cookies, accessibility, github, oauth, react]
+related: [2026-07-22-react-frontend-template-warp, 2026-08-03-auth-hardening-and-deps-bump, 2026-08-06-allowlist-review-fixes, 2026-03-05-github-login-react-app, 2026-03-05-github-login]
 ---
 
 # Plain Password Auth Implementation and Review Follow-ups
@@ -200,6 +200,24 @@ for signup, login, logout endpoints using mocked services.
 **Updated:** `tests/test_auth.py` — Extended tests for password auth flow.
 
 ---
+
+## Source — [[2026-03-05-github-login]]
+
+Originally added in [[2026-03-05-github-login]] on 2026-03-05 (MNT-48): **GitHub OAuth
+login** on the FastAPI backend. Endpoints `login`/`logout`/`current-user`, GitHub OAuth
+flow in `demetra/services/auth.py`, JWT token services, and README setup docs. MNT-148
+added the password path beside this OAuth path, and later auth hardening
+([[2026-08-03-auth-hardening-and-deps-bump]]) replaced passlib with direct bcrypt —
+GitHub OAuth remains a supported auth path. The frontend `AuthContext` / cookie handling
+described in this page traces back to the MNT-48 JWT-cookie integration.
+
+## Source — [[2026-03-05-github-login-react-app]]
+
+Originally added in [[2026-03-05-github-login-react-app]] on 2026-03-05 (MNT-50): the
+React app wired the GitHub sign-in button (via `AuthContext`) to the FastAPI auth
+endpoints. The header shows a greeting with the logged-in user or a sign-in prompt,
+and a loading indicator while the auth state resolves — the origin of the `Header`
+display-name and `AuthContext` this page's Step 5 header-fallback work refines.
 
 ## Follow-ups
 

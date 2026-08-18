@@ -1,8 +1,16 @@
 from pathlib import Path
+from typing import get_args
 
 from faker import Faker
 
-from demetra.library.models import Environment, LinearTask, Project, SessionHistory, is_sensitive_key
+from demetra.library.models import (
+    Environment,
+    LinearTask,
+    Project,
+    SessionHistory,
+    StepType,
+    is_sensitive_key,
+)
 
 
 fake = Faker()
@@ -176,6 +184,16 @@ class TestProjectEnvironment:
 
         assert env1 is env2
         assert env1 == {"KEY": "value1"}
+
+
+class TestStepType:
+    def test_validate_is_part_of_step_vocabulary(self):
+        assert "validate" in get_args(StepType)
+
+    def test_validate_sits_between_build_and_review(self):
+        steps = list(get_args(StepType))
+        assert steps.index("validate") == steps.index("build") + 1
+        assert steps.index("review") == steps.index("validate") + 1
 
 
 class TestSessionHistory:

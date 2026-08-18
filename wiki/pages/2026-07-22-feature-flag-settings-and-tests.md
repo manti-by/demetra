@@ -4,11 +4,11 @@ date: 2026-07-22
 type: implementation
 status: resolved
 session_id: ses_0774c35d8ffeUI6fTqrrD0UW8w
-services: [settings, workflows]
+services: [settings, workflows, lint]
 branch: -
-tickets: []
-tags: [feature-flags, testing, ruff, pytest]
-related: []
+tickets: [MNT-21]
+tags: [feature-flags, testing, ruff, pytest, pre-commit, lint]
+related: [2026-02-20-add-pre-commit-checks-and-tests.md]
 ---
 
 # Add tests for existing feature-flag changes
@@ -74,6 +74,17 @@ tests/test_settings.py::TestSettings::test_features_partial_override     PASSED
 All 17 tests pass (5 lint workflow + 11 existing settings + 1 existing other test).
 
 ---
+
+## Source — [[2026-02-20-add-pre-commit-checks-and-tests]]
+
+Originally added in [[2026-02-20-add-pre-commit-checks-and-tests]] on 2026-02-20
+(MNT-21): the post-build gate is `make check` (`ty` type checking + the pre-commit
+suite: Ruff lint + import management) and `make test` (pytest); failures are fed back
+to the build agent for another build→check iteration. pytest is auto-detected so the
+runner falls back gracefully when the suite is absent. `.coderabbit.yaml` was added
+here as the project-wide CodeRabbit review config. The feature-flag gating above
+(`FEATURES`) is what makes these runs opt-in today — see AGENTS.md's `is_ruff_enabled`
+/ `is_pytest_enabled`.
 
 ## Follow-ups
 

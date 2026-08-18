@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [subprocess, opencode, settings]
 branch: -
-tickets: [MNT-97]
-tags: [timeout, subprocess, project-creation, bug, shell-tool]
-related: []
+tickets: [MNT-97, MNT-18]
+tags: [timeout, subprocess, project-creation, bug, shell-tool, streaming, live-output]
+related: [2026-02-15-subagent-output-streaming.md]
 ---
 
 # Fix Project creation timeouts
@@ -62,6 +62,16 @@ Tightened project-creation error handling in `demetra/services/project.py` so pr
 Tests cover the termination path and the timeout-status return value (MNT-112) plus the OpenCode-caller timeout removal.
 
 ---
+
+## Source — [[2026-02-15-subagent-output-streaming]]
+
+Originally added in [[2026-02-15-subagent-output-streaming]] on 2026-02-15 (MNT-18):
+`run_command` in `demetra/services/subprocess.py` streams child `stdout`/`stderr`
+**line-by-line** to the console near-realtime instead of buffering until exit, via a
+`live_stream` helper in `demetra/services/utils.py`. A `disable_stdio` flag turns live
+output off for silent calls (cleanup, background helpers) while still returning the full
+captured `stdout`/`stderr` tuple. All plan/build/review agent runs stream through this
+path.
 
 ## Follow-ups
 

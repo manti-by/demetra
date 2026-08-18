@@ -6,9 +6,9 @@ status: resolved
 session_id: -
 services: [database, subprocess, workflows, api, react]
 branch: mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload
-tickets: [MNT-161]
-tags: [environment, encryption, venv, subprocess, api]
-related: [2026-06-08-project-environment.md]
+tickets: [MNT-161, MNT-56]
+tags: [environment, encryption, venv, subprocess, api, user-settings, keys]
+related: [2026-06-08-project-environment.md, 2026-03-09-encrypted-user-settings.md]
 ---
 
 # Process environment — 3 layers, encryption, UV venv, env file upload
@@ -77,11 +77,24 @@ Project-env functions were updated to filter `scope = 'project'` explicitly, and
 - Both the project and shared env editors render an **Upload .env** button (`EnvFileUploadButton.tsx`) backed by a client-side parser (`utils/envFile.ts`, handles `export` prefix, quotes, comments, line continuations). Parsed entries are upserted via the existing env APIs; an existing key in the target scope is updated, and a row is created only when the key is absent — no dedicated upload endpoint. Entries whose key contains a whole sensitive word default to `encrypted` so uploaded secrets are never stored in plaintext.
 - Help text on both screens: "User-shared env is applied to all your projects. Project env overrides user-shared on key conflict."
 
+## Session note
+
+Implementation session on branch `mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload` (OpenCode session `ses_01451c57dffevRjar67SFuonUS`). Two commits shipped the feature (`838d9b3`, `da1f965`), 46 files (+2751/−127), covering settings, database, subprocess, project, api, react, vcs, and workflows. Primary files: `demetra/services/runtime/subprocess.py`, `demetra/services/runtime/project.py`, `demetra/services/persistence/database.py`, `react/src/utils/envFile.ts`.
+
 ## Test Results
 
 793 backend tests pass (`ruff`, `ty`, `pytest`), 45 frontend tests pass (`tsc` via `bun run build`, `vitest`). New coverage: settings parsing (`OS_ENV_ALLOWLIST`/`OS_ENV_PROJECT_OPTINS`/`DEMETRA_SECRET_KEY`), user-env DB CRUD + encryption + isolation + sensitive-key masking, `build_subprocess_env` merge order (project-overrides-user-shared), OS allowlist accept/reject + case sensitivity, API user-env endpoints, `is_sensitive_key` false-positive rejection, venv bootstrap idempotency + partial-venv cleanup on failure, and `.env` parser cases.
 
 ---
+
+## Source — [[2026-03-09-encrypted-user-settings]]
+
+Originally added in [[2026-03-09-encrypted-user-settings]] on 2026-03-09 (MNT-56): user
+settings are stored **encrypted** — the `User` model carries an encrypted `keys` field
+holding user-provided credentials (e.g. LLM keys), protected by `SECRET_KEY` and
+`ENCRYPTION_SALT` settings, and editable through the user update API. This is the origin
+of the encryption layer the env-var encryption in this page builds on, and of the
+"user-shared env" concept (Step 2's scope + user_id model).
 
 ## Follow-ups
 

@@ -4,11 +4,11 @@ date:               2026-07-16
 type:               implementation
 status:             resolved
 session_id:         -
-services:           [main, graphql, opencode]
+services:           [main, graphql, opencode, linear, workflows, database, sessions]
 branch:             -
-tickets:            []
-tags:               [workflow, session-management, error-handling, testing]
-related:            []
+tickets:            [MNT-29, MNT-39]
+tags:               [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
+related:            [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md]
 ---
 
 # Fix empty build plan infinite loop
@@ -162,6 +162,27 @@ All checks passed!
 ```
 
 ---
+
+## Source — [[2026-02-21-add-build-plan-to-linear-task]]
+
+Originally added in [[2026-02-21-add-build-plan-to-linear-task]] on 2026-02-21
+(MNT-29): the extracted build plan is posted to the Linear ticket as a comment as soon
+as the plan step produces it. The async Linear service `post_comment(ticket_id,
+comment_text)` takes exactly the linear task id and the comment text; the workflow
+calls it with the cleaned plan from `extract_plan` right after the plan step. MNT-39's
+`posted_to_linear` flag prevents double-posting when the plan is reused from the
+database.
+
+## Source — [[2026-02-23-save-build-plan-to-database]]
+
+Originally added in [[2026-02-23-save-build-plan-to-database]] on 2026-02-23 (MNT-39):
+the `sessions` table gained `build_plan` (text) and `posted_to_linear` (bool) columns.
+`upsert_pending_session` persists the plan; the setup step checks for an existing plan
+and skips planning (reusing the stored plan for the build); `posted_to_linear` gates
+the MNT-29 post so a plan is only posted once across runs. This page's Step 1 replan
+gate (`not context.session.build_plan`) is the modern successor of that
+skip-planning-on-existing-plan behavior — the invariant is "if there's no plan yet,
+make one".
 
 ## Follow-ups
 

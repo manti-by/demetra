@@ -4,11 +4,11 @@ date: 2026-06-03
 type: implementation
 status: resolved
 session_id: -
-services: [database, alembic]
+services: [database, alembic, settings, sqlalchemy]
 branch: -
-tickets: [MNT-99]
-tags: [migrations, alembic, squash]
-related: []
+tickets: [MNT-99, MNT-51, MNT-62]
+tags: [migrations, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
+related: [2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]
 ---
 
 # Fix and squash migrations
@@ -51,6 +51,23 @@ Updated DB connection initialization to modern config patterns (env-driven conne
 Acceptance: `alembic upgrade` runs without errors against the migrated database.
 
 ---
+
+## Source — [[2026-03-05-postgres-support]]
+
+Originally added in [[2026-03-05-postgres-support]] on 2026-03-05 (MNT-51): the
+database is **PostgreSQL**, migrated from SQLite. Async driver: `psycopg` (psycopg-binary).
+Connection is env-driven via `demetra/settings.py` — `DB_HOST`, `DB_USER`,
+`DB_PASSWORD`, `DB_NAME` (default `demetra`) — the "modern config patterns" Step 3 of
+this page builds on. Note the later prompt guidance to agents: task descriptions must
+end with `?`.
+
+## Source — [[2026-03-13-sqlalchemy-core-support]]
+
+Originally added in [[2026-03-13-sqlalchemy-core-support]] on 2026-03-13 (MNT-62): the
+data layer is **SQLAlchemy Core** (not the declarative ORM) — `Table`/`Column`
+metadata with explicit schema definitions. This was the project's first Alembic
+migration (raw SQL scripts were replaced by Alembic-managed migrations). Tests run
+against Postgres with a `test_` prefix and transaction rollback isolation.
 
 ## Follow-ups
 

@@ -4,11 +4,11 @@ date: 2026-06-08
 type: implementation
 status: resolved
 session_id: -
-services: [database, sessions, workflows]
+services: [database, sessions, workflows, opencode]
 branch: -
-tickets: [MNT-83]
-tags: [step, sessions, migration, resume]
-related: [2026-07-16-fix-step-status-review-findings.md]
+tickets: [MNT-83, MNT-22]
+tags: [step, sessions, migration, resume, isolation, research]
+related: [2026-07-16-fix-step-status-review-findings.md, 2026-02-21-opencode-sessions-isolation.md]
 ---
 
 # Plan step completion attribute
@@ -50,9 +50,25 @@ Tests were added for the step field and resume behavior.
 
 ---
 
+## Source — [[2026-02-21-opencode-sessions-isolation]]
+
+Originally researched in [[2026-02-21-opencode-sessions-isolation]] on 2026-02-21
+(MNT-22): OpenCode's `run` accepts a custom `--session` / session id, giving
+deterministic control over which session each workflow step uses. Demetra generates
+one id per workflow run, passes it to every `opencode run` invocation (plan, build,
+review) and stores it on the `sessions` row — the durable link between the workflow
+and its OpenCode sessions. This is what unblocked parallel workflows and later
+enabled per-session state: session history, compaction, and log isolation (MNT-54).
+
 ## Follow-ups
 
 - None.
+
+> **Update (2026-08-18, Q-001 resolution):** `validate` was added to `StepType` in
+> `demetra/library/models.py` (between `build` and `review`), matching the
+> validate-agent step that `demetra/workflows/build.py:102` sets. The step vocabulary
+> documented in this page is the historical snapshot from the MNT-83 era; see
+> [[2026-08-05-post-build-validation]] for the `validate` step.
 
 ## References
 
