@@ -25,11 +25,13 @@ for conventions, then work through every page under `wiki/pages/`.
 3. **Decide what to merge.** Only auto-merge pairs that are the same session:
    identical `session_id`, or clearly the same session recorded twice. For
    pages from distinct sessions, do NOT merge — instead cross-link the two
-   pages (add each to the other's `related`) and move on. If the two pages
-   make materially conflicting claims (opposite statuses, contradicting
-   facts), do NOT auto-merge: verify which claim is current against the
-   codebase/docs first, or file a question in `wiki/QUESTIONS.md` and skip the
-   pair.
+   pages: add each to the other's `related` frontmatter **and** add a
+   reciprocal body `[[...]]` link on both pages (the consistency agent
+   requires the two representations to stay in sync), then move on. If the
+   two pages make materially conflicting claims (opposite statuses,
+   contradicting facts), do NOT auto-merge: verify which claim is current
+   against the codebase/docs first, or file a question in
+   `wiki/QUESTIONS.md` and skip the pair.
 
 4. **Merge each eligible pair.** For each near-duplicate pair, pick a
    **survivor** filename and merge the second page into it:

@@ -15,7 +15,7 @@ related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md
 
 ## TL;DR
 
-Behavior-preserving refactor of `docker-compose.yaml`: the six `mantiby/demetra:latest` services (`migrate`, `api`, `worker`, `watcher`, `listener`, `rq-dashboard`) previously repeated ~20 identical lines each (image, restart, env_file, DB_HOST/REDIS_URL, volumes, `depends_on` gates). Introduced three YAML anchors — `x-demetra-env`, `x-demetra-base`, `x-demetra-app` — and merged them with `<<:` so each service only declares what is unique to it (`command`, `LOG_PATH`, `ports`, `deploy.replicas`). Net: `docker-compose.yaml` shrunk from 197 to 179 lines. Verified equivalent by diffing `docker compose config` output against the pre-refactor render.
+Behavior-preserving refactor of `docker-compose.yaml`: the six `mantiby/demetra:latest` services (`migrate`, `api`, `worker`, `watcher`, `listener`, `rq-dashboard`) previously repeated ~20 identical lines each (image, restart, env_file, DB_HOST/REDIS_URL, volumes, `depends_on` gates). The four long-running app services — `api`, `worker`, `watcher`, `listener` — shared the full six-volume mount list and the three-way `depends_on` (migrate + postgres + redis); `migrate` and `rq-dashboard` each carried a lighter subset (code bind only, redis-only `depends_on`). Introduced three YAML anchors — `x-demetra-env`, `x-demetra-base`, `x-demetra-app` — and merged them with `<<:` so each service only declares what is unique to it (`command`, `LOG_PATH`, `ports`, `deploy.replicas`). Net: `docker-compose.yaml` shrunk from 197 to 179 lines. Verified equivalent by diffing `docker compose config` output against the pre-refactor render.
 
 ---
 

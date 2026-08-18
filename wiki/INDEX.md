@@ -108,13 +108,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md) — MNT-92: CSS truncation of session titles
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — MNT-77: `hera` → `react`
 
-### Linear & GitHub integrations (4 pages)
-
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `except PullRequestError` posts Linear comment + moves ticket to Awaiting Input, session step `awaiting_input`
-- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — listener mark-read gating + attempts cap
-- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq PR description
-- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: renderer + comment metadata
-
 ### Authentication & API security (6 pages)
 
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — cross-origin auth cookies, typed auth exceptions, atomic reset_password/delete_project
@@ -123,6 +116,13 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — passlib→bcrypt swap, env-configurable cookie SameSite and CORS origins
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Password auth with bcrypt, JWT cookies, React form
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — Investigation; produced MNT-148
+
+### Linear & GitHub integrations (4 pages)
+
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `except PullRequestError` posts Linear comment + moves ticket to Awaiting Input, session step `awaiting_input`
+- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — listener mark-read gating + attempts cap
+- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — MNT-115: Groq PR description
+- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — MNT-103: renderer + comment metadata
 
 ### Database & migrations (2 pages)
 

@@ -23,10 +23,14 @@ page under `wiki/pages/`.
    - The filename starts with the frontmatter `date`
      (pages are `YYYY-MM-DD-kebab-case-topic.md`).
    - The H1 matches the frontmatter `title`.
-   - Every `[[...]]` link resolves to a page in `wiki/pages/`, and every body
-     link is mirrored in the page's `related:` frontmatter (and vice versa).
-     Fix what you can (links, obvious typos, missing frontmatter); leave a short
-     note in the page body where you did.
+   - Every `[[...]]` link resolves to a page in `wiki/pages/` **or**
+     `wiki/archive/` — archived targets are valid, so provenance links to
+     retired pages are preserved, never deleted or rewritten. A body link is
+     mirrored in the page's `related:` frontmatter (and vice versa); for an
+     archived target the matching `related:` entry resolves against
+     `wiki/archive/` the same way live links resolve against `wiki/pages/`.
+     Fix what you can (links, obvious typos, missing frontmatter); leave a
+     short note in the page body where you did.
 
 3. **Cluster.** Read every page in full — frontmatter and the complete body,
    not just the summary — and group pages by semantic similarity of subject

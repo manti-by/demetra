@@ -29,7 +29,7 @@ On re-runs, an abandoned worktree from a prior run made `create_worktree` blow u
 
 Creating a worktree at a path that still exists throws:
 
-```
+```text
 RuntimeError: Worktree path already exists
 ```
 

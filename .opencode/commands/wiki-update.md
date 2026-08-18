@@ -15,32 +15,37 @@ files), create it first and treat it as an empty page set.
 
 ## 1. Resolve this session's existing page
 
-Before writing anything, locate the page that belongs to this session. Try
-these sources in order; the first hit wins.
+Before writing anything, locate the page that belongs to this session by
+inspecting **all three sources** below and collecting the candidates each
+produces — do not stop at the first hit:
 
 1. **Your own conversation.** If you have already run `/wiki-update` in this
    session, the absolute path of the file you wrote is in your prior tool
-   results. If that file still exists under `wiki/pages/`, reuse it verbatim.
+   results. If that file still exists under `wiki/pages/`, it is a candidate.
 2. **Frontmatter scan.** Walk every `.md` file under `wiki/pages/` and read
    each file's YAML frontmatter. Match on `session_id:` equal to the current
    session's id (the `sessionID` of the command invocation, e.g.
-   `ses_xxxxxxxx`, visible in the system context). On a hit, reuse that file
-   verbatim.
-3. **Mapping file (fallback).** Read `wiki/.openwiki-sessions.json` (a flat
-   object `{ "<session_id>": "<filename>.md" }`). If your session id is a key,
+   `ses_xxxxxxxx`, visible in the system context). Any match is a candidate.
+3. **Mapping file.** Read `wiki/.openwiki-sessions.json` (a flat object
+   `{ "<session_id>": "<filename>.md" }`). If your session id is a key,
    validate that the value is a bare filename (no path separators, no `..`)
-   and that the file still exists under `wiki/pages/`; only then reuse it. If
-   the key exists but the file is gone, drop the stale entry before continuing.
+   and that the file still exists under `wiki/pages/`; only then is it a
+   candidate. If the key exists but the file is gone, drop the stale entry
+   before continuing.
 
-If more than one page matches this session's id (sources 2 and 3 disagree),
-stop and report the conflict — never guess which file to update.
+Then reconcile the collected candidates:
 
-If none of the three found a page, this session has no page yet — continue to
-step 2 to **create** one.
+- If the sources name **exactly one** unique page, reuse it verbatim.
+- If the sources name **different pages** (e.g. the frontmatter scan and the
+  mapping disagree, or your conversation path differs from both), stop and
+  report the conflict — never guess which file to update and never silently
+  pick one.
+- If none of the three sources named a page, this session has no page yet —
+  continue to step 2 to **create** one.
 
-The first source is the fastest and most authoritative; the others exist so
-the first call after a reload (when there is no conversation history yet) can
-still find its page without guessing.
+The conversation source is the most authoritative, but every source is checked
+before selecting so a stale mapping or a repeated session id can never
+silently redirect the update to the wrong page.
 
 ## 2. Filename (new pages only)
 
@@ -90,8 +95,13 @@ next `/wiki-update` in this session can find the file via the fallback:
 
 Read-modify-write the JSON object. Create the file if it does not exist. Only
 store the bare filename (no path). If the file exists but is not valid JSON,
-back it up to `.openwiki-sessions.json.bak` and start fresh with just this
-session's entry. Pretty-print with two-space indent and a trailing newline.
+back it up to a **collision-safe** filename first (`.openwiki-sessions.json.bak`,
+then `.openwiki-sessions.json.bak2`, … — never overwrite an existing backup),
+then recover every mapping that is still salvageable from the invalid input and
+keep those alongside this session's entry — do not replace the file with only
+the current session. If the content cannot be salvaged, leave the backup for
+manual review and note it in your report. Pretty-print with two-space indent
+and a trailing newline.
 
 ## 5. Update the index
 

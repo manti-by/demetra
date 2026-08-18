@@ -226,7 +226,8 @@ All existing tests pass — CSS changes are purely presentational and TypeScript
 ## Source — [[2026-03-04-basic-react-app]]
 
 Originally added in [[2026-03-04-basic-react-app]] on 2026-03-04 (MNT-49): the
-frontend is **React + TypeScript + Vite** (bundler `bun`), scaffolded under `react/`.
+frontend is **React + TypeScript**, bundled with **Vite**, with **Bun** as the
+package manager and script runner, scaffolded under `react/`.
 The design system is a dark theme: grey `#2b2b2b`, green `#60843d`, dark-green
 `#274e13`, black background — the origin of the design tokens this page's Warp theme
 refines. Tooling: Vitest + testing-library; Makefile targets `make react`,

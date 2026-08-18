@@ -177,12 +177,17 @@ database.
 
 Originally added in [[2026-02-23-save-build-plan-to-database]] on 2026-02-23 (MNT-39):
 the `sessions` table gained `build_plan` (text) and `posted_to_linear` (bool) columns.
-`upsert_pending_session` persists the plan; the setup step checks for an existing plan
-and skips planning (reusing the stored plan for the build); `posted_to_linear` gates
-the MNT-29 post so a plan is only posted once across runs. This page's Step 1 replan
-gate (`not context.session.build_plan`) is the modern successor of that
-skip-planning-on-existing-plan behavior — the invariant is "if there's no plan yet,
-make one".
+Today `save_session(task_id, build_plan=..., linear_link=...)` persists the plan
+(`demetra/services/persistence/database.py`) — the planning workflow
+(`demetra/workflows/plan.py`) passes the extracted plan straight to it; the
+historical `upsert_pending_session` initializes `build_plan` to `""` and no
+longer updates it on conflict, so it does not persist the plan. The setup step
+checks for an existing plan and skips planning (reusing the stored plan for the
+build); `posted_to_linear` gates the MNT-29 post so a plan is only posted once
+across runs. This page's Step 1 replan gate
+(`not context.session.build_plan`) is the modern successor of that
+skip-planning-on-existing-plan behavior — the invariant is "if there's no plan
+yet, make one".
 
 ## Follow-ups
 

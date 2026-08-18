@@ -32,14 +32,15 @@ services:
     image: postgres:18
     restart: unless-stopped
     container_name: demetra-postgres
+    env_file: .env.docker
     environment:
-      POSTGRES_DB: demetra
-      POSTGRES_USER: demetra
-      POSTGRES_PASSWORD: demetra
+      POSTGRES_DB: ${DB_NAME:-demetra}
+      POSTGRES_USER: ${DB_USER:-demetra}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-demetra}
     volumes:
       - demetra_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U demetra -d demetra"]
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 12

@@ -117,17 +117,29 @@ For each (candidate, target) pair:
    If the candidate was archived without merge, drop the link and the
    `related:` entry instead.
 
-5. **Stamp a "moved to" note on the candidate (only when a merge
+5. **Update `wiki/QUESTIONS.md` references.** Scan `wiki/QUESTIONS.md`
+   for `**Pages:**` fields listing the candidate. For a candidate that
+   was merged, rewrite the reference to the merge target. For a
+   candidate archived without merge, rewrite it to a resolvable archive
+   reference (`wiki/archive/<candidate-filename-without-.md>`) so the
+   question keeps pointing at the content. Do this now — alongside the
+   related-list and body-link updates above — so no dangling question
+   reference survives step 5.
+
+6. **Stamp a "moved to" note on the candidate (only when a merge
    happened).** Just below the candidate's H1, prepend:
 
-   ```
+   ```text
    > **Archived on YYYY-MM-DD.** Useful info merged into
-   > [[<target-filename-without-.md>]]. See wiki/archive/ for the
+   > [[<target-1-filename-without-.md>]] and
+   > [[<target-2-filename-without-.md>]]. See wiki/archive/ for the
    > original.
    ```
 
-   Use today's date. Skip this note if the candidate was archived
-   without merge (step 2.3).
+   List **every** merge target — one `[[...]]` link per target, joined
+   with "and" (a candidate may merge into 2–3 targets, step 2.3). Use
+   today's date. Skip this note if the candidate was archived without
+   merge (step 2.3).
 
 ## 4. Per-candidate isolation
 

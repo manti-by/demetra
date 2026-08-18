@@ -40,6 +40,8 @@ RUN chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 ENV UV_PATH="/bin/uv"
 
+USER demetra
+
 WORKDIR /srv/demetra/src/
 
 CMD ["python", "main.py", "--help"]
