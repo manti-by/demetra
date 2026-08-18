@@ -12,9 +12,9 @@ from demetra.services.llm.prompt import get_prompt
 logger = logging.getLogger(__name__)
 
 
-# gpt-oss and deepseek models have 128k+ token contexts; plan outputs can
-# reach hundreds of k tokens.
 PLAN_OUTPUT_MAX_CHARS = 32_000
+
+TICKET_FIELDS = ("title", "description", "technical_requirements", "acceptance_criteria", "project_name")
 
 
 async def extract_questions(plan_output: str) -> list[str]:
@@ -36,7 +36,7 @@ async def extract_questions(plan_output: str) -> list[str]:
 
     llm = build_llm(temperature=0.1, max_tokens=1024)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="extract_questions")),
             ("human", "Text: {input_text}"),
         ]
@@ -46,7 +46,7 @@ async def extract_questions(plan_output: str) -> list[str]:
     chain = prompt | llm | output_parser
 
     result = []
-    for item in await chain.ainvoke({"input_text": plan_output}):
+    for item in await chain.ainvoke(input={"input_text": plan_output}):
         if question := str(item):
             result.append(question)
     return result
@@ -70,7 +70,7 @@ async def summarize_review(review_output: str) -> list[str]:
 
     llm = build_llm(temperature=0.1, max_tokens=1024)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="summarize_review")),
             ("human", "Text: {input_text}"),
         ]
@@ -82,7 +82,7 @@ async def summarize_review(review_output: str) -> list[str]:
     seen: set[str] = set()
     result: list[str] = []
     try:
-        for item in await chain.ainvoke({"input_text": review_output}):
+        for item in await chain.ainvoke(input={"input_text": review_output}):
             if finding := str(item).strip():
                 key = finding.casefold()
                 if key not in seen:
@@ -99,7 +99,8 @@ async def process_text_with_openrouter(text: str) -> dict[str, str]:
 
     Uses an LLM to split the text into title, description, technical
     requirements, acceptance criteria and project name. Falls back to a
-    naive breakdown when the LLM returns nothing.
+    naive breakdown when the LLM returns nothing or the output does not
+    carry all five ticket fields as strings.
 
     Args:
         text: The raw task text to analyze.
@@ -109,7 +110,7 @@ async def process_text_with_openrouter(text: str) -> dict[str, str]:
     """
     llm = build_llm(temperature=0.3, max_tokens=2048)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="analyze_ticket")),
             ("human", "Text: {input_text}"),
         ]
@@ -117,8 +118,13 @@ async def process_text_with_openrouter(text: str) -> dict[str, str]:
     output_parser = JsonOutputParser()
 
     chain = prompt | llm | output_parser
-    if result := await chain.ainvoke({"input_text": text}):
-        return result
+    try:
+        result = await chain.ainvoke(input={"input_text": text})
+    except Exception:
+        logger.exception("LLM call failed in process_text_with_openrouter")
+        result = None
+    if isinstance(result, dict) and all(isinstance(result.get(field), str) for field in TICKET_FIELDS):
+        return {field: result[field] for field in TICKET_FIELDS}
 
     return {
         "title": text[:100] if len(text) > 100 else text,
@@ -134,6 +140,9 @@ async def extract_plan(plan_output: str, task_description: str, comments: list[s
 
     Truncates the plan output to the last PLAN_OUTPUT_MAX_CHARS and asks the
     LLM to summarize it in the context of the task description and comments.
+    The truncation caps plan outputs that can reach hundreds of thousands of
+    tokens against the 128k+ token contexts of the gpt-oss and deepseek
+    models served through OpenRouter.
 
     Args:
         plan_output: The raw plan agent output.
@@ -151,14 +160,14 @@ async def extract_plan(plan_output: str, task_description: str, comments: list[s
 
     llm = build_llm(temperature=0.1, max_tokens=2048)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="summarize_plan")),
             ("human", "Task Description:\n{task_description}\n\nPlan Output:\n{plan_output}"),
         ]
     )
 
     chain = prompt | llm
-    result = await chain.ainvoke({"task_description": task_description_full, "plan_output": plan_output})
+    result = await chain.ainvoke(input={"task_description": task_description_full, "plan_output": plan_output})
     return str(result.content)
 
 
@@ -181,7 +190,7 @@ async def summarize_session(ticket_text: str, description: str, build_plan: str,
     """
     llm = build_llm(temperature=0.1, max_tokens=1024)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="summarize_session")),
             (
                 "human",
@@ -195,7 +204,7 @@ async def summarize_session(ticket_text: str, description: str, build_plan: str,
     chain = prompt | llm | output_parser
     try:
         result = await chain.ainvoke(
-            {
+            input={
                 "ticket_text": ticket_text,
                 "description": description,
                 "build_plan": build_plan,
@@ -227,7 +236,7 @@ async def generate_pr_description(task_details: str, build_plan: str | None = No
     """
     llm = build_llm(temperature=0.1, max_tokens=1024)
     prompt = ChatPromptTemplate.from_messages(
-        [
+        messages=[
             ("system", await get_prompt(name="generate_pr_description")),
             ("human", "Task details:\n{task_details}\n\nImplementation plan:\n{build_plan}"),
         ]
@@ -236,7 +245,7 @@ async def generate_pr_description(task_details: str, build_plan: str | None = No
     chain = prompt | llm
     try:
         result = await chain.ainvoke(
-            {
+            input={
                 "task_details": task_details,
                 "build_plan": build_plan or "No build plan available.",
             }

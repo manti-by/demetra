@@ -82,6 +82,153 @@ class TestOpenRouterService:
         assert sig.return_annotation == dict[str, str]
 
     @pytest.mark.asyncio
+    async def test_process_text_returns_all_ticket_fields(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = {
+                "title": "Ticket title",
+                "description": "Ticket body.",
+                "technical_requirements": "- req",
+                "acceptance_criteria": "- ac",
+                "project_name": "demetra",
+            }
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await process_text_with_openrouter(text="raw task text")
+
+            assert result == {
+                "title": "Ticket title",
+                "description": "Ticket body.",
+                "technical_requirements": "- req",
+                "acceptance_criteria": "- ac",
+                "project_name": "demetra",
+            }
+
+    @pytest.mark.asyncio
+    async def test_process_text_falls_back_on_missing_field(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = {
+                "title": "Ticket title",
+                "description": "Ticket body.",
+                "technical_requirements": "- req",
+                "acceptance_criteria": "- ac",
+            }
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await process_text_with_openrouter(text="raw task text")
+
+            assert result == {
+                "title": "raw task text",
+                "description": "raw task text",
+                "technical_requirements": "",
+                "acceptance_criteria": "",
+                "project_name": "",
+            }
+
+    @pytest.mark.asyncio
+    async def test_process_text_falls_back_on_non_string_field(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = {
+                "title": "Ticket title",
+                "description": "Ticket body.",
+                "technical_requirements": "- req",
+                "acceptance_criteria": "- ac",
+                "project_name": 123,
+            }
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await process_text_with_openrouter(text="raw task text")
+
+            assert result == {
+                "title": "raw task text",
+                "description": "raw task text",
+                "technical_requirements": "",
+                "acceptance_criteria": "",
+                "project_name": "",
+            }
+
+    @pytest.mark.asyncio
+    async def test_process_text_falls_back_on_non_dict_output(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = ["title", "description"]
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await process_text_with_openrouter(text="raw task text")
+
+            assert result == {
+                "title": "raw task text",
+                "description": "raw task text",
+                "technical_requirements": "",
+                "acceptance_criteria": "",
+                "project_name": "",
+            }
+
+    @pytest.mark.asyncio
+    async def test_process_text_falls_back_on_llm_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await process_text_with_openrouter(text="raw task text")
+
+            assert result == {
+                "title": "raw task text",
+                "description": "raw task text",
+                "technical_requirements": "",
+                "acceptance_criteria": "",
+                "project_name": "",
+            }
+
+    @pytest.mark.asyncio
     async def test_extract_plan_truncates_long_input(self):
         long_output = "HEAD" * 20_000  # 80k chars
 
@@ -106,7 +253,7 @@ class TestOpenRouterService:
             )
 
             assert result == "summarized plan"
-            plan_passed = mock_chain.ainvoke.call_args.args[0]["plan_output"]
+            plan_passed = mock_chain.ainvoke.call_args.kwargs["input"]["plan_output"]
             assert len(plan_passed) <= 32_000
             assert plan_passed == long_output[-32_000:]
 

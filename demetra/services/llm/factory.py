@@ -4,10 +4,10 @@ from demetra.settings import OPENROUTER
 
 
 def build_llm(*, temperature: float, max_tokens: int, max_retries: int = 2) -> ChatOpenAI:
-    """Build a provider-agnostic chat model backed by OpenRouter.
+    """Build a chat model backed by OpenRouter.
 
-    Centralizes the model instantiation so switching providers or models is a
-    one-line config change instead of touching every chain.
+    Centralizes the model instantiation so changing the model or endpoint
+    is a one-line config change instead of touching every chain.
 
     Args:
         temperature: Sampling temperature for the model.

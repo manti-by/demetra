@@ -181,7 +181,7 @@ Demetra coordinates the following external tools:
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
 - **Groq**: legacy LLM API for plan/review summarisation (`demetra/services/llm/groq.py`)
-- **OpenRouter**: LLM API for plan/review summarisation (`demetra/services/llm/openrouter.py`)
+- **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 
 ## Security Guidelines
 

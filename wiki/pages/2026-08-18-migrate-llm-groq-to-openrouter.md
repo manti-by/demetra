@@ -20,8 +20,8 @@ summarization, ticket breakdown, wiki polish and PR descriptions — removing Gr
 vendor lock-in behind a single provider. A new `demetra/services/llm/openrouter.py`
 module (backed by a single `build_llm()` factory over `langchain-openai`
 `ChatOpenAI` + `OPENROUTER_BASE_URL`) now serves all workflow consumers; the
-legacy `demetra/services/llm/groq.py` was left untouched. Provider switch is now
-a one-line config change via `OPENROUTER_*` env vars.
+legacy `demetra/services/llm/groq.py` was left untouched. Changing the model or
+endpoint is now a one-line config change via `OPENROUTER_*` env vars.
 
 ---
 
@@ -68,8 +68,8 @@ def build_llm(*, temperature: float, max_tokens: int, max_retries: int = 2) -> C
 ```
 
 `ChatOpenAI` accepts `max_tokens` via its aliased field. Replaces the 6
-duplicated `ChatGroq(model=GROQ["model"], ...)` instantiations so a provider or
-model swap is a one-line config change.
+duplicated `ChatGroq(model=GROQ["model"], ...)` instantiations so a model or
+endpoint change is a one-line config change.
 
 ## Step 4 — New OpenRouter module
 
@@ -113,7 +113,8 @@ gating are unchanged. `groq.py` itself is not modified.
 
 ## Test Results
 
-- `uv run pytest tests/` — **817 passed**
+- `uv run pytest tests/` — **849 passed** (817 after the migration, plus URL
+  validation and ticket payload coverage added from the CodeRabbit review)
 - `uv run ruff check .` — all checks passed
 - `uv run ty check` — all checks passed
 - `uv run bandit -c pyproject.toml .` — 0 issues
