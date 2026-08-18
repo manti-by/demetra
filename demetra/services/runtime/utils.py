@@ -1,4 +1,5 @@
 import asyncio
+import ipaddress
 import logging
 import os
 import re
@@ -7,6 +8,7 @@ from collections.abc import Callable
 from logging import Formatter, LogRecord
 from pathlib import Path
 from typing import overload
+from urllib.parse import urlsplit
 
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import CockieSamesite
@@ -322,6 +324,60 @@ def env_get_path(name: str, default: Path | None) -> Path | None:
 
 
 OS_ENV_OPTIN_PATTERN = re.compile(r"(?P<project_id>[^=]+)=(?P<keys>[^;]*)")
+
+
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def is_loopback_host(hostname: str) -> bool:
+    """Check whether a hostname points at a loopback address.
+
+    Covers localhost, the canonical IPv4/IPv6 loopback addresses and the
+    whole 127.0.0.0/8 range.
+
+    Args:
+        hostname: The hostname to check.
+
+    Returns:
+        bool: True when the hostname is loopback.
+    """
+    if hostname in LOOPBACK_HOSTS:
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def validate_llm_base_url(url: str | None) -> str:
+    """Validate an LLM base URL before it is used to construct a client.
+
+    The URL is sent together with the API key on every request, so it must
+    be a well-formed HTTP(S) endpoint without embedded credentials. Remote
+    endpoints must use HTTPS; HTTP is only allowed for loopback endpoints.
+
+    Args:
+        url: The base URL to validate.
+
+    Returns:
+        str: The trimmed URL when valid.
+
+    Raises:
+        SettingsError: When the URL is blank, malformed, carries embedded
+            credentials, or uses HTTP for a non-loopback endpoint.
+    """
+    if not url or not url.strip():
+        raise SettingsError("OPENROUTER_BASE_URL must not be blank")
+    parsed = urlsplit(url.strip())
+    if parsed.scheme not in {"http", "https"}:
+        raise SettingsError("OPENROUTER_BASE_URL must be an http(s) URL")
+    if not parsed.hostname:
+        raise SettingsError("OPENROUTER_BASE_URL must include a hostname")
+    if parsed.username or parsed.password:
+        raise SettingsError("OPENROUTER_BASE_URL must not contain credentials")
+    if parsed.scheme == "http" and not is_loopback_host(parsed.hostname):
+        raise SettingsError("OPENROUTER_BASE_URL with http scheme is only allowed for loopback endpoints")
+    return url.strip()
 
 
 def parse_os_env_project_optins(raw: str | None) -> dict[str, list[str]]:

@@ -163,12 +163,12 @@ class TestBudgetExceeded:
         assert service.budget_exceeded(facts=facts) is False
 
     def test_too_many_files_exceeded(self, monkeypatch):
-        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_FILES", 8)
+        monkeypatch.setitem(service.WIKI, "llm_budget_files", 8)
         facts = {"files": [f"f{i}.py" for i in range(9)], "changed_lines": 1}
         assert service.budget_exceeded(facts=facts) is True
 
     def test_too_many_lines_exceeded(self, monkeypatch):
-        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_LINES", 200)
+        monkeypatch.setitem(service.WIKI, "llm_budget_lines", 200)
         facts = {"files": ["a.py"], "changed_lines": 201}
         assert service.budget_exceeded(facts=facts) is True
 
@@ -551,8 +551,8 @@ class TestWriteSessionWikiPage:
     async def test_llm_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
-        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_FILES", 1)
-        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_LINES", 10)
+        monkeypatch.setitem(service.WIKI, "llm_budget_files", 1)
+        monkeypatch.setitem(service.WIKI, "llm_budget_lines", 10)
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
 
         with patch(

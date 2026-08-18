@@ -472,7 +472,7 @@ class TestProjectEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
         with (
-            patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.persistence.encryption.SECRET_KEY", _TEST_SECRET_KEY),
             patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
             patch("demetra.services.persistence.encryption.get_fernet", return_value=_TEST_FERNET),
         ):
@@ -778,7 +778,7 @@ class TestUserEnvironmentType:
     @pytest.fixture(autouse=True)
     def _encryption_keys(self):
         with (
-            patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", _TEST_SECRET_KEY),
+            patch("demetra.services.persistence.encryption.SECRET_KEY", _TEST_SECRET_KEY),
             patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", _TEST_ENCRYPTION_SALT),
             patch("demetra.services.persistence.encryption.get_fernet", return_value=_TEST_FERNET),
         ):

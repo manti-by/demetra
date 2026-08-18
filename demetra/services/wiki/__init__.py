@@ -51,9 +51,7 @@ from demetra.settings import (
     BASE_PATH,
     GIT,
     LOG_DIR,
-    WIKI_BUILD_PLAN_CAP,
-    WIKI_LLM_BUDGET_FILES,
-    WIKI_LLM_BUDGET_LINES,
+    WIKI,
 )
 
 
@@ -135,9 +133,7 @@ __all__ = [
     "QUESTIONS_PATH",
     "REVALIDATION_RETRYABLE",
     "TOPIC_KEYWORDS",
-    "WIKI_BUILD_PLAN_CAP",
-    "WIKI_LLM_BUDGET_FILES",
-    "WIKI_LLM_BUDGET_LINES",
+    "WIKI",
     "WIKI_ROOT",
     "Context",
     "LinearTask",

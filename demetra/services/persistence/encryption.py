@@ -5,7 +5,7 @@ from cryptography.fernet import Fernet, InvalidToken
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-from demetra.settings import DEMETRA_SECRET_KEY, ENCRYPTION_SALT
+from demetra.settings import ENCRYPTION_SALT, SECRET_KEY
 
 
 def get_fernet() -> Fernet:
@@ -20,12 +20,12 @@ def get_fernet() -> Fernet:
     Raises:
         ValueError: When DEMETRA_SECRET_KEY or ENCRYPTION_SALT is not configured.
     """
-    if not DEMETRA_SECRET_KEY or not ENCRYPTION_SALT:
+    if not SECRET_KEY or not ENCRYPTION_SALT:
         raise ValueError("DEMETRA_SECRET_KEY and/or ENCRYPTION_SALT is not configured")
 
     salt = ENCRYPTION_SALT.encode()
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=480000)
-    key = kdf.derive(DEMETRA_SECRET_KEY.encode())
+    key = kdf.derive(SECRET_KEY.encode())
     return Fernet(base64.urlsafe_b64encode(key))
 
 

@@ -78,7 +78,7 @@ def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = No
 
     file_lines = "\n".join(f"- `{path}` ({added}/{deleted})" for path, added, deleted in facts.get("numstat", []))
     build_plan = (facts.get("build_plan") or "").strip() or "No build plan recorded."
-    build_plan = service.truncate(text=build_plan, limit=service.WIKI_BUILD_PLAN_CAP)
+    build_plan = service.truncate(text=build_plan, limit=service.WIKI["build_plan_cap"])
 
     return "\n".join(
         [

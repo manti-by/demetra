@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from demetra import settings
+from demetra.library.constants import OS_ENV_ALLOWLIST
 from demetra.library.exceptions import SettingsError
 
 
@@ -179,11 +180,11 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert "PATH" in settings_module.OS_ENV_ALLOWLIST
-            assert "HOME" in settings_module.OS_ENV_ALLOWLIST
-            assert "VIRTUAL_ENV" in settings_module.OS_ENV_ALLOWLIST
-            assert "PWD" in settings_module.OS_ENV_ALLOWLIST
-            assert "GITHUB_TOKEN" not in settings_module.OS_ENV_ALLOWLIST
+            assert "PATH" in OS_ENV_ALLOWLIST
+            assert "HOME" in OS_ENV_ALLOWLIST
+            assert "VIRTUAL_ENV" in OS_ENV_ALLOWLIST
+            assert "PWD" in OS_ENV_ALLOWLIST
+            assert "GITHUB_TOKEN" not in OS_ENV_ALLOWLIST
         finally:
             importlib.reload(settings_module)
 
@@ -210,7 +211,7 @@ class TestSettings:
                 "all_proxy",
                 "ALL_PROXY",
             ):
-                assert key in settings_module.OS_ENV_ALLOWLIST
+                assert key in OS_ENV_ALLOWLIST
         finally:
             importlib.reload(settings_module)
 
@@ -257,13 +258,13 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.DEMETRA_SECRET_KEY == "fallback-secret"
+            assert settings_module.SECRET_KEY == "fallback-secret"
         finally:
             monkeypatch.delenv("SECRET_KEY", raising=False)
             importlib.reload(settings_module)
 
-    def test_demetra_secret_key_env_override(self, monkeypatch):
-        monkeypatch.setenv("DEMETRA_SECRET_KEY", "dedicated-secret")
+    def test_secret_key_env_override(self, monkeypatch):
+        monkeypatch.setenv("SECRET_KEY", "dedicated-secret")
 
         import importlib
 
@@ -272,9 +273,9 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.DEMETRA_SECRET_KEY == "dedicated-secret"
+            assert settings_module.SECRET_KEY == "dedicated-secret"
         finally:
-            monkeypatch.delenv("DEMETRA_SECRET_KEY", raising=False)
+            monkeypatch.delenv("SECRET_KEY", raising=False)
             importlib.reload(settings_module)
 
     def test_wiki_budget_falls_back_to_legacy_env_names(self, monkeypatch):
@@ -290,8 +291,8 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.WIKI_LLM_BUDGET_FILES == 12
-            assert settings_module.WIKI_LLM_BUDGET_LINES == 300
+            assert settings_module.WIKI["llm_budget_files"] == 12
+            assert settings_module.WIKI["llm_budget_lines"] == 300
         finally:
             monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
             monkeypatch.delenv("WIKI_GROQ_BUDGET_LINES", raising=False)
@@ -308,7 +309,7 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.WIKI_LLM_BUDGET_FILES == 5
+            assert settings_module.WIKI["llm_budget_files"] == 5
         finally:
             monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
             monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
@@ -381,41 +382,3 @@ class TestSettings:
             importlib.reload(settings_module)
         monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
         importlib.reload(settings_module)
-
-    @pytest.mark.parametrize(
-        ("url", "expected"),
-        [
-            ("https://openrouter.ai/api/v1", "https://openrouter.ai/api/v1"),
-            ("https://custom.example/v1", "https://custom.example/v1"),
-            ("http://localhost:8000/v1", "http://localhost:8000/v1"),
-            ("http://127.0.0.1:8000/v1", "http://127.0.0.1:8000/v1"),
-            ("http://[::1]:8000/v1", "http://[::1]:8000/v1"),
-        ],
-    )
-    def test_validate_llm_base_url_accepts_valid(self, url, expected):
-        assert settings.validate_llm_base_url(url) == expected
-
-    @pytest.mark.parametrize(
-        "url",
-        [
-            None,
-            "",
-            "   ",
-            "not a url",
-            "openrouter.ai/api/v1",
-            "https://",
-            "ftp://host/v1",
-            "http://evil.example/v1",
-            "https://user:pass@evil.example/v1",
-        ],
-    )
-    def test_validate_llm_base_url_rejects_invalid(self, url):
-        with pytest.raises(SettingsError):
-            settings.validate_llm_base_url(url)
-
-    def test_is_loopback_host(self):
-        assert settings.is_loopback_host("localhost")
-        assert settings.is_loopback_host("127.0.0.1")
-        assert settings.is_loopback_host("127.5.5.5")
-        assert settings.is_loopback_host("::1")
-        assert not settings.is_loopback_host("evil.example")

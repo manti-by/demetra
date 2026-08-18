@@ -130,7 +130,8 @@ def budget_exceeded(facts: dict) -> bool:
             ``WIKI_LLM_BUDGET_LINES`` changed lines.
     """
     return (
-        len(facts["files"]) > service.WIKI_LLM_BUDGET_FILES or facts["changed_lines"] > service.WIKI_LLM_BUDGET_LINES
+        len(facts["files"]) > service.WIKI["llm_budget_files"]
+        or facts["changed_lines"] > service.WIKI["llm_budget_lines"]
     )
 
 

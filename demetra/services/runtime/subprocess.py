@@ -4,8 +4,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from demetra.library.constants import OS_ENV_ALLOWLIST
 from demetra.services.runtime.utils import live_stream
-from demetra.settings import OS_ENV_ALLOWLIST, OS_ENV_PROJECT_OPTINS, SUBPROCESS_TIMEOUT
+from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_TIMEOUT
 
 
 def filter_os_env(project_id: str | None = None) -> dict[str, str]:

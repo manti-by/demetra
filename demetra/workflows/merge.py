@@ -16,7 +16,7 @@ from demetra.services.vcs.git import git_fetch, git_worktree_create, git_worktre
 from demetra.services.vcs.github import get_pr_info
 from demetra.services.vcs.merge import perform_git_merge
 from demetra.services.wiki import run_wiki_revalidation, write_session_wiki_page
-from demetra.settings import WIKI_REVALIDATION_ENABLED
+from demetra.settings import WIKI
 
 
 logger = logging.getLogger(__name__)
@@ -117,7 +117,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
                     await write_session_wiki_page(context=context)
             except Exception:  # noqa: BLE001
                 logger.warning(msg="Failed to write wiki page for merge session, continuing")
-            if WIKI_REVALIDATION_ENABLED:
+            if WIKI["revalidation_enabled"]:
                 try:
                     queue.enqueue(f=run_wiki_revalidation)
                 except Exception:  # noqa: BLE001

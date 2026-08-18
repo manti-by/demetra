@@ -3,13 +3,16 @@ from unittest.mock import AsyncMock
 
 import pytest
 
+from demetra.library.exceptions import SettingsError
 from demetra.services.runtime.utils import (
     env_get_bool,
     env_get_int,
     env_get_list,
     env_get_path,
     env_get_str,
+    is_loopback_host,
     live_stream,
+    validate_llm_base_url,
 )
 
 
@@ -125,3 +128,45 @@ class TestEnvHelpers:
         monkeypatch.delenv("TEST_INT", raising=False)
         with pytest.raises(ValueError, match="default must be nonnegative"):
             env_get_int("TEST_INT", -1)
+
+
+class TestValidateLlmBaseUrl:
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://openrouter.ai/api/v1", "https://openrouter.ai/api/v1"),
+            ("https://custom.example/v1", "https://custom.example/v1"),
+            ("http://localhost:8000/v1", "http://localhost:8000/v1"),
+            ("http://127.0.0.1:8000/v1", "http://127.0.0.1:8000/v1"),
+            ("http://[::1]:8000/v1", "http://[::1]:8000/v1"),
+        ],
+    )
+    def test_validate_llm_base_url_accepts_valid(self, url, expected):
+        assert validate_llm_base_url(url) == expected
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            None,
+            "",
+            "   ",
+            "not a url",
+            "openrouter.ai/api/v1",
+            "https://",
+            "ftp://host/v1",
+            "http://evil.example/v1",
+            "https://user:pass@evil.example/v1",
+        ],
+    )
+    def test_validate_llm_base_url_rejects_invalid(self, url):
+        with pytest.raises(SettingsError):
+            validate_llm_base_url(url)
+
+
+class TestIsLoopbackHost:
+    def test_loopback_host(self):
+        assert is_loopback_host("localhost")
+        assert is_loopback_host("127.0.0.1")
+        assert is_loopback_host("127.5.5.5")
+        assert is_loopback_host("::1")
+        assert not is_loopback_host("evil.example")

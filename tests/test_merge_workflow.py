@@ -156,7 +156,7 @@ class TestRunMergeWorkflow:
         base_mocks["mock_perform_merge"].return_value = True
 
         with (
-            patch("demetra.workflows.merge.WIKI_REVALIDATION_ENABLED", True),
+            patch("demetra.workflows.merge.WIKI", {"revalidation_enabled": True}),
             patch(
                 "demetra.workflows.merge.queue.enqueue",
                 side_effect=ConnectionError("Redis down"),
@@ -182,7 +182,7 @@ class TestRunMergeWorkflow:
         calls: list[str] = []
 
         with (
-            patch("demetra.workflows.merge.WIKI_REVALIDATION_ENABLED", True),
+            patch("demetra.workflows.merge.WIKI", {"revalidation_enabled": True}),
             patch("demetra.workflows.merge.queue.enqueue") as mock_enqueue,
             patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
             patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,

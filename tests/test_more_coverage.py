@@ -32,14 +32,14 @@ class TestCodeRabbitService:
 class TestEncryptionService:
     @pytest.fixture
     def mock_secret_key_none(self):
-        with patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", None):
+        with patch("demetra.services.persistence.encryption.SECRET_KEY", None):
             yield
 
     @pytest.fixture
     def mock_encryption_config_valid(self):
         with (
             patch.dict("os.environ", {"SECRET_KEY": "test-key", "ENCRYPTION_SALT": "test-salt"}),
-            patch("demetra.services.persistence.encryption.DEMETRA_SECRET_KEY", "test-key"),
+            patch("demetra.services.persistence.encryption.SECRET_KEY", "test-key"),
             patch("demetra.services.persistence.encryption.ENCRYPTION_SALT", "test-salt"),
         ):
             yield
