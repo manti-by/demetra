@@ -120,17 +120,17 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
 
 
 def budget_exceeded(facts: dict) -> bool:
-    """Decide whether a session warrants the Groq polish pass.
+    """Decide whether a session warrants the LLM polish pass.
 
     Args:
         facts: The collected session facts.
 
     Returns:
-        bool: True when over ``WIKI_GROQ_BUDGET_FILES`` files or
-            ``WIKI_GROQ_BUDGET_LINES`` changed lines.
+        bool: True when over ``WIKI_LLM_BUDGET_FILES`` files or
+            ``WIKI_LLM_BUDGET_LINES`` changed lines.
     """
     return (
-        len(facts["files"]) > service.WIKI_GROQ_BUDGET_FILES or facts["changed_lines"] > service.WIKI_GROQ_BUDGET_LINES
+        len(facts["files"]) > service.WIKI_LLM_BUDGET_FILES or facts["changed_lines"] > service.WIKI_LLM_BUDGET_LINES
     )
 
 

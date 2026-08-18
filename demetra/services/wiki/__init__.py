@@ -2,7 +2,7 @@ import logging
 import re
 
 from demetra.library.models import Context, LinearTask
-from demetra.services.llm.groq import summarize_session
+from demetra.services.llm.openrouter import summarize_session
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
     budget_exceeded,
@@ -52,8 +52,8 @@ from demetra.settings import (
     GIT,
     LOG_DIR,
     WIKI_BUILD_PLAN_CAP,
-    WIKI_GROQ_BUDGET_FILES,
-    WIKI_GROQ_BUDGET_LINES,
+    WIKI_LLM_BUDGET_FILES,
+    WIKI_LLM_BUDGET_LINES,
 )
 
 
@@ -82,6 +82,7 @@ AGENTS_DRIFT_ANCHORS = (
     "Linear",
     "GitHub",
     "Groq",
+    "OpenRouter",
     "never prefix with",
 )
 
@@ -135,8 +136,8 @@ __all__ = [
     "REVALIDATION_RETRYABLE",
     "TOPIC_KEYWORDS",
     "WIKI_BUILD_PLAN_CAP",
-    "WIKI_GROQ_BUDGET_FILES",
-    "WIKI_GROQ_BUDGET_LINES",
+    "WIKI_LLM_BUDGET_FILES",
+    "WIKI_LLM_BUDGET_LINES",
     "WIKI_ROOT",
     "Context",
     "LinearTask",

@@ -142,7 +142,9 @@ class TestInferServices:
         assert service.infer_services(["main.py"]) == ["main"]
 
     def test_deduplicated_and_ordered(self):
-        assert service.infer_services(["demetra/services/wiki.py", "demetra/services/groq.py"]) == ["groq", "wiki"]
+        assert service.infer_services(
+            ["demetra/services/wiki.py", "demetra/services/groq.py", "demetra/services/openrouter.py"]
+        ) == ["groq", "openrouter", "wiki"]
 
 
 class TestInferTags:
@@ -161,12 +163,12 @@ class TestBudgetExceeded:
         assert service.budget_exceeded(facts=facts) is False
 
     def test_too_many_files_exceeded(self, monkeypatch):
-        monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_FILES", 8)
+        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_FILES", 8)
         facts = {"files": [f"f{i}.py" for i in range(9)], "changed_lines": 1}
         assert service.budget_exceeded(facts=facts) is True
 
     def test_too_many_lines_exceeded(self, monkeypatch):
-        monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_LINES", 200)
+        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_LINES", 200)
         facts = {"files": ["a.py"], "changed_lines": 201}
         assert service.budget_exceeded(facts=facts) is True
 
@@ -546,11 +548,11 @@ class TestWriteSessionWikiPage:
         # must not raise
         await service.write_session_wiki_page(context=make_context(tmp_path))
 
-    async def test_groq_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
+    async def test_llm_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
-        monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_FILES", 1)
-        monkeypatch.setattr(service, "WIKI_GROQ_BUDGET_LINES", 10)
+        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_FILES", 1)
+        monkeypatch.setattr(service, "WIKI_LLM_BUDGET_LINES", 10)
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
 
         with patch(
@@ -561,7 +563,7 @@ class TestWriteSessionWikiPage:
         page_text = (wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md").read_text()
         assert "TLDR" in page_text
 
-    async def test_cheap_run_skips_groq(self, tmp_path, wiki_dirs, monkeypatch):
+    async def test_cheap_run_skips_llm(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
@@ -703,10 +705,11 @@ class TestAgentsDrift:
         drift = await service.check_agents_drift()
         assert "demetra/services/wiki.py" in drift
         assert "Groq" in drift
+        assert "OpenRouter" in drift
 
     async def test_anchors_present_pass(self, wiki_dirs):
         wiki_dirs["agents"].write_text(
-            "demetra/services/wiki.py\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq\nnever prefix with\n"
+            "demetra/services/wiki.py\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter\nnever prefix with\n"
         )
         assert await service.check_agents_drift() == []
 

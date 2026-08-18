@@ -8,6 +8,7 @@ from demetra.library.types import (
     JWTConfig,
     LinearConfig,
     OpenCodeConfig,
+    OpenRouterConfig,
     PathConfig,
 )
 from demetra.services.runtime.utils import (
@@ -54,8 +55,8 @@ FEATURES: dict = {
 }
 
 
-WIKI_GROQ_BUDGET_FILES = env_get_int("WIKI_GROQ_BUDGET_FILES", 8)
-WIKI_GROQ_BUDGET_LINES = env_get_int("WIKI_GROQ_BUDGET_LINES", 200)
+WIKI_LLM_BUDGET_FILES = env_get_int("WIKI_LLM_BUDGET_FILES", 8)
+WIKI_LLM_BUDGET_LINES = env_get_int("WIKI_LLM_BUDGET_LINES", 200)
 WIKI_DIFF_HUNK_CAP = env_get_int("WIKI_DIFF_HUNK_CAP", 200)
 WIKI_BUILD_PLAN_CAP = env_get_int("WIKI_BUILD_PLAN_CAP", 800)
 WIKI_REVALIDATION_ENABLED = env_get_bool("WIKI_REVALIDATION_ENABLED", False)
@@ -217,6 +218,12 @@ JWT: JWTConfig = {
 GROQ: GroqConfig = {
     "api_key": env_get_str("GROQ_API_KEY", None),
     "model": env_get_str("GROQ_MODEL", "openai/gpt-oss-120b"),
+}
+
+OPENROUTER: OpenRouterConfig = {
+    "api_key": env_get_str("OPENROUTER_API_KEY", None),
+    "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
+    "base_url": env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

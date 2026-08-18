@@ -180,7 +180,8 @@ Demetra coordinates the following external tools:
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
-- **Groq**: LLM API for plan/review summarisation (`demetra/services/llm/groq.py`)
+- **Groq**: legacy LLM API for plan/review summarisation (`demetra/services/llm/groq.py`)
+- **OpenRouter**: LLM API for plan/review summarisation (`demetra/services/llm/openrouter.py`)
 
 ## Security Guidelines
 

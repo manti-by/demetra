@@ -278,6 +278,16 @@ async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
 
 
 @pytest.fixture
+async def mock_openrouter(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
+    with patch(
+        "demetra.services.llm.openrouter.process_text_with_openrouter",
+        new_callable=AsyncMock,
+    ) as mock:
+        mock.return_value = groq_processed_data
+        yield mock
+
+
+@pytest.fixture
 async def mock_create_linear_ticket(
     linear_ticket_data: dict,
 ) -> AsyncGenerator[AsyncMock]:
