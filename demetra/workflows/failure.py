@@ -1,9 +1,8 @@
 from demetra.library.exceptions import LinearError, PullRequestError
 from demetra.library.models import Context
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
 from demetra.services.runtime.template import get_template
 from demetra.services.runtime.tui import print_message
-from demetra.settings import LINEAR
 
 
 async def process_pr_failure(context: Context, error: PullRequestError) -> None:
@@ -29,9 +28,10 @@ async def process_pr_failure(context: Context, error: PullRequestError) -> None:
     )
     try:
         comment_posted = await post_comment(task_id=context.linear_task.id, body=body)
-        status_updated = await update_ticket_status(
-            task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"]
-        )
+        state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
+        if state_id is None:
+            raise LinearError("Linear state 'awaiting_input' is not configured")
+        status_updated = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
     except LinearError as e:
         print_message(
             f"Failed to update Linear after PR creation failure: {e}. Move the ticket to Awaiting Input manually.",

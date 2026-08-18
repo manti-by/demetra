@@ -73,6 +73,11 @@ class TestWatcherService:
         with patch("demetra.services.daemons.watcher.MAX_RUN_ATTEMPTS", 3):
             yield
 
+    @pytest.fixture(autouse=True)
+    def mock_empty_user_environment(self):
+        with patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}):
+            yield
+
     @pytest.fixture
     def mock_post_comment(self):
         with patch("demetra.services.daemons.watcher.post_comment", new_callable=AsyncMock) as mock:

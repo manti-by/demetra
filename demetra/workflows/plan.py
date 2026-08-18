@@ -1,16 +1,39 @@
 from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError, UserCancelledError
+from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, LinearError, PlanError, UserCancelledError
 from demetra.library.models import Context
 from demetra.services.agents.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
-from demetra.settings import LINEAR, MAX_PLAN_ATTEMPTS, OPENCODE
+from demetra.settings import MAX_PLAN_ATTEMPTS, OPENCODE
 from demetra.workflows.resolve import run_resolve_step
+
+
+async def move_to_awaiting_input(context: Context) -> None:
+    """Move the task to Awaiting Input and stop the workflow.
+
+    Updates the Linear ticket status and the session step, then raises
+    AutoCancelledError so the caller's cleanup rolls back the worktree and
+    branch without moving the Linear status again.
+
+    Args:
+        context: The workflow context.
+
+    Raises:
+        LinearError: When the awaiting_input state is not configured.
+        AutoCancelledError: Always, to halt the workflow.
+    """
+    state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
+    if state_id is None:
+        raise LinearError("Linear state 'awaiting_input' is not configured")
+    await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+    await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
+    print_message("Task moved to Awaiting Input state.", style="result")
+    raise AutoCancelledError
 
 
 async def run_plan_step(context: Context) -> str | None:
@@ -28,7 +51,9 @@ async def run_plan_step(context: Context) -> str | None:
 
     Raises:
         PlanError: When the plan agent exits with an error.
-        AutoCancelledError: In auto mode when questions are posted to Linear.
+        AutoCancelledError: When the workflow stops awaiting user input, either
+            because auto mode posted questions to Linear or because plan
+            summarization failed.
         UserCancelledError: When the user exits the workflow.
         InfiniteLoopError: When the plan loop attempt budget is exhausted.
     """
@@ -43,6 +68,7 @@ async def run_plan_step(context: Context) -> str | None:
             task=current_task,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
+            user_environment=context.project.user_environment,
         )
         if exit_code != 0:
             raise PlanError(
@@ -52,11 +78,17 @@ async def run_plan_step(context: Context) -> str | None:
         plan_output = stdout
         print_message(f"Plain plan agent output:\n{plan_output}", style="info")
 
-        build_plan = await extract_plan(
-            plan_output=plan_output.strip(),
-            task_description=context.linear_task.description,
-            comments=context.linear_task.comments,
-        )
+        try:
+            build_plan = await extract_plan(
+                plan_output=plan_output.strip(),
+                task_description=context.linear_task.description,
+                comments=context.linear_task.comments,
+                user_environment=context.project.user_environment,
+            )
+        except PlanError as e:
+            print_message(f"Plan summarization failed: {e}", style="error")
+            await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan summarization failed: {e}")
+            await move_to_awaiting_input(context=context)
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None
@@ -106,7 +138,7 @@ async def run_plan_step(context: Context) -> str | None:
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")
 
-        questions = await extract_questions(plan_output=plan_output)
+        questions = await extract_questions(plan_output=plan_output, user_environment=context.project.user_environment)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
         if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")
@@ -141,11 +173,7 @@ async def run_plan_step(context: Context) -> str | None:
                 if not await post_comment(task_id=context.linear_task.id, body=f"## Question:\n{question}"):
                     print_message("Failed to post question to Linear", style="error")
 
-            await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["awaiting_input"])
-            await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
-            print_message("Task moved to Awaiting Input state.", style="result")
-
-            raise AutoCancelledError
+            await move_to_awaiting_input(context=context)
 
         print_message("Waiting for user input.", style="heading")
 

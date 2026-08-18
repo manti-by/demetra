@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.services.persistence.database import get_session_id_by_task_id, get_session_step_name
+from demetra.services.persistence.database import get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 
@@ -69,10 +69,12 @@ async def watcher_logs(
 ) -> None:
     """Stream log files and session status via WebSocket in real-time.
 
-    Authenticates the user and validates the task_id as a UUID.
-    Sends JSON envelopes with type "log" (data.text) for log lines
-    and "status" (data.step, data.name) for session step changes.
-    Includes path traversal protection.
+    Authenticates the user and validates the task_id as a UUID. Logs are
+    streamed from the task-keyed session log file, so a task can be watched
+    before its session row exists. A session that already exists must belong
+    to the authenticated user. Sends JSON envelopes with type "log"
+    (data.text) for log lines and "status" (data.step, data.name) for session
+    step changes. Includes path traversal protection.
     """
     if DEBUG and not auth_token:
         auth_token = token
@@ -90,7 +92,9 @@ async def watcher_logs(
         await reject_connection(websocket=websocket, code=4000, reason="Invalid or missing task_id")
         return
 
-    if not await get_session_id_by_task_id(task_id=task_id, user_id=user.id):
+    status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
+    if status_info is None and await get_session_step_name(task_id=task_id):
+        # The task has a session row, but it belongs to another user.
         await reject_connection(websocket=websocket, code=4004, reason="Session not found")
         return
 
@@ -115,17 +119,12 @@ async def watcher_logs(
 
     last_seen_step: str | None = None
     last_seen_name: str = ""
+    seen_session = status_info is not None
+    if seen_session:
+        last_seen_step, last_seen_name = status_info
+        await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
 
     try:
-        status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
-        if status_info is not None:
-            last_seen_step, last_seen_name = status_info
-            await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
-        else:
-            await send_deleted(websocket=websocket)
-            await websocket.close(code=4004, reason="Session not found")
-            return
-
         try:
             async with aiofiles.open(resolved_path) as f:
                 content = await f.read()
@@ -166,13 +165,16 @@ async def watcher_logs(
                     status_ticks = 0
                     status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
                     if status_info is None:
-                        await send_deleted(websocket=websocket)
-                        break
-                    step, name = status_info
-                    if step != last_seen_step or name != last_seen_name:
-                        last_seen_step = step
-                        last_seen_name = name
-                        await send_status(websocket=websocket, step=step, name=name)
+                        if seen_session:
+                            await send_deleted(websocket=websocket)
+                            break
+                    else:
+                        seen_session = True
+                        step, name = status_info
+                        if step != last_seen_step or name != last_seen_name:
+                            last_seen_step = step
+                            last_seen_name = name
+                            await send_status(websocket=websocket, step=step, name=name)
 
     except WebSocketDisconnect:
         pass

@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError
+from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError
 from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory, TokenUsage
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
@@ -273,6 +273,63 @@ class TestWorkflowPlan:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_run_plan_step_moves_to_awaiting_input_on_summarization_failure(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+    ):
+        with (
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
+            patch(
+                "demetra.workflows.plan.get_linear_config_value",
+                new_callable=AsyncMock,
+                return_value="awaiting-input-state-id",
+            ),
+        ):
+            context = Context(
+                project=Project(
+                    id=str(uuid4()),
+                    user_id=str(uuid4()),
+                    linear_project_id=str(uuid4()),
+                    name="demetra",
+                    state="active",
+                    repository_url="https://github.com/test/demetra",
+                    repository_name="demetra",
+                    repository_owner="test",
+                    local_path=Path(f"/tmp/{faker.slug()}"),
+                    created_at=datetime.now().isoformat(),
+                    updated_at=datetime.now().isoformat(),
+                ),
+                auto_mode=False,
+                linear_task=LinearTask(
+                    id=str(uuid4()),
+                    identifier="MNT-123",
+                    title=faker.sentence(),
+                    description=faker.text(),
+                    priority=1,
+                    created_at=datetime.now().isoformat(),
+                ),
+                branch_name="feature/test",
+                worktree_path=Path(f"/tmp/{faker.slug()}"),
+                session=None,
+            )
+
+            mock_plan_agent.return_value = (0, faker.text(), "")
+            mock_extract_plan.side_effect = PlanError("Failed to summarize the build plan")
+
+            with pytest.raises(AutoCancelledError):
+                await run_plan_step(context)
+
+            mock_post_comment.assert_awaited_once()
+            mock_update_ticket_status.assert_awaited_once_with(
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+            )
+            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+
 
 class TestWorkflowResolve:
     @pytest.fixture
@@ -458,6 +515,11 @@ class TestWorkflowPlanLoop:
     @pytest.fixture(autouse=True)
     def _auto_mock_update_session_step(self, mock_update_session_step):
         pass
+
+    @pytest.fixture(autouse=True)
+    def _mock_empty_user_environment(self):
+        with patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}):
+            yield
 
     @pytest.fixture
     def mock_plan_loop_base(
@@ -1148,7 +1210,7 @@ class TestWorkflowReview:
         result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize_review.assert_awaited_once_with(review_output="")
+        mock_summarize_review.assert_awaited_once_with(review_output="", user_environment=None)
 
     @pytest.mark.asyncio
     async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):
@@ -1660,6 +1722,7 @@ class TestMainBumpVersion:
             patch("main.print_heading", new_callable=AsyncMock),
             patch("main.setup_workflow", new_callable=AsyncMock, return_value=context),
             patch("main.update_ticket_status", new_callable=AsyncMock),
+            patch("main.setup_session_logging", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock, return_value=True),
             patch("main.post_comment", new_callable=AsyncMock),
             patch("main.mark_session_posted", new_callable=AsyncMock),

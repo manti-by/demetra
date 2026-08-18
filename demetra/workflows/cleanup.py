@@ -61,7 +61,11 @@ async def commit_and_push(context: Context) -> bool:
     print_message("Generating PR description", style="heading")
     task_details = f"{context.linear_task.full_title}\n\n{context.linear_task.description}"
     try:
-        pr_body = await generate_pr_description(task_details=task_details, build_plan=context.build_plan)
+        pr_body = await generate_pr_description(
+            task_details=task_details,
+            build_plan=context.build_plan,
+            user_environment=context.project.user_environment,
+        )
     except Exception:  # noqa: BLE001
         print_message("Failed to generate PR description, continuing with empty body", style="warning")
         pr_body = ""

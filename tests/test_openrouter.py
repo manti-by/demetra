@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from demetra.library.exceptions import PlanError
 from demetra.services.llm.openrouter import (
     extract_plan,
     generate_pr_description,
@@ -256,6 +257,23 @@ class TestOpenRouterService:
             plan_passed = mock_chain.ainvoke.call_args.kwargs["input"]["plan_output"]
             assert len(plan_passed) <= 32_000
             assert plan_passed == long_output[-32_000:]
+
+    @pytest.mark.asyncio
+    async def test_extract_plan_raises_plan_error_on_llm_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(PlanError, match="Failed to summarize the build plan"):
+                await extract_plan(plan_output="plan", task_description="task", comments=[])
 
 
 class TestSummarizeSession:

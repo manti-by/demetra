@@ -61,7 +61,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     if task_id:
         linear_task = await get_linear_task_by_id(task_id)
     else:
-        linear_task = await get_linear_task(project_name=project.name)
+        linear_task = await get_linear_task(project_name=project.name, user_id=project.user_id)
 
     if not linear_task:
         print_message(f"No TODO tasks found for {project.name} project", style="error")

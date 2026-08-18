@@ -10,7 +10,12 @@ from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 MISSING_ITEM_RE = re.compile(r"^Plan step \d+:", re.IGNORECASE)
 
 
-async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, str] | None = None) -> str | None:
+async def run_validate_agent(
+    target_path: Path,
+    build_plan: str,
+    env: dict[str, str] | None = None,
+    user_environment: dict[str, str] | None = None,
+) -> str | None:
     """Run the validate agent and return missing plan items, or None on full coverage.
 
     Invokes the read-only validate agent against the staged diff and the build
@@ -21,6 +26,7 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
         target_path: Directory to run the validate agent in.
         build_plan: The finalized build plan to check coverage against.
         env: Optional environment overrides for the subprocess.
+        user_environment: Optional user env layer overriding the model.
 
     Returns:
         str | None: The numbered missing plan items, or None when the plan is
@@ -31,7 +37,9 @@ async def run_validate_agent(target_path: Path, build_plan: str, env: dict[str, 
     """
     print_message(message="Running VALIDATE agent", style="heading")
 
-    exit_code, stdout, stderr = await opencode_validate_agent(target_path=target_path, build_plan=build_plan, env=env)
+    exit_code, stdout, stderr = await opencode_validate_agent(
+        target_path=target_path, build_plan=build_plan, env=env, user_environment=user_environment
+    )
     if exit_code != 0:
         raise BuildError(
             f"Validate agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"

@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, call, patch
 
 import pytest
 from fastapi import HTTPException
@@ -125,13 +125,13 @@ class TestWatcherWebSocketOwnership:
     TASK_ID = "00000000-0000-4000-8000-000000000002"
 
     @pytest.mark.asyncio
-    async def test_websocket_rejects_task_not_owned_by_user(self):
+    async def test_websocket_rejects_task_owned_by_another_user(self):
         with (
             patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-            patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_get_session_id,
+            patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
         ):
             mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-            mock_get_session_id.return_value = None
+            mock_step.side_effect = [None, ("initial", "Other User Session")]
 
             with TestClient(app).websocket_connect(
                 f"{self.WS_PATH}?task_id={self.TASK_ID}",
@@ -141,7 +141,12 @@ class TestWatcherWebSocketOwnership:
                 assert message["type"] == "websocket.close"
                 assert message["code"] == 4004
 
-            mock_get_session_id.assert_called_once_with(task_id=self.TASK_ID, user_id="user-123")
+            mock_step.assert_has_awaits(
+                [
+                    call(task_id=self.TASK_ID, user_id="user-123"),
+                    call(task_id=self.TASK_ID),
+                ]
+            )
 
     @pytest.mark.asyncio
     async def test_websocket_passes_user_id_to_step_lookup(self):
@@ -158,11 +163,9 @@ class TestWatcherWebSocketOwnership:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_get_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_get_session_id.return_value = "session-abc"
                 mock_step.return_value = ("initial", "Test Session")
 
                 with TestClient(app).websocket_connect(

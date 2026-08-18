@@ -32,6 +32,7 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
         task=task,
         task_title=f"{context.linear_task.full_title} - resolve",
         env=context.project.environment,
+        user_environment=context.project.user_environment,
     )
 
     print_message(f"Resolve agent output:\n{resolve_output}", style="info")

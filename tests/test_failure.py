@@ -59,6 +59,7 @@ class TestRunFailureStep:
             patch(
                 "demetra.workflows.failure.update_ticket_status", new_callable=AsyncMock
             ) as mock_update_ticket_status,
+            patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}),
         ):
             mock_post_comment.return_value = True
             mock_update_ticket_status.return_value = True

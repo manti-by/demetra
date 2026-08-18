@@ -87,11 +87,9 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_session_id.return_value = "session-abc"
                 mock_step.return_value = ("initial", "Test Session")
 
                 with TestClient(app).websocket_connect(
@@ -108,6 +106,73 @@ class TestWatcherLogsWebSocket:
                     log_msg = ws.receive_json()
                     assert log_msg["type"] == "log"
                     assert log_msg["data"]["text"] == "test log line"
+
+    @pytest.mark.asyncio
+    async def test_websocket_streams_logs_for_pending_session_without_session_id(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
+        """A session row without an opencode session id (e.g. still on the plan
+        step) must still connect and stream its log file."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.write_text("plan step log line\n")
+
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+            ):
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_step.return_value = ("plan", "Test Session")
+
+                with TestClient(app).websocket_connect(
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
+                ) as ws:
+                    status_msg = ws.receive_json()
+                    assert status_msg["type"] == "status"
+                    assert status_msg["data"]["step"] == "plan"
+
+                    log_msg = ws.receive_json()
+                    assert log_msg["type"] == "log"
+                    assert log_msg["data"]["text"] == "plan step log line"
+
+    @pytest.mark.asyncio
+    async def test_websocket_streams_logs_before_session_row_exists(
+        self,
+        mock_groq: AsyncMock,
+        mock_create_linear_ticket: AsyncMock,
+    ):
+        """A task without a session row yet must still stream its task-keyed
+        log file, since the log file is created before the session row."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.write_text("early log line\n")
+
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
+            ):
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_step.return_value = None
+
+                with TestClient(app).websocket_connect(
+                    f"{self.WS_PATH}?task_id={self.TASK_ID}",
+                    cookies={"auth_token": "valid_token"},
+                ) as ws:
+                    log_msg = ws.receive_json()
+                    assert log_msg["type"] == "log"
+                    assert log_msg["data"]["text"] == "early log line"
 
     @pytest.mark.asyncio
     async def test_websocket_emits_status_on_step_change(
@@ -134,12 +199,10 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
                 patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_session_id.return_value = "session-abc"
                 mock_step.side_effect = mock_step_side_effect
 
                 with TestClient(app).websocket_connect(
@@ -180,12 +243,10 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_id_by_task_id", new_callable=AsyncMock) as mock_session_id,
                 patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
                 patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_session_id.return_value = "session-abc"
                 mock_step.side_effect = mock_step_side_effect
 
                 with TestClient(app).websocket_connect(

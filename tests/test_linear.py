@@ -662,6 +662,11 @@ class TestLinearCleanup:
         with patch("demetra.services.linear.print_message"):
             yield
 
+    @pytest.fixture(autouse=True)
+    def mock_empty_user_environment(self):
+        with patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}):
+            yield
+
     @pytest.mark.asyncio
     async def test_cleanup_success_moves_to_in_review(
         self,

@@ -1,6 +1,9 @@
 import asyncio
+import logging
+import logging.config
 from collections.abc import AsyncGenerator
 from contextlib import ExitStack, contextmanager
+from typing import Any
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -61,6 +64,41 @@ def fast_bcrypt():
         yield
 
 
+@pytest.fixture(scope="session", autouse=True)
+def console_only_logging():
+    """Keep test logs on the console and out of production/session log files.
+
+    ``demetra.services.runtime.tui`` and the CLI entrypoints (``main.py``,
+    ``demetra.listener``, ``demetra.watcher``, ``demetra.mcp_server``, ...)
+    call ``logging.config.dictConfig(LOGGING)`` at import time, which installs
+    a ``FileHandler`` on the root logger pointed at the production log (e.g.
+    ``/var/log/demetra/demetra.log``). ``main``/``listener`` are imported
+    lazily from inside tests, so ``dictConfig`` can run mid-session. Wrap it
+    to drop the ``file`` handler and strip any already-installed file handler
+    so the suite never writes into the app log or session log files.
+    """
+    import copy
+
+    root_logger = logging.getLogger()
+    for handler in list(root_logger.handlers):
+        if isinstance(handler, logging.FileHandler):
+            root_logger.removeHandler(handler)
+            handler.close()
+
+    original_dict_config = logging.config.dictConfig
+
+    def _console_only_dict_config(config: Any) -> None:
+        cfg: dict[str, Any] = copy.deepcopy(config)
+        cfg["handlers"].pop("file", None)
+        for logger_config in cfg["loggers"].values():
+            if "handlers" in logger_config:
+                logger_config["handlers"] = [h for h in logger_config["handlers"] if h != "file"]
+        return original_dict_config(cfg)
+
+    with patch.object(logging.config, "dictConfig", _console_only_dict_config):
+        yield
+
+
 @pytest.fixture(scope="session")
 def event_loop():
     loop = asyncio.new_event_loop()
@@ -76,7 +114,7 @@ def test_db_engine():
     return _test_db_engine
 
 
-@pytest_asyncio.fixture(scope="session")
+@pytest_asyncio.fixture(scope="session", autouse=True)
 async def setup_test_db(test_db_engine):
     _engine_cache.clear()
     admin_engine = get_async_engine(db_name="postgres")

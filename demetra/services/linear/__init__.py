@@ -6,9 +6,44 @@ from demetra.library.exceptions import LinearError
 from demetra.library.models import Context, LinearTask
 from demetra.library.tables import projects
 from demetra.services.linear.graphql import get_query, graphql_request
-from demetra.services.persistence.database import get_connection
+from demetra.services.persistence.database import get_connection, get_user_environments_decrypted
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR
+
+
+async def get_linear_config_value(name: str, *, user_id: str | None = None) -> str | None:
+    """Resolve a Linear config value from the user-shared env or the settings.
+
+    State names resolve to the matching ``LINEAR_STATE_<NAME>_ID`` key in the
+    user's shared environment, ``"default_state"`` to ``LINEAR_DEFAULT_STATE_ID``
+    and any other name to ``LINEAR_<NAME>``. The settings default is used when
+    the user has no override for the key.
+
+    Args:
+        name: The config name, e.g. ``"team_id"``, ``"default_state"`` or a
+            state name like ``"todo"``.
+        user_id: Optional user id whose shared environment is consulted.
+
+    Returns:
+        str | None: The resolved value, or None when no layer provides it.
+    """
+    if name in LINEAR["states"]:
+        env_key = f"LINEAR_STATE_{name.upper()}_ID"
+    elif name == "default_state":
+        env_key = "LINEAR_DEFAULT_STATE_ID"
+    else:
+        env_key = f"LINEAR_{name.upper()}"
+
+    if user_id:
+        user_environment = await get_user_environments_decrypted(user_id=user_id)
+        if env_key in user_environment:
+            return user_environment[env_key]
+
+    states = {key: value for key, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
+    if name in states:
+        return states[name]
+    value = dict(LINEAR).get(name)
+    return value if isinstance(value, str) else None
 
 
 def extract_comments(issue: dict) -> list[str]:
@@ -67,7 +102,7 @@ async def get_linked_projects() -> dict[str, tuple[str, str]]:
     return mapping
 
 
-async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
+async def get_todo_issues(project_name: str | None = None, *, user_id: str | None = None) -> list[LinearTask]:
     """Fetch TODO issues from Linear, filtered by project and labels.
 
     Only issues belonging to a project are considered; an optional project
@@ -75,12 +110,14 @@ async def get_todo_issues(project_name: str | None = None) -> list[LinearTask]:
 
     Args:
         project_name: Optional Linear project name to filter on.
+        user_id: Optional user id whose shared env overrides the TODO state.
 
     Returns:
         list[LinearTask]: The matching TODO issues as tasks.
     """
+    state_id = await get_linear_config_value(name="todo", user_id=user_id)
     query = await get_query(name="get_all_issues")
-    result = await graphql_request(query=query, variables={"state_id": LINEAR["states"]["todo"]})
+    result = await graphql_request(query=query, variables={"state_id": state_id})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
 
     linked_projects = await get_linked_projects()
@@ -166,18 +203,19 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     )
 
 
-async def get_linear_task(project_name: str) -> LinearTask | None:
+async def get_linear_task(project_name: str, *, user_id: str | None = None) -> LinearTask | None:
     """Return the highest-priority TODO task for a project, if any.
 
     Tasks are sorted by priority and creation date before picking the first.
 
     Args:
         project_name: The Linear project name to filter on.
+        user_id: Optional user id whose shared env overrides the TODO state.
 
     Returns:
         LinearTask | None: The selected task, or None when there are none.
     """
-    issues = await get_todo_issues(project_name=project_name)
+    issues = await get_todo_issues(project_name=project_name, user_id=user_id)
     issues = sorted(issues, key=lambda x: (-(x.priority or 0), x.created_at or ""), reverse=True)
     if issues:
         return issues[0]
@@ -233,11 +271,17 @@ async def linear_cleanup(context: Context, is_success: bool):
     """
     if is_success:
         print_message("Workflow complete", style="heading")
-        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_review"])
+        state_id = await get_linear_config_value(name="in_review", user_id=context.project.user_id)
+        if state_id is None:
+            raise LinearError("Linear state 'in_review' is not configured")
+        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
         return
 
     print_message("Moving back a ticket in TODO column", style="heading")
-    await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["todo"])
+    state_id = await get_linear_config_value(name="todo", user_id=context.project.user_id)
+    if state_id is None:
+        raise LinearError("Linear state 'todo' is not configured")
+    await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
 
 async def create_linear_ticket(
@@ -248,11 +292,12 @@ async def create_linear_ticket(
     team_id: str | None = None,
     state_id: str | None = None,
     project_id: str | None = None,
+    user_id: str | None = None,
 ) -> dict[str, Any]:
     """Create a new Linear issue from structured ticket fields.
 
-    Composes the description sections, applies defaults from settings for any
-    missing ids, and returns the created issue.
+    Composes the description sections, applies defaults from the user-shared
+    environment or settings for any missing ids, and returns the created issue.
 
     Args:
         title: The issue title.
@@ -262,6 +307,7 @@ async def create_linear_ticket(
         team_id: Optional team id; defaults to the configured team.
         state_id: Optional initial state id; defaults to the configured state.
         project_id: Optional project id to attach the issue to.
+        user_id: Optional user id whose shared env overrides the defaults.
 
     Returns:
         dict[str, Any]: The created issue with its id, identifier and title.
@@ -280,8 +326,8 @@ async def create_linear_ticket(
         "input": {
             "title": title,
             "description": full_description,
-            "teamId": team_id or LINEAR["team_id"],
-            "stateId": state_id or LINEAR["default_state"],
+            "teamId": team_id or await get_linear_config_value(name="team_id", user_id=user_id),
+            "stateId": state_id or await get_linear_config_value(name="default_state", user_id=user_id),
             "projectId": project_id,
             "labelIds": [LINEAR["feature_label_id"]],
             "createAsUser": "Demetra",
