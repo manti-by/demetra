@@ -1,6 +1,9 @@
 from pathlib import Path
 
+import pytest
+
 from demetra import settings
+from demetra.library.exceptions import SettingsError
 
 
 class TestSettings:
@@ -273,3 +276,146 @@ class TestSettings:
         finally:
             monkeypatch.delenv("DEMETRA_SECRET_KEY", raising=False)
             importlib.reload(settings_module)
+
+    def test_wiki_budget_falls_back_to_legacy_env_names(self, monkeypatch):
+        monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
+        monkeypatch.delenv("WIKI_LLM_BUDGET_LINES", raising=False)
+        monkeypatch.setenv("WIKI_GROQ_BUDGET_FILES", "12")
+        monkeypatch.setenv("WIKI_GROQ_BUDGET_LINES", "300")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.WIKI_LLM_BUDGET_FILES == 12
+            assert settings_module.WIKI_LLM_BUDGET_LINES == 300
+        finally:
+            monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
+            monkeypatch.delenv("WIKI_GROQ_BUDGET_LINES", raising=False)
+            importlib.reload(settings_module)
+
+    def test_wiki_budget_new_names_take_precedence(self, monkeypatch):
+        monkeypatch.setenv("WIKI_LLM_BUDGET_FILES", "5")
+        monkeypatch.setenv("WIKI_GROQ_BUDGET_FILES", "12")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.WIKI_LLM_BUDGET_FILES == 5
+        finally:
+            monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
+            monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
+            importlib.reload(settings_module)
+
+    def test_openrouter_base_url_default(self, monkeypatch):
+        monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OPENROUTER["base_url"] == "https://openrouter.ai/api/v1"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_openrouter_base_url_allows_custom_https(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_BASE_URL", "https://custom.example/v1")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OPENROUTER["base_url"] == "https://custom.example/v1"
+        finally:
+            monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
+            importlib.reload(settings_module)
+
+    def test_openrouter_base_url_allows_loopback_http(self, monkeypatch):
+        monkeypatch.setenv("OPENROUTER_BASE_URL", "http://localhost:8000/v1")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.OPENROUTER["base_url"] == "http://localhost:8000/v1"
+        finally:
+            monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
+            importlib.reload(settings_module)
+
+    @pytest.mark.parametrize(
+        "base_url",
+        [
+            "",
+            "   ",
+            "not a url",
+            "openrouter.ai/api/v1",
+            "https://",
+            "http://evil.example/v1",
+            "https://user:pass@evil.example/v1",
+        ],
+    )
+    def test_openrouter_base_url_rejects_invalid(self, monkeypatch, base_url):
+        monkeypatch.setenv("OPENROUTER_BASE_URL", base_url)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError):
+            importlib.reload(settings_module)
+        monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
+        importlib.reload(settings_module)
+
+    @pytest.mark.parametrize(
+        ("url", "expected"),
+        [
+            ("https://openrouter.ai/api/v1", "https://openrouter.ai/api/v1"),
+            ("https://custom.example/v1", "https://custom.example/v1"),
+            ("http://localhost:8000/v1", "http://localhost:8000/v1"),
+            ("http://127.0.0.1:8000/v1", "http://127.0.0.1:8000/v1"),
+            ("http://[::1]:8000/v1", "http://[::1]:8000/v1"),
+        ],
+    )
+    def test_validate_llm_base_url_accepts_valid(self, url, expected):
+        assert settings.validate_llm_base_url(url) == expected
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            None,
+            "",
+            "   ",
+            "not a url",
+            "openrouter.ai/api/v1",
+            "https://",
+            "ftp://host/v1",
+            "http://evil.example/v1",
+            "https://user:pass@evil.example/v1",
+        ],
+    )
+    def test_validate_llm_base_url_rejects_invalid(self, url):
+        with pytest.raises(SettingsError):
+            settings.validate_llm_base_url(url)
+
+    def test_is_loopback_host(self):
+        assert settings.is_loopback_host("localhost")
+        assert settings.is_loopback_host("127.0.0.1")
+        assert settings.is_loopback_host("127.5.5.5")
+        assert settings.is_loopback_host("::1")
+        assert not settings.is_loopback_host("evil.example")

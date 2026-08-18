@@ -4,7 +4,7 @@ from demetra.library.exceptions import PullRequestError
 from demetra.library.models import Context
 from demetra.services.agents.opencode import get_opencode_session_tokens
 from demetra.services.linear import linear_cleanup
-from demetra.services.llm.groq import generate_pr_description
+from demetra.services.llm.openrouter import generate_pr_description
 from demetra.services.persistence.database import (
     record_session_step_history,
     update_session_pr_link,

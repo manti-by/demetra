@@ -1,4 +1,6 @@
+import ipaddress
 from pathlib import Path
+from urllib.parse import urlsplit
 
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
@@ -8,6 +10,7 @@ from demetra.library.types import (
     JWTConfig,
     LinearConfig,
     OpenCodeConfig,
+    OpenRouterConfig,
     PathConfig,
 )
 from demetra.services.runtime.utils import (
@@ -54,8 +57,8 @@ FEATURES: dict = {
 }
 
 
-WIKI_GROQ_BUDGET_FILES = env_get_int("WIKI_GROQ_BUDGET_FILES", 8)
-WIKI_GROQ_BUDGET_LINES = env_get_int("WIKI_GROQ_BUDGET_LINES", 200)
+WIKI_LLM_BUDGET_FILES = env_get_int("WIKI_LLM_BUDGET_FILES", env_get_int("WIKI_GROQ_BUDGET_FILES", 8))
+WIKI_LLM_BUDGET_LINES = env_get_int("WIKI_LLM_BUDGET_LINES", env_get_int("WIKI_GROQ_BUDGET_LINES", 200))
 WIKI_DIFF_HUNK_CAP = env_get_int("WIKI_DIFF_HUNK_CAP", 200)
 WIKI_BUILD_PLAN_CAP = env_get_int("WIKI_BUILD_PLAN_CAP", 800)
 WIKI_REVALIDATION_ENABLED = env_get_bool("WIKI_REVALIDATION_ENABLED", False)
@@ -217,6 +220,66 @@ JWT: JWTConfig = {
 GROQ: GroqConfig = {
     "api_key": env_get_str("GROQ_API_KEY", None),
     "model": env_get_str("GROQ_MODEL", "openai/gpt-oss-120b"),
+}
+
+LOOPBACK_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
+
+
+def is_loopback_host(hostname: str) -> bool:
+    """Check whether a hostname points at a loopback address.
+
+    Covers localhost, the canonical IPv4/IPv6 loopback addresses and the
+    whole 127.0.0.0/8 range.
+
+    Args:
+        hostname: The hostname to check.
+
+    Returns:
+        bool: True when the hostname is loopback.
+    """
+    if hostname in LOOPBACK_HOSTS:
+        return True
+    try:
+        return ipaddress.ip_address(hostname).is_loopback
+    except ValueError:
+        return False
+
+
+def validate_llm_base_url(url: str | None) -> str:
+    """Validate an LLM base URL before it is used to construct a client.
+
+    The URL is sent together with the API key on every request, so it must
+    be a well-formed HTTP(S) endpoint without embedded credentials. Remote
+    endpoints must use HTTPS; HTTP is only allowed for loopback endpoints.
+
+    Args:
+        url: The base URL to validate.
+
+    Returns:
+        str: The trimmed URL when valid.
+
+    Raises:
+        SettingsError: When the URL is blank, malformed, carries embedded
+            credentials, or uses HTTP for a non-loopback endpoint.
+    """
+    if not url or not url.strip():
+        raise SettingsError("OPENROUTER_BASE_URL must not be blank")
+    parsed = urlsplit(url.strip())
+    if parsed.scheme not in {"http", "https"}:
+        raise SettingsError("OPENROUTER_BASE_URL must be an http(s) URL")
+    if not parsed.hostname:
+        raise SettingsError("OPENROUTER_BASE_URL must include a hostname")
+    if parsed.username or parsed.password:
+        raise SettingsError("OPENROUTER_BASE_URL must not contain credentials")
+    if parsed.scheme == "http" and not is_loopback_host(parsed.hostname):
+        raise SettingsError("OPENROUTER_BASE_URL with http scheme is only allowed for loopback endpoints")
+    return url.strip()
+
+
+OPENROUTER: OpenRouterConfig = {
+    "api_key": env_get_str("OPENROUTER_API_KEY", None),
+    "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
+    "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

@@ -72,3 +72,9 @@ class JWTConfig(TypedDict):
 class GroqConfig(TypedDict):
     api_key: str | None
     model: str
+
+
+class OpenRouterConfig(TypedDict):
+    api_key: str | None
+    model: str
+    base_url: str

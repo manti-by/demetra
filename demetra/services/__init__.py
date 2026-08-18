@@ -19,6 +19,7 @@ _RELOCATED_MODULES: dict[str, str] = {
     "cursor": "demetra.services.agents.cursor",
     "coderabbit": "demetra.services.agents.coderabbit",
     "groq": "demetra.services.llm.groq",
+    "openrouter": "demetra.services.llm.openrouter",
     "parser": "demetra.services.llm.parser",
     "prompt": "demetra.services.llm.prompt",
     "graphql": "demetra.services.linear.graphql",

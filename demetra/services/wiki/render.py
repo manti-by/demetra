@@ -57,7 +57,7 @@ def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = No
     Args:
         meta: The frontmatter mapping.
         facts: The collected session facts.
-        polished_summary: Optional Groq-generated ``tldr``/``overview`` values.
+        polished_summary: Optional LLM-generated ``tldr``/``overview`` values.
 
     Returns:
         str: The complete page Markdown.
