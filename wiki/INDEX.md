@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — MNT-169: every workflow-runtime env var in `demetra/settings.py` classified into project / user / system layers per the MNT-161 three-layer model; Linear states+team → user, OpenRouter base URL → system / API key+model → user, `UV_PATH` → project, other tool paths → system; follow-up migration plan as comment block (2026-08-18)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md) — MNT-168: new `demetra/services/llm/openrouter.py` (single `build_llm()` factory, `ChatOpenAI` + `OPENROUTER_*` config) serves all plan/review/cleanup/wiki consumers; legacy `groq.py` untouched; `WIKI_GROQ_BUDGET_*` → `WIKI_LLM_BUDGET_*`; 817 tests + all gates green (2026-08-18)
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — DRY refactor of the merged compose: `x-demetra-env` / `x-demetra-base` / `x-demetra-app` YAML anchors shared across migrate/api/worker/watcher/listener/rq-dashboard via `<<:`; each service declares only `command`, `LOG_PATH`, `ports`, `replicas`; render-diff-verified equivalent (2026-08-18)
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — code review of the in-progress `mnt-164-docker-compose` branch: 20 findings — 7 blockers (no source COPY, venv path mismatch, WORKDIR typo, missing healthchecks, watcher/listener DB_HOST, image-tag mismatch, missing psycopg-binary), 1 security-critical (`.keys/` baked into image via missing `.dockerignore` entry), 1 security regression (api + rq-dashboard published on `0.0.0.0` instead of loopback) (2026-08-17)
@@ -136,6 +137,12 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project environment](pages/2026-06-08-project-environment.md) — MNT-110: per-project env vars
 - [Refactor API](pages/2026-06-01-refactor-api.md) — MNT-81: router package split
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — MNT-88: removed tickets.py + ticket_provider.py
+
+### Settings & environment layering (3 pages)
+
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — MNT-169: every workflow-runtime env var in `demetra/settings.py` classified into project / user / system layers; follow-up migration plan as comment block
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — MNT-161: 3-layer env merge + encryption + venv + .env upload
+- [Project environment](pages/2026-06-08-project-environment.md) — MNT-110: per-project env vars
 
 ### Context, tokens & compaction (3 pages)
 
