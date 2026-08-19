@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — Worker plan step on amon-ra failed with `EACCES: permission denied, mkdir '/home/demetra/.local/share/opencode/repos'`: the `demetra_app_data` volume at `/home/demetra` holds root-owned dirs from an older image, so the `demetra` user couldn't create opencode's `~/.local`. Added a root entrypoint that chowns the home volume once per volume (marker-gated, pruning the `.keys` bind mounts) and drops to `demetra` via `su-exec`; `USER demetra` replaced by the entrypoint in the Dockerfile. (2026-08-19)
 - [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — Renamed the wiki write-side gate `budget_exceeded()` to `should_use_llm()` in `demetra/services/wiki/` and `tests/test_wiki.py`; the old name read like a cost ceiling while the call site uses it as a significance threshold for the LLM TL;DR/Overview polish pass. Behavior unchanged; env vars `WIKI_LLM_BUDGET_*` kept. (2026-08-19)
 - [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — After the spending limit was raised, MNT-151 builds kept failing with `UnknownError: Unexpected server error`; reproduced that opencode 1.18.18 cannot resume a `--session` whose worktree directory was deleted by cleanup (generic 500), so a task that fails once after planning fails every retry. Fixed by nulling `sessions.session_id` for the task; systemic fix (clear on cleanup or retry without `--session`) still open. (2026-08-19)
 - [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md) — MNT-151's build agent failed in ~4s with `UnknownError: Unexpected server error (ref err_18e38f63)`; root cause is the OpenCode workspace `wrk_01KE576G79X6RZGNHBTA39CPSM` hitting its $30/month spending limit, so the paid `opencode-go/deepseek-v4-flash` model 500s at the gateway. Added a `BuildError` handler in main.py that posts a `build_failed` comment and moves the ticket to Awaiting Input instead of reverting it to TODO; MNT-151 moved accordingly. (2026-08-19)
@@ -150,8 +151,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Refactor API](pages/2026-06-01-refactor-api.md)
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md)
 
-### Docker & deploy (4 pages)
+### Docker & deploy (5 pages)
 
+- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md)
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md)
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md)
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md)

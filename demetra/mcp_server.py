@@ -20,7 +20,7 @@ logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
 APP_NAME = "Demetra MCP Server"
-VERSION = "1.0.0"
+VERSION = "1.1.0"
 
 
 async def handle_list_tools(
