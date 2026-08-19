@@ -249,9 +249,11 @@ since. Solved problem; no action needed.
    `demetra/library/tables.py:108` but no row in the sample has a non-zero value.
    Live payload inspection suggests this is genuine opencode behaviour, not a parser bug.
 
-7. **Truncate long plan output before Groq summarisation** — `extract_plan` at
-   `demetra/services/groq.py:105` ships the full plan output. Capping the input to the
-   last ~8 k tokens before the LLM call would cap cost on long planning iterations.
+7. **Truncate long plan output before summarisation** — `extract_plan` ships the full
+   plan output. Capping the input to the last ~8 k tokens before the LLM call would cap
+   cost on long planning iterations. **Superseded (2026-08-18, MNT-168):** plan
+   extraction/summarization moved to OpenRouter — `extract_plan` and `PLAN_OUTPUT_MAX_CHARS`
+   now live in `demetra/services/llm/openrouter.py` (see the consistency note below).
 
 ## Open questions
 
