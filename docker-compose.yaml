@@ -18,7 +18,8 @@ x-demetra-app: &demetra-app
     - .keys/.gnupg:/home/demetra/.gnupg
     - .keys/.gitconfig:/home/demetra/.gitconfig
     - .keys/.git-credentials:/home/demetra/.git-credentials
-    - ${DEMETRA_LOG_DIR:-./log}:/var/log/demetra/
+    - .keys/opencode/auth.json:/home/demetra/.local/share/opencode/auth.json
+    - /mnt/data/www/demetra/log/:/var/log/demetra/
   depends_on:
     migrate:
       condition: service_completed_successfully
@@ -37,10 +38,12 @@ services:
       POSTGRES_DB: ${DB_NAME:-demetra}
       POSTGRES_USER: ${DB_USER:-demetra}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-demetra}
+    ports:
+      - "54321:5432"
     volumes:
       - demetra_postgres_data:/var/lib/postgresql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
       interval: 5s
       timeout: 5s
       retries: 12
@@ -87,7 +90,7 @@ services:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/api.log
     ports:
-      - "127.0.0.1:8001:8001"
+      - "8001:8001"
 
   worker:
     <<: *demetra-app
@@ -96,7 +99,7 @@ services:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/worker.log
     deploy:
-      replicas: 4
+      replicas: 2
 
   watcher:
     <<: *demetra-app
@@ -115,12 +118,20 @@ services:
   rq-dashboard:
     <<: *demetra-base
     command:
-      ["rq-dashboard", "--redis-url", "redis://redis:6379/1", "--port", "9181"]
+      [
+        "rq-dashboard",
+        "--redis-url",
+        "redis://redis:6379/1",
+        "--bind",
+        "0.0.0.0",
+        "--port",
+        "9181",
+      ]
     environment:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/rq-dashboard.log
     ports:
-      - "127.0.0.1:9181:9181"
+      - "9181:9181"
     depends_on:
       redis:
         condition: service_healthy
@@ -130,6 +141,8 @@ services:
     working_dir: /srv/demetra/src/
     command: ["sh", "-c", "bun install --frozen-lockfile && bun run build"]
     restart: "no"
+    environment:
+      VITE_API_URL: https://demetra.manti.by
     volumes:
       - ./react:/srv/demetra/src
 

@@ -37,10 +37,13 @@ RUN useradd -m -s /bin/bash -d /home/demetra demetra
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/
 RUN chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
 
+COPY configs/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 ENV PATH="/opt/venv/bin:$PATH"
 ENV UV_PATH="/bin/uv"
 
-USER demetra
+ENTRYPOINT ["docker-entrypoint.sh"]
 
 WORKDIR /srv/demetra/src/
 
