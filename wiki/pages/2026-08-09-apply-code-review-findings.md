@@ -3,9 +3,9 @@ title: Apply code-review findings — auth, transactions, validate, wiki
 date: 2026-08-09
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [auth, api, database, wiki, runtime, validation, react]
-branch: -
+branch: "-"
 tickets: []
 tags: [code-review, auth, cookies, exceptions, transactions, wiki, validate, env, react]
 related: [2026-08-03-check-api-auth-and-credentials, 2026-08-06-allowlist-review-fixes, 2026-08-09-wiki-fixes-and-test-optimization, 2026-08-07-split-wiki-service-into-subpackage]
@@ -60,7 +60,7 @@ return value if value >= 0 else default
 
 **File:** demetra/workflows/validate.py:10,47
 
-`run_validate_agent` treated every non-blank stdout line that wasn't an exact `NO_ISSUE` token as a missing plan item. Any stray prose ("I reviewed the staged diff…") forced another full build+validate cycle, burning `rerun_attempts`/`review_attempts` toward `InfiniteLoopError`. The review path avoids this by routing noisy output through Groq (`summarize_review`); here the cheaper fix is a marker filter.
+`run_validate_agent` treated every non-blank stdout line that wasn't an exact `NO_ISSUE` token as a missing plan item. Any stray prose ("I reviewed the staged diff…") forced another full build+validate cycle, burning `rerun_attempts`/`review_attempts` toward `InfiniteLoopError`. The review path avoids this by routing noisy output through OpenRouter (`summarize_review`); here the cheaper fix is a marker filter.
 
 ```python
 MISSING_ITEM_RE = re.compile(r"^Plan step \d+:", re.IGNORECASE)

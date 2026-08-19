@@ -3,9 +3,9 @@ title: Use task title for session listing
 date: 2026-05-22
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [api, react]
-branch: -
+branch: "-"
 tickets: [MNT-84, MNT-59]
 tags: [sessions, api, react, title, sidebar, websocket]
 related: [2026-03-10-ui-for-sessions.md]

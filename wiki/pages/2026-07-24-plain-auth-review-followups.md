@@ -231,8 +231,12 @@ display-name and `AuthContext` this page's Step 5 header-fallback work refines.
   cookie is pinned to `SameSite=lax` so the GitHub redirect still works under `strict`,
   `CORS_ALLOWED_ORIGINS=*` is rejected, and `COOKIE_SAMESITE=none` requires `COOKIE_SECURE=true`.
   See [[2026-08-03-auth-hardening-and-deps-bump]].
+- _Token-in-response correction (2026-08-19):_ the token was removed from the password-auth
+  endpoint responses (`/api/v1/auth/signup`, `/api/v1/auth/login`) but is still returned in
+  the GitHub OAuth callback response (`/api/v1/github/callback`). The `AuthResponse` TypeScript
+  interface still declares `token?: string`.
 
 ## References
 
 - Linear: MNT-148
-- Related: [[2026-07-22-react-frontend-template-warp]] (auth context component), [[2026-08-03-auth-hardening-and-deps-bump]] (subsequent hardening that replaces passlib)
+- Related: [[2026-07-22-react-frontend-template-warp]] (auth context component), [[2026-08-03-auth-hardening-and-deps-bump]] (subsequent hardening that replaces passlib), [[2026-08-06-allowlist-review-fixes]] (MNT-155 allowlist review fixes)

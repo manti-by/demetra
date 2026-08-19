@@ -90,6 +90,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             session_id=context.session_id,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
+            user_environment=context.project.user_environment,
         )
         if exit_code != 0:
             raise BuildError(
@@ -104,6 +105,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 target_path=context.worktree_path,
                 build_plan=build_plan,
                 env=context.project.environment,
+                user_environment=context.project.user_environment,
             )
             if missing_items:
                 if context.auto_mode:
@@ -130,6 +132,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 session_id=context.session_id,
                 task_id=context.linear_task.id,
                 env=context.project.environment,
+                user_environment=context.project.user_environment,
             )
             if review_comments:
                 if context.auto_mode:

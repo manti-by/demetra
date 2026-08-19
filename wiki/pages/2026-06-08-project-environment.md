@@ -3,9 +3,9 @@ title: Project environment
 date: 2026-06-08
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, subprocess, workflows]
-branch: -
+branch: "-"
 tickets: [MNT-110, MNT-75]
 tags: [environment, subprocess, per-project, projects, provisioning, postgres]
 related: [2026-03-31-project-model-and-space.md]

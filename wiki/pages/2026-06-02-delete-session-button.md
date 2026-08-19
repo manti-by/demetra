@@ -3,9 +3,9 @@ title: Add delete button for a session
 date: 2026-06-02
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [api, react, database]
-branch: -
+branch: "-"
 tickets: [MNT-86]
 tags: [sessions, delete, api, react]
 related: []

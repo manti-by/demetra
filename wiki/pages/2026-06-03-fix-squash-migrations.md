@@ -3,9 +3,9 @@ title: Fix and squash migrations
 date: 2026-06-03
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, alembic, settings, sqlalchemy]
-branch: -
+branch: "-"
 tickets: [MNT-99, MNT-51, MNT-62]
 tags: [migrations, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
 related: [2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]

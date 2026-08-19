@@ -54,6 +54,8 @@ def dump_frontmatter(meta: dict) -> str:
 def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = None) -> str:
     """Compose the full Markdown page from the deterministic scaffold.
 
+    TODO: Add template and render
+
     Args:
         meta: The frontmatter mapping.
         facts: The collected session facts.
@@ -195,6 +197,7 @@ async def write_session_wiki_page(context: Context) -> None:
                 description=facts["description"],
                 build_plan=facts["build_plan"] or "",
                 diff_summary=facts["stat_text"] or "",
+                user_environment=context.project.user_environment,
             )
 
         body = service.render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)

@@ -3,7 +3,7 @@ title: Password Hashing, Cookie & CORS Hardening, and Dependency Bump
 date: 2026-08-03
 type: implementation
 status: resolved
-session_id:
+session_id: "-"
 services: [auth, main, settings]
 branch: master
 tickets: [MNT-148]
@@ -173,6 +173,12 @@ uv run pytest tests/
   as the session record.
 - Verify end-to-end login in a deployment that sets `COOKIE_SAMESITE`, `COOKIE_SECURE`, and
   `CORS_ALLOWED_ORIGINS`.
+
+## Consistency note (2026-08-19)
+
+- bcrypt has been bumped to `5.0.0` (from `>=4.1.3,<4.2` shown above) via subsequent dependency updates.
+- `get_cookie_samesite()` was refactored to accept `is_cockie_secure: bool` as an explicit parameter rather than reading the `COOKIE_SECURE` global directly; the call site in settings.py now passes `is_cockie_secure=COOKIE_SECURE`.
+- `CORS_ALLOWED_ORIGINS` is now parsed via the `env_get_list()` helper rather than the inline list comprehension shown above.
 
 ## References
 

@@ -3,9 +3,9 @@ title: Refactor frontend app
 date: 2026-06-01
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [react]
-branch: -
+branch: "-"
 tickets: [MNT-77]
 tags: [react, refactor, rename]
 related: []

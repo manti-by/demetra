@@ -3,9 +3,9 @@ title: Awaiting Input status for session
 date: 2026-07-21
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [sessions, workflows, linear, main]
-branch: -
+branch: "-"
 tickets: [MNT-140, MNT-30]
 tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
 related: [2026-02-23-plan-agent-output-triggers.md]

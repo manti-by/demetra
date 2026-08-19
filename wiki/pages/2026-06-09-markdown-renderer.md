@@ -3,9 +3,9 @@ title: Markdown renderer
 date: 2026-06-09
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [react]
-branch: -
+branch: "-"
 tickets: [MNT-113]
 tags: [react, markdown, marked, modal]
 related: []

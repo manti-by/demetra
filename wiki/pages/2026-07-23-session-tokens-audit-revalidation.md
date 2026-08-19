@@ -1,5 +1,5 @@
 ---
-title:              Session Tokens Audit Revalidation — cumulative counter vs context threshold
+title:              Session History & Token Consumption Audit (Revalidated)
 date:               2026-07-23
 type:               investigation
 status:             resolved

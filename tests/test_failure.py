@@ -5,7 +5,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import LinearError, PullRequestError
+from demetra.library.exceptions import LinearError, PullRequestError, ReviewError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import LINEAR
 from demetra.workflows.failure import process_pr_failure
@@ -59,6 +59,7 @@ class TestRunFailureStep:
             patch(
                 "demetra.workflows.failure.update_ticket_status", new_callable=AsyncMock
             ) as mock_update_ticket_status,
+            patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}),
         ):
             mock_post_comment.return_value = True
             mock_update_ticket_status.return_value = True
@@ -75,6 +76,21 @@ class TestRunFailureStep:
         assert "mnt-128-create-bare-react-application" in body
         assert "https://github.com/test/demetra/compare/mnt-128-create-bare-react-application" in body
         assert "gh: could not create PR" in body
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_posts_review_failure_comment(self, mock_linear_deps):
+        context = build_context()
+
+        await process_pr_failure(context=context, error=ReviewError("Failed to summarize the review"))
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Review summarization failed" in body
+        assert "Failed to summarize the review" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,

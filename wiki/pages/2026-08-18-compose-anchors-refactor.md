@@ -3,7 +3,7 @@ title: Docker Compose shared-anchor refactor
 date: 2026-08-18
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [deploy]
 branch: master
 tickets: []

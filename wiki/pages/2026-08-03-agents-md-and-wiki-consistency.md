@@ -116,5 +116,5 @@ Verified the working tree and git history to correct outdated page statements:
 
 ## References
 
-- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]]
+- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]], [[2026-07-16-fix-notification-mark-read]]
 - External: PR #66 (`8abcd8d`), PR #67 (`bcddc00`), commit `47d428d`

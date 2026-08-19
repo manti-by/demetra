@@ -20,6 +20,7 @@ async def perform_git_rebase(
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
+    user_environment: dict[str, str] | None = None,
 ) -> bool:
     """
     Handles the Git rebase process, including conflict resolution with opencode-merge-agent.
@@ -77,6 +78,7 @@ async def perform_git_rebase(
             task=task,
             env=env,
             project_id=project_id,
+            user_environment=user_environment,
         )
 
         if agent_exit != 0:

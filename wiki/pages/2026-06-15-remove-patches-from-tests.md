@@ -3,9 +3,9 @@ title: Remove patches from tests where possible
 date: 2026-06-15
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [tests, database]
-branch: -
+branch: "-"
 tickets: [MNT-106]
 tags: [tests, fixtures, refactor, docker]
 related: []

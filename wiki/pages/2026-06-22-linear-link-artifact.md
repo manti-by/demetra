@@ -3,9 +3,9 @@ title: Linear link artifact
 date: 2026-06-22
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, api, react]
-branch: -
+branch: "-"
 tickets: [MNT-114]
 tags: [linear-link, artifact, react]
 related: []

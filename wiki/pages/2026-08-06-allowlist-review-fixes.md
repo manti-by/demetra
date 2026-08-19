@@ -3,7 +3,7 @@ title: Allowlist CodeRabbit Review Fixes and CI Test Fix
 date: 2026-08-06
 type: implementation
 status: resolved
-session_id:
+session_id: "-"
 services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
@@ -123,5 +123,6 @@ IS NOT NULL` constraint. Fixed by passing `password_hash="test-hash"`.
 ## References
 
 - Related: [[2026-07-24-plain-auth-review-followups]] (password auth + review follow-ups),
-  [[2026-08-03-check-api-auth-and-credentials]] (auth API hardening)
+  [[2026-08-03-check-api-auth-and-credentials]] (auth API hardening),
+  [[2026-08-09-apply-code-review-findings]] (subsequent review findings applied)
 - External: PR #71 https://github.com/manti-by/demetra/pull/71

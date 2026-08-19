@@ -7,19 +7,20 @@ from demetra.library.exceptions import (
     AutoCancelledError,
     DemetraError,
     InfiniteLoopError,
+    LinearError,
     PullRequestError,
+    ReviewError,
     UserCancelledError,
 )
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
-from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.persistence.database import init_db, mark_session_posted
+from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
+from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
 from demetra.services.wiki import write_session_wiki_page
 from demetra.settings import (
     DEFAULT_USER_ID,
-    LINEAR,
     LOGGING,
     MAX_BUILD_ATTEMPTS,
 )
@@ -83,7 +84,22 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     should_update_linear_status = True
     failure_step = "failed"
     try:
-        await update_ticket_status(task_id=context.linear_task.id, state_id=LINEAR["states"]["in_progress"])
+        if not context.session:
+            context.session = await upsert_pending_session(
+                task_id=context.linear_task.id,
+                session_id=None,
+                project_id=context.project.id,
+                user_id=context.linear_task.user_id or DEFAULT_USER_ID,
+                name=context.linear_task.full_title,
+                linear_link=context.linear_task.url,
+            )
+
+        state_id = await get_linear_config_value(
+            name="in_progress", user_id=context.linear_task.user_id or DEFAULT_USER_ID
+        )
+        if state_id is None:
+            raise LinearError("Linear state 'in_progress' is not configured")
+        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
         if not context.session or not context.session.build_plan:
             if not await run_plan_step(context=context):
@@ -131,6 +147,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         failure_step, should_update_linear_status = "awaiting_input", False
 
     except PullRequestError as e:
+        await process_pr_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
+
+    except ReviewError as e:
         await process_pr_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
 

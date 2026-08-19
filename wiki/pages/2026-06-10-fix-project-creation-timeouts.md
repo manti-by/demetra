@@ -3,9 +3,9 @@ title: Fix Project creation timeouts
 date: 2026-06-10
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [subprocess, opencode, settings]
-branch: -
+branch: "-"
 tickets: [MNT-97, MNT-18]
 tags: [timeout, subprocess, project-creation, bug, shell-tool, streaming, live-output]
 related: [2026-02-15-subagent-output-streaming.md]

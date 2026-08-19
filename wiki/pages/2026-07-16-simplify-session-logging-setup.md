@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: 3829832e-7a27-42ce-8897-f46a971a95a4
 services: [main, merge, rebase]
-branch: -
+branch: "-"
 tickets: []
 tags: [logging, refactoring, cleanup]
 related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]

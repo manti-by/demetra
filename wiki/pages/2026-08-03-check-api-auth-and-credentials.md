@@ -8,7 +8,7 @@ services: [auth, api, watcher, react]
 branch: mnt-156-check-api-auth
 tickets: [MNT-156]
 tags: [auth, cookies, csrf, origin-validation, websockets, ownership]
-related: [2026-07-24-plain-auth-review-followups, 2026-07-23-linear-ticket-email-password-auth, 2026-08-06-allowlist-review-fixes]
+related: [2026-07-24-plain-auth-review-followups, 2026-07-23-linear-ticket-email-password-auth, 2026-08-06-allowlist-review-fixes, 2026-08-09-apply-code-review-findings.md]
 ---
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
@@ -125,8 +125,12 @@ The client previously set `credentials: 'include'` on every request — includin
 signup/login/logout — which opts into cross-origin credentialed requests
 unnecessarily. Now:
 
-- `authFetch` — plain fetch, no `credentials: 'include'` (used by the non-authenticated
-  calls: `exchangeCodeForToken`, `signup`, `loginWithPassword`, `logout`).
+- `authFetch` — at the time of this session, plain fetch without `credentials: 'include'`
+  (used by the non-authenticated calls: `exchangeCodeForToken`, `signup`, `loginWithPassword`,
+  `logout`). **Correction (2026-08-19):** this removal was later identified as a regression —
+  the browser ignored `Set-Cookie` on cross-origin login/signup responses. The fix in
+  [[2026-08-09-apply-code-review-findings]] restored `credentials: 'include'` to `authFetch`;
+  the current code has it on both `authFetch` and `authenticatedFetch`.
 - `authenticatedFetch` — adds `credentials: 'include'` and, for mutating methods
   (POST/PATCH/PUT/DELETE), runs an Origin guard before dispatching:
 
@@ -220,3 +224,4 @@ can be used in decorators without being flagged as mutable defaults.
 - Linear: MNT-156
 - Related: [[2026-07-24-plain-auth-review-followups]] (password auth, cookie-only sessions)
 - Related: [[2026-07-23-linear-ticket-email-password-auth]] (auth investigation leading to MNT-148)
+- Related: [[2026-08-06-allowlist-review-fixes]] (MNT-155 allowlist review fixes)

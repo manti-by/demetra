@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from demetra.library.exceptions import PlanError
 from demetra.services.llm.openrouter import (
     extract_plan,
     generate_pr_description,
@@ -54,6 +55,26 @@ class TestOpenRouterService:
 
         assert result == []
         mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_raises_review_error_on_llm_failure(self):
+        from demetra.library.exceptions import ReviewError
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.NumberedListOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(ReviewError, match="Failed to summarize the review"):
+                await summarize_review(review_output="some review output")
 
     @pytest.mark.asyncio
     async def test_generate_pr_description_function_exists(self):
@@ -257,6 +278,23 @@ class TestOpenRouterService:
             assert len(plan_passed) <= 32_000
             assert plan_passed == long_output[-32_000:]
 
+    @pytest.mark.asyncio
+    async def test_extract_plan_raises_plan_error_on_llm_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(PlanError, match="Failed to summarize the build plan"):
+                await extract_plan(plan_output="plan", task_description="task", comments=[])
+
 
 class TestSummarizeSession:
     @pytest.mark.asyncio
@@ -346,3 +384,24 @@ class TestSummarizeSession:
             )
 
             assert result == {}
+
+
+class TestGeneratePrDescription:
+    @pytest.mark.asyncio
+    async def test_raises_pr_description_error_on_llm_failure(self):
+        from demetra.library.exceptions import PrDescriptionError
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(PrDescriptionError, match="Failed to generate the PR description"):
+                await generate_pr_description(task_details="Task details", build_plan="Build plan")

@@ -184,6 +184,7 @@ async def setup_project_venv(project: Project) -> Path:
     env = dict(project.environment)
     env["VIRTUAL_ENV"] = str(venv_path)
     env["UV_PROJECT_ENVIRONMENT"] = str(venv_path)
+    env["UV_PATH"] = str(UV["path"])
     # Prepend the venv bin directory to PATH so bare commands such as
     # ``python`` resolve executables from the project venv instead of the host.
     venv_bin = venv_path / "bin"

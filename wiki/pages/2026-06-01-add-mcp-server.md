@@ -3,9 +3,9 @@ title: Add MCP server for the project
 date: 2026-06-01
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [mcp, database]
-branch: -
+branch: "-"
 tickets: [MNT-90]
 tags: [mcp, streamable-http, filesystem, database]
 related: [2026-08-03-fix-mcp-server-2.0-api.md]

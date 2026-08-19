@@ -3,12 +3,12 @@ title: Migrate LLM summarization from Groq to OpenRouter
 date: 2026-08-18
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [llm, openrouter, groq, workflows, wiki, settings]
 branch: openrouter
 tickets: [MNT-168]
 tags: [openrouter, groq, llm, migration, summarization, langchain]
-related: [2026-06-04-review-summarization.md, 2026-06-22-github-pr-description.md, 2026-08-03-agents-md-and-wiki-consistency.md]
+related: [2026-06-04-review-summarization.md, 2026-06-22-github-pr-description.md, 2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Migrate LLM summarization from Groq to OpenRouter
@@ -131,6 +131,11 @@ gating are unchanged. `groq.py` itself is not modified.
 - Historical wiki pages and the `wiki/audits/2026-02-23-questions-extraction/`
   benchmark script still reference Groq — intentionally left untouched
 
+## Consistency note (2026-08-19)
+
+- The relocation shim (`_RelocatedFinder` / `_RelocatedLoader` in `demetra/services/__init__.py`) described in Step 5 was subsequently deleted by the 2026-08-19 work (MNT-170, see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]). The package is now a plain docstring marker.
+
 ## References
 
+- Related: [[2026-06-04-review-summarization]] (original Groq review summarization), [[2026-06-22-github-pr-description]] (original Groq PR description), [[2026-08-03-agents-md-and-wiki-consistency]] (wiki Groq budget rename), [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (review-error routing)
 - External: [MNT-168](https://linear.app/mnt/issue/MNT-168/migrate-llm-summarization-from-groq-to-openrouter)

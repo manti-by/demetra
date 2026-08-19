@@ -12,6 +12,7 @@ from demetra.services.agents.opencode import (
     get_opencode_session_tokens,
     opencode_build_agent,
     opencode_compact_session,
+    opencode_merge_agent,
     opencode_plan_agent,
     opencode_resolve_agent,
     opencode_validate_agent,
@@ -54,6 +55,7 @@ class TestOpencodeService:
             model=OPENCODE["plan_model"],
             agent="plan-agent",
             env=None,
+            user_environment=None,
         )
         assert result is not None
 
@@ -136,6 +138,7 @@ class TestOpencodeService:
             model=OPENCODE["resolve_model"],
             agent="resolve-agent",
             env=None,
+            user_environment=None,
         )
         assert result is not None
 
@@ -176,6 +179,7 @@ class TestOpencodeValidateAgent:
             model=OPENCODE["validate_model"],
             agent="validate-agent",
             env=None,
+            user_environment=None,
         )
         assert result is not None
 
@@ -470,3 +474,70 @@ class TestOpencodeCompactSession:
         call_kwargs = mock_run_command_and_config.call_args.kwargs
         # opencode_compact_session uses disable_stdio=False
         assert call_kwargs.get("disable_stdio") is False
+
+
+class TestOpencodeEnvLayers:
+    """The opencode agent wrappers resolve their model from the user env before
+    calling run_opencode_agent, falling back to the settings default."""
+
+    @pytest.fixture
+    def mock_run_opencode_agent(self):
+        with patch("demetra.services.agents.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_plan_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_PLAN_MODEL": "user/env-plan-model"}
+
+        await opencode_plan_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-plan-model"
+        assert call_kwargs["user_environment"] == user_environment
+
+    @pytest.mark.asyncio
+    async def test_plan_agent_falls_back_to_settings_model(self, mock_run_opencode_agent):
+        await opencode_plan_agent(Path("/test/path"), "task")
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == OPENCODE["plan_model"]
+
+    @pytest.mark.asyncio
+    async def test_build_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_BUILD_MODEL": "user/env-build-model"}
+
+        await opencode_build_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-build-model"
+        assert call_kwargs["user_environment"] == user_environment
+
+    @pytest.mark.asyncio
+    async def test_validate_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_VALIDATE_MODEL": "user/env-validate-model"}
+
+        await opencode_validate_agent(Path("/test/path"), "build plan", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-validate-model"
+        assert call_kwargs["user_environment"] == user_environment
+
+    @pytest.mark.asyncio
+    async def test_resolve_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_RESOLVE_MODEL": "user/env-resolve-model"}
+
+        await opencode_resolve_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-resolve-model"
+        assert call_kwargs["user_environment"] == user_environment
+
+    @pytest.mark.asyncio
+    async def test_merge_agent_uses_user_env_build_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_BUILD_MODEL": "user/env-merge-model"}
+
+        await opencode_merge_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-merge-model"
+        assert call_kwargs["user_environment"] == user_environment

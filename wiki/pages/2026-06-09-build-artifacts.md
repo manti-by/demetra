@@ -3,9 +3,9 @@ title: Build artifacts
 date: 2026-06-09
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, api, react]
-branch: -
+branch: "-"
 tickets: [MNT-108]
 tags: [artifacts, pr-link, build-plan, react]
 related: []

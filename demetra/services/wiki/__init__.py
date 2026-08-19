@@ -155,7 +155,6 @@ __all__ = [
     "infer_tags",
     "insert_cluster_entry",
     "insert_pages_entry",
-    "logger",
     "merge_page_content",
     "on_default_branch",
     "page_date",

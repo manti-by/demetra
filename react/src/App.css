@@ -1109,7 +1109,7 @@ textarea:focus:not(:focus-visible) {
   font-family: var(--font-mono);
   font-size: 0.775rem;
   color: var(--color-text-primary);
-  flex: 0 0 180px;
+  flex: 0 0 230px;
   word-break: break-all;
 }
 
@@ -1128,7 +1128,7 @@ textarea:focus:not(:focus-visible) {
 }
 
 .env-key-input {
-  flex: 0 0 180px;
+  flex: 0 0 230px;
 }
 
 .env-value-input {

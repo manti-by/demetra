@@ -3,9 +3,9 @@ title: Context bloating — agents scan repo root instead of worktree
 date: 2026-06-03
 type: debug
 status: resolved
-session_id: -
+session_id: "-"
 services: [subprocess, opencode, workflows]
-branch: -
+branch: "-"
 tickets: [MNT-105]
 tags: [cwd, worktree, context, bug]
 related: [2026-07-16-fix-empty-build-plan-loop.md]

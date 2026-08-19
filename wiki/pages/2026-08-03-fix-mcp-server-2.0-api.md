@@ -3,7 +3,7 @@ title: Fix MCP Server for the mcp 2.0 API
 date: 2026-08-03
 type: debug
 status: resolved
-session_id:
+session_id: "-"
 services: [mcp]
 branch: master
 tickets: []
