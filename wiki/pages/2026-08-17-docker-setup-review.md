@@ -2,13 +2,13 @@
 title: Docker setup review — Dockerfile + docker-compose.yaml on mnt-164
 date: 2026-08-17
 type: code-review
-status: open
+status: resolved
 session_id: "-"
 services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
 tags: [docker, compose, security, review]
-related: [2026-08-10-docker-compose-deploy.md, 2026-07-07-project-deploy-script.md, 2026-08-18-compose-anchors-refactor.md]
+related: [2026-07-07-project-deploy-script.md, 2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md]
 ---
 
 # Docker setup review — Dockerfile + docker-compose.yaml on mnt-164

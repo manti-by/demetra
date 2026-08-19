@@ -8,7 +8,7 @@ services:           [api, sessions, react]
 branch:             "-"
 tickets:            []
 tags:               [frontend, modal, session-history, react, api]
-related:            [2026-07-22-react-frontend-template-warp.md, 2026-07-16-session-history-tokens-null.md]
+related: [2026-07-16-session-history-tokens-null.md, 2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Session History Modal

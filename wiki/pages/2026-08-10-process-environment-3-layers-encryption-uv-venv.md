@@ -8,7 +8,7 @@ services: [database, subprocess, workflows, api, react]
 branch: mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload
 tickets: [MNT-161, MNT-56]
 tags: [environment, encryption, venv, subprocess, api, user-settings, keys]
-related: [2026-06-08-project-environment.md, 2026-03-09-encrypted-user-settings.md]
+related: [2026-03-09-encrypted-user-settings.md, 2026-06-08-project-environment.md]
 ---
 
 # Process environment — 3 layers, encryption, UV venv, env file upload

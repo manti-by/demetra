@@ -8,7 +8,7 @@ services: [auth, api, database, runtime, wiki, react]
 branch: code-review
 tickets: []
 tags: [code-review, coderabbit, auth, jwt, password-reset, react, env, wiki]
-related: [2026-08-09-apply-code-review-findings, 2026-07-24-plain-auth-review-followups]
+related: [2026-07-24-plain-auth-review-followups.md, 2026-08-09-apply-code-review-findings.md]
 ---
 
 # Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int

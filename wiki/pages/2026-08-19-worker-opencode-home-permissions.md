@@ -8,7 +8,7 @@ services: [deploy, agents, runtime]
 branch: -
 tickets: []
 tags: [docker, permissions, volume, opencode, entrypoint]
-related: [2026-08-18-compose-anchors-refactor.md, 2026-08-17-docker-setup-review.md, 2026-08-10-docker-compose-deploy.md]
+related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md]
 ---
 
 # Worker opencode EACCES on home volume — entrypoint ownership fix

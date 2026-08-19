@@ -8,7 +8,7 @@ services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
-related: [2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md, 2026-08-03-wiki-mcp-tools.md]
+related: [2026-07-16-fix-notification-mark-read.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-wiki-mcp-tools.md]
 ---
 
 # AGENTS.md Revalidation and Wiki Consistency Audit

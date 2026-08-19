@@ -8,7 +8,7 @@ services: [main, workflows, agents, linear]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, awaiting-input, spending-limit, server-error, linear]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-21-awaiting-input-status-for-session.md]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Build agent server error — root cause and Awaiting Input handler
@@ -102,6 +102,10 @@ the ticket to TODO.
 `uv run ruff check` on changed files — pass. `uv run ty check` — pass.
 `uv run pytest tests/test_failure.py tests/test_entrypoints.py` — 21 passed.
 
+## Consistency note (2026-08-19)
+
+- A later same-day session ([[2026-08-19-build-agent-stale-session-deleted-worktree]]) found that an identical `UnknownError` signature also occurs when `--session` resumes an opencode session whose worktree was deleted by cleanup. The 12:49 failure attributed here to the spending limit may have been incomplete; post-limit retries were definitively caused by the stale session.
+
 ## Known follow-up (not fixed this session)
 
 - Raise/reset the workspace limit at
@@ -118,5 +122,5 @@ the ticket to TODO.
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-07-21-awaiting-input-status-for-session]]
+- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-build-agent-stale-session-deleted-worktree]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-07-21-awaiting-input-status-for-session]]
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)

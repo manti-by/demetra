@@ -8,7 +8,7 @@ services: [settings, subprocess, workflows, persistence]
 branch: feature/mnt-169-removeupdate-settings
 tickets: [MNT-169, MNT-170]
 tags: [environment, settings, project-env, user-env, layers, subprocess]
-related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Categorize settings env vars by layer

@@ -8,7 +8,7 @@ services: [auth, api, database, wiki, runtime, validation, react]
 branch: "-"
 tickets: []
 tags: [code-review, auth, cookies, exceptions, transactions, wiki, validate, env, react]
-related: [2026-08-03-check-api-auth-and-credentials, 2026-08-06-allowlist-review-fixes, 2026-08-09-wiki-fixes-and-test-optimization, 2026-08-07-split-wiki-service-into-subpackage]
+related: [2026-08-03-check-api-auth-and-credentials.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-09-wiki-fixes-and-test-optimization.md]
 ---
 
 # Apply code-review findings — auth, transactions, validate, wiki

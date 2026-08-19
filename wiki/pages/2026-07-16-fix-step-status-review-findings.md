@@ -8,7 +8,7 @@ services: [main, api, database, workflows, linear, sessions]
 branch: "-"
 tickets: [MNT-37, MNT-63]
 tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
-related: [2026-07-16-simplify-session-logging-setup.md, 2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md]
+related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md]
 ---
 
 # Fix code-review findings on step/status refactor

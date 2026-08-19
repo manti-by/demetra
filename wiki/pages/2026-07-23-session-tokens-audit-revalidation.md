@@ -7,7 +7,7 @@ session_id:         3eae8036-e679-4a09-be65-144e738741e0
 services:           [opencode, database, workflows, settings, groq]
 tickets:            [MNT-145]
 tags:               [session-history, compaction, tokens, opencode-export, audit, cost]
-related:            [2026-07-16-session-history-tokens-null.md]
+related: [2026-07-16-session-history-tokens-null.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Session History & Token Consumption Audit (Revalidated)
@@ -273,7 +273,11 @@ since. Solved problem; no action needed.
   `demetra/services/opencode.py:225`), #3 (broad `except Exception` in
   `demetra/workflows/cleanup.py:76,103`) and #4 (short-TTL cache on `opencode export`).
 
+## Consistency note (2026-08-19)
+
+- Plan extraction and summarization moved from Groq to OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `extract_plan` and `PLAN_OUTPUT_MAX_CHARS` now live in `demetra/services/llm/openrouter.py`; legacy `demetra/services/llm/groq.py` remains importable but is no longer called by workflow consumers.
+
 ## References
 
-- Related: [[2026-07-16-session-history-tokens-null]]
+- Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
 - Root docs: `wiki/audits/2026-07-23-session-tokens/RESULT.md` (corrected audit), `wiki/audits/2026-07-23-session-tokens/BUILD_PLAN.md` (implementation plan)
