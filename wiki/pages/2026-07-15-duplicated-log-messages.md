@@ -5,7 +5,7 @@ type: debug
 status: resolved
 session_id: ses_094983da7ffe4Xk4LIfYPUrftI
 services: [main, tui, watcher, build]
-branch: -
+branch: "-"
 tickets: []
 tags: [logging, duplication, type-bug, build-agent]
 related: [2026-07-16-simplify-session-logging-setup.md]

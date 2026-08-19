@@ -3,7 +3,7 @@ title: Process environment — 3 layers, encryption, UV venv, env file upload
 date: 2026-08-10
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, subprocess, workflows, api, react]
 branch: mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload
 tickets: [MNT-161, MNT-56]
@@ -25,11 +25,11 @@ Previously ([MNT-110](https://linear.app/mnt/issue/MNT-110)) every subprocess re
 
 ## Step 1 — Three env layers in settings
 
-**File:** `demetra/settings.py`
+**File:** `demetra/library/constants.py` (allowlist), `demetra/settings.py` (secret key)
 
-- `OS_ENV_ALLOWLIST` — a frozenset of safe host-OS keys (`PATH`, `HOME`, `USER`, `LANG`, `TZ`, `VIRTUAL_ENV`, `UV_PROJECT_ENVIRONMENT`, SSH agent vars `SSH_AUTH_SOCK`/`SSH_AGENT_PID`/`GIT_SSH_COMMAND`, proxy vars `http_proxy`/`https_proxy`/`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`/`all_proxy`, …) that are forwarded verbatim. Anything else from the host OS is dropped. SSH-agent and proxy keys are allowlisted unconditionally so credential-bearing git/gh commands (clone/fetch/push/`gh api`) keep working even from daemon/wiki call sites that have no project context.
+- `OS_ENV_ALLOWLIST` — defined in `demetra/library/constants.py` as a frozenset of safe host-OS keys (`PATH`, `HOME`, `USER`, `LANG`, `TZ`, `VIRTUAL_ENV`, `UV_PROJECT_ENVIRONMENT`, `LOGNAME`, `SHELL`, `LC_ALL`, `LC_CTYPE`, `TERM`, `PWD`, `UV_PYTHON`, SSH agent vars `SSH_AUTH_SOCK`/`SSH_AGENT_PID`/`GIT_SSH_COMMAND`, proxy vars `http_proxy`/`https_proxy`/`HTTP_PROXY`/`HTTPS_PROXY`/`NO_PROXY`/`no_proxy`/`all_proxy`/`ALL_PROXY`, …) that are forwarded verbatim. Anything else from the host OS is dropped. SSH-agent and proxy keys are allowlisted unconditionally so credential-bearing git/gh commands (clone/fetch/push/`gh api`) keep working even from daemon/wiki call sites that have no project context.
 - `OS_ENV_PROJECT_OPTINS` — parsed from the `OS_ENV_PROJECT_OPTINS` env var (`project-a=GITHUB_TOKEN,GITHUB_ACTIONS;project-b=AWS_PROFILE`) into a per-project registry of extra keys to forward.
-- `DEMETRA_SECRET_KEY` — new setting that falls back to `SECRET_KEY`; the encryption service derives the Fernet key from it. The key is not versioned and there is no previous-key fallback: changing `DEMETRA_SECRET_KEY` requires re-encrypting existing encrypted environment values, so treat it as a stable long-lived secret.
+- `SECRET_KEY` — the encryption service in `demetra/services/persistence/encryption.py` derives the Fernet key from `SECRET_KEY` in settings. The key is not versioned and there is no previous-key fallback: changing `SECRET_KEY` requires re-encrypting existing encrypted environment values, so treat it as a stable long-lived secret.
 
 ## Step 2 — Data model: scope + user_id
 

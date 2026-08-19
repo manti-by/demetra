@@ -3,9 +3,9 @@ title: Check Linear ticket text
 date: 2026-06-09
 type: investigation
 status: resolved
-session_id: -
+session_id: "-"
 services: [linear, graphql, auth]
-branch: -
+branch: "-"
 tickets: [MNT-103, MNT-34, MNT-60]
 tags: [linear, comments, research, oauth, tokens, graphql]
 related: [2026-02-23-linear-oauth-2.0.md, 2026-03-11-separate-linear-comments.md]

@@ -3,9 +3,9 @@ title: Rich MarkupError kills workflow subprocess and run_attempts counter overc
 date: 2026-07-21
 type: debug
 status: resolved
-session_id: -
+session_id: "-"
 services: [watcher, tui, main]
-branch: -
+branch: "-"
 tickets: [MNT-136, MNT-17]
 tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation]
 related: [2026-02-14-add-tui-support.md]

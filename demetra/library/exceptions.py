@@ -30,6 +30,14 @@ class PlanError(DemetraError):
     pass
 
 
+class ReviewError(DemetraError):
+    pass
+
+
+class PrDescriptionError(DemetraError):
+    pass
+
+
 class BuildError(DemetraError):
     pass
 

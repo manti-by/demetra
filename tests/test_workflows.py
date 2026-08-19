@@ -1244,6 +1244,17 @@ class TestWorkflowReview:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_run_review_agents_propagates_review_error(self, faker, mock_review_agent, mock_summarize_review):
+        from demetra.library.exceptions import ReviewError
+
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_review_agent.return_value = (0, "Some review output", None)
+        mock_summarize_review.side_effect = ReviewError("Failed to summarize the review")
+
+        with pytest.raises(ReviewError, match="Failed to summarize the review"):
+            await run_review_agents(target_path)
+
 
 class TestWorkflowLint:
     @pytest.fixture
@@ -1500,6 +1511,47 @@ class TestWorkflowCleanup:
 
         with pytest.raises(PullRequestError, match="could not create PR"):
             await commit_and_push(context)
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_pr_description_failure_raises_pull_request_error(self, faker, mock_commit_deps):
+        from demetra.library.exceptions import PrDescriptionError
+
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body = mock_commit_deps
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        _mock_add_all.return_value = True
+        mock_pr_body.side_effect = PrDescriptionError("Failed to generate the PR description")
+
+        with pytest.raises(PullRequestError, match="Failed to generate PR description"):
+            await commit_and_push(context)
+
+        mock_pr.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_commit_and_push_persists_pr_link(

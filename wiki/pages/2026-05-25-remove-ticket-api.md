@@ -3,9 +3,9 @@ title: Remove ticket API
 date: 2026-05-25
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [api]
-branch: -
+branch: "-"
 tickets: [MNT-88]
 tags: [api, cleanup, remove]
 related: []

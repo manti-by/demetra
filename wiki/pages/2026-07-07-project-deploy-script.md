@@ -3,9 +3,9 @@ title: Project deploy script
 date: 2026-07-07
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [deploy, configs]
-branch: -
+branch: "-"
 tickets: [MNT-119]
 tags: [deploy, setup, systemd, makefile]
 related: [2026-08-10-docker-compose-deploy.md]

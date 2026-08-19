@@ -9,6 +9,7 @@ from demetra.library.exceptions import (
     InfiniteLoopError,
     LinearError,
     PullRequestError,
+    ReviewError,
     UserCancelledError,
 )
 from demetra.services.auth import reset_password_cli
@@ -146,6 +147,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         failure_step, should_update_linear_status = "awaiting_input", False
 
     except PullRequestError as e:
+        await process_pr_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
+
+    except ReviewError as e:
         await process_pr_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
 

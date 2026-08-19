@@ -3,9 +3,9 @@ title: Add Plan loop to resolve questions
 date: 2026-06-02
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [workflows, opencode, main]
-branch: -
+branch: "-"
 tickets: [MNT-79]
 tags: [plan-loop, resolve-agent, questions, auto]
 related: []

@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: e6a4e432-a337-46a5-8e3a-a027d7cb0cdd
 services: [main, api, database, workflows, linear, sessions]
-branch: -
+branch: "-"
 tickets: [MNT-37, MNT-63]
 tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
 related: [2026-07-16-simplify-session-logging-setup.md, 2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md]

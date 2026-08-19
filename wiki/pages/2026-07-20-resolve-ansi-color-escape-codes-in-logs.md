@@ -5,11 +5,13 @@ type: debug
 status: resolved
 session_id: ses_080257f1affen6vKaLZQEZglVY
 services: [main]
-branch: -
+branch: "-"
 tickets: []
 tags: [logs, filtering, ansi, coloring-issues]
 related: []
 ---
+
+# Resolve ANSI Color Escape Codes in Logs
 
 ## TL;DR
 

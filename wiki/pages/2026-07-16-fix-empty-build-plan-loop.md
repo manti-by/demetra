@@ -3,12 +3,12 @@ title:              Fix empty build plan infinite loop
 date:               2026-07-16
 type:               implementation
 status:             resolved
-session_id:         -
+session_id:         "-"
 services:           [main, graphql, opencode, linear, workflows, database, sessions]
-branch:             -
+branch:             "-"
 tickets:            [MNT-29, MNT-39]
 tags:               [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
-related:            [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md]
+related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Fix empty build plan infinite loop
@@ -193,6 +193,10 @@ yet, make one".
 
 - None — all three root causes and contributing factors are fixed.
 
+## Consistency note (2026-08-19)
+
+- Line 54 says "cleanup sets `step='failed'`" — this is true for the default `failure_step` but some failure paths now set `step="awaiting_input"` instead (e.g., `AutoCancelledError`, `PullRequestError`, `ReviewError`). The replan gate (`not context.session.build_plan`) still works correctly regardless of which failure step was set.
+
 ## References
 
-- Related: none
+- Related: [[2026-08-05-pr-creation-failure-handler]] (PR failure path sets `step="awaiting_input"`)

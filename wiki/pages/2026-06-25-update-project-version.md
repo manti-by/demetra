@@ -3,9 +3,9 @@ title: Update project version
 date: 2026-06-25
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [workflows, settings]
-branch: -
+branch: "-"
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
 related: []

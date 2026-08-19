@@ -3,7 +3,7 @@ title: Test DB isolation and console-only logging
 date: 2026-08-18
 type: debug
 status: resolved
-session_id: -
+session_id: "-"
 services: [tests, database, settings, runtime, api, workflows, linear]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: []

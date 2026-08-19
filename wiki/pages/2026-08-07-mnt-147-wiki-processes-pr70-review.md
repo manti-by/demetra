@@ -1,5 +1,5 @@
 ---
-title: MNT-147 Wiki processes PR #70 — branch check and CI failure root cause
+title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
 date: 2026-08-07
 type: code-review
 status: open

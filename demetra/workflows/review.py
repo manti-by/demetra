@@ -43,6 +43,9 @@ async def run_review_agents(
 
     Returns:
         str | None: The numbered review comments, or None when there are none.
+
+    Raises:
+        ReviewError: When the LLM review summarization fails.
     """
     print_message("Running REVIEW agents", style="heading")
 

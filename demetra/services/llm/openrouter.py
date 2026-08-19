@@ -3,7 +3,7 @@ import logging
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from demetra.library.exceptions import PlanError
+from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError
 from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
 from demetra.services.llm.factory import build_llm
 from demetra.services.llm.parser import NumberedListOutputParser
@@ -93,7 +93,7 @@ async def summarize_review(review_output: str, *, user_environment: dict[str, st
                     result.append(finding)
     except Exception:
         logger.exception("LLM call failed in summarize_review")
-        return []
+        raise ReviewError("Failed to summarize the review") from None
     return result
 
 
@@ -254,7 +254,10 @@ async def generate_pr_description(
         user_environment: Optional user env layer for the LLM configuration.
 
     Returns:
-        str: The generated PR description, or an empty string on failure.
+        str: The generated PR description.
+
+    Raises:
+        PrDescriptionError: When the LLM call fails.
     """
     llm = build_llm(temperature=0.1, max_tokens=1024, user_environment=user_environment)
     prompt = ChatPromptTemplate.from_messages(
@@ -275,4 +278,4 @@ async def generate_pr_description(
         return str(result.content).strip()
     except Exception:
         logger.exception("LLM call failed in generate_pr_description")
-        return ""
+        raise PrDescriptionError("Failed to generate the PR description") from None

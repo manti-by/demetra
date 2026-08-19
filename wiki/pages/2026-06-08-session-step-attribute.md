@@ -3,12 +3,12 @@ title: Plan step completion attribute
 date: 2026-06-08
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, sessions, workflows, opencode]
-branch: -
+branch: "-"
 tickets: [MNT-83, MNT-22]
 tags: [step, sessions, migration, resume, isolation, research]
-related: [2026-07-16-fix-step-status-review-findings.md, 2026-02-21-opencode-sessions-isolation.md]
+related: [2026-07-16-fix-step-status-review-findings.md, 2026-02-21-opencode-sessions-isolation.md, 2026-08-05-post-build-validation.md, 2026-07-21-awaiting-input-status-for-session.md]
 ---
 
 # Plan step completion attribute
@@ -64,11 +64,12 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 
 - None.
 
-> **Update (2026-08-18, Q-001 resolution):** `validate` was added to `StepType` in
-> `demetra/library/models.py` (between `build` and `review`), matching the
-> validate-agent step that `demetra/workflows/build.py:102` sets. The step vocabulary
-> documented in this page is the historical snapshot from the MNT-83 era; see
-> [[2026-08-05-post-build-validation]] for the `validate` step.
+> **Update (2026-08-19):** The current `StepType` enum in `demetra/library/models.py` has
+> 11 values: `initial`, `plan`, `build`, `validate`, `review`, `lint`, `test`, `push`,
+> `completed`, `failed`, `awaiting_input`. `validate` was added for the post-build
+> validate-agent (see [[2026-08-05-post-build-validation]]); `awaiting_input` was added
+> for the Awaiting Input state (see [[2026-07-21-awaiting-input-status-for-session]]).
+> The step vocabulary documented in this page is the historical snapshot from the MNT-83 era.
 
 ## References
 

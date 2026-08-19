@@ -3,12 +3,12 @@ title: Wiki edge-case fixes and slow-test optimization
 date: 2026-08-09
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [wiki, tests, runtime]
-branch: -
+branch: "-"
 tickets: []
 tags: [wiki, tests, performance, env, index, revalidation, bug]
-related: [2026-08-07-split-wiki-service-into-subpackage, 2026-08-09-apply-code-review-findings]
+related: [2026-08-07-split-wiki-service-into-subpackage, 2026-08-09-apply-code-review-findings, 2026-08-07-mnt-147-wiki-processes-pr70-review.md]
 ---
 
 # Wiki edge-case fixes and slow-test optimization
@@ -96,4 +96,4 @@ Root causes and fixes:
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-07-mnt-147-wiki-processes-pr70-review]]
+- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-07-mnt-147-wiki-processes-pr70-review]], [[2026-08-09-apply-code-review-findings]]

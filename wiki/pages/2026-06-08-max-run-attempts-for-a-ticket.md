@@ -3,9 +3,9 @@ title: Max run attempts for a ticket
 date: 2026-06-08
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [database, workflows, linear]
-branch: -
+branch: "-"
 tickets: [MNT-100]
 tags: [run-attempts, guard, sessions, linear]
 related: [2026-07-21-rich-markuperror-and-run-attempts.md]
@@ -28,9 +28,9 @@ Added a `run_attempts` counter to the `sessions` table and a `MAX_RUN_ATTEMPTS` 
 
 Workflow runs for a single Linear ticket were unbounded: the watcher re-triggered runs whenever a session was not done. This change adds a per-session attempt guard so a persistently failing ticket stops consuming the queue.
 
-- `sessions.run_attempts` — new integer counter, incremented on every workflow run.
-- `MAX_RUN_ATTEMPTS` — project setting, default 3.
-- At the cap the workflow is skipped, the ticket moves to `Awaiting Input`, and the bot posts "Max run attempts reached".
+- `sessions.run_attempts` — new integer counter, incremented on actual failure only (not every run; corrected in [[2026-07-21-rich-markuperror-and-run-attempts]]).
+- `MAX_RUN_ATTEMPTS` — project setting, default 5 (originally 3; changed in `8ffc53b`).
+- When the counter exceeds `MAX_RUN_ATTEMPTS` (the check is `>`, not `==`): the workflow is skipped, the ticket moves to `Awaiting Input`, and the bot posts "Max run attempts reached".
 
 ## Step 1 — Persist run attempts on the session
 
@@ -46,7 +46,7 @@ Added `MAX_RUN_ATTEMPTS` (default 3). Before spawning the workflow subprocess th
 
 ## Step 3 — Surface the cap on the ticket
 
-When the counter equals `MAX_RUN_ATTEMPTS`:
+When the counter exceeds `MAX_RUN_ATTEMPTS` (the guard is `run_attempts > MAX_RUN_ATTEMPTS`):
 
 - the workflow is not run,
 - the Linear ticket is moved to the `Awaiting Input` state,

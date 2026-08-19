@@ -3,12 +3,12 @@ title: Split wiki service into a subpackage
 date: 2026-08-07
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [wiki]
-branch: -
+branch: "-"
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
-related: [2026-08-03-wiki-mcp-tools]
+related: [2026-08-03-wiki-mcp-tools, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Split wiki service into a subpackage
@@ -55,7 +55,7 @@ This resolves the circular import safely: when `demetra.services.wiki` is still 
 
 **File:** `demetra/services/wiki/__init__.py` (185 lines, down from 1254)
 
-Keeps all constants verbatim (`FRONTMATTER_RE`, `BARE_DASH_RE`, `PAGE_LINK_RE`, `PAGE_TYPE`/`PAGE_STATUS`, `LOG_TAIL_LINES`, `AGENTS_DRIFT_ANCHORS`, plus `DEDUP_SIMILARITY_THRESHOLD`, `TOPIC_KEYWORDS`, `REVALIDATION_RETRYABLE`) and re-exports every function from the submodules plus `run_command`/`summarize_session` (via the `groq`/`subprocess` shims) and `Context`/`LinearTask` from `library.models`. A complete `__all__` lists all 55 original symbols.
+Keeps all constants verbatim (`FRONTMATTER_RE`, `BARE_DASH_RE`, `PAGE_LINK_RE`, `PAGE_TYPE`/`PAGE_STATUS`, `LOG_TAIL_LINES`, `AGENTS_DRIFT_ANCHORS`, plus `DEDUP_SIMILARITY_THRESHOLD`, `TOPIC_KEYWORDS`, `REVALIDATION_RETRYABLE`) and re-exports every function from the submodules plus `run_command`/`summarize_session` (via the `openrouter`/`subprocess` modules) and `Context`/`LinearTask` from `library.models`. A complete `__all__` lists all 55 original symbols.
 
 Callers are unaffected — they import from the facade exactly as before: `main.py:19`, `demetra/workflows/merge.py:12`, `demetra/workflows/rebase.py:11`, `demetra/tools/wiki.py:8`, `tests/test_wiki.py`, `tests/conftest.py`.
 
@@ -77,5 +77,5 @@ Callers are unaffected — they import from the facade exactly as before: `main.
 
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]]
+- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (follow-up subpackage split)
 - External: https://linear.app/mnt/issue/MNT-81 (prior api split), https://linear.app/mnt/issue/MNT-104 (services refactor)

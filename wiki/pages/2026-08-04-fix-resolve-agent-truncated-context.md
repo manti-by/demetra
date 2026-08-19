@@ -3,12 +3,12 @@ title: Plan loop resolve agent received truncated context
 date: 2026-08-04
 type: debug
 status: resolved
-session_id: -
+session_id: "-"
 services: [opencode, workflows]
-branch: -
+branch: "-"
 tickets: []
 tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex]
-related: [2026-06-02-plan-loop-resolve-questions, 2026-07-16-session-history-tokens-null]
+related: [2026-06-02-plan-loop-resolve-questions, 2026-07-16-session-history-tokens-null, 2026-08-05-post-build-validation.md]
 ---
 
 # Plan loop resolve agent received truncated context
@@ -129,8 +129,12 @@ Without the fix this same input would have been clipped at 4 095 chars, dropping
 
 - None.
 
+## Consistency note (2026-08-19)
+
+- The positional-arg fix described in the Resolution was itself superseded by PR #72 (MNT-146), which switched to **stdin piping** (`input_text=task` passed to `run_command`). The current `run_opencode_agent` in `demetra/services/agents/opencode.py` delivers the task via stdin, not as a positional argument. No `[:4095]` cap and no `ARG_MAX` concern.
+
 ## References
 
-- Related: [[2026-06-02-plan-loop-resolve-questions]]
+- Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-08-05-post-build-validation]] (validate-agent that superseded the positional-arg path with stdin piping)
 - Related: [[2026-07-16-session-history-tokens-null]] — same pattern (`run_command_to_file`) for handling size-bounded subprocess I/O, but on stdout.
 - External: `opencode run --help` (documents the `--file` flag and the positional `message` requirement).

@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_0774c35d8ffeUI6fTqrrD0UW8w
 services: [settings, workflows, lint]
-branch: -
+branch: "-"
 tickets: [MNT-21]
 tags: [feature-flags, testing, ruff, pytest, pre-commit, lint]
 related: [2026-02-20-add-pre-commit-checks-and-tests.md]
@@ -23,7 +23,7 @@ Added a `FEATURES` dict to `demetra/settings.py` that gates `ruff` and `pytest` 
 
 Two files were changed, two test files were updated:
 
-- **`demetra/settings.py:42-45`** — New `FEATURES` module-level dict with two boolean keys read from env vars:
+- **`demetra/settings.py`** (currently lines 53-56) — New `FEATURES` module-level dict with two boolean keys read from env vars:
   ```python
   FEATURES: dict = {
       "is_ruff_enabled": os.environ.get("IS_RUFF_ENABLED", "False").lower() == "true",

@@ -5,7 +5,7 @@ type: debug
 status: resolved
 session_id: ses_0936687abffekKL1uBAPkCWbGU
 services: [database, alembic, opencode]
-branch: -
+branch: "-"
 tickets: []
 tags: [session-history, pipe-truncation, opencode-export, debugging]
 related: []

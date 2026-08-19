@@ -54,6 +54,8 @@ def dump_frontmatter(meta: dict) -> str:
 def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = None) -> str:
     """Compose the full Markdown page from the deterministic scaffold.
 
+    TODO: Add template and render
+
     Args:
         meta: The frontmatter mapping.
         facts: The collected session facts.

@@ -3,12 +3,12 @@ title: PR creation failure moves ticket to Awaiting Input
 date: 2026-08-05
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [main, workflows, linear, github]
-branch: -
+branch: "-"
 tickets: [MNT-23, MNT-31]
 tags: [pr, pull-request, error-handling, awaiting-input, linear, status, workflow, github, gh]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 
 # PR creation failure moves ticket to Awaiting Input
@@ -94,6 +94,11 @@ the `In Review` ticket update from MNT-23). The `gh` CLI path is configurable vi
 
 None.
 
+## Consistency note (2026-08-19)
+
+- The inline handler shown above was extracted to `demetra/workflows/failure.py:process_pr_failure()`. Comment bodies are now generated from prompt templates (`pr_creation_failed`, `review_failed`) via `get_template()`, and the Linear state lookup goes through `get_linear_config_value(name="awaiting_input")` instead of directly referencing `LINEAR["states"]["awaiting_input"]`.
+- `ReviewError` (LLM failure during review summarization) now follows the identical failure path — same `process_pr_failure`, same `failure_step="awaiting_input"` and `should_update_linear_status=False` — see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]].
+
 ## References
 
-- Related: [[2026-07-21-awaiting-input-status-for-session]]
+- Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (review-failure handling extracted into the same PR)

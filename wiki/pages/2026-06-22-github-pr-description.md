@@ -3,12 +3,12 @@ title: GitHub PR description
 date: 2026-06-22
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [groq, github]
-branch: -
+branch: "-"
 tickets: [MNT-115]
 tags: [groq, pr, description]
-related: []
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # GitHub PR description
@@ -45,7 +45,12 @@ Tests cover the description-generation service and that the generated text is pa
 
 None.
 
+## Consistency note (2026-08-19)
+
+- The LLM provider was migrated from Groq to OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py`.
+- On LLM failure, `generate_pr_description` now raises `PrDescriptionError` (routed to Awaiting Input) instead of returning an empty string silently (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]).
+
 ## References
 
-- Related: none
+- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - External: [MNT-115 — GitHub PR description (Linear)](https://linear.app/mnt/issue/MNT-115)

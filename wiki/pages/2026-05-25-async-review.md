@@ -3,12 +3,12 @@ title: Async review
 date: 2026-05-25
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [workflows, review]
-branch: -
+branch: "-"
 tickets: [MNT-87, MNT-35]
 tags: [review, async, parallelism, multiagent, cursor, coderabbit]
-related: [2026-02-23-add-multiagent-code-review.md]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Async review
@@ -66,6 +66,11 @@ config controls tool permissions per role (plan/build/review).
 
 - None.
 
+## Consistency note (2026-08-19)
+
+- `merge_review_results` has been fully removed from the codebase. The review pipeline now concatenates agent outputs and passes them to `summarize_review()` in `demetra/services/llm/openrouter.py` (migrated from Groq, see [[2026-08-18-migrate-llm-groq-to-openrouter]]).
+
 ## References
 
+- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
 - External: https://linear.app/mnt/issue/MNT-87

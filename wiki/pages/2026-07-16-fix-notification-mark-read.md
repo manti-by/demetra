@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_093670774ffeRqtTEflrkIDv8O
 services: [listener]
-branch: -
+branch: "-"
 tickets: []
 tags: [notifications, bug-fix, merge, rebase, listener-attempts, infinite-loop]
 related: []

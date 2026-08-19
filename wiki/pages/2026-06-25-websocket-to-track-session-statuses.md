@@ -3,9 +3,9 @@ title: Websocket to track session statuses
 date: 2026-06-25
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [api, react, workflows, sessions]
-branch: -
+branch: "-"
 tickets: [MNT-101, MNT-54]
 tags: [websocket, json, status, react, logs, streaming, sessions, isolation]
 related: [2026-03-09-isolate-user-sessions.md]

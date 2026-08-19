@@ -3,12 +3,12 @@ title: Review summarization
 date: 2026-06-04
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [groq, workflows, review, prompts, opencode]
-branch: -
+branch: "-"
 tickets: [MNT-98, MNT-41, MNT-61]
 tags: [review, groq, llama, summarization, llm, parsing, testing, plan, build-plan]
-related: [2026-02-26-create-llm-test-script.md, 2026-03-11-task-plan-summarization.md]
+related: [2026-02-26-create-llm-test-script.md, 2026-03-11-task-plan-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Review summarization
@@ -76,6 +76,13 @@ follows the same chain shape.
 
 - None.
 
+## Consistency note (2026-08-19)
+
+- The LLM provider was migrated from Groq to OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `summarize_review` now lives in `demetra/services/llm/openrouter.py`.
+- `merge_review_results` was fully removed from the codebase; the review pipeline now concatenates agent outputs and passes them to `summarize_review()` directly.
+- On LLM failure, `summarize_review` now raises `ReviewError` (routed to Awaiting Input via the `review_failed` template) instead of returning an empty list silently (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]).
+
 ## References
 
+- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - External: https://linear.app/mnt/issue/MNT-98

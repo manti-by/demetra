@@ -3,12 +3,12 @@ title: Docker Compose deploy
 date: 2026-08-10
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
 tickets: [MNT-164, MNT-40]
 tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon]
-related: [2026-07-07-project-deploy-script.md, 2026-08-18-compose-anchors-refactor.md, 2026-03-02-process-manager.md]
+related: [2026-07-07-project-deploy-script.md, 2026-08-18-compose-anchors-refactor.md, 2026-03-02-process-manager.md, 2026-08-17-docker-setup-review.md]
 ---
 
 # Docker Compose deploy
@@ -102,8 +102,22 @@ original also shipped systemd unit files in `configs/` (the pre-MNT-119 deploy p
 
 - Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; bridging the compose `demetra_react_dist` volume to that path (bind-mount or copy) is an operator step, not automated.
 
+## Consistency note (2026-08-19)
+
+This page describes the initial compose design. The file was subsequently refactored onto shared YAML anchors (see [[2026-08-18-compose-anchors-refactor]]) and several details changed:
+
+- **Postgres image:** `postgres:18` (no `-alpine` suffix).
+- **Volumes:** `demetra_postgres_data` (renamed from `demetra_db_data`), `demetra_redis_data`, `demetra_app_data`. The `demetra_react_dist` volume was removed; react-build output goes to the bind-mount.
+- **App data mount:** `/home/demetra/` (not `/root`); the Dockerfile creates a `demetra` user.
+- **LOG_PATH:** per-service files under `/var/log/demetra/<service>.log`, backed by a bind-mount `${DEMETRA_LOG_DIR:-./log}:/var/log/demetra/` (not a single `/root/demetra.log` in the app-data volume).
+- **Migrate service:** bind-mounts the whole repo `.:/srv/demetra/src/` (not just `./migrations`).
+- **react-build:** `working_dir: /srv/demetra/src/` with `./react:/srv/demetra/src`; no named volume.
+- **API uvicorn:** passes `--host 0.0.0.0` inside the container; external exposure is prevented by the `127.0.0.1:8001:8001` publish mapping.
+- **nginx:** `location /` now proxies to `http://127.0.0.1:3000` (a running process); only `location /assets/` serves static files from `react/dist/assets/`.
+
 ## References
 
 - Related: [[2026-07-07-project-deploy-script]]
 - Related: [[2026-08-18-compose-anchors-refactor]] (the compose was later DRY-refactored onto shared YAML anchors)
+- Related: [[2026-08-17-docker-setup-review]] (code review of the in-progress branch)
 - External: [MNT-164 — Docker compose (Linear)](https://linear.app/mnt/issue/MNT-164)
