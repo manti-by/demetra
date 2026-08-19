@@ -157,20 +157,20 @@ class TestInferTags:
         assert service.infer_tags(linear_task=task) == ["wiki"]
 
 
-class TestBudgetExceeded:
-    def test_under_budget_not_exceeded(self):
+class TestShouldUseLlm:
+    def test_under_budget_returns_false(self):
         facts = {"files": ["a.py", "b.py"], "changed_lines": 50}
-        assert service.budget_exceeded(facts=facts) is False
+        assert service.should_use_llm(facts=facts) is False
 
-    def test_too_many_files_exceeded(self, monkeypatch):
+    def test_too_many_files_returns_true(self, monkeypatch):
         monkeypatch.setitem(service.WIKI, "llm_budget_files", 8)
         facts = {"files": [f"f{i}.py" for i in range(9)], "changed_lines": 1}
-        assert service.budget_exceeded(facts=facts) is True
+        assert service.should_use_llm(facts=facts) is True
 
-    def test_too_many_lines_exceeded(self, monkeypatch):
+    def test_too_many_lines_returns_true(self, monkeypatch):
         monkeypatch.setitem(service.WIKI, "llm_budget_lines", 200)
         facts = {"files": ["a.py"], "changed_lines": 201}
-        assert service.budget_exceeded(facts=facts) is True
+        assert service.should_use_llm(facts=facts) is True
 
 
 class TestSessionLogTail:

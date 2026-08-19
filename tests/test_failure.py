@@ -5,10 +5,10 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import LinearError, PullRequestError, ReviewError
+from demetra.library.exceptions import BuildError, LinearError, PullRequestError, ReviewError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import LINEAR
-from demetra.workflows.failure import process_pr_failure
+from demetra.workflows.failure import process_build_failure, process_pr_failure
 
 
 def build_context() -> Context:
@@ -91,6 +91,22 @@ class TestRunFailureStep:
         body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
         assert "Review summarization failed" in body
         assert "Failed to summarize the review" in body
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_posts_build_failure_comment(self, mock_linear_deps):
+        context = build_context()
+        error = BuildError("Build agent failed (exit 1): Unexpected server error")
+
+        await process_build_failure(context=context, error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Build agent failed" in body
+        assert "Unexpected server error" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,

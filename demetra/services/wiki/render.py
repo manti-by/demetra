@@ -191,7 +191,7 @@ async def write_session_wiki_page(context: Context) -> None:
         }
 
         polished_summary: dict | None = None
-        if service.budget_exceeded(facts=facts):
+        if service.should_use_llm(facts=facts):
             polished_summary = await service.summarize_session(
                 ticket_text=context.linear_task.text,
                 description=facts["description"],

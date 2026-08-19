@@ -7,6 +7,9 @@ by the plugin.
 
 ## Pages
 
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — Renamed the wiki write-side gate `budget_exceeded()` to `should_use_llm()` in `demetra/services/wiki/` and `tests/test_wiki.py`; the old name read like a cost ceiling while the call site uses it as a significance threshold for the LLM TL;DR/Overview polish pass. Behavior unchanged; env vars `WIKI_LLM_BUDGET_*` kept. (2026-08-19)
+- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — After the spending limit was raised, MNT-151 builds kept failing with `UnknownError: Unexpected server error`; reproduced that opencode 1.18.18 cannot resume a `--session` whose worktree directory was deleted by cleanup (generic 500), so a task that fails once after planning fails every retry. Fixed by nulling `sessions.session_id` for the task; systemic fix (clear on cleanup or retry without `--session`) still open. (2026-08-19)
+- [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md) — MNT-151's build agent failed in ~4s with `UnknownError: Unexpected server error (ref err_18e38f63)`; root cause is the OpenCode workspace `wrk_01KE576G79X6RZGNHBTA39CPSM` hitting its $30/month spending limit, so the paid `opencode-go/deepseek-v4-flash` model 500s at the gateway. Added a `BuildError` handler in main.py that posts a `build_failed` comment and moves the ticket to Awaiting Input instead of reverting it to TODO; MNT-151 moved accordingly. (2026-08-19)
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md) — On the MNT-170 env-layers branch, a follow-up refactor split the two remaining (2026-08-19)
 - [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — The test suite was writing into the real `demetra` database and the production (2026-08-18)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md) — Replaced the Groq-backed LLM service with OpenRouter for plan extraction, review (2026-08-18)
@@ -131,8 +134,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md)
 - [Project environment](pages/2026-06-08-project-environment.md)
 
-### Wiki & MCP tools (5 pages)
+### Wiki & MCP tools (6 pages)
 
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md)
 - [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)

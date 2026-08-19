@@ -8,7 +8,7 @@ services: [wiki]
 branch: "-"
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
-related: [2026-08-03-wiki-mcp-tools, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
+related: [2026-08-03-wiki-mcp-tools, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-19-wiki-should-use-llm-rename.md]
 ---
 
 # Split wiki service into a subpackage
@@ -33,7 +33,7 @@ Extracted the module body into six submodules grouped by concern, moving module-
 
 - `parsing.py` — `parse_page_file`, `parse_frontmatter`, `existing_page_for_ticket`, `page_date`
 - `naming.py` — `today`, `session_filename`, `infer_services`, `infer_tags`
-- `facts.py` — `session_log_tail`, `git_default_branch`, `git_diff_facts`, `budget_exceeded`, `collect_session_facts`
+- `facts.py` — `session_log_tail`, `git_default_branch`, `git_diff_facts`, `should_use_llm` (renamed from `budget_exceeded`, see [[2026-08-19-wiki-should-use-llm-rename]]), `collect_session_facts`
 - `index.py` — `index_entry`, `read_index`, `write_index`, `insert_pages_entry`, `prune_index_pages`, `find_topic_cluster`, `insert_cluster_entry`, `patch_index`, `cluster_for`, `regenerate_by_topic`
 - `render.py` — `truncate`, `dump_frontmatter`, `render_wiki_page`, `write_page`, `write_session_wiki_page`
 - `maintenance.py` — `page_tokens`, `similarity`, `answer_sweep`, `has_answer`, `dedup_pages`, `pick_survivor`, `merge_page_content`, `check_agents_drift`, `revalidate_wiki_and_agents`, `on_default_branch`, `commit_revalidation`, `run_wiki_revalidation`

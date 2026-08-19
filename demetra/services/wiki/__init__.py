@@ -5,11 +5,11 @@ from demetra.library.models import Context, LinearTask
 from demetra.services.llm.openrouter import summarize_session
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
-    budget_exceeded,
     collect_session_facts,
     git_default_branch,
     git_diff_facts,
     session_log_tail,
+    should_use_llm,
 )
 from demetra.services.wiki.index import (
     cluster_for,
@@ -138,7 +138,6 @@ __all__ = [
     "Context",
     "LinearTask",
     "answer_sweep",
-    "budget_exceeded",
     "check_agents_drift",
     "cluster_for",
     "collect_session_facts",
@@ -173,6 +172,7 @@ __all__ = [
     "run_wiki_revalidation",
     "session_filename",
     "session_log_tail",
+    "should_use_llm",
     "similarity",
     "summarize_session",
     "today",

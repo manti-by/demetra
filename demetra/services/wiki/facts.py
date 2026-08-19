@@ -119,7 +119,7 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
     return {"files": files, "numstat": numstat, "changed_lines": changed_lines, "stat_text": stat_text}
 
 
-def budget_exceeded(facts: dict) -> bool:
+def should_use_llm(facts: dict) -> bool:
     """Decide whether a session warrants the LLM polish pass.
 
     Args:
