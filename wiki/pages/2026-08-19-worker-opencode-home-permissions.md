@@ -15,7 +15,7 @@ related: [2026-08-18-compose-anchors-refactor.md, 2026-08-17-docker-setup-review
 
 ## TL;DR
 
-The worker container on amon-ra failed at the plan step: `Plan agent failed (exit 1): EACCES: permission denied, mkdir '/home/demetra/.local/share/opencode/repos'`. The `demetra_app_data` named volume mounted at `/home/demetra` contains root-owned directories (created by an earlier image/root-run container before the `demetra` user existed), so the `demetra` user could not create `~/.local/share/opencode`. Fixed by adding a root entrypoint that repairs home-volume ownership once per volume (marker-gated) and then drops to `demetra` via `su-exec`.
+The worker container on amon-ra failed at the plan step: `Plan agent failed (exit 1): EACCES: permission denied, mkdir '/home/demetra/.local/share/opencode/repos'`. The `demetra_app_data` named volume mounted at `/home/demetra` contains root-owned directories (created by an earlier image/root-run container before the `demetra` user existed), so the `demetra` user could not create `~/.local/share/opencode`. Fixed by adding a root entrypoint that repairs home-volume ownership once per volume (marker-gated) and then drops to `demetra` via `setpriv`.
 
 ---
 
@@ -23,7 +23,7 @@ The worker container on amon-ra failed at the plan step: `Plan agent failed (exi
 
 Worker container on amon-ra:
 
-```
+```text
 ERROR : Workflow error: Plan agent failed (exit 1): EACCES: permission denied, mkdir '/home/demetra/.local/share/opencode/repos'
 ```
 
@@ -40,8 +40,8 @@ ERROR : Workflow error: Plan agent failed (exit 1): EACCES: permission denied, m
 Image-level `chown` cannot repair an existing volume (it only seeds a fresh one), so the fix has to run at container start against the mounted volume. Added a root entrypoint that:
 
 1. Runs as root (the `USER demetra` directive was removed from the image).
-2. On first start per volume (marker `/home/demetra/.home-ready`) recursively chowns the home volume to `demetra:demetra`, **pruning the bind-mounted secret paths** (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials` from `.keys/`) so host secret ownership is never touched.
-3. Drops privileges with `su-exec demetra` and execs the real CMD.
+2. On first start per volume (marker `/home/demetra/.home-ready`) recursively chowns the home volume to `demetra:demetra`, **pruning the bind-mounted secret paths** (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials` from `.keys/`, plus `.local/share/opencode/auth.json`) so host secret ownership is never touched.
+3. Drops privileges with `setpriv --reuid=demetra --regid=demetra --init-groups` and execs the real CMD.
 
 **File:** `docker-entrypoint.sh`
 
@@ -60,14 +60,14 @@ if [ ! -e /home/demetra/.home-ready ]; then
     chown demetra:demetra /home/demetra/.home-ready
 fi
 
-exec su-exec demetra "$@"
+exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"
 ```
 
 `HOME` is exported explicitly because the entrypoint runs as root (Docker would otherwise set it to `/root`); opencode/git/uv must see `/home/demetra`.
 
-**File:** `Dockerfile` — installed `su-exec`, copied the script, replaced `USER demetra` with `ENTRYPOINT ["configs", "docker-entrypoint.sh"]`. All compose services (`migrate`, `api`, `worker`, `watcher`, `listener`, `rq-dashboard`) inherit the entrypoint and keep their per-service `CMD` overrides.
+**File:** `Dockerfile` — copied the script, replaced `USER demetra` with `ENTRYPOINT ["docker-entrypoint.sh"]`. All compose services (`migrate`, `api`, `worker`, `watcher`, `listener`, `rq-dashboard`) inherit the entrypoint and keep their per-service `CMD` overrides.
 
-Verified locally: `sh -n` passes and a `find -prune` dry-run traverses exactly the non-secret set (`.local`, `.demetra`, `.cache`, …) while skipping `.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`.
+Verified locally: `sh -n` passes and a `find -prune` dry-run traverses exactly the non-secret set (`.local`, `.demetra`, `.cache`, …) while skipping `.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials` and `.local/share/opencode/auth.json`.
 
 ## Test Results
 
