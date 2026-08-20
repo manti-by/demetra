@@ -8,7 +8,7 @@ services: [main, workflows, agents, opencode]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, session-resume, worktree, server-error]
-related: [2026-08-19-build-agent-server-error-handler.md, 2026-07-15-duplicated-log-messages.md]
+related: [2026-07-15-duplicated-log-messages.md, 2026-08-19-build-agent-server-error-handler.md]
 ---
 
 # Build agent UnknownError — stale opencode session bound to deleted worktree

@@ -8,7 +8,7 @@ services: [auth, linear, tools, llm, workflows]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: [MNT-170]
 tags: [refactor, subpackage, facade, exceptions, review, pr-description, openrouter]
-related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-05-pr-creation-failure-handler.md]
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Split auth/linear services into subpackages + review-failure handling

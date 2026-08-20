@@ -8,7 +8,7 @@ services:           [react]
 branch:             "-"
 tickets:            []
 tags:               [frontend, favicon, icons, branding, react, vite]
-related:            [2026-07-22-react-frontend-template-warp.md]
+related: [2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Favicon Set for the React App

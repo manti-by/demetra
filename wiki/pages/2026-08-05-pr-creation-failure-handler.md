@@ -8,7 +8,7 @@ services: [main, workflows, linear, github]
 branch: "-"
 tickets: [MNT-23, MNT-31]
 tags: [pr, pull-request, error-handling, awaiting-input, linear, status, workflow, github, gh]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-16-fix-empty-build-plan-loop.md]
+related: [2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # PR creation failure moves ticket to Awaiting Input

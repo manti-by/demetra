@@ -8,7 +8,7 @@ services: [wiki]
 branch: "-"
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
-related: [2026-08-03-wiki-mcp-tools, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-19-wiki-should-use-llm-rename.md]
+related: [2026-08-03-wiki-mcp-tools.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-19-wiki-should-use-llm-rename.md]
 ---
 
 # Split wiki service into a subpackage

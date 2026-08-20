@@ -8,7 +8,7 @@ services: [opencode, workflows]
 branch: "-"
 tickets: []
 tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex]
-related: [2026-06-02-plan-loop-resolve-questions, 2026-07-16-session-history-tokens-null, 2026-08-05-post-build-validation.md]
+related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md]
 ---
 
 # Plan loop resolve agent received truncated context

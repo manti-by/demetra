@@ -8,7 +8,7 @@ services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
 tickets: [MNT-164, MNT-40]
 tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon]
-related: [2026-07-07-project-deploy-script.md, 2026-08-18-compose-anchors-refactor.md, 2026-03-02-process-manager.md, 2026-08-17-docker-setup-review.md]
+related: [2026-03-02-process-manager.md, 2026-07-07-project-deploy-script.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md]
 ---
 
 # Docker Compose deploy

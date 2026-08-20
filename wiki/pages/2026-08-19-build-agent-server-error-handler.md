@@ -8,7 +8,7 @@ services: [main, workflows, agents, linear]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, awaiting-input, spending-limit, server-error, linear]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-21-awaiting-input-status-for-session.md]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Build agent server error — root cause and Awaiting Input handler
@@ -16,12 +16,17 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linea
 ## TL;DR
 
 The last workflow run for MNT-151 failed ~4 seconds after "Running BUILD agent" with
-`Error: { "name": "UnknownError", "data": { "message": "Unexpected server error. Check server logs for details.", "ref": "err_18e38f63" } }` and exit code 1. Root cause: the OpenCode workspace
+`Error: { "name": "UnknownError", "data": { "message": "Unexpected server error. Check server logs for details.", "ref": "err_18e38f63" } }` and exit code 1. Initial diagnosis: the OpenCode workspace
 `wrk_01KE576G79X6RZGNHBTA39CPSM` hit its **$30/month spending limit**, so the opencode gateway rejects
 paid-model requests (the build model `opencode-go/deepseek-v4-flash`) with a generic server 500 — the
-`err_...` ref is server-side only and never appears in local logs. Fix in code: a new `BuildError`
-handler in `main.py` posts a `build_failed` Linear comment and moves the ticket to `Awaiting Input`
-instead of reverting it to TODO. MNT-151 was moved to `Awaiting Input` with the failure comment.
+`err_...` ref is server-side only and never appears in local logs. **This attribution was incomplete**:
+a later same-day session ([[2026-08-19-build-agent-stale-session-deleted-worktree]]) showed the identical
+`UnknownError` signature also occurs when a retry resumes an opencode session whose worktree was deleted
+by cleanup — post-limit retries (13:15, 13:40) were definitively caused by that stale session, not the
+limit. Fix in code: a new `BuildError` handler in `main.py` posts a `build_failed` Linear comment and
+moves the ticket to `Awaiting Input` instead of reverting it to TODO. MNT-151 was moved to `Awaiting
+Input` with the failure comment. **Before re-running MNT-151, clear the stale session (null
+`sessions.session_id`) or start a fresh session** — see the consistency note and known follow-up below.
 
 ## Symptom
 
@@ -67,11 +72,14 @@ forensics sessions run.
 
 ## Root cause
 
-The OpenCode workspace reached its **$30/month spending limit**; the opencode.ai gateway returns a
-generic `UnknownError: "Unexpected server error. Check server logs for details."` (with a server-side
-`err_...` ref) for paid-model requests. The build agent (`opencode-go/deepseek-v4-flash`) inherits
-that 500, the CLI exits 1, and Demetra's generic `DemetraError` handler reverted the ticket to TODO
-with no comment.
+The initial failure was traced to the OpenCode workspace reaching its **$30/month spending limit**; the
+opencode.ai gateway returns a generic `UnknownError: "Unexpected server error. Check server logs for details."`
+(with a server-side `err_...` ref) for paid-model requests. The build agent (`opencode-go/deepseek-v4-flash`)
+inherits that 500, the CLI exits 1, and Demetra's generic `DemetraError` handler reverted the ticket to TODO
+with no comment. **However, the same `UnknownError` signature has a second cause**: once the limit was raised,
+subsequent MNT-151 retries kept failing because Demetra's persisted `sessions.session_id` pointed at an opencode
+session bound to a worktree deleted by cleanup (see [[2026-08-19-build-agent-stale-session-deleted-worktree]]).
+So the failure is not solely the spending limit — a stale session produces the identical error on retry.
 
 ## Resolution / Fix
 
@@ -102,14 +110,24 @@ the ticket to TODO.
 `uv run ruff check` on changed files — pass. `uv run ty check` — pass.
 `uv run pytest tests/test_failure.py tests/test_entrypoints.py` — 21 passed.
 
+## Consistency note (2026-08-19)
+
+- A later same-day session ([[2026-08-19-build-agent-stale-session-deleted-worktree]]) found that an identical `UnknownError` signature also occurs when `--session` resumes an opencode session whose worktree was deleted by cleanup. The 12:49 failure attributed here to the spending limit may have been incomplete; post-limit retries were definitively caused by the stale session. **Before retrying MNT-151, clear the stale session or start a new one** (see the known follow-up).
+
 ## Known follow-up (not fixed this session)
+
+Before re-running MNT-151, **clear the stale session** — null `sessions.session_id` for the task
+(keeping the stored `build_plan`) or otherwise start a fresh build session — otherwise the build agent
+resumes a session whose worktree cleanup already deleted and the retry fails identically with
+`UnknownError`. Then address the spending limit if it is still in effect:
 
 - Raise/reset the workspace limit at
   `https://opencode.ai/workspace/wrk_01KE576G79X6RZGNHBTA39CPSM/billing`, or set
-  `OPENCODE_BUILD_MODEL` in the project environment to a free model, before re-running MNT-151.
-- Optional: detect the `UnknownError` / spending-limit signature inside
-  `opencode_build_agent` and raise a dedicated exception with a clearer message + retry on transient
-  gateway 500s.
+  `OPENCODE_BUILD_MODEL` in the project environment to a free model.
+- Optional: detect the `UnknownError` / spending-limit / stale-session signature inside
+  `opencode_build_agent` and raise a dedicated exception with a clearer message + retry once without
+  `--session` on transient gateway 500s (see the systemic fix in
+  [[2026-08-19-build-agent-stale-session-deleted-worktree]]).
 
 ## Follow-ups
 
@@ -118,5 +136,5 @@ the ticket to TODO.
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-07-21-awaiting-input-status-for-session]]
+- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-build-agent-stale-session-deleted-worktree]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-07-21-awaiting-input-status-for-session]]
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
