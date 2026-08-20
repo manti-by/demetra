@@ -75,5 +75,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-02-23-linear-oauth-2.0]], [[2026-03-11-separate-linear-comments]]
 - External: [MNT-103 — Check Linear ticket text (Linear)](https://linear.app/mnt/issue/MNT-103)

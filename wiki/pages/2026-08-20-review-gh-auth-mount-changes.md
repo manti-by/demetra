@@ -2,7 +2,7 @@
 title: Code review — gh CLI auth mount and entrypoint prune for compose
 date: 2026-08-20
 type: code-review
-status: in-progress
+status: resolved
 session_id: ses_fe1f1413cffe0nPjQ3DdiuD5IG
 services: [deploy, configs]
 branch: "-"
@@ -15,7 +15,7 @@ related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-18-compose-anc
 
 ## TL;DR
 
-Reviewed the uncommitted working-tree changes that pass GitHub CLI (`gh`) authentication into the Docker deployment: a new bind mount `.keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml` in `docker-compose.yaml` and a matching prune entry in `configs/docker-entrypoint.sh`. Found one **critical bug**: the new `-path` prune clause was added without the `-o` operator, so `find` ANDs it with the existing `auth.json` `-path` (always false) — silently disabling the prune for both `hosts.yml` and the previously-protected `auth.json`. The compose mount itself is consistent with the existing `.keys/` mount pattern and needs no change.
+Reviewed the working-tree changes that pass GitHub CLI (`gh`) authentication into the Docker deployment: a new bind mount `.keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml` in `docker-compose.yaml` and a matching prune entry in `configs/docker-entrypoint.sh`. Found one **critical bug**: the new `-path` prune clause was added without the `-o` operator, so `find` ANDs it with the existing `auth.json` `-path` (always false) — silently disabling the prune for both `hosts.yml` and the previously-protected `auth.json`. The compose mount itself is consistent with the existing `.keys/` mount pattern. The missing `-o` was fixed before merge (see consistency note below).
 
 ---
 
@@ -67,9 +67,18 @@ In `find`, adjacent expressions without an explicit operator are joined by **imp
 
 ---
 
+## Consistency note (2026-08-20)
+
+The missing `-o` between the `hosts.yml` and `auth.json` `-path` clauses was fixed in `configs/docker-entrypoint.sh` before merge to `master` (PR #83). Current tree:
+
+```sh
+\( -path /home/demetra/.config/gh/hosts.yml \
+   -o -path /home/demetra/.local/share/opencode/auth.json \
+   -o -name .ssh -o -name .gnupg -o -name .gitconfig -o -name .git-credentials \) -prune \
+```
+
 ## Follow-ups
 
-- Apply the one-line `-o` fix in `configs/docker-entrypoint.sh` before merging; verify with a `find -prune` dry-run (skip `.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`, `auth.json` and `hosts.yml`, traverse everything else) as done in [[2026-08-19-worker-opencode-home-permissions]].
 - Provision `.keys/gh/hosts.yml` on the deployment host (same step as `.keys/opencode/auth.json`).
 
 ## References
