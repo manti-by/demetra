@@ -4,7 +4,6 @@ from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError
-from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
 from demetra.services.llm.factory import build_llm
 from demetra.services.llm.parser import NumberedListOutputParser
 from demetra.services.llm.prompt import get_prompt
@@ -18,7 +17,7 @@ PLAN_OUTPUT_MAX_CHARS = 32_000
 TICKET_FIELDS = ("title", "description", "technical_requirements", "acceptance_criteria", "project_name")
 
 
-async def extract_questions(plan_output: str, *, user_environment: dict[str, str] | None = None) -> list[str]:
+async def extract_questions(plan_output: str, *, user_id: str | None = None) -> list[str]:
     """Extract open questions from a plan output when explicitly signalled.
 
     The plan agent emits an explicit terminal marker; extraction only runs
@@ -27,16 +26,19 @@ async def extract_questions(plan_output: str, *, user_environment: dict[str, str
 
     Args:
         plan_output: The raw plan agent output.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         list[str]: The extracted questions, or an empty list when none were
             signalled.
     """
+    from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
+
     if PLAN_HAS_QUESTIONS not in plan_output:
         return []
 
-    llm = build_llm(temperature=0.1, max_tokens=1024, user_environment=user_environment)
+    llm = await build_llm(temperature=0.1, max_tokens=1024, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="extract_questions")),
@@ -54,7 +56,7 @@ async def extract_questions(plan_output: str, *, user_environment: dict[str, str
     return result
 
 
-async def summarize_review(review_output: str, *, user_environment: dict[str, str] | None = None) -> list[str]:
+async def summarize_review(review_output: str, *, user_id: str | None = None) -> list[str]:
     """Summarize the critical findings from a noisy review agent output.
 
     The review agent output is noisy (thinking prose, no-issue affirmations)
@@ -63,7 +65,8 @@ async def summarize_review(review_output: str, *, user_environment: dict[str, st
 
     Args:
         review_output: The raw review agent output.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         list[str]: De-duplicated review findings, or an empty list.
@@ -71,7 +74,7 @@ async def summarize_review(review_output: str, *, user_environment: dict[str, st
     if not review_output or not review_output.strip():
         return []
 
-    llm = build_llm(temperature=0.1, max_tokens=1024, user_environment=user_environment)
+    llm = await build_llm(temperature=0.1, max_tokens=1024, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="summarize_review")),
@@ -97,7 +100,7 @@ async def summarize_review(review_output: str, *, user_environment: dict[str, st
     return result
 
 
-async def process_text_with_openrouter(text: str, *, user_environment: dict[str, str] | None = None) -> dict[str, str]:
+async def process_text_with_openrouter(text: str, *, user_id: str | None = None) -> dict[str, str]:
     """Analyze a task text and return a structured ticket breakdown.
 
     Uses an LLM to split the text into title, description, technical
@@ -107,12 +110,13 @@ async def process_text_with_openrouter(text: str, *, user_environment: dict[str,
 
     Args:
         text: The raw task text to analyze.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         dict[str, str]: The structured ticket fields.
     """
-    llm = build_llm(temperature=0.3, max_tokens=2048, user_environment=user_environment)
+    llm = await build_llm(temperature=0.3, max_tokens=2048, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="analyze_ticket")),
@@ -140,7 +144,7 @@ async def process_text_with_openrouter(text: str, *, user_environment: dict[str,
 
 
 async def extract_plan(
-    plan_output: str, task_description: str, comments: list[str], *, user_environment: dict[str, str] | None = None
+    plan_output: str, task_description: str, comments: list[str], *, user_id: str | None = None
 ) -> str:
     """Condense a raw plan output into a concise build plan summary.
 
@@ -154,7 +158,8 @@ async def extract_plan(
         plan_output: The raw plan agent output.
         task_description: The original task description.
         comments: Any additional comments on the task.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         str: The summarized build plan.
@@ -165,7 +170,7 @@ async def extract_plan(
         f"{task_description}\n\nComments:\n{chr(10).join(comments)}" if comments else task_description
     )
 
-    llm = build_llm(temperature=0.1, max_tokens=2048, user_environment=user_environment)
+    llm = await build_llm(temperature=0.1, max_tokens=2048, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="summarize_plan")),
@@ -188,7 +193,7 @@ async def summarize_session(
     build_plan: str,
     diff_summary: str,
     *,
-    user_environment: dict[str, str] | None = None,
+    user_id: str | None = None,
 ) -> dict[str, str]:
     """Generate a wiki page TL;DR and overview for an implementation session.
 
@@ -201,13 +206,14 @@ async def summarize_session(
         description: The Linear ticket description.
         build_plan: The session build plan, or an empty string.
         diff_summary: The git diff stat text, or an empty string.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         dict[str, str]: A mapping with ``tldr`` and ``overview`` keys, or an
             empty dict when the LLM call fails.
     """
-    llm = build_llm(temperature=0.1, max_tokens=1024, user_environment=user_environment)
+    llm = await build_llm(temperature=0.1, max_tokens=1024, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="summarize_session")),
@@ -243,7 +249,7 @@ async def summarize_session(
 
 
 async def generate_pr_description(
-    task_details: str, build_plan: str | None = None, *, user_environment: dict[str, str] | None = None
+    task_details: str, build_plan: str | None = None, *, user_id: str | None = None
 ) -> str:
     """Generate a pull request description from task details and build plan.
 
@@ -251,7 +257,8 @@ async def generate_pr_description(
         task_details: The task details to base the description on.
         build_plan: Optional build plan to include; a placeholder is used when
             absent.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM
+            via ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
         str: The generated PR description.
@@ -259,7 +266,7 @@ async def generate_pr_description(
     Raises:
         PrDescriptionError: When the LLM call fails.
     """
-    llm = build_llm(temperature=0.1, max_tokens=1024, user_environment=user_environment)
+    llm = await build_llm(temperature=0.1, max_tokens=1024, user_id=user_id)
     prompt = ChatPromptTemplate.from_messages(
         messages=[
             ("system", await get_prompt(name="generate_pr_description")),
