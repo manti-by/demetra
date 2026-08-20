@@ -250,9 +250,9 @@ export function EnvSettings({
                   onChange={(e) => setDraftKey(e.target.value)}
                   className="form-input env-key-input"
                 />
-                <input
-                  type="password"
-                  placeholder="Value"
+                  <input
+                   type={draftEncrypted ? "password" : "text"}
+                   placeholder="Value"
                   value={draftValue}
                   onChange={(e) => setDraftValue(e.target.value)}
                   className="form-input env-value-input"
