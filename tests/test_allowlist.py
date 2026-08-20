@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AuthError, SettingsError
+from demetra.library.exceptions import AuthError
 from demetra.library.models import GitHubUser
 from demetra.services.auth import (
     authenticate_user,
@@ -11,14 +11,12 @@ from demetra.services.auth import (
 )
 from demetra.services.auth.allowlist import (
     add_entry,
-    is_allowlist_enabled,
     is_email_allowed,
     normalize_email,
     normalize_github_login,
     remove_entry,
 )
 from demetra.services.persistence import database as _database_module
-from demetra.settings import parse_allowlist_flag
 
 
 def _unique_email() -> str:
@@ -27,20 +25,6 @@ def _unique_email() -> str:
 
 async def _create_password_user(email: str) -> None:
     await signup_with_password(email=email, password="hunter2hunter2")
-
-
-@pytest.mark.asyncio
-async def test_is_allowlist_enabled_defaults_false(monkeypatch):
-    monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", False)
-    assert is_allowlist_enabled() is False
-
-
-@pytest.mark.asyncio
-async def test_is_allowlist_enabled_reads_setting_per_call(monkeypatch):
-    monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", True)
-    assert is_allowlist_enabled() is True
-    monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", False)
-    assert is_allowlist_enabled() is False
 
 
 @pytest.mark.asyncio
@@ -53,40 +37,9 @@ async def test_normalize_github_login_lowercases_and_strips():
     assert normalize_github_login("  MixedCase  ") == "mixedcase"
 
 
-class TestAllowlistEnvVar:
-    @pytest.mark.parametrize(
-        ("raw", "expected"),
-        [
-            ("true", True),
-            ("True", True),
-            ("TRUE", True),
-            ("1", True),
-            ("yes", True),
-            ("on", True),
-            ("  true  ", True),
-            ("false", False),
-            ("False", False),
-            ("FALSE", False),
-            ("0", False),
-            ("no", False),
-            ("off", False),
-            ("  false  ", False),
-        ],
-    )
-    def test_parse_allowlist_flag_accepts_common_spellings(self, raw, expected):
-        assert parse_allowlist_flag(raw) is expected
-
-    def test_parse_allowlist_flag_unset_defaults_false(self):
-        assert parse_allowlist_flag(None) is False
-
-    def test_parse_allowlist_flag_unrecognized_raises_settings_error(self):
-        with pytest.raises(SettingsError, match="Unrecognized IS_ALLOWLIST_ENABLED"):
-            parse_allowlist_flag("banana")
-
-
 class TestSignupWithPassword:
     @pytest.mark.asyncio
-    async def test_signup_allows_when_flag_off(self, mock_jwt_settings):
+    async def test_signup_allows_when_flag_off(self, mock_jwt_settings, allowlist_disabled):
         email = _unique_email()
         result = await signup_with_password(email=email, password="hunter2hunter2")
         assert result.user.email == email
@@ -148,26 +101,28 @@ class TestIsEmailAllowedUserData:
 
 class TestLoginWithPassword:
     @pytest.mark.asyncio
-    async def test_login_allows_when_flag_off(self, mock_jwt_settings):
+    async def test_login_allows_when_flag_off(self, mock_jwt_settings, allowlist_disabled):
         email = _unique_email()
         await _create_password_user(email)
         result = await login_with_password(email=email, password="hunter2hunter2")
         assert result.user.email == email
 
     @pytest.mark.asyncio
-    async def test_login_rejects_non_allowlisted_existing_user(self, mock_jwt_settings, monkeypatch):
+    async def test_login_rejects_non_allowlisted_existing_user(
+        self, mock_jwt_settings, allowlist_disabled, monkeypatch
+    ):
         email = _unique_email()
         await _create_password_user(email)
-        monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", True)
+        monkeypatch.setattr("demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED", True)
         with pytest.raises(AuthError, match="Invalid email or password"):
             await login_with_password(email=email, password="hunter2hunter2")
 
     @pytest.mark.asyncio
-    async def test_login_allows_allowlisted_existing_user(self, mock_jwt_settings, monkeypatch):
+    async def test_login_allows_allowlisted_existing_user(self, mock_jwt_settings, allowlist_disabled, monkeypatch):
         email = _unique_email()
         await _create_password_user(email)
         await add_entry(entry_type="email", value=email, note=None, added_by=None)
-        monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", True)
+        monkeypatch.setattr("demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED", True)
         result = await login_with_password(email=email, password="hunter2hunter2")
         assert result.user.email == email
 
@@ -189,7 +144,7 @@ class TestLoginWithPassword:
 
 class TestGitHubAuthenticate:
     @pytest.mark.asyncio
-    async def test_github_allows_when_flag_off(self, mock_jwt_settings):
+    async def test_github_allows_when_flag_off(self, mock_jwt_settings, allowlist_disabled):
         github_user = GitHubUser(id=str(uuid4().int), login=f"gh-{uuid4().hex[:8]}", email=_unique_email())
         result = await authenticate_user(github_user)
         assert result.user.github_username == github_user.login
