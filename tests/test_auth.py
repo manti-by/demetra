@@ -195,7 +195,7 @@ class TestAuthServiceWithMocks:
             yield
 
     @pytest.mark.asyncio
-    async def test_authenticate_user_creates_new_user(self, mock_jwt_settings):
+    async def test_authenticate_user_creates_new_user(self, mock_jwt_settings, allowlist_disabled):
         mock_github_user = GitHubUser(id="123", login="testuser", email="test@example.com")
 
         result = await authenticate_user(mock_github_user)
@@ -248,7 +248,7 @@ class TestHasPermission:
 
 class TestSignupWithPassword:
     @pytest.mark.asyncio
-    async def test_signup_creates_user_and_returns_auth_response(self, mock_jwt_settings):
+    async def test_signup_creates_user_and_returns_auth_response(self, mock_jwt_settings, allowlist_disabled):
         email = f"signup-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         result = await signup_with_password(email=email, password="hunter2hunter2")
 
@@ -265,7 +265,7 @@ class TestSignupWithPassword:
             await signup_with_password(email=email, password="hunter2hunter2")
 
     @pytest.mark.asyncio
-    async def test_signup_raises_on_duplicate_email(self, mock_jwt_settings):
+    async def test_signup_raises_on_duplicate_email(self, mock_jwt_settings, allowlist_disabled):
         email = f"dup-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         await signup_with_password(email=email, password="hunter2hunter2")
 
@@ -280,7 +280,7 @@ class TestSignupWithPassword:
 
 class TestLoginWithPassword:
     @pytest.mark.asyncio
-    async def test_login_returns_auth_response(self, mock_jwt_settings):
+    async def test_login_returns_auth_response(self, mock_jwt_settings, allowlist_disabled):
         email = f"login-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         await signup_with_password(email=email, password="hunter2hunter2")
 
@@ -291,7 +291,7 @@ class TestLoginWithPassword:
         assert result.user.email == email
 
     @pytest.mark.asyncio
-    async def test_login_raises_on_wrong_password(self, mock_jwt_settings):
+    async def test_login_raises_on_wrong_password(self, mock_jwt_settings, allowlist_disabled):
         email = f"wrong-pw-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         await signup_with_password(email=email, password="hunter2hunter2")
 
@@ -306,7 +306,7 @@ class TestLoginWithPassword:
 
 class TestResetPassword:
     @pytest.mark.asyncio
-    async def test_reset_password_revokes_all_tokens_and_updates_hash(self, mock_jwt_settings):
+    async def test_reset_password_revokes_all_tokens_and_updates_hash(self, mock_jwt_settings, allowlist_disabled):
         email = f"reset-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         first_token = (await signup_with_password(email=email, password="hunter2hunter2")).token
         second_token = (await login_with_password(email=email, password="hunter2hunter2")).token
@@ -326,7 +326,7 @@ class TestResetPassword:
             await reset_password(email="nonexistent@example.com", password="brandnewpass1")
 
     @pytest.mark.asyncio
-    async def test_reset_password_rejects_token_minted_before_reset(self, mock_jwt_settings):
+    async def test_reset_password_rejects_token_minted_before_reset(self, mock_jwt_settings, allowlist_disabled):
         email = f"race-test-{__import__('uuid').uuid4().hex[:8]}@example.com"
         result = await signup_with_password(email=email, password="hunter2hunter2")
 

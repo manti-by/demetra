@@ -18,21 +18,12 @@ from demetra.services.persistence.database import (
     list_user_allowlist_seed_rows,
 )
 from demetra.services.runtime.tui import print_message
-from demetra.settings import ALLOWLIST_ENABLED, ALLOWLIST_SEED_FILE
+from demetra.settings import ALLOWLIST_SEED_FILE, IS_ALLOWLIST_ENABLED
 
 
 logger = logging.getLogger(__name__)
 
 VALID_ENTRY_TYPES = ("email", "github_username")
-
-
-def is_allowlist_enabled() -> bool:
-    """Return whether the allowlist gate is enabled.
-
-    Returns:
-        bool: The ``ALLOWLIST_ENABLED`` constant from ``demetra.settings``.
-    """
-    return ALLOWLIST_ENABLED
 
 
 def normalize_email(value: str) -> str:
@@ -82,7 +73,7 @@ async def is_email_allowed(email: str, user_data: dict | None = None) -> bool:
     Returns:
         bool: True when the email is allowed.
     """
-    if not is_allowlist_enabled():
+    if not IS_ALLOWLIST_ENABLED:
         return True
 
     normalized = normalize_email(email)
@@ -113,7 +104,7 @@ async def is_github_login_allowed(login: str, email: str | None, github_id: str 
     Returns:
         bool: True when the GitHub login is allowed.
     """
-    if not is_allowlist_enabled():
+    if not IS_ALLOWLIST_ENABLED:
         return True
 
     if github_id:

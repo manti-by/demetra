@@ -177,12 +177,24 @@ def faker():
 def allowlist_seeded(monkeypatch):
     """Enable the allowlist gate for a single test.
 
-    :func:`demetra.services.auth.allowlist.is_allowlist_enabled` returns the
-    module-level ``ALLOWLIST_ENABLED`` constant, so patching it here is enough
-    to turn enforcement on. Opt-in by requesting this fixture; the default
-    leaves the gate off so existing tests are unaffected.
+    ``demetra.services.auth.allowlist.is_email_allowed`` /
+    ``is_github_login_allowed`` read the module-level ``IS_ALLOWLIST_ENABLED``
+    constant, so patching it here is enough to turn enforcement on. The gate is
+    on by default (``settings.IS_ALLOWLIST_ENABLED`` defaults to ``True``); this
+    fixture makes that explicit and robust to a ``False`` env override.
     """
-    monkeypatch.setattr("demetra.services.auth.allowlist.ALLOWLIST_ENABLED", True)
+    monkeypatch.setattr("demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED", True)
+    yield
+
+
+@pytest.fixture
+def allowlist_disabled(monkeypatch):
+    """Disable the allowlist gate for a single test.
+
+    Opt-in by requesting this fixture in tests that exercise auth flows without
+    an allowlist entry and expect signup/login/authenticate to succeed.
+    """
+    monkeypatch.setattr("demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED", False)
     yield
 
 
