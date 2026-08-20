@@ -17,6 +17,11 @@ related: [2026-08-03-wiki-mcp-tools.md, 2026-08-06-allowlist-review-fixes.md]
 
 PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
 
+> **Status update (2026-08-20, Consistency Agent):** Finding 1 (`env_get_list` returning `[]`
+> when unset) was fixed on master in `f093e19` — `env_get_list` now returns `default` when the
+> variable is absent (`demetra/services/runtime/utils.py:271-273`). The analysis below is the
+> pre-fix regression record for PR #70.
+
 ---
 
 ## Findings
