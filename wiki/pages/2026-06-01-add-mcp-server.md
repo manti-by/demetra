@@ -56,6 +56,10 @@ Removed the hardcoded DB password default so credentials come only from the envi
 
 - None.
 
+## Consistency note (2026-08-20)
+
+The server was relocated to `demetra/mcp_server.py` and now uses **stdio** transport (not streamable-http). Filesystem/database tools from this session were superseded by the aggregate tool registry in `demetra/tools/` — see [[2026-08-03-fix-mcp-server-2.0-api]] and [[2026-08-03-wiki-mcp-tools]].
+
 ---
 
 ## References

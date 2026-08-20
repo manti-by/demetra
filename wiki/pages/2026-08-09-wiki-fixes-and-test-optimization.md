@@ -17,6 +17,8 @@ related: [2026-08-07-mnt-147-wiki-processes-pr70-review.md, 2026-08-07-split-wik
 
 Hardened four wiki-service edge cases surfaced while exercising the freshly split subpackage (blank env paths, cluster scoring across multiple bullets, cluster insertion when the target header is the last line, unreadable page files, `answer_sweep` preamble handling) and scoped the revalidation commit to exactly the changed files. Then optimized the three slowest test files, cutting the full suite from ~13s to **729 passed in 4.60s**.
 
+> **Consistency note (2026-08-20):** Step 1 originally misattributed the MNT-147 CI failure to `env_get_path`; the review-models regression was `env_get_list` (see [[2026-08-07-mnt-147-wiki-processes-pr70-review]]).
+
 ---
 
 ## Overview
@@ -27,7 +29,7 @@ Session followed the [[2026-08-07-split-wiki-service-into-subpackage]] refactor.
 
 **File:** `demetra/services/runtime/utils.py:313-316`
 
-Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default — the root cause of the CI failure tracked in [[2026-08-07-mnt-147-wiki-processes-pr70-review]] (`OPENCODE_REVIEW_MODELS` emptied when the var was unset):
+Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default. This is a separate bug from the MNT-147 CI failure ([[2026-08-07-mnt-147-wiki-processes-pr70-review]]), which was caused by `env_get_list` returning `[]` when `OPENCODE_REVIEW_MODELS` was unset — not by `env_get_path`:
 
 ```python
 value = os.environ.get(name)

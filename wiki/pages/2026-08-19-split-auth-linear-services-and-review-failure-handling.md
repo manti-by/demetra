@@ -2,7 +2,7 @@
 title: Split auth/linear services into subpackages + review-failure handling
 date: 2026-08-19
 type: implementation
-status: in-progress
+status: resolved
 session_id: "-"
 services: [auth, linear, tools, llm, workflows]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
@@ -15,7 +15,7 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-07-split-wiki-servi
 
 ## TL;DR
 
-On the MNT-170 env-layers branch, a follow-up refactor split the two remaining
+On the MNT-170 env-layers branch (merged to `master`), a follow-up refactor split the two remaining
 monolithic service facades — `auth` and `linear` — into per-concern submodules
 behind their `__init__.py` facades, and deleted the `sys.meta_path` relocation
 shim from `demetra/services/__init__.py` (the last trace of the legacy flat
@@ -168,6 +168,10 @@ New coverage added:
 - The `render.py` `# TODO: Add template and render` comment in
   `demetra/services/wiki/render.py` was added this session — confirm whether it
   is a deliberate placeholder or leftover.
+
+## Consistency note (2026-08-20)
+
+The auth/linear subpackage split and review-failure routing merged to `master`. The `demetra/services/auth/` and `demetra/services/linear/` subpackages are live; `status` updated from `in-progress` to `resolved`.
 
 ## References
 

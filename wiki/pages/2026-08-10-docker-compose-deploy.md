@@ -112,8 +112,10 @@ This page describes the initial compose design. The file was subsequently refact
 - **LOG_PATH:** per-service files under `/var/log/demetra/<service>.log`, backed by a bind-mount `${DEMETRA_LOG_DIR:-./log}:/var/log/demetra/` (not a single `/root/demetra.log` in the app-data volume).
 - **Migrate service:** bind-mounts the whole repo `.:/srv/demetra/src/` (not just `./migrations`).
 - **react-build:** `working_dir: /srv/demetra/src/` with `./react:/srv/demetra/src`; no named volume.
-- **API uvicorn:** passes `--host 0.0.0.0` inside the container; external exposure is prevented by the `127.0.0.1:8001:8001` publish mapping.
+- **API uvicorn:** passes `--host 0.0.0.0` inside the container; ports publish as `8001:8001` (all interfaces, not loopback-only).
 - **nginx:** `location /` now proxies to `http://127.0.0.1:3000` (a running process); only `location /assets/` serves static files from `react/dist/assets/`.
+
+> **Consistency note (2026-08-20):** an earlier edit of this note claimed loopback-only publish (`127.0.0.1:8001:8001`); current `docker-compose.yaml` uses `8001:8001` and `9181:9181` without a loopback bind address.
 
 ## References
 

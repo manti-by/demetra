@@ -15,7 +15,9 @@ related: []
 
 ## TL;DR
 
-Two bugs in `listener.py`: (1) `process_merge_notification`/`process_rebase_notification` returned a `bool` indicating success, but `listener.py` discarded it and called `mark_notification_read` unconditionally, so failed enqueues were lost forever. (2) Without a retry counter, a persistently failing notification would poll indefinitely every cycle. Fixed by guarding `mark_notification_read` with the return value, and adding a `listener_attempts` column (with `MAX_LISTENER_ATTEMPTS` default 3 at the time; later changed to 5 via env var) that breaks the loop after N failures, mirroring the `run_attempts` pattern.
+Two bugs in `listener.py`: (1) `process_merge_notification`/`process_rebase_notification` returned a `bool` indicating success, but `demetra/listener.py` discarded it and called `mark_notification_read` unconditionally, so failed enqueues were lost forever. (2) Without a retry counter, a persistently failing notification would poll indefinitely every cycle. Fixed by guarding `mark_notification_read` with the return value, and adding a `listener_attempts` column (with `MAX_LISTENER_ATTEMPTS` default 3 at the time; later changed to 5 via env var) that breaks the loop after N failures, mirroring the `run_attempts` pattern.
+
+> **Consistency note (2026-08-20):** notification handlers live in `demetra/services/daemons/listener.py`; the entrypoint daemon is `demetra/listener.py`.
 
 ---
 
@@ -23,7 +25,7 @@ Two bugs in `listener.py`: (1) `process_merge_notification`/`process_rebase_noti
 
 Two distinct failure modes were fixed in the notification listener:
 
-1. **Always marking notifications as read on failure** — `process_merge_notification`/`process_rebase_notification` (in `demetra/services/listener.py`) returned a `bool` indicating whether the workflow was successfully enqueued, but `listener.py` discarded that return value and invoked `mark_notification_read` unconditionally. This meant notifications were consumed even when:
+1. **Always marking notifications as read on failure** — `process_merge_notification`/`process_rebase_notification` (in `demetra/services/daemons/listener.py`) returned a `bool` indicating whether the workflow was successfully enqueued, but `demetra/listener.py` discarded that return value and invoked `mark_notification_read` unconditionally. This meant notifications were consumed even when:
    - No session existed for the PR link
    - The session had no `project_id`
    - The action was unknown

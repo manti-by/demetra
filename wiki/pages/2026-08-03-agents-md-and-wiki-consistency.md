@@ -16,12 +16,14 @@ related: [2026-07-16-fix-notification-mark-read.md, 2026-07-23-agents-md-revalid
 ## TL;DR
 
 Revalidated `AGENTS.md` against the current codebase (wiki section added, f-string
-exception for `demetra/services/prompt.py`, underscore-helper naming ban confirmed, deps
+exception for `demetra/services/llm/prompt.py`, underscore-helper naming ban confirmed, deps
 moved to a `pyproject.toml`/`uv.lock` pointer, GitHub + Groq added to external deps, AI
 Behavior condensed) and regenerated the `wiki/INDEX.md` "By topic" clusters from a fresh
 consistency cross-check of all pages. Resolved two stale "not yet committed"/"build plan not
 executed" claims by verifying the current master tree (PR #66 / #67 merged, `47d428d` landed),
 leaving three still-open recommendations filed as follow-ups.
+
+> **Consistency note (2026-08-20):** the f-string exception path is `demetra/services/llm/prompt.py` (not `demetra/services/prompt.py`).
 
 > **Status update (2026-08-04, Consistency Agent):** PR #68 has been merged into `master`
 > (`ea754bc`, 2026-08-04); master has since advanced to `1.15.7` (was `1.15.5` when this
@@ -50,7 +52,7 @@ branch and open as PR #68 against `master` (since merged):
 - Added `wiki/` to the project-structure list plus a new "Wiki" section (read `INDEX.md`
   before planning; record each session under `wiki/pages/` via the `wiki-*` commands).
 - Corrected the f-string rule to allow the sole exception: prompt-template substitution in
-  `demetra/services/prompt.py`.
+  `demetra/services/llm/prompt.py`.
 - Confirmed the blanket ban on `_`-prefixed functions stands: no private/underscore-prefixed
   function names; public functions stay unprefixed, CLI wrappers keep the
   `opencode_*`/`git_*`/`cursor_*` prefix.

@@ -353,7 +353,7 @@ rq-dashboard:
 Most findings were fixed in the subsequent anchor refactor (see [[2026-08-18-compose-anchors-refactor]]). Two findings were incorrect:
 
 - **Finding 11** (`oven/bun:1` "not a valid tag"): `oven/bun:1` is a valid major-version tag on Docker Hub and is still used in the current compose.
-- **Finding 12** (API/rq-dashboard "bind `0.0.0.0` and publish on all interfaces"): the port publishes were already loopback-only (`127.0.0.1:8001:8001` and `127.0.0.1:9181:9181`). The `--host 0.0.0.0` on uvicorn is a container-internal bind that does not expose the service externally given the loopback publish mapping.
+- **Finding 12** (API/rq-dashboard port publish): at the time of this review the publishes were loopback-only (`127.0.0.1:8001:8001`). **Superseded (2026-08-20):** current `docker-compose.yaml` publishes on all interfaces (`8001:8001`, `9181:9181`); uvicorn/rq-dashboard still bind `0.0.0.0` inside the container.
 
 ## References
 

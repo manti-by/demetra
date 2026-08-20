@@ -2,7 +2,7 @@
 title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
 date: 2026-08-07
 type: code-review
-status: open
+status: resolved
 session_id: opencode
 services: [wiki, settings, utils, workflows]
 branch: mnt-147-wiki-processes
@@ -15,7 +15,7 @@ related: [2026-08-03-wiki-mcp-tools.md, 2026-08-06-allowlist-review-fixes.md]
 
 ## TL;DR
 
-PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
+PR #70 (mnt-147-wiki-processes) merged after fixing an `env_get_list` regression in `demetra/services/runtime/utils.py` that returned `[]` instead of the default when `OPENCODE_REVIEW_MODELS` was unset — causing CI failure on `test_run_review_agents_filters_thinking_prose` with an empty review-agent list. The wiki subpackage split from the same PR is live on `master`.
 
 ---
 
@@ -96,6 +96,10 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
 - Once CI passes, PR #70 is ready to merge (branch is up to date with master).
 - Address the 3 open CodeRabbit threads (or mark resolved).
 - MNT-147 Linear ticket is In Review — will move to Done on merge.
+
+## Consistency note (2026-08-20)
+
+PR #70 merged; the wiki subpackage split landed on `master` (see [[2026-08-07-split-wiki-service-into-subpackage]]). The `env_get_list` unset-handling regression was fixed in `demetra/services/runtime/utils.py` (same session as [[2026-08-09-wiki-fixes-and-test-optimization]]). The default third `OPENCODE_REVIEW_MODELS` entry on current `master` is `opencode-go/kimi-k2.7-code`, not `minimax-m3` (see [[2026-08-05-post-build-validation]] consistency note).
 
 ## References
 
