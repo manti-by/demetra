@@ -8,7 +8,7 @@ services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
 tags: [docker, compose, security, review]
-related: [2026-07-07-project-deploy-script.md, 2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md]
+related: [2026-07-07-project-deploy-script.md, 2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md]
 ---
 
 # Docker setup review — Dockerfile + docker-compose.yaml on mnt-164
@@ -16,6 +16,13 @@ related: [2026-07-07-project-deploy-script.md, 2026-08-10-docker-compose-deploy.
 ## TL;DR
 
 The in-progress `mnt-164-docker-compose` branch has regressed the previously-verified Docker setup in [[2026-08-10-docker-compose-deploy]] and introduced **multiple critical blockers** that prevent any container from booting. The most damaging: the final-stage `Dockerfile` no longer copies the application source, the venv is `COPY`ed from a path that no longer exists in the builder, `WORKDIR` is a typo (`/srv/app/src/`), and the host's `.keys/` (SSH + GPG + git credentials) is baked into every image layer because `.keys/` is in `.gitignore` but **not** in `.dockerignore`. The compose file also drops all healthchecks, renames the DB service to `postgres` while leaving `watcher` and `listener` pointing at the old name `db`, and ships an inconsistent mix of `LOG_PATH` values whose parents don't exist. Until these are fixed, `docker compose up` will fail before `alembic` runs.
+
+> **Status update (2026-08-20, Consistency Agent):** Findings 1–10 and 13–16 were fixed on
+> `master` via subsequent commits (Dockerfile restore, compose anchor refactor, entrypoint fix —
+> see [[2026-08-18-compose-anchors-refactor]] and [[2026-08-19-worker-opencode-home-permissions]]).
+> Findings 11–12 were incorrect (see the consistency note below). This page is a historical
+> code-review record of the mnt-164 branch state on 2026-08-17; current `docker compose up` on
+> master is no longer blocked by these issues.
 
 ---
 
@@ -353,4 +360,5 @@ Most findings were fixed in the subsequent anchor refactor (see [[2026-08-18-com
 - Related: [[2026-08-10-docker-compose-deploy]] (verified-good compose design this branch regressed)
 - Related: [[2026-07-07-project-deploy-script]] (systemd deploy path; the compose is a parallel of this)
 - Related: [[2026-08-18-compose-anchors-refactor]] (the DRY refactor that fixed most findings)
+- Related: [[2026-08-19-worker-opencode-home-permissions]] (entrypoint ownership fix on the home volume)
 - External: [MNT-164 — Docker compose (Linear)](https://linear.app/mnt/issue/MNT-164)

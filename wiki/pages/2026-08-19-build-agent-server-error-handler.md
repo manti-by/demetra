@@ -131,8 +131,12 @@ resumes a session whose worktree cleanup already deleted and the retry fails ide
 
 ## Follow-ups
 
-- None beyond the known follow-up above; the handler code is staged on `master` (not yet committed —
-  awaiting explicit go-ahead).
+- None beyond the known follow-up above.
+
+## Consistency note (2026-08-20)
+
+- The `BuildError` handler (`process_build_failure` in `demetra/workflows/failure.py`, wired in
+  `main.py:158`) is committed on `master` — merged via PR #82 (2026-08-19).
 
 ## References
 
