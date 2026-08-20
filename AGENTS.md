@@ -15,6 +15,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/api/`: FastAPI REST endpoints
 - `demetra/tools/`: MCP tool definitions
 - `demetra/prompts/`: LLM prompt templates
+- `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`)
 - `demetra/app.py`: FastAPI application
 - `demetra/mcp_server.py`: MCP server
 - `demetra/watcher.py`: Linear TODO poller
@@ -23,7 +24,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (50+ files)
+- `tests/`: Comprehensive test suite (52 files)
 - `configs/`: Systemd service files, nginx config
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
@@ -94,8 +95,13 @@ uv run main.py --project-name <project_name>
 
 ### Containerized Deploy
 
+Alternative deployment path that runs the full app layer (Postgres, Redis, API, 4 workers, watcher, listener, RQ dashboard and a one-shot React build) on top of the `mantiby/demetra` image. The systemd `make deploy` path is untouched.
+
+Prerequisites: Docker Compose v2 (the compose file declares `deploy.replicas: 2` for the workers; the `docker-up`/`docker-deploy` targets pass `--scale worker=4` so 4 workers run), the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`, which `docker-deploy` runs as a prerequisite; the `postgres`/`redis`/`oven/bun` images are pulled automatically), and `docker-build` needs Docker BuildKit.
+
 ```bash
-make docker-deploy
+cp .env.docker.example .env.docker   # then fill in real values
+make docker-deploy                   # build image + pull infra + migrate/react one-shots + up long-running + ps
 ```
 
 ## Language & Environment
@@ -103,7 +109,7 @@ make docker-deploy
 - Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
-- Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exception: prompt-template substitution in `demetra/services/llm/prompt.py`)
+- Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exceptions: prompt-template substitution in `demetra/services/llm/prompt.py` and message-template substitution in `demetra/services/runtime/template.py`)
 - Use list/dict/set comprehensions instead of `map`/`filter` where it improves readability
 - Prefer `pathlib.Path` over `os.path` for filesystem paths
 - Follow PEP 257 for docstrings where docstrings are used
@@ -132,7 +138,7 @@ uv run bandit -c pyproject.toml .
 **Naming** (ruff N enforces most):
 - Modules: `snake_case.py`; tests mirror at `tests/test_<module>.py`
 - Classes: `PascalCase`; dataclasses in `library/models.py`, TypedDicts in `library/types.py`
-- Functions: `snake_case`; **never** prefix with `_` (no private/underscore-prefixed functions); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
+- Functions: `snake_case`; module-level private helpers use a leading `_` (e.g. `demetra/tools/wiki.py`, `demetra/tools/database.py`); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
 - Constants: `UPPER_SNAKE_CASE`; env-driven ones live in `demetra/settings.py`
 
 **Architecture** (strict layering, no skipping):
@@ -140,7 +146,7 @@ uv run bandit -c pyproject.toml .
 - `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); each subpackage's `__init__.py` acts as the public facade. Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*`.
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
-- `demetra/tools/<system>.py` — MCP tool modules exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/__init__.py` aggregates them and `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
+- `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `projects.py`, `wiki.py`) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them, re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.runtime.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code.
 
@@ -180,7 +186,7 @@ Demetra coordinates the following external tools:
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
-- **Groq**: legacy LLM API for plan/review summarisation (`demetra/services/llm/groq.py`)
+- **Groq**: legacy LLM API, fully superseded by OpenRouter (`demetra/services/llm/groq.py` retained but unused)
 - **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 
 ## Security Guidelines
