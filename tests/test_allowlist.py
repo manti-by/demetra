@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, SettingsError
 from demetra.library.models import GitHubUser
 from demetra.services.auth import (
     authenticate_user,
@@ -18,6 +18,7 @@ from demetra.services.auth.allowlist import (
     remove_entry,
 )
 from demetra.services.persistence import database as _database_module
+from demetra.settings import parse_allowlist_flag
 
 
 def _unique_email() -> str:
@@ -52,6 +53,37 @@ async def test_normalize_github_login_lowercases_and_strips():
     assert normalize_github_login("  MixedCase  ") == "mixedcase"
 
 
+class TestAllowlistEnvVar:
+    @pytest.mark.parametrize(
+        ("raw", "expected"),
+        [
+            ("true", True),
+            ("True", True),
+            ("TRUE", True),
+            ("1", True),
+            ("yes", True),
+            ("on", True),
+            ("  true  ", True),
+            ("false", False),
+            ("False", False),
+            ("FALSE", False),
+            ("0", False),
+            ("no", False),
+            ("off", False),
+            ("  false  ", False),
+        ],
+    )
+    def test_parse_allowlist_flag_accepts_common_spellings(self, raw, expected):
+        assert parse_allowlist_flag(raw) is expected
+
+    def test_parse_allowlist_flag_unset_defaults_false(self):
+        assert parse_allowlist_flag(None) is False
+
+    def test_parse_allowlist_flag_unrecognized_raises_settings_error(self):
+        with pytest.raises(SettingsError, match="Unrecognized IS_ALLOWLIST_ENABLED"):
+            parse_allowlist_flag("banana")
+
+
 class TestSignupWithPassword:
     @pytest.mark.asyncio
     async def test_signup_allows_when_flag_off(self, mock_jwt_settings):
@@ -77,6 +109,41 @@ class TestSignupWithPassword:
         await add_entry(entry_type="email", value=email, note=None, added_by=None)
         result = await signup_with_password(email=email.upper(), password="hunter2hunter2")
         assert result.user.email == email
+
+    @pytest.mark.asyncio
+    async def test_signup_rejects_when_allowlist_on_but_empty_and_email_differs_from_admin(
+        self, mock_jwt_settings, allowlist_seeded
+    ):
+        admin_email = _unique_email()
+        await add_entry(entry_type="email", value=admin_email, note=None, added_by=None)
+        user_id = (await signup_with_password(email=admin_email, password="hunter2hunter2")).user.id
+        async with _database_module.get_connection() as connection:
+            from sqlalchemy import text
+
+            await connection.execute(text("UPDATE users SET role = 'admin' WHERE id = :id"), {"id": user_id})
+            await connection.commit()
+
+        await remove_entry(entry_type="email", value=admin_email)
+
+        with pytest.raises(AuthError, match="Email not authorized for registration"):
+            await signup_with_password(email=_unique_email(), password="hunter2hunter2")
+
+
+class TestIsEmailAllowedUserData:
+    @pytest.mark.asyncio
+    async def test_rejects_user_data_with_user_role(self, allowlist_seeded):
+        email = _unique_email()
+        assert await is_email_allowed(email=email, user_data={"role": "user"}) is False
+
+    @pytest.mark.asyncio
+    async def test_passes_user_data_with_admin_role(self, allowlist_seeded):
+        email = _unique_email()
+        assert await is_email_allowed(email=email, user_data={"role": "admin"}) is True
+
+    @pytest.mark.asyncio
+    async def test_rejects_no_user_data_when_allowlist_empty(self, allowlist_seeded):
+        email = _unique_email()
+        assert await is_email_allowed(email=email) is False
 
 
 class TestLoginWithPassword:
@@ -108,6 +175,16 @@ class TestLoginWithPassword:
     async def test_login_rejects_unknown_email_with_generic_message(self, mock_jwt_settings, allowlist_seeded):
         with pytest.raises(AuthError, match="Invalid email or password"):
             await login_with_password(email=_unique_email(), password="hunter2hunter2")
+
+    @pytest.mark.asyncio
+    async def test_login_rejects_when_user_dropped_from_allowlist(self, mock_jwt_settings, allowlist_seeded):
+        email = _unique_email()
+        await add_entry(entry_type="email", value=email, note=None, added_by=None)
+        await _create_password_user(email)
+        await remove_entry(entry_type="email", value=email)
+
+        with pytest.raises(AuthError, match="Invalid email or password"):
+            await login_with_password(email=email, password="hunter2hunter2")
 
 
 class TestGitHubAuthenticate:
@@ -146,6 +223,12 @@ class TestGitHubAuthenticate:
         github_user = GitHubUser(id=str(uuid4().int), login=f"gh-{uuid4().hex[:8]}", email=email)
         result = await authenticate_user(github_user)
         assert result.user.email == email
+
+    @pytest.mark.asyncio
+    async def test_github_rejects_when_email_is_null(self, mock_jwt_settings, allowlist_seeded):
+        github_user = GitHubUser(id=str(uuid4().int), login=f"gh-{uuid4().hex[:8]}", email=None)
+        with pytest.raises(AuthError, match="GitHub account not authorized"):
+            await authenticate_user(github_user)
 
 
 class TestAdminBypass:

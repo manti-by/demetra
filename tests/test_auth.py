@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import insert
 
 from demetra.app import app
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError
 from demetra.library.models import GitHubUser, UserResponse
 from demetra.library.tables import jwt_tokens
 from demetra.services.auth import (
@@ -203,6 +203,15 @@ class TestAuthServiceWithMocks:
         assert result.token is not None
         assert result.user.id is not None
         assert result.user.github_username == "testuser"
+
+    @pytest.mark.asyncio
+    async def test_authenticate_user_raises_github_not_authorized_when_allowlist_blocks(
+        self, mock_jwt_settings, allowlist_seeded
+    ):
+        mock_github_user = GitHubUser(id="123", login="testuser", email="test@example.com")
+
+        with pytest.raises(GitHubAccountNotAuthorizedError, match="GitHub account not authorized"):
+            await authenticate_user(mock_github_user)
 
     @pytest.mark.asyncio
     async def test_verify_jwt_token_returns_none_for_invalid_token(self, mock_jwt_settings):
