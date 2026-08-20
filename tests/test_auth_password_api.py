@@ -90,6 +90,16 @@ class TestSignupEndpoint:
             assert response.status_code == 403
             assert "Email not authorized for registration" in response.json()["detail"]
 
+    def test_signup_returns_403_when_registration_not_allowed_real_path(self, allowlist_seeded):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.post(
+            f"{AUTH_BASE}/signup",
+            json={"email": f"blocked-{uuid4().hex[:8]}@example.com", "password": "hunter2hunter2"},
+        )
+
+        assert response.status_code == 403
+        assert "Email not authorized for registration" in response.json()["detail"]
+
 
 class TestLoginEndpoint:
     def test_login_returns_200_and_sets_cookie(self):

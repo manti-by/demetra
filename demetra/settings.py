@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
@@ -66,7 +67,43 @@ WIKI: dict = {
 WATCHER_POLL_INTERVAL = env_get_int("WATCHER_POLL_INTERVAL", 60)
 LISTENER_POLL_INTERVAL = env_get_int("LISTENER_POLL_INTERVAL", 60)
 
-ALLOWLIST_ENABLED = env_get_bool("IS_ALLOWLIST_ENABLED", False)
+ALLOWLIST_TRUTHY_VALUES = ("true", "1", "yes", "on")
+ALLOWLIST_FALSY_VALUES = ("false", "0", "no", "off")
+
+
+def parse_allowlist_flag(value: str | None) -> bool:
+    """Parse the ``IS_ALLOWLIST_ENABLED`` env var value into a boolean.
+
+    Accepts the common boolean spellings ``"true"``/``"1"``/``"yes"``/``"on"``
+    as truthy and ``"false"``/``"0"``/``"no"``/``"off"`` as falsy,
+    case-insensitively and with surrounding whitespace trimmed. An explicitly
+    set but unrecognized value raises ``SettingsError`` so a misconfiguration
+    cannot silently run with the gate off (fail-closed).
+
+    Args:
+        value: The raw env var value, or None when unset.
+
+    Returns:
+        bool: True when the value is truthy, otherwise False.
+
+    Raises:
+        SettingsError: When the value is set but not a recognized boolean
+            spelling.
+    """
+    if value is None:
+        return False
+    normalized = value.strip().lower()
+    if normalized in ALLOWLIST_TRUTHY_VALUES:
+        return True
+    if normalized in ALLOWLIST_FALSY_VALUES:
+        return False
+    raise SettingsError(
+        f"Unrecognized IS_ALLOWLIST_ENABLED={value!r}; expected one of "
+        f"{', '.join(ALLOWLIST_TRUTHY_VALUES + ALLOWLIST_FALSY_VALUES)}"
+    )
+
+
+ALLOWLIST_ENABLED = parse_allowlist_flag(os.environ.get("IS_ALLOWLIST_ENABLED"))
 ALLOWLIST_SEED_FILE = env_get_str("ALLOWLIST_SEED_FILE", None)
 
 OS_ENV_PROJECT_OPTINS = parse_os_env_project_optins(env_get_str("OS_ENV_PROJECT_OPTINS", None))

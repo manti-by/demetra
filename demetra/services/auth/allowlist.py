@@ -1,4 +1,5 @@
 import json
+import logging
 from pathlib import Path
 
 from rich.console import Console
@@ -19,6 +20,8 @@ from demetra.services.persistence.database import (
 from demetra.services.runtime.tui import print_message
 from demetra.settings import ALLOWLIST_ENABLED, ALLOWLIST_SEED_FILE
 
+
+logger = logging.getLogger(__name__)
 
 VALID_ENTRY_TYPES = ("email", "github_username")
 
@@ -88,7 +91,10 @@ async def is_email_allowed(email: str, user_data: dict | None = None) -> bool:
     if user_data and user_data.get("role") == "admin":
         return True
 
-    return await find_allowlist_entry(entry_type="email", value=normalized) is not None
+    allowed = await find_allowlist_entry(entry_type="email", value=normalized) is not None
+    if not allowed:
+        logger.info("Allowlist blocked email authentication (no matching entry)")
+    return allowed
 
 
 async def is_github_login_allowed(login: str, email: str | None, github_id: str | None) -> bool:
@@ -125,6 +131,7 @@ async def is_github_login_allowed(login: str, email: str | None, github_id: str 
         if await find_allowlist_entry(entry_type="email", value=normalized_email):
             return True
 
+    logger.info("Allowlist blocked github login=%s (email and github_id withheld)", normalized_login)
     return False
 
 
