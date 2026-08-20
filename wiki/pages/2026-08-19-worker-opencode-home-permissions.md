@@ -8,7 +8,7 @@ services: [deploy, agents, runtime]
 branch: "-"
 tickets: []
 tags: [docker, permissions, volume, opencode, entrypoint]
-related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md]
+related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-20-review-gh-auth-mount-changes.md]
 ---
 
 # Worker opencode EACCES on home volume — entrypoint ownership fix
@@ -68,6 +68,8 @@ exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"
 **File:** `Dockerfile` — copied the script, replaced `USER demetra` with `ENTRYPOINT ["docker-entrypoint.sh"]`. All compose services (`migrate`, `api`, `worker`, `watcher`, `listener`, `rq-dashboard`) inherit the entrypoint and keep their per-service `CMD` overrides.
 
 Verified locally: `sh -n` passes and a `find -prune` dry-run traverses exactly the non-secret set (`.local`, `.demetra`, `.cache`, …) while skipping `.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials` and `.local/share/opencode/auth.json`.
+
+> **Consistency note (2026-08-20):** the entrypoint prune list was extended to also skip `.config/gh/hosts.yml` (gh CLI auth bind mount) — see [[2026-08-20-review-gh-auth-mount-changes]].
 
 ## Test Results
 
