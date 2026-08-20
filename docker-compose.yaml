@@ -18,6 +18,7 @@ x-demetra-app: &demetra-app
     - .keys/.gnupg:/home/demetra/.gnupg
     - .keys/.gitconfig:/home/demetra/.gitconfig
     - .keys/.git-credentials:/home/demetra/.git-credentials
+    - .keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml
     - .keys/opencode/auth.json:/home/demetra/.local/share/opencode/auth.json
     - /mnt/data/www/demetra/log/:/var/log/demetra/
   depends_on:
