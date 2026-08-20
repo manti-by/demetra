@@ -8,7 +8,7 @@ services: [auth, main, settings]
 branch: master
 tickets: [MNT-148]
 tags: [auth, security, bcrypt, cors, cookies, dependencies]
-related: [2026-07-24-plain-auth-review-followups.md]
+related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md]
 ---
 
 # Password Hashing, Cookie & CORS Hardening, and Dependency Bump
@@ -23,6 +23,10 @@ origin allow-list configurable via env instead of being hardcoded/wide-open; and
 redis, etc.). A new OpenCode `release-naming` command was also added. Net effect: a tighter
 auth surface (configurable cookie scope + explicit CORS origins) and a leaner, more current
 dependency tree.
+
+> **Status update (2026-08-20, Consistency Agent):** These changes were committed and merged
+> long ago (see [[2026-08-03-check-api-auth-and-credentials]] for subsequent auth hardening).
+> The "not yet committed" framing below is kept as the session record.
 
 ---
 
@@ -182,4 +186,5 @@ uv run pytest tests/
 
 ## References
 
-- Related: [[2026-07-24-plain-auth-review-followups]] (MNT-148 auth work this builds on)
+- Related: [[2026-07-24-plain-auth-review-followups]] (MNT-148 auth work this builds on),
+  [[2026-08-03-check-api-auth-and-credentials]] (subsequent auth hardening)

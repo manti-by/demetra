@@ -2,13 +2,13 @@
 title: Split auth/linear services into subpackages + review-failure handling
 date: 2026-08-19
 type: implementation
-status: in-progress
+status: resolved
 session_id: "-"
 services: [auth, linear, tools, llm, workflows]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: [MNT-170]
 tags: [refactor, subpackage, facade, exceptions, review, pr-description, openrouter]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Split auth/linear services into subpackages + review-failure handling
@@ -160,18 +160,22 @@ New coverage added:
 
 ---
 
+## Consistency note (2026-08-20)
+
+MNT-170 merged to `master` via PR #80 (`2026-08-19`). The auth/linear subpackage
+split, tools registry extraction, review-failure exception path, and relocation-shim
+removal are all on `master`. Allowlist logic lives at
+`demetra/services/auth/allowlist.py` (not the legacy flat `demetra/services/allowlist.py`
+path referenced in [[2026-08-06-allowlist-review-fixes]]).
+
 ## Follow-ups
 
-- Complete the MNT-170 review gates (`ruff`, `ty`, `bandit`, `pre-commit`,
-  full `pytest`) before commit; this page documents the staged (uncommitted)
-  work on top of `59637b4`.
-- The `render.py` `# TODO: Add template and render` comment in
-  `demetra/services/wiki/render.py` was added this session — confirm whether it
-  is a deliberate placeholder or leftover.
+- None.
 
 ## References
 
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]],
   [[2026-08-18-migrate-llm-groq-to-openrouter]],
-  [[2026-08-05-pr-creation-failure-handler]]
+  [[2026-08-05-pr-creation-failure-handler]],
+  [[2026-08-06-allowlist-review-fixes]]
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)

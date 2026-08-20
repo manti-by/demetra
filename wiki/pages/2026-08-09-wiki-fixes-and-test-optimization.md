@@ -27,7 +27,7 @@ Session followed the [[2026-08-07-split-wiki-service-into-subpackage]] refactor.
 
 **File:** `demetra/services/runtime/utils.py:313-316`
 
-Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default — the root cause of the CI failure tracked in [[2026-08-07-mnt-147-wiki-processes-pr70-review]] (`OPENCODE_REVIEW_MODELS` emptied when the var was unset):
+Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default:
 
 ```python
 value = os.environ.get(name)
@@ -35,6 +35,8 @@ if not value or value.strip() == "":
     return default
 return Path(value).resolve()
 ```
+
+> **Consistency note (2026-08-20):** The CI failure on PR #70 tracked in [[2026-08-07-mnt-147-wiki-processes-pr70-review]] was caused by a separate `env_get_list` bug (empty list when unset), not this `env_get_path` blank-value bug. Both were hardened in the same timeframe.
 
 ## Step 2 — `find_topic_cluster` aggregates across the cluster
 

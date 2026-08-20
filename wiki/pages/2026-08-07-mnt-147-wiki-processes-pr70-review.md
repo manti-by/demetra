@@ -2,7 +2,7 @@
 title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
 date: 2026-08-07
 type: code-review
-status: open
+status: resolved
 session_id: opencode
 services: [wiki, settings, utils, workflows]
 branch: mnt-147-wiki-processes
@@ -15,7 +15,9 @@ related: [2026-08-03-wiki-mcp-tools.md, 2026-08-06-allowlist-review-fixes.md]
 
 ## TL;DR
 
-PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
+PR #70 (mnt-147-wiki-processes → master) was open when this review ran; CI failed on `test_run_review_agents_filters_thinking_prose`. Root cause: a regression in this branch's `env_get_list` refactor — it returned `[]` instead of the default when the env var was unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list was empty and the summarizer received empty output.
+
+> **Status update (2026-08-20, Consistency Agent):** PR #70 merged (`2026-08-07`). Finding 1 was fixed: `env_get_list` now early-returns `default` when the var is unset (`demetra/services/runtime/utils.py:271-273`). The module moved from `demetra/services/utils.py` during the runtime subpackage split.
 
 ---
 

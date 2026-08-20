@@ -2,13 +2,13 @@
 title: Categorize settings env vars by layer
 date: 2026-08-18
 type: investigation
-status: open
+status: resolved
 session_id: "-"
 services: [settings, subprocess, workflows, persistence]
 branch: feature/mnt-169-removeupdate-settings
 tickets: [MNT-169, MNT-170]
 tags: [environment, settings, project-env, user-env, layers, subprocess]
-related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Categorize settings env vars by layer
@@ -16,6 +16,8 @@ related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-rev
 ## TL;DR
 
 Classifies every workflow-runtime env var read in `demetra/settings.py` into one of three target layers — **project** (per-project `project_environment` rows), **user** (per-user `user_environment` rows where `scope = 'user'`), or **system** (kept in `settings.py`, overridable by user-shared env in the merge order OS → user-shared → project → step). The three-layer plumbing already exists per [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]; the runtime work is tracked as [MNT-170 — Migrate workflow env vars to project/user env layers](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers). Resolution from this session: one Linear workspace → OAuth + workspace labels stay system, `LINEAR_TEAM_ID` / `LINEAR_STATE_*` move to user; `OPENROUTER_BASE_URL` stays system, `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` move to user; `UV_PATH` moves to project, other tool binary paths stay system.
+
+> **Status update (2026-08-20, Consistency Agent):** MNT-170 merged to `master` via PR #80 (`2026-08-19`). This page is the investigation record that informed that migration; see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] for the follow-up service-layer refactor on the same branch.
 
 ---
 
@@ -114,5 +116,6 @@ The blocks below enumerate the changes [MNT-170](https://linear.app/mnt/issue/MN
 - Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - Related: [[2026-06-08-project-environment]]
 - Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - Implementation: [MNT-170 — Migrate workflow env vars to project/user env layers](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)
 - External: [MNT-169 — Remove/update settings (Linear)](https://linear.app/mnt/issue/MNT-169/removeupdate-settings)
