@@ -807,11 +807,6 @@ class TestWorkflowBuild:
         with patch("demetra.workflows.build.bump_project_version", return_value="1.15.0") as m:
             yield m
 
-    @pytest.fixture
-    def mock_is_epic_label(self):
-        with patch("demetra.workflows.build.is_epic_label", return_value=False) as m:
-            yield m
-
     @pytest.mark.asyncio
     async def test_run_build_step_success(
         self,
@@ -822,7 +817,6 @@ class TestWorkflowBuild:
         mock_run_lint_and_test,
         mock_user_input,
         mock_bump_version,
-        mock_is_epic_label,
     ):
         context = Context(
             project=Project(
@@ -873,7 +867,6 @@ class TestWorkflowBuild:
         mock_run_lint_and_test,
         mock_user_input,
         mock_bump_version,
-        mock_is_epic_label,
     ):
         context = Context(
             project=Project(
@@ -932,7 +925,6 @@ class TestWorkflowBuild:
         mock_run_lint_and_test,
         mock_user_input,
         mock_bump_version,
-        mock_is_epic_label,
     ):
         context = Context(
             project=Project(

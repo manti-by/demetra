@@ -317,34 +317,19 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
         logger.exception(f"Failed to cleanup project directory: {e}")
 
 
-EPIC_LABEL = "epic"
-
-
-def is_epic_label(labels: list[str]) -> bool:
-    """Check whether any label matches 'epic' (case-insensitive).
-
-    Args:
-        labels: The list of label names.
-
-    Returns:
-        bool: True when an epic label is present.
-    """
-    return any(label.lower() == EPIC_LABEL for label in labels)
-
-
 # Matches MAJOR.MINOR.PATCH with optional PEP 440 pre-release / build suffix.
 _VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(.*)$")
 
 
-def bump_project_version(target_path: Path, is_epic: bool = False) -> str | None:
+def bump_project_version(target_path: Path) -> str | None:
     """Bump the ``[project]`` version in pyproject.toml and write it back.
 
-    Epic changes bump the major version; other changes bump the minor version.
-    The file is rewritten atomically via a temp file.
+    Every feature/bugfix workflow bumps the minor version; the major version
+    is preserved and bumped manually only. The patch component is reset. The
+    file is rewritten atomically via a temp file.
 
     Args:
         target_path: Directory containing ``pyproject.toml``.
-        is_epic: Whether this is an epic change (major version bump).
 
     Returns:
         str | None: The new version string, or None when the version could
@@ -379,10 +364,7 @@ def bump_project_version(target_path: Path, is_epic: bool = False) -> str | None
     minor = int(match.group(2))
     suffix = match.group(4)  # PEP 440 suffix, empty for plain semver
 
-    if is_epic:
-        new_version = f"{major + 1}.0.0{suffix}"
-    else:
-        new_version = f"{major}.{minor + 1}.0{suffix}"
+    new_version = f"{major}.{minor + 1}.0{suffix}"
 
     lines = content.splitlines(keepends=True)
     project_start = _find_section_start(lines, "[project]")
