@@ -85,6 +85,21 @@ class TestGetLinearConfigValue:
         mock_get_user_env.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_falls_back_to_settings_when_env_values_are_empty(self, openrouter_settings):
+        with (
+            patch("demetra.services.llm.OPENROUTER", openrouter_settings),
+            patch(
+                "demetra.services.llm.get_user_environments_decrypted",
+                new_callable=AsyncMock,
+                return_value={"OPENROUTER_MODEL": "", "OPENROUTER_API_KEY": ""},
+            ),
+        ):
+            result = await get_openrouter_config(user_id="user-1")
+
+        assert result["model"] == openrouter_settings["model"]
+        assert result["api_key"] == openrouter_settings["api_key"]
+
+    @pytest.mark.asyncio
     async def test_unknown_name_returns_none(self, linear_full_settings):
         with (
             patch("demetra.services.linear.LINEAR", linear_full_settings),
@@ -128,9 +143,7 @@ class TestGetOpenRouterConfig:
     async def test_falls_back_to_settings_when_keys_missing_from_user_env(self, openrouter_settings):
         with (
             patch("demetra.services.llm.OPENROUTER", openrouter_settings),
-            patch(
-                "demetra.services.llm.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}
-            ),
+            patch("demetra.services.llm.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}),
         ):
             result = await get_openrouter_config(user_id="user-1")
 
@@ -140,9 +153,7 @@ class TestGetOpenRouterConfig:
     async def test_skips_db_when_user_id_is_none(self, openrouter_settings):
         with (
             patch("demetra.services.llm.OPENROUTER", openrouter_settings),
-            patch(
-                "demetra.services.llm.get_user_environments_decrypted", new_callable=AsyncMock
-            ) as mock_get_user_env,
+            patch("demetra.services.llm.get_user_environments_decrypted", new_callable=AsyncMock) as mock_get_user_env,
         ):
             result = await get_openrouter_config()
 

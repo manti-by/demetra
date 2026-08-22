@@ -21,8 +21,10 @@ async def get_openrouter_config(*, user_id: str | None = None) -> OpenRouterConf
     if user_id:
         user_environment = await service.get_user_environments_decrypted(user_id=user_id)
 
+    api_key = user_environment.get("OPENROUTER_API_KEY") or service.OPENROUTER["api_key"]
+    model = user_environment.get("OPENROUTER_MODEL") or service.OPENROUTER["model"]
     return {
-        "api_key": user_environment.get("OPENROUTER_API_KEY", service.OPENROUTER["api_key"]),
-        "model": user_environment.get("OPENROUTER_MODEL", service.OPENROUTER["model"]),
+        "api_key": api_key,
+        "model": model,
         "base_url": service.OPENROUTER["base_url"],
     }
