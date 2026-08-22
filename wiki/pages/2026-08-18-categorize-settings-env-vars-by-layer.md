@@ -104,10 +104,16 @@ The blocks below enumerate the changes [MNT-170](https://linear.app/mnt/issue/MN
 4. **`UV_PATH` → per-project env.** Add `env["UV_PATH"] = str(UV["path"])` next to the existing `VIRTUAL_ENV` / `UV_PROJECT_ENVIRONMENT` writes in `demetra/services/runtime/project.py:184-191`. Surface the key in the per-project env editor (already wired per MNT-161); the per-project `.venv` and `UV_PROJECT_ENVIRONMENT` already land here via `setup_project_venv`.
 5. **Tests** in a new `tests/test_settings_layers.py` covering: (a) the user-shared env value wins over the `settings.py` default for `OPENROUTER_API_KEY` / `OPENROUTER_MODEL` / `OPENCODE_PLAN_MODEL`; (b) the project env value wins over user-shared; (c) `LINEAR_STATE_TODO_ID` / `LINEAR_TEAM_ID` resolution reads from `user_environment`; (d) `UV_PATH` is present in `project.environment` after `setup_project_venv`. Reuse the fixtures from `tests/test_subprocess.py` for the merge-order assertions.
 
+## Consistency note (2026-08-22)
+
+- Steps 1–4 of the follow-up migration plan below are **implemented** on current `master`: `get_linear_config_value()` in `demetra/services/linear/__init__.py`, `build_llm(..., user_environment=...)` in `demetra/services/llm/factory.py`, `_resolve_opencode_model()` in `demetra/services/agents/opencode.py`, and `env["UV_PATH"]` in `demetra/services/runtime/project.py:187`. Workflow call sites pass `context.project.user_environment`.
+- Step 5 is **partial**: `tests/test_settings_layers.py` covers Linear config resolution and OpenRouter user-env overrides; OpenCode model override and `UV_PATH`-after-venv tests from the plan are not yet present.
+
 ## Follow-ups
 
-- `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. Once the `OPENROUTER_API_KEY` / `GROQ_API_KEY` migration lands, `users.keys` becomes redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
+- `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. With `OPENROUTER_API_KEY` now readable from user-shared env, `users.keys` is redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
 - Audit logging for env changes (deferred per the MNT-161 follow-ups list).
+- Complete step 5 test coverage (OpenCode model override, `UV_PATH` after `setup_project_venv`, project-over-user merge order).
 
 ## References
 

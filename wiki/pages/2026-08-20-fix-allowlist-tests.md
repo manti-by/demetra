@@ -53,7 +53,11 @@ Tests that don't create/authenticate a user (invalid-email signup, unknown-email
 
 ## Follow-ups
 
-- The staged MNT-173 source change (default-on `IS_ALLOWLIST_ENABLED`) is uncommitted and awaiting the orchestrator's commit; deploy notes / env docs should reflect the new default-on behavior.
+- ~~The staged MNT-173 source change (default-on `IS_ALLOWLIST_ENABLED`) is uncommitted and awaiting the orchestrator's commit.~~ **Done** — merged to `master` via PR #86 (`73cfea5`, "MNT-173: Allowlist does not work"). Deploy notes / env docs should still reflect the new default-on behavior.
+
+## Consistency note (2026-08-22)
+
+- MNT-173 is merged; the follow-up above is closed. The allowlist gate now reads `IS_ALLOWLIST_ENABLED` from `demetra.settings` with default **on** (`env_get_bool(..., True)`).
 
 ## References
 

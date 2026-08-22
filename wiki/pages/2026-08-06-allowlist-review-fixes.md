@@ -8,7 +8,7 @@ services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
 tags: [allowlist, code-review, coderabbit, security, auth, tests]
-related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-09-apply-code-review-findings.md]
+related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-09-apply-code-review-findings.md, 2026-08-20-fix-allowlist-tests.md]
 ---
 
 # Allowlist CodeRabbit Review Fixes and CI Test Fix
@@ -120,9 +120,14 @@ IS NOT NULL` constraint. Fixed by passing `password_hash="test-hash"`.
 - The `_dispose_engines` teardown in `tests/test_allowlist_cli.py` logs noisy
   "Event loop is closed" errors; harmless (tests still pass) but could be cleaned up later.
 
+## Consistency note (2026-08-22)
+
+- MNT-173 (PR #86) superseded Step 2's `ALLOWLIST_ENABLED` naming: the gate now reads `IS_ALLOWLIST_ENABLED` from `demetra.settings` with default **on** (fail-closed). The `is_allowlist_enabled()` helper and `demetra/services/allowlist.py` flat module were removed in the auth subpackage refactor; see [[2026-08-20-fix-allowlist-tests]].
+
 ## References
 
 - Related: [[2026-07-24-plain-auth-review-followups]] (password auth + review follow-ups),
   [[2026-08-03-check-api-auth-and-credentials]] (auth API hardening),
-  [[2026-08-09-apply-code-review-findings]] (subsequent review findings applied)
+  [[2026-08-09-apply-code-review-findings]] (subsequent review findings applied),
+  [[2026-08-20-fix-allowlist-tests]] (MNT-173 default-on test fixes)
 - External: PR #71 https://github.com/manti-by/demetra/pull/71
