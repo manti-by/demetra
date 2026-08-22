@@ -1210,7 +1210,7 @@ class TestWorkflowReview:
         result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize_review.assert_awaited_once_with(review_output="", user_environment=None)
+        mock_summarize_review.assert_awaited_once_with(review_output="", user_id=None)
 
     @pytest.mark.asyncio
     async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):

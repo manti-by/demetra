@@ -83,7 +83,7 @@ async def run_plan_step(context: Context) -> str | None:
                 plan_output=plan_output.strip(),
                 task_description=context.linear_task.description,
                 comments=context.linear_task.comments,
-                user_environment=context.project.user_environment,
+                user_id=context.project.user_id,
             )
         except PlanError as e:
             print_message(f"Plan summarization failed: {e}", style="error")
@@ -138,7 +138,7 @@ async def run_plan_step(context: Context) -> str | None:
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")
 
-        questions = await extract_questions(plan_output=plan_output, user_environment=context.project.user_environment)
+        questions = await extract_questions(plan_output=plan_output, user_id=context.project.user_id)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
         if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")

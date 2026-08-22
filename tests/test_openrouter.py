@@ -27,6 +27,8 @@ class TestOpenRouterService:
         assert "task_description" in params
         assert "comments" in params
         assert sig.parameters["comments"].annotation == list[str]
+        assert "user_id" in params
+        assert "user_environment" not in params
 
     @pytest.mark.asyncio
     async def test_summarize_review_function_exists(self):
@@ -39,6 +41,8 @@ class TestOpenRouterService:
 
         assert "review_output" in params
         assert sig.return_annotation == list[str]
+        assert "user_id" in params
+        assert "user_environment" not in params
 
     @pytest.mark.asyncio
     async def test_summarize_review_returns_empty_for_empty_input(self):
@@ -89,6 +93,8 @@ class TestOpenRouterService:
         assert "build_plan" in params
         assert sig.return_annotation is str
         assert sig.parameters["build_plan"].default is None
+        assert "user_id" in params
+        assert "user_environment" not in params
 
     @pytest.mark.asyncio
     async def test_process_text_with_openrouter_function_exists(self):
@@ -101,6 +107,8 @@ class TestOpenRouterService:
 
         assert "text" in params
         assert sig.return_annotation == dict[str, str]
+        assert "user_id" in params
+        assert "user_environment" not in params
 
     @pytest.mark.asyncio
     async def test_process_text_returns_all_ticket_fields(self):
@@ -309,6 +317,8 @@ class TestSummarizeSession:
         assert "description" in params
         assert "build_plan" in params
         assert "diff_summary" in params
+        assert "user_id" in params
+        assert "user_environment" not in params
 
     @pytest.mark.asyncio
     async def test_summarize_session_returns_tldr_and_overview(self):

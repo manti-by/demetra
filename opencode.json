@@ -29,7 +29,7 @@
       "template": "/skill:wiki-agents-file",
       "description": "Update AGENTS.md file",
       "agent": "build-agent",
-      "model": "opencode-go/deepseek-v4-flash"
+      "model": "ollama/muse-glimmer:30b-mlx"
     },
     "wiki-archive": {
       "template": "/skill:wiki-archive",

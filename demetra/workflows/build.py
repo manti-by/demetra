@@ -132,7 +132,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 session_id=context.session_id,
                 task_id=context.linear_task.id,
                 env=context.project.environment,
-                user_environment=context.project.user_environment,
+                user_id=context.project.user_id,
             )
             if review_comments:
                 if context.auto_mode:

@@ -27,7 +27,7 @@ async def run_review_agents(
     session_id: str | None = None,
     task_id: str | None = None,
     env: dict[str, str] | None = None,
-    user_environment: dict[str, str] | None = None,
+    user_id: str | None = None,
 ) -> str | None:
     """Run all configured review agents in parallel and summarize their output.
 
@@ -39,7 +39,7 @@ async def run_review_agents(
         session_id: Reserved; not used by the review agents.
         task_id: Reserved; not used by the review agents.
         env: Optional environment overrides for the subprocess.
-        user_environment: Optional user env layer for the LLM configuration.
+        user_id: Optional user id whose shared environment configures the LLM.
 
     Returns:
         str | None: The numbered review comments, or None when there are none.
@@ -67,7 +67,7 @@ async def run_review_agents(
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
-    findings = await summarize_review(review_output=review_output, user_environment=user_environment)
+    findings = await summarize_review(review_output=review_output, user_id=user_id)
     if findings:
         meaningful = filter_meaningful_reviews(findings)
         if meaningful:

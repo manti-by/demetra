@@ -64,7 +64,7 @@ async def commit_and_push(context: Context) -> bool:
         pr_body = await generate_pr_description(
             task_details=task_details,
             build_plan=context.build_plan,
-            user_environment=context.project.user_environment,
+            user_id=context.project.user_id,
         )
     except PrDescriptionError as e:
         raise PullRequestError(f"Failed to generate PR description: {e}") from e
