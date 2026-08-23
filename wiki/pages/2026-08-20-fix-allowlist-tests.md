@@ -53,7 +53,7 @@ Tests that don't create/authenticate a user (invalid-email signup, unknown-email
 
 ## Follow-ups
 
-- The staged MNT-173 source change (default-on `IS_ALLOWLIST_ENABLED`) is uncommitted and awaiting the orchestrator's commit; deploy notes / env docs should reflect the new default-on behavior.
+- ~~The staged MNT-173 source change (default-on `IS_ALLOWLIST_ENABLED`) is uncommitted and awaiting the orchestrator's commit.~~ **Done** — `IS_ALLOWLIST_ENABLED` defaults to `True` in `demetra/settings.py` on master (Consistency Agent verified 2026-08-23).
 
 ## References
 

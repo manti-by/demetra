@@ -8,7 +8,7 @@ services: [react, build, config]
 branch: master
 tickets: [MNT-142]
 tags: [react, warp-theme, review-fixes, css, infrastructure, version-bump]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-07-22-feature-flag-settings-and-tests.md]
+related: [2026-07-22-react-frontend-template-warp.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-21-mnt-176-bump-version-error.md]
 ---
 
 # Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette
@@ -199,6 +199,10 @@ tests/test_project.py::TestBumpProjectVersion::test_invalid_version_format_retur
 ```
 
 All 500+ tests continue to pass. Ruff and ty clean on the committed changes (green-accent changes later committed in `ed8bcc4`).
+
+> **Consistency note (2026-08-23, Consistency Agent):** `test_major_version_epic` was removed in
+> MNT-176 ([[2026-08-21-mnt-176-bump-version-error]]); the current suite uses
+> `test_major_version_preserved` instead. The pytest output above is kept as the session record.
 
 ---
 
