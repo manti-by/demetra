@@ -26,7 +26,7 @@ by the plugin.
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied all 5 open CodeRabbit findings on PR #75 ("Code review of release candidate"): added a per-user `password_version` so JWTs minted concurrently with a password reset are rejected after it commits (closes the snapshot race), handled `Request` inputs in `authFetch`/`authenticatedFetch` (method + `request.url` origin guard), rejected negative `env_get_int` defaults, passed `db_name` by name in `get_transaction`, and synced the Step 6 wiki doc with the `--porcelain=v1 -z` implementation. Migration `a4b5c6d7e8f9`; full suite 739 passed in 4.95s. (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 findings from the post-refactor code review (`CODE_REVIEW_FINDINGS.md`, scope `v1.15.4..HEAD`): restored cross-origin auth cookies in the React client, rejected negative ints in `env_get_int`, gated validate-agent missing-items on a `Plan step N:` marker, made `reset_password`/`delete_project` atomic under AUTOCOMMIT via a new `get_transaction()` manager, stopped `dedup_pages` from merging distinct-ticket pages, switched `revalidation_changed_files` to `--porcelain=v1 -z` parsing, and replaced error-message string matching with typed exception subclasses. Version bumped 1.16.2... (2026-08-09)
 - [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — Split the monolithic `demetra/services/wiki.py` (1254 lines) into a `demetra/services/wiki/` package: six submodules (`parsing`, `naming`, `facts`, `index`, `render`, `maintenance`) behind a facade `__init__.py` that re-exports all 55 original symbols. Submodules access shared state via `import demetra.services.wiki as service` + `service.<NAME>` at call time, so existing monkeypatch/patch test seams keep working unchanged. All 728 tests and full gate suite pass. (2026-08-07)
-- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pus... (2026-08-07)
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — Reviewed PR #70 (mnt-147-wiki-processes → master): found an `env_get_list` regression returning `[]` instead of the default when the env var is unset (empty review-agent list failing CI's thinking-prose test, and CORS blocking all origins unless explicitly configured), confirmed the branch was MERGEABLE after syncing with master, and listed three unresolved CodeRabbit threads. PR #70 has since merged into `master` (2026-08-07 07:14 UTC, verified via GitHub API) and the `env_get_list` bug is fixed on master — see the consistency note. (2026-08-07)
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — Applied every actionable CodeRabbit finding on PR #71 (MNT-155, registration/GitHub-login allowlist): renamed underscore-prefixed functions, moved the allowlist flag into `demetra/settings`, hardened the admin bypass to key off the immutable GitHub account id instead of the mutable username, validated seed-file entries before insertion, and made the seed-file CLI path dry-run aware. Also fixed the two failing CI tests whose `create_user` calls violated the `ck_users_has_auth` check constraint. Full suite green (619 passed). (2026-08-06)
 - [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — When `gh pr create` fails at the end of the workflow (after the branch was already pushed), the ticket used to be silently moved back to TODO with no trace on the Linear side. A dedicated `except PullRequestError` handler in `main.py` now posts a Linear comment with the branch, a manual compare URL and the `gh` error, then moves the ticket to `Awaiting Input` and records the session step as `awaiting_input`. Tests added. (2026-08-05)
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — Added a dedicated read-only `validate-agent` that runs after the build step and before the review agents. It compares the staged diff against the finalized build plan and reports only which plan steps have no corresponding change — never correctness, quality, or security. Missing items feed back into the build agent as the next task inside the existing `MAX_REVIEW_ATTEMPTS` budget; silence (empty output) means full coverage and the pipeline proceeds to review. Fixing CodeRabbit findings also replaced the 4095-char command-line truncation of agent prompts with stdin piping, so long build pla... (2026-08-05)
@@ -57,7 +57,7 @@ by the plugin.
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — Built a fast setup/deploy path: a `Makefile` `deploy` target for updates plus `configs/bootstrap.sh` for first-time setup, backed by systemd unit files and an nginx site. GitHub integration and OpenCode auth — the main pain point — are handled via the `.env` file consumed by the systemd `EnvironmentFile`. Docker support from MNT-106 remains an alternative. Implemented incrementally as a research-flavored ticket. (2026-07-07)
 - [Add context compaction](pages/2026-07-07-add-context-compaction.md) — Added automatic context-length checks and compaction for OpenCode agent sessions. A new `session_history` table records the context length after each workflow step, and when the recorded length exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000 tokens) the agent session is compacted via `/compact`. Compaction was later disabled in MNT-145 because the recorded `length` was cumulative, not per-message — see [[2026-07-23-session-tokens-audit-revalidation]] and [[2026-07-23-session-history-modal]]. (2026-07-07)
 - [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — Rebuilt the session-log websocket from raw text frames to typed JSON so the React app can distinguish live log lines from status changes. The websocket now sends `{"type": "log", ...}` and `{"type": "status", ...}` messages; the frontend appends log text and re-renders the session name/status block accordingly. Status updates are emitted only when the step or name actually changes, and viewers keep tailing recent history. This supersedes the original raw-text websocket from MNT-53 (`2026-03-05-stream-logs-websocket.md`), which first added FastAPI websocket log streaming to the frontend with... (2026-06-25)
-- [Update project version](pages/2026-06-25-update-project-version.md) — Added automatic version bumping in `pyproject.toml` on every feature/bugfix workflow. New features and bugs trigger a minor bump; tickets carrying the `EPIC` label trigger a major bump. The bump is integrated into the workflow with automatic rollback on workflow failure. Tests added. (2026-06-25)
+- [Update project version](pages/2026-06-25-update-project-version.md) — Added automatic version bumping in `pyproject.toml` on every feature/bugfix workflow with automatic rollback on workflow failure. Verified against git history: the original MNT-116 implementation also bumped the major version for Epic-labeled tickets; MNT-176 (`fe33701`) removed that branch, so `bump_project_version` now always bumps the minor version and preserves the major — see the consistency note. (2026-06-25)
 - [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — Added a link to the Linear ticket in the session artifacts. A `linear_link` field was added to `sessions` with a migration; it is set on the first session save when the Linear task is retrieved, sent to the frontend, and shown in the session artifacts section as a "View Linear Issue" link. Tests on backend and frontend. (2026-06-22)
 - [GitHub PR description](pages/2026-06-22-github-pr-description.md) — PRs created from a completed feature now get a real description instead of an empty/placeholder body. A Groq-backed service summarises what was done and the generated text is passed when creating the GitHub PR. Tests added. (2026-06-22)
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — Refactored the test suite to drop as many `patch` mocks as possible: DB access now uses fixtures/factories and local service calls use real function calls, while third-party service calls may stay mocked. Also added Docker support with build targets for amd64/ARM64, filtered trivial "no issue" review responses, updated `.dockerignore`, and added import-at-top guidance to AGENTS.md. Version bumped to 1.13.0. (2026-06-15)
@@ -76,7 +76,7 @@ by the plugin.
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — Sessions can now be deleted entirely. A delete button sits near the clear button in the session log header; on click it sends a delete request to the API, which removes the session and all related objects (database records, log files). The session list auto-refreshes after deletion, and the button is styled with hover effects. Precursor attempts (#35 MNT-85, #33 MNT-82) were superseded by this PR (#38). (2026-06-02)
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — Refactored and renamed the `hera` frontend app to `react`, normalizing the directory after `hera` had existed as an early scaffold. The rename touched the frontend directory, the Makefile, and docs. The same PR also enhanced GitHub auth validation (preventing unauthorized access attempts), removed legacy FastAPI docs, and bumped the version to 1.10.0. (2026-06-01)
 - [Refactor API](pages/2026-06-01-refactor-api.md) — Split the too-long `demetra/api.py` into a `demetra/api/` package with routers grouped by route prefix (auth/github, projects, sessions, users, watcher, webhooks). The package keeps `@app.get`/`@app.post` decorators by importing `app` from the parent. Missing API tests were added. The refactor bundle landed GitHub OAuth, project CRUD, ticket creation with AI text processing, session tracking with status filtering, websocket log streaming, and user API key management. (2026-06-01)
-- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — Added a basic MCP server as a single standalone `mcp_server.py` in the project root, using the `mcp` PyPI package. It exposes streamable-http transport on a configurable port (env), filesystem tools with recursive access to the script's directory (CRUD for files/dirs), and PostgreSQL-only database tools for listing/reading tables and querying counts and rows — with no auth. The same change removed the hardcoded DB password default (env only) and bumped to 1.9.3. (2026-06-01)
+- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — Added a basic MCP server as a single standalone `mcp_server.py` using the `mcp` PyPI package: streamable-http transport on a configurable port, PostgreSQL-only database tools for listing/reading tables and querying counts and rows — with no auth. The same change removed the hardcoded DB password default and bumped to 1.9.3. The filesystem CRUD tools shipped in this change were removed one day later in `e173d7f`; today's registry aggregates database, projects and wiki tools only (see the consistency note). (2026-06-01)
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — Removed the ticket-creation-from-text API added earlier (`demetra/api/tickets.py` + `demetra/services/ticket_provider.py`, the `/create-ticket` AI-extraction endpoint). The routers and tests were updated accordingly; ticket creation from raw text was dropped in favor of the Linear-native flow. (2026-05-25)
 - [Async review](pages/2026-05-25-async-review.md) — Made the code-review step parallel: `run_review_agents` now runs all review agents asynchronously and merges their responses. The same PR (with MNT-86) fixed `merge_review_results` to handle `None` stdout/stderr, fixed the test mocks, prevented empty commits by validating staged changes, and added the session delete button styling. (2026-05-25)
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — The session list now shows the task title instead of the truncated session id. The sessions API gained an endpoint with optional status filtering, sessions display a custom name when available with a fallback to the truncated id, the React app renders the task title, and API auth error messaging was improved. Routers were reorganized as part of the MNT-81 refactor. (2026-05-22)
@@ -100,9 +100,12 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md)
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md)
 
-### Sessions, history & tokens (8 pages)
+### Sessions, history & tokens (9 pages)
+
+_(session-history-modal also sits in React frontend / UI.)_
 
 - [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md)
+- [Session History Modal](pages/2026-07-23-session-history-modal.md)
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md)
 - [Add context compaction](pages/2026-07-07-add-context-compaction.md)
 - [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md)
@@ -111,27 +114,17 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md)
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md)
 
-### Wiki & MCP tools (8 pages)
+### Authentication & API security (7 pages)
 
-- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md)
-- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
-- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
-- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
-- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
-- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md)
-- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
-- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md)
+_(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-review findings application.)_
 
-### LLM pipeline & review agents (8 pages)
-
-- [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
-- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md)
-- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md)
-- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md)
+- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md)
+- [Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene](pages/2026-08-03-check-api-auth-and-credentials.md)
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md)
-- [Review summarization](pages/2026-06-04-review-summarization.md)
-- [GitHub PR description](pages/2026-06-22-github-pr-description.md)
-- [Async review](pages/2026-05-25-async-review.md)
+- [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md)
+- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md)
+- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md)
+- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md)
 
 ### React frontend / UI (7 pages)
 
@@ -152,6 +145,15 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md)
 
+### Wiki & knowledge base (6 pages)
+
+- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
+- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md)
+- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
+
 ### Settings, environment & subprocess (5 pages)
 
 - [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
@@ -160,11 +162,18 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md)
 - [Project environment](pages/2026-06-08-project-environment.md)
 
-### Authentication & API security (3 pages)
+### LLM pipeline & review agents (4 pages)
 
-- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md)
-- [Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene](pages/2026-08-03-check-api-auth-and-credentials.md)
-- [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md)
+- [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+- [Review summarization](pages/2026-06-04-review-summarization.md)
+- [GitHub PR description](pages/2026-06-22-github-pr-description.md)
+- [Async review](pages/2026-05-25-async-review.md)
+
+### Code-review findings application (3 pages) _(note: apply-pr75 and allowlist-review-fixes also sit in Authentication & API security.)_
+
+- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md)
+- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md)
+- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md)
 
 ### Logging infrastructure (3 pages)
 
@@ -172,16 +181,21 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md)
 - [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md)
 
-### Service architecture & refactoring (2 pages)
-
-- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
-- [Refactor API](pages/2026-06-01-refactor-api.md)
-
 ### Docs, versioning & wiki governance (3 pages)
 
 - [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
 - [Update project version](pages/2026-06-25-update-project-version.md)
+
+### MCP server (2 pages)
+
+- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md)
+- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md)
+
+### Service architecture & refactoring (2 pages)
+
+- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
+- [Refactor API](pages/2026-06-01-refactor-api.md)
 
 ### Testing & CI (2 pages)
 
@@ -193,14 +207,14 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md)
 - [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md)
 
-### Database & migrations (1 pages)
+### Database & migrations (1 page)
 
 - [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md)
 
-### Context & agent scanning (1 pages)
+### Context & agent scanning (1 page)
 
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md)
 
-### Decommissioned (1 pages)
+### Decommissioned (1 page)
 
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md)

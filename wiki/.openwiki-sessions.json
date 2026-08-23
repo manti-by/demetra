@@ -1,6 +1,22 @@
 {
   "-": "2026-08-18-test-db-isolation-logging.md",
+  "3829832e-7a27-42ce-8897-f46a971a95a4": "2026-07-16-simplify-session-logging-setup.md",
+  "3eae8036-e679-4a09-be65-144e738741e0": "2026-07-23-session-tokens-audit-revalidation.md",
+  "e6a4e432-a337-46a5-8e3a-a027d7cb0cdd": "2026-07-16-fix-step-status-review-findings.md",
+  "mnt-146-post-build-validation": "2026-08-05-post-build-validation.md",
+  "mnt-148-plain-auth": "2026-07-24-plain-auth-review-followups.md",
+  "mnt-156-check-api-auth": "2026-08-03-check-api-auth-and-credentials.md",
+  "opencode": "2026-08-19-wiki-should-use-llm-rename.md",
+  "ses_075b8479fffe27O59Q22Ob4k0b": "2026-07-22-react-frontend-template-warp.md",
+  "ses_0774c35d8ffeUI6fTqrrD0UW8w": "2026-07-22-feature-flag-settings-and-tests.md",
+  "ses_080257f1affen6vKaLZQEZglVY": "2026-07-20-resolve-ansi-color-escape-codes-in-logs.md",
+  "ses_0936687abffekKL1uBAPkCWbGU": "2026-07-16-session-history-tokens-null.md",
+  "ses_093670774ffeRqtTEflrkIDv8O": "2026-07-16-fix-notification-mark-read.md",
+  "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-07-15-duplicated-log-messages.md",
+  "ses_fe1248211ffeLvd40e4OnV1uVR": "2026-08-20-fix-allowlist-tests.md",
   "ses_fe1f1413cffe0nPjQ3DdiuD5IG": "2026-08-20-review-gh-auth-mount-changes.md",
+  "ses_fe66890faffe4nIU8hRlC6JC1H": "2026-08-19-build-agent-stale-session-deleted-worktree.md",
   "ses_fe690f0deffe9Sisjgy3YfHCGl": "2026-08-19-build-agent-server-error-handler.md",
-  "ses_fe1248211ffeLvd40e4OnV1uVR": "2026-08-20-fix-allowlist-tests.md"
+  "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
+  "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md"
 }

@@ -24,8 +24,8 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (52 files)
-- `configs/`: Systemd service files, nginx config
+- `tests/`: Comprehensive test suite (54 files)
+- `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and command definitions

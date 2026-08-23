@@ -2,7 +2,7 @@
 title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
 date: 2026-08-07
 type: code-review
-status: open
+status: resolved
 session_id: opencode
 services: [wiki, settings, utils, workflows]
 branch: mnt-147-wiki-processes
@@ -96,6 +96,14 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
 - Once CI passes, PR #70 is ready to merge (branch is up to date with master).
 - Address the 3 open CodeRabbit threads (or mark resolved).
 - MNT-147 Linear ticket is In Review — will move to Done on merge.
+
+## Consistency note (2026-08-23)
+
+- PR #70 was merged into `master` on 2026-08-07 at 07:14 UTC (verified via the GitHub API);
+  the "open / CI failing" framing above is kept as the session record.
+- Finding 1 is fixed on current `master`: `env_get_list` now lives in
+  `demetra/services/runtime/utils.py:261` and returns the `default` when the variable is
+  unset (`if value is None: return default`).
 
 ## References
 

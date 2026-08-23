@@ -8,7 +8,7 @@ services: [workflows, settings]
 branch: "-"
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
-related: [2026-08-21-mnt-176-bump-version-error.md]
+related: [2026-08-21-mnt-176-bump-version-error.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
 ---
 
 # Update project version
@@ -43,6 +43,18 @@ Major version bumps are done manually only and are out of scope for the automati
 ## Test Results
 
 Tests cover the bump logic (minor bump, major preservation) and the rollback on workflow failure.
+
+## Consistency note (2026-08-23)
+
+- Verified against git history: the original MNT-116 implementation (`ad2cf2a`) shipped
+  with a **major** bump for tickets carrying the `EPIC` label (`is_epic_label` /
+  `bump_project_version(..., is_epic=...)`) — i.e. the "major is bumped manually only"
+  wording above never fully matched the code. [[2026-07-22-warp-theme-review-fixes-and-ops]]
+  later hardened `bump_project_version` to log+return `None` instead of raising.
+- The Epic branch was removed on 2026-08-21 in MNT-176
+  ([[2026-08-21-mnt-176-bump-version-error]], `fe33701`): `bump_project_version` now always
+  bumps the minor version and preserves the major; `is_epic_label` / `EPIC_LABEL` no longer
+  exist in the codebase. This page's body reflects the current behavior.
 
 ---
 

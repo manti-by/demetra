@@ -56,6 +56,14 @@ Removed the hardcoded DB password default so credentials come only from the envi
 
 - None.
 
+## Consistency note (2026-08-23)
+
+- The filesystem tools described above were removed one day later in `e173d7f`
+  ("Fix empty pull requests", 2026-06-02), which deleted `demetra/tools/filesystem.py` and
+  its tests. Verified against git history and the current code: the tool registry
+  (`demetra/tools/registry.py`) now aggregates only `database`, `projects` and `wiki`
+  tool modules — there are no filesystem tools today.
+
 ---
 
 ## References
