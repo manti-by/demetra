@@ -1,23 +1,6 @@
 from pathlib import Path
 
-from demetra.services.runtime.project import bump_project_version, is_epic_label
-
-
-class TestIsEpicLabel:
-    def test_epic_label_uppercase(self):
-        assert is_epic_label(["EPIC", "bug"]) is True
-
-    def test_epic_label_lowercase(self):
-        assert is_epic_label(["epic"]) is True
-
-    def test_epic_label_capitalized(self):
-        assert is_epic_label(["Epic"]) is True
-
-    def test_non_epic_labels(self):
-        assert is_epic_label(["bug", "frontend", "enhancement"]) is False
-
-    def test_empty_labels(self):
-        assert is_epic_label([]) is False
+from demetra.services.runtime.project import bump_project_version
 
 
 SAMPLE_PYPROJECT = """[project]
@@ -34,27 +17,28 @@ class TestBumpProjectVersion:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(SAMPLE_PYPROJECT)
 
-        result = bump_project_version(tmp_path, is_epic=False)
+        result = bump_project_version(tmp_path)
 
         assert result == "1.15.0"
         content = pyproject.read_text()
         assert 'version = "1.15.0"' in content
 
-    def test_major_bump(self, tmp_path: Path):
+    def test_major_version_preserved(self, tmp_path: Path):
+        content = SAMPLE_PYPROJECT.replace('version = "1.14.1"', 'version = "2.14.1"')
         pyproject = tmp_path / "pyproject.toml"
-        pyproject.write_text(SAMPLE_PYPROJECT)
+        pyproject.write_text(content)
 
-        result = bump_project_version(tmp_path, is_epic=True)
+        result = bump_project_version(tmp_path)
 
-        assert result == "2.0.0"
+        assert result == "2.15.0"
         content = pyproject.read_text()
-        assert 'version = "2.0.0"' in content
+        assert 'version = "2.15.0"' in content
 
     def test_preserves_other_fields(self, tmp_path: Path):
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(SAMPLE_PYPROJECT)
 
-        _ = bump_project_version(tmp_path, is_epic=False)
+        _ = bump_project_version(tmp_path)
         content = pyproject.read_text()
 
         assert 'name = "demetra"' in content
@@ -68,7 +52,7 @@ name = "demetra"
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        result = bump_project_version(tmp_path, is_epic=False)
+        result = bump_project_version(tmp_path)
         assert result is None
 
     def test_invalid_version_format_returns_none(self, tmp_path: Path):
@@ -76,5 +60,5 @@ name = "demetra"
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(content)
 
-        result = bump_project_version(tmp_path, is_epic=False)
+        result = bump_project_version(tmp_path)
         assert result is None

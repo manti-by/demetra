@@ -9,7 +9,7 @@ from demetra.services.agents.opencode import (
 )
 from demetra.services.persistence.database import record_session_step_history, update_session_step
 from demetra.services.runtime.flow import user_input
-from demetra.services.runtime.project import bump_project_version, is_epic_label
+from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
 from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
 from demetra.workflows.lint import run_lint_and_test
@@ -158,10 +158,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         review_step_finished = True
 
         if not is_version_updated:
-            new_version = bump_project_version(
-                target_path=context.worktree_path,
-                is_epic=is_epic_label(labels=context.linear_task.labels),
-            )
+            new_version = bump_project_version(target_path=context.worktree_path)
             print_message(f"Updated project version to {new_version}", style="info")
             is_version_updated = True
 

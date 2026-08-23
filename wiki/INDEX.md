@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md) — `bump_project_version` was bumping the major version for Epic-labeled tickets (`1.x.y → 2.0.0`), contradicting the manual-only major rule. Removed the `is_epic` parameter and the major-bump branch so the function always bumps the minor version and preserves the major; deleted the now-unused `is_epic_label` helper and `EPIC_LABEL` constant, updated the `build.py` call site, tests, and the original MNT-116 wiki page. (2026-08-21)
 - [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — Fixed the test suite after the staged MNT-173 refactor replaced the allowlist gate's `is_allowlist_enabled()` / `ALLOWLIST_ENABLED` (default off) with `IS_ALLOWLIST_ENABLED` (default on, fail-closed). `tests/conftest.py`'s `allowlist_seeded` fixture patched the removed attribute (23 AttributeError errors) and 12 auth tests broke because the default flipped to on. Repointed the fixture and a new `allowlist_disabled` fixture at `demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED`, corrected two login tests that patched a no-op settings path, and opted the on-by-default auth tests out of the gate. Full suite **883 passed**; ruff / ty / bandit clean. (2026-08-20)
 - [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — Reviewed the working-tree changes that pass GitHub CLI (`gh`) authentication into the Docker deployment: a new bind mount `.keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml` in `docker-compose.yaml` and a matching prune entry in `configs/docker-entrypoint.sh`. Found one **critical bug**: the new `-path` prune clause was added without the `-o` operator, so `find` ANDs it with the existing `auth.json` `-path` (always false) — silently disabling the prune for both `hosts.yml` and the previously-protected `auth.json`. The compose mount itself is consistent with the existing `.keys/` mount p... (2026-08-20)
 - [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — The worker container on amon-ra failed at the plan step: `Plan agent failed (exit 1): EACCES: permission denied, mkdir '/home/demetra/.local/share/opencode/repos'`. The `demetra_app_data` named volume mounted at `/home/demetra` contains root-owned directories (created by an earlier image/root-run container before the `demetra` user existed), so the `demetra` user could not create `~/.local/share/opencode`. Fixed by adding a root entrypoint that repairs home-volume ownership once per volume (marker-gated) and then drops to `demetra` via `setpriv`. (2026-08-19)
@@ -176,8 +177,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
 - [Refactor API](pages/2026-06-01-refactor-api.md)
 
-### Docs, versioning & wiki governance (2 pages)
+### Docs, versioning & wiki governance (3 pages)
 
+- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
 - [Update project version](pages/2026-06-25-update-project-version.md)
 
