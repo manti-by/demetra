@@ -8,7 +8,7 @@ services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
 tags: [allowlist, code-review, coderabbit, security, auth, tests]
-related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-09-apply-code-review-findings.md]
+related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-09-apply-code-review-findings.md, 2026-08-20-fix-allowlist-tests.md]
 ---
 
 # Allowlist CodeRabbit Review Fixes and CI Test Fix
@@ -111,6 +111,10 @@ IS NOT NULL` constraint. Fixed by passing `password_hash="test-hash"`.
 - `uv run pre-commit run --files ...` — all hooks pass.
 
 ---
+
+## Consistency note (2026-08-23)
+
+- MNT-173 (PR #86) later renamed the flag to `IS_ALLOWLIST_ENABLED` (default **on**) and moved the module to `demetra/services/auth/allowlist.py`. Step 2 below documents the MNT-155 state (`ALLOWLIST_ENABLED`, default off); see [[2026-08-20-fix-allowlist-tests]] for the subsequent default-on refactor and test fixes.
 
 ## Follow-ups
 

@@ -2,7 +2,7 @@
 title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
 date: 2026-08-07
 type: code-review
-status: open
+status: resolved
 session_id: opencode
 services: [wiki, settings, utils, workflows]
 branch: mnt-147-wiki-processes
@@ -16,6 +16,11 @@ related: [2026-08-03-wiki-mcp-tools.md, 2026-08-06-allowlist-review-fixes.md]
 ## TL;DR
 
 PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
+
+> **Status update (2026-08-23, Consistency Agent):** Finding 1 (`env_get_list` returning `[]`
+> when unset) was fixed on master in `f093e19` — `env_get_list` now returns `default` when the
+> variable is absent (`demetra/services/runtime/utils.py:271-273`). PR #70 merged via `cbd5b0e`.
+> The analysis below is the pre-fix regression record.
 
 ---
 
@@ -92,10 +97,10 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
 
 ## Follow-ups
 
-- Fix `env_get_list` unset handling and re-run the two CI checks.
-- Once CI passes, PR #70 is ready to merge (branch is up to date with master).
-- Address the 3 open CodeRabbit threads (or mark resolved).
-- MNT-147 Linear ticket is In Review — will move to Done on merge.
+- ~~Fix `env_get_list` unset handling and re-run the two CI checks.~~ **Done** — `f093e19`.
+- ~~Once CI passes, PR #70 is ready to merge.~~ **Done** — merged `cbd5b0e`.
+- Address the 3 open CodeRabbit threads (or mark resolved) — historical; closed with the merge.
+- ~~MNT-147 Linear ticket is In Review — will move to Done on merge.~~ **Done**.
 
 ## References
 
