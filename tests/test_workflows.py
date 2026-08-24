@@ -222,7 +222,7 @@ class TestWorkflowPlan:
             session=None,
         )
 
-        mock_plan_agent.return_value = (0, faker.text(), "")
+        mock_plan_agent.return_value = (0, f"## Implementation Plan\n{faker.text()}", "")
         mock_extract_plan.return_value = "build plan content"
         mock_extract_questions.return_value = []
         mock_get_opencode_session_id.return_value = None
@@ -266,7 +266,7 @@ class TestWorkflowPlan:
             session=None,
         )
 
-        mock_plan_agent.return_value = (0, faker.text(), "")
+        mock_plan_agent.return_value = (0, f"## Implementation Plan\n{faker.text()}", "")
         mock_extract_plan.return_value = None
 
         result = await run_plan_step(context)
@@ -324,6 +324,120 @@ class TestWorkflowPlan:
             with pytest.raises(AutoCancelledError):
                 await run_plan_step(context)
 
+            mock_post_comment.assert_awaited_once()
+            mock_update_ticket_status.assert_awaited_once_with(
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+            )
+            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+
+    @pytest.mark.asyncio
+    async def test_run_plan_step_empty_agent_output_moves_to_awaiting_input(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+    ):
+        with (
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
+            patch(
+                "demetra.workflows.plan.get_linear_config_value",
+                new_callable=AsyncMock,
+                return_value="awaiting-input-state-id",
+            ),
+        ):
+            context = Context(
+                project=Project(
+                    id=str(uuid4()),
+                    user_id=str(uuid4()),
+                    linear_project_id=str(uuid4()),
+                    name="demetra",
+                    state="active",
+                    repository_url="https://github.com/test/demetra",
+                    repository_name="demetra",
+                    repository_owner="test",
+                    local_path=Path(f"/tmp/{faker.slug()}"),
+                    created_at=datetime.now().isoformat(),
+                    updated_at=datetime.now().isoformat(),
+                ),
+                auto_mode=False,
+                linear_task=LinearTask(
+                    id=str(uuid4()),
+                    identifier="MNT-123",
+                    title=faker.sentence(),
+                    description=faker.text(),
+                    priority=1,
+                    created_at=datetime.now().isoformat(),
+                ),
+                branch_name="feature/test",
+                worktree_path=Path(f"/tmp/{faker.slug()}"),
+                session=None,
+            )
+
+            mock_plan_agent.return_value = (0, "  \n\t\n  ", "")
+
+            with pytest.raises(AutoCancelledError):
+                await run_plan_step(context)
+
+            mock_extract_plan.assert_not_called()
+            mock_post_comment.assert_awaited_once()
+            mock_update_ticket_status.assert_awaited_once_with(
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+            )
+            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+
+    @pytest.mark.asyncio
+    async def test_run_plan_step_output_missing_plan_header_moves_to_awaiting_input(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+    ):
+        with (
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
+            patch(
+                "demetra.workflows.plan.get_linear_config_value",
+                new_callable=AsyncMock,
+                return_value="awaiting-input-state-id",
+            ),
+        ):
+            context = Context(
+                project=Project(
+                    id=str(uuid4()),
+                    user_id=str(uuid4()),
+                    linear_project_id=str(uuid4()),
+                    name="demetra",
+                    state="active",
+                    repository_url="https://github.com/test/demetra",
+                    repository_name="demetra",
+                    repository_owner="test",
+                    local_path=Path(f"/tmp/{faker.slug()}"),
+                    created_at=datetime.now().isoformat(),
+                    updated_at=datetime.now().isoformat(),
+                ),
+                auto_mode=False,
+                linear_task=LinearTask(
+                    id=str(uuid4()),
+                    identifier="MNT-123",
+                    title=faker.sentence(),
+                    description=faker.text(),
+                    priority=1,
+                    created_at=datetime.now().isoformat(),
+                ),
+                branch_name="feature/test",
+                worktree_path=Path(f"/tmp/{faker.slug()}"),
+                session=None,
+            )
+
+            mock_plan_agent.return_value = (0, faker.text(), "")
+
+            with pytest.raises(AutoCancelledError):
+                await run_plan_step(context)
+
+            mock_extract_plan.assert_not_called()
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"

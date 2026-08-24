@@ -2,7 +2,12 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, LinearError, PlanError, UserCancelledError
 from demetra.library.models import Context
-from demetra.services.agents.opencode import get_opencode_session_id, get_opencode_session_tokens, opencode_plan_agent
+from demetra.services.agents.opencode import (
+    PLAN_HEADER_STRING,
+    get_opencode_session_id,
+    get_opencode_session_tokens,
+    opencode_plan_agent,
+)
 from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
@@ -75,19 +80,23 @@ async def run_plan_step(context: Context) -> str | None:
                 f"Plan agent failed (exit {exit_code}): {(stderr or '').strip() or (stdout or '').strip() or 'unknown error'}"
             )
 
-        plan_output = stdout
+        plan_output = stdout.strip()
         print_message(f"Plain plan agent output:\n{plan_output}", style="info")
 
         try:
+            if not plan_output:
+                raise PlanError("Plan agent produced no output")
+            if PLAN_HEADER_STRING not in plan_output:
+                raise PlanError("Plan agent output is missing the implementation plan section")
             build_plan = await extract_plan(
-                plan_output=plan_output.strip(),
+                plan_output=plan_output,
                 task_description=context.linear_task.description,
                 comments=context.linear_task.comments,
                 user_id=context.project.user_id,
             )
         except PlanError as e:
-            print_message(f"Plan summarization failed: {e}", style="error")
-            await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan summarization failed: {e}")
+            print_message(f"Plan step failed: {e}", style="error")
+            await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan step failed: {e}")
             await move_to_awaiting_input(context=context)
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
