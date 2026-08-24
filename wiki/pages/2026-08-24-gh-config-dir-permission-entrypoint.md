@@ -68,13 +68,14 @@ chown demetra:demetra /home/demetra/.config/gh /home/demetra/.local/share/openco
 
 Non-recursive deliberately: `hosts.yml` and `auth.json` inside those dirs are host-owned bind mounts and must keep host ownership (same reason they are pruned from the recursive find).
 
-**File:** Dockerfile:35
+**File:** Dockerfile:35-38
 
 Fresh volumes are seeded correctly so Docker never has to root-create parents:
 
 ```dockerfile
-RUN useradd -m -s /bin/bash -d /home/demetra demetra \
-    && mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode \
+RUN useradd -m -s /bin/bash -d /home/demetra demetra
+
+RUN mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode \
     && chown -R demetra:demetra /home/demetra
 ```
 
@@ -90,6 +91,10 @@ Redeploy path: `make docker-deploy` rebuilds the image; the per-boot repair fixe
 ## Known follow-up
 
 - Any **future** file bind mount under `/home/demetra/` whose parent dir is not pre-created in the image will hit this again (root-owned parents after the marker). Mitigation today covers only `.config/gh` and `.local/share/opencode`; add new parents to both the Dockerfile seed and the unconditional repair block when introducing a new secret mount.
+
+## Consistency note (2026-08-24)
+
+- Dockerfile user creation and config-dir seeding are separate `RUN` layers on current `master` (commit "Fix docker user"); behavior matches the combined snippet above.
 
 ## Follow-ups
 
