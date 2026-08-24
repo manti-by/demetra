@@ -154,11 +154,34 @@ export interface SessionHistoryEntry {
   model: string | null;
 }
 
-export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryEntry[]> {
+export interface SessionTokenTotals {
+  length: number;
+  input_tokens: number;
+  output_tokens: number;
+  reasoning_tokens: number;
+  cache_read_tokens: number;
+  cache_write_tokens: number;
+}
+
+export interface SessionHistoryResponse {
+  total: SessionTokenTotals;
+  history: SessionHistoryEntry[];
+}
+
+export const EMPTY_TOKEN_TOTALS: SessionTokenTotals = {
+  length: 0,
+  input_tokens: 0,
+  output_tokens: 0,
+  reasoning_tokens: 0,
+  cache_read_tokens: 0,
+  cache_write_tokens: 0,
+};
+
+export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryResponse> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
     signal,
   });
-  if (response.status === 404) return [];
+  if (response.status === 404) return { total: EMPTY_TOKEN_TOTALS, history: [] };
   if (!response.ok) throw new Error('Failed to fetch session history');
   return response.json();
 }

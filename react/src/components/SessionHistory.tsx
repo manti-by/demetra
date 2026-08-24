@@ -1,5 +1,5 @@
 import { memo } from "react";
-import type { SessionHistoryEntry } from "../services/api";
+import type { SessionHistoryEntry, SessionTokenTotals } from "../services/api";
 
 const CloseIcon = () => (
   <svg
@@ -114,14 +114,50 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
 
 interface SessionHistoryProps {
   entries: SessionHistoryEntry[];
+  total: SessionTokenTotals;
   isOpen: boolean;
   onClose: () => void;
   isLoading: boolean;
   error: string | null;
 }
 
+function TotalTokensBlock({ total }: { total: SessionTokenTotals }) {
+  return (
+    <div className="session-history-totals">
+      <h3 className="session-history-totals-header">Total Tokens</h3>
+      <dl className="session-history-totals-grid">
+        <div>
+          <dt>Input</dt>
+          <dd>{total.input_tokens.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Output</dt>
+          <dd>{total.output_tokens.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Reasoning</dt>
+          <dd>{total.reasoning_tokens.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Cache read</dt>
+          <dd>{total.cache_read_tokens.toLocaleString()}</dd>
+        </div>
+        <div>
+          <dt>Cache write</dt>
+          <dd>{total.cache_write_tokens.toLocaleString()}</dd>
+        </div>
+        <div className="session-history-totals-grand">
+          <dt>Total</dt>
+          <dd>{total.length.toLocaleString()}</dd>
+        </div>
+      </dl>
+    </div>
+  );
+}
+
 function SessionHistoryInner({
   entries,
+  total,
   isOpen,
   onClose,
   isLoading,
@@ -150,11 +186,14 @@ function SessionHistoryInner({
             <div className="session-history-empty">No history yet</div>
           )}
           {!isLoading && !error && entries.length > 0 && (
-            <ol className="session-history-timeline">
-              {entries.map((entry) => (
-                <SessionHistoryCard key={entry.id} entry={entry} />
-              ))}
-            </ol>
+            <>
+              <ol className="session-history-timeline">
+                {entries.map((entry) => (
+                  <SessionHistoryCard key={entry.id} entry={entry} />
+                ))}
+              </ol>
+              <TotalTokensBlock total={total} />
+            </>
           )}
         </div>
         <div className="modal-footer">

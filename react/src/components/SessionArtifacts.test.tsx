@@ -117,22 +117,32 @@ describe('SessionArtifacts', () => {
 
   it('opens history modal on link click', async () => {
     const user = userEvent.setup();
-    vi.mocked(getSessionHistory).mockResolvedValue([
-      {
-        id: 'h1',
-        session_id: 'session-abc',
-        step: 'plan',
-        created_at: new Date().toISOString(),
+    vi.mocked(getSessionHistory).mockResolvedValue({
+      total: {
         length: 500,
         input_tokens: 200,
         output_tokens: 200,
         reasoning_tokens: 50,
         cache_read_tokens: 25,
         cache_write_tokens: 25,
-        context_tokens: null,
-        model: null,
       },
-    ]);
+      history: [
+        {
+          id: 'h1',
+          session_id: 'session-abc',
+          step: 'plan',
+          created_at: new Date().toISOString(),
+          length: 500,
+          input_tokens: 200,
+          output_tokens: 200,
+          reasoning_tokens: 50,
+          cache_read_tokens: 25,
+          cache_write_tokens: 25,
+          context_tokens: null,
+          model: null,
+        },
+      ],
+    });
 
     render(
       <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
@@ -143,6 +153,7 @@ describe('SessionArtifacts', () => {
 
     expect(screen.getByText('Session History [BETA]')).toBeInTheDocument();
     expect(screen.getByText('plan')).toBeInTheDocument();
+    expect(screen.getByText('Total Tokens')).toBeInTheDocument();
   });
 
   it('does not render history link when session_id is empty', () => {

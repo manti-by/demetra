@@ -1479,3 +1479,48 @@ th {
   color: var(--color-text-tertiary);
   font-size: 0.85rem;
 }
+
+.session-history-totals {
+  margin-top: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: 0.75rem 1rem;
+  background: var(--color-surface-2);
+}
+
+.session-history-totals-header {
+  margin: 0 0 0.5rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--color-accent);
+}
+
+.session-history-totals-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.session-history-totals-grid dt {
+  color: var(--color-text-tertiary);
+}
+
+.session-history-totals-grid dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.session-history-totals-grand dt {
+  color: var(--color-text-secondary);
+  font-weight: 600;
+}
+
+.session-history-totals-grand dd {
+  color: var(--color-accent);
+  font-weight: 600;
+}
