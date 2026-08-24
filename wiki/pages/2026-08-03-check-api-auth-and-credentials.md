@@ -218,6 +218,8 @@ can be used in decorators without being flagged as mutable defaults.
   (`8abcd8d`); the follow-up auth-filter/cors/mcp work landed as PR #67 (`bcddc00`).
   _Status note (2026-08-03, Consistency Agent):_ the Step 6 version bump to `1.16.0`
   (in `a1e479d`) was superseded by `1.15.5` in `5bcce84`; master HEAD is at `1.15.5`.
+  _Update (2026-08-24, Consistency Agent):_ master has since advanced to `1.16.5`
+  (`pyproject.toml`); the version trail above is kept as the session record.
 
 ## References
 

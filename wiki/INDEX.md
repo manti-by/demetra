@@ -137,8 +137,9 @@ _(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-rev
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md)
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md)
 
-### Docker & deploy (6 pages)
+### Docker & deploy (7 pages)
 
+- [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md)
 - [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md)
 - [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md)
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md)
