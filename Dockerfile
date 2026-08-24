@@ -34,8 +34,11 @@ COPY --from=builder /opt/venv /opt/venv
 
 RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
-RUN mkdir -p /srv/demetra/src/ /var/log/demetra/
-RUN chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
+RUN mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode \
+    && chown -R demetra:demetra /home/demetra
+
+RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
+    && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
 
 COPY configs/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

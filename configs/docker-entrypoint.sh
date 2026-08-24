@@ -14,4 +14,7 @@ if [ ! -e /home/demetra/.home-ready ]; then
     chown demetra:demetra /home/demetra/.home-ready
 fi
 
+mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode
+chown demetra:demetra /home/demetra/.config/gh /home/demetra/.local/share/opencode
+
 exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"
