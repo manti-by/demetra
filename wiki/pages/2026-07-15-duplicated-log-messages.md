@@ -136,6 +136,8 @@ All 472 tests pass, `ruff check` and `ty check` clean. No test changes needed �
 
 - None
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: [[2026-07-16-simplify-session-logging-setup]] — later behavior-preserving refactor of `setup_session_logging()`

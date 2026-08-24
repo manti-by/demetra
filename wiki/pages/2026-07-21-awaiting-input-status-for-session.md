@@ -8,7 +8,7 @@ services: [sessions, workflows, linear, main]
 branch: "-"
 tickets: [MNT-140, MNT-30]
 tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
-related: [2026-02-23-plan-agent-output-triggers.md]
+related: [2026-02-23-plan-agent-output-triggers.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Awaiting Input status for session
@@ -59,6 +59,8 @@ a generic `Failed`.
 ## Follow-ups
 
 None.
+
+> **Consistency note (2026-08-24, Consistency Agent):** "Awaiting Input" is stored as the `sessions.step` enum value `"awaiting_input"` (`StepType` in `demetra/library/models.py`), not a separate status column — see [[2026-08-05-pr-creation-failure-handler]].
 
 ## References
 

@@ -41,6 +41,8 @@ No colored escape sequences remain in log output.
 
 None
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: none

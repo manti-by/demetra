@@ -98,6 +98,8 @@ see the superseded Finding 12 in [[2026-08-17-docker-setup-review]].
 - ~~Working tree is uncommitted on `master` and also carries unrelated Dockerfile / wiki cleanup changes; needs a proper feature branch + PR per the Git Flow rules in AGENTS.md before anything ships.~~ **Done** — landed on `master` (compose anchors are live; see the consistency note above).
 - Same DRY treatment could be applied to the `.env.docker.example` template and the `Makefile` `docker-*` targets, which still repeat service lists (e.g. `--scale worker=4`, the scoped `up` lists).
 
+> **Consistency note (2026-08-24, Consistency Agent):** `deploy.replicas` was removed from the current `docker-compose.yaml`; worker count is set with `--scale worker=4` in the Makefile.
+
 ## References
 
 - Related: [[2026-08-10-docker-compose-deploy]] (the compose this refactors)

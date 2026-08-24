@@ -115,6 +115,8 @@ This page describes the initial compose design. The file was subsequently refact
 - **API uvicorn:** passes `--host 0.0.0.0` inside the container; ports publish as `8001:8001` and `9181:9181` on all interfaces (an earlier edit of this note claimed loopback-only publishes, which no longer matches current `docker-compose.yaml`). The original loopback-only design intent and its security rationale are described above.
 - **nginx:** `location /` now proxies to `http://127.0.0.1:3000` (a running process); only `location /assets/` serves static files from `react/dist/assets/`.
 
+> **Consistency note (2026-08-24, Consistency Agent):** The current `docker-compose.yaml` does not declare `deploy.replicas`; four workers are enforced via `make docker-up` / `docker-deploy` passing `--scale worker=4` (`Makefile:103,123`). References to `deploy.replicas: 4` in this page describe the pre-refactor compose render, not today's file.
+
 ## References
 
 - Related: [[2026-07-07-project-deploy-script]]

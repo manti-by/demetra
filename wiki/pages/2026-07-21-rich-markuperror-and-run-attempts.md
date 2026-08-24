@@ -267,6 +267,8 @@ follow-up PR against `manti-by/odin`:
   inherited from a previous override and is not visible from the current config.
   Consider surfacing the effective value in the watcher startup log.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/tui.py → demetra/services/runtime/tui.py; demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: none

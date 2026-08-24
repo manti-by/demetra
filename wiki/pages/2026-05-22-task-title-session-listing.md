@@ -8,7 +8,7 @@ services: [api, react]
 branch: "-"
 tickets: [MNT-84, MNT-59]
 tags: [sessions, api, react, title, sidebar, websocket]
-related: [2026-03-10-ui-for-sessions.md]
+related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # Use task title for session listing
@@ -63,6 +63,8 @@ watcher/process-manager), and a `LogConsole` component that opens a websocket pe
 ## Follow-ups
 
 - None.
+
+> **Consistency note (2026-08-24, Consistency Agent):** The sessions list filter was renamed from `status` to `step` during the step/status refactor — see [[2026-07-16-fix-step-status-review-findings]]. Current API: `GET /api/v1/sessions?step=...`.
 
 ## References
 

@@ -8,7 +8,7 @@ services: [main, api, database, workflows, linear, sessions]
 branch: "-"
 tickets: [MNT-37, MNT-63]
 tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
-related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md]
+related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Fix code-review findings on step/status refactor
@@ -182,7 +182,7 @@ documents is the successor of that merged status concept.
 > `demetra/library/models.py` (between `build` and `review`) to cover the
 > validate-agent step set in `demetra/workflows/build.py:102`, which had previously
 > been written without a matching enum value. `VALID_STEPS` in
-> `demetra/api/sessions.py` now accepts `step=validate`.
+> `demetra/api/sessions.py` now accepts `step=validate`. `awaiting_input` was added for PR/review failure paths (see [[2026-08-05-pr-creation-failure-handler]]); current `StepType` is `initial | plan | build | validate | review | lint | test | push | completed | failed | awaiting_input`.
 
 ## References
 

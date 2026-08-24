@@ -169,6 +169,8 @@ stdin piping in `run_command`, and `validate_model` settings/`OPENCODE_VALIDATE_
 - Out of scope by design: correctness/quality/security review, lint/tests, changes to
   plan/build/review agents, Groq re-summarization.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)

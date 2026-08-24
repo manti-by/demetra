@@ -213,6 +213,8 @@ All 500+ tests continue to pass. Ruff and ty clean on the committed changes (gre
 - Consider adding `ProjectList.test.tsx` for the new label display format.
 - Verify the `fast-playwright-mcp@0.1.3` pin works end-to-end in CI.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/project.py → demetra/services/runtime/project.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: [[2026-07-22-react-frontend-template-warp]], [[2026-07-22-feature-flag-settings-and-tests]]

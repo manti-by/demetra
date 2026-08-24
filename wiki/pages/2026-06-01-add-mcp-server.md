@@ -66,6 +66,8 @@ Removed the hardcoded DB password default so credentials come only from the envi
 
 ---
 
+> **Consistency note (2026-08-24, Consistency Agent):** The MCP server now lives at `demetra/mcp_server.py` (not a repo-root `mcp_server.py`) and runs over **stdio** (not streamable-http). See [[2026-08-03-fix-mcp-server-2.0-api]].
+
 ## References
 
 - Related: [[2026-08-03-fix-mcp-server-2.0-api]]
