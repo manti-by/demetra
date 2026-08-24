@@ -92,10 +92,12 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
 
 ## Follow-ups
 
-- Fix `env_get_list` unset handling and re-run the two CI checks.
-- Once CI passes, PR #70 is ready to merge (branch is up to date with master).
-- Address the 3 open CodeRabbit threads (or mark resolved).
-- MNT-147 Linear ticket is In Review — will move to Done on merge.
+- ~~Fix `env_get_list` unset handling and re-run the two CI checks.~~ **Done** — `f093e19`
+  ("Fix review findings"); `env_get_list` now returns `default` when unset
+  (`demetra/services/runtime/utils.py:272-273`).
+- ~~Once CI passes, PR #70 is ready to merge.~~ **Done** — merged as `cbd5b0e`.
+- Address the 3 open CodeRabbit threads (or mark resolved) — closed with the merge.
+- ~~MNT-147 Linear ticket is In Review — will move to Done on merge.~~ **Done**.
 
 ## Consistency note (2026-08-23)
 

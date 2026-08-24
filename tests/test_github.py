@@ -71,6 +71,14 @@ class TestExtractPrLink:
         result = extract_pr_link("https://github.com/owner/repo/pull/123")
         assert result == "https://github.com/owner/repo/pull/123"
 
+    def test_rejects_host_containing_github_as_substring(self):
+        result = extract_pr_link("https://evilgithub.com/owner/repo/pull/1")
+        assert result is None
+
+    def test_rejects_github_host_used_as_subdomain(self):
+        result = extract_pr_link("https://github.com.attacker.com/owner/repo/pull/1")
+        assert result is None
+
 
 class TestVerifySignature:
     @pytest.fixture(autouse=True)

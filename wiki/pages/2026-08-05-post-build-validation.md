@@ -76,6 +76,10 @@ Added `validate_model` to `OPENCODE` (env `OPENCODE_VALIDATE_MODEL`, default the
 lightweight build model) and to the `OpenCodeConfig` TypedDict. Also swapped the
 default review model `kimi-k2.7-code` → `minimax-m3` in `OPENCODE_REVIEW_MODELS`.
 
+> **Consistency note (2026-08-23):** on current `master`, the third `OPENCODE_REVIEW_MODELS`
+> default entry is again `opencode-go/kimi-k2.7-code` (`demetra/settings.py:145`);
+> `minimax-m3` remains the default **plan** model only (`OPENCODE_PLAN_MODEL`).
+
 ## Step 3 — Service
 
 **File:** `demetra/services/opencode.py:107`

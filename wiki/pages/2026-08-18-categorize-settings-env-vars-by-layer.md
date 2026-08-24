@@ -2,13 +2,13 @@
 title: Categorize settings env vars by layer
 date: 2026-08-18
 type: investigation
-status: open
+status: resolved
 session_id: "-"
 services: [settings, subprocess, workflows, persistence]
 branch: feature/mnt-169-removeupdate-settings
 tickets: [MNT-169, MNT-170]
 tags: [environment, settings, project-env, user-env, layers, subprocess]
-related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # Categorize settings env vars by layer
@@ -16,6 +16,17 @@ related: [2026-06-08-project-environment.md, 2026-07-23-session-tokens-audit-rev
 ## TL;DR
 
 Classifies every workflow-runtime env var read in `demetra/settings.py` into one of three target layers — **project** (per-project `project_environment` rows), **user** (per-user `user_environment` rows where `scope = 'user'`), or **system** (kept in `settings.py`, overridable by user-shared env in the merge order OS → user-shared → project → step). The three-layer plumbing already exists per [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]; the runtime work is tracked as [MNT-170 — Migrate workflow env vars to project/user env layers](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers). Resolution from this session: one Linear workspace → OAuth + workspace labels stay system, `LINEAR_TEAM_ID` / `LINEAR_STATE_*` move to user; `OPENROUTER_BASE_URL` stays system, `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` move to user; `UV_PATH` moves to project, other tool binary paths stay system.
+
+> **Status update (2026-08-23, Consistency Agent):** MNT-170 merged to `master` via PR #80
+> (2026-08-19); see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] for the
+> follow-up service-layer refactor on the same branch. Implementation status against the
+> follow-up plan below: **steps 1–4 are done** — `get_linear_config_value()` in
+> `demetra/services/linear/__init__.py`, the OpenRouter user-env fallback in
+> `get_openrouter_config()` (`demetra/services/llm/config.py`),
+> `_resolve_opencode_model(..., user_environment=...)` in `demetra/services/agents/opencode.py`,
+> and `env["UV_PATH"]` in `demetra/services/runtime/project.py:187`. **Step 5 is partial** —
+> `tests/test_settings_layers.py` covers Linear config resolution and OpenRouter user-env
+> overrides, but has no OpenCode-model-override or `UV_PATH`-after-venv cases.
 
 ---
 
@@ -106,13 +117,15 @@ The blocks below enumerate the changes [MNT-170](https://linear.app/mnt/issue/MN
 
 ## Follow-ups
 
-- `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. Once the `OPENROUTER_API_KEY` / `GROQ_API_KEY` migration lands, `users.keys` becomes redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
+- `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. With `OPENROUTER_API_KEY` now readable from user-shared env (MNT-170, PR #80), `users.keys` is redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
 - Audit logging for env changes (deferred per the MNT-161 follow-ups list).
+- Complete step 5 test coverage: OpenCode model override, `UV_PATH` after `setup_project_venv`, project-over-user merge order.
 
 ## References
 
 - Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - Related: [[2026-06-08-project-environment]]
 - Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - Implementation: [MNT-170 — Migrate workflow env vars to project/user env layers](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)
 - External: [MNT-169 — Remove/update settings (Linear)](https://linear.app/mnt/issue/MNT-169/removeupdate-settings)

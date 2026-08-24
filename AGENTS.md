@@ -28,7 +28,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
-- `.opencode/`: OpenCode agent and command definitions
+- `.opencode/`: OpenCode agent and skill definitions
 - `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`)
 
 ## Wiki
@@ -37,7 +37,7 @@ The `wiki/` directory is a persistent, compounding knowledge base: one Markdown 
 
 - Before planning or building, skim `wiki/INDEX.md` for prior sessions on the same subsystem.
 - For questions about past incidents, design decisions, or prior investigations, search the wiki first via the `wiki_search` MCP tool (browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
-- After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see the `wiki-*` commands in `.opencode/commands/`).
+- After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see the `wiki-*` skills in `.opencode/skills/`).
 
 ## Git Workflow
 

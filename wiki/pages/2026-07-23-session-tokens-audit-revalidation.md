@@ -279,6 +279,23 @@ since. Solved problem; no action needed.
 
 - Plan extraction and summarization moved from Groq to OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `extract_plan` and `PLAN_OUTPUT_MAX_CHARS` now live in `demetra/services/llm/openrouter.py`; legacy `demetra/services/llm/groq.py` remains importable but is no longer called by workflow consumers.
 
+## Consistency note (2026-08-23) — updated pointers for the open recommendations
+
+Module moves since this audit shifted the file references above. Current locations:
+
+- Recommendation 1 (done, `47d428d`): compaction caller is now
+  `demetra/workflows/build.py:100`; the non-cumulative metric is computed in
+  `get_opencode_session_tokens` (`demetra/services/agents/opencode.py`, `usage.context`
+  assignment at `:428`).
+- Recommendation 2 (**still open**): `usage.context = msg_input + msg_cache_read`
+  (`demetra/services/agents/opencode.py:428`) — cache reads are still part of the
+  compaction decision.
+- Recommendation 3 (**still open**, deliberate): the broad catches are at
+  `demetra/workflows/cleanup.py:110,149`, now marked `# noqa: BLE001`.
+- Recommendation 4 (**still open**): no TTL cache on the export
+  (`demetra/services/agents/opencode.py:336`).
+- The `context_tokens` / `model` columns exist at `demetra/library/tables.py:142-143`.
+
 ## References
 
 - Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]]

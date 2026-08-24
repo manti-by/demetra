@@ -15,7 +15,7 @@ from demetra.services.persistence.database import (
 
 router = APIRouter(prefix="/api/v1/sessions")
 
-TASK_ID_PATTERN = r"^[A-Za-z0-9_\-]+$"
+TASK_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
 
 VALID_STEPS = set(get_args(StepType))
 

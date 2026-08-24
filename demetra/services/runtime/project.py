@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import secrets
 import shutil
 import tempfile
 import tomllib
@@ -49,6 +50,7 @@ def quote_literal(value: str) -> str:
 
 
 GITHUB_SEGMENT_PATTERN = re.compile(r"^[A-Za-z0-9._-]+$")
+GITHUB_HOSTS = {"github.com", "www.github.com"}
 
 
 def get_project_name(project: dict[str, Any]) -> str:
@@ -94,7 +96,7 @@ def parse_github_url(url: str) -> tuple[str, str] | None:
             return owner, repo
 
     parsed = urlparse(url)
-    if parsed.netloc == "github.com" or parsed.netloc == "www.github.com":
+    if parsed.hostname in GITHUB_HOSTS:
         parts = parsed.path.strip("/").split("/")
         if len(parts) >= 2:
             owner, repo = parts[0], parts[1].replace(".git", "")
@@ -216,7 +218,8 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
     if not project_name[0].isalpha():
         raise ValueError(f"Invalid generated database name: {project_name}")
 
-    role_name = password = db_name = project_name
+    role_name = db_name = project_name
+    password = secrets.token_urlsafe(24)
     q_role = quote_ident(ident=role_name)
     q_password = quote_literal(value=password)
 
@@ -225,7 +228,11 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
             text("SELECT 1 FROM pg_roles WHERE rolname = :role_name"),
             {"role_name": role_name},
         )
-        if not result.fetchone():
+        if result.fetchone():
+            await connection.execute(
+                text(f"ALTER ROLE {q_role} WITH PASSWORD {q_password}"),
+            )
+        else:
             await connection.execute(
                 text(f"CREATE ROLE {q_role} WITH LOGIN PASSWORD {q_password} CREATEDB"),
             )

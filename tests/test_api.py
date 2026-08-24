@@ -72,6 +72,19 @@ class TestWatcherLogsWebSocket:
                 assert message["code"] == 4003
 
     @pytest.mark.asyncio
+    async def test_websocket_rejects_task_id_with_trailing_newline(self):
+        with patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user:
+            mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+
+            with TestClient(app).websocket_connect(
+                f"{self.WS_PATH}?task_id={self.TASK_ID}%0A",
+                cookies={"auth_token": "valid_token"},
+            ) as ws:
+                message = ws.receive()
+                assert message["type"] == "websocket.close"
+                assert message["code"] == 4000
+
+    @pytest.mark.asyncio
     async def test_websocket_emits_log_envelope(
         self,
         mock_groq: AsyncMock,

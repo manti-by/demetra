@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import re
 import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -28,6 +29,8 @@ logger = logging.getLogger(__name__)
 
 _engine_cache: dict[tuple[int, str], AsyncEngine] = {}
 _cache_lock = threading.Lock()
+
+SAFE_TASK_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
@@ -1758,6 +1761,9 @@ async def delete_session(task_id: str, user_id: str) -> bool:
         bool: True when the session existed and was deleted, otherwise False.
     """
     from demetra.settings import LOG_DIR
+
+    if not SAFE_TASK_ID_PATTERN.fullmatch(task_id):
+        return False
 
     async with get_connection() as connection:
         result = await connection.execute(

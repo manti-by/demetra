@@ -27,6 +27,11 @@ class TestSessionDeletionAPI:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
+    async def test_delete_session_rejects_leading_dash_task_id(self, authenticated_client: TestClient):
+        response = authenticated_client.delete("/api/v1/sessions/-leading-dash")
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
     @pytest.mark.usefixtures("setup_test_db")
     async def test_delete_session_success(self, authenticated_client: TestClient):
 

@@ -15,7 +15,10 @@ related: [2026-03-09-encrypted-user-settings.md, 2026-06-08-project-environment.
 
 ## TL;DR
 
-Extended per-project env ([MNT-110](https://linear.app/mnt/issue/MNT-110)) into a three-layer model — OS (allowlisted), user-shared (per-user), and project (per-project) — merged as **OS → user-shared → project → step** with the last writer winning. Sensitive values are encrypted at rest via Fernet (`DEMETRA_SECRET_KEY` + `ENCRYPTION_SALT`) and masked in the API/UI, including plaintext values whose key contains a whole sensitive word (`TOKEN`/`SECRET`/`KEY`/`PASSWORD`, delimiter-anchored so `KEYBOARD_LAYOUT` stays visible). Each RQ worker bootstraps a per-project UV venv on first use and reuses it. The FE gained a "Shared environment" screen and client-side `.env` file upload that populates the existing editors; no dedicated upload endpoint.
+Extended per-project env ([MNT-110](https://linear.app/mnt/issue/MNT-110)) into a three-layer model — OS (allowlisted), user-shared (per-user), and project (per-project) — merged as **OS → user-shared → project → step** with the last writer winning. Sensitive values are encrypted at rest via Fernet (`SECRET_KEY` + `ENCRYPTION_SALT`) and masked in the API/UI, including plaintext values whose key contains a whole sensitive word (`TOKEN`/`SECRET`/`KEY`/`PASSWORD`, delimiter-anchored so `KEYBOARD_LAYOUT` stays visible). Each RQ worker bootstraps a per-project UV venv on first use and reuses it. The FE gained a "Shared environment" screen and client-side `.env` file upload that populates the existing editors; no dedicated upload endpoint.
+
+> **Consistency note (2026-08-23):** the settings env var is `SECRET_KEY`
+> (`demetra/settings.py:199`); an earlier revision of this page called it `DEMETRA_SECRET_KEY`.
 
 ---
 
@@ -83,7 +86,7 @@ Implementation session on branch `mnt-161-process-environment-3-layers-encryptio
 
 ## Test Results
 
-793 backend tests pass (`ruff`, `ty`, `pytest`), 45 frontend tests pass (`tsc` via `bun run build`, `vitest`). New coverage: settings parsing (`OS_ENV_ALLOWLIST`/`OS_ENV_PROJECT_OPTINS`/`DEMETRA_SECRET_KEY`), user-env DB CRUD + encryption + isolation + sensitive-key masking, `build_subprocess_env` merge order (project-overrides-user-shared), OS allowlist accept/reject + case sensitivity, API user-env endpoints, `is_sensitive_key` false-positive rejection, venv bootstrap idempotency + partial-venv cleanup on failure, and `.env` parser cases.
+793 backend tests pass (`ruff`, `ty`, `pytest`), 45 frontend tests pass (`tsc` via `bun run build`, `vitest`). New coverage: settings parsing (`OS_ENV_ALLOWLIST`/`OS_ENV_PROJECT_OPTINS`/`SECRET_KEY`), user-env DB CRUD + encryption + isolation + sensitive-key masking, `build_subprocess_env` merge order (project-overrides-user-shared), OS allowlist accept/reject + case sensitivity, API user-env endpoints, `is_sensitive_key` false-positive rejection, venv bootstrap idempotency + partial-venv cleanup on failure, and `.env` parser cases.
 
 ---
 

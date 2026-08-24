@@ -27,7 +27,7 @@ Session followed the [[2026-08-07-split-wiki-service-into-subpackage]] refactor.
 
 **File:** `demetra/services/runtime/utils.py:313-316`
 
-Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default — the root cause of the CI failure tracked in [[2026-08-07-mnt-147-wiki-processes-pr70-review]] (`OPENCODE_REVIEW_MODELS` emptied when the var was unset):
+Before, a set-but-empty env var fell through to `Path(value).resolve()`, resolving `Path("")` to CWD instead of returning the default. This is a separate bug from the MNT-147 CI failure ([[2026-08-07-mnt-147-wiki-processes-pr70-review]]), which was caused by `env_get_list` returning `[]` when `OPENCODE_REVIEW_MODELS` was unset — not by `env_get_path`:
 
 ```python
 value = os.environ.get(name)

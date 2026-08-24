@@ -3,6 +3,7 @@ import hmac
 import json
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 import aiohttp
 
@@ -39,6 +40,9 @@ def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
     return hmac.compare_digest(signature, expected_digest)
 
 
+GITHUB_HOSTS = {"github.com", "www.github.com"}
+
+
 def extract_pr_link(stdout: str) -> str | None:
     """Extract the PR URL from a command output line.
 
@@ -49,9 +53,12 @@ def extract_pr_link(stdout: str) -> str | None:
         str | None: The first GitHub pull request URL found, or None.
     """
     for line in stdout.splitlines():
-        line = line.strip()
-        if "github.com" in line and "/pull/" in line:
-            return line.split()[0] if line.split() else line
+        candidate = line.strip().split(maxsplit=1)[0] if line.strip() else ""
+        parsed = urlparse(candidate)
+        if parsed.scheme not in {"http", "https"} or parsed.hostname not in GITHUB_HOSTS:
+            continue
+        if "pull" in parsed.path.split("/"):
+            return candidate
     return None
 
 

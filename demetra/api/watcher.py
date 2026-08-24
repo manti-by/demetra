@@ -12,7 +12,7 @@ from demetra.services.persistence.database import get_session_step_name
 from demetra.settings import DEBUG, LOG_DIR
 
 
-UUID_PATTERN = re.compile(r"^[a-f0-9-]{36}$", re.IGNORECASE)
+UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
 
 router = APIRouter(prefix="/ws/v1/watcher")
 
@@ -88,7 +88,7 @@ async def watcher_logs(
         await reject_connection(websocket=websocket, code=4003, reason="Forbidden")
         return
 
-    if not task_id or not UUID_PATTERN.match(task_id):
+    if not task_id or not UUID_PATTERN.fullmatch(task_id):
         await reject_connection(websocket=websocket, code=4000, reason="Invalid or missing task_id")
         return
 

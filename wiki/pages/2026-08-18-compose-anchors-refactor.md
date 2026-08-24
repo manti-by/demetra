@@ -86,9 +86,16 @@ Notes:
 - Rendered `docker compose config` diffed against the pre-refactor render: only diffs are (a) the pre-existing volume-ordering change and (b) `REDIS_URL` added to `migrate` — every service's `image`, `command`, `environment`, `ports`, `depends_on`, and `deploy.replicas` are otherwise byte-identical.
 - Per-service env spot-check: all six app services render `DB_HOST: postgres` + `REDIS_URL: redis://redis:6379/1`; each gets its own `LOG_PATH`.
 
+## Consistency note (2026-08-23)
+
+The Step 1 `api` example above shows `--host 127.0.0.1` and loopback publish
+(`127.0.0.1:8001:8001`) as rendered at refactor time. Current `docker-compose.yaml` on
+`master` uses `--host 0.0.0.0` and all-interface publishes (`8001:8001`, `9181:9181`);
+see the superseded Finding 12 in [[2026-08-17-docker-setup-review]].
+
 ## Follow-ups
 
-- Working tree is uncommitted on `master` and also carries unrelated Dockerfile / wiki cleanup changes; needs a proper feature branch + PR per the Git Flow rules in AGENTS.md before anything ships.
+- ~~Working tree is uncommitted on `master` and also carries unrelated Dockerfile / wiki cleanup changes; needs a proper feature branch + PR per the Git Flow rules in AGENTS.md before anything ships.~~ **Done** — landed on `master` (compose anchors are live; see the consistency note above).
 - Same DRY treatment could be applied to the `.env.docker.example` template and the `Makefile` `docker-*` targets, which still repeat service lists (e.g. `--scale worker=4`, the scoped `up` lists).
 
 ## References
