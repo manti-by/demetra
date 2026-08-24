@@ -48,6 +48,7 @@ ENV UV_PATH="/bin/uv"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
+USER demetra
 WORKDIR /srv/demetra/src/
 
 CMD ["python", "main.py", "--help"]
