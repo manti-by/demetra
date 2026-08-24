@@ -91,9 +91,57 @@ Redeploy path: `make docker-deploy` rebuilds the image; the per-boot repair fixe
 
 - Any **future** file bind mount under `/home/demetra/` whose parent dir is not pre-created in the image will hit this again (root-owned parents after the marker). Mitigation today covers only `.config/gh` and `.local/share/opencode`; add new parents to both the Dockerfile seed and the unconditional repair block when introducing a new secret mount.
 
+## Update — 2026-08-24 16:02
+
+`setpriv: initgroups failed: Operation not permitted` on `migrate-1` (and every other compose service) at container start, after commit `c6c0008` "Fix docker user" added `USER demetra` to the Dockerfile (and a later attempt to remove it was rejected — the operator wants everything running as `demetra`).
+
+**Symptom:**
+
+```text
+migrate-1  | setpriv: initgroups failed: Operation not permitted
+```
+
+**Step 1 — `USER demetra` broke the root-only entrypoint path**
+
+**File:** Dockerfile (commit `c6c0008`)
+
+- `USER demetra` makes the container start as the unprivileged `demetra` (uid 1000) user, so the `ENTRYPOINT ["docker-entrypoint.sh"]` shell now runs as `demetra`, not root.
+- Its final line `exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"` therefore runs `setpriv` while already unprivileged. `--init-groups` calls `setgroups()`, which needs `CAP_SETGID` — an unprivileged user lacks it, so `setpriv` aborts with `initgroups failed: Operation not permitted` before the app command ever runs.
+- The root-only ownership repair block (`.home-ready` gate + `mkdir`/`chown`) also became dead code: it needs root too.
+
+**Root cause:** The entrypoint assumed it always starts as root (the `2026-08-19` design) and unconditionally executed `setpriv` + `chown`. Adding `USER demetra` inverted that assumption without the entrypoint knowing.
+
+**Resolution / Fix — keep `USER demetra`, make the entrypoint user-aware**
+
+**File:** configs/docker-entrypoint.sh
+
+Guard the root-only work (ownership repair + `setpriv` drop) behind an `id -u` check, and otherwise just exec the command directly:
+
+```sh
+if [ "$(id -u)" = "0" ]; then
+    # .home-ready gate + mkdir/chown repair (unchanged)
+    exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"
+fi
+
+exec "$@"
+```
+
+- As `demetra` (the normal compose path, `USER demetra`): the `if` is skipped and `exec "$@"` runs the app directly — no `setpriv`, no `chown`, no capabilities needed.
+- As root (e.g. a one-off `docker run --user 0` repair): the ownership repair runs and drops to `demetra` via `setpriv`, preserving the documented self-heal path for fresh volumes.
+
+**File:** Dockerfile
+
+`USER demetra` restored/kept. No capability-granting change (`--cap-add`) is needed because the entrypoint no longer invokes `setpriv` on the demetra path.
+
+### Verification
+
+- `sh -n configs/docker-entrypoint.sh` — OK.
+- The existing `demetra_app_data` volume is already demetra-owned, so the demetra path works as-is; rebuild and redeploy amon-ra with `make docker-deploy`.
+
 ## Follow-ups
 
 - Redeploy amon-ra via `make docker-deploy` and confirm `gh api user -q .login` works inside a worker container.
+- Confirm `migrate-1` starts clean (no `setpriv: initgroups failed`) after redeploy.
 
 ## References
 
