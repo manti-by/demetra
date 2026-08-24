@@ -80,7 +80,7 @@ RUN useradd -m -s /bin/bash -d /home/demetra demetra \
 
 A named volume copies image content on first use, so these dirs exist demetra-owned before any bind mount is attached.
 
-Redeploy path: `make docker-deploy` rebuilds the image; the per-boot repair fixes the existing `demetra_app_data` volume on next start — no manual `chown`. Safe with concurrent replicas (`deploy.replicas: 2`, scaled to 4): the repair is idempotent.
+Redeploy path: `make docker-deploy` rebuilds the image; the per-boot repair fixes the existing `demetra_app_data` volume on next start — no manual `chown`. Safe with concurrent worker replicas (`make docker-deploy` passes `--scale worker=4`): the repair is idempotent.
 
 ### Verification
 

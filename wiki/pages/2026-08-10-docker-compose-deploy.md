@@ -114,6 +114,7 @@ This page describes the initial compose design. The file was subsequently refact
 - **react-build:** `working_dir: /srv/demetra/src/` with `./react:/srv/demetra/src`; no named volume.
 - **API uvicorn:** passes `--host 0.0.0.0` inside the container; ports publish as `8001:8001` and `9181:9181` on all interfaces (an earlier edit of this note claimed loopback-only publishes, which no longer matches current `docker-compose.yaml`). The original loopback-only design intent and its security rationale are described above.
 - **nginx:** `location /` now proxies to `http://127.0.0.1:3000` (a running process); only `location /assets/` serves static files from `react/dist/assets/`.
+- **Worker scaling:** commit `34cc0a4` (2026-08-24) removed `deploy.replicas` from the `worker` service; four workers are enforced only via `make docker-up` / `make docker-deploy` (`--scale worker=4`).
 
 ## References
 

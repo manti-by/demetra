@@ -93,6 +93,11 @@ The Step 1 `api` example above shows `--host 127.0.0.1` and loopback publish
 `master` uses `--host 0.0.0.0` and all-interface publishes (`8001:8001`, `9181:9181`);
 see the superseded Finding 12 in [[2026-08-17-docker-setup-review]].
 
+> **Update (2026-08-24, Consistency Agent):** commit `34cc0a4` removed the `deploy.replicas`
+> block from the `worker` service. Worker count is now controlled only via
+> `make docker-up` / `make docker-deploy` (`--scale worker=4`); the `deploy.replicas`
+> references in the TL;DR and Step 2 above describe the pre-removal compose file.
+
 ## Follow-ups
 
 - ~~Working tree is uncommitted on `master` and also carries unrelated Dockerfile / wiki cleanup changes; needs a proper feature branch + PR per the Git Flow rules in AGENTS.md before anything ships.~~ **Done** — landed on `master` (compose anchors are live; see the consistency note above).
