@@ -26,8 +26,12 @@ Long agent sessions drift past usable context windows, degrading plan/build qual
 > **Status update (2026-08-04, Consistency Agent):** the MNT-145 disable was reversed within
 > the same ticket — `5f8e428` commented out the `build.py` caller, and `47d428d` (also
 > 2026-07-23) re-enabled it driven by the non-cumulative `context_tokens` metric. Compaction
-> is live today (`demetra/workflows/build.py:96`); the "disabled in MNT-145" framing below is
+> is live today (`demetra/workflows/build.py:100`); the "disabled in MNT-145" framing below is
 > kept as the historical record. See [[2026-07-23-session-tokens-audit-revalidation]].
+>
+> **Consistency note (2026-08-24, Consistency Agent):** the caller line moved to
+> `demetra/workflows/build.py:100` as validate/review steps were added to the build loop;
+> an earlier note cited `:96`.
 
 ## Step 1 — Persist session history
 
