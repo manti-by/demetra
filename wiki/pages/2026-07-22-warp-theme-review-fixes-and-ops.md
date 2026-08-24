@@ -8,7 +8,7 @@ services: [react, build, config]
 branch: master
 tickets: [MNT-142]
 tags: [react, warp-theme, review-fixes, css, infrastructure, version-bump]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-21-mnt-176-bump-version-error.md]
+related: [2026-07-22-feature-flag-settings-and-tests.md, 2026-07-22-react-frontend-template-warp.md, 2026-08-21-mnt-176-bump-version-error.md]
 ---
 
 # Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette

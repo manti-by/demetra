@@ -8,7 +8,7 @@ services: [deploy, configs]
 branch: "-"
 tickets: []
 tags: [docker, compose, review, entrypoint, security]
-related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-17-docker-setup-review.md]
+related: [2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md]
 ---
 
 # Code review — gh CLI auth mount and entrypoint prune for compose
