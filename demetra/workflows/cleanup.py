@@ -1,6 +1,6 @@
 from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import PrDescriptionError, PullRequestError
+from demetra.library.exceptions import PrDescriptionError, PullRequestError, WikiError
 from demetra.library.models import Context
 from demetra.services.agents.opencode import get_opencode_session_tokens
 from demetra.services.linear import linear_cleanup
@@ -13,15 +13,17 @@ from demetra.services.persistence.database import (
 from demetra.services.runtime.tui import print_message
 from demetra.services.vcs.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.vcs.github import create_pull_request, extract_pr_link
+from demetra.services.wiki import write_session_wiki_page
 from demetra.settings import OPENCODE
 
 
 async def commit_and_push(context: Context) -> bool:
     """Commit, push and open a pull request for the current branch.
 
-    Stages changes, commits with the task title, pushes the branch, generates
-    a PR description, creates the PR and records the PR link and final session
-    history.
+    Stages the build changes, generates the session wiki page into the
+    worktree (so it is part of the same commit), stages the wiki files, commits
+    with the task title, pushes the branch, generates a PR description, creates
+    the PR and records the PR link and final session history.
 
     Args:
         context: The workflow context.
@@ -32,6 +34,7 @@ async def commit_and_push(context: Context) -> bool:
 
     Raises:
         PullRequestError: When the PR creation fails.
+        WikiError: When the session wiki page cannot be written.
     """
     print_message("Committing changes", style="heading")
 
@@ -40,6 +43,20 @@ async def commit_and_push(context: Context) -> bool:
     )
     if not has_files:
         print_message("No files to commit, looping back to build agent", style="warning")
+        return False
+
+    print_message("Generating wiki page", style="heading")
+    await update_session_step(task_id=context.linear_task.id, step="wiki")
+    try:
+        await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
+    except WikiError:
+        raise
+    except Exception as e:  # noqa: BLE001
+        raise WikiError(f"Failed to write wiki page: {e}") from e
+    if not await git_add_all(
+        target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+    ):
+        print_message("No files to commit after wiki page generation, looping back to build agent", style="warning")
         return False
 
     await update_session_step(task_id=context.linear_task.id, step="push")

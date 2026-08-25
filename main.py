@@ -12,6 +12,7 @@ from demetra.library.exceptions import (
     PullRequestError,
     ReviewError,
     UserCancelledError,
+    WikiError,
 )
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
@@ -19,7 +20,6 @@ from demetra.services.linear import get_linear_config_value, post_comment, updat
 from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
-from demetra.services.wiki import write_session_wiki_page
 from demetra.settings import (
     DEFAULT_USER_ID,
     LOGGING,
@@ -27,7 +27,7 @@ from demetra.settings import (
 )
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
-from demetra.workflows.failure import process_build_failure, process_pr_failure
+from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.setup import setup_workflow
 
@@ -155,6 +155,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         await process_pr_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
 
+    except WikiError as e:
+        await process_wiki_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
+
     except BuildError as e:
         await process_build_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
@@ -174,8 +178,6 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     finally:
         # Only run cleanup if we successfully created a context (which means worktree was created)
         if context:
-            if is_success:
-                await write_session_wiki_page(context=context)
             await cleanup_workflow(
                 context=context,
                 is_success=is_success,

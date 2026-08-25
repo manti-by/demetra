@@ -65,19 +65,22 @@ def parse_frontmatter(text: str) -> dict:
     return parsed if isinstance(parsed, dict) else {}
 
 
-def existing_page_for_ticket(ticket_identifier: str) -> Path | None:
+def existing_page_for_ticket(ticket_identifier: str, pages_root: Path | None = None) -> Path | None:
     """Find an existing wiki page for a ticket, if any.
 
     Args:
         ticket_identifier: The Linear ticket identifier, e.g. ``MNT-147``.
+        pages_root: Optional pages directory to scan; defaults to the service
+            ``PAGES_ROOT``.
 
     Returns:
         Path | None: The existing page file, or None when no page references the
             ticket.
     """
-    if not service.PAGES_ROOT.is_dir():
+    target = pages_root if pages_root is not None else service.PAGES_ROOT
+    if not target.is_dir():
         return None
-    for path in sorted(service.PAGES_ROOT.glob("*.md")):
+    for path in sorted(target.glob("*.md")):
         try:
             meta = service.parse_frontmatter(path.read_text(encoding="utf-8"))
         except (OSError, yaml.YAMLError):

@@ -1,4 +1,4 @@
-from demetra.library.exceptions import BuildError, DemetraError, LinearError, ReviewError
+from demetra.library.exceptions import BuildError, DemetraError, LinearError, ReviewError, WikiError
 from demetra.library.models import Context
 from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
 from demetra.services.runtime.template import get_template
@@ -80,3 +80,18 @@ async def process_build_failure(context: Context, error: BuildError) -> None:
     print_message(f"Build agent failed: {error}", style="error")
     body = await get_template("build_failed", error=error)
     await notify_linear_failure(context=context, body=body, comment_label="build-failure")
+
+
+async def process_wiki_failure(context: Context, error: WikiError) -> None:
+    """Handle a wiki page generation failure: notify Linear and set recovery state.
+
+    Posts a Linear comment describing the wiki failure and moves the ticket to
+    ``Awaiting Input`` so the changes stay uncommitted for investigation.
+
+    Args:
+        context: The workflow context.
+        error: The wiki page generation error.
+    """
+    print_message(f"Wiki page generation failed: {error}", style="error")
+    body = await get_template("wiki_failed", error=error)
+    await notify_linear_failure(context=context, body=body, comment_label="wiki-failure")

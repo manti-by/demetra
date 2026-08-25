@@ -46,6 +46,10 @@ class PullRequestError(DemetraError):
     pass
 
 
+class WikiError(DemetraError):
+    pass
+
+
 class AuthError(DemetraError):
     pass
 

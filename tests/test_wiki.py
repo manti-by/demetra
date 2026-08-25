@@ -224,7 +224,7 @@ class TestGitDiffFacts:
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
         assert facts["files"] == ["a.py"]
-        assert any("origin/main..HEAD" in command for command in commands)
+        assert any("origin/main" in command and "..HEAD" not in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
     async def test_numstat_ignores_blank_lines_from_run_command(self, monkeypatch):
@@ -257,7 +257,7 @@ class TestGitDiffFacts:
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
         assert facts["files"] == []
-        assert any("origin/master..HEAD" in command for command in commands)
+        assert any("origin/master" in command and "..HEAD" not in command for command in commands)
 
     async def test_errors_are_swallowed(self, monkeypatch):
         async def fake_run_command(command, target_path, disable_stdio=False, env=None):
@@ -538,15 +538,32 @@ class TestWriteSessionWikiPage:
         # no duplicate filename created
         assert len(list(wiki_dirs["pages"].glob("*.md"))) == 1
 
-    async def test_failure_is_swallowed(self, tmp_path, wiki_dirs, monkeypatch):
+    async def test_failure_raises_wiki_error(self, tmp_path, wiki_dirs, monkeypatch):
+        from demetra.library.exceptions import WikiError
+
         async def boom(target_path, env=None):
             raise OSError("git unavailable")
 
         monkeypatch.setattr(service, "git_diff_facts", boom)
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
 
-        # must not raise
-        await service.write_session_wiki_page(context=make_context(tmp_path))
+        with pytest.raises(WikiError, match="Failed to write wiki page"):
+            await service.write_session_wiki_page(context=make_context(tmp_path))
+
+    async def test_writes_to_custom_wiki_root(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
+        custom_root = tmp_path / "worktree-wiki"
+        custom_root.mkdir()
+
+        await service.write_session_wiki_page(context=make_context(tmp_path), wiki_root=custom_root)
+
+        page_path = custom_root / "pages" / "2026-08-04-mnt-147-wiki-processes.md"
+        assert page_path.is_file()
+        index_text = (custom_root / "INDEX.md").read_text()
+        assert "[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)" in index_text
+        # the conftest-isolated default wiki must be untouched
+        assert not (service.WIKI_ROOT / "pages" / "2026-08-04-mnt-147-wiki-processes.md").exists()
 
     async def test_llm_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))

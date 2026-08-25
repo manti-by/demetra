@@ -66,6 +66,9 @@ async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> s
 async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
     """Collect deterministic diff facts against the default branch for a worktree.
 
+    Diffs the working tree against the default branch so uncommitted changes
+    (e.g. the build agent output before the commit step) are captured.
+
     Args:
         target_path: The repository worktree to diff.
         env: Optional environment overrides for the subprocess.
@@ -75,7 +78,7 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
             lines and the ``--stat`` text. Falls back to empty values on error.
     """
     base_ref = await service.git_default_branch(target_path=target_path, env=env)
-    base = [str(service.GIT["path"]), "diff", f"{base_ref}..HEAD"]
+    base = [str(service.GIT["path"]), "diff", base_ref]
     files: list[str] = []
     numstat: list[tuple[str, str, str]] = []
     stat_text = ""
