@@ -963,7 +963,7 @@ class TestSessionHistoryEndpoint:
             assert response.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_returns_history_rows(self, authenticated_client: TestClient):
+    async def test_returns_total_and_history(self, authenticated_client: TestClient):
         mock_rows = [
             SessionHistory(
                 id="h1",
@@ -1007,9 +1007,148 @@ class TestSessionHistoryEndpoint:
 
             assert response.status_code == 200
             data = response.json()
-            assert len(data) == 2
-            assert data[0]["step"] == "plan"
-            assert data[0]["input_tokens"] == 500
-            assert data[0]["output_tokens"] == 300
-            assert data[1]["step"] == "build"
-            assert data[1]["input_tokens"] == 1200
+            assert set(data.keys()) == {"total", "history"}
+            assert data["total"] == {
+                "length": 3500,
+                "input_tokens": 1700,
+                "output_tokens": 1100,
+                "reasoning_tokens": 400,
+                "cache_read_tokens": 150,
+                "cache_write_tokens": 150,
+            }
+            assert len(data["history"]) == 2
+            assert data["history"][0]["step"] == "plan"
+            assert data["history"][0]["input_tokens"] == 500
+            assert data["history"][0]["output_tokens"] == 300
+            assert data["history"][1]["step"] == "build"
+            assert data["history"][1]["input_tokens"] == 1200
+
+    @pytest.mark.asyncio
+    async def test_total_treats_null_tokens_as_zero(self, authenticated_client: TestClient):
+        mock_rows = [
+            SessionHistory(
+                id="h1",
+                session_id="session-abc",
+                step="plan",
+                created_at="2026-01-01T00:00:00Z",
+                length=1000,
+                input_tokens=500,
+                output_tokens=None,
+                reasoning_tokens=None,
+                cache_read_tokens=50,
+                cache_write_tokens=None,
+            ),
+            SessionHistory(
+                id="h2",
+                session_id="session-abc",
+                step="build",
+                created_at="2026-01-01T01:00:00Z",
+                length=None,
+                input_tokens=1200,
+                output_tokens=800,
+                reasoning_tokens=None,
+                cache_read_tokens=None,
+                cache_write_tokens=100,
+            ),
+        ]
+
+        with (
+            patch(
+                "demetra.api.sessions.get_session_id_by_task_id",
+                new_callable=AsyncMock,
+                return_value="session-abc",
+            ),
+            patch(
+                "demetra.api.sessions.get_session_history",
+                new_callable=AsyncMock,
+                return_value=mock_rows,
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/sessions/TASK-123/history")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"] == {
+                "length": 2650,
+                "input_tokens": 1700,
+                "output_tokens": 800,
+                "reasoning_tokens": 0,
+                "cache_read_tokens": 50,
+                "cache_write_tokens": 100,
+            }
+
+    @pytest.mark.asyncio
+    async def test_total_for_empty_history_is_all_zeros(self, authenticated_client: TestClient):
+        with (
+            patch(
+                "demetra.api.sessions.get_session_id_by_task_id",
+                new_callable=AsyncMock,
+                return_value="session-abc",
+            ),
+            patch(
+                "demetra.api.sessions.get_session_history",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/sessions/TASK-123/history")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["history"] == []
+            assert data["total"] == {
+                "length": 0,
+                "input_tokens": 0,
+                "output_tokens": 0,
+                "reasoning_tokens": 0,
+                "cache_read_tokens": 0,
+                "cache_write_tokens": 0,
+            }
+
+    @pytest.mark.asyncio
+    async def test_total_sums_length_independently(self, authenticated_client: TestClient):
+        mock_rows = [
+            SessionHistory(
+                id="h1",
+                session_id="session-abc",
+                step="plan",
+                created_at="2026-01-01T00:00:00Z",
+                length=100,
+                input_tokens=None,
+                output_tokens=None,
+                reasoning_tokens=None,
+                cache_read_tokens=None,
+                cache_write_tokens=None,
+            ),
+            SessionHistory(
+                id="h2",
+                session_id="session-abc",
+                step="build",
+                created_at="2026-01-01T01:00:00Z",
+                length=350,
+                input_tokens=None,
+                output_tokens=None,
+                reasoning_tokens=None,
+                cache_read_tokens=None,
+                cache_write_tokens=None,
+            ),
+        ]
+
+        with (
+            patch(
+                "demetra.api.sessions.get_session_id_by_task_id",
+                new_callable=AsyncMock,
+                return_value="session-abc",
+            ),
+            patch(
+                "demetra.api.sessions.get_session_history",
+                new_callable=AsyncMock,
+                return_value=mock_rows,
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/sessions/TASK-123/history")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"]["length"] == 450
+            assert data["total"]["input_tokens"] == 0

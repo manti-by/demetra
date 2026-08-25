@@ -1,8 +1,10 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
 import { marked } from 'marked';
 import DOMPurify from 'dompurify';
-import { getSessionHistory, type Session, type SessionHistoryEntry } from '../services/api';
+import { getSessionHistory, type Session, type SessionHistoryResponse } from '../services/api';
 import { SessionHistory } from './SessionHistory';
+
+const EMPTY_TOKEN_TOTALS = { length: 0, input_tokens: 0, output_tokens: 0, reasoning_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
 interface SessionArtifactsProps {
   taskId: string | null;
   sessions: Session[];
@@ -25,7 +27,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [historyEntries, setHistoryEntries] = useState<SessionHistoryEntry[]>([]);
+  const [historyData, setHistoryData] = useState<SessionHistoryResponse | null>(null);
   const historyAbortRef = useRef<AbortController | null>(null);
 
   const openModal = useCallback(() => {
@@ -36,7 +38,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
 
   useEffect(() => {
     setHistoryOpen(false);
-    setHistoryEntries([]);
+    setHistoryData(null);
     setHistoryLoading(false);
     setHistoryError(null);
 
@@ -60,9 +62,9 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
     const signal = controller.signal;
 
     try {
-      const entries = await getSessionHistory(taskId, signal);
+      const data = await getSessionHistory(taskId, signal);
       if (signal.aborted) return;
-      setHistoryEntries(entries);
+      setHistoryData(data);
     } catch {
       if (signal.aborted) return;
       setHistoryError('Failed to load session history');
@@ -167,7 +169,8 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
         </div>
       )}
       <SessionHistory
-        entries={historyEntries}
+        entries={historyData?.history ?? []}
+        total={historyData?.total ?? EMPTY_TOKEN_TOTALS}
         isOpen={historyOpen}
         onClose={closeHistory}
         isLoading={historyLoading}
