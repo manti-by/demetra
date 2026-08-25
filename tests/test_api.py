@@ -1069,7 +1069,7 @@ class TestSessionHistoryEndpoint:
             assert response.status_code == 200
             data = response.json()
             assert data["total"] == {
-                "length": 1000,
+                "length": 2650,
                 "input_tokens": 1700,
                 "output_tokens": 800,
                 "reasoning_tokens": 0,
