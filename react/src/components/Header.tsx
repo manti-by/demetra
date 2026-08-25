@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { useTheme } from "../contexts/ThemeContext";
 import type { User } from "../services/api";
 
@@ -171,7 +172,12 @@ export function Header({
                 )}
                 {onOpenSharedEnv && (
                   <button onClick={handleOpenSharedEnv}>
-                    <span className="empty-icon"></span>
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="3" width="7" height="7" rx="1" />
+                      <rect x="14" y="3" width="7" height="7" rx="1" />
+                      <rect x="3" y="14" width="7" height="7" rx="1" />
+                      <rect x="14" y="14" width="7" height="7" rx="1" />
+                    </svg>
                     Shared environment
                   </button>
                 )}
@@ -184,6 +190,10 @@ export function Header({
                   <span className="empty-icon"></span>
                   RQ Dashboard
                 </a>
+                <Link to="/styleguide" onClick={() => setMenuOpen(false)}>
+                  <span className="empty-icon"></span>
+                  Style guide
+                </Link>
                 <button className="danger" onClick={handleLogout}>
                   {LOGOUT_ICON}
                   Logout

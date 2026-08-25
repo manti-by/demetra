@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { signup, loginWithPassword } from '../services/api';
+import { Loader } from './Loader';
 
 export function PasswordAuthForm() {
   const [mode, setMode] = useState<'login' | 'signup'>('login');
@@ -59,7 +60,7 @@ export function PasswordAuthForm() {
         </div>
         {error && <p className="auth-error" role="alert">{error}</p>}
         <button type="submit" className="auth-submit" disabled={loading}>
-          {loading ? 'Please wait...' : mode === 'login' ? 'Sign in' : 'Create account'}
+          {loading ? <Loader size={20} /> : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
       </form>
       <p className="auth-toggle">

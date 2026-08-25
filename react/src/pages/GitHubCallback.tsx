@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import { Loader } from '../components/Loader';
 import { exchangeCodeForToken } from '../services/api';
 
 export function GitHubCallback() {
@@ -37,10 +38,7 @@ export function GitHubCallback() {
         {error ? (
           <div className="callback-error">{error}</div>
         ) : (
-          <>
-            <div className="callback-spinner" />
-            <p className="callback-text">Authenticating...</p>
-          </>
+          <Loader size={48} />
         )}
       </div>
     </div>

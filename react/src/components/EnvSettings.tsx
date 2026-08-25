@@ -6,6 +6,7 @@ import {
   deleteProjectEnvironment,
 } from "../services/api";
 import { EnvFileUploadButton } from "./EnvFileUploadButton";
+import { Loader } from "./Loader";
 import { isSensitiveKey, type EnvFileEntry } from "../utils/envFile";
 
 interface EnvSettingsProps {
@@ -211,9 +212,7 @@ export function EnvSettings({
           {error && <div className="settings-error">{error}</div>}
 
           {loading ? (
-            <div className="loading-container">
-              <div className="loading-spinner" />
-            </div>
+            <Loader size={36} />
           ) : (
             <>
               <div className="env-list">
@@ -270,7 +269,7 @@ export function EnvSettings({
                   onClick={handleAddEntry}
                   disabled={saving || !draftKey.trim()}
                 >
-                  {saving ? "Saving..." : "Add"}
+                  {saving ? <Loader size={18} /> : "Add"}
                 </button>
               </div>
 

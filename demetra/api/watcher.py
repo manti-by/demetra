@@ -129,8 +129,8 @@ async def watcher_logs(
             async with aiofiles.open(resolved_path) as f:
                 content = await f.read()
                 lines = content.splitlines()
-                last_100_lines = lines[-100:] if len(lines) > 100 else lines
-                for line in last_100_lines:
+                last_1000_lines = lines[-1000:] if len(lines) > 1000 else lines
+                for line in last_1000_lines:
                     await send_log(websocket=websocket, line=line)
         except FileNotFoundError:
             pass

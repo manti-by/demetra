@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, memo } from 'react';
 import { getSessions, type Session } from '../services/api';
+import { Loader } from './Loader';
 
 const POLL_INTERVAL = 60000;
 
@@ -79,7 +80,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
   return (
     <div className="session-list">
       {loading && sessions.length === 0 ? (
-        <div className="session-list-loading">Loading sessions...</div>
+        <Loader size={36} />
       ) : error ? (
         <div className="session-list-error">{error}</div>
       ) : sessions.length === 0 ? (

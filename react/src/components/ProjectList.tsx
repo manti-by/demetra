@@ -6,6 +6,7 @@ import {
   deleteProject,
 } from "../services/api";
 import { EnvSettings } from "./EnvSettings";
+import { Loader } from "./Loader";
 
 interface ProjectListProps {
   onClose?: () => void;
@@ -143,9 +144,7 @@ export function ProjectList({ onClose, inline = false }: ProjectListProps) {
       {error && <div className="settings-error">{error}</div>}
 
       {loading ? (
-        <div className="loading-container">
-          <div className="loading-spinner" />
-        </div>
+        <Loader size={40} />
       ) : (
         <>
           <div className="projects-list">
@@ -244,7 +243,7 @@ export function ProjectList({ onClose, inline = false }: ProjectListProps) {
                   onClick={handleCreateProject}
                   disabled={saving}
                 >
-                  {saving ? "Creating..." : "Create"}
+                  {saving ? <Loader size={18} /> : "Create"}
                 </button>
               </div>
             </div>
