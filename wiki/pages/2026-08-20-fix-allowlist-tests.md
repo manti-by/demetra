@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_fe1248211ffeLvd40e4OnV1uVR
 services: [auth, settings, tests]
-branch: -
+branch: "-"
 tickets: [MNT-173]
 tags: [allowlist, auth, settings, tests, feature-flag]
 related: [2026-08-06-allowlist-review-fixes.md, 2026-08-18-test-db-isolation-logging.md]
@@ -64,6 +64,11 @@ Tests that don't create/authenticate a user (invalid-email signup, unknown-email
 The `parse_allowlist_flag()` helper mentioned in the Overview was part of the staged
 MNT-173 state; the merged form on `master` reads the flag directly via
 `env_get_bool(..., True)` with no spell-tolerant parser.
+
+## Consistency note (2026-08-24)
+
+Frontmatter `branch: -` was unquoted YAML (parsed as a sequence); quoted to `"-"` so
+frontmatter parses cleanly.
 
 ## References
 

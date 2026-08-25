@@ -97,7 +97,7 @@ uv run main.py --project-name <project_name>
 
 Alternative deployment path that runs the full app layer (Postgres, Redis, API, 4 workers, watcher, listener, RQ dashboard and a one-shot React build) on top of the `mantiby/demetra` image. The systemd `make deploy` path is untouched.
 
-Prerequisites: Docker Compose v2 (the compose file declares `deploy.replicas: 2` for the workers; the `docker-up`/`docker-deploy` targets pass `--scale worker=4` so 4 workers run), the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`, which `docker-deploy` runs as a prerequisite; the `postgres`/`redis`/`oven/bun` images are pulled automatically), and `docker-build` needs Docker BuildKit.
+Prerequisites: Docker Compose v2 (the `docker-up`/`docker-deploy` targets pass `--scale worker=4` so 4 workers run; the compose file does not declare `deploy.replicas`), the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`, which `docker-deploy` runs as a prerequisite; the `postgres`/`redis`/`oven/bun` images are pulled automatically), and `docker-build` needs Docker BuildKit.
 
 ```bash
 cp .env.docker.example .env.docker   # then fill in real values

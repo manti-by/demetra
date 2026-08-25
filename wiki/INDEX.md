@@ -87,8 +87,9 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & session lifecycle (12 pages)
+### Workflow orchestration & session lifecycle (13 pages)
 
+- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
 - [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md)
 - [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md)
@@ -138,8 +139,9 @@ _(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-rev
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md)
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md)
 
-### Docker & deploy (6 pages)
+### Docker & deploy (7 pages)
 
+- [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md)
 - [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md)
 - [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md)
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md)
@@ -171,7 +173,9 @@ _(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-rev
 - [GitHub PR description](pages/2026-06-22-github-pr-description.md)
 - [Async review](pages/2026-05-25-async-review.md)
 
-### Code-review findings application (3 pages) _(note: apply-pr75 and allowlist-review-fixes also sit in Authentication & API security.)_
+### Code-review findings application (3 pages)
+
+_(note: apply-pr75 and allowlist-review-fixes also sit in Authentication & API security.)_
 
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md)

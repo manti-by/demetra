@@ -1,14 +1,14 @@
 ---
-title:              Guard empty plan agent output
+title: Guard empty plan agent output
 date: 2026-08-24
-type:               implementation
-status:             resolved
-session_id:         ses_fcc17abbaffe7m4bui291JEEZ3
-services:           [workflows, opencode, llm]
-branch:             -
-tickets:            []
-tags:               [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
-related:            [2026-07-16-fix-empty-build-plan-loop, 2026-08-05-post-build-validation]
+type: implementation
+status: resolved
+session_id: ses_fcc17abbaffe7m4bui291JEEZ3
+services: [workflows, opencode, llm]
+branch: "-"
+tickets: []
+tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
+related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md]
 ---
 
 # Guard empty plan agent output

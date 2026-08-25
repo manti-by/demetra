@@ -197,6 +197,8 @@ yet, make one".
 
 - Line 54 says "cleanup sets `step='failed'`" — this is true for the default `failure_step` but some failure paths now set `step="awaiting_input"` instead (e.g., `AutoCancelledError`, `PullRequestError`, `ReviewError`). The replan gate (`not context.session.build_plan`) still works correctly regardless of which failure step was set.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: [[2026-08-05-pr-creation-failure-handler]] (PR failure path sets `step="awaiting_input"`)

@@ -99,6 +99,8 @@ All 489 tests pass. Ruff and ty checks pass. Added `TestSubprocessToFile` (6 tes
 
 Deploy via git pull to odin. No further code changes needed.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: none

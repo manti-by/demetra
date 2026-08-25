@@ -93,6 +93,10 @@ The `is_version_updated` guard that runs the bump once per workflow is unchanged
 
 None.
 
+## Consistency fix (2026-08-25)
+
+- Frontmatter `title` quoted to escape the `:` (unquoted `:` broke YAML parsing: `mapping values are not allowed here`).
+
 ## References
 
 - Related: [[2026-06-25-update-project-version]]

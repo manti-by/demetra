@@ -8,7 +8,7 @@ services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
-related: [2026-07-16-fix-notification-mark-read.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-wiki-mcp-tools.md]
+related: [2026-07-16-fix-notification-mark-read.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-wiki-mcp-tools.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # AGENTS.md Revalidation and Wiki Consistency Audit
@@ -99,6 +99,8 @@ Verified the working tree and git history to correct outdated page statements:
 - No source-code or test changes; documentation-only edits. No lint/type/test gates affected.
 
 ---
+
+> **Consistency note (2026-08-24, Consistency Agent):** Active LLM consumers now use `demetra/services/llm/openrouter.py` (not `demetra/services/groq.py` or `demetra/services/llm/groq.py` for workflow calls); `PLAN_OUTPUT_MAX_CHARS` lives in `openrouter.py:15`. OpenCode helpers are at `demetra/services/agents/opencode.py` (not `demetra/services/opencode.py`). Compaction is invoked at `demetra/workflows/build.py:100` (not `:79` or `:96`). See [[2026-08-18-migrate-llm-groq-to-openrouter]] and [[2026-07-23-session-tokens-audit-revalidation]].
 
 ## Follow-ups
 

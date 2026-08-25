@@ -133,6 +133,8 @@ Without the fix this same input would have been clipped at 4 095 chars, dropping
 
 - The positional-arg fix described in the Resolution was itself superseded by PR #72 (MNT-146), which switched to **stdin piping** (`input_text=task` passed to `run_command`). The current `run_opencode_agent` in `demetra/services/agents/opencode.py` delivers the task via stdin, not as a positional argument. No `[:4095]` cap and no `ARG_MAX` concern.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-08-05-post-build-validation]] (validate-agent that superseded the positional-arg path with stdin piping)

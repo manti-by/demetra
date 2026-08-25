@@ -107,6 +107,10 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
   `demetra/services/runtime/utils.py:261` and returns the `default` when the variable is
   unset (`if value is None: return default`).
 
+## Consistency fix (2026-08-25)
+
+- Frontmatter `title` quoted to preserve `#70` (unquoted `#` is a YAML comment and truncated the title to `MNT-147 Wiki processes PR`).
+
 ## References
 
 - Related: [[2026-08-06-allowlist-review-fixes]], [[2026-08-03-wiki-mcp-tools]]

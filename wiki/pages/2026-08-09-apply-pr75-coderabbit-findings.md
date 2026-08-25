@@ -95,6 +95,10 @@ The doc showed `-- "wiki/"` and "skipped the rename/copy destination record"; th
 - Working tree is uncommitted on `code-review`; the orchestrator handles the commit/PR.
 - Dev DB `alembic_version` was stamped `d1e2f3a4b5c6` (schema matched, version stale) before applying `a4b5c6d7e8f9`.
 
+## Consistency fix (2026-08-25)
+
+- Frontmatter `title` quoted to preserve `#75` (unquoted `#` is a YAML comment and truncated the title).
+
 ## References
 
 - Related: [[2026-08-09-apply-code-review-findings]], [[2026-07-24-plain-auth-review-followups]]

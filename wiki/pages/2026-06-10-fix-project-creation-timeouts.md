@@ -77,6 +77,8 @@ path.
 
 - None.
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py; demetra/services/project.py → demetra/services/runtime/project.py; demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - External: https://linear.app/mnt/issue/MNT-97, MNT-112

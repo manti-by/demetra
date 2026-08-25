@@ -146,6 +146,8 @@ Deliberately kept the function `async` (it has no awaits) so the three call site
 
 - None
 
+> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
 ## References
 
 - Related: [[2026-07-15-duplicated-log-messages]]
