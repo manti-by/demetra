@@ -8,7 +8,7 @@ services:           [api, sessions, react]
 branch:             "-"
 tickets:            []
 tags:               [frontend, modal, session-history, react, api]
-related: [2026-07-16-session-history-tokens-null.md, 2026-07-22-react-frontend-template-warp.md]
+related: [2026-07-16-session-history-tokens-null.md, 2026-07-22-react-frontend-template-warp.md, 2026-08-25-mnt-181-total-tokens-counter.md]
 ---
 
 # Session History Modal
@@ -327,13 +327,16 @@ $ cd react && bun run test
 ## Follow-ups
 
 - Add Escape key handler to the history modal (the build-plan modal already has it via `SessionArtifacts.tsx`)
-- Add a `title={entry.created_at}` attribute to `<time>` for hover-to-absolute.
+- ~~Add a `title={entry.created_at}` attribute to `<time>` for hover-to-absolute.~~ Done in MNT-181 — see [[2026-08-25-mnt-181-total-tokens-counter]].
 - Verify `record_session_history` coverage — query `SELECT DISTINCT step FROM session_history` after one full end-to-end run to identify uncovered workflow steps.
+
+> **Consistency note (2026-08-25, Consistency Agent):** MNT-181 (PR #101) extended this feature — the history endpoint now returns `{"total": {...}, "history": [...]}` instead of a bare row list, and the modal renders a session-wide **Total Tokens** summary block below the timeline. Per-row `context_tokens` and `model` fields are also exposed. Database helpers moved to `demetra/services/persistence/database.py`. See [[2026-08-25-mnt-181-total-tokens-counter]] for the current API/UI contract; the Step 2–4 snippets below describe the original 2026-07-23 implementation.
 
 ## References
 
 - [[2026-07-22-react-frontend-template-warp]] — warp theme with the CSS variables used
 - [[2026-07-16-session-history-tokens-null]] — why token fields can be null
+- [[2026-08-25-mnt-181-total-tokens-counter]] — total tokens counter and response-shape change
 - `demetra/services/database.py:535` — `get_session_history` (already exists)
 - `demetra/library/tables.py:97` — `session_history` table (already exists)
 - `react/src/components/SessionArtifacts.tsx:111-134` — build-plan modal to mirror
