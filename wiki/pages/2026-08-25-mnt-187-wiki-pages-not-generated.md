@@ -54,6 +54,23 @@ The write helpers now take an optional target path so the main flow can write in
 3. A second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit.
 4. Proceeds with `git commit` / `git push` / PR creation as before.
 
+> **Status update (2026-08-27, Consistency Agent):** Point 2 above ("any failure becomes
+> `WikiError` and no commit happens") is now stale. A same-day follow-up commit,
+> `c2a31ab` ("MNT-187: Fix review findings", merged into `master` via PR #103,
+> `bce3571`), changed `commit_and_push` so a wiki-write failure is caught and
+> **deferred** instead of raised immediately: the function proceeds to `git commit` /
+> `git push` / PR creation *without* the wiki page, marks the session step
+> `"completed"`, and only then does `if wiki_error is not None: raise wiki_error` —
+> so the ticket still ends up in `Awaiting Input` with the `wiki_failed` comment, but
+> the branch, push and PR have already succeeded by the time that happens. The
+> `demetra/templates/wiki_failed.md` copy was updated to match: "The build succeeded
+> and changes were committed and pushed, but generating the wiki page for this
+> session failed. The branch and pull request were still created without the wiki
+> page." `process_wiki_failure`'s docstring (`demetra/workflows/failure.py:85`) now
+> says the same thing explicitly. Net effect: wiki generation is best-effort and
+> never blocks shipping the code change; only the ticket status (not the commit) is
+> gated on it.
+
 ## Step 5 — Failure handling
 
 **File:** `demetra/templates/wiki_failed.md` — new template: `## Wiki page generation failed`, the error block, and a request to move the ticket back to `In Progress`.

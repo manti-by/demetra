@@ -8,7 +8,7 @@ services: [auth, linear]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, linear, planning, email-password, github-oauth, bcrypt]
-related: [2026-08-03-auth-hardening-and-deps-bump.md]
+related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-24-plain-auth-review-followups.md]
 ---
 
 # Linear Ticket for Email/Password Authentication
@@ -76,6 +76,18 @@ Asked the user four questions to nail down scope before writing the ticket; all 
 4. **Team** → `M2` (chosen after listing both available teams: Vention and M2)
 
 The ticket body explicitly excludes password reset, email verification, account linking, and rate limiting as separate follow-ups so this ticket stays small and mergeable.
+
+> **Status update (2026-08-27, Consistency Agent):** Scope drift versus decision 2. Despite
+> password reset being locked out of scope here (deferred to "a separate ticket"), an
+> admin-only `--resetpass` CLI (`reset_password_cli`) shipped inside this same MNT-148 branch
+> during the first-pass review follow-ups — see [[2026-07-24-plain-auth-review-followups]]
+> Step 4 ("Password reset CLI"). No wiki page for a distinct password-reset Linear ticket
+> exists, so the "Open separate Linear tickets for: password reset..." follow-up below does
+> not appear to have been actioned as its own ticket; the feature landed under MNT-148 instead.
+> Note this is an operator/admin CLI reset, not the self-service "forgot password" email flow
+> the ticket's exclusion was aimed at (no such user-facing flow exists in the current API —
+> verified via `demetra/api/auth.py`), so the drift is partial, not a full reversal of the
+> decision.
 
 ## Linear API calls performed
 

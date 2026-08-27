@@ -42,6 +42,13 @@ Messages now carry two fields:
 
 `type` is one of `log` or `status`; `data` holds the payload.
 
+> **Status update (2026-08-27, Consistency Agent):** the status-envelope payload key is
+> now `step`, not `status` — current code (`demetra/api/watcher.py:30-38`) sends
+> `{"type": "status", "data": {"step": step, "name": name}}`. This tracks the
+> `status` → `step` column rename on `Session` (see the step/status refactor covered
+> in the Workflow-orchestration cluster, e.g. `2026-07-16-fix-step-status-review-findings`).
+> The `type`/envelope shape itself (`log` vs `status`) is unchanged.
+
 ## Step 3 — Parse on the frontend
 
 **File:** `react` session log viewer

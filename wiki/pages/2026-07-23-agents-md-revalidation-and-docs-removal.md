@@ -78,6 +78,12 @@ No test-impacting code changes. Lint/type/security checks are N/A for documentat
 - The `update-agents-file.md` OpenCode command should be invoked periodically (e.g., weekly or after major merges) to keep AGENTS.md accurate.
 - Consider documenting the LangSmith plugin setup and tracing config in the wiki.
 
+> **Status update (2026-08-27, Consistency Agent):** `.opencode/commands/update-agents-file.md`
+> no longer exists. Commit `50755dd` ("Migrate commands to skills, fix allowlist") migrated all
+> OpenCode commands to `.opencode/skills/<name>/SKILL.md` packages; this command's successor is
+> `.opencode/skills/wiki-agents-file/SKILL.md` ("Update AGENTS.md"), which carries the same
+> source-of-truth-priority (code > wiki > git log) revalidation flow described in Step 1.
+
 ## References
 
 - Related: [[2026-07-22-feature-flag-settings-and-tests]]

@@ -8,7 +8,7 @@ services: [main, api, database, workflows, linear, sessions]
 branch: "-"
 tickets: [MNT-37, MNT-63]
 tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
-related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md]
+related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md]
 ---
 
 # Fix code-review findings on step/status refactor
@@ -183,6 +183,16 @@ documents is the successor of that merged status concept.
 > validate-agent step set in `demetra/workflows/build.py:102`, which had previously
 > been written without a matching enum value. `VALID_STEPS` in
 > `demetra/api/sessions.py` now accepts `step=validate`. `awaiting_input` was added for PR/review failure paths (see [[2026-08-05-pr-creation-failure-handler]]); current `StepType` is `initial | plan | build | validate | review | lint | test | push | completed | failed | awaiting_input`.
+
+> **Status update (2026-08-27, Consistency Agent):** `StepType` has since gained a 12th
+> value: `"wiki"` (inserted between `test` and `push`), added in
+> [[2026-08-25-mnt-187-wiki-pages-not-generated]] for the wiki-page-write session step.
+> Current `StepType` is `initial | plan | build | validate | review | lint | test | wiki |
+> push | completed | failed | awaiting_input`.
+>
+> Also, `demetra/services/database.py` (cited in Steps 1–4 above) has moved to
+> `demetra/services/persistence/database.py`; `demetra/api/sessions.py` is unchanged.
+> Historical `file:line` refs above are kept as written.
 
 ## References
 

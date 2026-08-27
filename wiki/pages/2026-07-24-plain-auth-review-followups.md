@@ -235,6 +235,12 @@ display-name and `AuthContext` this page's Step 5 header-fallback work refines.
   endpoint responses (`/api/v1/auth/signup`, `/api/v1/auth/login`) but is still returned in
   the GitHub OAuth callback response (`/api/v1/github/callback`). The `AuthResponse` TypeScript
   interface still declares `token?: string`.
+- _Module path correction (2026-08-27, Consistency Agent):_ `demetra/services/auth.py` and
+  `demetra/services/passwords.py`, referenced throughout Steps 1, 4, and 5 above, were split
+  into a `demetra/services/auth/` subpackage by the "Refactor services" commit `04436c6`
+  (2026-08-07) — `auth.py` became `auth/__init__.py` (plus `auth/sessions.py`, `auth/jwt.py`,
+  `auth/oauth.py`, `auth/copy.py`), and `passwords.py` moved to `auth/passwords.py` unchanged.
+  The behavior described here is still current; only the file paths moved.
 
 ## References
 
