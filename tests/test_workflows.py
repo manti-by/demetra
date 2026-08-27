@@ -1527,6 +1527,11 @@ class TestWorkflowCleanup:
             yield m
 
     @pytest.fixture
+    def mock_write_session_wiki_page(self):
+        with patch("demetra.workflows.cleanup.write_session_wiki_page", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
     def mock_commit_deps(
         self,
         mock_git_add_all,
@@ -1534,6 +1539,7 @@ class TestWorkflowCleanup:
         mock_git_push,
         mock_create_pull_request,
         mock_generate_pr_description,
+        mock_write_session_wiki_page,
     ):
         return (
             mock_git_add_all,
@@ -1541,11 +1547,12 @@ class TestWorkflowCleanup:
             mock_git_push,
             mock_create_pull_request,
             mock_generate_pr_description,
+            mock_write_session_wiki_page,
         )
 
     @pytest.mark.asyncio
     async def test_commit_and_push(self, faker, mock_commit_deps):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1579,11 +1586,13 @@ class TestWorkflowCleanup:
 
         result = await commit_and_push(context)
         assert result is True
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
+        assert _mock_add_all.await_count == 2
 
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):
 
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1617,12 +1626,13 @@ class TestWorkflowCleanup:
 
         with pytest.raises(PullRequestError, match="could not create PR"):
             await commit_and_push(context)
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_description_failure_raises_pull_request_error(self, faker, mock_commit_deps):
         from demetra.library.exceptions import PrDescriptionError
 
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1658,6 +1668,7 @@ class TestWorkflowCleanup:
             await commit_and_push(context)
 
         mock_pr.assert_not_awaited()
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
     async def test_commit_and_push_persists_pr_link(
@@ -1666,7 +1677,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1702,6 +1713,7 @@ class TestWorkflowCleanup:
             task_id=context.linear_task.id,
             pr_link="https://github.com/test/demetra/pull/42",
         )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
     async def test_commit_and_push_skips_pr_link_when_url_missing(
@@ -1710,7 +1722,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body = mock_commit_deps
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1743,6 +1755,51 @@ class TestWorkflowCleanup:
 
         await commit_and_push(context)
         mock_update_session_pr_link.assert_not_awaited()
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_wiki_failure_raises_wiki_error(self, faker, mock_commit_deps):
+        from demetra.library.exceptions import WikiError
+
+        _mock_add_all, _mock_commit, _mock_push, _mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        _mock_add_all.return_value = True
+        _mock_pr.return_value = (0, "https://github.com/test/demetra/pull/1", "")
+        mock_wiki.side_effect = OSError("disk full")
+
+        with pytest.raises(WikiError, match="Failed to write wiki page"):
+            await commit_and_push(context)
+        _mock_commit.assert_awaited_once()
+        _mock_push.assert_awaited_once()
+        _mock_pr.assert_awaited_once()
+        assert _mock_add_all.await_count == 1
 
     @pytest.mark.asyncio
     async def test_cleanup_workflow_success(self, faker, mock_git_cleanup, mock_linear_cleanup):

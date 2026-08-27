@@ -106,12 +106,12 @@ class TestMainReplanning:
             patch("main.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("main.mark_session_posted", new_callable=AsyncMock),
             patch("main.upsert_pending_session", new_callable=AsyncMock) as mock_upsert_pending_session,
-            patch("main.write_session_wiki_page", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
             patch("main.process_pr_failure", new_callable=AsyncMock) as mock_process_pr_failure,
             patch("main.process_build_failure", new_callable=AsyncMock) as mock_process_build_failure,
+            patch("main.process_wiki_failure", new_callable=AsyncMock) as mock_process_wiki_failure,
             patch("main.cleanup_workflow", new_callable=AsyncMock) as mock_cleanup_workflow,
         ):
             mock_commit_and_push.return_value = True
@@ -125,6 +125,7 @@ class TestMainReplanning:
                 "commit_and_push": mock_commit_and_push,
                 "process_pr_failure": mock_process_pr_failure,
                 "process_build_failure": mock_process_build_failure,
+                "process_wiki_failure": mock_process_wiki_failure,
                 "cleanup_workflow": mock_cleanup_workflow,
             }
 
@@ -300,3 +301,46 @@ class TestMainReplanning:
         await main(project_name="demetra", auto_mode=True)
 
         mock_main_deps["upsert_pending_session"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_main_writes_wiki_before_commit(self, mock_main_deps):
+        """On the success path the wiki page is written inside commit_and_push, so
+        commit_and_push must run before the workflow completes."""
+        from main import main
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["run_build_step"].assert_awaited_once()
+        mock_main_deps["commit_and_push"].assert_awaited_once_with(context=context)
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=True,
+            should_update_linear_status=True,
+            failure_step="failed",
+        )
+
+    @pytest.mark.asyncio
+    async def test_main_handles_wiki_failure(self, mock_main_deps):
+        from main import main
+
+        from demetra.library.exceptions import WikiError
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+        mock_main_deps["commit_and_push"].side_effect = WikiError("Failed to write wiki page")
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["process_wiki_failure"].assert_awaited_once()
+        call_kwargs = mock_main_deps["process_wiki_failure"].call_args.kwargs
+        assert call_kwargs["context"] is context
+        assert isinstance(call_kwargs["error"], WikiError)
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+        )

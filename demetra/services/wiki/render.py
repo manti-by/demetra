@@ -142,21 +142,39 @@ async def write_page(path: Path, body: str) -> None:
     os.replace(tmp, path)
 
 
-async def write_session_wiki_page(context: Context) -> None:
+async def write_session_wiki_page(context: Context, wiki_root: Path | None = None) -> None:
     """Write (or update) the wiki page for the current session.
 
-    Failures are logged and never raised so a wiki error cannot fail the
-    workflow.
+    The page is written under ``pages/`` and the matching ``INDEX.md`` is
+    patched inside ``wiki_root``. When ``wiki_root`` is omitted the service
+    ``PAGES_ROOT`` / ``INDEX_PATH`` are used; pass the worktree's ``wiki``
+    directory so the freshly-written page is picked up by the next ``git add``
+    and included in the commit.
+
+    Failures raise ``WikiError`` so the caller can decide how to handle them
+    (e.g. move the ticket to ``Awaiting Input``).
 
     Args:
         context: The workflow context.
+        wiki_root: Optional wiki root directory; defaults to the service
+            ``PAGES_ROOT`` / ``INDEX_PATH``.
+
+    Raises:
+        WikiError: When the wiki page or index cannot be written.
     """
+    if wiki_root is not None:
+        pages_root = wiki_root / "pages"
+        index_path = wiki_root / "INDEX.md"
+    else:
+        pages_root = service.PAGES_ROOT
+        index_path = service.INDEX_PATH
+    identifier = "unknown"
     try:
         facts = service.collect_session_facts(context=context)
         identifier = facts["ticket_identifier"]
         title = facts["title"]
 
-        existing = service.existing_page_for_ticket(ticket_identifier=identifier)
+        existing = service.existing_page_for_ticket(ticket_identifier=identifier, pages_root=pages_root)
         filename = (
             existing.name
             if existing is not None
@@ -201,8 +219,9 @@ async def write_session_wiki_page(context: Context) -> None:
             )
 
         body = service.render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)
-        await service.write_page(path=service.PAGES_ROOT / filename, body=body)
-        await service.patch_index(meta=meta, filename=filename)
+        await service.write_page(path=pages_root / filename, body=body)
+        await service.patch_index(meta=meta, filename=filename, index_path=index_path)
         service.logger.info("Wrote wiki page %s for ticket %s", filename, identifier)
-    except Exception:  # noqa: BLE001
-        service.logger.exception("Failed to write wiki page for session; wiki failure is non-fatal")
+    except Exception as e:  # noqa: BLE001
+        service.logger.exception("Failed to write wiki page for session")
+        raise service.WikiError(f"Failed to write wiki page for {identifier}: {e}") from e

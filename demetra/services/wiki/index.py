@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 
 import aiofiles
 
@@ -19,29 +20,37 @@ def index_entry(meta: dict, filename: str) -> str:
     return f"- [{meta['title']}](pages/{filename}) — {summary}"
 
 
-async def read_index() -> str:
+async def read_index(index_path: Path | None = None) -> str:
     """Read the wiki INDEX file.
+
+    Args:
+        index_path: Optional index file to read; defaults to the service
+            ``INDEX_PATH``.
 
     Returns:
         str: The current ``wiki/INDEX.md`` contents, or an empty string.
     """
-    if not service.INDEX_PATH.is_file():
+    target = index_path if index_path is not None else service.INDEX_PATH
+    if not target.is_file():
         return ""
-    async with aiofiles.open(service.INDEX_PATH, encoding="utf-8") as handle:
+    async with aiofiles.open(target, encoding="utf-8") as handle:
         return await handle.read()
 
 
-async def write_index(contents: str) -> None:
+async def write_index(contents: str, index_path: Path | None = None) -> None:
     """Atomically write the wiki INDEX file.
 
     Args:
         contents: The new ``wiki/INDEX.md`` contents.
+        index_path: Optional index file to write; defaults to the service
+            ``INDEX_PATH``.
     """
-    service.INDEX_PATH.parent.mkdir(parents=True, exist_ok=True)
-    tmp = service.INDEX_PATH.with_suffix(f"{service.INDEX_PATH.suffix}.tmp")
+    target = index_path if index_path is not None else service.INDEX_PATH
+    target.parent.mkdir(parents=True, exist_ok=True)
+    tmp = target.with_suffix(f"{target.suffix}.tmp")
     async with aiofiles.open(tmp, "w", encoding="utf-8") as handle:
         await handle.write(contents)
-    os.replace(tmp, service.INDEX_PATH)
+    os.replace(tmp, target)
 
 
 def insert_pages_entry(contents: str, entry: str) -> str:
@@ -214,7 +223,7 @@ def insert_cluster_entry(contents: str, cluster_header: str, entry: str) -> str:
     return "\n".join(lines)
 
 
-async def patch_index(meta: dict, filename: str) -> None:
+async def patch_index(meta: dict, filename: str, index_path: Path | None = None) -> None:
     """Update ``INDEX.md`` with a new page entry.
 
     Inserts the entry into ``## Pages`` (newest-first) and appends a bullet
@@ -225,18 +234,21 @@ async def patch_index(meta: dict, filename: str) -> None:
     Args:
         meta: The page frontmatter mapping.
         filename: The page file name.
+        index_path: Optional index file to patch; defaults to the service
+            ``INDEX_PATH``.
     """
-    contents = await service.read_index()
+    target = index_path if index_path is not None else service.INDEX_PATH
+    contents = await service.read_index(index_path=target)
     pages_entry = service.index_entry(meta=meta, filename=filename)
     updated = service.insert_pages_entry(contents=contents, entry=pages_entry)
     if "## By topic" not in updated:
-        await service.write_index(contents=updated)
-        await service.regenerate_by_topic()
-        updated = await service.read_index()
+        await service.write_index(contents=updated, index_path=target)
+        await service.regenerate_by_topic(index_path=target, pages_root=target.parent / "pages")
+        updated = await service.read_index(index_path=target)
     cluster = service.find_topic_cluster(contents=updated, meta=meta)
     cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
     updated = service.insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
-    await service.write_index(contents=updated)
+    await service.write_index(contents=updated, index_path=target)
 
 
 def cluster_for(meta: dict) -> str:
@@ -261,16 +273,24 @@ def cluster_for(meta: dict) -> str:
     return best[0]
 
 
-async def regenerate_by_topic() -> int:
+async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path | None = None) -> int:
     """Rebuild the ``## By topic`` section of INDEX.md from page frontmatter.
+
+    Args:
+        index_path: Optional index file to update; defaults to the service
+            ``INDEX_PATH``.
+        pages_root: Optional pages directory to scan; defaults to the service
+            ``PAGES_ROOT``. Pass the directory matching ``index_path`` when
+            rebuilding a custom wiki index so it scans its own page catalog.
 
     Returns:
         int: The number of topic clusters written.
     """
-    if not service.PAGES_ROOT.is_dir():
+    pages_target = pages_root if pages_root is not None else service.PAGES_ROOT
+    if not pages_target.is_dir():
         return 0
     clusters: dict[str, list[dict]] = {}
-    for path in sorted(service.PAGES_ROOT.glob("*.md")):
+    for path in sorted(pages_target.glob("*.md")):
         page = service.parse_page_file(path=path)
         if page is None:
             continue
@@ -291,7 +311,7 @@ async def regenerate_by_topic() -> int:
             lines.append(f"- [{title}](pages/{page['name']}) — {page['meta'].get('date') or ''}")
         lines.append("")
 
-    contents = await service.read_index()
+    contents = await service.read_index(index_path=index_path)
     marker = "## By topic"
     if marker in contents:
         head, _, tail = contents.partition(marker)
@@ -307,5 +327,5 @@ async def regenerate_by_topic() -> int:
             updated = f"{head.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n\n" + trailing.rstrip() + "\n"
     else:
         updated = f"{contents.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n"
-    await service.write_index(contents=updated)
+    await service.write_index(contents=updated, index_path=index_path)
     return len(clusters)

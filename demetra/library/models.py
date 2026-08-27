@@ -7,7 +7,18 @@ from slugify import slugify
 
 
 StepType = Literal[
-    "initial", "plan", "build", "validate", "review", "lint", "test", "push", "completed", "failed", "awaiting_input"
+    "initial",
+    "plan",
+    "build",
+    "validate",
+    "review",
+    "lint",
+    "test",
+    "wiki",
+    "push",
+    "completed",
+    "failed",
+    "awaiting_input",
 ]
 
 

@@ -5,10 +5,10 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import BuildError, LinearError, PullRequestError, ReviewError
+from demetra.library.exceptions import BuildError, LinearError, PullRequestError, ReviewError, WikiError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import LINEAR
-from demetra.workflows.failure import process_build_failure, process_pr_failure
+from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
 
 
 def build_context() -> Context:
@@ -107,6 +107,22 @@ class TestRunFailureStep:
         body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
         assert "Build agent failed" in body
         assert "Unexpected server error" in body
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_posts_wiki_failure_comment(self, mock_linear_deps):
+        context = build_context()
+        error = WikiError("Failed to write wiki page for MNT-128: disk full")
+
+        await process_wiki_failure(context=context, error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Wiki page generation failed" in body
+        assert "Failed to write wiki page for MNT-128: disk full" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,
