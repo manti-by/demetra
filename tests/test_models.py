@@ -127,6 +127,12 @@ class TestIsSensitiveKey:
         assert is_sensitive_key("KEYSTORE") is False
         assert is_sensitive_key("KEYNOTE") is False
 
+    def test_matches_concatenated_names_closing_at_end(self):
+        assert is_sensitive_key("STRIPEAPIKEY") is True
+        assert is_sensitive_key("CLIENTPASSWORD") is True
+        assert is_sensitive_key("MYAPIKEY") is True
+        assert is_sensitive_key("JWTACCESSTOKEN") is True
+
 
 class TestProjectEnvironment:
     def test_project_environment_returns_empty_dict_by_default(self):

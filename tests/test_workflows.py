@@ -1086,6 +1086,61 @@ class TestWorkflowBuild:
         assert mock_run_review_agents.call_count == 1
         assert mock_run_review_agents.await_count == 1
 
+    @pytest.mark.asyncio
+    async def test_run_build_step_validate_failures_do_not_exhaust_review_budget(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        missing_items = "Plan step 1: Add endpoint — not implemented (no corresponding change in diff)"
+        mock_build_agent.return_value = (0, "", "")
+        # More validate failures than MAX_REVIEW_ATTEMPTS: the review step must
+        # still run once instead of being starved by validate retries.
+        mock_run_validate_agent.side_effect = [missing_items] * 11 + [None]
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        result = await run_build_step("test build plan", context)
+
+        assert result is None
+        assert mock_run_validate_agent.call_count == 12
+        assert mock_run_review_agents.call_count == 1
+        assert mock_build_agent.call_count == 12
+
 
 class TestContextCompaction:
     """Tests for check_and_compact_context in build.py."""
@@ -1758,9 +1813,7 @@ class TestWorkflowCleanup:
         mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_wiki_failure_raises_wiki_error(self, faker, mock_commit_deps):
-        from demetra.library.exceptions import WikiError
-
+    async def test_commit_and_push_wiki_failure_returns_true_after_successful_push(self, faker, mock_commit_deps):
         _mock_add_all, _mock_commit, _mock_push, _mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
@@ -1794,8 +1847,8 @@ class TestWorkflowCleanup:
         _mock_pr.return_value = (0, "https://github.com/test/demetra/pull/1", "")
         mock_wiki.side_effect = OSError("disk full")
 
-        with pytest.raises(WikiError, match="Failed to write wiki page"):
-            await commit_and_push(context)
+        result = await commit_and_push(context)
+        assert result is True
         _mock_commit.assert_awaited_once()
         _mock_push.assert_awaited_once()
         _mock_pr.assert_awaited_once()

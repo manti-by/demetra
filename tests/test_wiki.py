@@ -1,3 +1,4 @@
+import asyncio
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -330,6 +331,19 @@ class TestMergePageContent:
         }
         assert service.merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is True
 
+    def test_no_tmp_file_left_after_successful_merge(self, tmp_path):
+        survivor = tmp_path / "2026-08-04-survivor.md"
+        loser = tmp_path / "2026-08-03-survivor.md"
+        survivor.write_text(self._page("survivor", "Same page", "2026-08-04"))
+        loser.write_text(self._page("loser", "Same page", "2026-08-03"))
+        parsed = {
+            survivor: service.parse_page_file(survivor),
+            loser: service.parse_page_file(loser),
+        }
+
+        assert service.merge_page_content(survivor_path=survivor, loser_path=loser, parsed=parsed) is True
+        assert not list(tmp_path.glob("*.md.tmp"))
+
     async def test_dedup_keeps_loser_when_merge_write_fails(self, tmp_path, wiki_dirs, monkeypatch):
         survivor = wiki_dirs["pages"] / "2026-08-04-dupe.md"
         loser = wiki_dirs["pages"] / "2026-08-03-dupe.md"
@@ -451,6 +465,23 @@ class TestPatchIndexWithoutTopicSection:
         assert "## By topic" in text
         assert "[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)" in text
         assert "Default only" not in text
+
+
+class TestIndexConcurrency:
+    async def test_concurrent_patch_index_keeps_both_entries(self, wiki_dirs):
+        meta_a = {"title": "Page A", "date": "2026-08-04", "services": ["wiki"], "tags": ["wiki"]}
+        meta_b = {"title": "Page B", "date": "2026-08-05", "services": ["wiki"], "tags": ["wiki"]}
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n\n### Wiki (0 pages)\n\n")
+
+        await asyncio.gather(
+            service.patch_index(meta=meta_a, filename="2026-08-04-page-a.md"),
+            service.patch_index(meta=meta_b, filename="2026-08-05-page-b.md"),
+        )
+
+        text = wiki_dirs["index"].read_text()
+        assert "pages/2026-08-04-page-a.md" in text
+        assert "pages/2026-08-05-page-b.md" in text
+        assert not list((wiki_dirs["index"].parent).glob("*.md.tmp"))
 
 
 class TestRenderWikiPage:
@@ -686,6 +717,34 @@ class TestDedupPages:
         assert len(remaining) == 1
         assert remaining[0].name == "2026-08-04-mnt-147-wiki-processes.md"
 
+    async def test_index_pruned_before_unlink_failure(self, wiki_dirs, monkeypatch):
+        survivor = wiki_dirs["pages"] / "2026-08-04-dupe.md"
+        loser = wiki_dirs["pages"] / "2026-08-03-dupe.md"
+        survivor.write_text(self._page("survivor", "Same page", "2026-08-04"))
+        loser.write_text(self._page("loser", "Same page", "2026-08-03"))
+        wiki_dirs["index"].write_text(
+            "# Index\n\n## Pages\n\n"
+            "- [Loser](pages/2026-08-03-dupe.md) — old\n"
+            "- [Survivor](pages/2026-08-04-dupe.md) — new\n"
+        )
+
+        real_unlink = Path.unlink
+
+        def boom(self, *args, **kwargs):
+            if self.name == "2026-08-03-dupe.md":
+                raise OSError("permission denied")
+            return real_unlink(self, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "unlink", boom)
+
+        merged, deleted = await service.dedup_pages()
+        assert merged == 1
+        assert deleted == 1
+        index_text = wiki_dirs["index"].read_text()
+        assert "2026-08-03-dupe.md" not in index_text
+        assert survivor.is_file()
+        assert loser.is_file()
+
     async def test_distinct_pages_kept(self, wiki_dirs):
         (wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md").write_text(
             self._page("2026-08-04-mnt-147-wiki-processes.md", "MNT-147: Wiki processes", "2026-08-04")
@@ -755,13 +814,15 @@ class TestAgentsDrift:
     async def test_flags_missing_anchors(self, wiki_dirs):
         wiki_dirs["agents"].write_text("# AGENTS.md\n\nNo anchors here.\n")
         drift = await service.check_agents_drift()
-        assert "demetra/services/wiki.py" in drift
+        assert "wiki/" in drift
         assert "Groq" in drift
         assert "OpenRouter" in drift
+        assert "Ruff" in drift
+        assert "demetra/services/wiki.py" not in drift
 
     async def test_anchors_present_pass(self, wiki_dirs):
         wiki_dirs["agents"].write_text(
-            "demetra/services/wiki.py\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter\nnever prefix with\n"
+            "wiki/\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter Ruff\n"
         )
         assert await service.check_agents_drift() == []
 

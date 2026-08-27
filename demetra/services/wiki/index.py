@@ -1,9 +1,64 @@
+import asyncio
+import fcntl
 import os
 from pathlib import Path
 
 import aiofiles
 
 import demetra.services.wiki as service
+
+
+# Serializes index read-modify-write sequences within the process. Cross-process
+# writers (RQ workers) are additionally serialized by an flock on a stable
+# ``INDEX.md.lock`` file taken inside the write helper.
+_INDEX_LOCK = asyncio.Lock()
+
+
+def _acquire_flock(lock_path: Path) -> int:
+    """Open a lock file and take an exclusive flock on it.
+
+    Args:
+        lock_path: The stable lock file path (never replaced).
+
+    Returns:
+        int: The file descriptor to release with :func:`_release_flock`.
+    """
+    fd = os.open(lock_path, os.O_RDWR | os.O_CREAT)
+    fcntl.flock(fd, fcntl.LOCK_EX)
+    return fd
+
+
+def _release_flock(fd: int) -> None:
+    """Release an exclusive flock and close the lock file descriptor.
+
+    Args:
+        fd: The file descriptor from :func:`_acquire_flock`.
+    """
+    fcntl.flock(fd, fcntl.LOCK_UN)
+    os.close(fd)
+
+
+async def _write_index_unlocked(contents: str, target: Path) -> None:
+    """Write the wiki INDEX file while the caller already holds ``_INDEX_LOCK``.
+
+    The tmp+replace write is additionally serialized across processes by an
+    flock on a stable lock file, so a concurrent worker cannot truncate the
+    shared ``*.tmp`` path mid-write.
+
+    Args:
+        contents: The new INDEX contents.
+        target: The index file to write.
+    """
+    target.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = target.with_suffix(f"{target.suffix}.lock")
+    fd = await asyncio.to_thread(_acquire_flock, lock_path)
+    try:
+        tmp = target.with_suffix(f"{target.suffix}.tmp")
+        async with aiofiles.open(tmp, "w", encoding="utf-8") as handle:
+            await handle.write(contents)
+        os.replace(tmp, target)
+    finally:
+        await asyncio.to_thread(_release_flock, fd)
 
 
 def index_entry(meta: dict, filename: str) -> str:
@@ -38,7 +93,7 @@ async def read_index(index_path: Path | None = None) -> str:
 
 
 async def write_index(contents: str, index_path: Path | None = None) -> None:
-    """Atomically write the wiki INDEX file.
+    """Atomically write the wiki INDEX file, serialized against concurrent writers.
 
     Args:
         contents: The new ``wiki/INDEX.md`` contents.
@@ -46,11 +101,8 @@ async def write_index(contents: str, index_path: Path | None = None) -> None:
             ``INDEX_PATH``.
     """
     target = index_path if index_path is not None else service.INDEX_PATH
-    target.parent.mkdir(parents=True, exist_ok=True)
-    tmp = target.with_suffix(f"{target.suffix}.tmp")
-    async with aiofiles.open(tmp, "w", encoding="utf-8") as handle:
-        await handle.write(contents)
-    os.replace(tmp, target)
+    async with _INDEX_LOCK:
+        await _write_index_unlocked(contents=contents, target=target)
 
 
 def insert_pages_entry(contents: str, entry: str) -> str:
@@ -112,28 +164,29 @@ async def prune_index_pages(deleted_names: list[str]) -> None:
     Args:
         deleted_names: The page file names that were removed.
     """
-    contents = await service.read_index()
-    if not contents:
-        return
-    lines = contents.splitlines()
-    in_pages = False
-    pruned = False
-    kept: list[str] = []
-    for line in lines:
-        if line.strip() == "## Pages":
-            in_pages = True
+    async with _INDEX_LOCK:
+        contents = await service.read_index()
+        if not contents:
+            return
+        lines = contents.splitlines()
+        in_pages = False
+        pruned = False
+        kept: list[str] = []
+        for line in lines:
+            if line.strip() == "## Pages":
+                in_pages = True
+                kept.append(line)
+                continue
+            if in_pages and line.strip().startswith("## "):
+                in_pages = False
+                kept.append(line)
+                continue
+            if in_pages and any(f"](pages/{name})" in line for name in deleted_names):
+                pruned = True
+                continue
             kept.append(line)
-            continue
-        if in_pages and line.strip().startswith("## "):
-            in_pages = False
-            kept.append(line)
-            continue
-        if in_pages and any(f"](pages/{name})" in line for name in deleted_names):
-            pruned = True
-            continue
-        kept.append(line)
-    if pruned:
-        await service.write_index(contents="\n".join(kept))
+        if pruned:
+            await _write_index_unlocked(contents="\n".join(kept), target=service.INDEX_PATH)
 
 
 def find_topic_cluster(contents: str, meta: dict) -> str:
@@ -229,7 +282,8 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
     Inserts the entry into ``## Pages`` (newest-first) and appends a bullet
     under the best-matching ``## By topic`` cluster. When the index has no
     ``## By topic`` section yet, it is regenerated from the page catalog first
-    so the cluster insert has a target.
+    so the cluster insert has a target. The whole read-modify-write runs under
+    ``_INDEX_LOCK`` so concurrent workers cannot clobber each other's entries.
 
     Args:
         meta: The page frontmatter mapping.
@@ -238,17 +292,18 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
             ``INDEX_PATH``.
     """
     target = index_path if index_path is not None else service.INDEX_PATH
-    contents = await service.read_index(index_path=target)
-    pages_entry = service.index_entry(meta=meta, filename=filename)
-    updated = service.insert_pages_entry(contents=contents, entry=pages_entry)
-    if "## By topic" not in updated:
-        await service.write_index(contents=updated, index_path=target)
-        await service.regenerate_by_topic(index_path=target, pages_root=target.parent / "pages")
-        updated = await service.read_index(index_path=target)
-    cluster = service.find_topic_cluster(contents=updated, meta=meta)
-    cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
-    updated = service.insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
-    await service.write_index(contents=updated, index_path=target)
+    async with _INDEX_LOCK:
+        contents = await service.read_index(index_path=target)
+        pages_entry = service.index_entry(meta=meta, filename=filename)
+        updated = service.insert_pages_entry(contents=contents, entry=pages_entry)
+        if "## By topic" not in updated:
+            await _write_index_unlocked(contents=updated, target=target)
+            await _regenerate_by_topic_unlocked(index_path=target, pages_root=target.parent / "pages")
+            updated = await service.read_index(index_path=target)
+        cluster = service.find_topic_cluster(contents=updated, meta=meta)
+        cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
+        updated = service.insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
+        await _write_index_unlocked(contents=updated, target=target)
 
 
 def cluster_for(meta: dict) -> str:
@@ -276,12 +331,29 @@ def cluster_for(meta: dict) -> str:
 async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path | None = None) -> int:
     """Rebuild the ``## By topic`` section of INDEX.md from page frontmatter.
 
+    The read-modify-write runs under ``_INDEX_LOCK`` so concurrent workers
+    cannot clobber each other's rebuild.
+
     Args:
         index_path: Optional index file to update; defaults to the service
             ``INDEX_PATH``.
         pages_root: Optional pages directory to scan; defaults to the service
             ``PAGES_ROOT``. Pass the directory matching ``index_path`` when
             rebuilding a custom wiki index so it scans its own page catalog.
+
+    Returns:
+        int: The number of topic clusters written.
+    """
+    async with _INDEX_LOCK:
+        return await _regenerate_by_topic_unlocked(index_path=index_path, pages_root=pages_root)
+
+
+async def _regenerate_by_topic_unlocked(index_path: Path | None, pages_root: Path | None) -> int:
+    """Rebuild the ``## By topic`` section while the caller holds ``_INDEX_LOCK``.
+
+    Args:
+        index_path: The index file to update.
+        pages_root: The pages directory to scan.
 
     Returns:
         int: The number of topic clusters written.
@@ -327,5 +399,6 @@ async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path |
             updated = f"{head.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n\n" + trailing.rstrip() + "\n"
     else:
         updated = f"{contents.rstrip()}\n\n" + "\n".join(lines).rstrip() + "\n"
-    await service.write_index(contents=updated, index_path=index_path)
+    target = index_path if index_path is not None else service.INDEX_PATH
+    await _write_index_unlocked(contents=updated, target=target)
     return len(clusters)

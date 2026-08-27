@@ -6,6 +6,7 @@ import pytest
 from demetra.library.exceptions import PlanError
 from demetra.services.llm.openrouter import (
     extract_plan,
+    extract_questions,
     generate_pr_description,
     process_text_with_openrouter,
     summarize_review,
@@ -302,6 +303,59 @@ class TestOpenRouterService:
 
             with pytest.raises(PlanError, match="Failed to summarize the build plan"):
                 await extract_plan(plan_output="plan", task_description="task", comments=[])
+
+
+class TestExtractQuestions:
+    @pytest.mark.asyncio
+    async def test_returns_empty_without_marker(self):
+        with patch("demetra.services.llm.openrouter.build_llm") as mock_llm:
+            result = await extract_questions(plan_output="No questions signalled here")
+
+        assert result == []
+        mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_returns_parsed_questions(self):
+        from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.NumberedListOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.__or__.return_value = mock_chain
+            mock_chain.ainvoke.return_value = ["What is X?", "How to handle Y?"]
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_questions(plan_output=f"Plan output\n{PLAN_HAS_QUESTIONS}")
+
+            assert result == ["What is X?", "How to handle Y?"]
+
+    @pytest.mark.asyncio
+    async def test_raises_plan_error_on_llm_failure(self):
+        from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.NumberedListOutputParser"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.__or__.return_value = mock_chain
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(PlanError, match="Failed to extract plan questions"):
+                await extract_questions(plan_output=f"Plan output\n{PLAN_HAS_QUESTIONS}")
 
 
 class TestSummarizeSession:

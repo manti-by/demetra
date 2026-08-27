@@ -141,6 +141,49 @@ class TestLoginWithPassword:
         with pytest.raises(AuthError, match="Invalid email or password"):
             await login_with_password(email=email, password="hunter2hunter2")
 
+    @pytest.mark.asyncio
+    async def test_login_verifies_password_before_allowlist_check(self, mock_jwt_settings, allowlist_seeded, monkeypatch):
+        email = _unique_email()
+        await add_entry(entry_type="email", value=email, note=None, added_by=None)
+        await _create_password_user(email)
+
+        calls: list[str] = []
+
+        def fake_verify_password(plain: str, hashed: str) -> bool:
+            calls.append("verify_password")
+            return plain == "hunter2hunter2"
+
+        async def fake_is_email_allowed(email: str, user_data: dict | None = None) -> bool:
+            calls.append("is_email_allowed")
+            return True
+
+        monkeypatch.setattr("demetra.services.auth.verify_password", fake_verify_password)
+        monkeypatch.setattr("demetra.services.auth.is_email_allowed", fake_is_email_allowed)
+
+        result = await login_with_password(email=email, password="hunter2hunter2")
+        assert result.user.email == email
+        assert calls == ["verify_password", "is_email_allowed"]
+
+    @pytest.mark.asyncio
+    async def test_login_wrong_password_skips_allowlist_check(self, mock_jwt_settings, allowlist_seeded, monkeypatch):
+        email = _unique_email()
+        await add_entry(entry_type="email", value=email, note=None, added_by=None)
+        await _create_password_user(email)
+
+        is_email_allowed_called = False
+
+        async def fake_is_email_allowed(email: str, user_data: dict | None = None) -> bool:
+            nonlocal is_email_allowed_called
+            is_email_allowed_called = True
+            return True
+
+        monkeypatch.setattr("demetra.services.auth.verify_password", lambda plain, hashed: False)
+        monkeypatch.setattr("demetra.services.auth.is_email_allowed", fake_is_email_allowed)
+
+        with pytest.raises(AuthError, match="Invalid email or password"):
+            await login_with_password(email=email, password="wrongPassword1")
+        assert is_email_allowed_called is False
+
 
 class TestGitHubAuthenticate:
     @pytest.mark.asyncio

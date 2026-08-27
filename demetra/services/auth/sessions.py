@@ -5,6 +5,11 @@ from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedErro
 from demetra.library.models import AuthResponse, GitHubUser, UserResponse
 
 
+# Fixed bcrypt hash compared against when no user exists, so an unknown email
+# costs the same bcrypt work as a known one and cannot be told apart by timing.
+_DUMMY_PASSWORD_HASH = "$2b$12$jxVmuPVagAbjwXvjcTobOu2CkCK4ZBowPWm4Wqy90Umtkzr4dSAbe"  # noqa: S105
+
+
 async def get_or_create_user(github_user: GitHubUser) -> str:
     """Return the existing user id for a GitHub user, creating the user on first login.
 
@@ -138,13 +143,18 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
 
     user_data = await service.get_user_by_email(email=email)
 
+    if user_data and user_data.get("password_hash"):
+        password_valid = service.verify_password(plain=password, hashed=user_data["password_hash"])
+    else:
+        # Equalize timing: an unknown email still pays for one bcrypt compare
+        # against a fixed dummy hash before the generic error is raised.
+        service.verify_password(plain=password, hashed=_DUMMY_PASSWORD_HASH)
+        password_valid = False
+
+    if not password_valid or user_data is None:
+        raise AuthError("Invalid email or password")
+
     if not await service.is_email_allowed(email=email, user_data=user_data):
-        raise AuthError("Invalid email or password")
-
-    if not user_data or not user_data.get("password_hash"):
-        raise AuthError("Invalid email or password")
-
-    if not service.verify_password(plain=password, hashed=user_data["password_hash"]):
         raise AuthError("Invalid email or password")
 
     token, expires_at = service.create_jwt_token(user_id=user_data["id"])

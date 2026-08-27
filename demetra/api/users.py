@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/v1/users")
 
 ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
 MAX_ENV_KEY_LENGTH = 128
+MAX_ENV_VALUE_LENGTH = 8192
 
 
 @router.patch("/me/keys")
@@ -76,6 +77,9 @@ async def upsert_user_environment_endpoint(
 
     if request.type not in ("text", "encrypted"):
         raise HTTPException(status_code=400, detail="Environment type must be 'text' or 'encrypted'")
+
+    if len(request.value) > MAX_ENV_VALUE_LENGTH:
+        raise HTTPException(status_code=400, detail="Environment value must be at most 8192 characters")
 
     if request.type == "text" and "\x00" in request.value:
         raise HTTPException(status_code=400, detail="Environment value cannot contain NUL bytes")

@@ -34,7 +34,6 @@ async def commit_and_push(context: Context) -> bool:
 
     Raises:
         PullRequestError: When the PR creation fails.
-        WikiError: When the session wiki page cannot be written.
     """
     print_message("Committing changes", style="heading")
 
@@ -136,7 +135,10 @@ async def commit_and_push(context: Context) -> bool:
             print_message("Failed to record session step history, continuing.", style="warning")
 
     if wiki_error is not None:
-        raise wiki_error
+        print_message(
+            f"Wiki page generation failed ({wiki_error}); commit and PR succeeded without wiki page",
+            style="warning",
+        )
 
     return True
 

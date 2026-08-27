@@ -50,9 +50,13 @@ async def extract_questions(plan_output: str, *, user_id: str | None = None) -> 
     chain = prompt | llm | output_parser
 
     result = []
-    for item in await chain.ainvoke(input={"input_text": plan_output}):
-        if question := str(item):
-            result.append(question)
+    try:
+        for item in await chain.ainvoke(input={"input_text": plan_output}):
+            if question := str(item):
+                result.append(question)
+    except Exception:
+        logger.exception("LLM call failed in extract_questions")
+        raise PlanError("Failed to extract plan questions") from None
     return result
 
 

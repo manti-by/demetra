@@ -131,19 +131,23 @@ ENCRYPTED_VALUE_MASK = "********"
 
 EnvironmentScope = Literal["project", "user"]
 
-SENSITIVE_KEY_PATTERN = re.compile(r"(?:^|[\W_])(?:TOKEN|SECRET|KEY|PASSWORD)(?:[\W_]|$)", re.IGNORECASE)
+SENSITIVE_KEY_PATTERN = re.compile(
+    r"(?:TOKEN|SECRET|KEY|PASSWORD)$|(?:^|[\W_])(?:TOKEN|SECRET|KEY|PASSWORD)[\W_]", re.IGNORECASE
+)
 
 
 def is_sensitive_key(key: str) -> bool:
     """Return whether an environment key should be treated as sensitive.
 
     Keys containing the whole words ``TOKEN``, ``SECRET``, ``KEY`` or
-    ``PASSWORD`` (case-insensitive, delimited by start/end or a non-alnum
-    character like ``_``, ``-`` or ``.``) are masked in API responses and the
-    React UI, even when stored as plaintext. Delimiter matching avoids false
-    positives such as ``KEYBOARD_LAYOUT``, ``MONKEY_BUSINESS`` or
-    ``TOKENIZATION`` while still matching ``GITHUB_TOKEN``, ``API_KEY`` and
-    ``DB_PASSWORD``.
+    ``PASSWORD`` (case-insensitive) are masked in API responses and the
+    React UI, even when stored as plaintext. A keyword matches when it is
+    delimited by start/end or a non-alnum character (like ``_``, ``-`` or
+    ``.``), or when it closes the key name at end-of-string (so concatenated
+    names such as ``STRIPEAPIKEY`` or ``CLIENTPASSWORD`` are flagged too).
+    Delimiter matching avoids false positives such as ``KEYBOARD_LAYOUT``,
+    ``MONKEY_BUSINESS`` or ``TOKENIZATION`` while still matching
+    ``GITHUB_TOKEN``, ``API_KEY`` and ``DB_PASSWORD``.
 
     Args:
         key: The environment variable name.

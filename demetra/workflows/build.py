@@ -77,6 +77,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     """
     current_task: str = build_plan
     rerun_attempts = MAX_BUILD_ATTEMPTS
+    validate_attempts = MAX_BUILD_ATTEMPTS
     review_attempts = MAX_REVIEW_ATTEMPTS
     is_version_updated = False
     review_step_finished = False
@@ -99,7 +100,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
 
         await check_and_compact_context(context)
 
-        if review_attempts > 0 and not review_step_finished:
+        if review_attempts > 0 and validate_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="validate")
             missing_items = await run_validate_agent(
                 target_path=context.worktree_path,
@@ -111,7 +112,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 if context.auto_mode:
                     current_task = missing_items
                     rerun_attempts -= 1
-                    review_attempts -= 1
+                    validate_attempts -= 1
                     continue
 
                 result, _ = await user_input(options=[("1", "apply missing plan items"), ("2", "skip")])
@@ -119,11 +120,12 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     print_message(message="Applying missing plan items.")
                     current_task = missing_items
                     rerun_attempts -= 1
-                    review_attempts -= 1
+                    validate_attempts -= 1
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
                     rerun_attempts = MAX_BUILD_ATTEMPTS
+                    validate_attempts = MAX_BUILD_ATTEMPTS
                     review_attempts = MAX_REVIEW_ATTEMPTS
 
             await update_session_step(task_id=context.linear_task.id, step="review")
@@ -151,9 +153,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 else:
                     print_message("Continuing the workflow.", style="result")
                     rerun_attempts = MAX_BUILD_ATTEMPTS
+                    validate_attempts = MAX_BUILD_ATTEMPTS
                     review_attempts = MAX_REVIEW_ATTEMPTS
         else:
-            print_message("Skipping CODE REVIEW (MAX_REVIEW_ATTEMPTS reached)", style="warning")
+            print_message("Skipping CODE REVIEW (attempt budget reached)", style="warning")
 
         review_step_finished = True
 

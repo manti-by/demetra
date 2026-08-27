@@ -53,16 +53,19 @@ async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = 
   return fetch(input, { ...init, credentials: 'include' });
 }
 
-export async function getCurrentUser(): Promise<User | null> {
+export async function getCurrentUser(): Promise<User | null | 'transient'> {
   try {
     const response = await authenticatedFetch(`${API_URL}/api/v1/github/me`);
-    if (!response.ok) {
+    if (response.status === 401) {
       return null;
+    }
+    if (!response.ok) {
+      return 'transient';
     }
     const data = await response.json();
     return data;
-  } catch (error) {
-    return null;
+  } catch {
+    return 'transient';
   }
 }
 
