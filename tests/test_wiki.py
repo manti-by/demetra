@@ -417,6 +417,41 @@ class TestPatchIndexWithoutTopicSection:
         assert "### " in text
         assert "[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)" in text
 
+    async def test_custom_index_regenerates_from_its_own_pages(self, tmp_path, wiki_dirs):
+        (wiki_dirs["pages"] / "2026-08-01-default-only.md").write_text(
+            '---\ntitle: "Default only"\ndate: 2026-08-01\ntype: implementation\nstatus: resolved\n'
+            "services: [auth]\nbranch: master\ntickets: []\ntags: [auth]\nrelated: []\n---\n\n# Default only\n"
+        )
+        custom_root = tmp_path / "worktree-wiki"
+        custom_pages = custom_root / "pages"
+        custom_pages.mkdir(parents=True)
+        (custom_pages / "2026-08-04-mnt-147-wiki-processes.md").write_text(
+            '---\ntitle: "MNT-147: Wiki processes"\ndate: 2026-08-04\ntype: implementation\nstatus: resolved\n'
+            "services: [wiki]\nbranch: mnt-147-wiki-processes\ntickets: [MNT-147]\ntags: [wiki, feature]\n"
+            "related: []\n---\n\n# MNT-147\n"
+        )
+        custom_index = custom_root / "INDEX.md"
+        custom_index.write_text("# Index\n\n## Pages\n\n- [Old page](pages/2026-08-01-old.md) — Old\n")
+        meta = {
+            "title": "MNT-147: Wiki processes",
+            "date": "2026-08-04",
+            "type": "implementation",
+            "status": "resolved",
+            "session_id": "sess-123",
+            "services": ["wiki"],
+            "branch": "mnt-147-wiki-processes",
+            "tickets": ["MNT-147"],
+            "tags": ["wiki", "feature"],
+            "related": [],
+        }
+
+        await service.patch_index(meta=meta, filename="2026-08-04-mnt-147-wiki-processes.md", index_path=custom_index)
+
+        text = custom_index.read_text()
+        assert "## By topic" in text
+        assert "[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)" in text
+        assert "Default only" not in text
+
 
 class TestRenderWikiPage:
     def _meta(self) -> dict:

@@ -243,7 +243,7 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
     updated = service.insert_pages_entry(contents=contents, entry=pages_entry)
     if "## By topic" not in updated:
         await service.write_index(contents=updated, index_path=target)
-        await service.regenerate_by_topic(index_path=target)
+        await service.regenerate_by_topic(index_path=target, pages_root=target.parent / "pages")
         updated = await service.read_index(index_path=target)
     cluster = service.find_topic_cluster(contents=updated, meta=meta)
     cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
@@ -273,20 +273,24 @@ def cluster_for(meta: dict) -> str:
     return best[0]
 
 
-async def regenerate_by_topic(index_path: Path | None = None) -> int:
+async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path | None = None) -> int:
     """Rebuild the ``## By topic`` section of INDEX.md from page frontmatter.
 
     Args:
         index_path: Optional index file to update; defaults to the service
             ``INDEX_PATH``.
+        pages_root: Optional pages directory to scan; defaults to the service
+            ``PAGES_ROOT``. Pass the directory matching ``index_path`` when
+            rebuilding a custom wiki index so it scans its own page catalog.
 
     Returns:
         int: The number of topic clusters written.
     """
-    if not service.PAGES_ROOT.is_dir():
+    pages_target = pages_root if pages_root is not None else service.PAGES_ROOT
+    if not pages_target.is_dir():
         return 0
     clusters: dict[str, list[dict]] = {}
-    for path in sorted(service.PAGES_ROOT.glob("*.md")):
+    for path in sorted(pages_target.glob("*.md")):
         page = service.parse_page_file(path=path)
         if page is None:
             continue

@@ -6,7 +6,7 @@ created without the wiki page.
 
 ### Error
 
-```
+```text
 {error}
 ```
 
