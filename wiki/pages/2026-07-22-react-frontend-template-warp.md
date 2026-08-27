@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-142-warp-theme-for-react
 tickets: [MNT-142, MNT-49, MNT-57]
 tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings]
-related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md]
+related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
@@ -188,6 +188,13 @@ hr { border-top: 1px solid var(--color-border); }
 ```
 
 **Motivation:** The Warp theme defined color and spacing tokens but no element-level styles, so rendered markdown (build plans, rendered-content in the log panel) looked unstyled.
+
+> **Status update (2026-08-27, Consistency Agent):** This typography block no longer lives in
+> `App.css`. Later the same day, [[2026-07-22-warp-theme-review-fixes-and-ops]] (Step 4, commit
+> `ed8bcc4`) removed the entire "Basic elements" block from `App.css` and added the identical
+> rules to the end of `react/src/index.css`. Confirmed in current code: `h1`–`h3`, `code`, `pre`,
+> `blockquote`, `hr` selectors are defined in `react/src/index.css` (around line 122 onward) and
+> are absent from `App.css`. The rules and their motivation below are otherwise unchanged.
 
 ---
 

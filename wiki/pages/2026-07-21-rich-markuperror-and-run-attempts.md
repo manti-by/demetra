@@ -8,7 +8,7 @@ services: [watcher, tui, main]
 branch: "-"
 tickets: [MNT-136, MNT-17]
 tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation]
-related: [2026-02-14-add-tui-support.md]
+related: [2026-02-14-add-tui-support.md, 2026-06-08-max-run-attempts-for-a-ticket.md]
 ---
 
 # Rich MarkupError kills workflow subprocess and run_attempts counter overcounts
@@ -268,6 +268,17 @@ follow-up PR against `manti-by/odin`:
   Consider surfacing the effective value in the watcher startup log.
 
 > **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/tui.py → demetra/services/runtime/tui.py; demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+
+> **Status update (2026-08-27, Consistency Agent):** The same reorg (commit `04436c6`,
+> "Refactor services", 2026-08-07) also moved `demetra/services/watcher.py` →
+> `demetra/services/daemons/watcher.py` — the file this page's Step 3 and "Resolution /
+> Fix 2" quote extensively. The current `run_workflow` in
+> `demetra/services/daemons/watcher.py` still matches the described behavior verbatim:
+> `increment_run_attempts` is called only after a non-zero exit / timeout / process
+> error, never before the run, and the `session.run_attempts > MAX_RUN_ATTEMPTS`
+> pre-check plus the post-increment cap check are both still present. `MAX_RUN_ATTEMPTS`
+> is `5` (see [[2026-06-08-max-run-attempts-for-a-ticket]]). The fix documented here is
+> current; only the file path is stale. Historical `file:line` refs above are kept as written.
 
 ## References
 

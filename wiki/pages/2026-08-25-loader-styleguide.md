@@ -8,7 +8,7 @@ services: [react]
 branch: -
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
-related: []
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Loader replacement and Style Guide page
@@ -126,6 +126,12 @@ function StyleGuideLayout() {
 ```
 
 Placed above Settings/Shared env, before RQ Dashboard, so logged-in users see it first.
+
+> **Status update (2026-08-27, Consistency Agent):** This placement claim does not match what was
+> committed. `git show c6a62e0 -- react/src/components/Header.tsx` inserts the `Style guide` link
+> immediately *after* the `RQ Dashboard` link and before `Logout` — not above Settings/Shared env.
+> Confirmed in current code (`react/src/components/Header.tsx:167-196`): burger-menu order is
+> Settings → Shared environment → RQ Dashboard → Style guide → Logout.
 
 ## Test Results
 

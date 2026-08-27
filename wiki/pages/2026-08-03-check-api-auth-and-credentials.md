@@ -220,6 +220,18 @@ can be used in decorators without being flagged as mutable defaults.
   (in `a1e479d`) was superseded by `1.15.5` in `5bcce84`; master HEAD is at `1.15.5`.
   _Update (2026-08-24, Consistency Agent):_ master has since advanced to `1.16.6`
   (`pyproject.toml`); the version trail above is kept as the session record.
+  _Update (2026-08-27, Consistency Agent):_ two file:line anchors above are now stale. Step 1's
+  `demetra/services/auth.py:241` (`get_current_user_dep`) and Step 2's
+  `demetra/services/database.py:482` (`get_session_step_name`) both predate the "Refactor
+  services" commit `04436c6` (2026-08-07), which split the flat `auth.py` into a
+  `demetra/services/auth/` subpackage and moved `database.py` to
+  `demetra/services/persistence/database.py`. `get_current_user_dep` now lives in
+  `demetra/services/auth/sessions.py:201` (re-exported from `demetra/services/auth/__init__.py`,
+  same import path `from demetra.services.auth import get_current_user_dep` shown below still
+  works); `get_session_step_name` is now in `demetra/services/persistence/database.py:701`. A
+  further auth-subpackage reorganization (MNT-170) is documented in a page outside this
+  cluster: `2026-08-19-split-auth-linear-services-and-review-failure-handling.md`. The
+  described behavior (shared dependency, ownership scoping) is unchanged — only locations moved.
 
 ## References
 

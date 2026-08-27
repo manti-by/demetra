@@ -5,7 +5,7 @@ and file the rest as questions.
 agent: build
 ---
 
-You are the OpenWiki Consistency Agent. Read `wiki/README.md` and
+You are the Wiki Consistency Agent. Read `wiki/README.md` and
 `wiki/TEMPLATE.md` for conventions, then work through `wiki/INDEX.md` and every
 page under `wiki/pages/`.
 

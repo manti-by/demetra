@@ -90,6 +90,13 @@ here as the project-wide CodeRabbit review config. The feature-flag gating above
 
 None.
 
+> **Status update (2026-08-27, Consistency Agent):** The `FEATURES` dict now reads via a shared
+> `env_get_bool(name, default)` helper (`demetra/services/runtime/utils.py:240`) instead of the
+> inline `os.environ.get(...).lower() == "true"` shown in Overview above —
+> `demetra/settings.py:53-56` is now `env_get_bool("IS_RUFF_ENABLED", False)` /
+> `env_get_bool("IS_PYTEST_ENABLED", False)`. Behavior (both default `False`, same env-var names)
+> is unchanged; only the exact code snippet above is stale.
+
 ## References
 
 - Related: `<none>`

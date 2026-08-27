@@ -171,6 +171,14 @@ stdin piping in `run_command`, and `validate_model` settings/`OPENCODE_VALIDATE_
 
 > **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
 
+> **Status update (2026-08-27, Consistency Agent):** `demetra/services/subprocess.py`
+> (Step 5's `pipe_stdin_input` / `run_command`) has also moved, to
+> `demetra/services/runtime/subprocess.py` (commit `04436c6`, "Refactor services" —
+> the same reorg that moved `services/tui.py` → `services/runtime/tui.py`, noted
+> elsewhere in this wiki). The stdin-piping behavior described in Step 5 is otherwise
+> unchanged and still current: `run_opencode_agent` delivers the task via
+> `input_text=task` into `run_command`.
+
 ## References
 
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)

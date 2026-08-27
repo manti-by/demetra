@@ -332,6 +332,8 @@ $ cd react && bun run test
 
 > **Consistency note (2026-08-25, Consistency Agent):** MNT-181 (PR #101) extended this feature — the history endpoint now returns `{"total": {...}, "history": [...]}` instead of a bare row list, and the modal renders a session-wide **Total Tokens** summary block below the timeline. Per-row `context_tokens` and `model` fields are also exposed. Database helpers moved to `demetra/services/persistence/database.py`. See [[2026-08-25-mnt-181-total-tokens-counter]] for the current API/UI contract; the Step 2–4 snippets below describe the original 2026-07-23 implementation.
 
+> **Status update (2026-08-27, Consistency Agent):** The Step 1/2 auth shape has also gone stale, separately from the MNT-181 response-shape change. Current code (`demetra/api/sessions.py:52-56`) resolves the user via `user: UserResponse = Depends(get_current_user_dep)` rather than a raw `auth_token: str | None = Cookie(...)` parameter on the endpoint itself (the cookie is now parsed inside `get_current_user_dep`, `demetra/services/auth/sessions.py:201`), and `get_session_id_by_task_id` (`demetra/services/persistence/database.py:789`) now takes a `user_id` parameter and scopes the lookup to that user — `get_session_id_by_task_id(task_id=task_id, user_id=user.id)`. This is a side effect of the multi-user/session-ownership work in MNT-156, not this ticket; see the Auth cluster's `2026-08-03-check-api-auth-and-credentials.md`. The observable behavior described here (cookie-based auth, 401 without it, 404 when no session) is still correct — only the internal signature changed.
+
 ## References
 
 - [[2026-07-22-react-frontend-template-warp]] — warp theme with the CSS variables used

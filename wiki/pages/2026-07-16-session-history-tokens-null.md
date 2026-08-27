@@ -101,6 +101,8 @@ Deploy via git pull to odin. No further code changes needed.
 
 > **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
 
+> **Status update (2026-08-27, Consistency Agent):** `demetra/services/subprocess.py` (referenced in Resolution / Fix above) has also moved — `run_command_to_file` and `run_command` now live in `demetra/services/runtime/subprocess.py`. Verified on current master: `get_opencode_session_tokens` (`demetra/services/agents/opencode.py:355`) still calls `run_command_to_file`, so the pipe-truncation fix described in this page remains in effect unchanged — only the module path moved.
+
 ## References
 
 - Related: none
