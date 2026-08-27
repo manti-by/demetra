@@ -199,6 +199,10 @@ yet, make one".
 
 > **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
 
+> **Status update (2026-08-27, Consistency Agent):** `demetra/services/graphql.py` (Step 2)
+> has also moved, to `demetra/services/linear/graphql.py`. The `LinearError`-on-non-dict-payload
+> behavior described in Step 2 is still current. Historical `file:line` refs above are kept as written.
+
 ## References
 
 - Related: [[2026-08-05-pr-creation-failure-handler]] (PR failure path sets `step="awaiting_input"`)

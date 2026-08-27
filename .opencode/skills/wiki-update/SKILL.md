@@ -5,7 +5,7 @@ in the same session writes to the same file.
 agent: build
 ---
 
-You are the OpenWiki Page Writer for the current session. Each OpenCode session
+You are the Wiki Page Writer for the current session. Each OpenCode session
 gets exactly **one** wiki page under `wiki/pages/`. Every `/wiki-update`
 invocation within the same session must update that same file — never create a
 new one, unless this session has no page yet.
@@ -26,7 +26,7 @@ produces — do not stop at the first hit:
    each file's YAML frontmatter. Match on `session_id:` equal to the current
    session's id (the `sessionID` of the command invocation, e.g.
    `ses_xxxxxxxx`, visible in the system context). Any match is a candidate.
-3. **Mapping file.** Read `wiki/.openwiki-sessions.json` (a flat object
+3. **Mapping file.** Read `wiki/.sessions.json` (a flat object
    `{ "<session_id>": "<filename>.md" }`). If your session id is a key,
    validate that the value is a bare filename (no path separators, no `..`)
    and that the file still exists under `wiki/pages/`; only then is it a
@@ -86,7 +86,7 @@ same-day section already exists, extend it instead of adding another.
 
 ## 4. Update the session mapping
 
-After every successful write, refresh `wiki/.openwiki-sessions.json` so the
+After every successful write, refresh `wiki/.sessions.json` so the
 next `/wiki-update` in this session can find the file via the fallback:
 
 ```json
@@ -95,8 +95,8 @@ next `/wiki-update` in this session can find the file via the fallback:
 
 Read-modify-write the JSON object. Create the file if it does not exist. Only
 store the bare filename (no path). If the file exists but is not valid JSON,
-back it up to a **collision-safe** filename first (`.openwiki-sessions.json.bak`,
-then `.openwiki-sessions.json.bak2`, … — never overwrite an existing backup),
+back it up to a **collision-safe** filename first (`.sessions.json.bak`,
+then `.sessions.json.bak2`, … — never overwrite an existing backup),
 then recover every mapping that is still salvageable from the invalid input and
 keep those alongside this session's entry — do not replace the file with only
 the current session. If the content cannot be salvaged, leave the backup for

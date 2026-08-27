@@ -117,6 +117,13 @@ selection/truncation, path resolution incl. traversal rejection, every `call_too
 - The consistency/`wiki-*` commands in `.opencode/commands/` (e.g. `wiki-write.md`,
   `wiki-consistency.md`) are the manual companions to these tools; not reviewed this session.
 
+> **Status update (2026-08-27, Consistency Agent):** `.opencode/commands/` no longer exists —
+> commit `50755dd` ("Migrate commands to skills, fix allowlist") moved every OpenCode command to
+> a `.opencode/skills/<name>/SKILL.md` package. The `wiki-*` companions now live at
+> `.opencode/skills/wiki-consistency/`, `.opencode/skills/wiki-update/`,
+> `.opencode/skills/wiki-archive/`, `.opencode/skills/wiki-dedup/`, and
+> `.opencode/skills/wiki-agents-file/`.
+
 ## References
 
 - Related: [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-03-fix-mcp-server-2.0-api]]

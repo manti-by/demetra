@@ -102,6 +102,13 @@ Verified the working tree and git history to correct outdated page statements:
 
 > **Consistency note (2026-08-24, Consistency Agent):** Active LLM consumers now use `demetra/services/llm/openrouter.py` (not `demetra/services/groq.py` or `demetra/services/llm/groq.py` for workflow calls); `PLAN_OUTPUT_MAX_CHARS` lives in `openrouter.py:15`. OpenCode helpers are at `demetra/services/agents/opencode.py` (not `demetra/services/opencode.py`). Compaction is invoked at `demetra/workflows/build.py:100` (not `:79` or `:96`). See [[2026-08-18-migrate-llm-groq-to-openrouter]] and [[2026-07-23-session-tokens-audit-revalidation]].
 
+> **Status update (2026-08-27, Consistency Agent):** Two more stale pointers from this page,
+> both superseded by the same "Refactor services" commit `04436c6` (2026-08-07): Step 1's
+> `demetra/services/groq.py` AGENTS.md anchor is now `demetra/services/llm/groq.py` (AGENTS.md's
+> current External Dependencies section already reflects this — verified). Step 3's
+> `demetra/library/tables.py:114-115` for the `context_tokens`/`model` columns has drifted to
+> `:142-143`. Neither changes the substance of what was documented, only the locations.
+
 ## Follow-ups
 
 - Still open from the audit recommendations: **#2** (cached reads still included in the

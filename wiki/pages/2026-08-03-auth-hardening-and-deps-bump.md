@@ -184,6 +184,14 @@ uv run pytest tests/
 - `get_cookie_samesite()` was refactored to accept `is_cockie_secure: bool` as an explicit parameter rather than reading the `COOKIE_SECURE` global directly; the call site in settings.py now passes `is_cockie_secure=COOKIE_SECURE`.
 - `CORS_ALLOWED_ORIGINS` is now parsed via the `env_get_list()` helper rather than the inline list comprehension shown above.
 
+## Consistency note (2026-08-27)
+
+- `demetra/services/passwords.py` (Step 1's before/after snippet) no longer exists at that
+  path — the "Refactor services" commit `04436c6` (2026-08-07) moved it to
+  `demetra/services/auth/passwords.py` as part of splitting the flat `demetra/services/auth.py`
+  into an `auth/` subpackage. Current `hash_password`/`verify_password` logic matches what's
+  shown here; only the module location changed.
+
 ## References
 
 - Related: [[2026-07-24-plain-auth-review-followups]] (MNT-148 auth work this builds on),

@@ -6,7 +6,7 @@ originals from wiki/pages/ to wiki/archive/.
 agent: build
 ---
 
-You are the OpenWiki Archive Agent. Read `wiki/README.md` and `wiki/TEMPLATE.md`
+You are the Wiki Archive Agent. Read `wiki/README.md` and `wiki/TEMPLATE.md`
 for conventions, then work through every page under `wiki/pages/`.
 
 Pages are session-scoped — once a session is old enough that the detailed
@@ -160,7 +160,7 @@ defer A to the next run.
    rather than a delete + add). If the destination already exists
    (collision with a previous archive), append a `-2`, `-3`, … suffix
    until the path is free; record the rename in the report.
-3. **Update `wiki/.openwiki-sessions.json`.** For each archived candidate,
+3. **Update `wiki/.sessions.json`.** For each archived candidate,
    if the session-id → filename mapping points at the candidate, redirect
    it to the target page (or remove the entry if archived without merge).
    Leave any other-session-id mapping that happens to point at the

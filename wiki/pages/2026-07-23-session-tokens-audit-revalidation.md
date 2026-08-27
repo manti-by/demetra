@@ -296,6 +296,21 @@ Module moves since this audit shifted the file references above. Current locatio
   (`demetra/services/agents/opencode.py:336`).
 - The `context_tokens` / `model` columns exist at `demetra/library/tables.py:142-143`.
 
+## Consistency note (2026-08-27) — line drift on the cleanup.py catches
+
+Re-verified every file:line reference above against current master (2026-08-27):
+
+- Recommendation 1, 2, 4, and the `tables.py:142-143` pointer above all still match
+  exactly — no drift.
+- Recommendation 3's line numbers have drifted: the two broad `except Exception` /
+  `# noqa: BLE001` catches in `demetra/workflows/cleanup.py` are now at **lines 135
+  and 177** (inside `commit_and_push` and `cleanup_workflow` respectively), not
+  `:110,149` — the file grew a wiki-page-generation step (`write_session_wiki_page`,
+  its own `except Exception as e: # noqa: BLE001` at line 55) between the 2026-08-23
+  note and now. The recommendation itself is still open and still deliberate (both
+  catches guard `record_session_step_history` failures during cleanup, same as
+  originally described).
+
 ## References
 
 - Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]]

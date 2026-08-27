@@ -5,7 +5,7 @@ including exact duplicates), keeping the most recent version.
 agent: build
 ---
 
-You are the OpenWiki Dedup Agent. Read `wiki/README.md` and `wiki/TEMPLATE.md`
+You are the Wiki Dedup Agent. Read `wiki/README.md` and `wiki/TEMPLATE.md`
 for conventions, then work through every page under `wiki/pages/`.
 
 1. **Read all pages.** Read every `.md` file in `wiki/pages/`. Parse the
@@ -64,7 +64,7 @@ for conventions, then work through every page under `wiki/pages/`.
      entry in both sections. Keep newest-first order.
    - `wiki/QUESTIONS.md` — point any `**Pages:**` reference at the survivor or
      drop the deleted filename.
-   - `wiki/.openwiki-sessions.json` — redirect every mapping whose value is
+   - `wiki/.sessions.json` — redirect every mapping whose value is
      the deleted filename to the survivor; drop any stale entry whose key is a
      different session id but whose value is the survivor filename.
    - Every remaining page — rewrite `related:` frontmatter and body `[[...]]`
