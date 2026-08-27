@@ -1791,11 +1791,15 @@ class TestWorkflowCleanup:
         )
 
         _mock_add_all.return_value = True
+        _mock_pr.return_value = (0, "https://github.com/test/demetra/pull/1", "")
         mock_wiki.side_effect = OSError("disk full")
 
         with pytest.raises(WikiError, match="Failed to write wiki page"):
             await commit_and_push(context)
-        _mock_commit.assert_not_awaited()
+        _mock_commit.assert_awaited_once()
+        _mock_push.assert_awaited_once()
+        _mock_pr.assert_awaited_once()
+        assert _mock_add_all.await_count == 1
 
     @pytest.mark.asyncio
     async def test_cleanup_workflow_success(self, faker, mock_git_cleanup, mock_linear_cleanup):

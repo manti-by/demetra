@@ -47,17 +47,25 @@ async def commit_and_push(context: Context) -> bool:
 
     print_message("Generating wiki page", style="heading")
     await update_session_step(task_id=context.linear_task.id, step="wiki")
+    wiki_error: WikiError | None = None
     try:
         await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
-    except WikiError:
-        raise
+    except WikiError as e:
+        wiki_error = e
     except Exception as e:  # noqa: BLE001
-        raise WikiError(f"Failed to write wiki page: {e}") from e
-    if not await git_add_all(
-        target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
-    ):
-        print_message("No files to commit after wiki page generation, looping back to build agent", style="warning")
-        return False
+        wiki_error = WikiError(f"Failed to write wiki page: {e}")
+        wiki_error.__cause__ = e
+    if wiki_error is None:
+        if not await git_add_all(
+            target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+        ):
+            print_message("No files to commit after wiki page generation, looping back to build agent", style="warning")
+            return False
+    else:
+        print_message(
+            f"Wiki page generation failed: {wiki_error}, committing build changes without wiki page",
+            style="warning",
+        )
 
     await update_session_step(task_id=context.linear_task.id, step="push")
     await git_commit(
@@ -126,6 +134,9 @@ async def commit_and_push(context: Context) -> bool:
             )
         except Exception:  # noqa: BLE001
             print_message("Failed to record session step history, continuing.", style="warning")
+
+    if wiki_error is not None:
+        raise wiki_error
 
     return True
 

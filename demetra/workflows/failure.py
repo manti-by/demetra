@@ -86,7 +86,9 @@ async def process_wiki_failure(context: Context, error: WikiError) -> None:
     """Handle a wiki page generation failure: notify Linear and set recovery state.
 
     Posts a Linear comment describing the wiki failure and moves the ticket to
-    ``Awaiting Input`` so the changes stay uncommitted for investigation.
+    ``Awaiting Input``. The build changes are already committed and pushed, so
+    the branch and pull request exist without the wiki page and can be recovered
+    manually.
 
     Args:
         context: The workflow context.

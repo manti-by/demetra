@@ -168,6 +168,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
     else:
         pages_root = service.PAGES_ROOT
         index_path = service.INDEX_PATH
+    identifier = "unknown"
     try:
         facts = service.collect_session_facts(context=context)
         identifier = facts["ticket_identifier"]
