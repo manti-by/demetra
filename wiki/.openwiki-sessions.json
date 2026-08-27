@@ -21,5 +21,6 @@
   "ses_fe66890faffe4nIU8hRlC6JC1H": "2026-08-19-build-agent-stale-session-deleted-worktree.md",
   "ses_fe690f0deffe9Sisjgy3YfHCGl": "2026-08-19-build-agent-server-error-handler.md",
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
-  "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md"
+  "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
+  "ses_fbad8fd5affeytew8qRS0KDVpx": "2026-08-28-fix-index-lock-concurrency.md"
 }

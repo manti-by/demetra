@@ -1134,7 +1134,11 @@ class TestWorkflowBuild:
         mock_run_lint_and_test.return_value = (False, None)
         mock_user_input.return_value = ("1", None)
 
-        result = await run_build_step("test build plan", context)
+        with (
+            patch("demetra.workflows.build.MAX_BUILD_ATTEMPTS", 50),
+            patch("demetra.workflows.build.MAX_REVIEW_ATTEMPTS", 10),
+        ):
+            result = await run_build_step("test build plan", context)
 
         assert result is None
         assert mock_run_validate_agent.call_count == 12

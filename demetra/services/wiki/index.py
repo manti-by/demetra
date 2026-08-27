@@ -1,6 +1,8 @@
 import asyncio
 import fcntl
 import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import aiofiles
@@ -10,7 +12,7 @@ import demetra.services.wiki as service
 
 # Serializes index read-modify-write sequences within the process. Cross-process
 # writers (RQ workers) are additionally serialized by an flock on a stable
-# ``INDEX.md.lock`` file taken inside the write helper.
+# ``INDEX.md.lock`` file held for the whole read-modify-write.
 _INDEX_LOCK = asyncio.Lock()
 
 
@@ -38,27 +40,48 @@ def _release_flock(fd: int) -> None:
     os.close(fd)
 
 
-async def _write_index_unlocked(contents: str, target: Path) -> None:
-    """Write the wiki INDEX file while the caller already holds ``_INDEX_LOCK``.
+@asynccontextmanager
+async def _index_lock(target: Path) -> AsyncIterator[None]:
+    """Serialize a full index read-modify-write across processes and tasks.
 
-    The tmp+replace write is additionally serialized across processes by an
-    flock on a stable lock file, so a concurrent worker cannot truncate the
-    shared ``*.tmp`` path mid-write.
+    ``_INDEX_LOCK`` only guards coroutines in this process; RQ workers run in
+    separate processes, so an exclusive flock on a stable ``INDEX.md.lock``
+    file is acquired too. Holding the flock for the whole read-modify-write
+    (rather than just the final write) prevents a lost update where two
+    workers read the same INDEX, each append an entry, and the second write
+    clobbers the first.
+
+    Args:
+        target: The index file being read and written; its lock file is derived
+            as ``target`` + ``.lock``.
+
+    Yields:
+        None: Once the caller holds both the in-process lock and the flock.
+    """
+    lock_path = target.with_suffix(f"{target.suffix}.lock")
+    async with _INDEX_LOCK:
+        fd = await asyncio.to_thread(_acquire_flock, lock_path)
+        try:
+            yield
+        finally:
+            await asyncio.to_thread(_release_flock, fd)
+
+
+async def _write_index_unlocked(contents: str, target: Path) -> None:
+    """Write the wiki INDEX file while the caller already holds ``_index_lock``.
+
+    The tmp+replace write keeps readers seeing either the old or the new
+    complete index, never a partial file.
 
     Args:
         contents: The new INDEX contents.
         target: The index file to write.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
-    lock_path = target.with_suffix(f"{target.suffix}.lock")
-    fd = await asyncio.to_thread(_acquire_flock, lock_path)
-    try:
-        tmp = target.with_suffix(f"{target.suffix}.tmp")
-        async with aiofiles.open(tmp, "w", encoding="utf-8") as handle:
-            await handle.write(contents)
-        os.replace(tmp, target)
-    finally:
-        await asyncio.to_thread(_release_flock, fd)
+    tmp = target.with_suffix(f"{target.suffix}.tmp")
+    async with aiofiles.open(tmp, "w", encoding="utf-8") as handle:
+        await handle.write(contents)
+    os.replace(tmp, target)
 
 
 def index_entry(meta: dict, filename: str) -> str:
@@ -101,7 +124,7 @@ async def write_index(contents: str, index_path: Path | None = None) -> None:
             ``INDEX_PATH``.
     """
     target = index_path if index_path is not None else service.INDEX_PATH
-    async with _INDEX_LOCK:
+    async with _index_lock(target):
         await _write_index_unlocked(contents=contents, target=target)
 
 
@@ -164,7 +187,7 @@ async def prune_index_pages(deleted_names: list[str]) -> None:
     Args:
         deleted_names: The page file names that were removed.
     """
-    async with _INDEX_LOCK:
+    async with _index_lock(service.INDEX_PATH):
         contents = await service.read_index()
         if not contents:
             return
@@ -283,7 +306,7 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
     under the best-matching ``## By topic`` cluster. When the index has no
     ``## By topic`` section yet, it is regenerated from the page catalog first
     so the cluster insert has a target. The whole read-modify-write runs under
-    ``_INDEX_LOCK`` so concurrent workers cannot clobber each other's entries.
+    ``_index_lock`` so concurrent workers cannot clobber each other's entries.
 
     Args:
         meta: The page frontmatter mapping.
@@ -292,7 +315,7 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
             ``INDEX_PATH``.
     """
     target = index_path if index_path is not None else service.INDEX_PATH
-    async with _INDEX_LOCK:
+    async with _index_lock(target):
         contents = await service.read_index(index_path=target)
         pages_entry = service.index_entry(meta=meta, filename=filename)
         updated = service.insert_pages_entry(contents=contents, entry=pages_entry)
@@ -331,7 +354,7 @@ def cluster_for(meta: dict) -> str:
 async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path | None = None) -> int:
     """Rebuild the ``## By topic`` section of INDEX.md from page frontmatter.
 
-    The read-modify-write runs under ``_INDEX_LOCK`` so concurrent workers
+    The read-modify-write runs under ``_index_lock`` so concurrent workers
     cannot clobber each other's rebuild.
 
     Args:
@@ -344,12 +367,13 @@ async def regenerate_by_topic(index_path: Path | None = None, pages_root: Path |
     Returns:
         int: The number of topic clusters written.
     """
-    async with _INDEX_LOCK:
+    target = index_path if index_path is not None else service.INDEX_PATH
+    async with _index_lock(target):
         return await _regenerate_by_topic_unlocked(index_path=index_path, pages_root=pages_root)
 
 
 async def _regenerate_by_topic_unlocked(index_path: Path | None, pages_root: Path | None) -> int:
-    """Rebuild the ``## By topic`` section while the caller holds ``_INDEX_LOCK``.
+    """Rebuild the ``## By topic`` section while the caller holds ``_index_lock``.
 
     Args:
         index_path: The index file to update.
