@@ -5,10 +5,10 @@ type: implementation
 status: resolved
 session_id: ses_8f3a2b1c-20260825
 services: [react]
-branch: -
+branch: "-"
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
-related: []
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-22-react-frontend-template-warp.md, 2026-07-23-session-history-modal.md]
 ---
 
 # Loader replacement and Style Guide page
@@ -126,6 +126,8 @@ function StyleGuideLayout() {
 ```
 
 Placed above Settings/Shared env, before RQ Dashboard, so logged-in users see it first.
+
+> **Consistency note (2026-08-27, Consistency Agent):** added missing `related:` frontmatter entries for the three cross-linked pages; quoted `branch: "-"` so YAML parses correctly.
 
 ## Test Results
 

@@ -15,7 +15,7 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linea
 
 ## TL;DR
 
-The session wiki page was written in `main.py`'s `finally` block — *after* `commit_and_push` had already committed and pushed, so the freshly-written `wiki/pages/*.md` never reached the repo. Moved the wiki write into `commit_and_push` (after the first `git add`, before the commit) targeting the worktree's own `wiki/` directory, made `git_diff_facts` diff the working tree so it sees uncommitted build changes, and converted the silently-swallowed wiki failure into a typed `WikiError` that moves the ticket to `Awaiting Input` with a `wiki_failed` comment. 5 new tests; full suite 899 passed.
+The session wiki page was written in `main.py`'s `finally` block — *after* `commit_and_push` had already committed and pushed, so the freshly-written `wiki/pages/*.md` never reached the repo. Moved the wiki write into `commit_and_push` (after the first `git add`, before the commit) targeting the worktree's own `wiki/` directory, made `git_diff_facts` diff the working tree so it sees uncommitted build changes, and converted the silently-swallowed wiki failure into a typed `WikiError` routed to `Awaiting Input` with a `wiki_failed` comment. On wiki failure the build changes still commit and the PR is created first; `WikiError` is raised afterward so the ticket lands in `Awaiting Input` without losing the code. 5 new tests; full suite 899 passed.
 
 ---
 
@@ -50,9 +50,11 @@ The write helpers now take an optional target path so the main flow can write in
 **File:** `demetra/workflows/cleanup.py` — `commit_and_push` now:
 
 1. `git add` the build changes (existing) and bail with `return False` when empty (existing retry loop).
-2. `update_session_step(..., step="wiki")` then `write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")`; any failure becomes `WikiError` and no commit happens.
-3. A second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit.
-4. Proceeds with `git commit` / `git push` / PR creation as before.
+2. `update_session_step(..., step="wiki")` then `write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")`.
+3. On success, a second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit.
+4. On wiki failure, logs a warning and **skips** the second `git add` — build changes still commit without the wiki files.
+5. Proceeds with `git commit` / `git push` / PR creation as before.
+6. After a successful PR, **re-raises** the stored `WikiError` so `main.py` can route the ticket to `Awaiting Input` via `process_wiki_failure` without losing the pushed code.
 
 ## Step 5 — Failure handling
 
@@ -65,7 +67,7 @@ The write helpers now take an optional target path so the main flow can write in
 ## Test Results
 
 - `tests/test_wiki.py` — `test_failure_is_swallowed` → `test_failure_raises_wiki_error` (asserts `WikiError`); new `test_writes_to_custom_wiki_root` (page + index land under `<wiki_root>`); `git_diff_facts` tests updated to assert `diff <base_ref>` without `..HEAD`.
-- `tests/test_workflows.py` — `mock_commit_deps` extended with a patched `write_session_wiki_page`; every `commit_and_push` test asserts the wiki write with `wiki_root=context.worktree_path / "wiki"` and the second `git_add_all`; new `test_commit_and_push_wiki_failure_raises_wiki_error`.
+- `tests/test_workflows.py` — `mock_commit_deps` extended with a patched `write_session_wiki_page`; every `commit_and_push` test asserts the wiki write with `wiki_root=context.worktree_path / "wiki"` and the second `git_add_all`; new `test_commit_and_push_wiki_failure_raises_wiki_error` (wiki failure still commits/pushes, then raises `WikiError`).
 - `tests/test_entrypoints.py` — new `test_main_writes_wiki_before_commit` (success path) and `test_main_handles_wiki_failure` (WikiError → `process_wiki_failure` + `awaiting_input` cleanup).
 - `tests/test_failure.py` — new `test_posts_wiki_failure_comment`.
 
@@ -83,6 +85,8 @@ pre-commit    — all hooks passed
 
 - The merge/rebase workflows still write the wiki with the legacy default root (`WIKI_ROOT`) after their merge commit; they were left unchanged because their working tree is clean post-merge and the PR already carries the wiki page. A future pass could point them at the worktree root for consistency.
 - `git_diff_facts` now captures any uncommitted changes in the worktree; the wiki page lists the wiki files themselves once staged — this is benign because the diff is computed before the page is written.
+
+> **Consistency note (2026-08-27, Consistency Agent):** verified against current `demetra/workflows/cleanup.py` — wiki failure does **not** abort the commit; build changes commit and the PR is created first, then `WikiError` is re-raised at the end of `commit_and_push` (lines 138–139) for `main.py` to handle.
 
 ## References
 
