@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
 import { GitHubLoginButton } from "./components/GitHubLoginButton";
 import { Header } from "./components/Header";
+import { Loader } from "./components/Loader";
 import { PasswordAuthForm } from "./components/PasswordAuthForm";
 import { SessionArtifacts } from "./components/SessionArtifacts";
 import { UserSettings } from "./components/UserSettings";
@@ -16,6 +17,9 @@ import "./App.css";
 const GitHubCallback = lazy(() =>
   import("./pages/GitHubCallback").then((m) => ({ default: m.GitHubCallback })),
 );
+const StyleGuide = lazy(() =>
+  import("./pages/StyleGuide").then((m) => ({ default: m.StyleGuide })),
+);
 const LogConsole = lazy(() =>
   import("./components/LogConsole").then((m) => ({ default: m.LogConsole })),
 );
@@ -25,11 +29,7 @@ const LOGIN_SUBTITLE =
   "AI-powered workflow orchestration for developers. Automate your development workflow with intelligent agents.";
 
 function LoadingSpinner() {
-  return (
-    <div className="loading-container">
-      <div className="loading-spinner" />
-    </div>
-  );
+  return <Loader fullScreen size={56} />;
 }
 
 function LoginView() {
@@ -132,13 +132,8 @@ function AppContent() {
               setSessions={setSessions}
             />
             <div className="console-container">
-              <Suspense
-                fallback={
-                  <div className="loading-container">
-                    <div className="loading-spinner" />
-                  </div>
-                }
-              >
+              <Suspense fallback={<Loader size={48} />}>
+
                 <LogConsole taskId={selectedTaskId} sessionName={sessions.find((s) => s.task_id === selectedTaskId)?.name ?? null} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} sessions={sessions} />
@@ -155,6 +150,29 @@ function AppContent() {
   );
 }
 
+function StyleGuideLayout() {
+  const { user, loading, logout } = useAuth();
+  const handleLogout = useCallback(async () => {
+    await logout();
+    window.location.reload();
+  }, [logout]);
+
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+
+  return (
+    <div className="app">
+      <Header user={user} onLogout={handleLogout} />
+      <main className="main-content">
+        <Suspense fallback={<Loader size={48} />}>
+          <StyleGuide />
+        </Suspense>
+      </main>
+    </div>
+  );
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -162,6 +180,7 @@ function App() {
         <AuthProvider>
           <Routes>
             <Route path="/" element={<AppContent />} />
+            <Route path="/styleguide" element={<StyleGuideLayout />} />
             <Route path="/github/callback" element={<GitHubCallback />} />
           </Routes>
         </AuthProvider>

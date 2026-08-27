@@ -19,7 +19,7 @@ describe('SessionList', () => {
         setSessions={vi.fn()}
       />,
     );
-    expect(screen.getByText('Loading sessions...')).toBeInTheDocument();
+    expect(screen.getByAltText('Loading...')).toBeInTheDocument();
   });
 
   it('displays sessions with step styling', () => {

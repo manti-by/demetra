@@ -113,7 +113,7 @@
 
 .burger-icon span {
   display: block;
-  height: 1.5px;
+  height: 2px;
   background: var(--color-text-secondary);
   border-radius: 1px;
   transition: background 0.15s ease;
@@ -544,27 +544,6 @@
   animation: fade-in 0.3s ease;
 }
 
-.callback-spinner {
-  width: 32px;
-  height: 32px;
-  border: 2px solid var(--color-border);
-  border-top-color: var(--color-accent);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  margin: 0 auto 1.25rem;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.callback-text {
-  color: var(--color-text-secondary);
-  font-size: 0.85rem;
-}
-
 .callback-error {
   color: var(--color-error);
   font-size: 0.85rem;
@@ -574,7 +553,31 @@
   border: 1px solid var(--color-error-subtle);
 }
 
-/* ─── Loading ─────────────────────────────────────────────── */
+/* ─── Loader (replaces all BE-waiting spinners) ───────────── */
+.loader-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+}
+
+.loader-fullscreen {
+  min-height: 100vh;
+  background: var(--color-canvas);
+}
+
+.loader-image {
+  display: block;
+  object-fit: contain;
+}
+
+.auth-submit .loader-container,
+.btn-primary .loader-container {
+  padding: 0;
+  display: inline-flex;
+}
+
+/* Legacy aliases kept for backwards compat — now delegate to loader */
 .loading-container {
   display: flex;
   align-items: center;
@@ -583,13 +586,20 @@
   background: var(--color-canvas);
 }
 
-.loading-spinner {
+.loading-spinner,
+.callback-spinner {
   width: 36px;
   height: 36px;
   border: 2px solid var(--color-border);
   border-top-color: var(--color-accent);
   border-radius: 50%;
   animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ─── Modal ───────────────────────────────────────────────── */

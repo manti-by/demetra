@@ -79,7 +79,7 @@ describe('SessionHistory', () => {
     render(
       <SessionHistory entries={[]} total={zeroTotal} isOpen={true} onClose={vi.fn()} isLoading={true} error={null} />
     );
-    expect(document.querySelector('.loading-spinner')).toBeInTheDocument();
+    expect(screen.getByAltText('Loading...')).toBeInTheDocument();
   });
 
   it('renders empty state when entries is empty', () => {

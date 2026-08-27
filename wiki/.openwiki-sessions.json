@@ -2,6 +2,7 @@
   "-": "2026-08-18-test-db-isolation-logging.md",
   "3829832e-7a27-42ce-8897-f46a971a95a4": "2026-07-16-simplify-session-logging-setup.md",
   "3eae8036-e679-4a09-be65-144e738741e0": "2026-07-23-session-tokens-audit-revalidation.md",
+  "build-agent-2026-08-24": "2026-08-24-gh-config-dir-permission-entrypoint.md",
   "e6a4e432-a337-46a5-8e3a-a027d7cb0cdd": "2026-07-16-fix-step-status-review-findings.md",
   "mnt-146-post-build-validation": "2026-08-05-post-build-validation.md",
   "mnt-148-plain-auth": "2026-07-24-plain-auth-review-followups.md",
@@ -13,12 +14,12 @@
   "ses_0936687abffekKL1uBAPkCWbGU": "2026-07-16-session-history-tokens-null.md",
   "ses_093670774ffeRqtTEflrkIDv8O": "2026-07-16-fix-notification-mark-read.md",
   "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-07-15-duplicated-log-messages.md",
+  "ses_8f3a2b1c-20260825": "2026-08-25-loader-styleguide.md",
+  "ses_fcc17abbaffe7m4bui291JEEZ3": "2026-08-24-guard-empty-plan-output.md",
   "ses_fe1248211ffeLvd40e4OnV1uVR": "2026-08-20-fix-allowlist-tests.md",
   "ses_fe1f1413cffe0nPjQ3DdiuD5IG": "2026-08-20-review-gh-auth-mount-changes.md",
   "ses_fe66890faffe4nIU8hRlC6JC1H": "2026-08-19-build-agent-stale-session-deleted-worktree.md",
   "ses_fe690f0deffe9Sisjgy3YfHCGl": "2026-08-19-build-agent-server-error-handler.md",
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
-  "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
-  "build-agent-2026-08-24": "2026-08-24-gh-config-dir-permission-entrypoint.md",
-  "ses_fcc17abbaffe7m4bui291JEEZ3": "2026-08-24-guard-empty-plan-output.md"
+  "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md"
 }

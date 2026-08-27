@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { Loader } from "./Loader";
 import type { SessionHistoryEntry, SessionTokenTotals } from "../services/api";
 
 const CloseIcon = () => (
@@ -178,7 +179,7 @@ function SessionHistoryInner({
           </button>
         </div>
         <div className="modal-body">
-          {isLoading && <div className="loading-spinner" />}
+          {isLoading && <Loader size={36} />}
           {!isLoading && error && (
             <div className="session-history-error">{error}</div>
           )}
