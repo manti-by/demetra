@@ -85,18 +85,16 @@ by the plugin.
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — Renamed the `hera` frontend scaffold to `react`, updated the Makefile/docs, tightened GitHub auth validation, and removed legacy FastAPI docs. (2026-06-01)
 - [Refactor API](pages/2026-06-01-refactor-api.md) — Split the monolithic `demetra/api.py` into a `demetra/api/` package with per-prefix routers, landing GitHub OAuth, project CRUD, session tracking, websocket log streaming, and user API-key management in one bundle. (2026-06-01)
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — Added a standalone MCP server exposing filesystem and PostgreSQL-only database tools with no auth; filesystem tools were removed the next day, and the server was later moved to `demetra/mcp_server.py` running over stdio. (2026-06-01)
-- [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — Deleted the AI-text-extraction `/create-ticket` endpoint and its provider in favor of the Linear-native ticket flow. (2026-05-25)
-- [Async review](pages/2026-05-25-async-review.md) — Made the code-review step parallel (`run_review_agents` runs all agents concurrently), fixed `merge_review_results` to handle `None` stdout/stderr, and prevented empty commits by validating staged changes. (2026-05-25)
-- [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — Session list shows the task title with a fallback to the truncated id; the status filter param was later renamed to `step`. (2026-05-22)
 
 ## By topic
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & session lifecycle (15 pages)
+### Workflow orchestration & session lifecycle (16 pages)
 
 _(mnt-191-ticket-status-not-changed also sits in Linear & GitHub integrations.)_
 
+- [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md)
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)
 - [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
@@ -113,7 +111,7 @@ _(mnt-191-ticket-status-not-changed also sits in Linear & GitHub integrations.)_
 - [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md)
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md)
 
-### Sessions, history & tokens (10 pages)
+### Sessions, history & tokens (9 pages)
 
 _(session-history-modal also sits in React frontend / UI.)_
 
@@ -126,7 +124,6 @@ _(session-history-modal also sits in React frontend / UI.)_
 - [Linear link artifact](pages/2026-06-22-linear-link-artifact.md)
 - [Build artifacts](pages/2026-06-09-build-artifacts.md)
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md)
-- [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md)
 
 ### React frontend / UI (8 pages)
 
@@ -181,12 +178,11 @@ _(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-rev
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md)
 - [Project environment](pages/2026-06-08-project-environment.md)
 
-### LLM pipeline & review agents (4 pages)
+### LLM pipeline & review agents (3 pages)
 
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 - [Review summarization](pages/2026-06-04-review-summarization.md)
 - [GitHub PR description](pages/2026-06-22-github-pr-description.md)
-- [Async review](pages/2026-05-25-async-review.md)
 
 ### Code-review findings application (3 pages)
 
@@ -239,6 +235,4 @@ _(mnt-191-ticket-status-not-changed also sits in Workflow orchestration & sessio
 
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md)
 
-### Decommissioned (1 page)
 
-- [Remove ticket API](pages/2026-05-25-remove-ticket-api.md)

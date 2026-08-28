@@ -13,6 +13,11 @@ related: [2026-02-23-add-multiagent-code-review.md, 2026-08-18-migrate-llm-groq-
 
 # Async review
 
+> **Archived on 2026-08-28.** Useful info merged into
+> [[2026-08-18-migrate-llm-groq-to-openrouter]]. See wiki/archive/ for the
+> original.
+
+
 ## TL;DR
 
 Made the code-review step parallel: `run_review_agents` now runs all review agents asynchronously and merges their responses. The same PR (with MNT-86) fixed `merge_review_results` to handle `None` stdout/stderr, fixed the test mocks, prevented empty commits by validating staged changes, and added the session delete button styling.

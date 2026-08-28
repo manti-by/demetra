@@ -3,12 +3,12 @@ title: "MNT-181: Total tokens counter"
 date: 2026-08-25
 type: implementation
 status: resolved
-session_id: "-"
+session_id: -
 services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
-tickets: [MNT-181]
-tags: [session-history, tokens, react, api, frontend]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-07-16-session-history-tokens-null.md]
+tickets: [MNT-181, MNT-84, MNT-59]
+tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-07-16-session-history-tokens-null.md, 2026-05-22-task-title-session-listing.md]
 ---
 
 # MNT-181: Total tokens counter
@@ -112,6 +112,10 @@ Backend (`tests/test_api.py` — `TestSessionHistoryEndpoint`):
 Frontend: extended `SessionHistory.test.tsx` (totals block presence/absence) and `SessionArtifacts.test.tsx` (mock returns `{ total, history }`).
 
 ---
+
+## Source — [[2026-05-22-task-title-session-listing]]
+
+Session list shows task title with fallback to truncated id. Originally decided in [[2026-05-22-task-title-session-listing]] on 2026-05-22 (MNT-84): `GET /api/v1/sessions` now renders `task_title`/`custom name` with truncated `session_id` fallback; the filter param was renamed `status` → `step` (`GET /api/v1/sessions?step=...`, see [[2026-07-16-fix-step-status-review-findings]]). Still in effect — React `SessionArtifacts`/`SessionSidebar` rely on it. Conventions: session display uses `custom name` when available, fallback to truncated id; API auth error messaging improved as part of same session.
 
 ## Follow-ups
 

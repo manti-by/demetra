@@ -5,6 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_unknown
 services: [docs, opencode, settings]
+branch: "-"
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
 related: [2026-07-22-feature-flag-settings-and-tests.md]
@@ -83,6 +84,8 @@ No test-impacting code changes. Lint/type/security checks are N/A for documentat
 > OpenCode commands to `.opencode/skills/<name>/SKILL.md` packages; this command's successor is
 > `.opencode/skills/wiki-agents-file/SKILL.md` ("Update AGENTS.md"), which carries the same
 > source-of-truth-priority (code > wiki > git log) revalidation flow described in Step 1.
+
+> **Consistency note (2026-08-28, Consistency Agent):** Added missing `branch: "-"` frontmatter to match `wiki/TEMPLATE.md`.
 
 ## References
 
