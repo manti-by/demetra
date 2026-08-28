@@ -50,10 +50,20 @@ The write helpers now take an optional target path so the main flow can write in
 **File:** `demetra/workflows/cleanup.py` — `commit_and_push` now:
 
 1. `git add` the build changes (existing) and bail with `return False` when empty (existing retry loop).
-2. `update_session_step(..., step="wiki")` then `write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")`. On success, a second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit. On failure, the error is captured in `wiki_error` and the function logs a warning but **continues** — commit/push/PR proceed without the wiki page.
-3. Proceeds with `git commit` / `git push` / PR creation, marks the session step `"completed"`, then re-raises `wiki_error` if set so `main.py`'s `except WikiError` handler moves the ticket to `Awaiting Input` with a `wiki_failed` comment. Net effect: wiki generation is best-effort and never blocks shipping the code change.
+2. `update_session_step(..., step="wiki")` then `write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")`; any failure becomes `WikiError` and no commit happens.
+3. A second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit.
+4. Proceeds with `git commit` / `git push` / PR creation as before.
 
-> **Consistency note (2026-08-27, Consistency Agent):** Step 2 originally described an immediate `WikiError` abort before commit; follow-up commit `c2a31ab` (PR #103) changed this to deferred failure — branch/push/PR succeed first, ticket status is gated afterward. See `demetra/templates/wiki_failed.md` and `process_wiki_failure` (`demetra/workflows/failure.py:85`).
+> **Status update (2026-08-28, Consistency Agent):** PR #106 (MNT-189, merged
+> 2026-08-28) superseded the PR #103 deferred-raise path above. `commit_and_push`
+> now **never re-raises** `WikiError`: on wiki-write failure it logs a warning and
+> returns `True` after a successful commit/push/PR (`demetra/workflows/cleanup.py:137-141`).
+> `process_wiki_failure` in `main.py`'s `except WikiError` handler is therefore
+> unreachable from the commit path — wiki generation is fully best-effort with no
+> Linear `Awaiting Input` transition. The workflow test was renamed accordingly:
+> `test_commit_and_push_wiki_failure_returns_true_after_successful_push`
+> (`tests/test_workflows.py:1820`). The 2026-08-27 update above is superseded on
+> ticket-status gating.
 
 ## Step 5 — Failure handling
 
