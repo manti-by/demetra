@@ -24,9 +24,12 @@ Classifies every workflow-runtime env var read in `demetra/settings.py` into one
 > `demetra/services/linear/__init__.py`, the OpenRouter user-env fallback in
 > `get_openrouter_config()` (`demetra/services/llm/config.py`),
 > `_resolve_opencode_model(..., user_environment=...)` in `demetra/services/agents/opencode.py`,
-> and `env["UV_PATH"]` in `demetra/services/runtime/project.py:187`. **Step 5 is partial** —
-> `tests/test_settings_layers.py` covers Linear config resolution and OpenRouter user-env
-> overrides, but has no OpenCode-model-override or `UV_PATH`-after-venv cases.
+> and `env["UV_PATH"]` in `demetra/services/runtime/project.py:187`.
+>
+> **Status update (2026-08-28, Consistency Agent):** OpenCode per-agent model
+> overrides from user env are now covered in `tests/test_opencode.py`
+> (`TestOpencodeModelResolution`); step 5 remains partial only for
+> `UV_PATH`-after-`setup_project_venv` (no test references `UV_PATH` yet).
 
 ---
 

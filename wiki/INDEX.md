@@ -22,7 +22,7 @@ by the plugin.
 - [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — Root-owned `demetra_app_data` volume caused `EACCES` on `~/.local/share/opencode`; fixed with a root entrypoint that chowns the home volume once per volume (marker-gated) and drops to `demetra` via `setpriv`. (2026-08-19)
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md) — Split the `auth` and `linear` service facades into per-concern submodules, deleted the legacy `sys.meta_path` import-relocation shim, and changed review/PR-description LLM failures from silent empty returns to typed `ReviewError`/`PrDescriptionError` exceptions routed to Awaiting Input. Merged via PR #80. (2026-08-19)
 - [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — Renamed the wiki write-side LLM-polish gate `budget_exceeded()` to `should_use_llm()` across the wiki subpackage and tests; behavior unchanged (still gated by `WIKI_LLM_BUDGET_FILES`/`_LINES`). (2026-08-19)
-- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — Classifies every workflow-runtime env var into project/user/system layers; MNT-170 (PR #80) executed the migration (Linear state/team ids and OpenRouter key/model → user env, `UV_PATH` → project env); step 5 test coverage still partial as of 2026-08-27. (2026-08-18)
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — Classifies every workflow-runtime env var into project/user/system layers; MNT-170 (PR #80) executed the migration (Linear state/team ids and OpenRouter key/model → user env, `UV_PATH` → project env); step 5 test coverage still partial — OpenCode model overrides covered in `test_opencode.py`, `UV_PATH`-after-venv not yet. (2026-08-18)
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — Behavior-preserving refactor introducing `x-demetra-env`/`x-demetra-base`/`x-demetra-app` YAML anchors so the six app services stop duplicating ~20 lines each; shrunk `docker-compose.yaml` from 197 to 179 lines. (2026-08-18)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md) — Replaced the Groq-backed LLM service with OpenRouter for plan extraction, review/PR-description generation, and wiki polish via a new `demetra/services/llm/openrouter.py` module; legacy `demetra/services/llm/groq.py` kept but unused. (2026-08-18)
 - [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — Made `setup_test_db` autouse (tests were silently hitting the live `demetra` DB) and added a `console_only_logging` fixture (tests were writing into production log files); a same-day follow-up also fixed console runs leaving no session row on early plan failures. (2026-08-18)
@@ -92,8 +92,11 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & session lifecycle (14 pages)
+### Workflow orchestration & session lifecycle (15 pages)
 
+_(mnt-191-ticket-status-not-changed also sits in Linear & GitHub integrations.)_
+
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)
 - [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
 - [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md)
@@ -159,8 +162,9 @@ _(allowlist-review-fixes and apply-pr75-coderabbit-findings also sit in Code-rev
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md)
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md)
 
-### Wiki & knowledge base (6 pages)
+### Wiki & knowledge base (7 pages)
 
+- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md)
 - [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
 - [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
@@ -219,6 +223,8 @@ _(apply-pr75-coderabbit-findings and allowlist-review-fixes also sit in Authenti
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md)
 
 ### Linear & GitHub integrations (3 pages)
+
+_(mnt-191-ticket-status-not-changed also sits in Workflow orchestration & session lifecycle.)_
 
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md)

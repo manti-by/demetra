@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_8f3a2b1c-20260825
 services: [react]
-branch: -
+branch: "-"
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
 related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
@@ -16,6 +16,8 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-hist
 ## TL;DR
 
 Replaced every BE-waiting indicator in the React app with the new `react/public/loader.svg` via a reusable `Loader` component, and added a living Style Guide at `/styleguide` linked from the burger menu that catalogs all existing UI primitives and composites.
+
+> **Consistency note (2026-08-28, Consistency Agent):** Frontmatter `branch: -` was unquoted YAML (parsed as a sequence); quoted to `"-"` per wiki template convention.
 
 ---
 
