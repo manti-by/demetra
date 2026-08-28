@@ -89,6 +89,11 @@ can never be retried — every rerun fails identically a few seconds into the bu
 
 - Decide on the systemic fix (clear session on cleanup vs. retry without `--session`) and implement.
 
+> **Status update (2026-08-28, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and
+> `demetra/services/vcs/git.py` after PR #106 (MNT-189) merged — no code clears
+> `sessions.session_id` when a worktree is deleted, and `opencode_build_agent` still passes
+> `--session` whenever `context.session_id` is set. The systemic follow-up above remains open.
+
 ## References
 
 - Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-07-15-duplicated-log-messages]]

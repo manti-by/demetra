@@ -54,22 +54,16 @@ The write helpers now take an optional target path so the main flow can write in
 3. A second `git add` stages the freshly-written `wiki/pages/*.md` + `wiki/INDEX.md` so they are part of the same commit.
 4. Proceeds with `git commit` / `git push` / PR creation as before.
 
-> **Status update (2026-08-27, Consistency Agent):** Point 2 above ("any failure becomes
-> `WikiError` and no commit happens") is now stale. A same-day follow-up commit,
-> `c2a31ab` ("MNT-187: Fix review findings", merged into `master` via PR #103,
-> `bce3571`), changed `commit_and_push` so a wiki-write failure is caught and
-> **deferred** instead of raised immediately: the function proceeds to `git commit` /
-> `git push` / PR creation *without* the wiki page, marks the session step
-> `"completed"`, and only then does `if wiki_error is not None: raise wiki_error` —
-> so the ticket still ends up in `Awaiting Input` with the `wiki_failed` comment, but
-> the branch, push and PR have already succeeded by the time that happens. The
-> `demetra/templates/wiki_failed.md` copy was updated to match: "The build succeeded
-> and changes were committed and pushed, but generating the wiki page for this
-> session failed. The branch and pull request were still created without the wiki
-> page." `process_wiki_failure`'s docstring (`demetra/workflows/failure.py:85`) now
-> says the same thing explicitly. Net effect: wiki generation is best-effort and
-> never blocks shipping the code change; only the ticket status (not the commit) is
-> gated on it.
+> **Status update (2026-08-28, Consistency Agent):** PR #106 (MNT-189, merged
+> 2026-08-28) superseded the PR #103 deferred-raise path above. `commit_and_push`
+> now **never re-raises** `WikiError`: on wiki-write failure it logs a warning and
+> returns `True` after a successful commit/push/PR (`demetra/workflows/cleanup.py:137-141`).
+> `process_wiki_failure` in `main.py`'s `except WikiError` handler is therefore
+> unreachable from the commit path — wiki generation is fully best-effort with no
+> Linear `Awaiting Input` transition. The workflow test was renamed accordingly:
+> `test_commit_and_push_wiki_failure_returns_true_after_successful_push`
+> (`tests/test_workflows.py:1820`). The 2026-08-27 update above is superseded on
+> ticket-status gating.
 
 ## Step 5 — Failure handling
 
