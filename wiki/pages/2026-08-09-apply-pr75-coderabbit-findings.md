@@ -1,5 +1,5 @@
 ---
-title: Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int
+title: "Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int"
 date: 2026-08-09
 type: implementation
 status: resolved

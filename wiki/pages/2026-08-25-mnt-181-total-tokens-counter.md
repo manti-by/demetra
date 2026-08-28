@@ -1,5 +1,5 @@
 ---
-title: MNT-181: Total tokens counter
+title: "MNT-181: Total tokens counter"
 date: 2026-08-25
 type: implementation
 status: resolved
