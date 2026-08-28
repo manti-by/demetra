@@ -127,7 +127,8 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
     """Process a batch of TODO tasks, upserting sessions and queueing workflows.
 
     Tasks already pending keep their session; new tasks get a pending session
-    row before their workflow is enqueued.
+    row, are moved to ``in_progress`` in Linear and then have their workflow
+    enqueued.
 
     Args:
         tasks: The TODO tasks to process.
@@ -153,6 +154,12 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 name=task.full_title,
                 linear_link=task.url,
             )
+
+            state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
+            if state_id is None:
+                logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")
+            elif not await update_ticket_status(task_id=task.id, state_id=state_id):
+                logger.warning(f"Failed to move task {task.id} to 'in_progress'")
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
         await delay_run_workflow(project_name=task.project_name, task_id=task.id)
