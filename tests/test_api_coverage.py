@@ -93,33 +93,123 @@ class TestWatcherService:
         ):
             yield
 
-    @pytest.mark.asyncio
-    async def test_process_tasks_filters_missing_project_name(self, faker, mock_get_pending_session_task_ids):
+    @pytest.fixture
+    def mock_upsert_pending_session(self):
+        with patch("demetra.services.daemons.watcher.upsert_pending_session", new_callable=AsyncMock) as mock:
+            yield mock
 
-        task = LinearTask(
+    @pytest.fixture
+    def mock_update_ticket_status(self):
+        with patch("demetra.services.daemons.watcher.update_ticket_status", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_get_linear_config_value(self):
+        with patch("demetra.services.daemons.watcher.get_linear_config_value", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_delay_run_workflow(self):
+        with patch("demetra.services.daemons.watcher.delay_run_workflow", new_callable=AsyncMock) as mock:
+            yield mock
+
+    def _task(self, faker, **kwargs):
+        return LinearTask(
             id=str(uuid4()),
             identifier="MNT-123",
             title=faker.sentence(),
             description=faker.text(),
             priority=1,
             created_at=datetime.now().isoformat(),
-            project_name=None,
+            **kwargs,
         )
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_filters_missing_project_name(self, faker, mock_get_pending_session_task_ids):
+        task = self._task(faker, project_name=None)
 
         await process_tasks(tasks=[task])
 
     @pytest.mark.asyncio
     async def test_process_tasks_skips_missing_project_id(self, faker, mock_get_pending_session_task_ids):
-
-        task = LinearTask(
-            id=str(uuid4()),
-            identifier="MNT-123",
-            title=faker.sentence(),
-            description=faker.text(),
-            priority=1,
-            created_at=datetime.now().isoformat(),
-            project_name="demetra",
-            project_id=None,
-        )
+        task = self._task(faker, project_name="demetra", project_id=None)
 
         await process_tasks(tasks=[task])
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_moves_new_task_to_in_progress(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_linear_config_value.return_value = "in-progress-state"
+
+        await process_tasks(tasks=[task])
+
+        mock_upsert_pending_session.assert_awaited_once()
+        mock_get_linear_config_value.assert_awaited_once_with(name="in_progress", user_id="user-1")
+        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_delay_run_workflow.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_skips_in_progress_update_for_existing_pending(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        with patch("demetra.services.daemons.watcher.get_pending_session_task_ids", new_callable=AsyncMock) as mock_ids:
+            mock_ids.return_value = {task.id}
+
+            await process_tasks(tasks=[task])
+
+        mock_upsert_pending_session.assert_not_awaited()
+        mock_get_linear_config_value.assert_not_awaited()
+        mock_update_ticket_status.assert_not_awaited()
+        mock_delay_run_workflow.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_logs_and_continues_when_in_progress_state_missing(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_linear_config_value.return_value = None
+
+        await process_tasks(tasks=[task])
+
+        mock_update_ticket_status.assert_not_awaited()
+        mock_delay_run_workflow.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_logs_and_continues_when_update_fails(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_linear_config_value.return_value = "in-progress-state"
+        mock_update_ticket_status.return_value = False
+
+        await process_tasks(tasks=[task])
+
+        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_delay_run_workflow.assert_awaited_once()

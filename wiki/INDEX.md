@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — The watcher daemon `process_tasks` created a pending session and enqueued a workflow but never moved the Linear ticket to `In Progress`; the status update lived only in `main.py` after `setup_workflow` succeeded, so a setup failure left the ticket stuck in TODO and re-picked every poll. `process_tasks` now moves a new task to `in_progress` the moment it accepts it (missing config / failed update log and continue). Tests added; full suite 920 passed; ruff / ty / bandit clean. (2026-08-28)
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — The wiki INDEX read-modify-write was only serialized in-process: `_INDEX_LOCK` is an `asyncio.Lock()` (process-local) and the cross-process `flock` was taken only inside `_write_index_unlocked` — after the read — so two RQ workers in separate processes could both read the same `INDEX.md`, each append their own page entry, and the second `os.replace` clobbered the first (lost update). Added an `_index_lock` async context manager that holds the flock for the whole read-modify-write; all four mutating entry points (`write_index`, `prune_index_pages`, `patch_index`, `regenerate_by_topic`) now run under it, and the write helper no longer re-acquires the flock (which would have nested and deadlocked). 69 wiki tests pass; ruff / ty clean; verified with a two-subprocess concurrency repro. (2026-08-28)
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — Wiki page write was happening in `main.py`'s `finally` block after `commit_and_push` already committed/pushed, so it never reached the repo; moved the write into `commit_and_push` before commit, made `git_diff_facts` diff the working tree, added a `"wiki"` `StepType` step, and converted the swallowed failure into a typed `WikiError` routed to Awaiting Input. A same-day follow-up (PR #103) made a wiki-write failure deferred rather than blocking: the commit/push/PR still happen, only the ticket status is gated on it. (2026-08-25)
 - [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — Session-history endpoint now returns `{total, history}`; the modal shows a session-wide Total Tokens summary block. (2026-08-25)
@@ -217,8 +218,9 @@ _(apply-pr75-coderabbit-findings and allowlist-review-fixes also sit in Authenti
 - [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md)
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md)
 
-### Linear & GitHub integrations (2 pages)
+### Linear & GitHub integrations (3 pages)
 
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md)
 - [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md)
 
