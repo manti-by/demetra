@@ -57,6 +57,26 @@ describe("parseEnvFile", () => {
     expect(parseEnvFile("")).toEqual([]);
     expect(parseEnvFile("   \n# comment\n")).toEqual([]);
   });
+
+  it("strips trailing comment from unquoted values", () => {
+    const entries = parseEnvFile("API_KEY=abc123 # prod key\n");
+    expect(entries).toEqual([{ key: "API_KEY", value: "abc123" }]);
+  });
+
+  it("preserves hash inside quoted values", () => {
+    const entries = parseEnvFile('MSG="value # not a comment"\n');
+    expect(entries).toEqual([{ key: "MSG", value: "value # not a comment" }]);
+  });
+
+  it("keeps hash without preceding whitespace", () => {
+    const entries = parseEnvFile("HASH=value#nospace\n");
+    expect(entries).toEqual([{ key: "HASH", value: "value#nospace" }]);
+  });
+
+  it("strips comment after closing quote", () => {
+    const entries = parseEnvFile('KEY="abc" # comment\n');
+    expect(entries).toEqual([{ key: "KEY", value: "abc" }]);
+  });
 });
 
 describe("isSensitiveKey", () => {
@@ -80,5 +100,12 @@ describe("isSensitiveKey", () => {
     expect(isSensitiveKey("TOKENIZATION")).toBe(false);
     expect(isSensitiveKey("PASSWORDLESS")).toBe(false);
     expect(isSensitiveKey("KEYSTORE")).toBe(false);
+  });
+
+  it("matches concatenated names closing at end", () => {
+    expect(isSensitiveKey("STRIPEAPIKEY")).toBe(true);
+    expect(isSensitiveKey("CLIENTPASSWORD")).toBe(true);
+    expect(isSensitiveKey("MYAPIKEY")).toBe(true);
+    expect(isSensitiveKey("JWTACCESSTOKEN")).toBe(true);
   });
 });

@@ -28,7 +28,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     async function fetchUser() {
       const fetchedUser = await getCurrentUser();
       if (mounted) {
-        setUser(fetchedUser);
+        // 'transient' means the server could not be reached or returned a
+        // non-401 error; keep the optimistic user instead of flashing a logout.
+        if (fetchedUser !== 'transient') {
+          setUser(fetchedUser);
+        }
         setLoading(false);
       }
     }

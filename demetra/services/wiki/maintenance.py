@@ -1,4 +1,5 @@
 import asyncio
+import os
 import re
 from pathlib import Path
 
@@ -192,13 +193,13 @@ async def dedup_pages() -> tuple[int, int]:
                 if refreshed is not None:
                     parsed[survivor_path] = refreshed
 
+    if deleted:
+        await service.prune_index_pages(deleted_names=[path.name for path in deleted])
     for path in deleted:
         try:
             path.unlink(missing_ok=True)
         except OSError:
             service.logger.warning(f"Failed to delete duplicate wiki page {path.name}")
-    if deleted:
-        await service.prune_index_pages(deleted_names=[path.name for path in deleted])
     return merged, len(deleted)
 
 
@@ -253,8 +254,10 @@ def merge_page_content(survivor_path: Path, loser_path: Path, parsed: dict) -> b
     survivor_meta["related"] = [item for item in (survivor_meta.get("related") or []) if item != loser_path.name]
 
     body = service.dump_frontmatter(survivor_meta) + "\n" + merged_body.lstrip()
+    tmp = survivor_path.with_suffix(f"{survivor_path.suffix}.tmp")
     try:
-        survivor_path.write_text(encoding="utf-8", data=body)
+        tmp.write_text(encoding="utf-8", data=body)
+        os.replace(tmp, survivor_path)
     except OSError:
         service.logger.warning(f"Failed to write merged wiki page {survivor_path.name}")
         return False

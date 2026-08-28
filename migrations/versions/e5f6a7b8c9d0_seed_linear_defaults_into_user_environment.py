@@ -49,5 +49,16 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """Remove the seeded LINEAR defaults from user-shared environment rows."""
-    op.execute(sa.text("DELETE FROM project_environment WHERE scope = 'user' AND key LIKE 'LINEAR_%'"))
+    """Remove only the seeded LINEAR defaults from user-shared environment rows.
+
+    The key list is scoped to exactly the rows ``upgrade()`` inserted, so
+    user-authored ``LINEAR_%`` rows are left untouched on rollback.
+    """
+    keys = [key for key, _ in _linear_default_rows()]
+    if not keys:
+        return
+    op.execute(
+        sa.text("DELETE FROM project_environment WHERE scope = 'user' AND key IN :keys").bindparams(
+            sa.bindparam("keys", expanding=True, type_=sa.String()), keys=keys
+        )
+    )

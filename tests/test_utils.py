@@ -69,8 +69,18 @@ class TestEnvHelpers:
         assert env_get_bool("TEST_BOOL", True) is True
 
     def test_env_get_bool_returns_default_when_invalid(self, monkeypatch):
-        monkeypatch.setenv("TEST_BOOL", "yes")
+        monkeypatch.setenv("TEST_BOOL", "yep")
         assert env_get_bool("TEST_BOOL", True) is True
+
+    def test_env_get_bool_accepts_one_zero_yes_no_on_off(self, monkeypatch):
+        for raw, expected in [("1", True), ("0", False), ("yes", True), ("no", False), ("on", True), ("off", False)]:
+            monkeypatch.setenv("TEST_BOOL", raw)
+            assert env_get_bool("TEST_BOOL", not expected) is expected
+
+    def test_env_get_bool_warns_and_returns_default_for_invalid(self, monkeypatch, caplog):
+        monkeypatch.setenv("TEST_BOOL", "definitely-not-a-bool")
+        assert env_get_bool("TEST_BOOL", True) is True
+        assert "ignoring invalid value" in caplog.text
 
     def test_env_get_list_returns_default_when_unset(self, monkeypatch):
         monkeypatch.delenv("TEST_LIST", raising=False)

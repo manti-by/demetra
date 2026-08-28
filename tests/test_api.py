@@ -882,6 +882,41 @@ class TestUserEnvironmentEndpoint:
 
         assert response.status_code in (400, 422)
 
+    def test_upsert_rejects_overlong_value(
+        self,
+        authenticated_client: TestClient,
+    ):
+        response = authenticated_client.put(
+            "/api/v1/users/me/env/API_TOKEN",
+            json={"value": "x" * 8193},
+        )
+
+        assert response.status_code == 400
+        assert "at most 8192" in response.json()["detail"]
+
+    def test_upsert_accepts_value_at_length_boundary(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.users.upsert_user_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "user_id": "test_user_id",
+                "key": "API_TOKEN",
+                "value": "********",
+                "type": "encrypted",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/users/me/env/API_TOKEN",
+                json={"value": "x" * 8192, "type": "encrypted"},
+            )
+
+            assert response.status_code == 200
+            mock_upsert.assert_awaited_once()
+
     @pytest.mark.asyncio
     async def test_upsert_returns_404_for_missing_user(
         self,

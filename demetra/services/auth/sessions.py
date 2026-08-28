@@ -1,3 +1,5 @@
+import secrets
+
 from fastapi import Cookie, HTTPException
 
 import demetra.services.auth as service
@@ -138,13 +140,19 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
 
     user_data = await service.get_user_by_email(email=email)
 
+    if user_data and user_data.get("password_hash"):
+        password_valid = service.verify_password(plain=password, hashed=user_data["password_hash"])
+    else:
+        # Equalize timing: an unknown email still pays for one bcrypt compare
+        # against a fixed dummy hash before the generic error is raised.
+        hashed = service.hash_password(plain=secrets.token_urlsafe(32))
+        service.verify_password(plain=password, hashed=hashed)
+        password_valid = False
+
+    if not password_valid or user_data is None:
+        raise AuthError("Invalid email or password")
+
     if not await service.is_email_allowed(email=email, user_data=user_data):
-        raise AuthError("Invalid email or password")
-
-    if not user_data or not user_data.get("password_hash"):
-        raise AuthError("Invalid email or password")
-
-    if not service.verify_password(plain=password, hashed=user_data["password_hash"]):
         raise AuthError("Invalid email or password")
 
     token, expires_at = service.create_jwt_token(user_id=user_data["id"])

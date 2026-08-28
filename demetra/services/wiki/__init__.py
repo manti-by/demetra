@@ -75,14 +75,14 @@ QUESTIONS_PATH = WIKI_ROOT / "QUESTIONS.md"
 AGENTS_PATH = BASE_PATH / "AGENTS.md"
 
 AGENTS_DRIFT_ANCHORS = (
-    "demetra/services/wiki.py",
+    "wiki/",
     "demetra/tools/wiki.py",
     "uv.lock",
     "Linear",
     "GitHub",
     "Groq",
     "OpenRouter",
-    "never prefix with",
+    "Ruff",
 )
 
 DEDUP_SIMILARITY_THRESHOLD = 0.85

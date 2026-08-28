@@ -46,6 +46,8 @@ class AnsiStrippingFilter(logging.Filter):
 stream_logger = logging.getLogger("demetra.services.subprocess_stream")
 stream_logger.propagate = False
 
+logger = logging.getLogger(__name__)
+
 
 NO_ISSUE_TOKENS = {
     "silent",
@@ -237,8 +239,16 @@ def env_get_int(name: str, default: int) -> int:
     return value if value >= 0 else default
 
 
+BOOL_TRUE_VALUES = frozenset({"true", "1", "yes", "on"})
+BOOL_FALSE_VALUES = frozenset({"false", "0", "no", "off"})
+
+
 def env_get_bool(name: str, default: bool) -> bool:
     """Read a string boolean from the environment, falling back on invalid values.
+
+    Accepts ``true``/``false``, ``1``/``0``, ``yes``/``no`` and ``on``/``off``
+    (case-insensitive). Any other value logs a warning and falls back to the
+    default instead of silently ignoring the misconfiguration.
 
     Args:
         name: The environment variable name.
@@ -251,10 +261,16 @@ def env_get_bool(name: str, default: bool) -> bool:
     if value is None:
         return default
     normalized = value.lower()
-    if normalized == "true":
+    if normalized in BOOL_TRUE_VALUES:
         return True
-    if normalized == "false":
+    if normalized in BOOL_FALSE_VALUES:
         return False
+    logger.warning(
+        "env_get_bool(%s) ignoring invalid value %r, falling back to %s",
+        name,
+        value,
+        default,
+    )
     return default
 
 
