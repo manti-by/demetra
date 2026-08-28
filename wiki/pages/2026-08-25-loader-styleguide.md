@@ -17,6 +17,8 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-hist
 
 Replaced every BE-waiting indicator in the React app with the new `react/public/loader.svg` via a reusable `Loader` component, and added a living Style Guide at `/styleguide` linked from the burger menu that catalogs all existing UI primitives and composites.
 
+> **Consistency note (2026-08-28, Consistency Agent):** Frontmatter `branch: -` was unquoted YAML (parsed as a sequence); quoted to `"-"` per wiki template convention.
+
 ---
 
 ## Overview
