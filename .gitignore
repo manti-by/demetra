@@ -27,3 +27,5 @@ venv/
 **/node_modules/
 **/dist/
 **/.vite/
+
+wiki/*.lock

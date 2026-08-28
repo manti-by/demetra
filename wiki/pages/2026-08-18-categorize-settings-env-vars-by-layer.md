@@ -120,14 +120,16 @@ The blocks below enumerate the changes [MNT-170](https://linear.app/mnt/issue/MN
 
 > **Status update (2026-08-28, Consistency Agent):** Step 5 test coverage remains
 > partial — `tests/test_settings_layers.py` covers Linear config resolution and
-> OpenRouter user-env overrides only; no tests yet for OpenCode model override,
-> `UV_PATH` after `setup_project_venv`, or project-over-user merge order.
+> OpenRouter user-env overrides only; OpenCode per-agent model overrides are
+> covered in `tests/test_opencode.py` (`TestOpencodeEnvLayers`), so the
+> remaining gaps are `UV_PATH` after `setup_project_venv` and project-over-user
+> merge order.
 
 ## Follow-ups
 
 - `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. With `OPENROUTER_API_KEY` now readable from user-shared env (MNT-170, PR #80), `users.keys` is redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
 - Audit logging for env changes (deferred per the MNT-161 follow-ups list).
-- Complete step 5 test coverage: OpenCode model override, `UV_PATH` after `setup_project_venv`, project-over-user merge order.
+- Complete step 5 test coverage: `UV_PATH` after `setup_project_venv` and project-over-user merge order (OpenCode model override already covered in `tests/test_opencode.py` `TestOpencodeEnvLayers`).
 
 ## References
 

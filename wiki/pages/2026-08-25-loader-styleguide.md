@@ -119,7 +119,7 @@ function StyleGuideLayout() {
 **File:** `react/src/components/Header.tsx:2,164`
 
 - Added `import { Link } from "react-router-dom"`.
-- Prepended burger menu item:
+- Added burger menu item:
 
 ```tsx
 <Link to="/styleguide" onClick={() => setMenuOpen(false)}>
@@ -127,7 +127,7 @@ function StyleGuideLayout() {
 </Link>
 ```
 
-Placed after RQ Dashboard and before Logout in the burger menu (`react/src/components/Header.tsx:167-196`): Settings → Shared environment → RQ Dashboard → Style guide → Logout.
+Added after RQ Dashboard and before Logout in the burger menu (`react/src/components/Header.tsx:167-196`): Settings → Shared environment → RQ Dashboard → Style guide → Logout.
 
 > **Consistency note (2026-08-27, Consistency Agent):** Corrected the Step 3 placement claim — an earlier draft said "above Settings/Shared env, before RQ Dashboard"; the committed order is Style guide after RQ Dashboard.
 

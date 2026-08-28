@@ -20,12 +20,13 @@ Interpret it as: everything merged or committed on top of `v1.15.4` up to and in
 ## Gather the changes
 1. List the commits in the range:
    - `git log --oneline v1.15.4..v1.16.7`
-2. List the merged pull requests in the range:
-   - `git log --oneline --merges v1.15.4..v1.16.7`
-3. Fetch the PR titles, issue references, and merge commit SHAs for any merge commits:
-   - `gh pr list --state merged --base master`
+   - `git log --format='%H %P %s' v1.15.4..v1.16.7` to capture SHAs for association
+2. Discover merged pull requests whose tip commit is in the range (works for merge, squash, and rebase):
+   - `gh pr list --state merged --base master --limit 1000 --json number,mergeCommit,url,title,body,labels`
+   - Keep only PRs where `mergeCommit.oid` is reachable from `v1.16.7` but not from `v1.15.4` (`git merge-base --is-ancestor <sha> v1.16.7 && ! git merge-base --is-ancestor <sha> v1.15.4`), or where any PR commit SHA appears in the `v1.15.4..v1.16.7` log — do not rely on `git log --merges` or unrestricted `gh pr list` alone
+3. Fetch the PR titles, issue references, and merge commit SHAs for the filtered PRs:
    - `gh pr view <number> --json title,body,url,mergeCommit,labels`
-4. Identify **one-shot direct commits**: commits pushed straight to `master` that are NOT part of a feature-branch merge. They are the non-merge commits in the range that carry standalone fixes, dependency bumps, CI tweaks, docs, or version bumps.
+4. Identify **one-shot direct commits**: commits in `v1.15.4..v1.16.7` whose SHA is not associated with any discovered PR via step 2 (do not infer association solely from `Merge pull request #NN` subject lines); these are commits pushed straight to `master` carrying standalone fixes, dependency bumps, CI tweaks, docs, or version bumps
 
 ## Group the changes
 Sort every item into the same categories used by the template (in this order):
@@ -77,4 +78,4 @@ The following is a checklist applied to the final Markdown before returning it.
 ## Edge cases
 - Empty range (no commits): return a short note stating there is nothing new between the two tags.
 - No feature branches: skip the New Features intro line and start with the commit count, listing only direct commits.
-- If `gh` is not authenticated, fall back to `git log` and PR details already present in merge commit messages, and flag the release notes as unverified.
+- If `gh` is not authenticated, fall back to `git log` only and flag the release notes as unverified — do not infer PR association solely from `Merge pull request #NN` subject lines.
