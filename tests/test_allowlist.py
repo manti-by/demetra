@@ -2,7 +2,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AuthError
+from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import GitHubUser
 from demetra.services.auth import (
     authenticate_user,
@@ -45,8 +45,8 @@ class TestSignupWithPassword:
         assert result.user.email == email
 
     @pytest.mark.asyncio
-    async def test_signup_rejects_non_allowlisted_email(self, mock_jwt_settings, allowlist_seeded):
-        with pytest.raises(AuthError, match="Email not authorized for registration"):
+    async def test_signup_joins_waitlist_for_non_allowlisted_email(self, mock_jwt_settings, allowlist_seeded):
+        with pytest.raises(WaitlistedError, match="Email added to waitlist"):
             await signup_with_password(email=_unique_email(), password="hunter2hunter2")
 
     @pytest.mark.asyncio
@@ -78,7 +78,7 @@ class TestSignupWithPassword:
 
         await remove_entry(entry_type="email", value=admin_email)
 
-        with pytest.raises(AuthError, match="Email not authorized for registration"):
+        with pytest.raises(WaitlistedError, match="Email added to waitlist"):
             await signup_with_password(email=_unique_email(), password="hunter2hunter2")
 
 
@@ -195,9 +195,9 @@ class TestGitHubAuthenticate:
         assert result.user.github_username == github_user.login
 
     @pytest.mark.asyncio
-    async def test_github_rejects_non_allowlisted_login(self, mock_jwt_settings, allowlist_seeded):
+    async def test_github_joins_waitlist_for_non_allowlisted_login(self, mock_jwt_settings, allowlist_seeded):
         github_user = GitHubUser(id=str(uuid4().int), login=f"gh-{uuid4().hex[:8]}", email=_unique_email())
-        with pytest.raises(AuthError, match="GitHub account not authorized"):
+        with pytest.raises(WaitlistedError, match="GitHub account added to waitlist"):
             await authenticate_user(github_user)
 
     @pytest.mark.asyncio
@@ -225,9 +225,9 @@ class TestGitHubAuthenticate:
         assert result.user.email == email
 
     @pytest.mark.asyncio
-    async def test_github_rejects_when_email_is_null(self, mock_jwt_settings, allowlist_seeded):
+    async def test_github_joins_waitlist_when_email_is_null(self, mock_jwt_settings, allowlist_seeded):
         github_user = GitHubUser(id=str(uuid4().int), login=f"gh-{uuid4().hex[:8]}", email=None)
-        with pytest.raises(AuthError, match="GitHub account not authorized"):
+        with pytest.raises(WaitlistedError, match="GitHub account added to waitlist"):
             await authenticate_user(github_user)
 
 
@@ -294,7 +294,7 @@ class TestAdminBypass:
 
         await remove_entry(entry_type="github_username", value=login)
         intruder = GitHubUser(id=str(uuid4().int), login=login, email=_unique_email())
-        with pytest.raises(AuthError, match="GitHub account not authorized"):
+        with pytest.raises(WaitlistedError, match="GitHub account added to waitlist"):
             await authenticate_user(intruder)
 
 

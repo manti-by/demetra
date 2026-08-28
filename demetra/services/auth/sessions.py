@@ -3,7 +3,7 @@ import secrets
 from fastapi import Cookie, HTTPException
 
 import demetra.services.auth as service
-from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError, RegistrationNotAllowedError
+from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import AuthResponse, GitHubUser, UserResponse
 
 
@@ -44,7 +44,10 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
     if not await service.is_github_login_allowed(
         login=github_user.login, email=github_user.email, github_id=github_user.id
     ):
-        raise GitHubAccountNotAuthorizedError("GitHub account not authorized")
+        entry_id = await service.join_waitlist(
+            entry_type="github_username", value=github_user.login, note=github_user.email
+        )
+        raise WaitlistedError("GitHub account added to waitlist", entry_id=entry_id)
 
     user_id = await get_or_create_user(github_user)
     token, expires_at = service.create_jwt_token(user_id)
@@ -54,6 +57,9 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
     user_data = await service.get_user_by_id(user_id)
     if not user_data:
         raise AuthError("User not found after creation")
+
+    # Audit: retain the waitlist row once the GitHub account is in.
+    await service.mark_waitlist_joined_by_value(entry_type="github_username", value=github_user.login)
 
     return AuthResponse(
         token=token,
@@ -95,7 +101,8 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
         raise AuthError("Email already registered")
 
     if not await service.is_email_allowed(email=email):
-        raise RegistrationNotAllowedError("Email not authorized for registration")
+        entry_id = await service.join_waitlist(entry_type="email", value=email)
+        raise WaitlistedError("Email added to waitlist", entry_id=entry_id)
 
     password_hash = service.hash_password(plain=password)
 
@@ -113,6 +120,9 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
     user_data = await service.get_user_by_id(user_id=user_id)
     if not user_data:
         raise AuthError("User not found after creation")
+
+    # Audit: retain the waitlist row once the user signs up.
+    await service.mark_waitlist_joined_by_value(entry_type="email", value=email)
 
     return AuthResponse(
         token=token,

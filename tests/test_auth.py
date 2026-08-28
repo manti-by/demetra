@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import insert
 
 from demetra.app import app
-from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError
+from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import GitHubUser, UserResponse
 from demetra.library.tables import jwt_tokens
 from demetra.services.auth import (
@@ -205,12 +205,10 @@ class TestAuthServiceWithMocks:
         assert result.user.github_username == "testuser"
 
     @pytest.mark.asyncio
-    async def test_authenticate_user_raises_github_not_authorized_when_allowlist_blocks(
-        self, mock_jwt_settings, allowlist_seeded
-    ):
+    async def test_authenticate_user_joins_waitlist_when_allowlist_blocks(self, mock_jwt_settings, allowlist_seeded):
         mock_github_user = GitHubUser(id="123", login="testuser", email="test@example.com")
 
-        with pytest.raises(GitHubAccountNotAuthorizedError, match="GitHub account not authorized"):
+        with pytest.raises(WaitlistedError, match="GitHub account added to waitlist"):
             await authenticate_user(mock_github_user)
 
     @pytest.mark.asyncio
@@ -258,10 +256,10 @@ class TestSignupWithPassword:
         assert result.user.github_username is None
 
     @pytest.mark.asyncio
-    async def test_signup_rejects_email_when_allowlist_enforced(self, mock_jwt_settings, allowlist_seeded):
+    async def test_signup_joins_waitlist_when_allowlist_enforced(self, mock_jwt_settings, allowlist_seeded):
         email = f"blocked-{__import__('uuid').uuid4().hex[:8]}@example.com"
 
-        with pytest.raises(AuthError, match="Email not authorized for registration"):
+        with pytest.raises(WaitlistedError, match="Email added to waitlist"):
             await signup_with_password(email=email, password="hunter2hunter2")
 
     @pytest.mark.asyncio
