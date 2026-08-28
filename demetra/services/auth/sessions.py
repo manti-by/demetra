@@ -1,13 +1,10 @@
+import secrets
+
 from fastapi import Cookie, HTTPException
 
 import demetra.services.auth as service
 from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError, RegistrationNotAllowedError
 from demetra.library.models import AuthResponse, GitHubUser, UserResponse
-
-
-# Fixed bcrypt hash compared against when no user exists, so an unknown email
-# costs the same bcrypt work as a known one and cannot be told apart by timing.
-_DUMMY_PASSWORD_HASH = "$2b$12$jxVmuPVagAbjwXvjcTobOu2CkCK4ZBowPWm4Wqy90Umtkzr4dSAbe"  # noqa: S105
 
 
 async def get_or_create_user(github_user: GitHubUser) -> str:
@@ -148,7 +145,8 @@ async def login_with_password(email: str, password: str) -> AuthResponse:
     else:
         # Equalize timing: an unknown email still pays for one bcrypt compare
         # against a fixed dummy hash before the generic error is raised.
-        service.verify_password(plain=password, hashed=_DUMMY_PASSWORD_HASH)
+        hashed = service.hash_password(plain=secrets.token_urlsafe(32))
+        service.verify_password(plain=password, hashed=hashed)
         password_valid = False
 
     if not password_valid or user_data is None:

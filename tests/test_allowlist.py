@@ -142,7 +142,9 @@ class TestLoginWithPassword:
             await login_with_password(email=email, password="hunter2hunter2")
 
     @pytest.mark.asyncio
-    async def test_login_verifies_password_before_allowlist_check(self, mock_jwt_settings, allowlist_seeded, monkeypatch):
+    async def test_login_verifies_password_before_allowlist_check(
+        self, mock_jwt_settings, allowlist_seeded, monkeypatch
+    ):
         email = _unique_email()
         await add_entry(entry_type="email", value=email, note=None, added_by=None)
         await _create_password_user(email)

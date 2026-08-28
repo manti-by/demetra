@@ -821,9 +821,7 @@ class TestAgentsDrift:
         assert "demetra/services/wiki.py" not in drift
 
     async def test_anchors_present_pass(self, wiki_dirs):
-        wiki_dirs["agents"].write_text(
-            "wiki/\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter Ruff\n"
-        )
+        wiki_dirs["agents"].write_text("wiki/\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter Ruff\n")
         assert await service.check_agents_drift() == []
 
 
