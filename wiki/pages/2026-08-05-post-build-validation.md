@@ -8,7 +8,7 @@ services: [opencode, workflows, subprocess, settings]
 branch: mnt-146-post-build-validation
 tickets: [MNT-146]
 tags: [validate-agent, build-plan, coverage, review-loop, stdin]
-related: [2026-02-23-add-multiagent-code-review.md, 2026-03-11-task-plan-summarization.md, 2026-05-25-async-review.md, 2026-06-04-review-summarization.md, 2026-06-08-session-step-attribute.md, 2026-07-16-fix-empty-build-plan-loop.md]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-03-11-task-plan-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-06-04-review-summarization.md, 2026-06-08-session-step-attribute.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 
 # Post-build validation — plan-coverage validate-agent between build and review
@@ -183,7 +183,7 @@ stdin piping in `run_command`, and `validate_model` settings/`OPENCODE_VALIDATE_
 
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)
 - GitHub: [PR #72](https://github.com/manti-by/demetra/pull/72)
-- Related: [[2026-05-25-async-review]] (the review stage this slots before; formerly [[2026-02-23-add-multiagent-code-review]], archived)
+- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]] (the review stage this slots before; formerly [[2026-02-23-add-multiagent-code-review]], archived)
 - Related: [[2026-06-04-review-summarization]] (build-plan extraction/summarization pipeline; formerly [[2026-03-11-task-plan-summarization]], archived)
 - Related: [[2026-07-16-fix-empty-build-plan-loop]] (prior build-loop hardening)
 - Related: [[2026-06-08-session-step-attribute]] (session `step` attribute, now `validate`)

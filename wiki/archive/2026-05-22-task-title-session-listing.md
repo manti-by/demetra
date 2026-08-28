@@ -13,6 +13,11 @@ related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findi
 
 # Use task title for session listing
 
+> **Archived on 2026-08-28.** Useful info merged into
+> [[2026-08-25-mnt-181-total-tokens-counter]]. See wiki/archive/ for the
+> original.
+
+
 ## TL;DR
 
 The session list now shows the task title instead of the truncated session id. The sessions API gained an endpoint with optional status filtering, sessions display a custom name when available with a fallback to the truncated id, the React app renders the task title, and API auth error messaging was improved. Routers were reorganized as part of the MNT-81 refactor.

@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_8f3a2b1c-20260825
 services: [react]
-branch: -
+branch: "-"
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
 related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
@@ -16,6 +16,8 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-hist
 ## TL;DR
 
 Replaced every BE-waiting indicator in the React app with the new `react/public/loader.svg` via a reusable `Loader` component, and added a living Style Guide at `/styleguide` linked from the burger menu that catalogs all existing UI primitives and composites.
+
+> **Consistency note (2026-08-28, Consistency Agent):** Frontmatter `branch: -` was unquoted YAML (parsed as a sequence); quoted to `"-"` per wiki template convention.
 
 ---
 
@@ -117,7 +119,7 @@ function StyleGuideLayout() {
 **File:** `react/src/components/Header.tsx:2,164`
 
 - Added `import { Link } from "react-router-dom"`.
-- Prepended burger menu item:
+- Added burger menu item:
 
 ```tsx
 <Link to="/styleguide" onClick={() => setMenuOpen(false)}>
@@ -125,13 +127,9 @@ function StyleGuideLayout() {
 </Link>
 ```
 
-Placed above Settings/Shared env, before RQ Dashboard, so logged-in users see it first.
+Added after RQ Dashboard and before Logout in the burger menu (`react/src/components/Header.tsx:167-196`): Settings → Shared environment → RQ Dashboard → Style guide → Logout.
 
-> **Status update (2026-08-27, Consistency Agent):** This placement claim does not match what was
-> committed. `git show c6a62e0 -- react/src/components/Header.tsx` inserts the `Style guide` link
-> immediately *after* the `RQ Dashboard` link and before `Logout` — not above Settings/Shared env.
-> Confirmed in current code (`react/src/components/Header.tsx:167-196`): burger-menu order is
-> Settings → Shared environment → RQ Dashboard → Style guide → Logout.
+> **Consistency note (2026-08-27, Consistency Agent):** Corrected the Step 3 placement claim — an earlier draft said "above Settings/Shared env, before RQ Dashboard"; the committed order is Style guide after RQ Dashboard.
 
 ## Test Results
 

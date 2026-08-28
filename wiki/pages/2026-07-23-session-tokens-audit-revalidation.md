@@ -5,6 +5,7 @@ type:               investigation
 status:             resolved
 session_id:         3eae8036-e679-4a09-be65-144e738741e0
 services:           [opencode, database, workflows, settings, groq]
+branch:             "-"
 tickets:            [MNT-145]
 tags:               [session-history, compaction, tokens, opencode-export, audit, cost]
 related: [2026-07-16-session-history-tokens-null.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
@@ -310,6 +311,8 @@ Re-verified every file:line reference above against current master (2026-08-27):
   note and now. The recommendation itself is still open and still deliberate (both
   catches guard `record_session_step_history` failures during cleanup, same as
   originally described).
+
+> **Consistency note (2026-08-28, Consistency Agent):** Added missing `branch: "-"` frontmatter to match `wiki/TEMPLATE.md`.
 
 ## References
 

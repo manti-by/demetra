@@ -15,7 +15,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/api/`: FastAPI REST endpoints
 - `demetra/tools/`: MCP tool definitions
 - `demetra/prompts/`: LLM prompt templates
-- `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`)
+- `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
 - `demetra/app.py`: FastAPI application
 - `demetra/mcp_server.py`: MCP server
 - `demetra/watcher.py`: Linear TODO poller
@@ -24,7 +24,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (54 files)
+- `tests/`: Comprehensive test suite (53 files)
 - `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)

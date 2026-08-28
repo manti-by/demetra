@@ -8,7 +8,7 @@ services: [wiki]
 branch: "-"
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
-related: [2026-08-03-wiki-mcp-tools.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-19-wiki-should-use-llm-rename.md]
+related: [2026-08-03-wiki-mcp-tools.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-19-wiki-should-use-llm-rename.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md]
 ---
 
 # Split wiki service into a subpackage
@@ -75,7 +75,9 @@ Callers are unaffected — they import from the facade exactly as before: `main.
 
 - None — split is behavior-preserving and verified. Remaining flat services (e.g. `settings.py`, `utils.py`) are candidates for the same treatment if they grow.
 
+> **Consistency note (2026-08-27, Consistency Agent):** MNT-187 initially moved the session wiki write from `main.py`'s `finally` block into `commit_and_push` (before commit, targeting the worktree `wiki/` root) and made failures raise `WikiError` instead of being swallowed. This raise-on-failure contract was superseded by PR #106 — `commit_and_push` now logs the wiki failure and continues after successful commit, push, and PR creation, only then surfacing `WikiError` to gate the ticket status — see [[2026-08-25-mnt-187-wiki-pages-not-generated]].
+
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (follow-up subpackage split)
+- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (follow-up subpackage split), [[2026-08-25-mnt-187-wiki-pages-not-generated]]
 - External: https://linear.app/mnt/issue/MNT-81 (prior api split), https://linear.app/mnt/issue/MNT-104 (services refactor)
