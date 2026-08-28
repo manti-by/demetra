@@ -1,5 +1,5 @@
 ---
-title: "MNT-176: Bump version error fix"
+title: MNT-176: Bump version error fix
 date: 2026-08-21
 type: implementation
 status: resolved
