@@ -1,7 +1,7 @@
 import json
 import logging
 
-from demetra.library import MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
+from demetra.library import FIX_REVIEW_FINDINGS_COMMAND_PATTERN, MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
 from demetra.services.persistence.database import (
     get_session_by_pr_link,
     increment_listener_attempts,
@@ -12,6 +12,7 @@ from demetra.services.runtime.subprocess import run_command
 from demetra.settings import BASE_PATH, GITHUB, MAX_LISTENER_ATTEMPTS
 from demetra.workflows.merge import run_merge_workflow
 from demetra.workflows.rebase import run_rebase_workflow
+from demetra.workflows.review_fixes import run_review_fixes_workflow
 
 
 logger = logging.getLogger(__name__)
@@ -152,6 +153,20 @@ def mentions_demetra_ai_and_rebase(body: str | None) -> bool:
     return bool(REBASE_COMMAND_PATTERN.search(body))
 
 
+def mentions_demetra_ai_and_fix_review_findings(body: str | None) -> bool:
+    """Check whether a comment body contains the fix review findings command.
+
+    Args:
+        body: The comment body, or None.
+
+    Returns:
+        bool: True when the fix review findings command pattern is found.
+    """
+    if not body:
+        return False
+    return bool(FIX_REVIEW_FINDINGS_COMMAND_PATTERN.search(body))
+
+
 async def mark_notification_read(notification: dict) -> None:
     """Mark a GitHub notification thread as read.
 
@@ -214,6 +229,8 @@ async def process_notification(pr_info: dict, action: str) -> bool:
             callable_function = run_merge_workflow
         case "rebase":
             callable_function = run_rebase_workflow
+        case "fix_review_findings":
+            callable_function = run_review_fixes_workflow
         case _:
             logger.info(f"Unknown action: {pr_link}")
             return False
@@ -252,3 +269,15 @@ async def process_rebase_notification(pr_info: dict) -> bool:
         bool: True when the rebase workflow was enqueued.
     """
     return await process_notification(pr_info=pr_info, action="rebase")
+
+
+async def process_fix_review_findings_notification(pr_info: dict) -> bool:
+    """Process a notification as a fix review findings command.
+
+    Args:
+        pr_info: The PR info dict for the notification.
+
+    Returns:
+        bool: True when the review fixes workflow was enqueued.
+    """
+    return await process_notification(pr_info=pr_info, action="fix_review_findings")

@@ -170,6 +170,43 @@ async def opencode_validate_agent(
     )
 
 
+async def opencode_review_fixes_agent(
+    target_path: Path,
+    task: str,
+    env: dict[str, str] | None = None,
+    project_id: str | None = None,
+    user_environment: dict[str, str] | None = None,
+) -> tuple[int, str, str]:
+    """Run the opencode build-agent with the fix-review-findings skill.
+
+    Feeds unresolved review threads via the task prompt and stages changes only
+    (no commit/push), mirroring :func:`opencode_build_agent`.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt including unresolved review thread details.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+        user_environment: Optional user env layer overriding the model.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
+    task = f"Use the fix-review-findings skill to address all unresolved review findings.\n\n{task}"
+    task += "\nDO NOT commit or push any changes, just stage them"
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=task,
+        model=_resolve_opencode_model(
+            OPENCODE["build_model"], key="OPENCODE_BUILD_MODEL", user_environment=user_environment
+        ),
+        agent="build-agent",
+        env=env,
+        project_id=project_id,
+        user_environment=user_environment,
+    )
+
+
 async def opencode_merge_agent(
     target_path: Path,
     task: str,

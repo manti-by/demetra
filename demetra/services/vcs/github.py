@@ -107,6 +107,86 @@ async def get_pr_info(
         return None
 
 
+async def get_unresolved_review_threads(
+    pr_number: int,
+    full_name: str,
+    target_path: Path,
+    env: dict,
+    project_id: str | None = None,
+) -> list[dict]:
+    """Fetch unresolved review threads for a pull request via the GitHub CLI.
+
+    Uses ``gh api graphql`` to query ``reviewThreads`` with ``isResolved == false``.
+    Returns threads from any author, both inline and general review comments.
+
+    Args:
+        pr_number: The pull request number.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+        target_path: Directory to run the GitHub CLI in.
+        env: Environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        list[dict]: Unresolved review threads, each with its comment nodes.
+    """
+    try:
+        owner, repo = full_name.split("/", 1)
+    except ValueError:
+        logger.error(f"Invalid full_name for review threads: {full_name!r}")
+        return []
+
+    query = (
+        "query($owner:String!,$name:String!,$pr:Int!){"
+        "repository(owner:$owner,name:$name){"
+        "pullRequest(number:$pr){"
+        "reviewThreads(first:100){"
+        "nodes{isResolved isOutdated path line comments(first:20){nodes{body path diffHunk line originalLine author{login} createdAt}}}"
+        "}}}}"
+    )
+
+    command = [
+        str(GITHUB["path"]),
+        "api",
+        "graphql",
+        "-f",
+        f"query={query}",
+        "-F",
+        f"owner={owner}",
+        "-F",
+        f"name={repo}",
+        "-F",
+        f"pr={pr_number}",
+    ]
+    exit_code, stdout, stderr = await run_command(
+        command=command, target_path=target_path, env=env, project_id=project_id, disable_stdio=True
+    )
+    if exit_code != 0:
+        logger.error(f"Failed to fetch review threads for PR #{pr_number}: {stderr.strip()[:500]}")
+        return []
+
+    try:
+        data = json.loads(stdout)
+    except (json.JSONDecodeError, ValueError) as e:
+        logger.error(f"Failed to parse review threads for PR #{pr_number}: {e}")
+        return []
+
+    try:
+        nodes = data["data"]["repository"]["pullRequest"]["reviewThreads"]["nodes"]
+    except (KeyError, TypeError):
+        logger.error(f"Unexpected review threads payload for PR #{pr_number}")
+        return []
+
+    unresolved: list[dict] = []
+    for thread in nodes:
+        if not isinstance(thread, dict):
+            continue
+        if thread.get("isResolved"):
+            continue
+        unresolved.append(thread)
+
+    return unresolved
+
+
 async def create_pull_request(
     target_path: Path,
     branch_name: str,
