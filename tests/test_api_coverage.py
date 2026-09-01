@@ -157,7 +157,7 @@ class TestWatcherService:
         mock_delay_run_workflow.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_process_tasks_skips_in_progress_update_for_existing_pending(
+    async def test_process_tasks_moves_existing_pending_to_in_progress(
         self,
         faker,
         mock_get_pending_session_task_ids,
@@ -166,15 +166,19 @@ class TestWatcherService:
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
+        # A task already pending (e.g. bounced back to TODO after a failed run)
+        # skips the session upsert but is still re-moved to in_progress so it does
+        # not get stuck in TODO on re-pickup.
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_linear_config_value.return_value = "in-progress-state"
         with patch("demetra.services.daemons.watcher.get_pending_session_task_ids", new_callable=AsyncMock) as mock_ids:
             mock_ids.return_value = {task.id}
 
             await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_not_awaited()
-        mock_get_linear_config_value.assert_not_awaited()
-        mock_update_ticket_status.assert_not_awaited()
+        mock_get_linear_config_value.assert_awaited_once_with(name="in_progress", user_id="user-1")
+        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
         mock_delay_run_workflow.assert_awaited_once()
 
     @pytest.mark.asyncio
