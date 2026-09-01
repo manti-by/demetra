@@ -104,7 +104,9 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
         if is_research_ticket(context=context):
-            await run_research_step(context=context)
+            report = await run_research_step(context=context)
+            if report is None:
+                return
             is_success = True
             should_update_linear_status = False
             return

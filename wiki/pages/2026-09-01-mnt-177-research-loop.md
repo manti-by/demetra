@@ -83,7 +83,7 @@ Matches strict typed-dict layering (`demetra/library/` is pure, no I/O).
 
 - `is_research_ticket(context: Context) -> bool` — case-insensitive intersection of `LINEAR["research_labels"]` and `context.linear_task.labels` (`{label.casefold()}`).
 - `run_research_step(context: Context) -> str | None` — loops up to `MAX_RESEARCH_ATTEMPTS`:
-  - `update_session_step(step="research")`, calls `opencode_research_agent(task=context.linear_task.text)`, checks `exit_code`, verifies stdout contains `RESEARCH_HEADER_STRING`, extracts via `extract_research_report`, posts via `post_comment`, then moves ticket to `awaiting_input` via `get_linear_config_value(name="awaiting_input")` + `update_ticket_status` + `update_session_step(step="awaiting_input")` and returns the report. On empty/missing-header/empty-report or non-zero exit, decrements attempts and retries; logs with `print_message`.
+  - `update_session_step(step="research")`, calls `opencode_research_agent(task=context.linear_task.text)`, checks `exit_code`, verifies stdout contains `RESEARCH_HEADER_STRING`, extracts via `extract_research_report`, posts via `post_comment`, then moves ticket to `awaiting_input` via `get_linear_config_value(name="awaiting_input")` + `update_ticket_status` + `update_session_step(step="awaiting_input")` and returns the report. On empty/missing-header/empty-report or non-zero exit, decrements attempts and retries; logs with `print_message`. Failed Linear mutations (`post_comment`, `update_ticket_status`) raise `LinearError`, so the ticket never reaches `Awaiting Input` without the posted report.
 
 ## Step 8 — Branch `main.py` to research workflow
 
@@ -94,12 +94,15 @@ Matches strict typed-dict layering (`demetra/library/` is pure, no I/O).
 
 ```python
 if is_research_ticket(context=context):
-    await run_research_step(context=context)
+    report = await run_research_step(context=context)
+    if report is None:
+        return
     is_success = True
     should_update_linear_status = False
     return
 ```
 
+- A `None` result (all attempts exhausted, nothing posted to Linear) keeps `is_success=False`, so `cleanup_workflow` runs the normal failure path (`linear_cleanup` included) instead of reporting success. Only a posted report marks the session successful.
 - `should_update_linear_status = False` preserves the `awaiting_input` state set by `run_research_step` — `cleanup_workflow` with `is_success=True` would otherwise move the ticket to `done` via `linear_cleanup`. `finally` still runs `cleanup_workflow` to remove the worktree.
 - Keeps existing pending-session creation before the branch, so research tickets have a session for logging/history.
 
@@ -119,7 +122,7 @@ if is_research_ticket(context=context):
 ## Follow-ups
 
 - Decide if React should surface research settings (label list, model, max attempts) or if env-only is sufficient — currently BE-only.
-- Add `TestOpencodeResearchAgent` / `TestWorkflowResearch` test classes once the desired mock contracts are confirmed (research agent called with `research-agent` + `research_model`, workflow posts `## Research Report` and moves to `awaiting_input` within 5 attempts).
+- Add `TestOpencodeResearchAgent` / `TestWorkflowResearch` test classes once the desired mock contracts are confirmed (research agent called with `research-agent` + `research_model`, workflow posts `## Research Report` and moves to `awaiting_input` within `MAX_RESEARCH_ATTEMPTS` attempts, 5 by default).
 - Consider reusing the `openwiki-sessions` mapping and `research` step in session history aggregation (already covered by generic `record_session_step_history` if needed).
 
 ## References

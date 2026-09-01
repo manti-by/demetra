@@ -43,7 +43,8 @@ async def run_research_step(context: Context) -> str | None:
             could be produced after all attempts.
 
     Raises:
-        LinearError: When the awaiting_input state is not configured.
+        LinearError: When the awaiting_input state is not configured or a
+            Linear mutation (comment posting, status update) fails.
     """
     attempts = MAX_RESEARCH_ATTEMPTS
     last_report: str | None = None
@@ -86,17 +87,16 @@ async def run_research_step(context: Context) -> str | None:
         print_message(f"Research report:\n{report}")
 
         if not await post_comment(task_id=context.linear_task.id, body=report):
-            print_message("Failed to post research report to Linear", style="error")
+            raise LinearError("Failed to post research report to Linear")
 
         state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
         if state_id is None:
             raise LinearError("Linear state 'awaiting_input' is not configured")
-        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        if not await update_ticket_status(task_id=context.linear_task.id, state_id=state_id):
+            raise LinearError("Failed to move ticket to Awaiting Input")
         await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
         print_message("Task moved to Awaiting Input state.", style="result")
         return report
-
-        # loop will continue on failure cases
 
     if last_report is None:
         print_message("Research agent produced no report after all attempts.", style="error")
