@@ -16,6 +16,7 @@ from demetra.library.exceptions import (
 )
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
+from demetra.services.auth.waitlist import waitlist_cli
 from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
 from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
@@ -64,6 +65,16 @@ parser.add_argument("--type", help="Allowlist entry type (email or github_userna
 parser.add_argument("--value", help="Allowlist entry value", default=None)
 parser.add_argument("--note", help="Optional note for the allowlist entry", default=None)
 parser.add_argument("--dry-run", help="Report seed-existing counts without writing", action="store_true")
+
+parser.add_argument(
+    "--waitlist",
+    help="Waitlist management sub-action: list, approve, remove",
+    choices=["list", "approve", "remove"],
+    default=None,
+)
+parser.add_argument("--waitlist-entry-id", help="Waitlist entry id for approve/remove", default=None)
+parser.add_argument("--waitlist-status", help="Optional status filter for waitlist list", default=None)
+parser.add_argument("--approved-by", help="Optional admin user id recorded on waitlist approve", default=None)
 
 
 async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None):
@@ -209,6 +220,17 @@ if __name__ == "__main__":
                     value=args.value,
                     note=args.note,
                     dry_run=args.dry_run,
+                )
+            )
+        )
+    elif args.waitlist:
+        sys.exit(
+            asyncio.run(
+                waitlist_cli(
+                    action=args.waitlist,
+                    entry_id=args.waitlist_entry_id,
+                    status=args.waitlist_status,
+                    approved_by=args.approved_by,
                 )
             )
         )

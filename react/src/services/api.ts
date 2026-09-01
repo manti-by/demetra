@@ -35,6 +35,22 @@ export interface AuthResponse {
   user: User;
 }
 
+export interface WaitlistedResponse {
+  status: 'waitlisted';
+  message: string;
+}
+
+export class WaitlistedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'WaitlistedError';
+  }
+}
+
+export function isWaitlistedError(error: unknown): error is WaitlistedError {
+  return error instanceof WaitlistedError;
+}
+
 async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const request = input instanceof Request ? input : undefined;
   const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
@@ -72,11 +88,14 @@ export async function getCurrentUser(): Promise<User | null | 'transient'> {
 export async function exchangeCodeForToken(code: string, state: string): Promise<AuthResponse> {
   const params = new URLSearchParams({ code, state });
   const response = await authFetch(`${API_URL}/api/v1/github/callback?${params}`);
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Failed to exchange code');
+  const data = await response.json();
+  if (response.status === 202 && data.status === 'waitlisted') {
+    throw new WaitlistedError(data.message);
   }
-  return response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || 'Failed to exchange code');
+  }
+  return data;
 }
 
 export async function signup(email: string, password: string): Promise<AuthResponse> {
@@ -85,11 +104,14 @@ export async function signup(email: string, password: string): Promise<AuthRespo
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.detail || 'Signup failed');
+  const data = await response.json();
+  if (response.status === 202 && data.status === 'waitlisted') {
+    throw new WaitlistedError(data.message);
   }
-  return response.json();
+  if (!response.ok) {
+    throw new Error(data.detail || 'Signup failed');
+  }
+  return data;
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<AuthResponse> {

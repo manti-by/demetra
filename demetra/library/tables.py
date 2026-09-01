@@ -88,6 +88,26 @@ allowlist_entries = Table(
     CheckConstraint("entry_type IN ('email', 'github_username')", name="ck_allowlist_entries_type"),
 )
 
+waitlist_entries = Table(
+    "waitlist_entries",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("entry_type", String(), nullable=False),
+    Column("value", String(), nullable=False),
+    Column("status", String(), nullable=False, server_default="pending"),
+    Column("note", String(), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Column("approved_at", DateTime(timezone=True), nullable=True),
+    Column("approved_by", String(), nullable=True),
+    Column("notified_at", DateTime(timezone=True), nullable=True),
+    Column("joined_at", DateTime(timezone=True), nullable=True),
+    UniqueConstraint("entry_type", "value", name="uq_waitlist_entries_type_value"),
+    Index("ix_waitlist_entries_value", "value"),
+    CheckConstraint("entry_type IN ('email', 'github_username')", name="ck_waitlist_entries_type"),
+    CheckConstraint("status IN ('pending', 'approved', 'rejected', 'joined')", name="ck_waitlist_entries_status"),
+)
+
 projects = Table(
     "projects",
     metadata,

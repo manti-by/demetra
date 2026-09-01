@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, create_engine, delete, func, insert, select, text
+from sqlalchemy import Column, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import Session, SessionHistory, TokenUsage
@@ -20,6 +20,7 @@ from demetra.library.tables import (
     session_history,
     sessions,
     users,
+    waitlist_entries,
 )
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
@@ -1059,6 +1060,155 @@ async def list_user_allowlist_seed_rows() -> list[dict]:
         seed_rows.append({"entry_type": "email", "value": row.email, "source_user_id": row.id})
         seed_rows.append({"entry_type": "github_username", "value": row.github_username, "source_user_id": row.id})
     return seed_rows
+
+
+async def find_waitlist_entry(entry_type: str, value: str) -> dict | None:
+    """Fetch a waitlist entry by its type and normalized value.
+
+    Args:
+        entry_type: The entry type, ``"email"`` or ``"github_username"``.
+        value: The normalized entry value.
+
+    Returns:
+        dict | None: The entry row, or None when not found.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(waitlist_entries).where(
+                (waitlist_entries.c.entry_type == entry_type) & (waitlist_entries.c.value == value)
+            )
+        )
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def find_waitlist_entry_by_id(entry_id: str) -> dict | None:
+    """Fetch a waitlist entry by its id.
+
+    Args:
+        entry_id: The waitlist entry id.
+
+    Returns:
+        dict | None: The entry row, or None when not found.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(select(waitlist_entries).where(waitlist_entries.c.id == entry_id))
+        row = result.fetchone()
+    return dict(row._mapping) if row else None
+
+
+async def insert_waitlist_entry(entry_type: str, value: str, note: str | None) -> str:
+    """Create a new waitlist entry and return its id.
+
+    Args:
+        entry_type: The entry type, ``"email"`` or ``"github_username"``.
+        value: The normalized entry value.
+        note: Optional operational note (e.g. the GitHub email).
+
+    Returns:
+        str: The id of the created entry.
+    """
+    entry_id = str(uuid4())
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(waitlist_entries).values(
+                id=entry_id,
+                entry_type=entry_type,
+                value=value,
+                status="pending",
+                note=note,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        await connection.commit()
+    return entry_id
+
+
+async def update_waitlist_entry(
+    entry_id: str,
+    *,
+    status: str | None = None,
+    approved_by: str | None = None,
+    approved_at: datetime | None = None,
+    notified_at: datetime | None = None,
+    joined_at: datetime | None = None,
+) -> bool:
+    """Update mutable fields of a waitlist entry by id.
+
+    Only the provided fields are changed; ``updated_at`` is always bumped.
+
+    Args:
+        entry_id: The waitlist entry id.
+        status: The new status, when set.
+        approved_by: Optional admin user id who approved the entry.
+        approved_at: Timestamp of approval, when set.
+        notified_at: Timestamp of the approval email, when set.
+        joined_at: Timestamp of the user signing up, when set.
+
+    Returns:
+        bool: True when a row was updated, False when none matched.
+    """
+    values: dict = {"updated_at": datetime.now(UTC)}
+    if status is not None:
+        values["status"] = status
+    if approved_by is not None:
+        values["approved_by"] = approved_by
+    if approved_at is not None:
+        values["approved_at"] = approved_at
+    if notified_at is not None:
+        values["notified_at"] = notified_at
+    if joined_at is not None:
+        values["joined_at"] = joined_at
+
+    async with get_connection() as connection:
+        result = await connection.execute(
+            update(waitlist_entries)
+            .where(waitlist_entries.c.id == entry_id)
+            .values(**values)
+            .returning(waitlist_entries.c.id)
+        )
+        row = result.fetchone()
+        await connection.commit()
+    return row is not None
+
+
+async def delete_waitlist_entry(entry_id: str) -> bool:
+    """Delete a waitlist entry by its id.
+
+    Args:
+        entry_id: The waitlist entry id.
+
+    Returns:
+        bool: True when a row was deleted, False when none matched.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            delete(waitlist_entries).where(waitlist_entries.c.id == entry_id).returning(waitlist_entries.c.id)
+        )
+        row = result.fetchone()
+        await connection.commit()
+    return row is not None
+
+
+async def list_waitlist_entries(status: str | None = None) -> list[dict]:
+    """List waitlist entries, optionally filtered by status.
+
+    Args:
+        status: Optional status filter (``pending``, ``approved``, ``rejected``
+            or ``joined``); None returns every entry.
+
+    Returns:
+        list[dict]: The waitlist entry rows ordered by created time.
+    """
+    async with get_connection() as connection:
+        statement = select(waitlist_entries).order_by(waitlist_entries.c.created_at)
+        if status is not None:
+            statement = statement.where(waitlist_entries.c.status == status)
+        result = await connection.execute(statement)
+        rows = result.fetchall()
+    return [dict(row._mapping) for row in rows]
 
 
 async def save_jwt_token(token: str, user_id: str, expires_at: str) -> None:

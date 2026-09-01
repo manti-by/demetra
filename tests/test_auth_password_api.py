@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 
 from demetra.app import app
 from demetra.library.exceptions import AuthError as AuthServiceError
-from demetra.library.exceptions import RegistrationNotAllowedError
+from demetra.library.exceptions import WaitlistedError
 from demetra.library.models import AuthResponse, UserResponse
 
 
@@ -77,9 +77,9 @@ class TestSignupEndpoint:
             assert response.status_code == 400
             assert "Password" in response.json()["detail"]
 
-    def test_signup_returns_403_when_email_not_authorized(self):
+    def test_signup_returns_202_when_email_waitlisted(self):
         with patch("demetra.api.auth.signup_with_password", new_callable=AsyncMock) as mock_signup:
-            mock_signup.side_effect = RegistrationNotAllowedError("Email not authorized for registration")
+            mock_signup.side_effect = WaitlistedError("Email added to waitlist", entry_id="wl-1")
 
             client = TestClient(app, raise_server_exceptions=False)
             response = client.post(
@@ -87,18 +87,21 @@ class TestSignupEndpoint:
                 json={"email": "blocked@example.com", "password": "hunter2hunter2"},
             )
 
-            assert response.status_code == 403
-            assert "Email not authorized for registration" in response.json()["detail"]
+            assert response.status_code == 202
+            body = response.json()
+            assert body["status"] == "waitlisted"
+            assert "waitlist" in body["message"]
+            assert "auth_token" not in response.cookies
 
-    def test_signup_returns_403_when_registration_not_allowed_real_path(self, allowlist_seeded):
+    def test_signup_returns_202_when_registration_waitlisted_real_path(self, allowlist_seeded):
         client = TestClient(app, raise_server_exceptions=False)
         response = client.post(
             f"{AUTH_BASE}/signup",
             json={"email": f"blocked-{uuid4().hex[:8]}@example.com", "password": "hunter2hunter2"},
         )
 
-        assert response.status_code == 403
-        assert "Email not authorized for registration" in response.json()["detail"]
+        assert response.status_code == 202
+        assert response.json()["status"] == "waitlisted"
 
 
 class TestLoginEndpoint:
