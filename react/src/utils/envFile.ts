@@ -21,6 +21,23 @@ export function isSensitiveKey(key: string): boolean {
   return SENSITIVE_KEY_RE.test(key);
 }
 
+export const ENV_KEY_RE = /^[A-Za-z_][A-Za-z0-9_.-]*$/;
+export const MAX_ENV_KEY_LENGTH = 128;
+
+export function validateEnvKey(key: string): string | null {
+  const trimmed = key.trim();
+  if (!trimmed) {
+    return "Environment key is required";
+  }
+  if (trimmed.length > MAX_ENV_KEY_LENGTH) {
+    return "Environment key must be at most 128 characters";
+  }
+  if (!ENV_KEY_RE.test(trimmed)) {
+    return "Environment key must match [A-Za-z_][A-Za-z0-9_.-]*";
+  }
+  return null;
+}
+
 const KEY_VALUE_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
 const KEY_ONLY_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)$/;
 

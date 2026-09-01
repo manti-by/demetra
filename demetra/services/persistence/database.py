@@ -1498,7 +1498,24 @@ async def upsert_project_environment(
     if not await get_project_by_id(project_id=project_id, user_id=user_id):
         raise LookupError("Project not found")
 
-    if env_type == "encrypted":
+    stored_value: str
+    if env_type == "encrypted" and value == "":
+        async with get_connection() as connection:
+            existing = await connection.execute(
+                select(project_environments.c.value, project_environments.c.type).where(
+                    (project_environments.c.project_id == project_id)
+                    & (project_environments.c.key == key)
+                    & (project_environments.c.scope == "project")
+                )
+            )
+            row_existing = existing.fetchone()
+            if row_existing is not None and row_existing.type == "encrypted":
+                stored_value = row_existing.value
+            else:
+                from demetra.services.persistence.encryption import encrypt_str
+
+                stored_value = encrypt_str(value)
+    elif env_type == "encrypted":
         from demetra.services.persistence.encryption import encrypt_str
 
         stored_value = encrypt_str(value)
@@ -1661,7 +1678,24 @@ async def upsert_user_environment(user_id: str, key: str, value: str, env_type: 
     if not await get_user_by_id(user_id=user_id):
         raise LookupError("User not found")
 
-    if env_type == "encrypted":
+    stored_value: str
+    if env_type == "encrypted" and value == "":
+        async with get_connection() as connection:
+            existing = await connection.execute(
+                select(project_environments.c.value, project_environments.c.type).where(
+                    (project_environments.c.user_id == user_id)
+                    & (project_environments.c.key == key)
+                    & (project_environments.c.scope == "user")
+                )
+            )
+            row_existing = existing.fetchone()
+            if row_existing is not None and row_existing.type == "encrypted":
+                stored_value = row_existing.value
+            else:
+                from demetra.services.persistence.encryption import encrypt_str
+
+                stored_value = encrypt_str(value)
+    elif env_type == "encrypted":
         from demetra.services.persistence.encryption import encrypt_str
 
         stored_value = encrypt_str(value)

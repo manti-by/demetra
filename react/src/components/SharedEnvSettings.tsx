@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import {
   UserEnvironmentEntry,
   getUserEnvironment,
@@ -7,7 +7,7 @@ import {
 } from "../services/api";
 import { EnvFileUploadButton } from "./EnvFileUploadButton";
 import { Loader } from "./Loader";
-import { isSensitiveKey, type EnvFileEntry } from "../utils/envFile";
+import { isSensitiveKey, validateEnvKey, type EnvFileEntry } from "../utils/envFile";
 
 interface SharedEnvSettingsProps {
   isOpen: boolean;
@@ -42,6 +42,19 @@ const TrashIcon = () => (
   </svg>
 );
 
+const PencilIcon = () => (
+  <svg
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+  >
+    <path d="M17 3a2.8 2.8 0 0 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z" />
+  </svg>
+);
+
 function formatValue(entry: UserEnvironmentEntry): string {
   if (!entry.value) {
     return "(empty)";
@@ -52,6 +65,10 @@ function formatValue(entry: UserEnvironmentEntry): string {
   return entry.value;
 }
 
+function sortByKey<T extends { key: string }>(entries: T[]): T[] {
+  return [...entries].sort((a, b) => a.key.localeCompare(b.key));
+}
+
 export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
   const [entries, setEntries] = useState<UserEnvironmentEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,12 +77,15 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
   const [draftKey, setDraftKey] = useState("");
   const [draftValue, setDraftValue] = useState("");
   const [draftEncrypted, setDraftEncrypted] = useState(false);
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+
+  const sortedEntries = useMemo(() => sortByKey(entries), [entries]);
 
   const fetchEnvironment = useCallback(async () => {
     try {
       setLoading(true);
       const data = await getUserEnvironment();
-      setEntries(data);
+      setEntries(sortByKey(data));
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load shared environment");
@@ -80,8 +100,25 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
       setDraftKey("");
       setDraftValue("");
       setDraftEncrypted(false);
+      setEditingKey(null);
     }
   }, [isOpen, fetchEnvironment]);
+
+  const beginEdit = useCallback((entry: UserEnvironmentEntry) => {
+    setEditingKey(entry.key);
+    setDraftKey(entry.key);
+    setDraftValue(entry.type === "encrypted" ? "" : entry.value);
+    setDraftEncrypted(entry.type === "encrypted");
+    setError(null);
+  }, []);
+
+  const cancelEdit = useCallback(() => {
+    setEditingKey(null);
+    setDraftKey("");
+    setDraftValue("");
+    setDraftEncrypted(false);
+    setError(null);
+  }, []);
 
   const handleAddEntry = useCallback(
     async (key: string, value: string, encrypted: boolean) => {
@@ -91,9 +128,9 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
         if (existing >= 0) {
           const next = [...prev];
           next[existing] = entry;
-          return next;
+          return sortByKey(next);
         }
-        return [...prev, entry];
+        return sortByKey([...prev, entry]);
       });
     },
     [],
@@ -101,8 +138,13 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
 
   const handleAddDraft = useCallback(async () => {
     const key = draftKey.trim();
-    if (!key) {
-      setError("Environment key is required");
+    const validationError = validateEnvKey(key);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    if (entries.some((entry) => entry.key === key)) {
+      setError(`Environment key "${key}" already exists`);
       return;
     }
     setSaving(true);
@@ -117,7 +159,48 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
     } finally {
       setSaving(false);
     }
-  }, [draftKey, draftValue, draftEncrypted, handleAddEntry]);
+  }, [draftKey, draftValue, draftEncrypted, entries, handleAddEntry]);
+
+  const handleSaveEdit = useCallback(async () => {
+    if (editingKey === null) return;
+    const key = draftKey.trim();
+    const validationError = validateEnvKey(key);
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+    if (entries.some((entry) => entry.key === key && entry.key !== editingKey)) {
+      setError(`Environment key "${key}" already exists`);
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      const entry = await upsertUserEnvironment(
+        key,
+        draftValue,
+        draftEncrypted ? "encrypted" : "text",
+      );
+      if (key !== editingKey) {
+        await deleteUserEnvironment(editingKey);
+        setEntries((prev) =>
+          sortByKey([...prev.filter((e) => e.key !== editingKey), entry]),
+        );
+      } else {
+        setEntries((prev) =>
+          sortByKey(prev.map((e) => (e.key === editingKey ? entry : e))),
+        );
+      }
+      setEditingKey(null);
+      setDraftKey("");
+      setDraftValue("");
+      setDraftEncrypted(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to save environment variable");
+    } finally {
+      setSaving(false);
+    }
+  }, [draftKey, draftValue, draftEncrypted, editingKey, entries]);
 
   const handleUpload = useCallback(
     async (fileEntries: EnvFileEntry[]) => {
@@ -145,6 +228,9 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
       try {
         await deleteUserEnvironment(key);
         setEntries((prev) => prev.filter((entry) => entry.key !== key));
+        if (editingKey === key) {
+          cancelEdit();
+        }
       } catch (e) {
         setError(
           e instanceof Error
@@ -155,10 +241,14 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
         setSaving(false);
       }
     },
-    [],
+    [editingKey, cancelEdit],
   );
 
   if (!isOpen) return null;
+
+  const isEditing = editingKey !== null;
+  const valuePlaceholder =
+    isEditing && draftEncrypted ? "leave blank to keep current value" : "Value";
 
   return (
     <div className="modal-overlay" onClick={onClose}>
@@ -181,18 +271,26 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
           ) : (
             <>
               <div className="env-list">
-                {entries.length === 0 ? (
+                {sortedEntries.length === 0 ? (
                   <p className="empty-message">
                     No shared environment variables yet. Add your first one!
                   </p>
                 ) : (
-                  entries.map((entry) => (
+                  sortedEntries.map((entry) => (
                     <div key={entry.key} className="env-row">
                       <span className="env-key">{entry.key}</span>
                       <span className="env-value">{formatValue(entry)}</span>
                       <span className={`env-type env-type-${entry.type}`}>
                         {entry.type}
                       </span>
+                      <button
+                        className="btn-icon edit-env"
+                        onClick={() => beginEdit(entry)}
+                        aria-label={`Edit ${entry.key}`}
+                        disabled={saving}
+                      >
+                        <PencilIcon />
+                      </button>
                       <button
                         className="btn-icon delete-env"
                         onClick={() => handleDeleteEntry(entry.key)}
@@ -216,7 +314,7 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
                 />
                   <input
                    type={draftEncrypted ? "password" : "text"}
-                   placeholder="Value"
+                   placeholder={valuePlaceholder}
                   value={draftValue}
                   onChange={(e) => setDraftValue(e.target.value)}
                   className="form-input env-value-input"
@@ -229,13 +327,32 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
                   />
                   Encrypted
                 </label>
-                <button
-                  className="btn-primary"
-                  onClick={handleAddDraft}
-                  disabled={saving || !draftKey.trim()}
-                >
-                  {saving ? <Loader size={18} /> : "Add"}
-                </button>
+                {isEditing ? (
+                  <>
+                    <button
+                      className="btn-primary"
+                      onClick={handleSaveEdit}
+                      disabled={saving || !draftKey.trim()}
+                    >
+                      {saving ? <Loader size={18} /> : "Save"}
+                    </button>
+                    <button
+                      className="btn-secondary"
+                      onClick={cancelEdit}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className="btn-primary"
+                    onClick={handleAddDraft}
+                    disabled={saving || !draftKey.trim()}
+                  >
+                    {saving ? <Loader size={18} /> : "Add"}
+                  </button>
+                )}
               </div>
 
               <div className="env-upload-row">

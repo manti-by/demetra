@@ -1,4 +1,5 @@
 import logging
+import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
@@ -29,6 +30,10 @@ from demetra.services.runtime.project import cleanup_project_resources, parse_gi
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/projects")
+
+ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
+MAX_ENV_KEY_LENGTH = 128
+MAX_ENV_VALUE_LENGTH = 8192
 
 
 @router.get("", response_model=list[Project])
@@ -257,9 +262,19 @@ async def upsert_project_environment_endpoint(
     validated_key = key.strip()
     if not validated_key:
         raise HTTPException(status_code=400, detail="Environment key cannot be empty")
+    if len(validated_key) > MAX_ENV_KEY_LENGTH:
+        raise HTTPException(status_code=400, detail="Environment key must be at most 128 characters")
+    if not ENV_KEY_RE.fullmatch(validated_key):
+        raise HTTPException(status_code=400, detail="Environment key must match [A-Za-z_][A-Za-z0-9_.-]*")
 
     if request.type not in ("text", "encrypted"):
         raise HTTPException(status_code=400, detail="Environment type must be 'text' or 'encrypted'")
+
+    if len(request.value) > MAX_ENV_VALUE_LENGTH:
+        raise HTTPException(status_code=400, detail="Environment value must be at most 8192 characters")
+
+    if request.type == "text" and "\x00" in request.value:
+        raise HTTPException(status_code=400, detail="Environment value cannot contain NUL bytes")
 
     try:
         entry = await upsert_project_environment(
