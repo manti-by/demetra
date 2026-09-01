@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -94,6 +94,15 @@ function AppContent() {
     setSidebarOpen(false);
   }, []);
 
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarOpen]);
+
   const handleSelectSession = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
     setSidebarOpen(false);
@@ -118,6 +127,8 @@ function AppContent() {
     [theme, toggleTheme, handleOpenSettings, handleLogout],
   );
 
+  const consoleInert = sidebarOpen ? { inert: "" } : {};
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -130,6 +141,7 @@ function AppContent() {
         onOpenSettings={handleOpenSettings}
         onOpenPalette={handleOpenPalette}
         onOpenSharedEnv={handleOpenSharedEnv}
+        inert={sidebarOpen}
       />
       {user ? (
         <main className="main-content">
@@ -144,7 +156,7 @@ function AppContent() {
                 setSessions={setSessions}
               />
             </div>
-            <div className="console-container">
+            <div className="console-container" {...consoleInert}>
               {sessions.length > 0 && (
                 <div className="console-tabs">
                   {sessions.map((session) => (
