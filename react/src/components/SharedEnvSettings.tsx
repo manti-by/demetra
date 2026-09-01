@@ -173,6 +173,11 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
       setError(`Environment key "${key}" already exists`);
       return;
     }
+    const editingEntry = entries.find((entry) => entry.key === editingKey);
+    if (editingEntry?.type === "encrypted" && !draftEncrypted && !draftValue) {
+      setError("Enter a value to disable encryption");
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -180,6 +185,7 @@ export function SharedEnvSettings({ isOpen, onClose }: SharedEnvSettingsProps) {
         key,
         draftValue,
         draftEncrypted ? "encrypted" : "text",
+        editingKey,
       );
       if (key !== editingKey) {
         await deleteUserEnvironment(editingKey);

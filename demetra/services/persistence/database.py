@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import create_engine, delete, func, insert, select, text
+from sqlalchemy import Column, create_engine, delete, func, insert, select, text
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import Session, SessionHistory, TokenUsage
@@ -1464,17 +1464,52 @@ async def list_project_environments(project_id: str, user_id: str) -> list[dict]
     ]
 
 
+async def _fetch_stored_encrypted_value(owner_column: Column, owner_id: str, scope: str, keys: list[str]) -> str | None:
+    """Return the stored ciphertext of an existing encrypted row among ``keys``.
+
+    Keys are tried in order, so callers list the current key first and the
+    previous (pre-rename) key second.
+
+    Args:
+        owner_column: The owner column (``project_id`` or ``user_id``).
+        owner_id: The owner id to match.
+        scope: ``"project"`` or ``"user"``.
+        keys: Candidate environment variable names, in preference order.
+
+    Returns:
+        str | None: The stored encrypted value, or None when no candidate
+            row is encrypted.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(project_environments.c.key, project_environments.c.value, project_environments.c.type).where(
+                (owner_column == owner_id)
+                & (project_environments.c.key.in_(keys))
+                & (project_environments.c.scope == scope)
+            )
+        )
+        rows = {row.key: row for row in result.fetchall()}
+    for key in keys:
+        row = rows.get(key)
+        if row is not None and row.type == "encrypted":
+            return row.value
+    return None
+
+
 async def upsert_project_environment(
     project_id: str,
     user_id: str,
     key: str,
     value: str,
     env_type: str = "text",
+    previous_key: str | None = None,
 ) -> dict:
     """Create or update a project environment variable.
 
-    Encrypted values are encrypted before storage. The row is scoped to
-    ``"project"``.
+    Encrypted values are encrypted before storage. When ``value`` is blank
+    the stored ciphertext of the row under ``key`` or ``previous_key`` is
+    reused, so editing or renaming an encrypted variable without re-entering
+    the secret preserves it. The row is scoped to ``"project"``.
 
     Args:
         project_id: The project id.
@@ -1482,6 +1517,7 @@ async def upsert_project_environment(
         key: The environment variable name.
         value: The environment variable value.
         env_type: ``"text"`` or ``"encrypted"``.
+        previous_key: Optional prior key when renaming an existing entry.
 
     Returns:
         dict: The created or updated entry with the value masked when
@@ -1499,26 +1535,22 @@ async def upsert_project_environment(
         raise LookupError("Project not found")
 
     stored_value: str
-    if env_type == "encrypted" and value == "":
-        async with get_connection() as connection:
-            existing = await connection.execute(
-                select(project_environments.c.value, project_environments.c.type).where(
-                    (project_environments.c.project_id == project_id)
-                    & (project_environments.c.key == key)
-                    & (project_environments.c.scope == "project")
-                )
-            )
-            row_existing = existing.fetchone()
-            if row_existing is not None and row_existing.type == "encrypted":
-                stored_value = row_existing.value
-            else:
-                from demetra.services.persistence.encryption import encrypt_str
-
-                stored_value = encrypt_str(value)
-    elif env_type == "encrypted":
+    if env_type == "encrypted":
         from demetra.services.persistence.encryption import encrypt_str
 
-        stored_value = encrypt_str(value)
+        if value:
+            stored_value = encrypt_str(plaintext=value)
+        else:
+            keys = [key]
+            if previous_key and previous_key != key:
+                keys.append(previous_key)
+            stored = await _fetch_stored_encrypted_value(
+                owner_column=project_environments.c.project_id,
+                owner_id=project_id,
+                scope="project",
+                keys=keys,
+            )
+            stored_value = stored if stored is not None else encrypt_str(plaintext=value)
     else:
         stored_value = value
 
@@ -1651,17 +1683,27 @@ async def list_user_environments(user_id: str) -> list[dict]:
     ]
 
 
-async def upsert_user_environment(user_id: str, key: str, value: str, env_type: str = "text") -> dict:
+async def upsert_user_environment(
+    user_id: str,
+    key: str,
+    value: str,
+    env_type: str = "text",
+    previous_key: str | None = None,
+) -> dict:
     """Create or update a user-shared environment variable.
 
-    Encrypted values are encrypted before storage. The row is scoped to
-    ``"user"`` with no project link.
+    Encrypted values are encrypted before storage. When ``value`` is blank
+    the stored ciphertext of the row under ``key`` or ``previous_key`` is
+    reused, so editing or renaming an encrypted variable without re-entering
+    the secret preserves it. The row is scoped to ``"user"`` with no project
+    link.
 
     Args:
         user_id: The user id.
         key: The environment variable name.
         value: The environment variable value.
         env_type: ``"text"`` or ``"encrypted"``.
+        previous_key: Optional prior key when renaming an existing entry.
 
     Returns:
         dict: The created or updated entry with the value masked when
@@ -1679,26 +1721,22 @@ async def upsert_user_environment(user_id: str, key: str, value: str, env_type: 
         raise LookupError("User not found")
 
     stored_value: str
-    if env_type == "encrypted" and value == "":
-        async with get_connection() as connection:
-            existing = await connection.execute(
-                select(project_environments.c.value, project_environments.c.type).where(
-                    (project_environments.c.user_id == user_id)
-                    & (project_environments.c.key == key)
-                    & (project_environments.c.scope == "user")
-                )
-            )
-            row_existing = existing.fetchone()
-            if row_existing is not None and row_existing.type == "encrypted":
-                stored_value = row_existing.value
-            else:
-                from demetra.services.persistence.encryption import encrypt_str
-
-                stored_value = encrypt_str(value)
-    elif env_type == "encrypted":
+    if env_type == "encrypted":
         from demetra.services.persistence.encryption import encrypt_str
 
-        stored_value = encrypt_str(value)
+        if value:
+            stored_value = encrypt_str(plaintext=value)
+        else:
+            keys = [key]
+            if previous_key and previous_key != key:
+                keys.append(previous_key)
+            stored = await _fetch_stored_encrypted_value(
+                owner_column=project_environments.c.user_id,
+                owner_id=user_id,
+                scope="user",
+                keys=keys,
+            )
+            stored_value = stored if stored is not None else encrypt_str(plaintext=value)
     else:
         stored_value = value
 

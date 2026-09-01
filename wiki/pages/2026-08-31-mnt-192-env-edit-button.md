@@ -90,13 +90,21 @@ Both modals import `validateEnvKey` and use it for Add and Edit.
 * Value input placeholder switches to "leave blank to keep current value" when `isEditing && draftEncrypted`.
 * Delete also cancels edit if deleting the edited row.
 
+## Step 4 — Review fixes: secret preservation on rename and type toggle
+
+**Files:** `demetra/services/persistence/database.py`, `demetra/api/projects.py`, `demetra/api/users.py`, `demetra/library/models.py`, `react/src/services/api.ts`, both env components
+
+Cursor PR review found two high-severity data-loss paths in the edit flow, both fixed:
+
+* **Rename wiped the secret.** `handleSaveEdit` upserts the new key with a blank value for encrypted entries, but the blank-preservation lookup queried only the new key — no row there — so it fell through to `encrypt_str("")` and the delete of the old key destroyed the secret. Fix: `upsert_project_environment` / `upsert_user_environment` accept `previous_key: str | None`; when `value` is blank the lookup tries the current key first, then `previous_key`, reusing the stored ciphertext. The duplicated lookup blocks were extracted into a shared `_fetch_stored_encrypted_value` helper (owner column + scope + candidate keys). API request models (`EnvironmentUpsert`, `ProjectEnvironmentUpsert`) carry optional `previous_key`; both endpoints pass it through; `api.ts` upsert functions take an optional `previousKey` and the components send `editingKey`.
+* **Unchecking "Encrypted" while editing stored an empty plaintext over the secret.** Fixed on the frontend per the review suggestion: `handleSaveEdit` rejects the save with "Enter a value to disable encryption" when the edited entry is encrypted, `draftEncrypted` is off, and `draftValue` is blank (backend decryption-based toggle-off left as a possible follow-up).
+
 ## Test Results
 
 * `ruff check` — All checks passed
 * `ty check` — All checks passed
-* `pytest tests/test_database.py tests/test_api.py` — 122 passed
-* `react npm run test` — 9 files, 58 passed
-* Full suite — 919 passed (1 flaky duplicate-email in `test_user_env_is_isolated_between_users` passes on rerun)
+* `pre-commit` — All checks passed
+* Full suite — 926 passed (incl. new rename/blank-preservation and `previous_key` pass-through tests)
 
 ---
 

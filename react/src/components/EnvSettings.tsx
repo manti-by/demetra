@@ -173,6 +173,11 @@ export function EnvSettings({
       setError(`Environment key "${key}" already exists`);
       return;
     }
+    const editingEntry = entries.find((entry) => entry.key === editingKey);
+    if (editingEntry?.type === "encrypted" && !draftEncrypted && !draftValue) {
+      setError("Enter a value to disable encryption");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -182,6 +187,7 @@ export function EnvSettings({
         key,
         draftValue,
         draftEncrypted ? "encrypted" : "text",
+        editingKey,
       );
       if (key !== editingKey) {
         await deleteProjectEnvironment(projectId, editingKey);

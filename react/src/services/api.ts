@@ -291,14 +291,15 @@ export async function upsertProjectEnvironment(
   projectId: string,
   key: string,
   value: string,
-  type: 'text' | 'encrypted' = 'text'
+  type: 'text' | 'encrypted' = 'text',
+  previousKey?: string
 ): Promise<ProjectEnvironmentEntry> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, type }),
+      body: JSON.stringify({ value, type, ...(previousKey ? { previous_key: previousKey } : {}) }),
     }
   );
   if (!response.ok) {
@@ -344,14 +345,15 @@ export async function getUserEnvironment(): Promise<UserEnvironmentEntry[]> {
 export async function upsertUserEnvironment(
   key: string,
   value: string,
-  type: 'text' | 'encrypted' = 'text'
+  type: 'text' | 'encrypted' = 'text',
+  previousKey?: string
 ): Promise<UserEnvironmentEntry> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/users/me/env/${encodeURIComponent(key)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, type }),
+      body: JSON.stringify({ value, type, ...(previousKey ? { previous_key: previousKey } : {}) }),
     }
   );
   if (!response.ok) {
