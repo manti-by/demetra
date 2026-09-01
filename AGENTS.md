@@ -159,6 +159,7 @@ uv run bandit -c pyproject.toml .
 - Use `pytest` for tests
 - Tests live in `tests/` directory
 - Run with `make test` or `uv run pytest tests/`
+- Group test cases in classes named `Test<Feature>` (e.g. `TestWaitlistCliList`); do not use module-level `def test_*` functions
 
 ## Database Migrations
 

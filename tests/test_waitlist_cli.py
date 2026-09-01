@@ -62,78 +62,83 @@ def _run_cli(action, entry_id=None, status=None, approved_by=None) -> int:
     return _async_run(waitlist_cli(action=action, entry_id=entry_id, status=status, approved_by=approved_by))
 
 
-def test_list_empty(capsys):
-    code = _run_cli(action="list")
-    assert code == 0
-    assert "No waitlist entries" in capsys.readouterr().out
+class TestWaitlistCliList:
+    def test_list_empty(self, capsys):
+        code = _run_cli(action="list")
+        assert code == 0
+        assert "No waitlist entries" in capsys.readouterr().out
+
+    def test_list_non_empty(self, capsys):
+        email = _unique_email()
+        _async_run(join_waitlist(entry_type="email", value=email))
+        code = _run_cli(action="list")
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "Waitlist entries" in out
+        assert "pending" in out
+        entries = _async_run(list_waitlist_entries())
+        assert any(entry["value"] == email for entry in entries)
+
+    def test_list_filters_by_status(self, capsys):
+        email = _unique_email()
+        _async_run(join_waitlist(entry_type="email", value=email))
+        code = _run_cli(action="list", status="pending")
+        assert code == 0
+        out = capsys.readouterr().out
+        assert "Waitlist entries" in out
+        assert "pending" in out
+        entries = _async_run(list_waitlist_entries(status="pending"))
+        assert any(entry["value"] == email for entry in entries)
+
+        code = _run_cli(action="list", status="approved")
+        assert code == 0
+        assert "No waitlist entries" in capsys.readouterr().out
 
 
-def test_list_non_empty(capsys):
-    email = _unique_email()
-    _async_run(join_waitlist(entry_type="email", value=email))
-    code = _run_cli(action="list")
-    assert code == 0
-    assert email in capsys.readouterr().out
+class TestWaitlistCliApprove:
+    def test_approve_adds_to_allowlist(self, capsys):
+        email = _unique_email()
+        entry_id = _async_run(join_waitlist(entry_type="email", value=email))
+        with patch("demetra.services.auth.waitlist.send_approval_email"):
+            code = _run_cli(action="approve", entry_id=entry_id)
+        assert code == 0
+        assert "approved" in capsys.readouterr().out
+
+        entries = _async_run(list_waitlist_entries())
+        entry = next(e for e in entries if e["id"] == entry_id)
+        assert entry["status"] == "approved"
+
+    def test_approve_records_approved_by(self, capsys):
+        email = _unique_email()
+        entry_id = _async_run(join_waitlist(entry_type="email", value=email))
+        with patch("demetra.services.auth.waitlist.send_approval_email"):
+            code = _run_cli(action="approve", entry_id=entry_id, approved_by="admin-7")
+        assert code == 0
+
+        entries = _async_run(list_waitlist_entries())
+        entry = next(e for e in entries if e["id"] == entry_id)
+        assert entry["approved_by"] == "admin-7"
+
+    def test_approve_missing_entry_returns_error(self, capsys):
+        code = _run_cli(action="approve", entry_id="missing")
+        assert code == 1
+        assert "Waitlist entry not found" in capsys.readouterr().out
+
+    def test_approve_without_entry_id_returns_error(self, capsys):
+        code = _run_cli(action="approve")
+        assert code == 1
+        assert "--waitlist-entry-id" in capsys.readouterr().out
 
 
-def test_list_filters_by_status(capsys):
-    email = _unique_email()
-    _async_run(join_waitlist(entry_type="email", value=email))
-    code = _run_cli(action="list", status="pending")
-    assert code == 0
-    assert email in capsys.readouterr().out
+class TestWaitlistCliRemove:
+    def test_remove_present(self, capsys):
+        email = _unique_email()
+        entry_id = _async_run(join_waitlist(entry_type="email", value=email))
+        code = _run_cli(action="remove", entry_id=entry_id)
+        assert code == 0
+        assert "Waitlist entry removed" in capsys.readouterr().out
 
-    code = _run_cli(action="list", status="approved")
-    assert code == 0
-    assert "No waitlist entries" in capsys.readouterr().out
-
-
-def test_approve_adds_to_allowlist(capsys):
-    email = _unique_email()
-    entry_id = _async_run(join_waitlist(entry_type="email", value=email))
-    with patch("demetra.services.auth.waitlist.send_approval_email"):
-        code = _run_cli(action="approve", entry_id=entry_id)
-    assert code == 0
-    assert "approved" in capsys.readouterr().out
-
-    entries = _async_run(list_waitlist_entries())
-    entry = next(e for e in entries if e["id"] == entry_id)
-    assert entry["status"] == "approved"
-
-
-def test_approve_records_approved_by(capsys):
-    email = _unique_email()
-    entry_id = _async_run(join_waitlist(entry_type="email", value=email))
-    with patch("demetra.services.auth.waitlist.send_approval_email"):
-        code = _run_cli(action="approve", entry_id=entry_id, approved_by="admin-7")
-    assert code == 0
-
-    entries = _async_run(list_waitlist_entries())
-    entry = next(e for e in entries if e["id"] == entry_id)
-    assert entry["approved_by"] == "admin-7"
-
-
-def test_approve_missing_entry_returns_error(capsys):
-    code = _run_cli(action="approve", entry_id="missing")
-    assert code == 1
-    assert "Waitlist entry not found" in capsys.readouterr().out
-
-
-def test_approve_without_entry_id_returns_error(capsys):
-    code = _run_cli(action="approve")
-    assert code == 1
-    assert "--waitlist-entry-id" in capsys.readouterr().out
-
-
-def test_remove_present(capsys):
-    email = _unique_email()
-    entry_id = _async_run(join_waitlist(entry_type="email", value=email))
-    code = _run_cli(action="remove", entry_id=entry_id)
-    assert code == 0
-    assert "Waitlist entry removed" in capsys.readouterr().out
-
-
-def test_remove_absent_is_idempotent(capsys):
-    code = _run_cli(action="remove", entry_id="missing")
-    assert code == 0
-    assert "No waitlist entry" in capsys.readouterr().out
+    def test_remove_absent_is_idempotent(self, capsys):
+        code = _run_cli(action="remove", entry_id="missing")
+        assert code == 0
+        assert "No waitlist entry" in capsys.readouterr().out
