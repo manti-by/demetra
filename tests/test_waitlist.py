@@ -154,6 +154,7 @@ class TestApproveWaitlist:
         entry = next(e for e in entries if e["id"] == entry_id)
         assert entry["status"] == "pending"
         assert entry["notified_at"] is None
+        assert await is_email_allowed(email=email) is False
 
 
 class TestWaitlistRetainedAfterSignup:

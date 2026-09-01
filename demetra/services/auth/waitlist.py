@@ -193,6 +193,16 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     if entry["status"] != "pending":
         raise AuthError(f"Waitlist entry cannot be approved (status: {entry['status']})")
 
+    now = datetime.now(UTC)
+    approved_entry = await find_waitlist_entry_by_id(entry_id)
+    if approved_entry:
+        # Notify before allowlist promotion so a provider failure leaves the
+        # entry pending and the user cannot sign in until approval is retried.
+        send_approval_email(approved_entry)
+        notified_at = now
+    else:
+        notified_at = None
+
     try:
         await add_entry(
             entry_type=entry["entry_type"],
@@ -206,16 +216,6 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
         existing = await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
         if existing is None:
             raise
-
-    now = datetime.now(UTC)
-    approved_entry = await find_waitlist_entry_by_id(entry_id)
-    if approved_entry:
-        # Send first: notified_at is only stamped when the notification
-        # actually succeeded, so the audit trail never claims a false send.
-        send_approval_email(approved_entry)
-        notified_at = now
-    else:
-        notified_at = None
 
     await update_waitlist_entry(
         entry_id=entry_id,

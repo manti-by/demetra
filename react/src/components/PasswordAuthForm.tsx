@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react';
-import { signup, loginWithPassword } from '../services/api';
+import { signup, loginWithPassword, isWaitlistedError } from '../services/api';
 import { Loader } from './Loader';
 
 export function PasswordAuthForm() {
@@ -7,11 +7,13 @@ export function PasswordAuthForm() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [waitlistMessage, setWaitlistMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    setWaitlistMessage(null);
     setLoading(true);
 
     try {
@@ -23,7 +25,11 @@ export function PasswordAuthForm() {
       }
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Authentication failed');
+      if (isWaitlistedError(err)) {
+        setWaitlistMessage(err.message);
+      } else {
+        setError(err instanceof Error ? err.message : 'Authentication failed');
+      }
     } finally {
       setLoading(false);
     }
@@ -58,6 +64,9 @@ export function PasswordAuthForm() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
         </div>
+        {waitlistMessage && (
+          <p className="auth-info" role="status">{waitlistMessage}</p>
+        )}
         {error && <p className="auth-error" role="alert">{error}</p>}
         <button type="submit" className="auth-submit" disabled={loading}>
           {loading ? <Loader size={20} /> : mode === 'login' ? 'Sign in' : 'Create account'}
