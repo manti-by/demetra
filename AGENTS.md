@@ -18,18 +18,17 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
 - `demetra/app.py`: FastAPI application
 - `demetra/mcp_server.py`: MCP server
-- `demetra/watcher.py`: Linear TODO poller
-- `demetra/listener.py`: GitHub notification listener
-- `demetra/worker.py`: RQ worker
+- `demetra/watcher.py` / `demetra/listener.py` / `demetra/worker.py`: Thin entrypoints (logic lives in `demetra/services/daemons/`; watcher = Linear TODO poller, listener = GitHub notifications)
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (53 files)
-- `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`)
+- `tests/`: Comprehensive test suite (53 `test_*.py` files, 55 total with `__init__.py`/`conftest.py`)
+- `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`, plus `bootstrap.sh`/`proxy.params`/`services/`)
+- `workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (root, static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and skill definitions
-- `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`)
+- `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
 
@@ -142,9 +141,9 @@ uv run bandit -c pyproject.toml .
 - Constants: `UPPER_SNAKE_CASE`; env-driven ones live in `demetra/settings.py`
 
 **Architecture** (strict layering, no skipping):
-- `demetra/library/` — pure: dataclasses, TypedDicts, exceptions. No I/O.
+- `demetra/library/` — pure: dataclasses, TypedDicts, exceptions, tables. No I/O.
 - `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); each subpackage's `__init__.py` acts as the public facade. Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
-- `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*`.
+- `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*` (includes `review_fixes.py` for the `@demetra-ai fix review findings` listener flow).
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
 - `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `projects.py`, `wiki.py`) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them, re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
@@ -185,7 +184,7 @@ Demetra coordinates the following external tools:
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
-- **GitHub**: PR creation and notification-driven merge/rebase triggers (`demetra/listener.py`)
+- **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **Groq**: legacy LLM API, fully superseded by OpenRouter (`demetra/services/llm/groq.py` retained but unused)
 - **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 

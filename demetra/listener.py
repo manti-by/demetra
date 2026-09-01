@@ -6,8 +6,10 @@ from demetra.services.daemons.listener import (
     fetch_subject_body,
     get_notifications,
     mark_notification_read,
+    mentions_demetra_ai_and_fix_review_findings,
     mentions_demetra_ai_and_merge,
     mentions_demetra_ai_and_rebase,
+    process_fix_review_findings_notification,
     process_merge_notification,
     process_rebase_notification,
     should_process_notification,
@@ -60,6 +62,10 @@ async def main() -> None:
                 elif mentions_demetra_ai_and_rebase(body=body):
                     logger.info(f"Rebase {message}")
                     processed = await process_rebase_notification(pr_info=pr_info)
+
+                elif mentions_demetra_ai_and_fix_review_findings(body=body):
+                    logger.info(f"Fix review findings {message}")
+                    processed = await process_fix_review_findings_notification(pr_info=pr_info)
 
                 else:
                     continue

@@ -126,7 +126,7 @@ gating are unchanged. `groq.py` itself is not modified.
 
 ## Source — [[2026-05-25-async-review]]
 
-Review step runs all agents in parallel. Originally decided in [[2026-05-25-async-review]] on 2026-05-25 (MNT-87/MNT-35): `run_review_agents` launches opencode/cursor/coderabbit concurrently and merges results; empty commits are prevented by staged-change validation. The `merge_review_results` `None` stdout/stderr handling noted there has since been removed in favor of `summarize_review()` in `demetra/services/llm/openrouter.py` (see [[2026-08-18-migrate-llm-groq-to-openrouter]] notes). Still in effect — build review loop relies on parallel execution.
+Review step runs all agents in parallel. Originally decided in [[2026-05-25-async-review]] on 2026-05-25 (MNT-87/MNT-35): `run_review_agents` launches opencode/cursor/coderabbit concurrently and merges results; empty commits are prevented by staged-change validation. The `merge_review_results` `None` stdout/stderr handling noted there has since been removed in favor of `summarize_review()` in `demetra/services/llm/openrouter.py` (see notes above). Still in effect — build review loop relies on parallel execution.
 
 ## Follow-ups
 
@@ -138,6 +138,10 @@ Review step runs all agents in parallel. Originally decided in [[2026-05-25-asyn
 ## Consistency note (2026-08-19)
 
 - The relocation shim (`_RelocatedFinder` / `_RelocatedLoader` in `demetra/services/__init__.py`) described in Step 5 was subsequently deleted by the 2026-08-19 work (MNT-170, see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]). The package is now a plain docstring marker.
+
+## Consistency fix (2026-09-01)
+
+- Removed self-link in Source section that pointed to this same page (circular reference) — replaced with plain text.
 
 ## References
 
