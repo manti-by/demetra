@@ -26,6 +26,7 @@ class LinearConfig(TypedDict):
     states: LinearStates
     default_state: str
     filter_labels: list[str]
+    research_labels: list[str]
 
 
 class PathConfig(TypedDict):
@@ -38,6 +39,7 @@ class OpenCodeConfig(PathConfig):
     build_model: str
     review_models: list[str]
     validate_model: str
+    research_model: str
 
 
 class GitConfig(PathConfig):

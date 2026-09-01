@@ -9,6 +9,7 @@ from slugify import slugify
 StepType = Literal[
     "initial",
     "plan",
+    "research",
     "build",
     "validate",
     "review",

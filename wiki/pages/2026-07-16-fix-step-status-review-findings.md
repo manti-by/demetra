@@ -189,6 +189,12 @@ documents is the successor of that merged status concept.
 > [[2026-08-25-mnt-187-wiki-pages-not-generated]] for the wiki-page-write session step.
 > Current `StepType` is `initial | plan | build | validate | review | lint | test | wiki |
 > push | completed | failed | awaiting_input`.
+
+> **Status update (2026-09-01, Consistency Agent):** `StepType` has since gained a 13th
+> value: `"research"` (inserted between `plan` and `build`), added in
+> [[2026-09-01-mnt-177-research-loop]] for the research-agent step. Current `StepType` is
+> `initial | plan | research | build | validate | review | lint | test | wiki | push |
+> completed | failed | awaiting_input`.
 >
 > Also, `demetra/services/database.py` (cited in Steps 1–4 above) has moved to
 > `demetra/services/persistence/database.py`; `demetra/api/sessions.py` is unchanged.

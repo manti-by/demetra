@@ -80,6 +80,17 @@ The Awaiting Input state is a **one-shot signal**, not a durable gate:
 
 - Implement the `awaiting_input` replan guard + watcher enqueue dedupe (see Resolution/Fix).
 
+> **Status update (2026-09-01, Consistency Agent):** both fixes are still **not implemented**
+> (re-verified on current master: `main.py` still gates the plan step only on
+> `not context.session.build_plan` with no `awaiting_input`/Linear-state re-check, and
+> `process_tasks` still calls `delay_run_workflow` unconditionally for every TODO task on
+> every poll). MNT-183 (commit `dfd64f6`, 2026-09-01) changed one premise of Step 4: the
+> `in_progress` Linear move now happens on **every** poll (outside the `pending_ids` guard),
+> so the "in_progress move fails/lags" trigger of the duplicate-run race is partially
+> mitigated — but a ticket sitting in TODO across ≥2 polls still enqueues a second run, and
+> the missing `awaiting_input` replan guard (primary cause) is unchanged. See
+> [[2026-08-28-mnt-191-ticket-status-not-changed]] for the MNT-191 form of the same block.
+
 ## References
 
 - Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]]
