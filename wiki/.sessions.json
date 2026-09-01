@@ -15,6 +15,7 @@
   "ses_093670774ffeRqtTEflrkIDv8O": "2026-07-16-fix-notification-mark-read.md",
   "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-07-15-duplicated-log-messages.md",
   "ses_8f3a2b1c-20260825": "2026-08-25-loader-styleguide.md",
+  "ses_fbad8fd5affeytew8qRS0KDVpx": "2026-08-28-fix-index-lock-concurrency.md",
   "ses_fcc17abbaffe7m4bui291JEEZ3": "2026-08-24-guard-empty-plan-output.md",
   "ses_fe1248211ffeLvd40e4OnV1uVR": "2026-08-20-fix-allowlist-tests.md",
   "ses_fe1f1413cffe0nPjQ3DdiuD5IG": "2026-08-20-review-gh-auth-mount-changes.md",
@@ -23,5 +24,5 @@
   "ses_mnt177_20260901": "2026-09-01-mnt-177-research-loop.md",
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
   "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
-  "ses_fbad8fd5affeytew8qRS0KDVpx": "2026-08-28-fix-index-lock-concurrency.md"
+  "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md"
 }
