@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { ThemeProvider, useTheme } from "./contexts/ThemeContext";
@@ -49,6 +49,7 @@ function AppContent() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [sharedEnvOpen, setSharedEnvOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const paletteRef = useRef<CommandPaletteHandle>(null);
@@ -85,8 +86,26 @@ function AppContent() {
     setSharedEnvOpen(false);
   }, []);
 
+  const handleOpenSidebar = useCallback(() => {
+    setSidebarOpen(true);
+  }, []);
+
+  const handleCloseSidebar = useCallback(() => {
+    setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSidebarOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [sidebarOpen]);
+
   const handleSelectSession = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
+    setSidebarOpen(false);
   }, []);
 
   const handleDeleteSession = useCallback(async (taskId: string) => {
@@ -108,6 +127,8 @@ function AppContent() {
     [theme, toggleTheme, handleOpenSettings, handleLogout],
   );
 
+  const consoleInert = sidebarOpen ? { inert: "" } : {};
+
   if (loading) {
     return <LoadingSpinner />;
   }
@@ -120,23 +141,46 @@ function AppContent() {
         onOpenSettings={handleOpenSettings}
         onOpenPalette={handleOpenPalette}
         onOpenSharedEnv={handleOpenSharedEnv}
+        inert={sidebarOpen}
       />
       {user ? (
         <main className="main-content">
+          {sidebarOpen && <div className="sidebar-overlay" onClick={handleCloseSidebar} />}
           <div className="main-content-body">
-            <SessionSidebar
-              onSelectSession={handleSelectSession}
-              selectedTaskId={selectedTaskId}
-              refreshTrigger={sessionRefreshTrigger}
-              sessions={sessions}
-              setSessions={setSessions}
-            />
-            <div className="console-container">
+            <div className={`sidebar-slot${sidebarOpen ? " open" : ""}`}>
+              <SessionSidebar
+                onSelectSession={handleSelectSession}
+                selectedTaskId={selectedTaskId}
+                refreshTrigger={sessionRefreshTrigger}
+                sessions={sessions}
+                setSessions={setSessions}
+              />
+            </div>
+            <div className="console-container" {...consoleInert}>
+              {sessions.length > 0 && (
+                <div className="console-tabs">
+                  {sessions.map((session) => (
+                    <button
+                      key={session.task_id}
+                      className={`console-tab${session.task_id === selectedTaskId ? " active" : ""}`}
+                      onClick={() => handleSelectSession(session.task_id)}
+                    >
+                      {session.name || session.task_id.slice(0, 8)}
+                    </button>
+                  ))}
+                </div>
+              )}
               <Suspense fallback={<Loader size={48} />}>
 
                 <LogConsole taskId={selectedTaskId} sessionName={sessions.find((s) => s.task_id === selectedTaskId)?.name ?? null} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} sessions={sessions} />
+              <div className="console-toolbar">
+                <button className="console-toolbar-btn" onClick={handleOpenSidebar}>
+                  Sessions
+                  <span className="console-toolbar-count">{sessions.length}</span>
+                </button>
+              </div>
             </div>
           </div>
         </main>

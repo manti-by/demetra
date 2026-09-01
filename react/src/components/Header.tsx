@@ -9,6 +9,7 @@ interface HeaderProps {
   onOpenSettings?: () => void;
   onOpenPalette?: () => void;
   onOpenSharedEnv?: () => void;
+  inert?: boolean;
 }
 
 const LOGOUT_ICON = (
@@ -88,6 +89,7 @@ export function Header({
   onOpenSettings,
   onOpenPalette,
   onOpenSharedEnv,
+  inert,
 }: HeaderProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
@@ -117,7 +119,7 @@ export function Header({
   );
 
   return (
-    <header className="header">
+    <header className="header" {...(inert ? { inert: "" } : {})}>
       <div className="header-left">{user && <h1>Demetra</h1>}</div>
       <div className="header-right">
         {user && (

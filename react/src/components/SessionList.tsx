@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, memo } from 'react';
+import { useEffect, useState, useCallback, useMemo, memo } from 'react';
 import { getSessions, type Session } from '../services/api';
 import { Loader } from './Loader';
 
@@ -29,6 +29,7 @@ const formatDate = (dateStr: string): string => {
 const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: (e: React.MouseEvent) => void }) => (
   <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
     <div className="session-item-header">
+      <span className={`session-dot step-${session.step || 'initial'}`} />
       <span className="session-title">
         {session.name || session.session_id?.slice(0, 8)}
       </span>
@@ -46,6 +47,7 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
 export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions }: SessionListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [query, setQuery] = useState('');
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -77,24 +79,47 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
     onSelectSession(taskId);
   }, [onSelectSession]);
 
+  const filteredSessions = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return sessions;
+    return sessions.filter((session) =>
+      [session.name, session.task_id, session.session_id, session.step, session.build_plan].some(
+        (value) => (value ?? '').toLowerCase().includes(q),
+      ),
+    );
+  }, [sessions, query]);
+
   return (
-    <div className="session-list">
-      {loading && sessions.length === 0 ? (
-        <Loader size={36} />
-      ) : error ? (
-        <div className="session-list-error">{error}</div>
-      ) : sessions.length === 0 ? (
-        <div className="session-list-empty">No sessions found</div>
-      ) : (
-        sessions.map((session) => (
-          <SessionItem
-            key={session.task_id}
-            session={session}
-            isSelected={selectedTaskId === session.task_id}
-            onClick={(e) => handleSelectSession(e, session.task_id)}
-          />
-        ))
-      )}
+    <div className="session-list-root">
+      <div className="session-search">
+        <input
+          className="form-input session-search-input"
+          type="search"
+          placeholder="Search sessions..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+      </div>
+      <div className="session-list">
+        {loading && sessions.length === 0 ? (
+          <Loader size={36} />
+        ) : error ? (
+          <div className="session-list-error">{error}</div>
+        ) : sessions.length === 0 ? (
+          <div className="session-list-empty">No sessions found</div>
+        ) : filteredSessions.length === 0 ? (
+          <div className="session-list-empty">No matching sessions</div>
+        ) : (
+          filteredSessions.map((session) => (
+            <SessionItem
+              key={session.task_id}
+              session={session}
+              isSelected={selectedTaskId === session.task_id}
+              onClick={(e) => handleSelectSession(e, session.task_id)}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
