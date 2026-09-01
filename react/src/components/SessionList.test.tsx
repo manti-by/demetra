@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { SessionList } from './SessionList';
 import { getSessions } from '../services/api';
@@ -100,5 +100,85 @@ describe('SessionList', () => {
     );
 
     expect(screen.getByText('completed')).toBeInTheDocument();
+  });
+
+  it('filters sessions by search query', () => {
+    const sessions = [
+      {
+        task_id: 'task-1',
+        session_id: 'sess-1',
+        name: 'odin',
+        build_plan: null,
+        posted_to_linear: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        step: 'build',
+        pr_link: null,
+        linear_link: null,
+      },
+      {
+        task_id: 'task-2',
+        session_id: 'sess-2',
+        name: 'amon-ra',
+        build_plan: null,
+        posted_to_linear: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        step: 'completed',
+        pr_link: null,
+        linear_link: null,
+      },
+    ];
+
+    render(
+      <SessionList
+        onSelectSession={vi.fn()}
+        selectedTaskId={null}
+        sessions={sessions}
+        setSessions={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('odin')).toBeInTheDocument();
+    expect(screen.getByText('amon-ra')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
+      target: { value: 'amon' },
+    });
+
+    expect(screen.getByText('amon-ra')).toBeInTheDocument();
+    expect(screen.queryByText('odin')).not.toBeInTheDocument();
+  });
+
+  it('shows empty state when no sessions match the search query', () => {
+    const sessions = [
+      {
+        task_id: 'task-1',
+        session_id: 'sess-1',
+        name: 'odin',
+        build_plan: null,
+        posted_to_linear: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        step: 'build',
+        pr_link: null,
+        linear_link: null,
+      },
+    ];
+
+    render(
+      <SessionList
+        onSelectSession={vi.fn()}
+        selectedTaskId={null}
+        sessions={sessions}
+        setSessions={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
+      target: { value: 'nomatch' },
+    });
+
+    expect(screen.getByText('No matching sessions')).toBeInTheDocument();
   });
 });
