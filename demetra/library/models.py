@@ -9,6 +9,7 @@ from slugify import slugify
 StepType = Literal[
     "initial",
     "plan",
+    "research",
     "build",
     "validate",
     "review",
@@ -172,6 +173,7 @@ class Environment:
 class EnvironmentUpsert:
     value: str
     type: EnvironmentType = "text"
+    previous_key: str | None = None
 
 
 @dataclass
@@ -189,6 +191,7 @@ class EnvironmentEntry:
 class ProjectEnvironmentUpsert:
     value: str
     type: EnvironmentType = "text"
+    previous_key: str | None = None
 
 
 @dataclass

@@ -78,6 +78,13 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 > completed, failed, awaiting_input`. The 2026-08-19 update above is superseded on this
 > one count.
 
+> **Status update (2026-09-01, Consistency Agent):** `StepType` now has **13** values —
+> a `"research"` step was inserted between `plan` and `build`, added in
+> [[2026-09-01-mnt-177-research-loop]] for the research-agent step. Current order:
+> `initial, plan, research, build, validate, review, lint, test, wiki, push,
+> completed, failed, awaiting_input`. The 2026-08-27 update above is superseded on this
+> one count.
+
 ## References
 
 - Related: [[2026-07-16-fix-step-status-review-findings]] — later review of the same `sessions.step` subsystem

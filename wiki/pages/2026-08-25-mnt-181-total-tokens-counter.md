@@ -8,7 +8,7 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-07-16-session-history-tokens-null.md, 2026-05-22-task-title-session-listing.md]
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-07-16-session-history-tokens-null.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # MNT-181: Total tokens counter
@@ -120,6 +120,10 @@ Session list shows task title with fallback to truncated id. Originally decided 
 ## Follow-ups
 
 - None from this session.
+
+## Consistency fix (2026-09-01)
+
+- Added `2026-07-16-fix-step-status-review-findings.md` to `related` frontmatter to mirror body link `[[2026-07-16-fix-step-status-review-findings]]`.
 
 ## References
 

@@ -90,6 +90,7 @@ async def upsert_user_environment_endpoint(
             key=validated_key,
             value=request.value,
             env_type=request.type,
+            previous_key=request.previous_key.strip() if request.previous_key else None,
         )
     except LookupError as e:
         raise HTTPException(status_code=404, detail="User not found") from e

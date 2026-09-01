@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — Implemented the Research loop for Linear tickets carrying a `Research` label: dedicated `research-agent` with wiki/web validation, `MAX_RESEARCH_ATTEMPTS` (5), `research_model`/`research_labels` settings, report extraction and Awaiting Input branch in `main.py`. (2026-09-01)
 - [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — Implementation of MNT-188: Waitlist (2026-08-28)
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — The MNT-177 workflow was retried 6 times and never completed, with three failure signatures: the MNT-162 empty-summarizer path (once), the plan agent cut off by an auto-rejected `read (.env.docker.example)` tool call (twice), and the dominant blocker — OpenRouter HTTP 403 because the user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` requires an uncompleted 18+ age attestation (3 of 6). Verified `meta-llama/llama-3.3-70b-instruct` works against the production key while `meta/muse-spark-1.2` 403s. (2026-08-28)
 - [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — The same-run halt after posting questions works (`move_to_awaiting_input` raises `AutoCancelledError`), but the stop signal is not durable: the questions-run persists `build_plan` before posting the questions, and the workflow never re-checks the Linear state or the `awaiting_input` session step on a later run. When the ticket returns to TODO the next run skips `run_plan_step` entirely (`main.py` sees a non-empty `build_plan`), posts the stale plan as a Linear comment and proceeds to build → validate → review → PR with questions unanswered. Secondary race: the watcher enqueues a run on every TODO poll — `pending_ids` dedupes only the upsert/Linear move, not the enqueue — so a duplicate run can reach review while the first parks the ticket in Awaiting Input. Diagnosis only; fix (replan guard on `awaiting_input` step + enqueue dedupe) not yet implemented.
@@ -92,8 +93,9 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (18 pages)
+### Workflow orchestration & agents (19 pages)
 
+- [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — 2026-09-01
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — 2026-08-28
 - [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — 2026-08-28
 - [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — 2026-08-24
@@ -113,7 +115,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md) — 2026-06-03
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
 
-### MCP / integrations (11 pages)
+### MCP / integrations (10 pages)
 
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
@@ -125,7 +127,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
-- [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — 2026-08-28
 
 ### Linear & GitHub integrations (10 pages)
 
@@ -140,6 +141,18 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project environment](pages/2026-06-08-project-environment.md) — 2026-06-08
 - [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md) — 2026-06-08
 
+### React frontend / UI (9 pages)
+
+- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
+- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — 2026-08-25
+- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — 2026-08-03
+- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
+- [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — 2026-06-22
+- [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — 2026-06-09
+- [Build artifacts](pages/2026-06-09-build-artifacts.md) — 2026-06-09
+- [Truncate session name](pages/2026-06-02-truncate-session-name.md) — 2026-06-02
+- [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
+
 ### Sessions, status & resume (9 pages)
 
 - [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
@@ -152,20 +165,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — 2026-06-08
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 
-### React frontend / UI (8 pages)
-
-- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — 2026-08-25
-- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — 2026-08-03
-- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
-- [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — 2026-06-22
-- [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — 2026-06-09
-- [Build artifacts](pages/2026-06-09-build-artifacts.md) — 2026-06-09
-- [Truncate session name](pages/2026-06-02-truncate-session-name.md) — 2026-06-02
-- [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
-
 ### Authentication & API security (8 pages)
 
-- [Waitlist for blocked signups and GitHub logins](pages/2026-08-28-mnt-188-waitlist.md) — 2026-08-28
+- [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — 2026-08-28
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — 2026-08-09
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — 2026-08-09
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — 2026-08-06
