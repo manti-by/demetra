@@ -69,6 +69,16 @@ if task.id not in pending_ids:
 
 The existing `in_progress` update in `main.py` remains as a safety net for manual CLI runs.
 
+> **Status update (2026-09-01, Consistency Agent):** the fix above was partially superseded
+> by MNT-183 (commit `dfd64f6`, "Fix ticket status update", merged 2026-09-01): the
+> `in_progress` move was moved **out** of the `if task.id not in pending_ids:` block, so an
+> accepted TODO task is moved to `in_progress` on **every** poll, not only on first pickup
+> (`demetra/services/daemons/watcher.py`, `process_tasks`). Rationale per the commit: a task
+> can return to TODO while still pending (session_id="") after a failed run, and
+> `update_ticket_status` can fail transiently — re-applying the same state each poll is
+> idempotent. The Step 1 snippet above reflects the MNT-191 form and is kept as the session
+> record.
+
 ## Step 2 — Tests
 
 **File:** `tests/test_api_coverage.py` (`TestWatcherService`)
