@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Demetra — Workflow State Machine</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root{--bg:#0a0a0f;--panel:#111118;--border:#222235;--text:#e6e6f0;--muted:#8888a0;--accent:#7c5cff;--accent2:#2dd4bf;--warn:#f59e0b;--danger:#ef4444;--success:#22c55e}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family: ui-sans-system, -apple-system, Segoe UI, Roboto, Helvetica, Arial;background:var(--bg);color:var(--text);line-height:1.5}
+  header{padding:28px 32px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;background:rgba(10,10,15,0.85);backdrop-filter:blur(12px);z-index:10}
+  header h1{font-size:22px;font-weight:700;letter-spacing:-0.02em}
+  header h1 span{color:var(--accent)}
+  header p{color:var(--muted);font-size:13px;margin-top:6px;max-width:780px}
+  .meta{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+  .meta span{font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--border);background:var(--panel);color:var(--muted)}
+  .meta span b{color:var(--text);font-weight:600}
+  nav{display:flex;gap:8px;padding:16px 32px;border-bottom:1px solid var(--border);overflow-x:auto}
+  nav button{appearance:none;border:1px solid var(--border);background:var(--panel);color:var(--muted);padding:8px 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  nav button.active{background:var(--accent);color:white;border-color:var(--accent)}
+  .wrap{padding:20px 32px 40px}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:16px;overflow:hidden;margin-bottom:20px}
+  .card-head{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:12px}
+  .card-head h2{font-size:13px;letter-spacing:0.08em;text-transform:uppercase;color:var(--muted)}
+  .card-head .actions{display:flex;gap:8px}
+  .card-head button{font-size:12px;padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg);color:var(--text);cursor:pointer}
+  .mermaid-wrap{padding:18px;overflow:auto;background:#0f0f17}
+  .mermaid-wrap svg{max-width:none}
+  .legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;padding:16px 18px}
+  .legend-item{display:flex;gap:10px;align-items:center;font-size:12px;color:var(--muted)}
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:900px){.grid2{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th{ text-align:left;padding:10px 14px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--border);font-size:11px;letter-spacing:0.06em;text-transform:uppercase}
+  td{padding:10px 14px;border-bottom:1px solid rgba(255,255,255,0.04);vertical-align:top}
+  td code{font-family: ui-monospace, SFMono-Regular, Menlo, monospace;font-size:12px;background:rgba(124,92,255,0.15);padding:2px 6px;border-radius:4px;color:#c4b5ff}
+  .badge{font-size:11px;padding:2px 7px;border-radius:999px;border:1px solid var(--border)}
+  .b-todo{border-color:#3b82f6;color:#93bbff;background:rgba(59,130,246,0.15)}
+  .b-prog{border-color:#7c5cff;color:#c4b5ff;background:rgba(124,92,255,0.15)}
+  .b-wait{border-color:#f59e0b;color:#fcd34d;background:rgba(245,158,11,0.15)}
+  .b-review{border-color:#2dd4bf;color:#5eead4;background:rgba(45,212,191,0.15)}
+  .b-done{border-color:#22c55e;color:#86efac;background:rgba(34,197,94,0.15)}
+  .hidden{display:none}
+  footer{padding:20px 32px;color:var(--muted);font-size:12px;border-top:1px solid var(--border)}
+</style>
+</head>
+<body>
+<header>
+  <h1><span>Demetra</span> — Workflow State Machine</h1>
+  <p>Autonomous supervisor: Linear (TODO poller) → OpenCode plan/build agents → validate/review/lint → Git/PR → GitHub listener (merge/rebase). Generated <code id="now"></code> from <code>main.py</code> + <code>demetra/workflows/*</code> + <code>watcher.py</code> + <code>listener.py</code>.</p>
+  <div class="meta">
+    <span><b>Entry</b> &nbsp; main.py:68 main()</span>
+    <span><b>Linear states</b> &nbsp; TODO → In Progress → Awaiting Input → In Review → Done</span>
+    <span><b>Session steps</b> &nbsp; StepType in library/models.py:9</span>
+    <span><b>RQ</b> &nbsp; watcher / listener / worker</span>
+  </div>
+</header>
+
+<nav id="tabs">
+  <button class="active" data-tab="main">1 · Main Orchestrator</button>
+  <button data-tab="build">2 · Build Inner Loop</button>
+  <button data-tab="daemons">3 · Daemons &amp; Aux Workflows</button>
+</nav>
+
+<div class="wrap">
+  <!-- TAB 1 -->
+  <div id="tab-main" class="tab">
+    <div class="card">
+      <div class="card-head"><h2>Main orchestrator — setup → plan → build → commit → cleanup</h2><div class="actions"><button onclick="downloadSVG('m-main','demetra-main.svg')">Download SVG</button></div></div>
+      <div class="mermaid-wrap"><pre class="mermaid" id="m-main">stateDiagram-v2
+  direction TB
+
+  [*] --> TODO : Linear issue created
+  TODO --> PendingSession : watcher.py∶ process_tasks()\nupsert_pending_session()
+  PendingSession --> InProgress : watcher.py∶162 / main.py∶99\nupdate_ticket_status(in_progress)\nqueue.enqueue(run_workflow)
+
+  InProgress --> Setup : main.py∶73 setup_workflow()
+  Setup --> SetupOK : Context created
+  Setup --> NoContext : project/task not found → return
+  NoContext --> [*]
+
+  SetupOK --> InProgress2 : main.py∶103 already in_progress\nmark session pending
+  InProgress2 --> PlanCheck : main.py∶105 if !build_plan → run_plan_step else skip
+
+  state PlanCheck {
+    direction TB
+    [*] --> PlanAgent : demetra/workflows/plan.py∶71\nopencode_plan_agent
+    PlanAgent --> PlanOK : exit 0 + PLAN_HEADER_STRING
+    PlanAgent --> PlanError : exit !=0 → PlanError
+    PlanError --> AwaitingInput : post_comment + move_to_awaiting_input → AutoCancelled
+    PlanOK --> SaveSession : save_session() + extract_plan (OpenRouter)
+    SaveSession --> ExtractQuestions : extract_questions()
+    ExtractQuestions --> BuildEntry : no questions
+    ExtractQuestions --> PlanLoop : questions + plan_loop + auto_mode
+    ExtractQuestions --> AutoAwait : questions + auto_mode\npost_comment per question → move awaiting_input
+    ExtractQuestions --> InteractivePlan : questions + !auto_mode
+    AutoAwait --> AwaitingInput
+    PlanLoop --> ResolveAgent : workflows/resolve.py\nopencode_resolve_agent
+    ResolveAgent --> PlanAgent : re-emit plan (MAX_PLAN_ATTEMPTS)
+    PlanLoop --> Exhausted : attempts 0 → InfiniteLoopError
+    Exhausted --> Failed
+    InteractivePlan --> UserApprove : user_input approve → return build_plan
+    InteractivePlan --> UserComment : user_input comment → loop with new task
+    InteractivePlan --> UserExit : user_input exit → UserCancelledError
+    UserApprove --> BuildEntry
+    UserComment --> PlanAgent
+  }
+
+  BuildEntry --> BuildLoop : main.py∶122 while commit_retries\nrun_build_step(build_plan)
+  BuildLoop --> BuildInner : workflows/build.py∶78
+  BuildInner --> CommitPush : workflows/cleanup.py∶20 commit_and_push()
+  CommitPush --> HasFiles : git_add_all has files
+  CommitPush --> NoFiles : no staged changes → retry with augmented plan\ncommit_retries--
+  NoFiles --> BuildLoop : retry
+  NoFiles --> InfiniteLoopFail : retries 0 → InfiniteLoopError
+
+  HasFiles --> WikiGen : step=wiki write_session_wiki_page
+  WikiGen --> WikiOK : success → git_add_all wiki
+  WikiGen --> WikiWarn : WikiError → commit without wiki (warning)
+  WikiOK --> NoWikiFiles : no wiki files? → retry as NoFiles
+  WikiWarn --> Push
+  WikiOK --> Push
+  NoWikiFiles --> BuildLoop
+  Push --> GitCommit : git_commit + git_push
+  GitCommit --> PRDesc : generate_pr_description (OpenRouter)
+  PRDesc --> CreatePR : create_pull_request (gh)
+  PRDesc --> PRError : PrDescriptionError → PullRequestError
+  PRError --> AwaitingInput
+  CreatePR --> PRSuccess : exit 0 → extract_pr_link + update_session_pr_link
+  CreatePR --> PRFail : exit !=0 → PullRequestError
+  PRFail --> AwaitingInput
+  PRSuccess --> Completed : step=completed + record_session_step_history
+  Completed --> Success
+
+  Success --> CleanupSuccess : cleanup_workflow(is_success=true)
+  CleanupSuccess --> InReview : linear_cleanup → update_ticket_status(in_review)
+  InReview --> [*]
+
+  AwaitingInput --> CleanupAwait : cleanup(should_update=false)
+  CleanupAwait --> AwaitingInputEnd : git_cleanup + no Linear move\n(posted already)
+  AwaitingInputEnd --> [*]
+
+  Failed --> CleanupFail : cleanup(is_success=false, failure_step=failed)
+  CleanupFail --> BackToTODO : linear_cleanup → update_ticket_status(todo)
+  BackToTODO --> [*]
+
+  BuildInner --> Failed : BuildError / InfiniteLoopError
+  BuildInner --> AwaitingInput : via failure.py
+
+  note right of PlanAgent
+    Records: update_session_step(plan)
+    Tokens: record_session_step_history
+    model: OPENCODE[plan_model]
+  end note
+  note right of PRSuccess
+    session.step = completed
+    pr_link persisted
+  end note</pre></div>
+      <div class="legend">
+        <div class="legend-item"><span class="dot" style="background:#7c5cff"></span> orchestrator (main.py)</div>
+        <div class="legend-item"><span class="dot" style="background:#2dd4bf"></span> agent / workflow step</div>
+        <div class="legend-item"><span class="dot" style="background:#f59e0b"></span> Awaiting Input (manual recovery)</div>
+        <div class="legend-item"><span class="dot" style="background:#ef4444"></span> failure → back to TODO</div>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><div class="card-head"><h2>Linear ticket states — source of truth</h2></div>
+        <div style="padding:0">
+          <table>
+            <tr><th>State</th><th>Entered when</th><th>Code</th></tr>
+            <tr><td><span class="badge b-todo">TODO</span></td><td>Issue created / failure fallback</td><td><code>linear_cleanup(todo)</code> mutations.py:64</td></tr>
+            <tr><td><span class="badge b-prog">In Progress</span></td><td>Watcher enqueues + main starts</td><td><code>watcher.py:162</code> + <code>main.py:103</code></td></tr>
+            <tr><td><span class="badge b-wait">Awaiting Input</span></td><td>Questions, PR/review/wiki failures, max attempts</td><td><code>plan.py:21</code> <code>failure.py:8</code> <code>daemons/watcher.py:48</code></td></tr>
+            <tr><td><span class="badge b-review">In Review</span></td><td>PR created successfully</td><td><code>mutations.py:57</code> cleanup is_success</td></tr>
+            <tr><td><span class="badge b-done">Done / Closed</span></td><td>Manual after PR merged (outside Demetra)</td><td>Linear workflow</td></tr>
+          </table>
+        </div>
+      </div>
+      <div class="card"><div class="card-head"><h2>Exception → Linear mapping (main.py:140-166)</h2></div>
+        <div style="padding:0">
+          <table>
+            <tr><th>Exception</th><th>Handler</th><th>Linear effect</th></tr>
+            <tr><td><code>InfiniteLoopError</code></td><td>log only</td><td>→ <span class="badge b-todo">TODO</span> (cleanup)</td></tr>
+            <tr><td><code>UserCancelledError</code></td><td>log</td><td>→ <span class="badge b-todo">TODO</span></td></tr>
+            <tr><td><code>AutoCancelledError</code></td><td>silent</td><td>already <span class="badge b-wait">Awaiting Input</span> — no move</td></tr>
+            <tr><td><code>PullRequestError</code> / <code>ReviewError</code></td><td><code>process_pr_failure</code></td><td>comment <code>pr_creation_failed</code> / <code>review_failed</code> → <span class="badge b-wait">Awaiting Input</span></td></tr>
+            <tr><td><code>WikiError</code></td><td><code>process_wiki_failure</code></td><td>→ <span class="badge b-wait">Awaiting Input</span> (branch+PR already exist)</td></tr>
+            <tr><td><code>BuildError</code></td><td><code>process_build_failure</code></td><td>comment <code>build_failed</code> → <span class="badge b-wait">Awaiting Input</span></td></tr>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2 -->
+  <div id="tab-build" class="tab hidden">
+    <div class="card">
+      <div class="card-head"><h2>Build inner loop — validate → review → version → lint/test (workflows/build.py:78)</h2><div class="actions"><button onclick="downloadSVG('m-build','demetra-build-loop.svg')">Download SVG</button></div></div>
+      <div class="mermaid-wrap"><pre class="mermaid" id="m-build">stateDiagram-v2
+  direction TB
+
+  [*] --> BuildAgent : workflows/build.py∶85\nopencode_build_agent(task=current_task)\nstep=build
+  BuildAgent --> BuildFail : exit !=0 → BuildError
+  BuildFail --> [*]
+  BuildAgent --> CompactCheck : check_and_compact_context()\nif context_tokens &gt; threshold → /compact
+  CompactCheck --> Validate : if validate_attempts &amp; review_attempts remain\nstep=validate else skip review
+
+  state ValidateGate {
+    direction TB
+    [*] --> ValidateAgent : workflows/validate.py∶40\nopencode_validate_agent(diff + build_plan)
+    ValidateAgent --> ValidateError : exit !=0 → BuildError
+    ValidateAgent --> MissingItems : Plan step N∶ lines → numbered list
+    ValidateAgent --> NoMissing : empty / no-issue → covered
+    MissingItems --> AutoApplyValidate : auto_mode → current_task=missing_items\nrerun-- validate-- continue
+    MissingItems --> PromptValidate : !auto_mode → user_input [apply|skip]
+    PromptValidate --> AutoApplyValidate : apply
+    PromptValidate --> SkipValidate : skip → reset budgets
+    SkipValidate --> Review
+    AutoApplyValidate --> BuildAgent
+    NoMissing --> Review
+  }
+
+  Validate --> Review : ValidateGate
+  Validate --> SkipReviewNote : budget exhausted → skip CODE REVIEW
+
+  state ReviewGate {
+    direction TB
+    [*] --> ReviewAgents : workflows/review.py∶53\nparallel opencode_review_agent × review_models
+    ReviewAgents --> Summarize : summarize_review (OpenRouter)
+    Summarize --> Filtered : filter_meaningful_reviews()\nlen>=10 + no-issue tokens
+    Summarize --> NoComments : no meaningful → continue
+    Filtered --> HasComments : numbered findings
+    Filtered --> NoComments
+    HasComments --> AutoApplyReview : auto_mode → current_task=review_comments\nrerun-- review-- continue
+    HasComments --> PromptReview : !auto_mode → [apply|skip]
+    PromptReview --> AutoApplyReview : apply
+    PromptReview --> SkipReview : skip → reset budgets
+    AutoApplyReview --> BuildAgent
+    SkipReview --> LintGate
+    NoComments --> LintGate
+  }
+
+  Review --> ReviewGate
+  SkipReviewNote --> LintGate
+
+  state LintGate {
+    direction TB
+    [*] --> VersionBump : first clean pass only\nbump_project_version()
+    VersionBump --> Ruff : if ruff installed + FEATURES.is_ruff_enabled\nrun_ruff_format + run_ruff_checks → step=lint
+    Ruff --> RuffFail : exit !=0 → return (True, ruff_result) → current_task=ruff_result
+    Ruff --> Pytest : ruff clean → check pytest
+    Pytest --> PytestRun : if pytest installed + is_pytest_enabled\nrun_pytests → step=test
+    PytestRun --> PytestFail : exit !=0 → (True, pytest_result)
+    PytestRun --> LintClean : exit 0 → (False, None) → return
+    RuffFail --> BuildAgent
+    PytestFail --> BuildAgent
+    Pytest --> LintClean
+    LintClean --> [*]
+  }
+
+  LintGate --> Done : clean → return (no error)
+  Done --> [*]
+
+  note right of ValidateAgent
+    Filters: NO_ISSUE_TOKENS_CASE
+    Pattern: ^Plan step \d+:
+  end note
+  note right of ReviewAgents
+    Runs per model in OPENCODE[review_models]
+    Gathered then summarized
+  end note
+  note right of Ruff
+    run_lint_and_test() workflows/lint.py:30
+    Opt-in via FEATURES flags
+  end note</pre></div>
+      <div style="padding:14px 18px;border-top:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)">
+        <span>Budgets: <code>MAX_BUILD_ATTEMPTS</code> (rerun + validate) &nbsp; <code>MAX_REVIEW_ATTEMPTS</code> &nbsp; <code>CONTEXT_COMPACTION_THRESHOLD</code></span>
+        <span>Loops feed <code>current_task</code> with missing_items / review_comments / lint_result</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3 -->
+  <div id="tab-daemons" class="tab hidden">
+    <div class="card">
+      <div class="card-head"><h2>Daemons &amp; auxiliary workflows — watcher / listener / merge / rebase</h2><div class="actions"><button onclick="downloadSVG('m-daemons','demetra-daemons.svg')">Download SVG</button></div></div>
+      <div class="mermaid-wrap"><pre class="mermaid" id="m-daemons">stateDiagram-v2
+  direction TB
+
+  state Watcher {
+    direction TB
+    [*] --> PollLinear : watcher.py∶24 while True\nsleep WATCHER_POLL_INTERVAL
+    PollLinear --> NoTodos : get_todo_issues() == []
+    NoTodos --> PollLinear
+    PollLinear --> HasTodos : tasks[]
+    HasTodos --> ProcessTasks : services/daemons/watcher.py∶126\nfor each task
+    ProcessTasks --> SkipNoProject : !project_name → warn continue
+    SkipNoProject --> ProcessTasks
+    ProcessTasks --> CheckPending : get_pending_session_task_ids()
+    CheckPending --> Upsert : task.id not in pending → upsert_pending_session(session_id=null)
+    CheckPending --> NoUpsert : already pending
+    Upsert --> MoveInProg : get_linear_config_value(in_progress)\nupdate_ticket_status
+    NoUpsert --> MoveInProg
+    MoveInProg --> Enqueue : delay_run_workflow → queue.enqueue(run_workflow, project, task_id)
+    Enqueue --> ProcessTasks : next task
+    Enqueue --> RunWorkflow : RQ worker picks job
+  }
+
+  state RunWorkflowJob {
+    direction TB
+    [*] --> AttemptCheck : daemons/watcher.py∶41 run_workflow()\nget_session + check run_attempts
+    AttemptCheck --> MaxReached : attempts &gt; MAX_RUN_ATTEMPTS\npost_comment + move awaiting_input → return False
+    MaxReached --> [*]
+    AttemptCheck --> SpawnMain : subprocess main.py --project-name --task-id\nstream logs → LOG_DIR/sessions/task_id.log
+    SpawnMain --> Success0 : returncode 0 → True
+    SpawnMain --> FailNon0 : returncode !=0 → increment_run_attempts
+    SpawnMain --> Timeout : TimeoutError 60m → kill + increment
+    FailNon0 --> ReCheckMax : attempts &gt; MAX → move awaiting_input
+    Timeout --> ReCheckMax
+    ReCheckMax --> [*]
+    Success0 --> [*]
+  }
+
+  RunWorkflow --> MainMachine : main.py∶68 main()
+  MainMachine --> [*]
+
+  state Listener {
+    direction TB
+    [*] --> PollGH : listener.py∶27 while True\nsleep LISTENER_POLL_INTERVAL\nget_notifications() via gh api
+    PollGH --> NoNotifs : [] → sleep
+    NoNotifs --> PollGH
+    PollGH --> ForEach : notifications[]
+    ForEach --> FilterReason : should_process_notification()\nreason in (mention, subscribed)
+    FilterReason --> SkipReason : no → continue
+    SkipReason --> ForEach
+    FilterReason --> FetchBody : fetch_subject_body() via latest_comment_url
+    FetchBody --> ExtractPR : extract_pr_info() subject.type==PullRequest
+    ExtractPR --> NoPR : not PR → continue
+    NoPR --> ForEach
+    ExtractPR --> CheckMerge : mentions_demetra_ai_and_merge?\nMERGE_COMMAND_PATTERN
+    CheckMerge --> DoMerge : yes → process_merge_notification()
+    CheckMerge --> CheckRebase : no → mentions_demetra_ai_and_rebase?
+    CheckRebase --> DoRebase : yes → process_rebase_notification()
+    CheckRebase --> SkipNoCmd : no → continue
+    SkipNoCmd --> ForEach
+    DoMerge --> EnqueueMerge : process_notification(action=merge)\nget_session_by_pr_link → increment_listener_attempts\nqueue.enqueue(run_merge_workflow)
+    DoRebase --> EnqueueRebase : process_notification(action=rebase)\n... queue.enqueue(run_rebase_workflow)
+    EnqueueMerge --> MarkRead : if enqueued → mark_notification_read(PATCH thread)
+    EnqueueRebase --> MarkRead
+    MarkRead --> ForEach
+  }
+
+  state MergeWorkflow {
+    direction TB
+    [*] --> LoadMerge : workflows/merge.py∶25 run_merge_workflow(task_id, project_id, pr_number, full_name)\nget_session + project
+    LoadMerge --> NoSessM : !session → False
+    NoSessM --> [*]
+    LoadMerge --> VenvM : setup_project_venv + get_pr_info + git_fetch\nvalidate_ref
+    VenvM --> WorktreeM : git_worktree_create(head_branch, create_branch=false)
+    WorktreeM --> PerformMerge : services/vcs/merge.py perform_git_merge()\nconflicts → merge agent
+    PerformMerge --> FailM : exception / false → cleanup worktree → False
+    PerformMerge --> OKM : true
+    OKM --> WikiM : write_session_wiki_page(context)
+    WikiM --> EnqueueWikiM : WIKI.revalidation_enabled → queue.enqueue(run_wiki_revalidation)
+    EnqueueWikiM --> CleanM : git_worktree_remove(force)
+    FailM --> CleanM
+    CleanM --> [*]
+  }
+
+  state RebaseWorkflow {
+    direction TB
+    [*] --> LoadRebase : workflows/rebase.py∶22 run_rebase_workflow(...)\nsame preamble
+    LoadRebase --> WorktreeR : git_worktree_create
+    WorktreeR --> PerformRebase : services/vcs/rebase.py perform_git_rebase()\nconflicts → rebase agent
+    PerformRebase --> OKR : true → write wiki
+    PerformRebase --> FailR : false → cleanup
+    OKR --> CleanR : git_worktree_remove
+    FailR --> CleanR
+    CleanR --> [*]
+  }
+
+  EnqueueMerge --> MergeWorkflow
+  EnqueueRebase --> RebaseWorkflow</pre></div>
+    </div>
+
+    <div class="grid2">
+      <div class="card"><div class="card-head"><h2>Key files — map</h2></div>
+        <div style="padding:14px 18px;font-size:13px;color:var(--muted);line-height:1.8">
+          <code>main.py:68</code> orchestrator &nbsp;→ <code>workflows/setup.py</code> Context<br>
+          <code>workflows/plan.py:44</code> plan → <code>workflows/resolve.py</code><br>
+          <code>workflows/build.py:61</code> build → <code>validate.py</code> <code>review.py</code> <code>lint.py</code><br>
+          <code>workflows/cleanup.py:20</code> commit → wiki → push → PR<br>
+          <code>watcher.py</code> + <code>services/daemons/watcher.py</code> &nbsp; TODO poller<br>
+          <code>listener.py</code> + <code>services/daemons/listener.py</code> &nbsp; GitHub poller<br>
+          <code>worker.py</code> RQ worker &nbsp; <code>queue.enqueue</code> → Redis
+        </div>
+      </div>
+      <div class="card"><div class="card-head"><h2>How to read</h2></div>
+        <div style="padding:14px 18px;font-size:13px;color:var(--muted);line-height:1.7">
+          <b style="color:var(--text)">Solid arrows</b> are normal transitions.<br>
+          <b style="color:var(--text)">Dashed-loop</b> inside Build/Plan means “feed <code>current_task</code> back to agent”.<br>
+          <b style="color:var(--text)">Awaiting Input</b> is a sink — requires human Linear comment / retry.<br>
+          <b style="color:var(--text)">Budgets</b> guard infinite loops: <code>MAX_PLAN_ATTEMPTS</code>, <code>MAX_BUILD_ATTEMPTS</code>, <code>MAX_REVIEW_ATTEMPTS</code>, <code>MAX_RUN_ATTEMPTS</code> (watcher), <code>MAX_LISTENER_ATTEMPTS</code>.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>Tip: use the “Download SVG” buttons to export a vector for docs/slides. Source mermaid blocks are in the HTML — copy them to any mermaid renderer. Generated from Demetra <code>master</code> 2026-08-31.</footer>
+
+<script>
+document.getElementById('now').textContent = new Date().toISOString().slice(0,10);
+mermaid.initialize({startOnLoad:false, theme:'dark', securityLevel:'loose', flowchart:{htmlLabels:true}, state:{useMaxWidth:false}});
+// store original texts before mermaid destroys them
+document.querySelectorAll('pre.mermaid').forEach(el=>{
+  el.dataset.original = el.textContent;
+});
+async function renderTab(tabId){
+  const container = document.getElementById(tabId);
+  const pres = container.querySelectorAll('pre.mermaid');
+  for(const pre of pres){
+    if(pre.dataset.processed) continue;
+    if(pre.dataset.original) pre.textContent = pre.dataset.original;
+    pre.removeAttribute('data-processed');
+  }
+  try{ await mermaid.run({querySelector: `#${tabId} pre.mermaid`}); }catch(e){ console.error(e); }
+}
+window.addEventListener('DOMContentLoaded', async ()=>{
+  await renderTab('tab-main');
+});
+document.querySelectorAll('#tabs button').forEach(b=>{
+  b.addEventListener('click',async ()=>{
+    document.querySelectorAll('#tabs button').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    document.querySelectorAll('.tab').forEach(t=>t.classList.add('hidden'));
+    const target = document.getElementById('tab-'+b.dataset.tab);
+    target.classList.remove('hidden');
+    await renderTab('tab-'+b.dataset.tab);
+  });
+});
+function downloadSVG(id, name){
+  const el=document.getElementById(id);
+  const svg = el.closest('.mermaid-wrap').querySelector('svg');
+  if(!svg){alert('SVG not yet rendered — wait a moment and retry.');return}
+  const clone=svg.cloneNode(true);
+  const blob=new Blob([clone.outerHTML],{type:'image/svg+xml'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+</script>
+</body>
+</html>

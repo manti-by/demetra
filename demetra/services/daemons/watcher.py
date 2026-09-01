@@ -141,8 +141,8 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
             logger.warning(f"Received task without project name: {task.full_title}")
             continue
 
+        user_id = task.user_id or DEFAULT_USER_ID
         if task.id not in pending_ids:
-            user_id = task.user_id or DEFAULT_USER_ID
             if not task.project_id or not user_id:
                 logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={user_id}")
                 continue
@@ -155,11 +155,15 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 linear_link=task.url,
             )
 
-            state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
-            if state_id is None:
-                logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")
-            elif not await update_ticket_status(task_id=task.id, state_id=state_id):
-                logger.warning(f"Failed to move task {task.id} to 'in_progress'")
+        # Always move an accepted TODO task to ``in_progress``, even on re-pickup:
+        # a task can return to TODO while still pending (session_id="") after a
+        # failed run, and update_ticket_status can fail transiently. Re-applying
+        # the same state each poll is idempotent in Linear.
+        state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
+        if state_id is None:
+            logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")
+        elif not await update_ticket_status(task_id=task.id, state_id=state_id):
+            logger.warning(f"Failed to move task {task.id} to 'in_progress'")
 
         logger.info(f"Starting workflow for {task.project_name} (task: {task.id})")
         await delay_run_workflow(project_name=task.project_name, task_id=task.id)
