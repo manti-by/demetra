@@ -48,6 +48,7 @@ MAX_REVIEW_FIXES_ATTEMPTS = env_get_int("MAX_REVIEW_FIXES_ATTEMPTS", 10)
 MAX_PLAN_ATTEMPTS = env_get_int("MAX_PLAN_ATTEMPTS", 30)
 MAX_RUN_ATTEMPTS = env_get_int("MAX_RUN_ATTEMPTS", 5)
 MAX_LISTENER_ATTEMPTS = env_get_int("MAX_LISTENER_ATTEMPTS", 5)
+MAX_RESEARCH_ATTEMPTS = env_get_int("MAX_RESEARCH_ATTEMPTS", 5)
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
 
@@ -134,6 +135,7 @@ LINEAR: LinearConfig = {
     },
     "default_state": env_get_str("LINEAR_DEFAULT_STATE_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
     "filter_labels": env_get_list("LINEAR_FILTER_LABELS", []),
+    "research_labels": env_get_list("LINEAR_RESEARCH_LABELS", ["Research"]),
 }
 
 OPENCODE: OpenCodeConfig = {
@@ -142,6 +144,7 @@ OPENCODE: OpenCodeConfig = {
     "resolve_model": env_get_str("OPENCODE_RESOLVE_MODEL", "opencode-go/qwen3.7-max"),
     "build_model": env_get_str("OPENCODE_BUILD_MODEL", "opencode-go/deepseek-v4-flash"),
     "validate_model": env_get_str("OPENCODE_VALIDATE_MODEL", "opencode-go/deepseek-v4-flash"),
+    "research_model": env_get_str("OPENCODE_RESEARCH_MODEL", "opencode-go/minimax-m3"),
     "review_models": env_get_list(
         "OPENCODE_REVIEW_MODELS", ["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]
     ),

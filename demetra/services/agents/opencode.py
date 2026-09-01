@@ -13,6 +13,8 @@ PLAN_HEADER_STRING = "## Implementation Plan"
 PLAN_IS_READY_STRING = "Ready to proceed to build."
 PLAN_HAS_QUESTIONS = "Please check my questions above."
 
+RESEARCH_HEADER_STRING = "## Research Report"
+
 
 def _resolve_opencode_model(value: str, *, key: str, user_environment: dict[str, str] | None = None) -> str:
     """Resolve an opencode model from the user env, falling back to settings.
@@ -266,6 +268,42 @@ async def opencode_resolve_agent(
             OPENCODE["resolve_model"], key="OPENCODE_RESOLVE_MODEL", user_environment=user_environment
         ),
         agent="resolve-agent",
+        env=env,
+        user_environment=user_environment,
+    )
+
+
+async def opencode_research_agent(
+    target_path: Path,
+    task: str,
+    task_title: str | None = None,
+    env: dict[str, str] | None = None,
+    user_environment: dict[str, str] | None = None,
+) -> tuple[int, str, str]:
+    """Run the opencode research agent to validate a ticket against wiki and web.
+
+    Loads the research user prompt and appends the task before delegating to
+    the ``research-agent``.
+
+    Args:
+        target_path: Directory to run the agent in.
+        task: The task prompt for the agent.
+        task_title: Optional session title.
+        env: Optional environment overrides for the subprocess.
+        user_environment: Optional user env layer overriding the model.
+
+    Returns:
+        tuple[int, str, str]: Exit code, stdout and stderr of the run.
+    """
+    prompt = await get_prompt(name="research_agent", task=task)
+    return await run_opencode_agent(
+        target_path=target_path,
+        task=prompt,
+        task_title=task_title,
+        model=_resolve_opencode_model(
+            OPENCODE["research_model"], key="OPENCODE_RESEARCH_MODEL", user_environment=user_environment
+        ),
+        agent="research-agent",
         env=env,
         user_environment=user_environment,
     )
@@ -530,3 +568,20 @@ async def extract_plan(plan_output: str) -> str:
             break
 
     return plan_output.strip()
+
+
+async def extract_research_report(research_output: str) -> str:
+    """Slice the research report section out of a research agent output.
+
+    Trims leading text before the research header.
+
+    Args:
+        research_output: The raw research agent output.
+
+    Returns:
+        str: The extracted report text.
+    """
+    if (start_index := research_output.find(RESEARCH_HEADER_STRING)) != -1:
+        research_output = research_output[start_index:]
+
+    return research_output.strip()

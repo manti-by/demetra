@@ -29,6 +29,7 @@ from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
 from demetra.workflows.plan import run_plan_step
+from demetra.workflows.research import is_research_ticket, run_research_step
 from demetra.workflows.setup import setup_workflow
 
 
@@ -101,6 +102,12 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         if state_id is None:
             raise LinearError("Linear state 'in_progress' is not configured")
         await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+
+        if is_research_ticket(context=context):
+            await run_research_step(context=context)
+            is_success = True
+            should_update_linear_status = False
+            return
 
         if not context.session or not context.session.build_plan:
             if not await run_plan_step(context=context):
