@@ -142,6 +142,18 @@ class TestApproveWaitlist:
         assert entry["joined_at"] is not None
 
     @pytest.mark.asyncio
+    async def test_approve_github_without_email_leaves_notified_at_unset(self, allowlist_seeded):
+        login = _unique_github()
+        entry_id = await join_waitlist(entry_type="github_username", value=login)
+        with patch("demetra.services.auth.waitlist.send_approval_email", return_value=False):
+            await approve_waitlist_entry(entry_id=entry_id, approved_by=None)
+
+        entries = await list_waitlist_entries()
+        entry = next(e for e in entries if e["id"] == entry_id)
+        assert entry["status"] == "approved"
+        assert entry["notified_at"] is None
+
+    @pytest.mark.asyncio
     async def test_approve_email_failure_keeps_entry_pending(self, allowlist_seeded):
         email = _unique_email()
         entry_id = await join_waitlist(entry_type="email", value=email)
@@ -233,7 +245,7 @@ class TestSendApprovalEmail:
 
         entry = {"entry_type": "email", "value": "person@example.com", "note": None}
         with patch("demetra.services.auth.waitlist.print_message") as mock_print:
-            send_approval_email(entry)
+            assert send_approval_email(entry) is True
         message = mock_print.call_args.args[0]
         assert "person@example.com" in message
 
@@ -242,7 +254,7 @@ class TestSendApprovalEmail:
 
         entry = {"entry_type": "github_username", "value": "octocat", "note": "octo@example.com"}
         with patch("demetra.services.auth.waitlist.print_message") as mock_print:
-            send_approval_email(entry)
+            assert send_approval_email(entry) is True
         message = mock_print.call_args.args[0]
         assert "octo@example.com" in message
         assert "octocat" not in message
@@ -252,7 +264,7 @@ class TestSendApprovalEmail:
 
         entry = {"entry_type": "github_username", "value": "octocat", "note": None}
         with patch("demetra.services.auth.waitlist.print_message") as mock_print:
-            send_approval_email(entry)
+            assert send_approval_email(entry) is False
         mock_print.assert_not_called()
 
 

@@ -354,7 +354,7 @@ class SignupRequest:
 @dataclass
 class WaitlistedResponse:
     status: str = "waitlisted"
-    message: str = "You're on the waitlist — we'll email you when you're approved."
+    message: str = "Your waitlist request has been recorded."
     entry_id: str | None = None
 
 

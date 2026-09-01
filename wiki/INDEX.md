@@ -7,15 +7,9 @@ by the plugin.
 
 ## Pages
 
-<<<<<<< HEAD
 - [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — Implementation of MNT-188: Waitlist (2026-08-28)
-=======
-<<<<<<< Updated upstream
->>>>>>> master
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — The MNT-177 workflow was retried 6 times and never completed, with three failure signatures: the MNT-162 empty-summarizer path (once), the plan agent cut off by an auto-rejected `read (.env.docker.example)` tool call (twice), and the dominant blocker — OpenRouter HTTP 403 because the user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` requires an uncompleted 18+ age attestation (3 of 6). Verified `meta-llama/llama-3.3-70b-instruct` works against the production key while `meta/muse-spark-1.2` 403s. (2026-08-28)
-=======
 - [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — The same-run halt after posting questions works (`move_to_awaiting_input` raises `AutoCancelledError`), but the stop signal is not durable: the questions-run persists `build_plan` before posting the questions, and the workflow never re-checks the Linear state or the `awaiting_input` session step on a later run. When the ticket returns to TODO the next run skips `run_plan_step` entirely (`main.py` sees a non-empty `build_plan`), posts the stale plan as a Linear comment and proceeds to build → validate → review → PR with questions unanswered. Secondary race: the watcher enqueues a run on every TODO poll — `pending_ids` dedupes only the upsert/Linear move, not the enqueue — so a duplicate run can reach review while the first parks the ticket in Awaiting Input. Diagnosis only; fix (replan guard on `awaiting_input` step + enqueue dedupe) not yet implemented.
->>>>>>> Stashed changes
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — The watcher daemon `process_tasks` created a pending session and enqueued a workflow but never moved the Linear ticket to `In Progress`; the status update lived only in `main.py` after `setup_workflow` succeeded, so a setup failure left the ticket stuck in TODO and re-picked every poll. `process_tasks` now moves a new task to `in_progress` the moment it accepts it (missing config / failed update log and continue). Tests added; full suite 920 passed; ruff / ty / bandit clean. (2026-08-28)
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — The wiki INDEX read-modify-write was only serialized in-process: `_INDEX_LOCK` is an `asyncio.Lock()` (process-local) and the cross-process `flock` was taken only inside `_write_index_unlocked` — after the read — so two RQ workers in separate processes could both read the same `INDEX.md`, each append their own page entry, and the second `os.replace` clobbered the first (lost update). Added an `_index_lock` async context manager that holds the flock for the whole read-modify-write; all four mutating entry points (`write_index`, `prune_index_pages`, `patch_index`, `regenerate_by_topic`) now run under it, and the write helper no longer re-acquires the flock (which would have nested and deadlocked). 69 wiki tests pass; ruff / ty clean; verified with a two-subprocess concurrency repro. (2026-08-28)
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — Wiki page write was happening in `main.py`'s `finally` block after `commit_and_push` already committed/pushed, so it never reached the repo; moved the write into `commit_and_push` before commit, made `git_diff_facts` diff the working tree, added a `"wiki"` `StepType` step, and converted the swallowed failure into a typed `WikiError` routed to Awaiting Input. A same-day follow-up (PR #103) made a wiki-write failure deferred rather than blocking: the commit/push/PR still happen, only the ticket status is gated on it. (2026-08-25)
@@ -98,10 +92,10 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-<<<<<<< Updated upstream
-### Workflow orchestration & agents (17 pages)
+### Workflow orchestration & agents (18 pages)
 
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — 2026-08-28
+- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — 2026-08-28
 - [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — 2026-08-24
 - [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — 2026-08-20
 - [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — 2026-08-19
@@ -118,27 +112,8 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Review summarization](pages/2026-06-04-review-summarization.md) — 2026-06-04
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md) — 2026-06-03
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
-=======
-### Workflow orchestration & session lifecycle (15 pages)
 
-- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)
-- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)
-- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
-- [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md)
-- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)
-- [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md)
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md)
-- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
-- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md)
-- [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md)
-- [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md)
-- [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md)
-- [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md)
-- [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md)
-- [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md)
->>>>>>> Stashed changes
-
-### MCP / integrations (10 pages)
+### MCP / integrations (11 pages)
 
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25

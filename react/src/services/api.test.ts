@@ -49,7 +49,7 @@ describe("signup", () => {
       new Response(
         JSON.stringify({
           status: "waitlisted",
-          message: "You're on the waitlist — we'll email you when you're approved.",
+          message: "Your waitlist request has been recorded.",
         }),
         { status: 202 }
       )

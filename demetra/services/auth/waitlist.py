@@ -46,7 +46,7 @@ def normalize_value(entry_type: str, value: str) -> str:
     raise ValueError(f"Invalid entry type: {entry_type}")
 
 
-def send_approval_email(entry: dict) -> None:
+def send_approval_email(entry: dict) -> bool:
     """Notify an approved waitlist entry by email.
 
     There is currently no SMTP/provider service in the codebase (see the
@@ -62,17 +62,21 @@ def send_approval_email(entry: dict) -> None:
 
     Args:
         entry: The waitlist entry row that was just approved.
+
+    Returns:
+        bool: True when a notification was sent, False when skipped.
     """
     if entry["entry_type"] == "github_username":
         recipient = entry.get("note")
     else:
         recipient = entry["value"]
     if not recipient:
-        return
+        return False
     print_message(
         f"[waitlist] approval email to {recipient}: You're approved! You can now sign in.",
         style="info",
     )
+    return True
 
 
 async def join_waitlist(entry_type: str, value: str, note: str | None = None) -> str:
@@ -198,8 +202,7 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     if approved_entry:
         # Notify before allowlist promotion so a provider failure leaves the
         # entry pending and the user cannot sign in until approval is retried.
-        send_approval_email(approved_entry)
-        notified_at = now
+        notified_at = now if send_approval_email(approved_entry) else None
     else:
         notified_at = None
 
