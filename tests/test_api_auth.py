@@ -82,6 +82,7 @@ class TestCrossUserIsolation:
                 key="API_KEY",
                 value="secret",
                 env_type="text",
+                previous_key=None,
             )
 
     def test_cannot_get_others_session_history(self, cross_user_client: TestClient):

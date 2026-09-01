@@ -630,6 +630,7 @@ class TestProjectEnvironmentEndpoints:
                 key="DATABASE_URL",
                 value="postgres://localhost/db",
                 env_type="text",
+                previous_key=None,
             )
 
     @pytest.mark.asyncio
@@ -690,6 +691,7 @@ class TestProjectEnvironmentEndpoints:
                 key="API_KEY",
                 value="secret",
                 env_type="encrypted",
+                previous_key=None,
             )
 
     def test_upsert_environment_rejects_invalid_type(
@@ -702,6 +704,37 @@ class TestProjectEnvironmentEndpoints:
         )
 
         assert response.status_code in (400, 422)
+
+    @pytest.mark.asyncio
+    async def test_upsert_environment_passes_previous_key(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.projects.upsert_project_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "project_id": "project-id",
+                "key": "API_KEY_V2",
+                "value": "********",
+                "type": "encrypted",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/projects/project-id/environment/API_KEY_V2",
+                json={"value": "", "type": "encrypted", "previous_key": "API_KEY"},
+            )
+
+            assert response.status_code == 200
+            mock_upsert.assert_called_once_with(
+                project_id="project-id",
+                user_id="test_user_id",
+                key="API_KEY_V2",
+                value="",
+                env_type="encrypted",
+                previous_key="API_KEY",
+            )
 
     @pytest.mark.asyncio
     async def test_upsert_environment_returns_404_for_missing_project(
@@ -837,6 +870,37 @@ class TestUserEnvironmentEndpoint:
                 key="SHARED_KEY",
                 value="secret",
                 env_type="text",
+                previous_key=None,
+            )
+
+    @pytest.mark.asyncio
+    async def test_upsert_passes_previous_key(
+        self,
+        authenticated_client: TestClient,
+    ):
+        with patch(
+            "demetra.api.users.upsert_user_environment",
+            new_callable=AsyncMock,
+            return_value={
+                "id": "env-1",
+                "user_id": "test_user_id",
+                "key": "SHARED_KEY_V2",
+                "value": "********",
+                "type": "encrypted",
+            },
+        ) as mock_upsert:
+            response = authenticated_client.put(
+                "/api/v1/users/me/env/SHARED_KEY_V2",
+                json={"value": "", "type": "encrypted", "previous_key": "SHARED_KEY"},
+            )
+
+            assert response.status_code == 200
+            mock_upsert.assert_called_once_with(
+                user_id="test_user_id",
+                key="SHARED_KEY_V2",
+                value="",
+                env_type="encrypted",
+                previous_key="SHARED_KEY",
             )
 
     @pytest.mark.asyncio
@@ -869,6 +933,7 @@ class TestUserEnvironmentEndpoint:
                 key="API_TOKEN",
                 value="secret",
                 env_type="encrypted",
+                previous_key=None,
             )
 
     def test_upsert_rejects_invalid_type(
