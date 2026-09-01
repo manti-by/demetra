@@ -1,11 +1,13 @@
 import logging
 from datetime import UTC, datetime
+from typing import get_args
 
 from rich.console import Console
 from rich.table import Table
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
+from demetra.library.types import WaitlistEntryType, WaitlistStatus
 from demetra.services.auth.allowlist import add_entry, find_allowlist_entry, normalize_email, normalize_github_login
 from demetra.services.persistence.database import (
     delete_waitlist_entry,
@@ -21,9 +23,9 @@ from demetra.services.runtime.tui import print_message
 
 logger = logging.getLogger(__name__)
 
-VALID_ENTRY_TYPES = ("email", "github_username")
+VALID_ENTRY_TYPES = get_args(WaitlistEntryType)
 
-VALID_STATUSES = ("pending", "approved", "rejected", "joined")
+VALID_STATUSES = get_args(WaitlistStatus)
 
 
 def normalize_value(entry_type: str, value: str) -> str:
@@ -106,8 +108,6 @@ async def join_waitlist(entry_type: str, value: str, note: str | None = None) ->
     existing = await find_waitlist_entry(entry_type=entry_type, value=normalized)
     if existing:
         if existing["status"] == "rejected":
-            # A previously rejected user registering interest again is
-            # reopened so an admin can review them once more.
             await update_waitlist_entry(entry_id=existing["id"], status="pending")
             logger.info("Reopened waitlist entry %s (%s=%s)", existing["id"], entry_type, normalized)
         return existing["id"]
@@ -198,13 +198,7 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
         raise AuthError(f"Waitlist entry cannot be approved (status: {entry['status']})")
 
     now = datetime.now(UTC)
-    approved_entry = await find_waitlist_entry_by_id(entry_id)
-    if approved_entry:
-        # Notify before allowlist promotion so a provider failure leaves the
-        # entry pending and the user cannot sign in until approval is retried.
-        notified_at = now if send_approval_email(approved_entry) else None
-    else:
-        notified_at = None
+    notified_at = now if send_approval_email(entry) else None
 
     try:
         await add_entry(
@@ -291,6 +285,15 @@ async def waitlist_list(status: str | None = None) -> int:
 
 
 async def waitlist_approve(entry_id: str, approved_by: str | None = None) -> int:
+    """Approve a waitlist entry from the CLI.
+
+    Args:
+        entry_id: The waitlist entry id.
+        approved_by: Optional admin user id recorded on approve.
+
+    Returns:
+        int: The process exit code, 0 on success and 1 on failure.
+    """
     try:
         await approve_waitlist_entry(entry_id=entry_id, approved_by=approved_by)
     except AuthError as e:
@@ -301,6 +304,14 @@ async def waitlist_approve(entry_id: str, approved_by: str | None = None) -> int
 
 
 async def waitlist_remove(entry_id: str) -> int:
+    """Remove a waitlist entry from the CLI.
+
+    Args:
+        entry_id: The waitlist entry id.
+
+    Returns:
+        int: The process exit code, 0 on success.
+    """
     if await remove_waitlist_entry(entry_id):
         print_message("Waitlist entry removed", style="success")
     else:

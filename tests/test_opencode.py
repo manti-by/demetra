@@ -7,6 +7,8 @@ import pytest
 from demetra.services.agents.opencode import (
     PLAN_HAS_QUESTIONS,
     PLAN_IS_READY_STRING,
+    RESEARCH_HEADER_STRING,
+    extract_research_report,
     get_opencode_session_id,
     get_opencode_session_length,
     get_opencode_session_tokens,
@@ -14,6 +16,7 @@ from demetra.services.agents.opencode import (
     opencode_compact_session,
     opencode_merge_agent,
     opencode_plan_agent,
+    opencode_research_agent,
     opencode_resolve_agent,
     opencode_validate_agent,
     run_opencode_agent,
@@ -541,3 +544,61 @@ class TestOpencodeEnvLayers:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-merge-model"
         assert call_kwargs["user_environment"] == user_environment
+
+
+class TestOpencodeResearchAgent:
+    @pytest.fixture
+    def mock_run_opencode_agent(self):
+        with patch("demetra.services.agents.opencode.run_opencode_agent", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_get_prompt(self):
+        with patch("demetra.services.agents.opencode.get_prompt", new_callable=AsyncMock) as mock:
+            mock.return_value = "research prompt body"
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_research_agent_uses_research_model_and_agent(self, mock_run_opencode_agent, mock_get_prompt):
+        mock_run_opencode_agent.return_value = (0, "output", "")
+
+        result = await opencode_research_agent(Path("/test/path"), "investigate the bug")
+
+        mock_get_prompt.assert_awaited_once_with(name="research_agent", task="investigate the bug")
+        mock_run_opencode_agent.assert_called_once_with(
+            target_path=Path("/test/path"),
+            task="research prompt body",
+            task_title=None,
+            model=OPENCODE["research_model"],
+            agent="research-agent",
+            env=None,
+            user_environment=None,
+        )
+        assert result == (0, "output", "")
+
+    @pytest.mark.asyncio
+    async def test_research_agent_respects_user_env_model_override(self, mock_run_opencode_agent, mock_get_prompt):
+        user_environment = {"OPENCODE_RESEARCH_MODEL": "user/env-research-model"}
+
+        await opencode_research_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-research-model"
+        assert call_kwargs["agent"] == "research-agent"
+
+    @pytest.mark.asyncio
+    async def test_research_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
+        await opencode_research_agent(Path("/test/path"), "task", env={"API_KEY": "1"})
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["env"] == {"API_KEY": "1"}
+
+    @pytest.mark.asyncio
+    async def test_extract_research_report_trims_leading_text(self):
+        output = f"Preamble text\n{RESEARCH_HEADER_STRING}\nFindings here."
+
+        assert await extract_research_report(research_output=output) == f"{RESEARCH_HEADER_STRING}\nFindings here."
+
+    @pytest.mark.asyncio
+    async def test_extract_research_report_keeps_output_without_header(self):
+        assert await extract_research_report(research_output="raw output") == "raw output"

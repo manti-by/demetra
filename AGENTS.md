@@ -24,7 +24,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `alembic.ini`: Alembic configuration (drives the migration commands)
 - `tests/`: Comprehensive test suite (53 `test_*.py` files, 55 total with `__init__.py`/`conftest.py`)
 - `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`, plus `bootstrap.sh`/`proxy.params`/`services/`)
-- `workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (root, static asset)
+- `wiki/audits/workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and skill definitions

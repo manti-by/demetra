@@ -3,8 +3,9 @@ import json
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
+from demetra.api.responses import waitlisted_response
 from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError, WaitlistedError
-from demetra.library.models import UserResponse, WaitlistedResponse
+from demetra.library.models import UserResponse
 from demetra.services.auth import (
     authenticate_user,
     exchange_code_for_token,
@@ -78,12 +79,7 @@ async def github_callback(
         )
         return response
     except WaitlistedError as e:
-        waitlisted = WaitlistedResponse(entry_id=e.entry_id)
-        return Response(
-            content=json.dumps({"status": waitlisted.status, "message": waitlisted.message}),
-            media_type="application/json",
-            status_code=202,
-        )
+        return waitlisted_response(entry_id=e.entry_id)
     except AuthError as e:
         status_code = 403 if isinstance(e, GitHubAccountNotAuthorizedError) else 400
         raise HTTPException(status_code=status_code, detail=str(e)) from e
