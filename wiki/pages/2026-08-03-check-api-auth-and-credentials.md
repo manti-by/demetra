@@ -6,9 +6,9 @@ status: resolved
 session_id: mnt-156-check-api-auth
 services: [auth, api, watcher, react]
 branch: mnt-156-check-api-auth
-tickets: [MNT-156]
-tags: [auth, cookies, csrf, origin-validation, websockets, ownership]
-related: [2026-07-23-linear-ticket-email-password-auth.md, 2026-07-24-plain-auth-review-followups.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-09-apply-code-review-findings.md]
+tickets: [MNT-156, MNT-81]
+tags: [auth, cookies, csrf, origin-validation, websockets, ownership, api, refactor, routers]
+related: [2026-07-23-linear-ticket-email-password-auth.md, 2026-07-24-plain-auth-review-followups.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md]
 ---
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
@@ -208,6 +208,16 @@ can be used in decorators without being flagged as mutable defaults.
 - Watcher suite (`TestWatcherLogsWebSocket` + `TestWatcherWebSocketOwnership`) — **7 passed**.
 - `ruff check` and `ty check` — clean on changed files.
 - React: `npm run build` (tsc + vite) succeeds; `npm test` — **34 passed**.
+
+## Source — [[2026-06-01-refactor-api]]
+
+Originally decided in [[2026-06-01-refactor-api]] on 2026-06-01 (MNT-81): the API is a
+`demetra/api/` package of thin routers grouped by route prefix (auth/github, projects,
+sessions, users, watcher, webhooks) rather than a monolithic module, with tests added
+per router file. The per-prefix router layout that this page's
+`Depends(get_current_user_dep)` consolidation threads through is that decision still in
+effect; the one bundle-era router that did not stick, `demetra/api/tickets.py`, was
+removed by MNT-88.
 
 ---
 

@@ -8,7 +8,7 @@ services: [workflows, agents, opencode, linear, settings, prompts]
 branch: mnt-177-research-loop
 tickets: [MNT-177]
 tags: [research, research-agent, research-report, research-labels, opencode, workflow, awaiting-input]
-related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md]
 ---
 
 # MNT-177 research loop — research agent, workflow and settings

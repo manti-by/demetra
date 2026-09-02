@@ -8,7 +8,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 
 - `main.py`: CLI entry point and supervisor orchestration
 - `demetra/settings.py`: Core configuration and environment variables
-- `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables)
+- `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants)
 - `demetra/services/`: External system integrations (Linear, GitHub, OpenCode, etc.)
 - `demetra/queries/`: GraphQL queries
 - `demetra/workflows/`: Workflow orchestration steps
@@ -22,12 +22,13 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (53 `test_*.py` files, 55 total with `__init__.py`/`conftest.py`)
+- `tests/`: Comprehensive test suite (55 `test_*.py` files, 57 total with `__init__.py`/`conftest.py`)
 - `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`, plus `bootstrap.sh`/`proxy.params`/`services/`)
 - `wiki/audits/workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and skill definitions
+- `opencode.json`: OpenCode agent toolchain configuration (MCP servers, plugins)
 - `wiki/`: Persistent session knowledge base (pages, index, conventions — see `wiki/README.md`; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki

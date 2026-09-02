@@ -8,7 +8,7 @@ services: [database, sessions, workflows, opencode]
 branch: "-"
 tickets: [MNT-83, MNT-22]
 tags: [step, sessions, migration, resume, isolation, research]
-related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md]
+related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md]
 ---
 
 # Plan step completion attribute

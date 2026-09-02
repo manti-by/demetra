@@ -6,9 +6,9 @@ status: resolved
 session_id: ses_075b8479fffe27O59Q22Ob4k0b
 services: [react]
 branch: mnt-142-warp-theme-for-react
-tickets: [MNT-142, MNT-49, MNT-57]
-tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings]
-related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
+tickets: [MNT-142, MNT-49, MNT-57, MNT-77]
+tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings, refactor, rename]
+related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-06-01-refactor-frontend-app.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
@@ -248,6 +248,13 @@ Originally added in [[2026-03-09-user-settings-frontend]] on 2026-03-09 (MNT-57)
 encrypted settings. It PATCHes the user update API (`/users/me`) with the settings
 object as the request body — the API layer this page's `UserSettings.tsx` and
 `services/api.ts` continue to build on.
+
+## Source — [[2026-06-01-refactor-frontend-app]]
+
+Originally decided in [[2026-06-01-refactor-frontend-app]] on 2026-06-01 (MNT-77): the
+frontend directory is named `react/` — the early `hera` scaffold was renamed, with the
+Makefile targets and docs updated to match. Every component path in this page's
+component tree hangs off that canonical name.
 
 ## Follow-ups
 

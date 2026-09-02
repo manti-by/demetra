@@ -10,16 +10,17 @@ by the plugin.
 - [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — Applied the Standards/Spec review findings since `v1.16.7`: four duplication clusters extracted (BE 202 response, encrypted-secret resolution, thread formatting, React `EnvSettingsModal`), dead code and the unused `MAX_REVIEW_FIXES_ATTEMPTS` removed, MNT-177 `TestOpencodeResearchAgent`/`TestWorkflowResearch` added, AGENTS.md html path fixed; one flagged finding rejected as false positive. (2026-09-02)
 - [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — Mobile-responsive template for `react/src` behind a single ≤768px media query: session list as a bottom-sheet drawer with search + cards, console tab bar and bottom Sessions action bar, 44px touch targets, zero horizontal overflow; desktop unchanged. PR #117. (2026-09-02)
 - [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — Implemented the Research loop for Linear tickets carrying a `Research` label: dedicated `research-agent` with wiki/web validation, `MAX_RESEARCH_ATTEMPTS` (5), `research_model`/`research_labels` settings, report extraction and Awaiting Input branch in `main.py`. (2026-09-01)
+- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — Inline edit (pencil) mode for both env-settings modals with shared key validation, sorted display, duplicate guard, and backend `previous_key`-aware ciphertext preservation so renaming or blank-saving an encrypted var never destroys the stored secret. (2026-08-31)
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — The watcher daemon `process_tasks` created a pending session and enqueued a workflow but never moved the Linear ticket to `In Progress`; the status update lived only in `main.py` after `setup_workflow` succeeded, so a setup failure left the ticket stuck in TODO and re-picked every poll. `process_tasks` now moves a new task to `in_progress` the moment it accepts it (missing config / failed update log and continue). Tests added; full suite 920 passed; ruff / ty / bandit clean. (2026-08-28)
 - [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — Implementation of MNT-188: Waitlist (2026-08-28)
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — The MNT-177 workflow was retried 6 times and never completed, with three failure signatures: the MNT-162 empty-summarizer path (once), the plan agent cut off by an auto-rejected `read (.env.docker.example)` tool call (twice), and the dominant blocker — OpenRouter HTTP 403 because the user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` requires an uncompleted 18+ age attestation (3 of 6). Verified `meta-llama/llama-3.3-70b-instruct` works against the production key while `meta/muse-spark-1.2` 403s. (2026-08-28)
-- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — The same-run halt after posting questions works (`move_to_awaiting_input` raises `AutoCancelledError`), but the stop signal is not durable: the questions-run persists `build_plan` before posting the questions, and the workflow never re-checks the Linear state or the `awaiting_input` session step on a later run. When the ticket returns to TODO the next run skips `run_plan_step` entirely (`main.py` sees a non-empty `build_plan`), posts the stale plan as a Linear comment and proceeds to build → validate → review → PR with questions unanswered. Secondary race: the watcher enqueues a run on every TODO poll — `pending_ids` dedupes only the upsert/Linear move, not the enqueue — so a duplicate run can reach review while the first parks the ticket in Awaiting Input. Diagnosis only; fix (replan guard on `awaiting_input` step + enqueue dedupe) not yet implemented.
-- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — The watcher daemon `process_tasks` created a pending session and enqueued a workflow but never moved the Linear ticket to `In Progress`; the status update lived only in `main.py` after `setup_workflow` succeeded, so a setup failure left the ticket stuck in TODO and re-picked every poll. `process_tasks` now moves a new task to `in_progress` the moment it accepts it (missing config / failed update log and continue). Tests added; full suite 920 passed; ruff / ty / bandit clean. (2026-08-28)
+- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — The same-run halt after posting questions works (`move_to_awaiting_input` raises `AutoCancelledError`), but the stop signal is not durable: the questions-run persists `build_plan` before posting the questions, and the workflow never re-checks the Linear state or the `awaiting_input` session step on a later run. When the ticket returns to TODO the next run skips `run_plan_step` entirely (`main.py` sees a non-empty `build_plan`), posts the stale plan as a Linear comment and proceeds to build → validate → review → PR with questions unanswered. Secondary race: the watcher enqueues a run on every TODO poll — `pending_ids` dedupes only the upsert/Linear move, not the enqueue — so a duplicate run can reach review while the first parks the ticket in Awaiting Input. Diagnosis only; fix (replan guard on `awaiting_input` step + enqueue dedupe) not yet implemented. (2026-08-28)
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — The wiki INDEX read-modify-write was only serialized in-process: `_INDEX_LOCK` is an `asyncio.Lock()` (process-local) and the cross-process `flock` was taken only inside `_write_index_unlocked` — after the read — so two RQ workers in separate processes could both read the same `INDEX.md`, each append their own page entry, and the second `os.replace` clobbered the first (lost update). Added an `_index_lock` async context manager that holds the flock for the whole read-modify-write; all four mutating entry points (`write_index`, `prune_index_pages`, `patch_index`, `regenerate_by_topic`) now run under it, and the write helper no longer re-acquires the flock (which would have nested and deadlocked). 69 wiki tests pass; ruff / ty clean; verified with a two-subprocess concurrency repro. (2026-08-28)
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — Wiki page write was happening in `main.py`'s `finally` block after `commit_and_push` already committed/pushed, so it never reached the repo; moved the write into `commit_and_push` before commit, made `git_diff_facts` diff the working tree, added a `"wiki"` `StepType` step, and converted the swallowed failure into a typed `WikiError` routed to Awaiting Input. A same-day follow-up (PR #103) made a wiki-write failure deferred rather than blocking: the commit/push/PR still happen, only the ticket status is gated on it. (2026-08-25)
 - [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — Session-history endpoint now returns `{total, history}`; the modal shows a session-wide Total Tokens summary block. (2026-08-25)
 - [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — Replaced every BE-waiting spinner in the React app with a reusable `Loader` component backed by `react/public/loader.svg`, and added a living Style Guide at `/styleguide` (linked from the burger menu) cataloging all UI primitives and composites. (2026-08-25)
-- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — The plan agent can exit 0 with empty stdout after a permission auto-rejection; `run_plan_step` fed that straight to the summarizer, which fabricated a fake plan sentence. Now guards on empty output and a missing `## Implementation Plan` header, raising `PlanError` and moving the ticket to Awaiting Input. 42 workflow tests pass. (2026-08-24)
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — Fixed root-owned `.config/gh`/`.local/share/opencode` dirs (Docker root-creates bind-mount parents) by seeding them demetra-owned in the image and repairing ownership unconditionally every boot; also fixed a follow-on `setpriv: initgroups failed` after `USER demetra` by making the entrypoint user-aware. (2026-08-24)
+- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — The plan agent can exit 0 with empty stdout after a permission auto-rejection; `run_plan_step` fed that straight to the summarizer, which fabricated a fake plan sentence. Now guards on empty output and a missing `## Implementation Plan` header, raising `PlanError` and moving the ticket to Awaiting Input. 42 workflow tests pass. (2026-08-24)
 - [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md) — `bump_project_version` was bumping the major version for Epic-labeled tickets, contradicting the manual-only major rule; removed the `is_epic` branch so the function always bumps minor and preserves major. (2026-08-21)
 - [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — Fixed the test suite after the allowlist gate flipped its default from off to on (`IS_ALLOWLIST_ENABLED`, fail-closed); full suite 883 passed. (2026-08-20)
 - [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — Found a critical missing `-o` operator in the entrypoint's `find` prune expression that silently disabled pruning for both the new `hosts.yml` mount and the existing `auth.json`; fixed before merge (PR #83). (2026-08-20)
@@ -44,12 +45,12 @@ by the plugin.
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — Added a read-only `validate-agent` step (now `wiki`'s sibling in `StepType`, sitting between `build` and `review`) that diffs the staged changes against the build plan and feeds missing items back into the build loop; also replaced 4095-char CLI-argument prompt truncation with stdin piping. Merged as `99b5880`. (2026-08-05)
 - [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — `gh pr create` failures used to silently revert the ticket to TODO with the branch already pushed and no explanation; added an `except PullRequestError` handler that posts a comment with the branch/compare URL and moves the ticket to Awaiting Input. Later extracted into `demetra/workflows/failure.py`'s shared `process_pr_failure`. (2026-08-05)
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — `--auto --plan-loop` silently truncated the resolve-agent's prompt at a stale 4095-char cap, dropping the plan agent's questions. Removed the cap; later superseded entirely by PR #72's move to stdin piping. (2026-08-04)
+- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — Revalidated `AGENTS.md` against the codebase and re-clustered `wiki/INDEX.md`'s "By topic" section; resolved two stale "not yet committed" claims by verifying PR #66/#67 had merged. (2026-08-03)
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — Replaced passlib with direct bcrypt, made cookie SameSite and CORS origins env-configurable instead of hardcoded/wide-open, and refreshed dependencies; merged via PR #67. (2026-08-03)
 - [Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene](pages/2026-08-03-check-api-auth-and-credentials.md) — Consolidated ~10 duplicated auth checks into a single `get_current_user_dep`, scoped session lookups by `user_id`, fixed WebSocket close-code delivery, and tightened React credential/Origin handling; merged as PR #66/#67. (2026-08-03)
 - [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — Generated a full favicon set (.ico + PNGs + PWA webmanifest) from `media/logo.svg` using `sharp` (cairosvg was unusable) and wired it into `react/index.html`; the `.ico` was hand-assembled from PNG payloads since `sharp` can't emit ICO. (2026-08-03)
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — `mcp 2.0.0` removed the decorator-based `@server.list_tools()`/`@server.call_tool()` API; rewrote `demetra/mcp_server.py` against the new `on_list_tools`/`on_call_tool` constructor-callback API and verified end-to-end over stdio. (2026-08-03)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — Implemented `demetra/tools/wiki.py` exposing `wiki_search`/`wiki_get_page`/`wiki_list_pages` MCP tools so agents can consult the session knowledge base; 28 tests, merged as PR #68. (2026-08-03)
-- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — Revalidated `AGENTS.md` against the codebase and re-clustered `wiki/INDEX.md`'s "By topic" section; resolved two stale "not yet committed" claims by verifying PR #66/#67 had merged. (2026-08-03)
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — Implemented password-based signup/login/logout alongside GitHub OAuth (bcrypt, JWT cookies, React form), then applied two passes of CodeRabbit review follow-ups (cookie-only auth, email normalization, `--resetpass` CLI, accessibility, header fallback chain). (2026-07-24)
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — Investigated the GitHub-only auth flow end-to-end and produced Linear ticket MNT-148 for adding email/password auth alongside GitHub OAuth. (2026-07-23)
 - [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — Corrected audit: compaction is live and non-cumulative (`build.py:100`), NULL rows were pipe-truncation (fixed, zero since); cache-read exclusion from the compaction decision is still an open recommendation. (2026-07-23)
@@ -61,7 +62,7 @@ by the plugin.
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — A review finding containing `[/^\/admin/, ...]` crashed the workflow subprocess via an unescaped Rich markup parse, and `run_attempts` was incremented on every watcher call regardless of outcome. Fixed by escaping Rich markup in `print_message` and incrementing `run_attempts` only after an actual failure; `MAX_RUN_ATTEMPTS=5` default still current. (2026-07-21)
 - [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — Sessions no longer flip to `Failed` when the plan agent posts clarifying questions and moves the Linear ticket to Awaiting Input; stored as the `sessions.step = "awaiting_input"` enum value. (2026-07-21)
 - [Resolve ANSI Color Escape Codes in Logs](pages/2026-07-20-resolve-ansi-color-escape-codes-in-logs.md) — Stripped ANSI escape sequences from log output at four points (utils helper, live_stream source, dictConfig filter, session log handlers) so colored subprocess output no longer garbles log files/viewers. (2026-07-20)
-- [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — Code review of the `status`→`step` migration found a drifting duplicate step enum, a `status`/`step` naming conflation in the API, a stale hardcoded return value, and undocumented `ON CONFLICT` divergence; all 4 fixed, 473 tests pass. `StepType` has grown since (validate, awaiting_input, wiki) — now 12 values. (2026-07-16)
+- [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — Code review of the `status`→`step` migration found a drifting duplicate step enum, a `status`/`step` naming conflation in the API, a stale hardcoded return value, and undocumented `ON CONFLICT` divergence; all 4 fixed, 473 tests pass. `StepType` has grown since (validate, awaiting_input, wiki, research) — now 13 values. (2026-07-16)
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — A run failing before a plan was saved locked sessions into an unplannable state; fixed by replanning on empty `build_plan` (not step), rejecting malformed Linear payloads as `LinearError`, and re-enabling session-id fallback. 472 tests pass. (2026-07-16)
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — Root cause: `opencode export` truncates at 64KB over a subprocess pipe; fixed via `run_command_to_file`, still in effect at its current module path. (2026-07-16)
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — Refactored `setup_session_logging()` (behavior-preserving): dropped the unused `logger` param, collapsed duplicate handler loops into one lookup, removed dead formatter fallbacks; 36→27 lines, 472 tests pass. (2026-07-16)
@@ -78,7 +79,7 @@ by the plugin.
 - [Build artifacts](pages/2026-06-09-build-artifacts.md) — Persists and renders `pr_link` and `build_plan` as a session artifact block. (2026-06-09)
 - [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — Added markdown-to-HTML rendering for the build plan modal using the `marked` library. (2026-06-09)
 - [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — Investigated what `LinearTicket.text` returns for comment threads and used it to improve the ticket renderer: filter by state, branch/labels on the issue list, resolved status/timestamps/authors on comments, nested replies. (2026-06-09)
-- [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — Added a `step` attribute to `Session` so an interrupted workflow resumes at the right step; the 6-value vocabulary documented here is a historical snapshot — `StepType` now has 12 values including `validate`, `awaiting_input`, and `wiki`. (2026-06-08)
+- [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — Added a `step` attribute to `Session` so an interrupted workflow resumes at the right step; the 6-value vocabulary documented here is a historical snapshot — `StepType` now has 13 values including `validate`, `awaiting_input`, `wiki`, and `research`. (2026-06-08)
 - [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md) — Added a `run_attempts` counter and `MAX_RUN_ATTEMPTS` cap (originally default 3, now default 5) so a ticket can't trigger unbounded workflow runs; increment semantics later corrected to count only actual failures. (2026-06-08)
 - [Project environment](pages/2026-06-08-project-environment.md) — Added per-project environment variables (new `Environment` model) applied to every subprocess the supervisor spawns, cached on the `Project` dataclass. (2026-06-08)
 - [Review summarization](pages/2026-06-04-review-summarization.md) — Review-agent findings are summarized into one deduplicated list by an LLM call instead of naive concatenation; `merge_review_results` has since been fully removed in favor of `summarize_review()`. (2026-06-04)
@@ -87,37 +88,58 @@ by the plugin.
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — Automated the plan question round-trip via a dedicated resolve agent in `auto` mode instead of posting to Linear; `--plan-loop` loops plan/resolve with `MAX_PLAN_ATTEMPTS` (default 30, still current). (2026-06-02)
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — Full session delete (DB rows + log files) with an auto-refreshing session list. (2026-06-02)
 - [Truncate session name](pages/2026-06-02-truncate-session-name.md) — Fixed a layout bug where long session names pushed the log console below the sidebar; the session-item title now truncates via CSS following the existing `.session-plan` fixed-width pattern. (2026-06-02)
-- [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — Renamed the `hera` frontend scaffold to `react`, updated the Makefile/docs, tightened GitHub auth validation, and removed legacy FastAPI docs. (2026-06-01)
-- [Refactor API](pages/2026-06-01-refactor-api.md) — Split the monolithic `demetra/api.py` into a `demetra/api/` package with per-prefix routers, landing GitHub OAuth, project CRUD, session tracking, websocket log streaming, and user API-key management in one bundle. (2026-06-01)
-- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — Added a standalone MCP server exposing filesystem and PostgreSQL-only database tools with no auth; filesystem tools were removed the next day, and the server was later moved to `demetra/mcp_server.py` running over stdio. (2026-06-01)
 
 ## By topic
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (19 pages)
+### Workflow orchestration & agents (17 pages)
 
+- [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — 2026-09-02
 - [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — 2026-09-01
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — 2026-08-28
 - [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — 2026-08-28
 - [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — 2026-08-24
-- [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — 2026-08-20
-- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — 2026-08-19
-- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md) — 2026-08-19
-- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — 2026-08-19
 - [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md) — 2026-08-19
+- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — 2026-08-19
+- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md) — 2026-08-19
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md) — 2026-08-18
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — 2026-08-05
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 2026-08-04
-- [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — 2026-07-23
-- [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md) — 2026-07-22
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — 2026-07-16
-- [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — 2026-07-15
+- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — 2026-07-21
 - [Review summarization](pages/2026-06-04-review-summarization.md) — 2026-06-04
 - [Context bloating — agents scan repo root instead of worktree](pages/2026-06-03-context-bloating.md) — 2026-06-03
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
+- [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md) — 2026-06-08
 
-### MCP / integrations (10 pages)
+### React frontend / UI (10 pages)
+
+- [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — 2026-09-02
+- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
+- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — 2026-08-25
+- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — 2026-08-03
+- [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md) — 2026-07-22 (also fits Environment, settings & versioning — `bump_project_version` hardening)
+- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
+- [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — 2026-06-22
+- [Build artifacts](pages/2026-06-09-build-artifacts.md) — 2026-06-09
+- [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — 2026-06-09
+- [Truncate session name](pages/2026-06-02-truncate-session-name.md) — 2026-06-02
+
+### Sessions, steps & resume (10 pages)
+
+- [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
+- [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
+- [Session History Modal](pages/2026-07-23-session-history-modal.md) — 2026-07-23
+- [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — 2026-07-21
+- [Add context compaction](pages/2026-07-07-add-context-compaction.md) — 2026-07-07
+- [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — 2026-07-16
+- [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — 2026-07-16
+- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — 2026-06-25
+- [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — 2026-06-08
+- [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
+
+### Wiki knowledge base & MCP (9 pages)
 
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
@@ -128,48 +150,11 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
-- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
 
-### Linear & GitHub integrations (10 pages)
-
-- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
-- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — 2026-08-18
-- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — 2026-08-10
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — 2026-08-05
-- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — 2026-07-16
-- [Update project version](pages/2026-06-25-update-project-version.md) — 2026-06-25
-- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — 2026-06-22
-- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — 2026-06-09
-- [Project environment](pages/2026-06-08-project-environment.md) — 2026-06-08
-- [Max run attempts for a ticket](pages/2026-06-08-max-run-attempts-for-a-ticket.md) — 2026-06-08
-
-### React frontend / UI (9 pages)
-
-- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
-- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — 2026-08-25
-- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — 2026-08-03
-- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
-- [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — 2026-06-22
-- [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — 2026-06-09
-- [Build artifacts](pages/2026-06-09-build-artifacts.md) — 2026-06-09
-- [Truncate session name](pages/2026-06-02-truncate-session-name.md) — 2026-06-02
-- [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
-
-### Sessions, status & resume (9 pages)
-
-- [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
-- [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
-- [Session History Modal](pages/2026-07-23-session-history-modal.md) — 2026-07-23
-- [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — 2026-07-21
-- [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — 2026-07-16
-- [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — 2026-07-16
-- [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — 2026-06-25
-- [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — 2026-06-08
-- [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
-
-### Authentication & API security (8 pages)
+### Authentication & API security (9 pages)
 
 - [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — 2026-08-28
+- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — 2026-08-09
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — 2026-08-09
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — 2026-08-06
@@ -178,46 +163,52 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Deploy & infrastructure (5 pages)
+### Deploy & infrastructure (7 pages)
 
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24
+- [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — 2026-08-20
+- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — 2026-08-19
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — 2026-08-18
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — 2026-08-17
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — 2026-08-10
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — 2026-07-07
 
-### Testing & tooling (4 pages)
+### Linear & GitHub integrations (6 pages)
 
-- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
-- [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — 2026-08-18
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — 2026-08-05
+- [Fix notification mark-as-read and add infinite-loop protection](pages/2026-07-16-fix-notification-mark-read.md) — 2026-07-16
+- [Update project version](pages/2026-06-25-update-project-version.md) — 2026-06-25
+- [GitHub PR description](pages/2026-06-22-github-pr-description.md) — 2026-06-22
+- [Check Linear ticket text](pages/2026-06-09-check-linear-ticket-text.md) — 2026-06-09
+
+### Environment, settings & versioning (5 pages)
+
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — 2026-08-18
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — 2026-08-10
+- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md) — 2026-08-21
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — 2026-07-22
-- [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — 2026-06-15
+- [Project environment](pages/2026-06-08-project-environment.md) — 2026-06-08
 
-### Logging infrastructure (2 pages)
+### Logging infrastructure (3 pages)
 
 - [Resolve ANSI Color Escape Codes in Logs](pages/2026-07-20-resolve-ansi-color-escape-codes-in-logs.md) — 2026-07-20
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — 2026-07-16
+- [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — 2026-07-15
 
-### Other (1 page)
+### Testing & test infrastructure (2 pages)
 
-- [Refactor API](pages/2026-06-01-refactor-api.md) — 2026-06-01
-
-### Database & migrations (1 page)
-
-- [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md) — 2026-06-03
+- [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — 2026-08-18
+- [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — 2026-06-15
 
 ### Subprocess & timeouts (1 page)
 
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — 2026-06-10
 
-### Context, tokens & compaction (1 page)
+### Database & migrations (1 page)
 
-- [Add context compaction](pages/2026-07-07-add-context-compaction.md) — 2026-07-07
+- [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md) — 2026-06-03
 
-### TUI & CLI (1 page)
+### Docs & agent tooling (1 page)
 
-- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — 2026-07-21
-
-### Docs, feature flags & release tooling (1 page)
-
-- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md) — 2026-08-21
+- [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — 2026-07-23

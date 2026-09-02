@@ -4,11 +4,11 @@ date: 2026-08-03
 type: debug
 status: resolved
 session_id: "-"
-services: [mcp]
+services: [mcp, database]
 branch: master
-tickets: []
-tags: [mcp, dependencies, upgrade]
-related: [2026-08-03-auth-hardening-and-deps-bump.md]
+tickets: [MNT-90]
+tags: [mcp, dependencies, upgrade, streamable-http, filesystem, database]
+related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.md]
 ---
 
 # Fix MCP Server for the mcp 2.0 API
@@ -126,6 +126,20 @@ Notes:
 None for this bug. The mcp 2.0 upgrade also introduced high-level `MCPServer` (with
 `@server.tool()`) which could simplify future tool registration, but the current dynamic
 dispatcher pattern maps cleanly onto the low-level callbacks, so no migration is needed now.
+
+## Source — [[2026-06-01-add-mcp-server]]
+
+Originally added in [[2026-06-01-add-mcp-server]] on 2026-06-01 (MNT-90): the first MCP
+server shipped as a standalone repo-root `mcp_server.py` over **streamable-http**, with
+recursive-filesystem CRUD tools plus PostgreSQL-only database tools, all without auth.
+Two durable decisions from that session survive the rewrites: database credentials come
+from the environment only (the hardcoded DB password default was removed in the same
+change), and the tool surface is database/project-style introspection rather than
+filesystem access — the filesystem tools were deleted one day later (`e173d7f`,
+2026-06-02). Today the server lives at `demetra/mcp_server.py` over **stdio** and the
+registry (`demetra/tools/registry.py`) aggregates only the `database`, `projects` and
+`wiki` tool modules behind the shared `ToolResult` contract that this page's handler
+forwards.
 
 ---
 

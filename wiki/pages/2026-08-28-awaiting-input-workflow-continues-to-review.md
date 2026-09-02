@@ -8,7 +8,7 @@ services: [main, watcher, workflows]
 branch: -
 tickets: []
 tags: [awaiting-input, linear, plan, workflow, review, build-plan, resume, duplicate-enqueue]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-28-mnt-191-ticket-status-not-changed.md]
 ---
 
 # Workflow proceeds to review after ticket moved to Awaiting Input
