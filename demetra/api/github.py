@@ -1,9 +1,9 @@
 import json
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 
-from demetra.api.responses import waitlisted_response
+from demetra.api.responses import client_host, delete_cookie_header, waitlisted_response
 from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import UserResponse
 from demetra.services.auth import (
@@ -14,7 +14,8 @@ from demetra.services.auth import (
     get_github_user,
     logout,
 )
-from demetra.settings import COOKIE_SAMESITE, COOKIE_SECURE
+from demetra.services.utils import auth_rate_limiter
+from demetra.settings import AUTH_COOKIE_NAME, COOKIE_SAMESITE, COOKIE_SECURE, OAUTH_STATE_COOKIE
 
 
 router = APIRouter(prefix="/api/v1/github")
@@ -29,7 +30,7 @@ async def github_login():
     """
     auth_url, state = get_github_auth_url()
     response = RedirectResponse(url=auth_url)
-    response.set_cookie(key="oauth_state", value=state, httponly=True, secure=COOKIE_SECURE, samesite="lax")
+    response.set_cookie(key=OAUTH_STATE_COOKIE, value=state, httponly=True, secure=COOKIE_SECURE, samesite="lax")
     return response
 
 
@@ -37,6 +38,7 @@ async def github_login():
 async def github_callback(
     code: str,
     state: str,
+    http_request: Request,
     response: Response,
     oauth_state: str | None = Cookie(default=None),
 ):
@@ -44,12 +46,16 @@ async def github_callback(
 
     Exchanges the authorization code for an access token, retrieves
     user info from GitHub, and creates a session with authentication token.
-    Validates OAuth state parameter to prevent CSRF attacks.
+    Validates OAuth state parameter to prevent CSRF attacks. Rate limits
+    the endpoint per client IP to bound unauthenticated waitlist writes.
     """
+    if not auth_rate_limiter.is_allowed(key=client_host(http_request)):
+        raise HTTPException(status_code=429, detail="Too many requests, try again later")
+
     if not oauth_state or oauth_state != state:
         raise HTTPException(status_code=400, detail="Invalid or missing OAuth state")
 
-    response.delete_cookie("oauth_state")
+    response.delete_cookie(OAUTH_STATE_COOKIE)
 
     try:
         access_token = await exchange_code_for_token(code)
@@ -69,9 +75,9 @@ async def github_callback(
             content=json.dumps(response_data),
             media_type="application/json",
         )
-        success_response.delete_cookie("oauth_state")
+        success_response.delete_cookie(OAUTH_STATE_COOKIE)
         success_response.set_cookie(
-            key="auth_token",
+            key=AUTH_COOKIE_NAME,
             value=auth_response.token,
             httponly=True,
             secure=COOKIE_SECURE,
@@ -81,14 +87,13 @@ async def github_callback(
         return success_response
     except WaitlistedError as e:
         wl_response = waitlisted_response(entry_id=e.entry_id)
-        wl_response.delete_cookie("oauth_state")
+        wl_response.delete_cookie(OAUTH_STATE_COOKIE)
         return wl_response
     except AuthError as e:
-        response.delete_cookie("oauth_state")
         raise HTTPException(
             status_code=400,
             detail=str(e),
-            headers={"Set-Cookie": "oauth_state=; Path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"},
+            headers=delete_cookie_header(name=OAUTH_STATE_COOKIE),
         ) from e
 
 
@@ -113,5 +118,5 @@ async def github_logout(response: Response, auth_token: str | None = Cookie(defa
         await logout(auth_token)
 
     response = Response(content='{"message": "Logged out"}', media_type="application/json")
-    response.delete_cookie("auth_token")
+    response.delete_cookie(AUTH_COOKIE_NAME)
     return response

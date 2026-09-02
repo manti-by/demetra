@@ -1,5 +1,5 @@
 from demetra.library.exceptions import LinearError
-from demetra.library.models import Context
+from demetra.library.models import Context, LinearTask
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
     extract_research_report,
@@ -11,11 +11,25 @@ from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR, MAX_RESEARCH_ATTEMPTS
 
 
+def is_research_task(linear_task: LinearTask) -> bool:
+    """Return whether a Linear task carries a research label.
+
+    Compares the task's labels against the configured research labels
+    case-insensitively.
+
+    Args:
+        linear_task: The Linear task to inspect.
+
+    Returns:
+        bool: True when at least one label matches a research label.
+    """
+    research_labels = {label.casefold() for label in LINEAR["research_labels"]}
+    task_labels = {label.casefold() for label in linear_task.labels}
+    return bool(research_labels & task_labels)
+
+
 def is_research_ticket(context: Context) -> bool:
     """Return whether the ticket carries a research label.
-
-    Compares the ticket's labels against the configured research labels
-    case-insensitively.
 
     Args:
         context: The workflow context with the linear task.
@@ -23,9 +37,7 @@ def is_research_ticket(context: Context) -> bool:
     Returns:
         bool: True when at least one label matches a research label.
     """
-    research_labels = {label.casefold() for label in LINEAR["research_labels"]}
-    ticket_labels = {label.casefold() for label in context.linear_task.labels}
-    return bool(research_labels & ticket_labels)
+    return is_research_task(linear_task=context.linear_task)
 
 
 async def run_research_step(context: Context) -> str | None:

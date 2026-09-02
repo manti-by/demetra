@@ -1,12 +1,13 @@
 import json
 
-from fastapi import APIRouter, Cookie, HTTPException, Response
+from fastapi import APIRouter, Cookie, HTTPException, Request, Response
 
-from demetra.api.responses import waitlisted_response
+from demetra.api.responses import client_host, waitlisted_response
 from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import LoginRequest, SignupRequest
 from demetra.services.auth import login_with_password, logout, signup_with_password
-from demetra.settings import COOKIE_SAMESITE, COOKIE_SECURE
+from demetra.services.utils import auth_rate_limiter
+from demetra.settings import AUTH_COOKIE_NAME, COOKIE_SAMESITE, COOKIE_SECURE
 
 
 router = APIRouter(prefix="/api/v1/auth")
@@ -48,7 +49,7 @@ def _set_auth_cookie(*, response: Response, token: str) -> Response:
         Response: The same response with the auth cookie set.
     """
     response.set_cookie(
-        key="auth_token",
+        key=AUTH_COOKIE_NAME,
         value=token,
         httponly=True,
         secure=COOKIE_SECURE,
@@ -59,18 +60,25 @@ def _set_auth_cookie(*, response: Response, token: str) -> Response:
 
 
 @router.post("/signup")
-async def signup(request: SignupRequest) -> Response:
+async def signup(request: SignupRequest, http_request: Request) -> Response:
     """Register a new user with email and password.
+
+    Rate limited per client IP to bound unauthenticated waitlist writes.
 
     Args:
         request: The signup payload with email and password.
+        http_request: The incoming request, used for rate limiting.
 
     Returns:
         Response: A JSON user payload with an auth cookie set.
 
     Raises:
-        HTTPException: 400 when the credentials are invalid.
+        HTTPException: 400 when the credentials are invalid, 429 when the
+            client IP exceeds the signup rate limit.
     """
+    if not auth_rate_limiter.is_allowed(key=client_host(http_request)):
+        raise HTTPException(status_code=429, detail="Too many signup attempts, try again later")
+
     try:
         auth_response = await signup_with_password(email=request.email, password=request.password)
     except WaitlistedError as e:
@@ -123,5 +131,5 @@ async def do_logout(response: Response, auth_token: str | None = Cookie(default=
         await logout(token=auth_token)
 
     response = Response(content='{"message": "Logged out"}', media_type="application/json")
-    response.delete_cookie("auth_token")
+    response.delete_cookie(AUTH_COOKIE_NAME)
     return response

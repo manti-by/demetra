@@ -119,7 +119,10 @@ async def get_unresolved_review_threads(
     Uses ``gh api graphql`` to query ``reviewThreads``. The GraphQL connection
     has no ``isResolved`` filter, so resolved threads are discarded here after
     the query returns. Returns threads from any author, both inline and
-    general review comments.
+    general review comments. General review bodies come from ``latestReviews``,
+    which holds each reviewer's most recent submission, so a reviewer who has
+    since approved or dismissed their request no longer surfaces as
+    actionable.
 
     Args:
         pr_number: The pull request number.
@@ -141,7 +144,7 @@ async def get_unresolved_review_threads(
         "repository(owner:$owner,name:$name){"
         "pullRequest(number:$pr){"
         "reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved isOutdated path line comments(first:100){pageInfo{hasNextPage} nodes{body path diffHunk line originalLine author{login} createdAt}}}"
-        "} reviews(first:100){pageInfo{hasNextPage} nodes{body author{login} createdAt state}}"
+        "} latestReviews(first:100){pageInfo{hasNextPage} nodes{body author{login} createdAt state}}"
         "}}}"
     )
 
@@ -183,9 +186,9 @@ async def get_unresolved_review_threads(
         if isinstance(comments, dict) and comments.get("pageInfo", {}).get("hasNextPage"):
             raise RuntimeError(f"Comments truncated at 100 for a thread on PR #{pr_number}; pagination required")
 
-    reviews_data = pr_data.get("reviews", {})
-    if isinstance(reviews_data, dict) and reviews_data.get("pageInfo", {}).get("hasNextPage"):
-        raise RuntimeError(f"Reviews truncated at 100 for PR #{pr_number}; pagination required")
+    latest_reviews_data = pr_data.get("latestReviews", {})
+    if isinstance(latest_reviews_data, dict) and latest_reviews_data.get("pageInfo", {}).get("hasNextPage"):
+        raise RuntimeError(f"Latest reviews truncated at 100 for PR #{pr_number}; pagination required")
 
     unresolved: list[dict] = []
     for thread in nodes:
@@ -197,8 +200,10 @@ async def get_unresolved_review_threads(
 
     # General (non-inline) review bodies are not in reviewThreads; surface them as pseudo-threads
     # so Request-Changes summaries without inline comments are not silently ignored.
+    # latestReviews already collapses submissions to each reviewer's current state,
+    # so the CHANGES_REQUESTED filter only matches currently actionable feedback.
     try:
-        reviews = reviews_data.get("nodes", []) if isinstance(reviews_data, dict) else []
+        reviews = latest_reviews_data.get("nodes", []) if isinstance(latest_reviews_data, dict) else []
         for review in reviews:
             if not isinstance(review, dict):
                 continue
@@ -216,7 +221,7 @@ async def get_unresolved_review_threads(
                     "comments": {"nodes": [review]},
                 }
             )
-    except Exception:
+    except (KeyError, TypeError):
         logger.warning(f"Failed to process general reviews for PR #{pr_number}", exc_info=True)
 
     return unresolved

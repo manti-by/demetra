@@ -11,6 +11,7 @@ from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.tui import print_message
 from demetra.services.vcs.git import git_pull, git_worktree_create
 from demetra.settings import PARENT_HOME
+from demetra.workflows.research import is_research_task
 
 
 async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None = None) -> Context | None:
@@ -19,6 +20,8 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     Loads the project, its environment, the owner's user-shared environment,
     auth, and the per-project UV venv, resolves the Linear task (from a task
     id or the next TODO), pulls latest changes and creates a feature worktree.
+    Research tasks skip the branch and worktree: they run read-only in the
+    main checkout.
 
     Args:
         project_name: The name of the project to run.
@@ -76,6 +79,20 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     print_message("")
     await git_pull(target_path=project.local_path, env=project.environment, project_id=project.id)
     print_message("")
+
+    if is_research_task(linear_task=linear_task):
+        # Research is read-only: it needs no branch or worktree and runs in
+        # the main checkout. git_cleanup skips git work for research contexts.
+        print_message("Research task: skipping branch and worktree creation", style="heading")
+        return Context(
+            project=project,
+            auto_mode=auto_mode,
+            linear_task=linear_task,
+            branch_name=branch_name,
+            worktree_path=project.local_path,
+            session=session,
+            is_research=True,
+        )
 
     print_message("Creating feature worktree", style="heading")
     print_message("")

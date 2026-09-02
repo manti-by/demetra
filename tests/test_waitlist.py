@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import AuthError, WaitlistedError
-from demetra.library.models import GitHubUser
+from demetra.library.models import GitHubUser, WaitlistEntryUpdate
 from demetra.services.auth import (
     approve_waitlist_entry,
     authenticate_user,
@@ -67,7 +67,7 @@ class TestJoinWaitlist:
     async def test_join_reopens_rejected_entry(self, allowlist_seeded):
         email = _unique_email()
         entry_id = await join_waitlist(entry_type="email", value=email)
-        await update_waitlist_entry(entry_id=entry_id, status="rejected")
+        await update_waitlist_entry(entry_id=entry_id, changes=WaitlistEntryUpdate(status="rejected"))
 
         again = await join_waitlist(entry_type="email", value=email)
         assert again == entry_id

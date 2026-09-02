@@ -7,12 +7,14 @@ from rich.table import Table
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
+from demetra.library.models import WaitlistEntryUpdate
 from demetra.library.types import WaitlistEntryType, WaitlistStatus
 from demetra.services.auth.allowlist import add_entry, find_allowlist_entry, normalize_email, normalize_github_login
 from demetra.services.persistence.database import (
     delete_waitlist_entry,
     find_waitlist_entry,
     find_waitlist_entry_by_id,
+    get_transaction,
     init_db,
     insert_waitlist_entry,
     list_waitlist_entries,
@@ -109,12 +111,7 @@ async def join_waitlist(entry_type: str, value: str, note: str | None = None) ->
     if existing:
         if existing["status"] in ("rejected", "approved", "joined"):
             await update_waitlist_entry(
-                entry_id=existing["id"],
-                status="pending",
-                approved_by=None,
-                approved_at=None,
-                notified_at=None,
-                joined_at=None,
+                entry_id=existing["id"], changes=WaitlistEntryUpdate(status="pending", clear_approval=True)
             )
             logger.info("Reopened waitlist entry %s (%s=%s)", existing["id"], entry_type, normalized)
         return existing["id"]
@@ -159,7 +156,9 @@ async def mark_waitlist_joined(entry_id: str) -> None:
     entry = await find_waitlist_entry_by_id(entry_id)
     if entry is None or entry.get("joined_at") is not None:
         return
-    await update_waitlist_entry(entry_id=entry_id, status="joined", joined_at=datetime.now(UTC))
+    await update_waitlist_entry(
+        entry_id=entry_id, changes=WaitlistEntryUpdate(status="joined", joined_at=datetime.now(UTC))
+    )
 
 
 async def mark_waitlist_joined_by_value(entry_type: str, value: str) -> None:
@@ -204,35 +203,42 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     if entry["status"] != "pending":
         raise AuthError(f"Waitlist entry cannot be approved (status: {entry['status']})")
 
+    now = datetime.now(UTC)
     try:
-        await add_entry(
-            entry_type=entry["entry_type"],
-            value=entry["value"],
-            note=entry.get("note"),
-            added_by=approved_by,
-        )
+        async with get_transaction() as connection:
+            await add_entry(
+                entry_type=entry["entry_type"],
+                value=entry["value"],
+                note=entry.get("note"),
+                added_by=approved_by,
+                connection=connection,
+            )
+            await update_waitlist_entry(
+                entry_id=entry_id,
+                changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now),
+                connection=connection,
+            )
     except AuthError:
         # The allowlist row may already exist (e.g. an admin added it
         # directly); promotion still succeeds in that case.
         existing = await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
         if existing is None:
             raise
-
-    now = datetime.now(UTC)
-    await update_waitlist_entry(
-        entry_id=entry_id,
-        status="approved",
-        approved_by=approved_by,
-        approved_at=now,
-    )
+        await update_waitlist_entry(
+            entry_id=entry_id,
+            changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now),
+        )
 
     try:
         sent = send_approval_email(entry)
-    except Exception:
+    except (KeyError, OSError, RuntimeError):
         logger.warning("Failed to send approval email for waitlist entry %s", entry_id, exc_info=True)
         sent = False
     if sent:
-        await update_waitlist_entry(entry_id=entry_id, notified_at=now)
+        await update_waitlist_entry(
+            entry_id=entry_id,
+            changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now, notified_at=now),
+        )
 
     return await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
 
