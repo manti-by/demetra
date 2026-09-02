@@ -37,6 +37,7 @@ async def opencode_plan_agent(
     task: str,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode plan agent with plan-output formatting rules.
@@ -49,6 +50,7 @@ async def opencode_plan_agent(
         task: The task prompt for the agent.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
         user_environment: Optional user env layer overriding the model.
 
     Returns:
@@ -70,6 +72,7 @@ async def opencode_plan_agent(
         ),
         agent="plan-agent",
         env=env,
+        project_id=project_id,
         user_environment=user_environment,
     )
 
@@ -80,6 +83,7 @@ async def opencode_build_agent(
     session_id: str | None = None,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode build agent, forbidding commits and pushes.
@@ -90,6 +94,7 @@ async def opencode_build_agent(
         session_id: Optional session id to continue.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
         user_environment: Optional user env layer overriding the model.
 
     Returns:
@@ -106,12 +111,17 @@ async def opencode_build_agent(
         ),
         agent="build-agent",
         env=env,
+        project_id=project_id,
         user_environment=user_environment,
     )
 
 
 async def opencode_review_agent(
-    target_path: Path, model: str, task_title: str | None = None, env: dict[str, str] | None = None
+    target_path: Path,
+    model: str,
+    task_title: str | None = None,
+    env: dict[str, str] | None = None,
+    project_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode review agent with the review prompt.
 
@@ -120,6 +130,7 @@ async def opencode_review_agent(
         model: The model to use for the review.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -132,6 +143,7 @@ async def opencode_review_agent(
         model=model,
         agent="review-agent",
         env=env,
+        project_id=project_id,
     )
 
 
@@ -140,6 +152,7 @@ async def opencode_validate_agent(
     build_plan: str,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode validate agent with the validate prompt and build plan.
@@ -152,6 +165,7 @@ async def opencode_validate_agent(
         build_plan: The finalized build plan to check coverage against.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
         user_environment: Optional user env layer overriding the model.
 
     Returns:
@@ -168,6 +182,7 @@ async def opencode_validate_agent(
         ),
         agent="validate-agent",
         env=env,
+        project_id=project_id,
         user_environment=user_environment,
     )
 
@@ -246,6 +261,7 @@ async def opencode_resolve_agent(
     task: str,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode resolve agent to answer open plan questions.
@@ -255,6 +271,7 @@ async def opencode_resolve_agent(
         task: The task prompt for the agent.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
         user_environment: Optional user env layer overriding the model.
 
     Returns:
@@ -269,6 +286,7 @@ async def opencode_resolve_agent(
         ),
         agent="resolve-agent",
         env=env,
+        project_id=project_id,
         user_environment=user_environment,
     )
 
@@ -278,6 +296,7 @@ async def opencode_research_agent(
     task: str,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode research agent to validate a ticket against wiki and web.
@@ -290,6 +309,7 @@ async def opencode_research_agent(
         task: The task prompt for the agent.
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
         user_environment: Optional user env layer overriding the model.
 
     Returns:
@@ -305,6 +325,7 @@ async def opencode_research_agent(
         ),
         agent="research-agent",
         env=env,
+        project_id=project_id,
         user_environment=user_environment,
     )
 

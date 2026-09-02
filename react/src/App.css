@@ -984,13 +984,23 @@
 }
 
 .session-dot.step-initial,
-.session-dot.step-plan {
+.session-dot.step-plan,
+.session-dot.step-research,
+.session-dot.step-awaiting_input {
   background: var(--color-warning);
 }
 
 .session-dot.step-build,
-.session-dot.step-review {
+.session-dot.step-review,
+.session-dot.step-validate,
+.session-dot.step-lint,
+.session-dot.step-test {
   background: var(--color-accent);
+}
+
+.session-dot.step-wiki,
+.session-dot.step-push {
+  background: var(--color-success);
 }
 
 .session-dot.step-completed {
@@ -1023,17 +1033,24 @@
 }
 
 .session-step.initial,
-.session-step.plan {
+.session-step.plan,
+.session-step.research,
+.session-step.awaiting_input {
   background: var(--color-warning-subtle);
   color: var(--color-warning);
 }
 
 .session-step.build,
-.session-step.review {
+.session-step.review,
+.session-step.validate,
+.session-step.lint,
+.session-step.test {
   background: var(--color-accent-subtle);
   color: var(--color-accent);
 }
 
+.session-step.wiki,
+.session-step.push,
 .session-step.completed {
   background: var(--color-success-subtle);
   color: var(--color-success);

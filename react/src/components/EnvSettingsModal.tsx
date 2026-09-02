@@ -129,12 +129,13 @@ export function EnvSettingsModal<E extends EnvEntry>({
       setDraftEncrypted(false);
       setEditingKey(null);
     }
-  }, [isOpen]);
+  }, [isOpen, fetchEnvironment]);
 
   const beginEdit = useCallback((entry: E) => {
     setEditingKey(entry.key);
     setDraftKey(entry.key);
-    setDraftValue(entry.type === "encrypted" ? "" : entry.value);
+    const isMasked = entry.value === "********" || isSensitiveKey(entry.key);
+    setDraftValue(entry.type === "encrypted" || isMasked ? "" : entry.value);
     setDraftEncrypted(entry.type === "encrypted");
     setError(null);
   }, []);
@@ -156,6 +157,10 @@ export function EnvSettingsModal<E extends EnvEntry>({
     }
     if (entries.some((entry) => entry.key === key)) {
       setError(`Environment key "${key}" already exists`);
+      return;
+    }
+    if (draftEncrypted && !draftValue.trim()) {
+      setError("Encrypted value cannot be empty");
       return;
     }
 
@@ -189,8 +194,18 @@ export function EnvSettingsModal<E extends EnvEntry>({
       return;
     }
     const editingEntry = entries.find((entry) => entry.key === editingKey);
-    if (editingEntry?.type === "encrypted" && !draftEncrypted && !draftValue) {
+    if (editingEntry?.type === "encrypted" && !draftEncrypted && !draftValue.trim()) {
       setError("Enter a value to disable encryption");
+      return;
+    }
+    if (editingEntry && draftEncrypted && !draftValue.trim() && editingEntry.type !== "encrypted") {
+      setError("Enter a value when converting to encrypted");
+      return;
+    }
+    const isMaskedText =
+      editingEntry?.type === "text" && (editingEntry.value === "********" || isSensitiveKey(editingEntry.key));
+    if (isMaskedText && !draftValue.trim()) {
+      setError("Enter a value for sensitive keys");
       return;
     }
 
@@ -204,7 +219,6 @@ export function EnvSettingsModal<E extends EnvEntry>({
         editingKey,
       );
       if (key !== editingKey) {
-        await deleteEntry(editingKey);
         setEntries((prev) =>
           sortByKey([...prev.filter((e) => e.key !== editingKey), entry]),
         );
@@ -224,7 +238,7 @@ export function EnvSettingsModal<E extends EnvEntry>({
     } finally {
       setSaving(false);
     }
-  }, [draftKey, draftValue, draftEncrypted, editingKey, entries, upsertEntry, deleteEntry]);
+  }, [draftKey, draftValue, draftEncrypted, editingKey, entries, upsertEntry]);
 
   const handleUpload = useCallback(
     async (fileEntries: EnvFileEntry[]) => {
@@ -233,6 +247,16 @@ export function EnvSettingsModal<E extends EnvEntry>({
       let upsertedCount = 0;
       try {
         for (const fileEntry of fileEntries) {
+          const validationError = validateEnvKey(fileEntry.key);
+          if (validationError) {
+            const message = validationError;
+            if (upsertedCount > 0) {
+              setError(`Import partially completed: ${message}`);
+            } else {
+              setError(message);
+            }
+            break;
+          }
           try {
             const entry = await upsertEntry(
               fileEntry.key,
@@ -296,8 +320,10 @@ export function EnvSettingsModal<E extends EnvEntry>({
   if (!isOpen) return null;
 
   const isEditing = editingKey !== null;
+  const editingEntryForPlaceholder = isEditing ? entries.find((e) => e.key === editingKey) : null;
+  const canKeepValue = editingEntryForPlaceholder?.type === "encrypted";
   const valuePlaceholder =
-    isEditing && draftEncrypted ? "leave blank to keep current value" : "Value";
+    isEditing && draftEncrypted && canKeepValue ? "leave blank to keep current value" : "Value";
 
   return (
     <div className="modal-overlay" onClick={onClose}>

@@ -1,7 +1,6 @@
-import re
-
 from fastapi import APIRouter, Depends, HTTPException
 
+from demetra.library.env import ENV_KEY_RE, MAX_ENV_KEY_LENGTH, MAX_ENV_VALUE_LENGTH
 from demetra.library.models import EnvironmentEntry, EnvironmentUpsert, UserKeysUpdateRequest, UserResponse
 from demetra.services.auth import get_current_user_dep
 from demetra.services.persistence.database import (
@@ -13,10 +12,6 @@ from demetra.services.persistence.database import (
 
 
 router = APIRouter(prefix="/api/v1/users")
-
-ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
-MAX_ENV_KEY_LENGTH = 128
-MAX_ENV_VALUE_LENGTH = 8192
 
 
 @router.patch("/me/keys")

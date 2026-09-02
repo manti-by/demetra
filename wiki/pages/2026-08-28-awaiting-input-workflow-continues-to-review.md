@@ -5,7 +5,7 @@ type: debug
 status: open
 session_id: ses_fb7885e31ffehP8M22apgonwNj
 services: [main, watcher, workflows]
-branch: -
+branch: "-"
 tickets: []
 tags: [awaiting-input, linear, plan, workflow, review, build-plan, resume, duplicate-enqueue]
 related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-28-mnt-191-ticket-status-not-changed.md]
@@ -91,6 +91,8 @@ The Awaiting Input state is a **one-shot signal**, not a durable gate:
 > the missing `awaiting_input` replan guard (primary cause) is unchanged. See
 > [[2026-08-28-mnt-191-ticket-status-not-changed]] for the MNT-191 form of the same block.
 
+> **Consistency fix (2026-09-02):** fixed `branch: -` YAML parse error (quoted as `"-"`) and added `2026-08-28-mnt-191-ticket-status-not-changed.md` to `related` to mirror body link.
+
 ## References
 
-- Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]]
+- Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]

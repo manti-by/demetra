@@ -19,11 +19,13 @@ from demetra.services.auth.waitlist import (
     approve_waitlist_entry,
     find_pending_waitlist_entry,
     join_waitlist,
-    list_waitlist_entries,
     mark_waitlist_joined,
     mark_waitlist_joined_by_value,
     remove_waitlist_entry,
     waitlist_cli,
+)
+from demetra.services.auth.waitlist import (
+    list_entries as list_waitlist_entries,
 )
 from demetra.services.persistence.database import (
     create_user,

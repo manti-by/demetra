@@ -89,3 +89,5 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 
 - Related: [[2026-07-16-fix-step-status-review-findings]] — later review of the same `sessions.step` subsystem
 - External: https://linear.app/mnt/issue/MNT-83
+
+> **Consistency fix (2026-09-02):** added `2026-09-01-mnt-177-research-loop.md` to `related` to mirror body link.

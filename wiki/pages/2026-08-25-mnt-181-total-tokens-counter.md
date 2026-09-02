@@ -3,7 +3,7 @@ title: "MNT-181: Total tokens counter"
 date: 2026-08-25
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
@@ -124,6 +124,10 @@ Session list shows task title with fallback to truncated id. Originally decided 
 ## Consistency fix (2026-09-01)
 
 - Added `2026-07-16-fix-step-status-review-findings.md` to `related` frontmatter to mirror body link `[[2026-07-16-fix-step-status-review-findings]]`.
+
+## Consistency fix (2026-09-02)
+
+- Fixed `session_id: -` YAML parse error (quoted as `"-"`).
 
 ## References
 

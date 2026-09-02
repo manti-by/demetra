@@ -3,7 +3,7 @@ title: Review findings cleanup — v1.16.7..HEAD two-axis review
 date: 2026-09-02
 type: code-review
 status: resolved
-session_id:
+session_id: "-"
 services: [auth, api, persistence, workflows, listener, watcher, react]
 branch: review-finding
 tickets: [MNT-177, MNT-188, MNT-190, MNT-192, MNT-193]
@@ -138,3 +138,5 @@ The waitlist spec's "notification" requirement remains a pluggable log-only noti
 ## References
 
 - Related: [[2026-09-01-mnt-177-research-loop]], [[2026-08-28-mnt-188-waitlist]], [[2026-08-31-mnt-192-env-edit-button]], [[2026-09-02-mobile-template-react-frontend]]
+
+> **Consistency fix (2026-09-02):** fixed `session_id:` empty YAML (set to `"-"`).

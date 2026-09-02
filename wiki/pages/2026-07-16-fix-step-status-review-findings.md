@@ -203,3 +203,5 @@ documents is the successor of that merged status concept.
 ## References
 
 - Related: [[2026-07-16-simplify-session-logging-setup]] — the refactor this review was run against.
+
+> **Consistency fix (2026-09-02):** added `2026-09-01-mnt-177-research-loop.md` to `related` to mirror body link.

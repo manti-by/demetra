@@ -54,14 +54,6 @@ class AuthError(DemetraError):
     pass
 
 
-class RegistrationNotAllowedError(AuthError):
-    pass
-
-
-class GitHubAccountNotAuthorizedError(AuthError):
-    pass
-
-
 class WaitlistedError(AuthError):
     def __init__(self, message: str = "Added to waitlist", *, entry_id: str | None = None) -> None:
         super().__init__(message)

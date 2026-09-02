@@ -14,6 +14,7 @@ from demetra.services.runtime.utils import (
     live_stream,
     validate_llm_base_url,
 )
+from demetra.services.utils import RateLimiter
 
 
 class TestUtilsService:
@@ -180,3 +181,36 @@ class TestIsLoopbackHost:
         assert is_loopback_host("127.5.5.5")
         assert is_loopback_host("::1")
         assert not is_loopback_host("evil.example")
+
+
+class TestRateLimiter:
+    def test_allows_up_to_max_events(self):
+        limiter = RateLimiter(max_events=3, window_seconds=60)
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is False
+
+    def test_keys_are_independent(self):
+        limiter = RateLimiter(max_events=1, window_seconds=60)
+        assert limiter.is_allowed("first") is True
+        assert limiter.is_allowed("second") is True
+        assert limiter.is_allowed("first") is False
+
+    def test_window_expiry_allows_again(self, monkeypatch):
+        now = 1000.0
+        monkeypatch.setattr("demetra.services.utils.time.monotonic", lambda: now)
+
+        limiter = RateLimiter(max_events=1, window_seconds=60)
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is False
+
+        now += 61
+        assert limiter.is_allowed("ip") is True
+
+    def test_denied_events_do_not_consume_budget(self):
+        limiter = RateLimiter(max_events=2, window_seconds=60)
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is True
+        assert limiter.is_allowed("ip") is False
+        assert limiter.is_allowed("ip") is False

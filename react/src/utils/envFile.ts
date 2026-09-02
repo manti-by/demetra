@@ -38,8 +38,8 @@ export function validateEnvKey(key: string): string | null {
   return null;
 }
 
-const KEY_VALUE_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$/;
-const KEY_ONLY_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)$/;
+const KEY_VALUE_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$/;
+const KEY_ONLY_RE = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)$/;
 
 function stripQuotes(raw: string): string {
   const value = raw.trim();

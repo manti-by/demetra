@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import AuthError, WaitlistedError
-from demetra.library.models import GitHubUser
+from demetra.library.models import GitHubUser, WaitlistEntryUpdate
 from demetra.services.auth import (
     approve_waitlist_entry,
     authenticate_user,
@@ -67,7 +67,7 @@ class TestJoinWaitlist:
     async def test_join_reopens_rejected_entry(self, allowlist_seeded):
         email = _unique_email()
         entry_id = await join_waitlist(entry_type="email", value=email)
-        await update_waitlist_entry(entry_id=entry_id, status="rejected")
+        await update_waitlist_entry(entry_id=entry_id, changes=WaitlistEntryUpdate(status="rejected"))
 
         again = await join_waitlist(entry_type="email", value=email)
         assert again == entry_id
@@ -159,14 +159,13 @@ class TestApproveWaitlist:
         entry_id = await join_waitlist(entry_type="email", value=email)
 
         with patch("demetra.services.auth.waitlist.send_approval_email", side_effect=RuntimeError("smtp down")):
-            with pytest.raises(RuntimeError, match="smtp down"):
-                await approve_waitlist_entry(entry_id=entry_id, approved_by=None)
+            await approve_waitlist_entry(entry_id=entry_id, approved_by=None)
 
         entries = await list_waitlist_entries()
         entry = next(e for e in entries if e["id"] == entry_id)
-        assert entry["status"] == "pending"
+        assert entry["status"] == "approved"
         assert entry["notified_at"] is None
-        assert await is_email_allowed(email=email) is False
+        assert await is_email_allowed(email=email) is True
 
 
 class TestWaitlistRetainedAfterSignup:

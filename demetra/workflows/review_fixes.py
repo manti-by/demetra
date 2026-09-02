@@ -19,6 +19,7 @@ from demetra.services.vcs.git import (
     git_commit,
     git_fetch,
     git_force_push,
+    git_has_unpushed_commits,
     git_worktree_create,
     git_worktree_remove,
     validate_ref,
@@ -105,9 +106,9 @@ def _format_threads_for_comment(threads: list[dict]) -> str:
     for idx, thread in enumerate(threads, 1):
         path = thread.get("path", "")
         bodies = [
-            ((comment.get("body") or "").strip().splitlines()[0][:120])
+            body.splitlines()[0][:120]
             for comment in _thread_comments(thread=thread)
-            if comment.get("body")
+            if (body := (comment.get("body") or "").strip())
         ]
         summary = "; ".join(bodies) if bodies else "no body"
         if path:
@@ -259,24 +260,30 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             return False
 
         has_staged = await git_add_all(target_path=worktree_path, env=project.environment, project_id=project.id)
+        has_committed = False
         if not has_staged:
-            logger.info(f"Review fixes agent made no changes for PR #{pr_number}")
-            await pr_comment(
-                pr_number=pr_number,
-                full_name=full_name,
-                body="Review fixes agent found no changes to apply for the unresolved threads.",
+            has_committed = await git_has_unpushed_commits(
+                target_path=worktree_path, branch_name=head_branch, env=project.environment, project_id=project.id
+            )
+            if not has_committed:
+                logger.info(f"Review fixes agent made no changes for PR #{pr_number}")
+                await pr_comment(
+                    pr_number=pr_number,
+                    full_name=full_name,
+                    body="Review fixes agent found no changes to apply for the unresolved threads.",
+                    target_path=worktree_path,
+                    env=project.environment,
+                    project_id=project.id,
+                )
+                return True
+
+        if has_staged:
+            await git_commit(
                 target_path=worktree_path,
+                message=f"fix: address review findings for PR #{pr_number}",
                 env=project.environment,
                 project_id=project.id,
             )
-            return True
-
-        await git_commit(
-            target_path=worktree_path,
-            message=f"fix: address review findings for PR #{pr_number}",
-            env=project.environment,
-            project_id=project.id,
-        )
 
         await git_force_push(
             target_path=worktree_path, branch_name=head_branch, env=project.environment, project_id=project.id

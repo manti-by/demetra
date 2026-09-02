@@ -207,6 +207,14 @@ DEFAULT_USER_ID = env_get_str("DEFAULT_USER_ID", None)
 
 COOKIE_SECURE = env_get_bool("COOKIE_SECURE", True)
 
+OAUTH_STATE_COOKIE = "oauth_state"
+
+AUTH_COOKIE_NAME = "auth_token"
+
+AUTH_RATE_LIMIT_MAX = env_get_int("AUTH_RATE_LIMIT_MAX", 10)
+
+AUTH_RATE_LIMIT_WINDOW = env_get_int("AUTH_RATE_LIMIT_WINDOW", 3600)
+
 CORS_ALLOWED_ORIGINS = env_get_list("CORS_ALLOWED_ORIGINS", ["http://localhost:5173", "http://localhost:8000"])
 
 if "*" in CORS_ALLOWED_ORIGINS:
