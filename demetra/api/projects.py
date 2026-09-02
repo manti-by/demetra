@@ -1,9 +1,9 @@
 import logging
-import re
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.exc import SQLAlchemyError
 
+from demetra.library.env import ENV_KEY_RE, MAX_ENV_KEY_LENGTH, MAX_ENV_VALUE_LENGTH
 from demetra.library.models import (
     ENCRYPTED_VALUE_MASK,
     CreateProject,
@@ -30,10 +30,6 @@ from demetra.services.runtime.project import cleanup_project_resources, parse_gi
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/v1/projects")
-
-ENV_KEY_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.-]*")
-MAX_ENV_KEY_LENGTH = 128
-MAX_ENV_VALUE_LENGTH = 8192
 
 
 @router.get("", response_model=list[Project])

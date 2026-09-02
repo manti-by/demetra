@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import Column, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session, SessionHistory, TokenUsage
+from demetra.library.models import Session, SessionHistory, TokenUsage, WaitlistEntryUpdate
 from demetra.library.tables import (
     allowlist_entries,
     jwt_tokens,
@@ -22,7 +22,6 @@ from demetra.library.tables import (
     users,
     waitlist_entries,
 )
-from demetra.library.types import WaitlistStatus
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -976,33 +975,39 @@ async def find_allowlist_entry(entry_type: str, value: str) -> dict | None:
     return dict(row._mapping) if row else None
 
 
-async def insert_allowlist_entry(entry_type: str, value: str, note: str | None, added_by: str | None) -> str:
+async def insert_allowlist_entry(
+    entry_type: str, value: str, note: str | None, added_by: str | None, connection: AsyncSession | None = None
+) -> str:
     """Create a new allowlist entry and return its id.
 
     Args:
         entry_type: The entry type, ``"email"`` or ``"github_username"``.
         value: The normalized entry value.
-        note: Optional operational note.
+        note: Optional operational note (e.g. the GitHub email).
         added_by: Optional user id who added the entry, or None for system seed.
+        connection: An optional shared connection to run within; when omitted
+            a new connection is opened and the change is committed.
 
     Returns:
         str: The id of the created entry.
     """
     entry_id = str(uuid4())
     now = datetime.now(UTC)
-    async with get_connection() as connection:
-        await connection.execute(
-            insert(allowlist_entries).values(
-                id=entry_id,
-                entry_type=entry_type,
-                value=value,
-                note=note,
-                added_by=added_by,
-                created_at=now,
-                updated_at=now,
-            )
-        )
-        await connection.commit()
+    statement = insert(allowlist_entries).values(
+        id=entry_id,
+        entry_type=entry_type,
+        value=value,
+        note=note,
+        added_by=added_by,
+        created_at=now,
+        updated_at=now,
+    )
+    if connection is None:
+        async with get_connection() as conn:
+            await conn.execute(statement)
+            await conn.commit()
+        return entry_id
+    await connection.execute(statement)
     return entry_id
 
 
@@ -1129,49 +1134,50 @@ async def insert_waitlist_entry(entry_type: str, value: str, note: str | None) -
 
 async def update_waitlist_entry(
     entry_id: str,
-    *,
-    status: WaitlistStatus | None = None,
-    approved_by: str | None = None,
-    approved_at: datetime | None = None,
-    notified_at: datetime | None = None,
-    joined_at: datetime | None = None,
+    changes: WaitlistEntryUpdate,
+    connection: AsyncSession | None = None,
 ) -> bool:
-    """Update mutable fields of a waitlist entry by id.
+    """Apply a status transition to a waitlist entry by id.
 
-    Only the provided fields are changed; ``updated_at`` is always bumped.
+    ``updated_at`` is always bumped. Fields left as None on the update keep
+    their current column value; ``clear_approval`` resets the approval
+    metadata columns to NULL.
 
     Args:
         entry_id: The waitlist entry id.
-        status: The new status, when set.
-        approved_by: Optional admin user id who approved the entry.
-        approved_at: Timestamp of approval, when set.
-        notified_at: Timestamp of the approval email, when set.
-        joined_at: Timestamp of the user signing up, when set.
+        changes: The status transition and column changes to apply.
+        connection: An optional shared connection to run within; when omitted
+            a new connection is opened and the change is committed.
 
     Returns:
         bool: True when a row was updated, False when none matched.
     """
-    values: dict = {"updated_at": datetime.now(UTC)}
-    if status is not None:
-        values["status"] = status
-    if approved_by is not None:
-        values["approved_by"] = approved_by
-    if approved_at is not None:
-        values["approved_at"] = approved_at
-    if notified_at is not None:
-        values["notified_at"] = notified_at
-    if joined_at is not None:
-        values["joined_at"] = joined_at
+    values: dict = {"updated_at": datetime.now(UTC), "status": changes.status}
+    if changes.approved_by is not None:
+        values["approved_by"] = changes.approved_by
+    if changes.approved_at is not None:
+        values["approved_at"] = changes.approved_at
+    if changes.notified_at is not None:
+        values["notified_at"] = changes.notified_at
+    if changes.joined_at is not None:
+        values["joined_at"] = changes.joined_at
+    if changes.clear_approval:
+        values.update(approved_by=None, approved_at=None, notified_at=None, joined_at=None)
 
-    async with get_connection() as connection:
-        result = await connection.execute(
-            update(waitlist_entries)
-            .where(waitlist_entries.c.id == entry_id)
-            .values(**values)
-            .returning(waitlist_entries.c.id)
-        )
-        row = result.fetchone()
-        await connection.commit()
+    statement = (
+        update(waitlist_entries)
+        .where(waitlist_entries.c.id == entry_id)
+        .values(**values)
+        .returning(waitlist_entries.c.id)
+    )
+    if connection is None:
+        async with get_connection() as conn:
+            result = await conn.execute(statement)
+            row = result.fetchone()
+            await conn.commit()
+        return row is not None
+    result = await connection.execute(statement)
+    row = result.fetchone()
     return row is not None
 
 
@@ -1676,13 +1682,45 @@ async def _resolve_encrypted_env_value(
     """
     from demetra.services.persistence.encryption import encrypt_str
 
-    if value:
+    if value.strip():
         return encrypt_str(plaintext=value)
     keys = [key]
     if previous_key and previous_key != key:
         keys.append(previous_key)
     stored = await _fetch_stored_encrypted_value(owner_column=owner_column, owner_id=owner_id, scope=scope, keys=keys)
     return stored if stored is not None else encrypt_str(plaintext=value)
+
+
+async def _delete_previous_environment_key(
+    connection: AsyncSession,
+    *,
+    owner_column: Column,
+    owner_id: str,
+    key: str,
+    previous_key: str | None,
+    scope: str,
+) -> None:
+    """Delete the old row after an environment variable rename.
+
+    No-op when the rename carries no previous key or it matches the new key.
+
+    Args:
+        connection: An open transaction to run the delete within.
+        owner_column: The owner column (``project_id`` or ``user_id``).
+        owner_id: The owner id to match.
+        key: The new environment variable name.
+        previous_key: Optional prior key when renaming an existing entry.
+        scope: ``"project"`` or ``"user"``.
+    """
+    if not previous_key or previous_key == key:
+        return
+    await connection.execute(
+        delete(project_environments).where(
+            (owner_column == owner_id)
+            & (project_environments.c.key == previous_key)
+            & (project_environments.c.scope == scope)
+        )
+    )
 
 
 async def upsert_project_environment(
@@ -1736,7 +1774,7 @@ async def upsert_project_environment(
     else:
         stored_value = value
 
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
         result = await connection.execute(
             text(
                 """
@@ -1756,8 +1794,15 @@ async def upsert_project_environment(
                 "type": env_type,
             },
         )
-        await connection.commit()
         row = result.fetchone()
+        await _delete_previous_environment_key(
+            connection=connection,
+            owner_column=project_environments.c.project_id,
+            owner_id=project_id,
+            key=key,
+            previous_key=previous_key,
+            scope="project",
+        )
 
     if row is None:
         raise RuntimeError("Failed to insert project environment")
@@ -1915,7 +1960,7 @@ async def upsert_user_environment(
     else:
         stored_value = value
 
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
         result = await connection.execute(
             text(
                 """
@@ -1935,8 +1980,15 @@ async def upsert_user_environment(
                 "type": env_type,
             },
         )
-        await connection.commit()
         row = result.fetchone()
+        await _delete_previous_environment_key(
+            connection=connection,
+            owner_column=project_environments.c.user_id,
+            owner_id=user_id,
+            key=key,
+            previous_key=previous_key,
+            scope="user",
+        )
 
     if row is None:
         raise RuntimeError("Failed to insert user environment")

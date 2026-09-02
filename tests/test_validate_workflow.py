@@ -75,7 +75,7 @@ class TestWorkflowValidate:
         await run_validate_agent(target_path, "build plan", env=env)
 
         mock_validate_agent.assert_awaited_once_with(
-            target_path=target_path, build_plan="build plan", env=env, user_environment=None
+            target_path=target_path, build_plan="build plan", env=env, project_id=None, user_environment=None
         )
 
     @pytest.mark.asyncio

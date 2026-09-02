@@ -5,6 +5,7 @@ from pathlib import Path
 from rich.console import Console
 from rich.table import Table
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from demetra.library.exceptions import AuthError
 from demetra.services.persistence.database import (
@@ -126,7 +127,9 @@ async def is_github_login_allowed(login: str, email: str | None, github_id: str 
     return False
 
 
-async def add_entry(entry_type: str, value: str, note: str | None, added_by: str | None) -> str:
+async def add_entry(
+    entry_type: str, value: str, note: str | None, added_by: str | None, connection: AsyncSession | None = None
+) -> str:
     """Add an entry to the allowlist.
 
     Args:
@@ -134,6 +137,8 @@ async def add_entry(entry_type: str, value: str, note: str | None, added_by: str
         value: The raw value to normalize and store.
         note: Optional operational note.
         added_by: Optional user id who added the entry.
+        connection: An optional shared connection to run within; when omitted
+            a new connection is opened and the change is committed.
 
     Returns:
         str: The id of the created entry.
@@ -151,7 +156,9 @@ async def add_entry(entry_type: str, value: str, note: str | None, added_by: str
         raise AuthError("Entry already exists")
 
     try:
-        return await insert_allowlist_entry(entry_type=entry_type, value=normalized, note=note, added_by=added_by)
+        return await insert_allowlist_entry(
+            entry_type=entry_type, value=normalized, note=note, added_by=added_by, connection=connection
+        )
     except IntegrityError as e:
         raise AuthError("Entry already exists") from e
 

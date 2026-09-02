@@ -27,6 +27,7 @@ async def run_review_agents(
     session_id: str | None = None,
     task_id: str | None = None,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_id: str | None = None,
 ) -> str | None:
     """Run all configured review agents in parallel and summarize their output.
@@ -51,7 +52,9 @@ async def run_review_agents(
 
     review_agents = []
     for model in OPENCODE["review_models"]:
-        review_agents.append(opencode_review_agent(target_path=target_path, model=model, env=env))
+        review_agents.append(
+            opencode_review_agent(target_path=target_path, model=model, env=env, project_id=project_id)
+        )
     results = await asyncio.gather(*review_agents)
 
     parts = []

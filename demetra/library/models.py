@@ -1,9 +1,12 @@
 import re
 from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 from slugify import slugify
+
+from demetra.library.types import WaitlistStatus
 
 
 StepType = Literal[
@@ -285,6 +288,7 @@ class Context:
     worktree_path: Path
     session: Session | None
     plan_loop: bool = False
+    is_research: bool = False
 
     @property
     def session_id(self) -> str | None:
@@ -359,6 +363,24 @@ class WaitlistedResponse:
     status: str = "waitlisted"
     message: str = "Your waitlist request has been recorded."
     entry_id: str | None = None
+
+
+@dataclass
+class WaitlistEntryUpdate:
+    """Status transition with its related waitlist column changes.
+
+    ``status`` is always applied. The other fields are applied when not None
+    and keep their current column value when None. ``clear_approval``
+    additionally resets every approval metadata column (``approved_by``,
+    ``approved_at``, ``notified_at``, ``joined_at``) to NULL.
+    """
+
+    status: WaitlistStatus
+    approved_by: str | None = None
+    approved_at: datetime | None = None
+    notified_at: datetime | None = None
+    joined_at: datetime | None = None
+    clear_approval: bool = False
 
 
 @dataclass

@@ -118,6 +118,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             report = await run_research_step(context=context)
             if report is None:
                 return
+            # Research is read-only: no branch or PR to keep, and git_cleanup
+            # skips git work for research contexts.
             is_success = True
             should_update_linear_status = False
             return

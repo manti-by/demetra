@@ -43,13 +43,111 @@ def get_worktree_path(project: Project, branch_name: str) -> Path:
     return GIT["worktree_path"] / project.repository_owner / project.repository_name / branch_name
 
 
+async def git_branch_exists(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Return whether a local branch exists.
+
+    Args:
+        target_path: Directory of the main checkout to run git in.
+        branch_name: The branch to look up.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when the branch exists.
+    """
+    command = [str(GIT["path"]), "show-ref", "--verify", f"refs/heads/{branch_name}"]
+    exit_code, _, _ = await run_command(
+        command=command, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    return exit_code == 0
+
+
+async def git_branch_has_unique_commits(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Return whether a local branch contains commits not on its remote or base.
+
+    Checks ``origin/<branch>..<branch>`` when the remote branch exists,
+    otherwise ``origin/master..<branch>``. A non-zero count means the branch
+    would lose commits if force-deleted. A missing branch has no unique
+    commits.
+
+    Args:
+        target_path: Directory of the main checkout to run git in.
+        branch_name: The branch to inspect.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when the branch has unique commits that would be lost.
+    """
+    if not await git_branch_exists(target_path=target_path, branch_name=branch_name, env=env, project_id=project_id):
+        return False
+
+    # Prefer origin/<branch> as base when it exists
+    remote_branch = f"origin/{branch_name}"
+    remote_verify = [str(GIT["path"]), "show-ref", "--verify", f"refs/remotes/{remote_branch}"]
+    remote_exit, _, _ = await run_command(
+        command=remote_verify, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    base = remote_branch if remote_exit == 0 else "origin/master"
+    # If origin/master also missing, fall back to counting all commits on branch
+    count_cmd = [str(GIT["path"]), "rev-list", "--count", f"{base}..{branch_name}"]
+    count_exit, stdout, _ = await run_command(
+        command=count_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    if count_exit != 0:
+        # If base doesn't exist, count commits on branch directly
+        fallback_cmd = [str(GIT["path"]), "rev-list", "--count", branch_name]
+        fallback_exit, fallback_out, _ = await run_command(
+            command=fallback_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        )
+        if fallback_exit == 0:
+            try:
+                return int(fallback_out.strip()) > 0
+            except ValueError:
+                return True
+        return True
+    try:
+        return int(stdout.strip()) > 0
+    except ValueError:
+        return True
+
+
+async def git_delete_branch_preserving_unique(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Delete a local branch unless it holds commits that would be lost.
+
+    Args:
+        target_path: Directory of the main checkout to run git in.
+        branch_name: The branch to delete.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when the branch was preserved, False when it was deleted.
+    """
+    if await git_branch_has_unique_commits(
+        target_path=target_path, branch_name=branch_name, env=env, project_id=project_id
+    ):
+        logger.warning(f"Preserving branch {branch_name} with unique commits; skipping force-delete")
+        return True
+    await git_branch_delete(target_path=target_path, branch_name=branch_name, env=env, project_id=project_id)
+    return False
+
+
 async def git_worktree_create(
     project: Project, branch_name: str, env: dict[str, str] | None = None, create_branch: bool = True
 ) -> Path:
     """Create a git worktree for a branch, cleaning up any stale worktree first.
 
     When ``create_branch`` is False, the branch is force-created from the
-    remote tracking branch before the worktree is added.
+    remote tracking branch before the worktree is added. When True, an
+    existing local branch (e.g. a preserved orphan from a previous run) is
+    checked out instead of re-created, so its commits survive.
 
     Args:
         project: The project to operate on.
@@ -72,12 +170,26 @@ async def git_worktree_create(
             )
         else:
             shutil.rmtree(worktree_path)
-        await git_branch_delete(target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id)
+        await git_delete_branch_preserving_unique(
+            target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+        )
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
     if create_branch:
-        command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
+        # If a previous run orphaned the branch (e.g. research success leaves the
+        # local branch), the worktree path no longer exists so the stale-branch
+        # cleanup above did not run. Delete it unless it holds unique commits.
+        if await git_branch_exists(target_path=project.local_path, branch_name=branch_name, env=env):
+            branch_preserved = await git_delete_branch_preserving_unique(
+                target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+            )
+        else:
+            branch_preserved = False
+        if branch_preserved:
+            command = [str(GIT["path"]), "worktree", "add", str(worktree_path), branch_name]
+        else:
+            command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
     else:
         branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
         branch_exit, _, branch_err = await run_command(
@@ -277,6 +389,35 @@ async def git_rebase(
     raise RuntimeError(f"Rebase failed: {stderr.strip()}")
 
 
+async def git_has_unpushed_commits(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Return whether the branch has local commits not on the remote.
+
+    Args:
+        target_path: Directory of the git repository.
+        branch_name: The branch to compare against its remote tracking branch.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when there are unpushed commits.
+
+    Raises:
+        RuntimeError: When the git command fails or its output is malformed.
+    """
+    cmd = [str(GIT["path"]), "rev-list", "--count", f"origin/{branch_name}..HEAD"]
+    exit_code, stdout, stderr = await run_command(
+        command=cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to check unpushed commits for {branch_name}: {stderr.strip() or 'unknown error'}")
+    try:
+        return int(stdout.strip()) > 0
+    except ValueError as e:
+        raise RuntimeError(f"Malformed rev-list output for {branch_name}: {stdout.strip()!r}") from e
+
+
 async def git_force_push(
     target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
 ) -> bool:
@@ -311,12 +452,16 @@ async def git_cleanup(context: Context, is_success: bool):
     """Clean up a workflow's worktree and branch after a run finishes.
 
     Always removes the worktree, forcing it on failure. On failure the branch
-    is also force-deleted.
+    is also force-deleted. Research contexts run read-only in the main
+    checkout with no branch or worktree, so they are skipped entirely.
 
     Args:
         context: The workflow context describing the worktree and branch.
         is_success: Whether the workflow completed successfully.
     """
+    if context.is_research:
+        return
+
     env = context.project.environment
     project_id = context.project.id
     try:

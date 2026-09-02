@@ -7,12 +7,14 @@ from rich.table import Table
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.exceptions import AuthError
+from demetra.library.models import WaitlistEntryUpdate
 from demetra.library.types import WaitlistEntryType, WaitlistStatus
 from demetra.services.auth.allowlist import add_entry, find_allowlist_entry, normalize_email, normalize_github_login
 from demetra.services.persistence.database import (
     delete_waitlist_entry,
     find_waitlist_entry,
     find_waitlist_entry_by_id,
+    get_transaction,
     init_db,
     insert_waitlist_entry,
     list_waitlist_entries,
@@ -107,8 +109,10 @@ async def join_waitlist(entry_type: str, value: str, note: str | None = None) ->
     normalized = normalize_value(entry_type, value)
     existing = await find_waitlist_entry(entry_type=entry_type, value=normalized)
     if existing:
-        if existing["status"] == "rejected":
-            await update_waitlist_entry(entry_id=existing["id"], status="pending")
+        if existing["status"] in ("rejected", "approved", "joined"):
+            await update_waitlist_entry(
+                entry_id=existing["id"], changes=WaitlistEntryUpdate(status="pending", clear_approval=True)
+            )
             logger.info("Reopened waitlist entry %s (%s=%s)", existing["id"], entry_type, normalized)
         return existing["id"]
 
@@ -152,7 +156,9 @@ async def mark_waitlist_joined(entry_id: str) -> None:
     entry = await find_waitlist_entry_by_id(entry_id)
     if entry is None or entry.get("joined_at") is not None:
         return
-    await update_waitlist_entry(entry_id=entry_id, status="joined", joined_at=datetime.now(UTC))
+    await update_waitlist_entry(
+        entry_id=entry_id, changes=WaitlistEntryUpdate(status="joined", joined_at=datetime.now(UTC))
+    )
 
 
 async def mark_waitlist_joined_by_value(entry_type: str, value: str) -> None:
@@ -176,10 +182,10 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     """Promote a waitlist entry into the allowlist, unlocking sign-in.
 
     Looks up the waitlist row, inserts a matching ``allowlist_entries`` row
-    via the existing allowlist service, sends the approval email, then flips
-    the waitlist status to ``approved`` with ``notified_at`` only when the
-    notification succeeded (a provider failure leaves the entry ``pending``
-    so approval can be retried).
+    via the existing allowlist service, marks the waitlist status as
+    ``approved``, then sends the approval email and records ``notified_at``
+    only when notification succeeds. The email is sent after the allowlist
+    write so the user is never notified before they are actually allowlisted.
 
     Args:
         entry_id: The waitlist entry id.
@@ -198,29 +204,41 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
         raise AuthError(f"Waitlist entry cannot be approved (status: {entry['status']})")
 
     now = datetime.now(UTC)
-    notified_at = now if send_approval_email(entry) else None
-
     try:
-        await add_entry(
-            entry_type=entry["entry_type"],
-            value=entry["value"],
-            note=entry.get("note"),
-            added_by=approved_by,
-        )
+        async with get_transaction() as connection:
+            await add_entry(
+                entry_type=entry["entry_type"],
+                value=entry["value"],
+                note=entry.get("note"),
+                added_by=approved_by,
+                connection=connection,
+            )
+            await update_waitlist_entry(
+                entry_id=entry_id,
+                changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now),
+                connection=connection,
+            )
     except AuthError:
         # The allowlist row may already exist (e.g. an admin added it
         # directly); promotion still succeeds in that case.
         existing = await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
         if existing is None:
             raise
+        await update_waitlist_entry(
+            entry_id=entry_id,
+            changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now),
+        )
 
-    await update_waitlist_entry(
-        entry_id=entry_id,
-        status="approved",
-        approved_by=approved_by,
-        approved_at=now,
-        notified_at=notified_at,
-    )
+    try:
+        sent = send_approval_email(entry)
+    except (KeyError, OSError, RuntimeError):
+        logger.warning("Failed to send approval email for waitlist entry %s", entry_id, exc_info=True)
+        sent = False
+    if sent:
+        await update_waitlist_entry(
+            entry_id=entry_id,
+            changes=WaitlistEntryUpdate(status="approved", approved_by=approved_by, approved_at=now, notified_at=now),
+        )
 
     return await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
 
