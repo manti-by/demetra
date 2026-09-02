@@ -22,6 +22,7 @@ from demetra.library.tables import (
     users,
     waitlist_entries,
 )
+from demetra.library.types import WaitlistStatus
 from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
 
 
@@ -1129,7 +1130,7 @@ async def insert_waitlist_entry(entry_type: str, value: str, note: str | None) -
 async def update_waitlist_entry(
     entry_id: str,
     *,
-    status: str | None = None,
+    status: WaitlistStatus | None = None,
     approved_by: str | None = None,
     approved_at: datetime | None = None,
     notified_at: datetime | None = None,
@@ -1646,6 +1647,44 @@ async def _fetch_stored_encrypted_value(owner_column: Column, owner_id: str, sco
     return None
 
 
+async def _resolve_encrypted_env_value(
+    *,
+    key: str,
+    value: str,
+    previous_key: str | None,
+    owner_column: Column,
+    owner_id: str,
+    scope: str,
+) -> str:
+    """Return the ciphertext to store for an encrypted environment variable.
+
+    A non-blank ``value`` is encrypted fresh; a blank one reuses the stored
+    ciphertext of the row under ``key`` or ``previous_key``, so editing or
+    renaming an encrypted variable without re-entering the secret preserves
+    it. Falls back to encrypting the blank value when no encrypted row exists.
+
+    Args:
+        key: The environment variable name.
+        value: The new plaintext value, possibly blank.
+        previous_key: Optional prior key when renaming an existing entry.
+        owner_column: The owner column (``project_id`` or ``user_id``).
+        owner_id: The owner id to match.
+        scope: ``"project"`` or ``"user"``.
+
+    Returns:
+        str: The ciphertext to store.
+    """
+    from demetra.services.persistence.encryption import encrypt_str
+
+    if value:
+        return encrypt_str(plaintext=value)
+    keys = [key]
+    if previous_key and previous_key != key:
+        keys.append(previous_key)
+    stored = await _fetch_stored_encrypted_value(owner_column=owner_column, owner_id=owner_id, scope=scope, keys=keys)
+    return stored if stored is not None else encrypt_str(plaintext=value)
+
+
 async def upsert_project_environment(
     project_id: str,
     user_id: str,
@@ -1686,21 +1725,14 @@ async def upsert_project_environment(
 
     stored_value: str
     if env_type == "encrypted":
-        from demetra.services.persistence.encryption import encrypt_str
-
-        if value:
-            stored_value = encrypt_str(plaintext=value)
-        else:
-            keys = [key]
-            if previous_key and previous_key != key:
-                keys.append(previous_key)
-            stored = await _fetch_stored_encrypted_value(
-                owner_column=project_environments.c.project_id,
-                owner_id=project_id,
-                scope="project",
-                keys=keys,
-            )
-            stored_value = stored if stored is not None else encrypt_str(plaintext=value)
+        stored_value = await _resolve_encrypted_env_value(
+            key=key,
+            value=value,
+            previous_key=previous_key,
+            owner_column=project_environments.c.project_id,
+            owner_id=project_id,
+            scope="project",
+        )
     else:
         stored_value = value
 
@@ -1872,21 +1904,14 @@ async def upsert_user_environment(
 
     stored_value: str
     if env_type == "encrypted":
-        from demetra.services.persistence.encryption import encrypt_str
-
-        if value:
-            stored_value = encrypt_str(plaintext=value)
-        else:
-            keys = [key]
-            if previous_key and previous_key != key:
-                keys.append(previous_key)
-            stored = await _fetch_stored_encrypted_value(
-                owner_column=project_environments.c.user_id,
-                owner_id=user_id,
-                scope="user",
-                keys=keys,
-            )
-            stored_value = stored if stored is not None else encrypt_str(plaintext=value)
+        stored_value = await _resolve_encrypted_env_value(
+            key=key,
+            value=value,
+            previous_key=previous_key,
+            owner_column=project_environments.c.user_id,
+            owner_id=user_id,
+            scope="user",
+        )
     else:
         stored_value = value
 

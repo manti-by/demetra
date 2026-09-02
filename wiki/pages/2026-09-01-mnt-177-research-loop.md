@@ -109,7 +109,7 @@ if is_research_ticket(context=context):
 ## Deviation from plan
 
 - **Frontend settings** — Plan comment says “Add new necessary settings to BE and FE”, but the 10 enumerated steps list only BE files (none under `react/`). Left React untouched; research settings are backend env-only (`LINEAR_RESEARCH_LABELS`, `OPENCODE_RESEARCH_MODEL`, `MAX_RESEARCH_ATTEMPTS`). If FE exposure is desired (e.g., `UserSettings`/`EnvSettings` UI), a follow-up should add a `research` section to the React config.
-- **Tests** — Plan lists `TestOpencodeResearchAgent` in `tests/test_opencode.py` and `TestWorkflowResearch` in `tests/test_workflows.py`. No assertions were specified; with 920 existing tests green and contracts defined above, new test classes were not added this session to avoid inventing specs. Adding them is a one-line follow-up mirroring existing plan/resolve test fixtures.
+- **Tests** — Plan lists `TestOpencodeResearchAgent` in `tests/test_opencode.py` and `TestWorkflowResearch` in `tests/test_workflows.py`. Not added this session (no assertions had been specified); both classes landed the next day in [[2026-09-02-review-findings-cleanup]], mirroring the existing plan/resolve fixtures.
 
 ## Test Results
 
@@ -122,7 +122,6 @@ if is_research_ticket(context=context):
 ## Follow-ups
 
 - Decide if React should surface research settings (label list, model, max attempts) or if env-only is sufficient — currently BE-only.
-- Add `TestOpencodeResearchAgent` / `TestWorkflowResearch` test classes once the desired mock contracts are confirmed (research agent called with `research-agent` + `research_model`, workflow posts `## Research Report` and moves to `awaiting_input` within `MAX_RESEARCH_ATTEMPTS` attempts, 5 by default).
 - Consider reusing the `openwiki-sessions` mapping and `research` step in session history aggregation (already covered by generic `record_session_step_history` if needed).
 
 ## References

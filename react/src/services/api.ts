@@ -51,6 +51,17 @@ export function isWaitlistedError(error: unknown): error is WaitlistedError {
   return error instanceof WaitlistedError;
 }
 
+async function parseAuthResponse(response: Response, fallbackMessage: string): Promise<AuthResponse> {
+  const data = await response.json();
+  if (response.status === 202 && data.status === 'waitlisted') {
+    throw new WaitlistedError(data.message);
+  }
+  if (!response.ok) {
+    throw new Error(data.detail || fallbackMessage);
+  }
+  return data;
+}
+
 async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
   const request = input instanceof Request ? input : undefined;
   const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
@@ -88,14 +99,7 @@ export async function getCurrentUser(): Promise<User | null | 'transient'> {
 export async function exchangeCodeForToken(code: string, state: string): Promise<AuthResponse> {
   const params = new URLSearchParams({ code, state });
   const response = await authFetch(`${API_URL}/api/v1/github/callback?${params}`);
-  const data = await response.json();
-  if (response.status === 202 && data.status === 'waitlisted') {
-    throw new WaitlistedError(data.message);
-  }
-  if (!response.ok) {
-    throw new Error(data.detail || 'Failed to exchange code');
-  }
-  return data;
+  return parseAuthResponse(response, 'Failed to exchange code');
 }
 
 export async function signup(email: string, password: string): Promise<AuthResponse> {
@@ -104,14 +108,7 @@ export async function signup(email: string, password: string): Promise<AuthRespo
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ email, password }),
   });
-  const data = await response.json();
-  if (response.status === 202 && data.status === 'waitlisted') {
-    throw new WaitlistedError(data.message);
-  }
-  if (!response.ok) {
-    throw new Error(data.detail || 'Signup failed');
-  }
-  return data;
+  return parseAuthResponse(response, 'Signup failed');
 }
 
 export async function loginWithPassword(email: string, password: string): Promise<AuthResponse> {

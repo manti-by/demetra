@@ -116,8 +116,10 @@ async def get_unresolved_review_threads(
 ) -> list[dict]:
     """Fetch unresolved review threads for a pull request via the GitHub CLI.
 
-    Uses ``gh api graphql`` to query ``reviewThreads`` with ``isResolved == false``.
-    Returns threads from any author, both inline and general review comments.
+    Uses ``gh api graphql`` to query ``reviewThreads``. The GraphQL connection
+    has no ``isResolved`` filter, so resolved threads are discarded here after
+    the query returns. Returns threads from any author, both inline and
+    general review comments.
 
     Args:
         pr_number: The pull request number.

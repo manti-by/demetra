@@ -5,12 +5,14 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, PlanError
+from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, LinearError, PlanError
 from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory, TokenUsage
+from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.plan import run_plan_step
+from demetra.workflows.research import is_research_ticket, run_research_step
 from demetra.workflows.resolve import run_resolve_step
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.setup import setup_workflow
@@ -2006,3 +2008,141 @@ class TestMainBumpVersion:
 
             await main(project_name="demetra", auto_mode=True)
             mock_build.assert_called_once()
+
+
+class TestWorkflowResearch:
+    @pytest.fixture
+    def mock_research_agent(self):
+        with patch("demetra.workflows.research.opencode_research_agent", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_post_comment(self):
+        with patch("demetra.workflows.research.post_comment", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_get_linear_config_value(self):
+        with patch("demetra.workflows.research.get_linear_config_value", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_ticket_status(self):
+        with patch("demetra.workflows.research.update_ticket_status", new_callable=AsyncMock) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_session_step(self):
+        with patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock) as m:
+            yield m
+
+    @staticmethod
+    def _make_context(faker, labels=None):
+        return Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+                labels=labels or [],
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_posts_report_and_moves_to_awaiting_input(
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_update_session_step,
+    ):
+        context = self._make_context(faker)
+        report = f"{RESEARCH_HEADER_STRING}\nFindings body."
+        mock_research_agent.return_value = (0, f"Preamble\n{report}", "")
+        mock_post_comment.return_value = True
+        mock_get_linear_config_value.return_value = "state-123"
+        mock_update_ticket_status.return_value = True
+
+        result = await run_research_step(context)
+
+        assert result == report
+        mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
+        mock_get_linear_config_value.assert_awaited_once_with(name="awaiting_input", user_id=context.project.user_id)
+        mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
+        assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_retries_after_agent_failure(
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_update_session_step,
+    ):
+        context = self._make_context(faker)
+        report = f"{RESEARCH_HEADER_STRING}\nRecovered."
+        mock_research_agent.side_effect = [(1, "", "agent crashed"), (0, report, "")]
+        mock_post_comment.return_value = True
+        mock_get_linear_config_value.return_value = "state-123"
+        mock_update_ticket_status.return_value = True
+
+        result = await run_research_step(context)
+
+        assert result == report
+        assert mock_research_agent.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_returns_none_after_all_attempts(
+        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+    ):
+        context = self._make_context(faker)
+        mock_research_agent.return_value = (0, "output without report header", "")
+
+        with patch("demetra.workflows.research.MAX_RESEARCH_ATTEMPTS", 1):
+            result = await run_research_step(context)
+
+        assert result is None
+        assert mock_research_agent.await_count == 1
+        mock_post_comment.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_raises_when_comment_fails(
+        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+    ):
+        context = self._make_context(faker)
+        mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")
+        mock_post_comment.return_value = False
+
+        with pytest.raises(LinearError):
+            await run_research_step(context)
+
+    @pytest.mark.asyncio
+    async def test_is_research_ticket_matches_labels_case_insensitively(self, faker):
+        research_context = self._make_context(faker, labels=["Research"])
+        other_context = self._make_context(faker, labels=["Bug"])
+
+        assert is_research_ticket(context=research_context) is True
+        assert is_research_ticket(context=other_context) is False

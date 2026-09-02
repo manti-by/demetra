@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from demetra.library.models import Context, Project
+from demetra.library.models import Context, Project, Session
 from demetra.services.agents.opencode import opencode_review_fixes_agent
 from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
@@ -31,6 +31,30 @@ from demetra.settings import WIKI
 logger = logging.getLogger(__name__)
 
 
+def _thread_comments(thread: dict) -> list[dict]:
+    """Return the comment nodes of a review thread as plain dicts.
+
+    The GitHub CLI returns comments either as a ``{"nodes": [...]}`` mapping
+    or as a bare list depending on the query shape.
+
+    Args:
+        thread: A review thread as returned by the GitHub GraphQL API.
+
+    Returns:
+        list[dict]: The comment nodes, or an empty list when absent.
+    """
+    comments = thread.get("comments", {})
+    if isinstance(comments, dict):
+        nodes = comments.get("nodes", [])
+        if not isinstance(nodes, list):
+            nodes = []
+    elif isinstance(comments, list):
+        nodes = comments
+    else:
+        nodes = []
+    return [comment for comment in nodes if isinstance(comment, dict)]
+
+
 def _format_threads_for_prompt(threads: list[dict]) -> str:
     """Format unresolved threads into a task prompt section.
 
@@ -53,16 +77,7 @@ def _format_threads_for_prompt(threads: list[dict]) -> str:
         if is_outdated:
             header += " (outdated)"
         lines.append(header)
-        comments = thread.get("comments", {})
-        if isinstance(comments, dict):
-            nodes = comments.get("nodes", [])
-        elif isinstance(comments, list):
-            nodes = comments
-        else:
-            nodes = []
-        for comment in nodes:
-            if not isinstance(comment, dict):
-                continue
+        for comment in _thread_comments(thread=thread):
             body = (comment.get("body") or "").strip()
             author = ""
             if isinstance(comment.get("author"), dict):
@@ -89,17 +104,10 @@ def _format_threads_for_comment(threads: list[dict]) -> str:
     lines: list[str] = []
     for idx, thread in enumerate(threads, 1):
         path = thread.get("path", "")
-        comments = thread.get("comments", {})
-        if isinstance(comments, dict):
-            nodes = comments.get("nodes", [])
-        elif isinstance(comments, list):
-            nodes = comments
-        else:
-            nodes = []
         bodies = [
-            ((c.get("body") or "").strip().splitlines()[0][:120])
-            for c in nodes
-            if isinstance(c, dict) and c.get("body")
+            ((comment.get("body") or "").strip().splitlines()[0][:120])
+            for comment in _thread_comments(thread=thread)
+            if comment.get("body")
         ]
         summary = "; ".join(bodies) if bodies else "no body"
         if path:
@@ -107,6 +115,42 @@ def _format_threads_for_comment(threads: list[dict]) -> str:
         else:
             lines.append(f"- Thread {idx}: {summary}")
     return "\n".join(lines)
+
+
+async def _record_review_fixes_wiki(
+    task_id: str, project: Project, session: Session, head_branch: str, worktree_path: Path
+) -> None:
+    """Write the wiki page for a successful review-fixes run and enqueue revalidation.
+
+    Both steps are best-effort: failures are logged and never affect the
+    review-fixes result.
+
+    Args:
+        task_id: The Linear task identifier.
+        project: The project the PR belongs to.
+        session: The session record for the task.
+        head_branch: The PR head branch the fixes were pushed to.
+        worktree_path: The worktree the fixes were made in.
+    """
+    try:
+        linear_task = await get_linear_task_by_id(task_id=task_id)
+        if linear_task is not None:
+            context = Context(
+                project=project,
+                auto_mode=True,
+                linear_task=linear_task,
+                branch_name=head_branch,
+                worktree_path=worktree_path,
+                session=session,
+            )
+            await write_session_wiki_page(context=context)
+    except Exception:  # noqa: BLE001
+        logger.warning(msg="Failed to write wiki page for review fixes session, continuing")
+    if WIKI["revalidation_enabled"]:
+        try:
+            queue.enqueue(f=run_wiki_revalidation)
+        except Exception:  # noqa: BLE001
+            logger.warning(msg="Failed to enqueue wiki revalidation, review fixes result unaffected")
 
 
 async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
@@ -260,27 +304,15 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
         return False
 
     finally:
-        if worktree_path and fix_succeeded:
-            try:
-                linear_task = await get_linear_task_by_id(task_id=task_id)
-                if linear_task is not None:
-                    context = Context(
-                        project=project,
-                        auto_mode=True,
-                        linear_task=linear_task,
-                        branch_name=head_branch,
-                        worktree_path=worktree_path,
-                        session=session,
-                    )
-                    await write_session_wiki_page(context=context)
-            except Exception:  # noqa: BLE001
-                logger.warning(msg="Failed to write wiki page for review fixes session, continuing")
-            if WIKI["revalidation_enabled"]:
-                try:
-                    queue.enqueue(f=run_wiki_revalidation)
-                except Exception:  # noqa: BLE001
-                    logger.warning(msg="Failed to enqueue wiki revalidation, review fixes result unaffected")
         if worktree_path:
+            if fix_succeeded:
+                await _record_review_fixes_wiki(
+                    task_id=task_id,
+                    project=project,
+                    session=session,
+                    head_branch=head_branch,
+                    worktree_path=worktree_path,
+                )
             try:
                 await git_worktree_remove(
                     target_path=project.local_path,
@@ -291,5 +323,3 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
                 )
             except (OSError, RuntimeError):
                 logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
-
-    return False

@@ -4,6 +4,10 @@ from typing import Literal, TypedDict
 
 CockieSamesite = Literal["lax", "strict", "none"]
 
+WaitlistEntryType = Literal["email", "github_username"]
+
+WaitlistStatus = Literal["pending", "approved", "rejected", "joined"]
+
 
 class LinearStates(TypedDict):
     prd: str
