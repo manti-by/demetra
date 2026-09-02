@@ -2088,12 +2088,8 @@ class TestWorkflowResearch:
 
         assert result == report
         mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
-        mock_get_linear_config_value.assert_awaited_once_with(
-            name="awaiting_input", user_id=context.project.user_id
-        )
-        mock_update_ticket_status.assert_awaited_once_with(
-            task_id=context.linear_task.id, state_id="state-123"
-        )
+        mock_get_linear_config_value.assert_awaited_once_with(name="awaiting_input", user_id=context.project.user_id)
+        mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
 
     @pytest.mark.asyncio

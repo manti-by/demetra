@@ -1681,9 +1681,7 @@ async def _resolve_encrypted_env_value(
     keys = [key]
     if previous_key and previous_key != key:
         keys.append(previous_key)
-    stored = await _fetch_stored_encrypted_value(
-        owner_column=owner_column, owner_id=owner_id, scope=scope, keys=keys
-    )
+    stored = await _fetch_stored_encrypted_value(owner_column=owner_column, owner_id=owner_id, scope=scope, keys=keys)
     return stored if stored is not None else encrypt_str(plaintext=value)
 
 

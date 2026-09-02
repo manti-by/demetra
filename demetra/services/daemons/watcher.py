@@ -128,10 +128,10 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
 
     Tasks already pending keep their session; new tasks get a pending session
     row, are moved to ``in_progress`` in Linear and then have their workflow
-    enqueued. Every accepted TODO task is moved to ``in_progress``, even on
-    re-pickup: a task can return to TODO while still pending after a failed
-    run and the status update can fail transiently, and re-applying the same
-    state each poll is idempotent in Linear.
+    enqueued. The watcher attempts to move every accepted TODO task to
+    ``in_progress``, including on re-pickup: a task can return to TODO while
+    still pending after a failed run and the status update can fail transiently,
+    and re-applying the same state each poll is idempotent in Linear.
 
     Args:
         tasks: The TODO tasks to process.

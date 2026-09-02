@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import { EnvFileUploadButton } from "./EnvFileUploadButton";
 import { Loader } from "./Loader";
 import { isSensitiveKey, validateEnvKey, type EnvFileEntry } from "../utils/envFile";
@@ -115,15 +115,21 @@ export function EnvSettingsModal<E extends EnvEntry>({
     }
   }, [loadEntries, loadErrorMessage]);
 
+  const fetchEnvironmentRef = useRef(fetchEnvironment);
+
+  useEffect(() => {
+    fetchEnvironmentRef.current = fetchEnvironment;
+  }, [fetchEnvironment]);
+
   useEffect(() => {
     if (isOpen) {
-      fetchEnvironment();
+      fetchEnvironmentRef.current();
       setDraftKey("");
       setDraftValue("");
       setDraftEncrypted(false);
       setEditingKey(null);
     }
-  }, [isOpen, fetchEnvironment]);
+  }, [isOpen]);
 
   const beginEdit = useCallback((entry: E) => {
     setEditingKey(entry.key);

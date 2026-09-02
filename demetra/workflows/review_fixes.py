@@ -46,6 +46,8 @@ def _thread_comments(thread: dict) -> list[dict]:
     comments = thread.get("comments", {})
     if isinstance(comments, dict):
         nodes = comments.get("nodes", [])
+        if not isinstance(nodes, list):
+            nodes = []
     elif isinstance(comments, list):
         nodes = comments
     else:
