@@ -108,6 +108,11 @@ Cursor PR review found two high-severity data-loss paths in the edit flow, both 
 
 ---
 
+> **Consistency note (2026-09-02, post-merge revalidation):** the shared validation
+> constants (`ENV_KEY_RE`, `MAX_ENV_KEY_LENGTH`, `MAX_ENV_VALUE_LENGTH`) shown here as
+> added to `demetra/api/projects.py` now live in `demetra/library/env.py` and are
+> imported by both env API modules; the frontend copy stays in `react/src/utils/envFile.ts`.
+
 ## Follow-ups
 
 - None

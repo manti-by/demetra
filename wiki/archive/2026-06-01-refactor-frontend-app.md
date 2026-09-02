@@ -13,6 +13,9 @@ related: []
 
 # Refactor frontend app
 
+> **Archived on 2026-09-02.** Useful info merged into
+> [[2026-07-22-react-frontend-template-warp]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Refactored and renamed the `hera` frontend app to `react`, normalizing the directory after `hera` had existed as an early scaffold. The rename touched the frontend directory, the Makefile, and docs. The same PR also enhanced GitHub auth validation (preventing unauthorized access attempts), removed legacy FastAPI docs, and bumped the version to 1.10.0.

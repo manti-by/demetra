@@ -13,6 +13,9 @@ related: [2026-07-16-fix-step-status-review-findings.md]
 
 # Refactor API
 
+> **Archived on 2026-09-02.** Useful info merged into
+> [[2026-08-03-check-api-auth-and-credentials]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Split the too-long `demetra/api.py` into a `demetra/api/` package with routers grouped by route prefix (auth/github, projects, sessions, users, watcher, webhooks). The package keeps `@app.get`/`@app.post` decorators by importing `app` from the parent. Missing API tests were added. The refactor bundle landed GitHub OAuth, project CRUD, ticket creation with AI text processing, session tracking with status filtering, websocket log streaming, and user API key management.

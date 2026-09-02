@@ -124,6 +124,12 @@ if is_research_ticket(context=context):
 - Decide if React should surface research settings (label list, model, max attempts) or if env-only is sufficient — currently BE-only.
 - Consider reusing the `openwiki-sessions` mapping and `research` step in session history aggregation (already covered by generic `record_session_step_history` if needed).
 
+> **Consistency note (2026-09-02, post-merge revalidation):** PR #119 review updates —
+> `opencode_research_agent` gained an optional `project_id: str | None = None` parameter
+> (OS-env opt-in tokens, matching plan/build), and the label check was split into
+> `is_research_task(linear_task)` with `is_research_ticket(context)` delegating to it
+> (`demetra/workflows/research.py`). Behavior is unchanged.
+
 ## References
 
 - Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]]

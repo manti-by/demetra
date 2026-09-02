@@ -130,6 +130,13 @@ if code[0] in ("R", "C") and index < len(records):
 
 The 403 signal was `str(e) == "Email not authorized for registration"` / `"GitHub account not authorized"` — reword the message and the frontend's 403 key breaks silently. Added `RegistrationNotAllowedError(AuthError)` and `GitHubAccountNotAuthorizedError(AuthError)`, raised in `services/auth/__init__.py:260,211`, and switched the API handlers to `isinstance` checks.
 
+> **Status update (2026-09-02, post-merge revalidation):** both typed subclasses were
+> removed again by the PR #119 review-updates merge — `RegistrationNotAllowedError` and
+> `GitHubAccountNotAuthorizedError` no longer exist in `demetra/library/exceptions.py`
+> and nothing references them. The signup endpoint now raises plain `AuthError` (400),
+> returns 202 via `WaitlistedError` for blocked users, and is rate-limited per client IP
+> (`auth_rate_limiter`, `demetra/services/utils.py`) before any of that.
+
 ## Test Results
 
 - New tests: `test_utils.py` (4 × `env_get_int`), `test_validate_workflow.py` (stray prose not reported), `test_wiki.py` (similar pages with distinct tickets kept; porcelain `-z` rename/space parsing; empty set on failure), `test_auth_password_api.py` (403 via typed exception).

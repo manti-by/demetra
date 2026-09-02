@@ -13,6 +13,9 @@ related: [2026-08-03-fix-mcp-server-2.0-api.md]
 
 # Add MCP server for the project
 
+> **Archived on 2026-09-02.** Useful info merged into
+> [[2026-08-03-fix-mcp-server-2.0-api]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Added a basic MCP server as a single standalone `mcp_server.py` in the project root, using the `mcp` PyPI package. It exposes streamable-http transport on a configurable port (env), filesystem tools with recursive access to the script's directory (CRUD for files/dirs), and PostgreSQL-only database tools for listing/reading tables and querying counts and rows — with no auth. The same change removed the hardcoded DB password default (env only) and bumped to 1.9.3.

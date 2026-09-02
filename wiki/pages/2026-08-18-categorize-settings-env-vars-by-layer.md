@@ -125,6 +125,14 @@ The blocks below enumerate the changes [MNT-170](https://linear.app/mnt/issue/MN
 > remaining gaps are `UV_PATH` after `setup_project_venv` and project-over-user
 > merge order.
 
+> **Consistency note (2026-09-02, post-merge revalidation):** new system-layer auth
+> settings landed with the PR #119 review updates and belong in the "Out of scope" list
+> above: `AUTH_RATE_LIMIT_MAX` (10), `AUTH_RATE_LIMIT_WINDOW` (3600), plus the cookie
+> name constants `OAUTH_STATE_COOKIE` and `AUTH_COOKIE_NAME`. Env-key validation
+> constants (`ENV_KEY_RE`, `MAX_ENV_KEY_LENGTH`, `MAX_ENV_VALUE_LENGTH`) moved to a new
+> `demetra/library/env.py`. Attempt-limit defaults were also retuned:
+> `MAX_BUILD_ATTEMPTS=50`, `MAX_REVIEW_ATTEMPTS`/`MAX_MERGE_ATTEMPTS`/`MAX_REBASE_ATTEMPTS=10`.
+
 ## Follow-ups
 
 - `users.keys` (the encrypted `keys` column at `demetra/library/tables.py:59`, written by `demetra/services/persistence/database.py:1154` and the `PATCH /api/v1/users/me/keys` endpoint at `demetra/api/users.py:21`) is a vestigial per-user API-key field. With `OPENROUTER_API_KEY` now readable from user-shared env (MNT-170, PR #80), `users.keys` is redundant and can be dropped in a follow-up cleanup ticket along with the `update_user_keys` / `UserKeysUpdateRequest` plumbing.
