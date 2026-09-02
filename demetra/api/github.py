@@ -84,7 +84,12 @@ async def github_callback(
         wl_response.delete_cookie("oauth_state")
         return wl_response
     except AuthError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
+        response.delete_cookie("oauth_state")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e),
+            headers={"Set-Cookie": "oauth_state=; Path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; Max-Age=0"},
+        ) from e
 
 
 @router.get("/me", response_model=UserResponse)

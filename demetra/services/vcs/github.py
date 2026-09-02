@@ -141,7 +141,7 @@ async def get_unresolved_review_threads(
         "repository(owner:$owner,name:$name){"
         "pullRequest(number:$pr){"
         "reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved isOutdated path line comments(first:100){pageInfo{hasNextPage} nodes{body path diffHunk line originalLine author{login} createdAt}}}"
-        "} reviews(first:100){nodes{body author{login} createdAt state}}"
+        "} reviews(first:100){pageInfo{hasNextPage} nodes{body author{login} createdAt state}}"
         "}}}"
     )
 
@@ -177,11 +177,15 @@ async def get_unresolved_review_threads(
         raise RuntimeError(f"Unexpected review threads payload for PR #{pr_number}: {e}") from e
 
     if rt.get("pageInfo", {}).get("hasNextPage"):
-        logger.warning(f"Review threads truncated at 100 for PR #{pr_number}; pagination not fully handled")
+        raise RuntimeError(f"Review threads truncated at 100 for PR #{pr_number}; pagination required")
     for thread in nodes:
         comments = thread.get("comments", {})
         if isinstance(comments, dict) and comments.get("pageInfo", {}).get("hasNextPage"):
-            logger.warning(f"Comments truncated at 100 for a thread on PR #{pr_number}")
+            raise RuntimeError(f"Comments truncated at 100 for a thread on PR #{pr_number}; pagination required")
+
+    reviews_data = pr_data.get("reviews", {})
+    if isinstance(reviews_data, dict) and reviews_data.get("pageInfo", {}).get("hasNextPage"):
+        raise RuntimeError(f"Reviews truncated at 100 for PR #{pr_number}; pagination required")
 
     unresolved: list[dict] = []
     for thread in nodes:
@@ -194,14 +198,15 @@ async def get_unresolved_review_threads(
     # General (non-inline) review bodies are not in reviewThreads; surface them as pseudo-threads
     # so Request-Changes summaries without inline comments are not silently ignored.
     try:
-        reviews = pr_data.get("reviews", {}).get("nodes", [])
+        reviews = reviews_data.get("nodes", []) if isinstance(reviews_data, dict) else []
         for review in reviews:
             if not isinstance(review, dict):
+                continue
+            if review.get("state") != "CHANGES_REQUESTED":
                 continue
             body = (review.get("body") or "").strip()
             if not body:
                 continue
-            # Reviews have no isResolved; include all non-empty general comments
             unresolved.append(
                 {
                     "isResolved": False,

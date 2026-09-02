@@ -34,6 +34,8 @@ _cache_lock = threading.Lock()
 
 SAFE_TASK_ID_PATTERN = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
+_WAITLIST_UNSET: object = object()
+
 
 def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEngine:
     """Create an async SQLAlchemy engine for the given database.
@@ -1130,37 +1132,38 @@ async def insert_waitlist_entry(entry_type: str, value: str, note: str | None) -
 async def update_waitlist_entry(
     entry_id: str,
     *,
-    status: WaitlistStatus | None = None,
-    approved_by: str | None = None,
-    approved_at: datetime | None = None,
-    notified_at: datetime | None = None,
-    joined_at: datetime | None = None,
+    status: WaitlistStatus | object | None = _WAITLIST_UNSET,
+    approved_by: str | object | None = _WAITLIST_UNSET,
+    approved_at: datetime | object | None = _WAITLIST_UNSET,
+    notified_at: datetime | object | None = _WAITLIST_UNSET,
+    joined_at: datetime | object | None = _WAITLIST_UNSET,
 ) -> bool:
     """Update mutable fields of a waitlist entry by id.
 
     Only the provided fields are changed; ``updated_at`` is always bumped.
+    Pass ``None`` explicitly to clear a nullable column.
 
     Args:
         entry_id: The waitlist entry id.
         status: The new status, when set.
-        approved_by: Optional admin user id who approved the entry.
-        approved_at: Timestamp of approval, when set.
-        notified_at: Timestamp of the approval email, when set.
-        joined_at: Timestamp of the user signing up, when set.
+        approved_by: Optional admin user id who approved the entry, or None to clear.
+        approved_at: Timestamp of approval, when set, or None to clear.
+        notified_at: Timestamp of the approval email, when set, or None to clear.
+        joined_at: Timestamp of the user signing up, when set, or None to clear.
 
     Returns:
         bool: True when a row was updated, False when none matched.
     """
     values: dict = {"updated_at": datetime.now(UTC)}
-    if status is not None:
+    if status is not _WAITLIST_UNSET:
         values["status"] = status
-    if approved_by is not None:
+    if approved_by is not _WAITLIST_UNSET:
         values["approved_by"] = approved_by
-    if approved_at is not None:
+    if approved_at is not _WAITLIST_UNSET:
         values["approved_at"] = approved_at
-    if notified_at is not None:
+    if notified_at is not _WAITLIST_UNSET:
         values["notified_at"] = notified_at
-    if joined_at is not None:
+    if joined_at is not _WAITLIST_UNSET:
         values["joined_at"] = joined_at
 
     async with get_connection() as connection:
@@ -1736,7 +1739,7 @@ async def upsert_project_environment(
     else:
         stored_value = value
 
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
         result = await connection.execute(
             text(
                 """
@@ -1765,7 +1768,6 @@ async def upsert_project_environment(
                     & (project_environments.c.scope == "project")
                 )
             )
-        await connection.commit()
 
     if row is None:
         raise RuntimeError("Failed to insert project environment")
@@ -1923,7 +1925,7 @@ async def upsert_user_environment(
     else:
         stored_value = value
 
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
         result = await connection.execute(
             text(
                 """
@@ -1952,7 +1954,6 @@ async def upsert_user_environment(
                     & (project_environments.c.scope == "user")
                 )
             )
-        await connection.commit()
 
     if row is None:
         raise RuntimeError("Failed to insert user environment")

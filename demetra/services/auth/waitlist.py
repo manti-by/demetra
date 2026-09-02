@@ -108,7 +108,14 @@ async def join_waitlist(entry_type: str, value: str, note: str | None = None) ->
     existing = await find_waitlist_entry(entry_type=entry_type, value=normalized)
     if existing:
         if existing["status"] in ("rejected", "approved", "joined"):
-            await update_waitlist_entry(entry_id=existing["id"], status="pending")
+            await update_waitlist_entry(
+                entry_id=existing["id"],
+                status="pending",
+                approved_by=None,
+                approved_at=None,
+                notified_at=None,
+                joined_at=None,
+            )
             logger.info("Reopened waitlist entry %s (%s=%s)", existing["id"], entry_type, normalized)
         return existing["id"]
 

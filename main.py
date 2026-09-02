@@ -14,6 +14,7 @@ from demetra.library.exceptions import (
     UserCancelledError,
     WikiError,
 )
+from demetra.library.models import Context
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
@@ -97,6 +98,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     is_success = False
     should_update_linear_status = True
     failure_step = "failed"
+    research_branch_to_delete: str | None = None
+    research_context: Context | None = None
     try:
         if not context.session:
             context.session = await upsert_pending_session(
@@ -119,20 +122,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             report = await run_research_step(context=context)
             if report is None:
                 return
-            # Research produces no branch/PR to keep; remove the deterministic branch
-            # so a future re-run does not fail at git worktree create because the
-            # branch already exists. Worktree removal itself is handled by the
-            # finally/cleanup_workflow path; branch deletion is done here because
-            # git_cleanup keeps branches on success.
-            try:
-                await git_branch_delete(
-                    target_path=context.project.local_path,
-                    branch_name=context.branch_name,
-                    env=context.project.environment,
-                    project_id=context.project.id,
-                )
-            except (OSError, RuntimeError):
-                pass
+            # Research produces no branch/PR to keep; defer branch deletion until
+            # after the worktree is removed in the finally block.
+            research_branch_to_delete = context.branch_name
+            research_context = context
             is_success = True
             should_update_linear_status = False
             return
@@ -219,6 +212,16 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 should_update_linear_status=should_update_linear_status,
                 failure_step=failure_step,
             )
+        if research_branch_to_delete and research_context:
+            try:
+                await git_branch_delete(
+                    target_path=research_context.project.local_path,
+                    branch_name=research_branch_to_delete,
+                    env=research_context.project.environment,
+                    project_id=research_context.project.id,
+                )
+            except (OSError, RuntimeError):
+                pass
 
 
 if __name__ == "__main__":

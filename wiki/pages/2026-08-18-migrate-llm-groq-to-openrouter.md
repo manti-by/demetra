@@ -3,7 +3,7 @@ title: Migrate LLM summarization from Groq to OpenRouter
 date: 2026-08-18
 type: implementation
 status: resolved
-session_id: -
+session_id: "-"
 services: [llm, openrouter, groq, workflows, wiki, settings, review]
 branch: openrouter
 tickets: [MNT-168, MNT-87, MNT-35]
@@ -142,6 +142,10 @@ Review step runs all agents in parallel. Originally decided in [[2026-05-25-asyn
 ## Consistency fix (2026-09-01)
 
 - Removed self-link in Source section that pointed to this same page (circular reference) — replaced with plain text.
+
+## Consistency fix (2026-09-02)
+
+- Fixed `session_id: -` YAML parse error (quoted as `"-"`).
 
 ## References
 

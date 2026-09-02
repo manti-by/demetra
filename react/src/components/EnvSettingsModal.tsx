@@ -202,6 +202,12 @@ export function EnvSettingsModal<E extends EnvEntry>({
       setError("Enter a value when converting to encrypted");
       return;
     }
+    const isMaskedText =
+      editingEntry?.type === "text" && (editingEntry.value === "********" || isSensitiveKey(editingEntry.key));
+    if (isMaskedText && !draftValue.trim()) {
+      setError("Enter a value for sensitive keys");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -213,11 +219,6 @@ export function EnvSettingsModal<E extends EnvEntry>({
         editingKey,
       );
       if (key !== editingKey) {
-        try {
-          await deleteEntry(editingKey);
-        } catch {
-          // backend handles rename atomically; delete failure is non-fatal
-        }
         setEntries((prev) =>
           sortByKey([...prev.filter((e) => e.key !== editingKey), entry]),
         );
@@ -237,7 +238,7 @@ export function EnvSettingsModal<E extends EnvEntry>({
     } finally {
       setSaving(false);
     }
-  }, [draftKey, draftValue, draftEncrypted, editingKey, entries, upsertEntry, deleteEntry]);
+  }, [draftKey, draftValue, draftEncrypted, editingKey, entries, upsertEntry]);
 
   const handleUpload = useCallback(
     async (fileEntries: EnvFileEntry[]) => {

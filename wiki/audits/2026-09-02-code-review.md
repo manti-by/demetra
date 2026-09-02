@@ -2,7 +2,7 @@
 
 **Date:** 2026-09-02  
 **Sources merged:** `CR_OPUS_v1.md` (11 findings), `CR_OPUS_v2.md` (7 findings), `CR_SONET_v1.md` (15 findings), `CR_SONET_v2.md` (15 findings) — 48 raw findings → 26 deduplicated groups  
-**Validation method:** each finding re-checked against current `HEAD` source (`read` + `grep`), then checked against the current test/build baseline. Results: 18 active findings confirmed as written, 6 confirmed with qualifications, and 2 already fixed. File:line references are current.
+**Validation method:** each finding re-checked against current `HEAD` source (`read` + `grep`), then checked against the current test/build baseline. Results: 19 active findings confirmed as written, 5 confirmed with qualifications, and 2 already fixed. File:line references are current.
 
 ---
 
@@ -209,7 +209,7 @@
 ### 4.1 `MAX_REVIEW_FIXES_ATTEMPTS` dead config / no retry — **Fixed**
 
 - **Sources:** OPUS_v1#8, SONET_v1#9
-- **Validation:** `grep -rn MAX_REVIEW_FIXES` returns zero hits. `demetra/settings.py` currently defines `MAX_BUILD_ATTEMPTS`, `MAX_REVIEW_ATTEMPTS`, `MAX_RESEARCH_ATTEMPTS`, etc., but no `MAX_REVIEW_FIXES_ATTEMPTS`. Finding was valid at review snapshot but the constant has since been removed (or never merged). `run_review_fixes_workflow` single-pass behavior remains, but the dead env var is gone.
+- **Validation:** A search limited to production source, excluding audit documentation, returns zero hits for `MAX_REVIEW_FIXES`. `demetra/settings.py` currently defines `MAX_BUILD_ATTEMPTS`, `MAX_REVIEW_ATTEMPTS`, `MAX_RESEARCH_ATTEMPTS`, etc., but no `MAX_REVIEW_FIXES_ATTEMPTS`. Finding was valid at review snapshot but the constant has since been removed (or never merged). `run_review_fixes_workflow` single-pass behavior remains, but the dead env var is gone.
 
 ### 4.2 Redundant re-fetch in `approve_waitlist_entry` — **Fixed**
 

@@ -43,6 +43,62 @@ def get_worktree_path(project: Project, branch_name: str) -> Path:
     return GIT["worktree_path"] / project.repository_owner / project.repository_name / branch_name
 
 
+async def _branch_has_unique_commits(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Return whether a local branch contains commits not on its remote or base.
+
+    Checks ``origin/<branch>..<branch>`` when the remote branch exists,
+    otherwise ``origin/master..<branch>``. A non-zero count means the branch
+    would lose commits if force-deleted.
+
+    Args:
+        target_path: Directory of the main checkout to run git in.
+        branch_name: The branch to inspect.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when the branch has unique commits that would be lost.
+    """
+    # Check if local branch exists
+    verify_cmd = [str(GIT["path"]), "show-ref", "--verify", f"refs/heads/{branch_name}"]
+    exit_code, _, _ = await run_command(
+        command=verify_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    if exit_code != 0:
+        return False
+
+    # Prefer origin/<branch> as base when it exists
+    remote_branch = f"origin/{branch_name}"
+    remote_verify = [str(GIT["path"]), "show-ref", "--verify", f"refs/remotes/{remote_branch}"]
+    remote_exit, _, _ = await run_command(
+        command=remote_verify, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    base = remote_branch if remote_exit == 0 else "origin/master"
+    # If origin/master also missing, fall back to counting all commits on branch
+    count_cmd = [str(GIT["path"]), "rev-list", "--count", f"{base}..{branch_name}"]
+    count_exit, stdout, _ = await run_command(
+        command=count_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    if count_exit != 0:
+        # If base doesn't exist, count commits on branch directly
+        fallback_cmd = [str(GIT["path"]), "rev-list", "--count", branch_name]
+        fallback_exit, fallback_out, _ = await run_command(
+            command=fallback_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        )
+        if fallback_exit == 0:
+            try:
+                return int(fallback_out.strip()) > 0
+            except ValueError:
+                return True
+        return True
+    try:
+        return int(stdout.strip()) > 0
+    except ValueError:
+        return True
+
+
 async def git_worktree_create(
     project: Project, branch_name: str, env: dict[str, str] | None = None, create_branch: bool = True
 ) -> Path:
@@ -72,7 +128,14 @@ async def git_worktree_create(
             )
         else:
             shutil.rmtree(worktree_path)
-        await git_branch_delete(target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id)
+        if await _branch_has_unique_commits(
+            target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+        ):
+            logger.warning(f"Preserving branch {branch_name} with unique commits; skipping force-delete")
+        else:
+            await git_branch_delete(
+                target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+            )
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -81,9 +144,14 @@ async def git_worktree_create(
         # local branch), the worktree path no longer exists so the stale-branch
         # cleanup above did not run. Ensure the branch does not already exist.
         if not worktree_path.exists():
-            await git_branch_delete(
+            if await _branch_has_unique_commits(
                 target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
-            )
+            ):
+                logger.warning(f"Preserving orphaned branch {branch_name} with unique commits; skipping force-delete")
+            else:
+                await git_branch_delete(
+                    target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+                )
         command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
     else:
         branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
@@ -297,17 +365,20 @@ async def git_has_unpushed_commits(
 
     Returns:
         bool: True when there are unpushed commits.
+
+    Raises:
+        RuntimeError: When the git command fails or its output is malformed.
     """
     cmd = [str(GIT["path"]), "rev-list", "--count", f"origin/{branch_name}..HEAD"]
-    exit_code, stdout, _ = await run_command(
+    exit_code, stdout, stderr = await run_command(
         command=cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
     )
     if exit_code != 0:
-        return False
+        raise RuntimeError(f"Failed to check unpushed commits for {branch_name}: {stderr.strip() or 'unknown error'}")
     try:
         return int(stdout.strip()) > 0
-    except ValueError:
-        return False
+    except ValueError as e:
+        raise RuntimeError(f"Malformed rev-list output for {branch_name}: {stdout.strip()!r}") from e
 
 
 async def git_force_push(
