@@ -21,6 +21,7 @@ venv/
 .env.docker
 
 .opencode/package-lock.json
+.claude/
 
 .DS_Store
 
