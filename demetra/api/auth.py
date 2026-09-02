@@ -3,7 +3,7 @@ import json
 from fastapi import APIRouter, Cookie, HTTPException, Response
 
 from demetra.api.responses import waitlisted_response
-from demetra.library.exceptions import AuthError, RegistrationNotAllowedError, WaitlistedError
+from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import LoginRequest, SignupRequest
 from demetra.services.auth import login_with_password, logout, signup_with_password
 from demetra.settings import COOKIE_SAMESITE, COOKIE_SECURE
@@ -76,8 +76,7 @@ async def signup(request: SignupRequest) -> Response:
     except WaitlistedError as e:
         return waitlisted_response(entry_id=e.entry_id)
     except AuthError as e:
-        status_code = 403 if isinstance(e, RegistrationNotAllowedError) else 400
-        raise HTTPException(status_code=status_code, detail=str(e)) from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
     return _set_auth_cookie(
         response=_auth_response(auth_response=auth_response),

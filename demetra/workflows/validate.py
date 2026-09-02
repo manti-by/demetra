@@ -14,6 +14,7 @@ async def run_validate_agent(
     target_path: Path,
     build_plan: str,
     env: dict[str, str] | None = None,
+    project_id: str | None = None,
     user_environment: dict[str, str] | None = None,
 ) -> str | None:
     """Run the validate agent and return missing plan items, or None on full coverage.
@@ -38,7 +39,11 @@ async def run_validate_agent(
     print_message(message="Running VALIDATE agent", style="heading")
 
     exit_code, stdout, stderr = await opencode_validate_agent(
-        target_path=target_path, build_plan=build_plan, env=env, user_environment=user_environment
+        target_path=target_path,
+        build_plan=build_plan,
+        env=env,
+        project_id=project_id,
+        user_environment=user_environment,
     )
     if exit_code != 0:
         raise BuildError(

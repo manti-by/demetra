@@ -21,6 +21,7 @@ from demetra.services.linear import get_linear_config_value, post_comment, updat
 from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
+from demetra.services.vcs.git import git_branch_delete
 from demetra.settings import (
     DEFAULT_USER_ID,
     LOGGING,
@@ -118,6 +119,20 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             report = await run_research_step(context=context)
             if report is None:
                 return
+            # Research produces no branch/PR to keep; remove the deterministic branch
+            # so a future re-run does not fail at git worktree create because the
+            # branch already exists. Worktree removal itself is handled by the
+            # finally/cleanup_workflow path; branch deletion is done here because
+            # git_cleanup keeps branches on success.
+            try:
+                await git_branch_delete(
+                    target_path=context.project.local_path,
+                    branch_name=context.branch_name,
+                    env=context.project.environment,
+                    project_id=context.project.id,
+                )
+            except (OSError, RuntimeError):
+                pass
             is_success = True
             should_update_linear_status = False
             return

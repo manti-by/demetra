@@ -107,7 +107,7 @@ async def join_waitlist(entry_type: str, value: str, note: str | None = None) ->
     normalized = normalize_value(entry_type, value)
     existing = await find_waitlist_entry(entry_type=entry_type, value=normalized)
     if existing:
-        if existing["status"] == "rejected":
+        if existing["status"] in ("rejected", "approved", "joined"):
             await update_waitlist_entry(entry_id=existing["id"], status="pending")
             logger.info("Reopened waitlist entry %s (%s=%s)", existing["id"], entry_type, normalized)
         return existing["id"]
@@ -176,10 +176,10 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     """Promote a waitlist entry into the allowlist, unlocking sign-in.
 
     Looks up the waitlist row, inserts a matching ``allowlist_entries`` row
-    via the existing allowlist service, sends the approval email, then flips
-    the waitlist status to ``approved`` with ``notified_at`` only when the
-    notification succeeded (a provider failure leaves the entry ``pending``
-    so approval can be retried).
+    via the existing allowlist service, marks the waitlist status as
+    ``approved``, then sends the approval email and records ``notified_at``
+    only when notification succeeds. The email is sent after the allowlist
+    write so the user is never notified before they are actually allowlisted.
 
     Args:
         entry_id: The waitlist entry id.
@@ -197,9 +197,6 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
     if entry["status"] != "pending":
         raise AuthError(f"Waitlist entry cannot be approved (status: {entry['status']})")
 
-    now = datetime.now(UTC)
-    notified_at = now if send_approval_email(entry) else None
-
     try:
         await add_entry(
             entry_type=entry["entry_type"],
@@ -214,13 +211,21 @@ async def approve_waitlist_entry(entry_id: str, approved_by: str | None = None) 
         if existing is None:
             raise
 
+    now = datetime.now(UTC)
     await update_waitlist_entry(
         entry_id=entry_id,
         status="approved",
         approved_by=approved_by,
         approved_at=now,
-        notified_at=notified_at,
     )
+
+    try:
+        sent = send_approval_email(entry)
+    except Exception:
+        logger.warning("Failed to send approval email for waitlist entry %s", entry_id, exc_info=True)
+        sent = False
+    if sent:
+        await update_waitlist_entry(entry_id=entry_id, notified_at=now)
 
     return await find_allowlist_entry(entry_type=entry["entry_type"], value=entry["value"])
 

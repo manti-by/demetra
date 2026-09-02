@@ -15,8 +15,11 @@ def waitlisted_response(entry_id: str | None) -> Response:
         Response: The 202 JSON response with the waitlisted status.
     """
     waitlisted = WaitlistedResponse(entry_id=entry_id)
+    body: dict[str, str | None] = {"status": waitlisted.status, "message": waitlisted.message}
+    if waitlisted.entry_id is not None:
+        body["entry_id"] = waitlisted.entry_id
     return Response(
-        content=json.dumps({"status": waitlisted.status, "message": waitlisted.message}),
+        content=json.dumps(body),
         media_type="application/json",
         status_code=202,
     )

@@ -4,7 +4,7 @@ from fastapi import APIRouter, Cookie, Depends, HTTPException, Response
 from fastapi.responses import RedirectResponse
 
 from demetra.api.responses import waitlisted_response
-from demetra.library.exceptions import AuthError, GitHubAccountNotAuthorizedError, WaitlistedError
+from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import UserResponse
 from demetra.services.auth import (
     authenticate_user,
@@ -65,11 +65,12 @@ async def github_callback(
                 "avatar_url": auth_response.user.avatar_url,
             },
         }
-        response = Response(
+        success_response = Response(
             content=json.dumps(response_data),
             media_type="application/json",
         )
-        response.set_cookie(
+        success_response.delete_cookie("oauth_state")
+        success_response.set_cookie(
             key="auth_token",
             value=auth_response.token,
             httponly=True,
@@ -77,12 +78,13 @@ async def github_callback(
             samesite=COOKIE_SAMESITE,
             max_age=14 * 24 * 60 * 60,
         )
-        return response
+        return success_response
     except WaitlistedError as e:
-        return waitlisted_response(entry_id=e.entry_id)
+        wl_response = waitlisted_response(entry_id=e.entry_id)
+        wl_response.delete_cookie("oauth_state")
+        return wl_response
     except AuthError as e:
-        status_code = 403 if isinstance(e, GitHubAccountNotAuthorizedError) else 400
-        raise HTTPException(status_code=status_code, detail=str(e)) from e
+        raise HTTPException(status_code=400, detail=str(e)) from e
 
 
 @router.get("/me", response_model=UserResponse)

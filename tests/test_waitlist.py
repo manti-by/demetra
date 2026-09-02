@@ -159,14 +159,13 @@ class TestApproveWaitlist:
         entry_id = await join_waitlist(entry_type="email", value=email)
 
         with patch("demetra.services.auth.waitlist.send_approval_email", side_effect=RuntimeError("smtp down")):
-            with pytest.raises(RuntimeError, match="smtp down"):
-                await approve_waitlist_entry(entry_id=entry_id, approved_by=None)
+            await approve_waitlist_entry(entry_id=entry_id, approved_by=None)
 
         entries = await list_waitlist_entries()
         entry = next(e for e in entries if e["id"] == entry_id)
-        assert entry["status"] == "pending"
+        assert entry["status"] == "approved"
         assert entry["notified_at"] is None
-        assert await is_email_allowed(email=email) is False
+        assert await is_email_allowed(email=email) is True
 
 
 class TestWaitlistRetainedAfterSignup:

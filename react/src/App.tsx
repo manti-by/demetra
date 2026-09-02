@@ -103,6 +103,22 @@ function AppContent() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [sidebarOpen]);
 
+  useEffect(() => {
+    if (typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia("(min-width: 769px)");
+    const handleChange = () => {
+      if (mql.matches) setSidebarOpen(false);
+    };
+    handleChange();
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener("change", handleChange);
+      return () => mql.removeEventListener("change", handleChange);
+    }
+    // Fallback for Safari / older jsdom
+    mql.addListener(handleChange);
+    return () => mql.removeListener(handleChange);
+  }, []);
+
   const handleSelectSession = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
     setSidebarOpen(false);

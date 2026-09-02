@@ -77,6 +77,13 @@ async def git_worktree_create(
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
 
     if create_branch:
+        # If a previous run orphaned the branch (e.g. research success leaves the
+        # local branch), the worktree path no longer exists so the stale-branch
+        # cleanup above did not run. Ensure the branch does not already exist.
+        if not worktree_path.exists():
+            await git_branch_delete(
+                target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+            )
         command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
     else:
         branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
@@ -275,6 +282,32 @@ async def git_rebase(
     if exit_code == 0:
         return True
     raise RuntimeError(f"Rebase failed: {stderr.strip()}")
+
+
+async def git_has_unpushed_commits(
+    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+) -> bool:
+    """Return whether the branch has local commits not on the remote.
+
+    Args:
+        target_path: Directory of the git repository.
+        branch_name: The branch to compare against its remote tracking branch.
+        env: Optional environment overrides for the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when there are unpushed commits.
+    """
+    cmd = [str(GIT["path"]), "rev-list", "--count", f"origin/{branch_name}..HEAD"]
+    exit_code, stdout, _ = await run_command(
+        command=cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+    )
+    if exit_code != 0:
+        return False
+    try:
+        return int(stdout.strip()) > 0
+    except ValueError:
+        return False
 
 
 async def git_force_push(

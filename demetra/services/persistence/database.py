@@ -1676,7 +1676,7 @@ async def _resolve_encrypted_env_value(
     """
     from demetra.services.persistence.encryption import encrypt_str
 
-    if value:
+    if value.strip():
         return encrypt_str(plaintext=value)
     keys = [key]
     if previous_key and previous_key != key:
@@ -1756,8 +1756,16 @@ async def upsert_project_environment(
                 "type": env_type,
             },
         )
-        await connection.commit()
         row = result.fetchone()
+        if previous_key and previous_key != key:
+            await connection.execute(
+                delete(project_environments).where(
+                    (project_environments.c.project_id == project_id)
+                    & (project_environments.c.key == previous_key)
+                    & (project_environments.c.scope == "project")
+                )
+            )
+        await connection.commit()
 
     if row is None:
         raise RuntimeError("Failed to insert project environment")
@@ -1935,8 +1943,16 @@ async def upsert_user_environment(
                 "type": env_type,
             },
         )
-        await connection.commit()
         row = result.fetchone()
+        if previous_key and previous_key != key:
+            await connection.execute(
+                delete(project_environments).where(
+                    (project_environments.c.user_id == user_id)
+                    & (project_environments.c.key == previous_key)
+                    & (project_environments.c.scope == "user")
+                )
+            )
+        await connection.commit()
 
     if row is None:
         raise RuntimeError("Failed to insert user environment")

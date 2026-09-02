@@ -73,6 +73,7 @@ async def run_plan_step(context: Context) -> str | None:
             task=current_task,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
+            project_id=context.project.id,
             user_environment=context.project.user_environment,
         )
         if exit_code != 0:

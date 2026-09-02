@@ -76,14 +76,14 @@ export function PasswordAuthForm() {
         {mode === 'login' ? (
           <>
             No account?{' '}
-            <button type="button" className="auth-link" onClick={() => { setMode('signup'); setError(null); }}>
+            <button type="button" className="auth-link" onClick={() => { setMode('signup'); setError(null); setWaitlistMessage(null); }}>
               Create one
             </button>
           </>
         ) : (
           <>
             Already have an account?{' '}
-            <button type="button" className="auth-link" onClick={() => { setMode('login'); setError(null); }}>
+            <button type="button" className="auth-link" onClick={() => { setMode('login'); setError(null); setWaitlistMessage(null); }}>
               Sign in
             </button>
           </>

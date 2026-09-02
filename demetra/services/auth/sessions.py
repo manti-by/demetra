@@ -1,3 +1,4 @@
+import logging
 import secrets
 
 from fastapi import Cookie, HTTPException
@@ -5,6 +6,9 @@ from fastapi import Cookie, HTTPException
 import demetra.services.auth as service
 from demetra.library.exceptions import AuthError, WaitlistedError
 from demetra.library.models import AuthResponse, GitHubUser, UserResponse
+
+
+logger = logging.getLogger(__name__)
 
 
 async def get_or_create_user(github_user: GitHubUser) -> str:
@@ -59,7 +63,11 @@ async def authenticate_user(github_user: GitHubUser) -> AuthResponse:
         raise AuthError("User not found after creation")
 
     # Audit: retain the waitlist row once the GitHub account is in.
-    await service.mark_waitlist_joined_by_value(entry_type="github_username", value=github_user.login)
+    # Best-effort: must not fail a successful login/signup.
+    try:
+        await service.mark_waitlist_joined_by_value(entry_type="github_username", value=github_user.login)
+    except Exception:
+        logger.warning("Failed to mark waitlist joined for github login %s", github_user.login, exc_info=True)
 
     return AuthResponse(
         token=token,
@@ -122,7 +130,11 @@ async def signup_with_password(email: str, password: str) -> AuthResponse:
         raise AuthError("User not found after creation")
 
     # Audit: retain the waitlist row once the user signs up.
-    await service.mark_waitlist_joined_by_value(entry_type="email", value=email)
+    # Best-effort: must not fail a successful signup.
+    try:
+        await service.mark_waitlist_joined_by_value(entry_type="email", value=email)
+    except Exception:
+        logger.warning("Failed to mark waitlist joined for email %s", email, exc_info=True)
 
     return AuthResponse(
         token=token,

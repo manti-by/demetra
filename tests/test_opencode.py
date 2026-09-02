@@ -58,6 +58,7 @@ class TestOpencodeService:
             model=OPENCODE["plan_model"],
             agent="plan-agent",
             env=None,
+            project_id=None,
             user_environment=None,
         )
         assert result is not None
@@ -141,6 +142,7 @@ class TestOpencodeService:
             model=OPENCODE["resolve_model"],
             agent="resolve-agent",
             env=None,
+            project_id=None,
             user_environment=None,
         )
         assert result is not None
@@ -182,6 +184,7 @@ class TestOpencodeValidateAgent:
             model=OPENCODE["validate_model"],
             agent="validate-agent",
             env=None,
+            project_id=None,
             user_environment=None,
         )
         assert result is not None
@@ -572,6 +575,7 @@ class TestOpencodeResearchAgent:
             model=OPENCODE["research_model"],
             agent="research-agent",
             env=None,
+            project_id=None,
             user_environment=None,
         )
         assert result == (0, "output", "")

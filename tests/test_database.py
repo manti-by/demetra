@@ -697,7 +697,7 @@ class TestProjectEnvironmentType:
         assert entry["value"] == "********"
 
         env = await get_project_environments(project_id)
-        assert env == {"API_KEY": "topsecret", "API_KEY_V2": "topsecret"}
+        assert env == {"API_KEY_V2": "topsecret"}
 
     @pytest.mark.asyncio
     async def test_list_environments_raises_for_missing_project(self, setup_test_db):
@@ -989,7 +989,7 @@ class TestUserEnvironmentType:
         assert entry["value"] == "********"
 
         env = await get_user_environments_decrypted(user_id=user_id)
-        assert env == {"API_TOKEN": "topsecret", "API_TOKEN_V2": "topsecret"}
+        assert env == {"API_TOKEN_V2": "topsecret"}
 
 
 class TestRunAttempts:
