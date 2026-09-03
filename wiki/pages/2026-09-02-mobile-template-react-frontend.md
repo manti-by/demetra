@@ -144,7 +144,7 @@ Verification after the fix: `tsc --noEmit` clean, 61/61 tests still pass. Deskto
 
 ## Follow-ups
 
-- PR #117 awaits review/merge; Linear ticket MNT-193 should move to In Review with the PR (done by hand — no Linear access from this session).
+- PR #117 has been merged to `master` (MNT-193 commits `302b278`/`832d912`/`111fdd8` are on `master` as of 2026-09-03); the "awaits review/merge" framing above is kept as the session record. Linear ticket MNT-193 should now be in Done (was: move to In Review by hand — no Linear access from the originating session).
 - Drawer has no swipe-to-dismiss gesture (Escape and the close button work); the grab handle is decorative.
 - Session tab bar renders all sessions (scrollable); consider capping/most-recent if lists grow large.
 - Grouping of the session list (e.g. by step) was deemed not applicable for now — search + cards covers the acceptance criterion.

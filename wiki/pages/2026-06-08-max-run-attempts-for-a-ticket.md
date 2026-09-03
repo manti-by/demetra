@@ -38,7 +38,7 @@ Workflow runs for a single Linear ticket were unbounded: the watcher re-triggere
 
 **File:** `sessions` table
 
-Added the `run_attempts` field to the `sessions` model. Each watcher-triggered workflow run increments the counter for that ticket's session.
+Added the `run_attempts` field to the `sessions` model. Only failed workflow runs increment the counter for that ticket's session (corrected in [[2026-07-21-rich-markuperror-and-run-attempts]] — the original form incremented on every watcher call).
 
 ## Step 2 — Cap runs via project settings
 
@@ -59,6 +59,8 @@ When the counter exceeds `MAX_RUN_ATTEMPTS` (the guard is `run_attempts > MAX_RU
 Basic tests added covering the increment path and the cap-triggered bail-out (comment posted, ticket moved, no workflow run). The increment semantics were later corrected so only actual failures count — see [[2026-07-21-rich-markuperror-and-run-attempts]].
 
 ---
+
+> **Consistency note (2026-09-03, Consistency Agent):** Corrected the Step 1 sentence above — it still described the original every-run increment, contradicting the Overview/TL;DR (fixed 2026-07-21) and current `demetra/services/daemons/watcher.py:99` (`increment_run_attempts` runs only after a non-zero exit, timeout, or process error).
 
 ## Follow-ups
 

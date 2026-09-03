@@ -314,6 +314,8 @@ Re-verified every file:line reference above against current master (2026-08-27):
 
 > **Consistency note (2026-08-28, Consistency Agent):** Added missing `branch: "-"` frontmatter to match `wiki/TEMPLATE.md`.
 
+> **Consistency note (2026-09-03, Consistency Agent):** Re-verified file:line refs against current master — recommendations' open/done states are unchanged (rec 2 still adds `msg_cache_read`, rec 3 still open and deliberate, rec 4 still no TTL cache on the export), but lines drifted again since the 2026-08-27 note: compaction caller `demetra/workflows/build.py:100` → `:102`; `usage.context` assignment `demetra/services/agents/opencode.py:428` → `:524` (export itself at `:432-451`); `context_tokens`/`model` columns `demetra/library/tables.py:142-143` → `:162-163`; the two `cleanup.py` history-recording catches `:135,177` → `:134,179` (plus the wiki-step's own `except` at `:54`).
+
 ## References
 
 - Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]]

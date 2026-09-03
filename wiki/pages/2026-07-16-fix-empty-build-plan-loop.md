@@ -15,7 +15,7 @@ related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-pla
 
 ## TL;DR
 
-Fixed a permanent workflow stall where a run failing before a plan is saved (e.g., due to a Linear API `null` response) locks the session into an unplannable state. Three fixes: (1) replan whenever `build_plan` is empty, not just when `step == 'initial'`; (2) reject malformed Linear payloads as `LinearError` instead of crashing; (3) enable fallback session ID so stuck-pending sessions can be recovered. All 472 tests pass; 11 new tests added.
+Fixed a permanent workflow stall where a run failing before a plan is saved (e.g., due to a Linear API `null` response) locks the session into an unplannable state. Three fixes: (1) replan whenever `build_plan` is empty, not just when `step == 'initial'`; (2) reject malformed Linear payloads as `LinearError` instead of crashing; (3) enable fallback session ID so stuck-pending sessions can be recovered. All 472 tests pass; 9 new tests added.
 
 ---
 
@@ -125,6 +125,8 @@ return fallback_session_id
 ---
 
 ## Test Results
+
+> **Consistency note (2026-09-03, Consistency Agent):** Corrected the TL;DR count above (11 → 9) to match the enumerated list below (3 + 3 + 3).
 
 All tests pass; 9 new tests added.
 

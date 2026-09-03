@@ -111,6 +111,10 @@ The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155
 
 - Frontmatter `title` quoted to preserve `#70` (unquoted `#` is a YAML comment and truncated the title to `MNT-147 Wiki processes PR`).
 
+## Consistency note (2026-09-03, Consistency Agent)
+
+- The `OPENCODE_REVIEW_MODELS` default list quoted in Finding 1 (`[..., "opencode-go/minimax-m3"]`) was the transient 2026-08-05 state (swapped in by [[2026-08-05-post-build-validation]], reverted by the 2026-08-23 note on that page). Current `demetra/settings.py:148` defaults to `["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]`. The `env_get_list` unset bug itself is fixed regardless of the default contents.
+
 ## References
 
 - Related: [[2026-08-06-allowlist-review-fixes]], [[2026-08-03-wiki-mcp-tools]]
