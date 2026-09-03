@@ -8,7 +8,7 @@ services: [api, persistence, react]
 branch: feature/mnt-192-add-edit-button-for-env-settings
 tickets: [MNT-192]
 tags: [env, frontend, encryption]
-related: [2026-08-10-process-environment-3-layers-encryption-uv-venv]
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
 ---
 
 # MNT-192 Add edit button for env settings
@@ -121,3 +121,5 @@ Cursor PR review found two high-severity data-loss paths in the edit flow, both 
 
 - Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - Ticket: https://linear.app/mnt/issue/MNT-192/add-edit-button-for-env-settings
+
+> **Consistency note (2026-09-03, Consistency Agent):** Fixed `related` frontmatter — added missing `.md` extension to `2026-08-10-process-environment-3-layers-encryption-uv-venv.md` to match body `[[...]]` link and `wiki/pages/` convention.

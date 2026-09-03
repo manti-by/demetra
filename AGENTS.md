@@ -8,13 +8,13 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 
 - `main.py`: CLI entry point and supervisor orchestration
 - `demetra/settings.py`: Core configuration and environment variables
-- `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants)
-- `demetra/services/`: External system integrations (Linear, GitHub, OpenCode, etc.)
+- `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants, env validation in `env.py`)
+- `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/` plus `utils.py` waitlist helper)
 - `demetra/queries/`: GraphQL queries
-- `demetra/workflows/`: Workflow orchestration steps
+- `demetra/workflows/`: Workflow orchestration steps (plan, research, build, validate, review, lint, wiki, etc.)
 - `demetra/api/`: FastAPI REST endpoints
 - `demetra/tools/`: MCP tool definitions
-- `demetra/prompts/`: LLM prompt templates
+- `demetra/prompts/`: LLM prompt templates (`research_agent`, `validate_agent`, etc.)
 - `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
 - `demetra/app.py`: FastAPI application
 - `demetra/mcp_server.py`: MCP server
@@ -137,14 +137,14 @@ uv run bandit -c pyproject.toml .
 
 **Naming** (ruff N enforces most):
 - Modules: `snake_case.py`; tests mirror at `tests/test_<module>.py`
-- Classes: `PascalCase`; dataclasses in `library/models.py`, TypedDicts in `library/types.py`
+- Classes: `PascalCase`; dataclasses in `library/models.py`, TypedDicts in `library/types.py`, env validation in `library/env.py`
 - Functions: `snake_case`; module-level private helpers use a leading `_` (e.g. `demetra/tools/wiki.py`, `demetra/tools/database.py`); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
 - Constants: `UPPER_SNAKE_CASE`; env-driven ones live in `demetra/settings.py`
 
 **Architecture** (strict layering, no skipping):
 - `demetra/library/` — pure: dataclasses, TypedDicts, exceptions, tables. No I/O.
 - `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); each subpackage's `__init__.py` acts as the public facade. Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
-- `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*` (includes `review_fixes.py` for the `@demetra-ai fix review findings` listener flow).
+- `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*` (includes `review_fixes.py` for the `@demetra-ai fix review findings` listener flow and `research.py` for the `Research` label loop).
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
 - `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `projects.py`, `wiki.py`) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them, re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
