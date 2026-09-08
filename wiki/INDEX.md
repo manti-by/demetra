@@ -1,5 +1,7 @@
 # Demetra Wiki - Index
 
+- [[2026-09-08-docstring-mcp-search]] — Docstring MCP Search
+
 Session knowledge base for the Demetra project - one Markdown page per debugging
 chase, investigation, code review, or set of changes. See [README.md](README.md) for conventions
 and [TEMPLATE.md](TEMPLATE.md) for the page template. New pages are added and updated automatically
