@@ -43,6 +43,7 @@ Set environment variables via `.env` or shell, check [settings.py](demetra/setti
 make check         # Type checking + pre-commit
 make test          # Run tests
 make ci            # Run a full CI pipline
+make docs          # Generate API documentation in docs/
 ```
 
 See [AGENTS.md](AGENTS.md) and [Wiki](wiki/INDEX.md) for development guidelines and detailed info.
