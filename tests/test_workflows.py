@@ -2036,6 +2036,11 @@ class TestWorkflowResearch:
         with patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
+    @pytest.fixture
+    def mock_update_session_research_report(self):
+        with patch("demetra.workflows.research.update_session_research_report", new_callable=AsyncMock) as m:
+            yield m
+
     @staticmethod
     def _make_context(faker, labels=None):
         return Context(
@@ -2068,11 +2073,12 @@ class TestWorkflowResearch:
         )
 
     @pytest.mark.asyncio
-    async def test_run_research_step_posts_report_and_moves_to_awaiting_input(
+    async def test_run_research_step_posts_report_and_moves_to_researched(
         self,
         faker,
         mock_research_agent,
         mock_post_comment,
+        mock_update_session_research_report,
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
@@ -2087,10 +2093,42 @@ class TestWorkflowResearch:
         result = await run_research_step(context)
 
         assert result == report
+        mock_update_session_research_report.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_report=report
+        )
         mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
         mock_get_linear_config_value.assert_awaited_once_with(name="awaiting_input", user_id=context.project.user_id)
         mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
-        assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
+        assert mock_update_session_step.call_args.kwargs["step"] == "researched"
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_saves_research_report_before_posting_comment(
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_update_session_research_report,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+    ):
+        context = self._make_context(faker)
+        report = f"{RESEARCH_HEADER_STRING}\nFindings body."
+
+        async def assert_not_posted(*args, **kwargs):
+            mock_post_comment.assert_not_awaited()
+
+        mock_research_agent.return_value = (0, report, "")
+        mock_post_comment.return_value = True
+        mock_get_linear_config_value.return_value = "state-123"
+        mock_update_ticket_status.return_value = True
+        mock_update_session_research_report.side_effect = assert_not_posted
+
+        await run_research_step(context)
+
+        mock_update_session_research_report.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_report=report
+        )
+        mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
 
     @pytest.mark.asyncio
     async def test_run_research_step_retries_after_agent_failure(
@@ -2098,6 +2136,7 @@ class TestWorkflowResearch:
         faker,
         mock_research_agent,
         mock_post_comment,
+        mock_update_session_research_report,
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
@@ -2130,14 +2169,24 @@ class TestWorkflowResearch:
 
     @pytest.mark.asyncio
     async def test_run_research_step_raises_when_comment_fails(
-        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_update_session_research_report,
+        mock_update_session_step,
     ):
         context = self._make_context(faker)
-        mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")
+        report = f"{RESEARCH_HEADER_STRING}\nFindings."
+        mock_research_agent.return_value = (0, report, "")
         mock_post_comment.return_value = False
 
         with pytest.raises(LinearError):
             await run_research_step(context)
+
+        mock_update_session_research_report.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_report=report
+        )
 
     @pytest.mark.asyncio
     async def test_is_research_ticket_matches_labels_case_insensitively(self, faker):
