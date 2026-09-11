@@ -49,6 +49,7 @@ dev = [
     "ty>=0.0.77",
     "pre-commit>=4.6.2",
     "uv-bump>=0.6.0",
+    "pdoc>=16.0.0",
 ]
 
 [tool.pytest.ini_options]

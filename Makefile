@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build
+.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -54,6 +54,9 @@ test-slow:
 
 test-cov:
 	uv run pytest tests/ --cov=demetra --cov-report=term-missing --cov-report=html --cov-fail-under=65
+
+docs:
+	uv run pdoc --output-directory docs demetra
 
 migrate:
 	uv run alembic upgrade head
