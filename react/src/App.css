@@ -1011,6 +1011,10 @@
   background: var(--color-error);
 }
 
+.session-dot.step-researched {
+  background: var(--color-blue);
+}
+
 .session-title {
   flex: 1;
   min-width: 0;
@@ -1059,6 +1063,11 @@
 .session-step.failed {
   background: var(--color-error-subtle);
   color: var(--color-error);
+}
+
+.session-step.researched {
+  background: var(--color-blue-subtle);
+  color: var(--color-blue);
 }
 
 .session-item-meta {
