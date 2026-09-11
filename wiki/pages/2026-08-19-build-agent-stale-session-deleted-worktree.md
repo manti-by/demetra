@@ -94,6 +94,8 @@ can never be retried — every rerun fails identically a few seconds into the bu
 > `sessions.session_id` when a worktree is deleted, and `opencode_build_agent` still passes
 > `--session` whenever `context.session_id` is set. The systemic follow-up above remains open.
 
+> **Status update (2026-09-11, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and `demetra/services/agents/opencode.py:87` on current master — the systemic fix is still not implemented; the session-id-stale-worktree failure mode remains latent.
+
 ## References
 
 - Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-07-15-duplicated-log-messages]]

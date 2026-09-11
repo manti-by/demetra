@@ -1,7 +1,5 @@
 # Demetra Wiki - Index
 
-- [[2026-09-08-docstring-mcp-search]] — Docstring MCP Search
-
 Session knowledge base for the Demetra project - one Markdown page per debugging
 chase, investigation, code review, or set of changes. See [README.md](README.md) for conventions
 and [TEMPLATE.md](TEMPLATE.md) for the page template. New pages are added and updated automatically
@@ -9,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — Added `docstring_search`/`docstring_get`/`docstring_list` MCP tools backed by an AST index cached until source files change, centralized wiki/docstring search behavior in a shared `SEARCH` dict, hardened the search tool against malformed input, and reworked `bump_project_version` for explicit major/minor/patch bumps. (2026-09-08)
 - [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — Applied the Standards/Spec review findings since `v1.16.7`: four duplication clusters extracted (BE 202 response, encrypted-secret resolution, thread formatting, React `EnvSettingsModal`), dead code and the unused `MAX_REVIEW_FIXES_ATTEMPTS` removed, MNT-177 `TestOpencodeResearchAgent`/`TestWorkflowResearch` added, AGENTS.md html path fixed; one flagged finding rejected as false positive. (2026-09-02)
 - [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — Mobile-responsive template for `react/src` behind a single ≤768px media query: session list as a bottom-sheet drawer with search + cards, console tab bar and bottom Sessions action bar, 44px touch targets, zero horizontal overflow; desktop unchanged. PR #117. (2026-09-02)
 - [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — Implemented the Research loop for Linear tickets carrying a `Research` label: dedicated `research-agent` with wiki/web validation, `MAX_RESEARCH_ATTEMPTS` (5), `research_model`/`research_labels` settings, report extraction and Awaiting Input branch in `main.py`. (2026-09-01)
@@ -140,8 +139,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plan step completion attribute](pages/2026-06-08-session-step-attribute.md) — 2026-06-08
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 
-### Wiki knowledge base & MCP (9 pages)
+### Wiki knowledge base & MCP (10 pages)
 
+- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — 2026-09-08
 - [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
 - [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
 - [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — 2026-08-19
