@@ -1012,7 +1012,7 @@
 }
 
 .session-dot.step-researched {
-  background: var(--color-navy);
+  background: var(--color-blue);
 }
 
 .session-title {
@@ -1066,8 +1066,8 @@
 }
 
 .session-step.researched {
-  background: var(--color-navy-subtle);
-  color: var(--color-navy);
+  background: var(--color-blue-subtle);
+  color: var(--color-blue);
 }
 
 .session-item-meta {
