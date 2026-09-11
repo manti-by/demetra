@@ -68,6 +68,27 @@ class TestDocstringTools:
         assert result.is_error
         assert "query is required" in result.content[0].text
 
+    async def test_search_rejects_non_string_query(self, tmp_path, monkeypatch):
+        source_root = tmp_path / "demetra"
+        source_root.mkdir()
+        monkeypatch.setattr(docstrings, "DOCSTRING_ROOT", source_root)
+
+        result = await docstrings.call_tool("docstring_search", {"query": ["task"]})
+
+        assert result.is_error
+        assert "query must be a string" in result.content[0].text
+
+    async def test_search_rejects_overlong_query(self, tmp_path, monkeypatch):
+        source_root = tmp_path / "demetra"
+        source_root.mkdir()
+        monkeypatch.setattr(docstrings, "DOCSTRING_ROOT", source_root)
+
+        query = "task " * docstrings.SEARCH["max_query_length"]
+        result = await docstrings.call_tool("docstring_search", {"query": query})
+
+        assert result.is_error
+        assert "exceeds maximum length" in result.content[0].text
+
     async def test_get_rejects_unknown_name(self, tmp_path, monkeypatch):
         source_root = tmp_path / "demetra"
         source_root.mkdir()

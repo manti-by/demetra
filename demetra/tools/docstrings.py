@@ -235,7 +235,11 @@ AVAILABLE_TOOLS = [
         input_schema={
             "type": "object",
             "properties": {
-                "query": {"type": "string", "description": "Search query (keywords or a question)"},
+                "query": {
+                    "type": "string",
+                    "description": "Search query (keywords or a question)",
+                    "maxLength": SEARCH["max_query_length"],
+                },
                 "limit": {
                     "type": "integer",
                     "description": (f"Max results (default {SEARCH['default_limit']}, max {SEARCH['max_results']})"),
@@ -301,6 +305,21 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
                     content=[TextContent(type="text", text="Error: query is required")],
                     is_error=True,
                 )
+            if not isinstance(query, str):
+                return ToolResult(
+                    content=[TextContent(type="text", text="Error: query must be a string")],
+                    is_error=True,
+                )
+            if len(query) > SEARCH["max_query_length"]:
+                return ToolResult(
+                    content=[
+                        TextContent(
+                            type="text",
+                            text=f"Error: query exceeds maximum length of {SEARCH['max_query_length']} characters",
+                        )
+                    ],
+                    is_error=True,
+                )
             limit = min(max(int(args.get("limit", SEARCH["default_limit"])), 1), SEARCH["max_results"])
             results = _search_functions(DOCSTRING_ROOT, query, limit)
             if not results:
@@ -336,7 +355,7 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
             text = f"{function.qualified_name}\n{function.path}:L{function.line}\n\n{function.docstring}"
             return ToolResult(content=[TextContent(type="text", text=text)])
         return ToolResult(content=[TextContent(type="text", text=f"Error: Unknown tool {name}")], is_error=True)
-    except (OSError, TypeError, ValueError):
+    except (OSError, TypeError, ValueError, AttributeError):
         logger.exception(f"Error executing tool {name}")
         return ToolResult(
             content=[TextContent(type="text", text="Error: Docstring operation failed")],

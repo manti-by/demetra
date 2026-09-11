@@ -59,6 +59,7 @@ FEATURES: dict = {
 SEARCH: dict = {
     "default_limit": 5,
     "max_results": 20,
+    "max_query_length": 500,
     "max_snippets": 3,
     "snippet_length": 200,
     "min_term_length": 2,
