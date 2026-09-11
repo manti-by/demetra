@@ -6,7 +6,7 @@ from demetra.services.agents.opencode import (
     opencode_research_agent,
 )
 from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
-from demetra.services.persistence.database import update_session_step
+from demetra.services.persistence.database import update_session_research_report, update_session_step
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR, MAX_RESEARCH_ATTEMPTS
 
@@ -41,11 +41,12 @@ def is_research_ticket(context: Context) -> bool:
 
 
 async def run_research_step(context: Context) -> str | None:
-    """Run the research agent loop, post the report and move to Awaiting Input.
+    """Run the research agent loop, save the report and move to Awaiting Input.
 
     Iterates the research agent up to ``MAX_RESEARCH_ATTEMPTS`` times,
-    extracts the ``## Research Report`` section, posts it as a Linear comment,
-    and moves the ticket to ``awaiting_input``.
+    extracts the ``## Research Report`` section, stores it on the session,
+    posts it as a Linear comment, and moves the ticket to the ``researched``
+    step.
 
     Args:
         context: The workflow context.
@@ -99,6 +100,8 @@ async def run_research_step(context: Context) -> str | None:
         last_report = report
         print_message(f"Research report:\n{report}")
 
+        await update_session_research_report(task_id=context.linear_task.id, research_report=report)
+
         if not await post_comment(task_id=context.linear_task.id, body=report):
             raise LinearError("Failed to post research report to Linear")
 
@@ -107,7 +110,7 @@ async def run_research_step(context: Context) -> str | None:
             raise LinearError("Linear state 'awaiting_input' is not configured")
         if not await update_ticket_status(task_id=context.linear_task.id, state_id=state_id):
             raise LinearError("Failed to move ticket to Awaiting Input")
-        await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
+        await update_session_step(task_id=context.linear_task.id, step="researched")
         print_message("Task moved to Awaiting Input state.", style="result")
         return report
 

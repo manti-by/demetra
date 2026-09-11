@@ -22,18 +22,16 @@ run-coruscant-auto:
 run-mgallery-auto:
 	uv run main.py --project-name mgallery --auto --plan-loop
 
+
 deploy:
 	git pull --ff-only
-	uv sync
-	uv run alembic upgrade head
-	cd react && bun install && bun run build
-	sudo systemctl daemon-reload
-	sudo systemctl restart demetra-api.service
-	sudo systemctl restart demetra-react.service
-	sudo systemctl restart demetra-watcher.service
-	sudo systemctl restart demetra-listener.service
-	sudo systemctl restart demetra-worker@{1..4}.service
+	docker build --platform linux/amd64 -t mantiby/demetra:latest .
+	docker compose --env-file .env.docker pull postgres redis react-build || true
+	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
+	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
+	docker compose --env-file .env.docker ps
 	sudo service nginx reload
+
 
 check:
 	git add .
@@ -93,14 +91,9 @@ react-build:
 react-test:
 	cd react && bun run test
 
+
 docker-build:
 	docker build --platform linux/amd64 -t mantiby/demetra:latest .
-
-docker-build-arm:
-	docker build --platform linux/arm64 -t mantiby/demetra:arm .
-
-docker-run:
-	docker run -v ".:/srv/demetra/src/:ro" mantiby/demetra:latest
 
 docker-up:
 	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
@@ -120,14 +113,6 @@ docker-migrate:
 docker-clean:
 	docker compose --env-file .env.docker down -v --remove-orphans
 
-docker-deploy: docker-build
-	docker compose --env-file .env.docker pull postgres redis react-build || true
-	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
-	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
-	docker compose --env-file .env.docker ps
-
-container-build:
-	container build --tag demetra:latest --file Dockerfile .
 
 gh-use-manti:
 	git config user.name "$(MANTI_GIT_NAME)"

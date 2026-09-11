@@ -32,6 +32,7 @@ from demetra.services.persistence.database import (
     save_session,
     update_session_linear_link,
     update_session_pr_link,
+    update_session_research_report,
     update_session_step,
     upsert_pending_session,
     upsert_project_environment,
@@ -1225,6 +1226,53 @@ class TestPrLink:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.pr_link == "https://github.com/owner/repo/pull/42"
+
+
+class TestResearchReport:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_research_report_defaults_to_none(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_report is None
+
+    @pytest.mark.asyncio
+    async def test_update_session_research_report_persists_value(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        await update_session_research_report(task_id=db_task_id, research_report="## Research Report\nFindings.")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_report == "## Research Report\nFindings."
+
+    @pytest.mark.asyncio
+    async def test_research_report_preserved_on_save(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        report = "## Research Report\nOriginal."
+        await upsert_pending_session(task_id=db_task_id, session_id=db_session_id)
+        await update_session_research_report(task_id=db_task_id, research_report=report)
+
+        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan B")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.build_plan == "Plan B"
+        assert found.research_report == report
 
 
 class TestSessionHistory:
