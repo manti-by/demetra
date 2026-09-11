@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — Implementation of MNT-203: Create related ticket for research (2026-09-11)
 - [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — Applied the Standards/Spec review findings since `v1.16.7`: four duplication clusters extracted (BE 202 response, encrypted-secret resolution, thread formatting, React `EnvSettingsModal`), dead code and the unused `MAX_REVIEW_FIXES_ATTEMPTS` removed, MNT-177 `TestOpencodeResearchAgent`/`TestWorkflowResearch` added, AGENTS.md html path fixed; one flagged finding rejected as false positive. (2026-09-02)
 - [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — Mobile-responsive template for `react/src` behind a single ≤768px media query: session list as a bottom-sheet drawer with search + cards, console tab bar and bottom Sessions action bar, 44px touch targets, zero horizontal overflow; desktop unchanged. PR #117. (2026-09-02)
 - [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — Implemented the Research loop for Linear tickets carrying a `Research` label: dedicated `research-agent` with wiki/web validation, `MAX_RESEARCH_ATTEMPTS` (5), `research_model`/`research_labels` settings, report extraction and Awaiting Input branch in `main.py`. (2026-09-01)
@@ -92,8 +93,9 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (17 pages)
+### Workflow orchestration & agents (18 pages)
 
+- [MNT-203 — Create a related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
 - [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — 2026-09-02
 - [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — 2026-09-01
 - [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — 2026-08-28
@@ -149,6 +151,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
 
 ### Authentication & API security (9 pages)
 
