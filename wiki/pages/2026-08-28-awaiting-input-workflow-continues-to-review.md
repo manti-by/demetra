@@ -93,6 +93,8 @@ The Awaiting Input state is a **one-shot signal**, not a durable gate:
 
 > **Consistency fix (2026-09-02):** fixed `branch: -` YAML parse error (quoted as `"-"`) and added `2026-08-28-mnt-191-ticket-status-not-changed.md` to `related` to mirror body link.
 
+> **Consistency note (2026-09-11, Consistency Agent):** Re-verified on current master (`main.py:127`, `demetra/services/daemons/watcher.py:165`): the primary `awaiting_input` replan guard and the watcher enqueue dedupe are still not implemented. The 2026-09-01 assessment remains current.
+
 ## References
 
 - Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]

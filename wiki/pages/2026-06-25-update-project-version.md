@@ -8,7 +8,7 @@ services: [workflows, settings]
 branch: "-"
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
-related: [2026-08-21-mnt-176-bump-version-error.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
+related: [2026-08-21-mnt-176-bump-version-error.md, 2026-09-08-docstring-mcp-search.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
 ---
 
 # Update project version
@@ -56,6 +56,15 @@ Tests cover the bump logic (minor bump, major preservation) and the rollback on 
   bumps the minor version and preserves the major; `is_epic_label` / `EPIC_LABEL` no longer
   exist in the codebase. This page's body reflects the current behavior.
 
+## Consistency note (2026-09-11, Consistency Agent)
+
+- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): `bump_project_version` was
+  reworked to explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`).
+  The default auto-bump now increments the **patch** (`1.14.1 → 1.14.2`), not the minor;
+  the workflow call site still uses the default, so the minor-bump wording above is stale.
+  See that page's "Version bump rework" section for the drift (docstring still says minor,
+  call site still uses default).
+
 ---
 
 ## Follow-ups
@@ -64,5 +73,5 @@ None.
 
 ## References
 
-- Related: [[2026-08-21-mnt-176-bump-version-error]]
+- Related: [[2026-08-21-mnt-176-bump-version-error]], [[2026-09-08-docstring-mcp-search]]
 - External: [MNT-116 — Update project version (Linear)](https://linear.app/mnt/issue/MNT-116)

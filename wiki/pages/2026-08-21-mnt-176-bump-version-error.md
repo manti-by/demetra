@@ -8,7 +8,7 @@ services: [workflows]
 branch: mnt-176-bump-version-error
 tickets: [MNT-176]
 tags: [version, bump, pyproject, bug-fix]
-related: [2026-06-25-update-project-version.md]
+related: [2026-06-25-update-project-version.md, 2026-09-08-docstring-mcp-search.md]
 ---
 
 # MNT-176: Bump version error fix
@@ -97,7 +97,14 @@ None.
 
 - Frontmatter `title` quoted to escape the `:` (unquoted `:` broke YAML parsing: `mapping values are not allowed here`).
 
+## Consistency note (2026-09-11, Consistency Agent)
+
+- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): `bump_project_version`
+  now takes explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`, so
+  the default increment is the **patch**, not the minor described above). The always-minor
+  contract from this page is stale; see that page for the follow-up confirmation needed.
+
 ## References
 
-- Related: [[2026-06-25-update-project-version]]
+- Related: [[2026-06-25-update-project-version]], [[2026-09-08-docstring-mcp-search]]
 - External: [MNT-176 — Bump version error (Linear)](https://linear.app/mnt/issue/MNT-176)
