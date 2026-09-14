@@ -493,9 +493,9 @@ class TestCreatePullRequest:
                 "--head",
                 "feature/test",
                 "--assignee",
-                "@demetra-ai",
+                "demetra-ai",
                 "--reviewer",
-                "@manti-by",
+                "manti-by",
             ]
 
     @pytest.mark.asyncio

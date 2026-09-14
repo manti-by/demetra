@@ -147,13 +147,22 @@ async def _find_existing_research_ticket(linear_project_id: str, title: str) -> 
     Returns:
         dict[str, Any] | None: The matching issue with its id, identifier and
             title, or None when no issue matches.
+
+    Raises:
+        LinearError: When the lookup request fails or returns GraphQL errors.
     """
     query = await service.get_query(name="get_issue_by_title")
     result = await service.graphql_request(
         query=query,
         variables={"projectId": linear_project_id, "title": title},
     )
-    data = (result or {}).get("data") or {}
+    if result is None:
+        raise LinearError("Failed to lookup existing research ticket: empty response")
+    if result.get("errors"):
+        raise LinearError(f"Failed to lookup existing research ticket: {result['errors']}")
+    data = result.get("data")
+    if data is None:
+        raise LinearError("Failed to lookup existing research ticket: missing data")
     issues = (data.get("issues") or {}).get("nodes") or []
     if not issues:
         return None
@@ -175,8 +184,9 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
     report is used verbatim as the issue description.
 
     Idempotent per source ticket: an issue with the deterministic title is
-    looked up first and reused, so retrying after a lost ``issueCreate``
-    response does not create a duplicate.
+    looked up first and reused (updating its description so a retried research
+    run does not leave a stale report), so retrying after a lost
+    ``issueCreate`` response does not create a duplicate.
 
     Args:
         context: The workflow context with the originating Linear task.
@@ -190,8 +200,9 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
 
     Raises:
         LinearConfigError: When the source project, the PRD state or the team id
-            is missing, or when Linear rejects the request (permanent).
-        LinearError: When the API request fails (transient, e.g. network).
+            is missing (permanent configuration error).
+        LinearError: When the API request fails or Linear rejects the
+            creation/update (transient, retryable).
     """
     linear_project_id = context.linear_task.linear_project_id
     if not linear_project_id:
@@ -208,6 +219,24 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
     resolved_title = title or f"Research: {context.linear_task.identifier} — {context.linear_task.title}"
     existing = await _find_existing_research_ticket(linear_project_id=linear_project_id, title=resolved_title)
     if existing is not None:
+        query_update = await service.get_query(name="update_issue")
+        result_update = await service.graphql_request(
+            query=query_update,
+            variables={"id": existing["ticket_id"], "input": {"description": report}},
+        )
+        if result_update.get("errors"):
+            raise LinearError(f"Failed to update research ticket description: {result_update['errors']}")
+        data_update = (result_update or {}).get("data") or {}
+        issue_update = data_update.get("issueUpdate") or {}
+        if not issue_update.get("success"):
+            raise LinearError("Failed to update research ticket description")
+        updated_issue = issue_update.get("issue")
+        if updated_issue:
+            return {
+                "ticket_id": updated_issue["id"],
+                "identifier": updated_issue["identifier"],
+                "title": updated_issue["title"],
+            }
         return existing
 
     label_ids = [service.LINEAR["feature_label_id"]]
@@ -237,11 +266,11 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
     if not issue_create.get("success"):
         errors = (result or {}).get("errors")
         detail = f": {errors}" if errors else ""
-        raise LinearConfigError(f"Failed to create research Linear ticket{detail}")
+        raise LinearError(f"Failed to create research Linear ticket{detail}")
 
     issue = issue_create.get("issue")
     if not issue:
-        raise LinearConfigError("Linear API returned success but no issue data")
+        raise LinearError("Linear API returned success but no issue data")
 
     return {
         "ticket_id": issue["id"],

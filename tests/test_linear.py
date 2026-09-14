@@ -742,8 +742,11 @@ class TestCreateResearchTicket:
         context = self._make_context()
 
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = graphql_create_ticket_failure_response
-            with pytest.raises(LinearConfigError, match="Failed to create research Linear ticket"):
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                graphql_create_ticket_failure_response,
+            ]
+            with pytest.raises(LinearError, match="Failed to create research Linear ticket"):
                 await create_research_ticket(context=context, report="report")
 
     @pytest.mark.asyncio
@@ -757,8 +760,11 @@ class TestCreateResearchTicket:
         response = {"data": None, "errors": [{"message": "Invalid label id"}]}
 
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = response
-            with pytest.raises(LinearConfigError, match="Invalid label id"):
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                response,
+            ]
+            with pytest.raises(LinearError, match="Invalid label id"):
                 await create_research_ticket(context=context, report="report")
 
     @pytest.mark.asyncio
@@ -772,8 +778,11 @@ class TestCreateResearchTicket:
         response = {"data": {"issueCreate": None}}
 
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = response
-            with pytest.raises(LinearConfigError, match="Failed to create research Linear ticket"):
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                response,
+            ]
+            with pytest.raises(LinearError, match="Failed to create research Linear ticket"):
                 await create_research_ticket(context=context, report="report")
 
     @pytest.mark.asyncio
@@ -787,13 +796,25 @@ class TestCreateResearchTicket:
         existing = {"id": "existing-1", "identifier": "MNT-42", "title": "Research: MNT-123 — Research something"}
 
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
-            mock_request.return_value = {"data": {"issues": {"nodes": [existing]}}}
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": [existing]}}},
+                {"data": {"issueUpdate": {"success": True, "issue": existing}}},
+            ]
             result = await create_research_ticket(context=context, report="report")
 
-        assert result == {"ticket_id": "existing-1", "identifier": "MNT-42", "title": "Research: MNT-123 — Research something"}
-        mock_request.assert_awaited_once()
-        _, kwargs = mock_request.call_args
-        assert kwargs["variables"] == {"projectId": "linear-project-1", "title": "Research: MNT-123 — Research something"}
+        assert result == {
+            "ticket_id": "existing-1",
+            "identifier": "MNT-42",
+            "title": "Research: MNT-123 — Research something",
+        }
+        assert mock_request.await_count == 2
+        first_kwargs = mock_request.call_args_list[0].kwargs
+        assert first_kwargs["variables"] == {
+            "projectId": "linear-project-1",
+            "title": "Research: MNT-123 — Research something",
+        }
+        second_kwargs = mock_request.call_args_list[1].kwargs
+        assert second_kwargs["variables"] == {"id": "existing-1", "input": {"description": "report"}}
 
     @pytest.mark.asyncio
     async def test_create_research_ticket_looks_up_then_creates(
