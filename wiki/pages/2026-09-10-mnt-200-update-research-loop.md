@@ -4,14 +4,11 @@ date: '2026-09-10'
 type: implementation
 status: resolved
 session_id: ses_f7309e1b6ffes6G5sccIOnOCdh
-services: [package-lock, library, persistence/database, workflows, a3b4c5d6e7f8_add_sessions_research_report_column,
-  pyproject, App, SessionArtifacts.test, SessionList.test, index, api, test_database,
-  test_workflows, uv, INDEX, 2026-09-10-mnt-200-update-research-loop]
+services: [workflows, persistence, library, api, react, wiki]
 branch: mnt-200-update-research-loop
 tickets: [MNT-200]
-tags: [wiki, feature, frontend, backend]
-related: [2026-09-01-mnt-177-research-loop.md, 2026-07-21-awaiting-input-status-for-session.md,
-  2026-06-08-session-step-attribute.md]
+tags: [research, research-loop, persistence, sessions]
+related: [2026-09-01-mnt-177-research-loop.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 # MNT-200: Update research loop
 
@@ -107,6 +104,9 @@ The approach involves persisting the extracted research report to a new `session
 
 - None
 
+> **Consistency fix (2026-09-11, Consistency Agent):** `services` frontmatter was a file-list dump (`package-lock`, `INDEX`, etc.); corrected to `[workflows, persistence, library, api, react, wiki]`. `tags` refined to `[research, research-loop, persistence, sessions]`. Added missing body links to mirror `related` frontmatter.
+
 ## References
 
+- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]]
 - External: https://linear.app/mnt/issue/MNT-200/update-research-loop

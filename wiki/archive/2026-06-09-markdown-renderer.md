@@ -12,6 +12,8 @@ related: []
 ---
 
 # Markdown renderer
+> **Archived on 2026-09-14.** Useful info merged into [[2026-09-02-mobile-template-react-frontend]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

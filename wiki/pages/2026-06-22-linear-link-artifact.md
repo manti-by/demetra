@@ -6,9 +6,9 @@ status: resolved
 session_id: "-"
 services: [database, api, react]
 branch: "-"
-tickets: [MNT-114]
-tags: [linear-link, artifact, react]
-related: []
+tickets: [MNT-114, MNT-108]
+tags: [linear-link, artifact, react, artifacts, pr-link, build-plan]
+related: [2026-06-09-build-artifacts.md]
 ---
 
 # Linear link artifact
@@ -46,6 +46,11 @@ The session artifacts section now shows a "View Linear Issue" link that opens th
 Tests cover the field population on first save, the API payload, and the rendered link.
 
 ---
+
+
+## Source — [[2026-06-09-build-artifacts]]
+
+Persisted pr_link + build_plan as session artifacts rendered in React session log top block Originally decided in [[2026-06-09-build-artifacts]] on 2026-06-09.
 
 ## Follow-ups
 

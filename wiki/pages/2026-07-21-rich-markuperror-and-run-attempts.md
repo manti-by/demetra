@@ -4,10 +4,10 @@ date: 2026-07-21
 type: debug
 status: resolved
 session_id: "-"
-services: [watcher, tui, main]
+services: [watcher, tui, main, database, workflows, linear]
 branch: "-"
-tickets: [MNT-136, MNT-17]
-tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation]
+tickets: [MNT-136, MNT-17, MNT-100]
+tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation, guard, sessions, linear]
 related: [2026-02-14-add-tui-support.md, 2026-06-08-max-run-attempts-for-a-ticket.md]
 ---
 
@@ -279,6 +279,11 @@ follow-up PR against `manti-by/odin`:
 > pre-check plus the post-increment cap check are both still present. `MAX_RUN_ATTEMPTS`
 > is `5` (see [[2026-06-08-max-run-attempts-for-a-ticket]]). The fix documented here is
 > current; only the file path is stale. Historical `file:line` refs above are kept as written.
+
+
+## Source — [[2026-06-08-max-run-attempts-for-a-ticket]]
+
+run_attempts counter + MAX_RUN_ATTEMPTS (5) guards infinite workflow runs; incremented only on failure → Awaiting Input Originally decided in [[2026-06-08-max-run-attempts-for-a-ticket]] on 2026-06-08.
 
 ## References
 
