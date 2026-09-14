@@ -16,6 +16,7 @@ from demetra.services.agents.opencode import (
     opencode_compact_session,
     opencode_merge_agent,
     opencode_plan_agent,
+    opencode_rebase_agent,
     opencode_research_agent,
     opencode_resolve_agent,
     opencode_validate_agent,
@@ -547,6 +548,18 @@ class TestOpencodeEnvLayers:
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-merge-model"
         assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["agent"] == "merge-agent"
+
+    @pytest.mark.asyncio
+    async def test_rebase_agent_uses_user_env_build_model_override(self, mock_run_opencode_agent):
+        user_environment = {"OPENCODE_BUILD_MODEL": "user/env-rebase-model"}
+
+        await opencode_rebase_agent(Path("/test/path"), "task", user_environment=user_environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-rebase-model"
+        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["agent"] == "rebase-agent"
 
 
 class TestOpencodeResearchAgent:
