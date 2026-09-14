@@ -11,7 +11,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants, env validation in `env.py`)
 - `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/` plus `utils.py` shared helpers: waitlist-join audit, auth rate limiter)
 - `demetra/queries/`: GraphQL queries
-- `demetra/workflows/`: Workflow orchestration steps (plan, research, build, validate, review, lint, wiki, etc.)
+- `demetra/workflows/`: Workflow orchestration steps (`plan`, `research`, `build`, `validate`, `review`, `lint`, `cleanup`, `merge`/`rebase`, `review_fixes`, etc.)
 - `demetra/api/`: FastAPI REST endpoints (plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
 - `demetra/tools/`: MCP tool definitions (`database`, `docstrings`, `projects`, `wiki` plus `search`/`result`/`registry` helpers)
 - `demetra/prompts/`: LLM prompt templates (`research_agent`, `validate_agent`, etc.)
@@ -23,8 +23,8 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
 - `tests/`: Comprehensive test suite (56 `test_*.py` files, 58 total with `__init__.py`/`conftest.py`)
-- `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`, plus `bootstrap.sh`/`proxy.params`/`services/`)
-- `wiki/audits/workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (static asset)
+- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`), nginx config (`configs/nginx.conf`, `configs/proxy.params`)
+- `wiki/audits/`: Workflow audit notes plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and skill definitions

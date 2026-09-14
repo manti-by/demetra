@@ -12,6 +12,8 @@ related: [2026-07-16-fix-empty-build-plan-loop.md]
 ---
 
 # Context bloating — agents scan repo root instead of worktree
+> **Archived on 2026-09-14.** Useful info merged into [[2026-08-04-fix-resolve-agent-truncated-context]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

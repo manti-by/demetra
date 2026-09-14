@@ -8,7 +8,7 @@ services: [workflows, opencode, llm]
 branch: "-"
 tickets: []
 tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
-related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md]
+related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-09-14-opencode-agent-prompts-hardening.md]
 ---
 
 # Guard empty plan agent output
@@ -77,9 +77,10 @@ The `## Implementation Plan` header is the plan agent's mandated output contract
 ## Follow-ups
 
 - The underlying opencode behavior (permission auto-rejection ending a plan run with exit 0 and empty stdout) is not fixed — the guard turns it into a visible, handled failure instead. If it recurs often, consider whether the plan agent should be granted read access to `.env.docker.example`-style files or whether a permission-denied tool call should abort the run with a non-zero exit.
+- **2026-09-14:** `plan-agent.md` (and the other 5 previously frontmatter-less agents) now declare explicit `permission` blocks instead of relying on prose — see [[2026-09-14-opencode-agent-prompts-hardening]]. This does not fix the underlying auto-rejection behavior noted above, but makes each agent's edit/bash scope machine-enforced rather than advisory.
 - **Recurred 2026-08-28 on MNT-177:** the same `read (.env.docker.example); auto-rejecting` truncation cut off two plan-agent runs (`Plan agent output is missing the implementation plan section`), and a second, unrelated blocker dominated — the user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` returned OpenRouter 403 (18+ age attestation) in 3 of 6 runs. See [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]].
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]], [[2026-08-05-post-build-validation]]
+- Related: [[2026-07-16-fix-empty-build-plan-loop]], [[2026-08-05-post-build-validation]], [[2026-09-14-opencode-agent-prompts-hardening]]
 - External: session log `7bfff9b1-8696-43ef-be47-46e5dac0e81f.log` (MNT-166), `demetra/workflows/plan.py`, `demetra/services/llm/openrouter.py`
