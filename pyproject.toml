@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.17.3"
+version = "1.17.4"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
@@ -49,6 +49,7 @@ dev = [
     "ty>=0.0.77",
     "pre-commit>=4.6.2",
     "uv-bump>=0.6.0",
+    "pdoc>=16.0.0",
 ]
 
 [tool.pytest.ini_options]

@@ -23,6 +23,7 @@ StepType = Literal[
     "completed",
     "failed",
     "awaiting_input",
+    "researched",
 ]
 
 
@@ -129,6 +130,7 @@ class Session:
     listener_attempts: int = 0
     pr_link: str | None = None
     linear_link: str | None = None
+    research_report: str | None = None
 
 
 EnvironmentType = Literal["text", "encrypted"]

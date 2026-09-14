@@ -6,9 +6,9 @@ status: resolved
 session_id: "-"
 services: [database, subprocess, workflows, api, react]
 branch: mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload
-tickets: [MNT-161, MNT-56]
-tags: [environment, encryption, venv, subprocess, api, user-settings, keys]
-related: [2026-03-09-encrypted-user-settings.md, 2026-06-08-project-environment.md]
+tickets: [MNT-161, MNT-56, MNT-110, MNT-75]
+tags: [environment, encryption, venv, subprocess, api, user-settings, keys, per-project, projects, provisioning, postgres]
+related: [2026-03-09-encrypted-user-settings.md, 2026-06-08-project-environment.md, 2026-03-31-project-model-and-space.md]
 ---
 
 # Process environment — 3 layers, encryption, UV venv, env file upload
@@ -98,6 +98,11 @@ holding user-provided credentials (e.g. LLM keys), protected by `SECRET_KEY` and
 `ENCRYPTION_SALT` settings, and editable through the user update API. This is the origin
 of the encryption layer the env-var encryption in this page builds on, and of the
 "user-shared env" concept (Step 2's scope + user_id model).
+
+
+## Source — [[2026-06-08-project-environment]]
+
+Per-project Environment model (project_id/key/value) → Project.environment dict passed to all subprocesses Originally decided in [[2026-06-08-project-environment]] on 2026-06-08.
 
 ## Follow-ups
 

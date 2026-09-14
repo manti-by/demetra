@@ -117,6 +117,8 @@ This page describes the initial compose design. The file was subsequently refact
 
 > **Consistency note (2026-08-24, Consistency Agent):** The current `docker-compose.yaml` does not declare `deploy.replicas`; four workers are enforced via `make docker-up` / `docker-deploy` passing `--scale worker=4` (`Makefile:103,123`). References to `deploy.replicas: 4` in this page describe the pre-refactor compose render, not today's file.
 
+> **Consistency note (2026-09-14):** `/rq/` returned 404. Root cause: rq-dashboard serves on `/`, while the host nginx `location /rq/` uses `proxy_pass http://127.0.0.1:9181;` (no trailing slash), so nginx forwards the full `/rq/` URI unchanged and the dashboard has no route for it. The proper fix — rather than stripping the prefix at nginx, which would break the dashboard's root-relative nav links — is to run the dashboard under the prefix itself. Commit `e2509f1` adds `--url-prefix /rq` (after `--port 9181`) to the `rq-dashboard` command in `docker-compose.yaml`, so it serves and generates its links under `/rq/`. nginx needs no change: the prefix-less `proxy_pass` passes `/rq/...` through untouched. After redeploying the service, `curl -fsS http://localhost:9181/rq/` should return 200 (and `/` 404), mirroring the host `https://demetra.manti.by/rq/`.
+
 ## References
 
 - Related: [[2026-07-07-project-deploy-script]]

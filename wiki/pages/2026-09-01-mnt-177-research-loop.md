@@ -8,7 +8,7 @@ services: [workflows, agents, opencode, linear, settings, prompts]
 branch: mnt-177-research-loop
 tickets: [MNT-177]
 tags: [research, research-agent, research-report, research-labels, opencode, workflow, awaiting-input]
-related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md]
+related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md, 2026-09-14-opencode-agent-prompts-hardening.md]
 ---
 
 # MNT-177 research loop — research agent, workflow and settings
@@ -124,6 +124,11 @@ if is_research_ticket(context=context):
 - Decide if React should surface research settings (label list, model, max attempts) or if env-only is sufficient — currently BE-only.
 - Consider reusing the `openwiki-sessions` mapping and `research` step in session history aggregation (already covered by generic `record_session_step_history` if needed).
 
+> **2026-09-14:** `research-agent.md` was the only agent with `description`/`permission`
+> frontmatter until this date; the other six `.opencode/agents/*.md` files were brought up to the
+> same standard (plus a merge/rebase semantics fix and injection guards on plan/build) in
+> [[2026-09-14-opencode-agent-prompts-hardening]].
+
 > **Consistency note (2026-09-02, post-merge revalidation):** PR #119 review updates —
 > `opencode_research_agent` gained an optional `project_id: str | None = None` parameter
 > (OS-env opt-in tokens, matching plan/build), and the label check was split into
@@ -132,7 +137,7 @@ if is_research_ticket(context=context):
 
 ## References
 
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]]
+- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]]
 
 > **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related` to mirror body link.
 - External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop), plan comment by Demetra on 2026-08-28

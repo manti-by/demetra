@@ -12,6 +12,8 @@ related: []
 ---
 
 # Build artifacts
+> **Archived on 2026-09-14.** Useful info merged into [[2026-06-22-linear-link-artifact]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

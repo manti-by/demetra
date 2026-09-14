@@ -4,11 +4,11 @@ date: 2026-09-02
 type: implementation
 status: resolved
 session_id: sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3
-services: [react-frontend]
+services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
-tickets: [MNT-193]
-tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md]
+tickets: [MNT-193, MNT-92, MNT-113]
+tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert, truncate, layout, markdown, marked, modal]
+related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md]
 ---
 
 # MNT-193 — Mobile template for the React frontend
@@ -141,6 +141,16 @@ React 18 gotcha worth remembering: React 18 has no boolean `inert` prop support 
 Verification after the fix: `tsc --noEmit` clean, 61/61 tests still pass. Desktop is unaffected — `sidebarOpen` can only become true from the mobile-only toolbar button.
 
 ---
+
+
+## Source — [[2026-06-02-truncate-session-name]]
+
+Session name truncation: CSS truncation within 120px fixed-width .session-plan pattern to keep sidebar layout Originally decided in [[2026-06-02-truncate-session-name]] on 2026-06-02.
+
+
+## Source — [[2026-06-09-markdown-renderer]]
+
+Build-plan markdown rendered via marked ^15.0.12 in modal Originally decided in [[2026-06-09-markdown-renderer]] on 2026-06-09.
 
 ## Follow-ups
 

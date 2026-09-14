@@ -158,6 +158,10 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 linear_link=task.url,
             )
 
+        # Always move an accepted TODO task to ``in_progress``, even on re-pickup:
+        # a task can return to TODO while still pending (session_id="") after a
+        # failed run, and update_ticket_status can fail transiently. Re-applying
+        # the same state each poll is idempotent in Linear.
         state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
         if state_id is None:
             logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")

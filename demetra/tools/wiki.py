@@ -1,56 +1,16 @@
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
 from mcp.types import TextContent, Tool
 
 from demetra.services.wiki import PAGES_ROOT, parse_page_file
+from demetra.settings import SEARCH
 from demetra.tools.result import ToolResult
+from demetra.tools.search import tokenize
 
 
 logger = logging.getLogger(__name__)
-
-DEFAULT_SEARCH_LIMIT = 5
-MAX_SEARCH_RESULTS = 20
-MAX_SNIPPETS = 3
-SNIPPET_LENGTH = 200
-
-TITLE_WEIGHT = 10
-METADATA_WEIGHT = 5
-
-STOP_WORDS = frozenset(
-    (
-        "a",
-        "an",
-        "and",
-        "are",
-        "be",
-        "been",
-        "did",
-        "do",
-        "does",
-        "for",
-        "how",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "was",
-        "were",
-        "what",
-        "why",
-        "with",
-    )
-)
-
-TERM_RE = re.compile(r"[a-z0-9][a-z0-9_.\-]*")
 
 
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
@@ -104,7 +64,7 @@ def _tokenize(query: str) -> list[str]:
     Returns:
         list[str]: The meaningful search terms.
     """
-    return [term for term in TERM_RE.findall(query.lower()) if term not in STOP_WORDS and len(term) > 1]
+    return tokenize(query=query)
 
 
 def _metadata_text(meta: dict[str, Any]) -> str:
@@ -145,8 +105,8 @@ def _score_page(page: dict[str, Any], terms: list[str]) -> int:
     body = page["body"].lower()
     score = 0
     for term in terms:
-        score += TITLE_WEIGHT * title.count(term)
-        score += METADATA_WEIGHT * metadata.count(term)
+        score += SEARCH["wiki_title_weight"] * title.count(term)
+        score += SEARCH["wiki_metadata_weight"] * metadata.count(term)
         score += body.count(term)
     return score
 
@@ -154,7 +114,7 @@ def _score_page(page: dict[str, Any], terms: list[str]) -> int:
 def _extract_snippets(body: str, terms: list[str]) -> list[str]:
     """Pick the most relevant line snippets from a page body.
 
-    Lines are scored by term hits, capped at MAX_SNIPPETS, and returned in
+    Lines are scored by term hits, capped at the configured maximum, and returned in
     line-number order with a length cap per snippet.
 
     Args:
@@ -173,9 +133,9 @@ def _extract_snippets(body: str, terms: list[str]) -> list[str]:
         if hits:
             scored.append((-hits, lineno, stripped))
     scored.sort(key=lambda item: item[0])
-    top = scored[:MAX_SNIPPETS]
+    top = scored[: SEARCH["max_snippets"]]
     top.sort(key=lambda item: item[1])
-    return [f"L{lineno}: {text[:SNIPPET_LENGTH]}" for _, lineno, text in top]
+    return [f"L{lineno}: {text[: SEARCH['snippet_length']]}" for _, lineno, text in top]
 
 
 def _search_pages(pages_root: Path, query: str, limit: int) -> list[dict[str, Any]]:
@@ -252,7 +212,7 @@ AVAILABLE_TOOLS = [
                 "query": {"type": "string", "description": "Search query (keywords or a question)"},
                 "limit": {
                     "type": "integer",
-                    "description": f"Max results (default {DEFAULT_SEARCH_LIMIT}, max {MAX_SEARCH_RESULTS})",
+                    "description": (f"Max results (default {SEARCH['default_limit']}, max {SEARCH['max_results']})"),
                 },
             },
             "required": ["query"],
@@ -355,7 +315,7 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
                     content=[TextContent(type="text", text="Error: query is required")],
                     is_error=True,
                 )
-            limit = min(max(int(args.get("limit", DEFAULT_SEARCH_LIMIT)), 1), MAX_SEARCH_RESULTS)
+            limit = min(max(int(args.get("limit", SEARCH["default_limit"])), 1), SEARCH["max_results"])
             results = _search_pages(PAGES_ROOT, query, limit)
             if not results:
                 return ToolResult(

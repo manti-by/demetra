@@ -4,11 +4,11 @@ date: 2026-08-04
 type: debug
 status: resolved
 session_id: "-"
-services: [opencode, workflows]
+services: [opencode, workflows, main, subprocess]
 branch: "-"
-tickets: []
-tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex]
-related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md]
+tickets: [MNT-79, MNT-105]
+tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex, questions, auto, cwd, worktree, context, bug]
+related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md, 2026-06-03-context-bloating.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 
 # Plan loop resolve agent received truncated context
@@ -124,6 +124,16 @@ Without the fix this same input would have been clipped at 4 095 chars, dropping
 - Any future agent CLI that requires a positional `message` and supports `--file` as an attachment is a hazard for the same kind of refactor; the lesson is to always pass a real message, not just an attachment.
 
 ---
+
+
+## Source — [[2026-06-02-plan-loop-resolve-questions]]
+
+Plan-loop resolve agent: .opencode/agents/resolve-agent.md answers plan questions in auto mode via --plan-loop, MAX_PLAN_ATTEMPTS 30 Originally decided in [[2026-06-02-plan-loop-resolve-questions]] on 2026-06-02.
+
+
+## Source — [[2026-06-03-context-bloating]]
+
+Agents must run with worktree as cwd; fixed by setting cwd/target_path for plan/build/review/resolve agents Originally decided in [[2026-06-03-context-bloating]] on 2026-06-03.
 
 ## Follow-ups
 
