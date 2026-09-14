@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — Added `description`/`permission` frontmatter to the six `.opencode/agents/*.md` files that lacked it, rewrote `merge-agent.md` to stop conflating merge/rebase ours/theirs semantics, added a prompt-injection guard to `plan-agent.md`/`build-agent.md`, and generalized their Python/uv/ruff/ty assumptions since Demetra runs these agents against arbitrary target repos. (2026-09-14)
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — Implementation of MNT-203: Create related ticket for research (2026-09-11)
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — The research loop has been updated to save research results to a new session database field and introduce a new 'researched' step. The changes include updates to workflow Python files, a new migration, and a wiki page. (2026-09-10)
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — Demetra persists the `reasoning` value returned by `opencode export` unchanged. The zero values are therefore not introduced by the session-history API, frontend, or database. (2026-09-08)
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — Added `docstring_search`/`docstring_get`/`docstring_list` MCP tools backed by an AST index cached until source files change, centralized wiki/docstring search behavior in a shared `SEARCH` dict, hardened the search tool against malformed input, and reworked `bump_project_version` for explicit major/minor/patch bumps. (2026-09-08)
@@ -84,9 +85,10 @@ by the plugin.
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (20 pages)
+### Workflow orchestration & agents (21 pages)
 
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
+- [MNT-203 — Create a related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — 2026-09-08
 - [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — 2026-09-02

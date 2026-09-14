@@ -14,6 +14,10 @@ class LinearError(DemetraError):
     pass
 
 
+class LinearConfigError(LinearError):
+    pass
+
+
 class InfiniteLoopError(DemetraError):
     pass
 

@@ -748,7 +748,7 @@ class TestUserEnvironments:
 
     @pytest.mark.asyncio
     async def test_upsert_masks_sensitive_plaintext_key(self, faker, setup_test_db):
-        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        user_id = await create_user(email=f"{uuid4().hex}@example.com", github_id=f"git-{uuid4().hex[:8]}")
 
         entry = await upsert_user_environment(
             user_id=user_id,

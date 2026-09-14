@@ -166,6 +166,8 @@ LINEAR: LinearConfig = {
     "oauth_token_url": "https://api.linear.app/oauth/token",
     "service_name": "linear",
     "feature_label_id": env_get_str("LINEAR_FEATURE_LABEL_ID", "242cd332-e78c-42db-acc2-34441db373ab"),
+    "backend_label_id": env_get_str("LINEAR_BACKEND_LABEL_ID", ""),
+    "frontend_label_id": env_get_str("LINEAR_FRONTEND_LABEL_ID", ""),
     "states": {
         "prd": env_get_str("LINEAR_STATE_PRD_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
         "todo": env_get_str("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5"),
