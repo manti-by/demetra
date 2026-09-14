@@ -8,7 +8,7 @@ services: [database, api, react]
 branch: "-"
 tickets: [MNT-114]
 tags: [linear-link, artifact, react]
-related: []
+related: [2026-09-11-research-plan-artifact.md]
 ---
 
 # Linear link artifact
@@ -53,5 +53,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-09-11-research-plan-artifact]]
 - External: [MNT-114 — Linear link artifact (Linear)](https://linear.app/mnt/issue/MNT-114)

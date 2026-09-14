@@ -202,8 +202,8 @@ async def upsert_pending_session(
         result = await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, research_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :research_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -212,7 +212,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, research_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at
                 """
             ),
             {
@@ -220,6 +220,7 @@ async def upsert_pending_session(
                 "name": name if name else "",
                 "session_id": session_id if session_id is not None else "",
                 "build_plan": "",
+                "research_plan": "",
                 "posted_to_linear": False,
                 "step": "initial",
                 "project_id": project_id,
@@ -243,6 +244,7 @@ async def upsert_pending_session(
         name=row.name,
         session_id=row.session_id,
         build_plan=row.build_plan,
+        research_plan=row.research_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
         project_id=row.project_id,
@@ -378,6 +380,7 @@ async def get_session(task_id: str) -> Session | None:
         name=row.name,
         session_id=row.session_id,
         build_plan=row.build_plan,
+        research_plan=row.research_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
         project_id=row.project_id,
@@ -412,6 +415,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         name=row.name,
         session_id=row.session_id,
         build_plan=row.build_plan,
+        research_plan=row.research_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
         project_id=row.project_id,
@@ -428,17 +432,20 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
 async def save_session(
     task_id: str,
     build_plan: str,
+    research_plan: str = "",
     name: str | None = None,
     session_id: str | None = None,
     linear_link: str | None = None,
 ) -> Session:
     """Persist a session with its build plan, advancing the step to ``plan``.
 
-    Upserts the session row by task id and returns the resulting record.
+    Upserts the session row by task id and returns the resulting record. An
+    existing research plan is preserved across updates.
 
     Args:
         task_id: The Linear task identifier.
         build_plan: The build plan markdown to store.
+        research_plan: The research report markdown to store on first insert.
         name: Optional display name for the session.
         session_id: Optional opencode session id.
         linear_link: Optional link to the Linear issue.
@@ -451,8 +458,8 @@ async def save_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, research_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :research_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -469,6 +476,7 @@ async def save_session(
                 "name": name if name else "",
                 "session_id": session_id if session_id else "",
                 "build_plan": build_plan,
+                "research_plan": research_plan,
                 "posted_to_linear": False,
                 "step": "plan",
                 "project_id": None,
@@ -492,6 +500,7 @@ async def save_session(
             name=row.name,
             session_id=row.session_id,
             build_plan=row.build_plan,
+            research_plan=row.research_plan,
             posted_to_linear=bool(row.posted_to_linear),
             step=row.step or "initial",
             project_id=row.project_id,
@@ -509,6 +518,7 @@ async def save_session(
         name=name,
         session_id=session_id,
         build_plan=build_plan,
+        research_plan=research_plan,
         posted_to_linear=False,
         step="plan",
         project_id=None,
@@ -582,6 +592,32 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
             {
                 "task_id": task_id,
                 "linear_link": linear_link,
+                "updated_at": now,
+            },
+        )
+        await connection.commit()
+
+
+async def update_session_research_plan(task_id: str, research_plan: str) -> None:
+    """Record the research report on a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        research_plan: The research report markdown to store.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET research_plan = :research_plan, updated_at = :updated_at
+                WHERE task_id = :task_id
+                """
+            ),
+            {
+                "task_id": task_id,
+                "research_plan": research_plan,
                 "updated_at": now,
             },
         )

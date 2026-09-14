@@ -24,6 +24,7 @@ sessions = Table(
     Column("name", String(), nullable=True),
     Column("session_id", String(), nullable=True),
     Column("build_plan", Text(), nullable=False, server_default=""),
+    Column("research_plan", Text(), nullable=False, server_default=""),
     Column("posted_to_linear", Boolean(), nullable=False, server_default="false"),
     Column("step", String(), nullable=False, server_default="initial"),
     Column("project_id", String(), nullable=True),

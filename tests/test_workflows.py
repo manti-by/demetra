@@ -2036,6 +2036,11 @@ class TestWorkflowResearch:
         with patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
+    @pytest.fixture
+    def mock_update_session_research_plan(self):
+        with patch("demetra.workflows.research.update_session_research_plan", new_callable=AsyncMock) as m:
+            yield m
+
     @staticmethod
     def _make_context(faker, labels=None):
         return Context(
@@ -2076,6 +2081,7 @@ class TestWorkflowResearch:
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
+        mock_update_session_research_plan,
     ):
         context = self._make_context(faker)
         report = f"{RESEARCH_HEADER_STRING}\nFindings body."
@@ -2087,10 +2093,37 @@ class TestWorkflowResearch:
         result = await run_research_step(context)
 
         assert result == report
+        mock_update_session_research_plan.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_plan=report
+        )
         mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
         mock_get_linear_config_value.assert_awaited_once_with(name="awaiting_input", user_id=context.project.user_id)
         mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_persists_report_to_session(
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_update_session_step,
+        mock_update_session_research_plan,
+    ):
+        context = self._make_context(faker)
+        report = f"{RESEARCH_HEADER_STRING}\nPersisted findings."
+        mock_research_agent.return_value = (0, report, "")
+        mock_post_comment.return_value = True
+        mock_get_linear_config_value.return_value = "state-123"
+        mock_update_ticket_status.return_value = True
+
+        await run_research_step(context)
+
+        mock_update_session_research_plan.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_plan=report
+        )
 
     @pytest.mark.asyncio
     async def test_run_research_step_retries_after_agent_failure(
@@ -2101,6 +2134,7 @@ class TestWorkflowResearch:
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
+        mock_update_session_research_plan,
     ):
         context = self._make_context(faker)
         report = f"{RESEARCH_HEADER_STRING}\nRecovered."
@@ -2130,7 +2164,12 @@ class TestWorkflowResearch:
 
     @pytest.mark.asyncio
     async def test_run_research_step_raises_when_comment_fails(
-        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+        self,
+        faker,
+        mock_research_agent,
+        mock_post_comment,
+        mock_update_session_step,
+        mock_update_session_research_plan,
     ):
         context = self._make_context(faker)
         mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")

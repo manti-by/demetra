@@ -145,6 +145,7 @@ export interface Session {
   session_id: string;
   name: string | null;
   build_plan: string | null;
+  research_plan: string | null;
   posted_to_linear: boolean;
   created_at: string;
   updated_at: string;
