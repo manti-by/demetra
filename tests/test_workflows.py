@@ -2133,9 +2133,7 @@ class TestWorkflowResearch:
 
         await run_research_step(context)
 
-        mock_update_session_research_plan.assert_awaited_once_with(
-            task_id=context.linear_task.id, research_plan=report
-        )
+        mock_update_session_research_plan.assert_awaited_once_with(task_id=context.linear_task.id, research_plan=report)
 
     @pytest.mark.asyncio
     async def test_run_research_step_retries_after_agent_failure(

@@ -7,7 +7,7 @@ from demetra.services.agents.opencode import (
     extract_research_report,
     opencode_research_agent,
 )
-from demetra.services.linear import create_research_ticket, get_linear_config_value, post_comment, update_ticket_status
+from demetra.services.linear import create_research_ticket, get_linear_config_value, update_ticket_status
 from demetra.services.persistence.database import (
     update_session_research_plan,
     update_session_research_report,
@@ -121,12 +121,12 @@ async def _run_research_agent(context: Context) -> str | None:
         print_message(f"Research report:\n{report}")
         try:
             await update_session_research_plan(task_id=context.linear_task.id, research_plan=report)
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001
+            print_message("Failed to persist research plan, continuing.", style="warning")
         try:
             await update_session_research_report(task_id=context.linear_task.id, research_report=report)
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001
+            print_message("Failed to persist research report, continuing.", style="warning")
         return report
 
     return None
