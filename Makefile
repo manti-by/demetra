@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs
+.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -62,7 +62,7 @@ migrate:
 	uv run alembic upgrade head
 
 check-migrations:
-	uv run alembic -x dry-run=true upgrade head
+	uv run alembic -x url=sqlite:///:memory: upgrade head
 
 ci: install check check-migrations test react-build react-test
 

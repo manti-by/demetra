@@ -119,7 +119,11 @@ async def _run_research_agent(context: Context) -> str | None:
 
         print_message(f"Research report:\n{report}")
         try:
-            await update_session_research_report(task_id=context.linear_task.id, research_report=report)
+            persisted = await update_session_research_report(task_id=context.linear_task.id, research_report=report)
+            if not persisted:
+                print_message(
+                    "Failed to persist research report: no session matched task_id, continuing.", style="warning"
+                )
         except Exception:  # noqa: BLE001
             print_message("Failed to persist research report, continuing.", style="warning")
         return report

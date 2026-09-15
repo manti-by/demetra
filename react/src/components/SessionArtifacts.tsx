@@ -199,7 +199,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
               {!researchIsRendered ? (
                 <pre className="build-plan-text">{session.research_report}</pre>
               ) : (
-                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_report!, { async: false }) as string) }} />
+                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_report!, { async: false }) as string, { FORBID_TAGS: ['img', 'style'] }) }} />
               )}
             </div>
             <div className="modal-footer">

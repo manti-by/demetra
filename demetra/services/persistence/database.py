@@ -593,16 +593,19 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
         await connection.commit()
 
 
-async def update_session_research_report(task_id: str, research_report: str) -> None:
+async def update_session_research_report(task_id: str, research_report: str) -> bool:
     """Record the research report on a session.
 
     Args:
         task_id: The Linear task identifier.
         research_report: The research report markdown to store.
+
+    Returns:
+        bool: True when a row was updated, False when no session matched.
     """
     now = datetime.now(UTC)
     async with get_connection() as connection:
-        await connection.execute(
+        result = await connection.execute(
             text(
                 """
                 UPDATE sessions
@@ -617,6 +620,7 @@ async def update_session_research_report(task_id: str, research_report: str) -> 
             },
         )
         await connection.commit()
+        return getattr(result, "rowcount", 0) > 0
 
 
 async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
