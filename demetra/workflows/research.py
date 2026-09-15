@@ -8,7 +8,10 @@ from demetra.services.agents.opencode import (
     opencode_research_agent,
 )
 from demetra.services.linear import create_research_ticket, get_linear_config_value, update_ticket_status
-from demetra.services.persistence.database import update_session_step
+from demetra.services.persistence.database import (
+    update_session_research_report,
+    update_session_step,
+)
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR, MAX_RESEARCH_ATTEMPTS
 
@@ -115,6 +118,14 @@ async def _run_research_agent(context: Context) -> str | None:
             continue
 
         print_message(f"Research report:\n{report}")
+        try:
+            persisted = await update_session_research_report(task_id=context.linear_task.id, research_report=report)
+            if not persisted:
+                print_message(
+                    "Failed to persist research report: no session matched task_id, continuing.", style="warning"
+                )
+        except Exception:  # noqa: BLE001
+            print_message("Failed to persist research report, continuing.", style="warning")
         return report
 
     return None

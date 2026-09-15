@@ -15,184 +15,65 @@ related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-a
 
 ## TL;DR
 
-Working-tree change set on `master` (not yet committed): replaced the `passlib`
-`CryptContext` bcrypt wrapper with a direct, standard-library-backed `bcrypt` dependency;
-dropped the `passlib[bcrypt]` package; made the auth-cookie `SameSite` value and the CORS
-origin allow-list configurable via env instead of being hardcoded/wide-open; and bumped
-`demetra` to `1.15.5` with a broad `uv-bump` dependency refresh (aiohttp, fastapi, mcp 2.0,
-redis, etc.). A new OpenCode `release-naming` command was also added. Net effect: a tighter
-auth surface (configurable cookie scope + explicit CORS origins) and a leaner, more current
-dependency tree.
+Replaced `passlib` `CryptContext` wrapper with direct `bcrypt` (dropped `passlib[bcrypt]`), made auth-cookie `SameSite` and CORS origins env-driven instead of hardcoded/wildcard, and bumped to `1.15.5` with broad dependency refresh. All gated at 545 tests. Committed as `5bcce84` via PR #67.
 
-> **Status update (2026-08-23, Consistency Agent):** These changes were committed and merged
-> long ago; see [[2026-08-03-check-api-auth-and-credentials]] for the subsequent auth
-> hardening pass. The "not yet committed" framing below is kept as the session record.
-
----
-
-## Overview
-
-Four loose groups of changes sitting in the working tree:
-
-1. **Password hashing** — swap `passlib` → direct `bcrypt` API, drop the `passlib` dep.
-2. **Auth cookie `SameSite`** — env-driven via `COOKIE_SAMESITE`.
-3. **CORS allowlist** — replace `allow_origins=["*"]` with env-driven `CORS_ALLOWED_ORIGINS`.
-4. **Release: dependencies + pre-commit + version**, plus a new OpenCode release-naming command.
+> **Status (2026-08-23):** Merged long ago; subsequent hardening in [[2026-08-03-check-api-auth-and-credentials]]. "Not yet committed" framing below is historical.
 
 ## Step 1 — Replace passlib with direct bcrypt
 
-Dropped the `passlib[bcrypt]` wrapper in favor of the upstream `bcrypt` package. `passlib` was a
-long-unmaintained runtime layer that added a second bcrypt variant stack on top of the same
-underlying library.
+`passlib` is unmaintained wrapper over same `bcrypt` lib; removed indirection.
 
-**File:** `demetra/services/passwords.py`
-before:
+**`demetra/services/passwords.py`:**
+
 ```python
-from passlib.context import CryptContext
-_PCTX = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def hash_password(plain):
-    _validate_password(plain=plain)
-    return _PCTX.hash(secret=plain)
-
-def verify_password(plain, hashed):
-    ...
-        return _PCTX.verify(secret=plain, hash=hashed)
+# before: CryptContext(schemes=["bcrypt"]); _PCTX.hash(secret=plain) / verify
+# after:  import bcrypt
+bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("ascii"))
 ```
-after:
-```python
-import bcrypt
 
-def hash_password(plain):
-    _validate_password(plain=plain)
-    return bcrypt.hashpw(plain.encode("utf-8"), bcrypt.gensalt()).decode("ascii")
+Both verify `$2b$` hashes — no migration needed. `_validate_password` still guards both paths. `verify_password` also catches `ValueError` (malformed hash) + `UnicodeEncodeError` (non-ASCII) → `False` (fail-closed).
 
-def verify_password(plain, hashed):
-    ...
-        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("ascii"))
-```
-- `bcrypt.checkpw` and `passlib`'s raw-bcrypt path both verify `$2b$` hashes, so existing
-  hashes remain valid (no migration needed).
-- `_validate_password` still runs before both calls, preserving the `AuthError` -> `False`
-  guard in `verify_password`.
-- Review follow-up: `verify_password` also catches `ValueError` (malformed bcrypt hash/salt)
-  and `UnicodeEncodeError` (non-ASCII stored hash) and returns `False`, so corrupt database
-  values fail closed instead of escaping as a server error.
-
-**File:** `pyproject.toml` — removed `passlib[bcrypt]>=1.7.4,<1.8`; added `bcrypt>=4.1.3,<4.2`.
+**`pyproject.toml`:** removed `passlib[bcrypt]>=1.7.4,<1.8`, added `bcrypt>=4.1.3,<4.2` (later `5.0.0`).
 
 ## Step 2 — Configurable cookie SameSite
 
-`SameSite` was hardcoded to `"lax"` in three cookie-writing spots. Now pulled from settings,
-with validation and a safe default.
+**`demetra/settings.py`:**
 
-**File:** `demetra/settings.py`
 ```python
 def get_cookie_samesite() -> CockieSamesite:
     value = os.environ.get("COOKIE_SAMESITE", "lax").lower()
-    if value not in {"lax", "strict", "none"}:
-        return "lax"
-    if value == "none" and not COOKIE_SECURE:
-        raise SettingsError("COOKIE_SAMESITE=none requires COOKIE_SECURE=true")
+    if value not in {"lax","strict","none"}: return "lax"
+    if value == "none" and not COOKIE_SECURE: raise SettingsError(...)
     return value
-
-
-COOKIE_SAMESITE = get_cookie_samesite()
+COOKIE_SAMESITE = get_cookie_samesite()  # now get_cookie_samesite(is_cockie_secure=COOKIE_SECURE)
 ```
-- Review follow-up: `COOKIE_SAMESITE=none` without `COOKIE_SECURE=true` is rejected at startup,
-  because browsers drop `SameSite=None` cookies that lack the `Secure` attribute.
 
-**Files:** `demetra/api/auth.py:37` and `demetra/api/github.py:76` — `samesite=COOKIE_SAMESITE`
-replaces the literal `"lax"` on the `auth_token` cookie. `demetra/api/github.py:31` keeps the
-`oauth_state` cookie hardcoded to `lax`: it must survive the cross-site GitHub OAuth redirect,
-which a `strict` setting would block.
+**`demetra/api/auth.py:37`** + **`demetra/api/github.py:76`** — `samesite=COOKIE_SAMESITE` replaces literal `"lax"` on `auth_token`. `github.py:31` keeps `oauth_state` at `lax` (must survive cross-site redirect; `strict` would block it).
 
 ## Step 3 — Explicit CORS allowlist
 
-The ASGI app previously allowed every origin while sending credentials — an unsafe combination
-(any site can make credentialed requests). Restricted to an env-controlled list.
+Was `allow_origins=["*"]` + `allow_credentials=True` — unsafe. Restricted via env.
 
-**File:** `demetra/app.py`
-```python
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=CORS_ALLOWED_ORIGINS,   # was ["*"]
-    allow_methods=["*"],
-    allow_headers=["*"],
-    allow_credentials=True,
-)
-```
+**`demetra/app.py`:** `allow_origins=CORS_ALLOWED_ORIGINS` (was `["*"]`).
 
-**File:** `demetra/settings.py`
-```python
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.environ.get(
-        "CORS_ALLOWED_ORIGINS",
-        "http://localhost:5173,http://localhost:8000",
-    ).split(",")
-    if origin.strip()
-]
-if "*" in CORS_ALLOWED_ORIGINS:
-    raise SettingsError("CORS_ALLOWED_ORIGINS must contain explicit origins when credentials are enabled")
-```
-Empty entries are filtered. Review follow-up: a `*` wildcard origin is rejected at startup —
-with `allow_credentials=True` (see `demetra/app.py`) Starlette forbids the wildcard origin, so
-the configuration now fails fast instead of misbehaving at runtime. Deployments must set
-`CORS_ALLOWED_ORIGINS` to the real frontend origin(s).
+**`demetra/settings.py`:** `CORS_ALLOWED_ORIGINS` from `CORS_ALLOWED_ORIGINS` env (default `localhost:5173,localhost:8000`), via `env_get_list()`, `*` rejected at startup (`SettingsError` — Starlette forbids wildcard with credentials).
 
-## Step 4 — Dependency bump, version, pre-commit, release command
+## Step 4 — Deps, version, pre-commit, release command
 
-- **File:** `pyproject.toml` — `version = "1.15.5"`; refreshed bounds via `uv-bump`
-  (aiohttp `3.14.3`, fastapi `0.141.1`, langchain-core `1.5.3`, langsmith `0.10.15`,
-  `mcp>=2.0.0`, `redis>=8.1.0`, `uvicorn>=0.52.1`, `websockets>=17.0.1`, dev: faker,
-  ipython, `ty>=0.0.65`, `uv-bump>=0.6.0`, etc.).
-- **File:** `.pre-commit-config.yaml` — `ruff` hook `v0.15.21` → `v0.16.1`.
-- **File:** `uv.lock` — regenerated to match.
-- **File:** `.opencode/commands/release-name.md` — new OpenCode command `release-naming` that
-  generates exactly-two-word, space-themed release codenames (e.g. "Aurora Borealis").
+- `pyproject.toml` `1.15.5`, `uv-bump` refresh (aiohttp 3.14.3, fastapi 0.141.1, `mcp>=2.0.0`, `redis>=8.1.0`, etc.), `.pre-commit-config.yaml` ruff `v0.15.21`→`v0.16.1`, `uv.lock` regenerated.
+- `.opencode/commands/release-name.md` (now skill) — two-word space-themed codenames.
 
 ## Test Results
 
-Initially not run in the first session (dependency-only and config/constant substitutions).
-After the review follow-ups (2026-08-03) the full gates were run and pass: `ruff`, `ty`,
-pre-commit, bandit, and the full suite (545 tests). Recommended gate set:
-
-```shell
-uv run pre-commit run --all-files
-uv run ruff check .
-uv run ty check
-uv run bandit -c pyproject.toml .
-uv run pytest tests/
-```
-
----
+`ruff`, `ty`, `bandit`, `pre-commit`, 545 tests pass.
 
 ## Follow-ups
 
-- _Status note (2026-08-03, Consistency Agent):_ this change set has since been committed
-  and merged to `master` — commit `5bcce84` ("MNT-156: Add auth filters, fix cors and mcp,
-  update wiki") via PR #67 (`bcddc00`), with review fixes in `3d14f1d`. Master HEAD is at
-  version `1.15.5` with a clean tree; the "not yet committed" framing in the TL;DR is kept
-  as the session record.
-- Verify end-to-end login in a deployment that sets `COOKIE_SAMESITE`, `COOKIE_SECURE`, and
-  `CORS_ALLOWED_ORIGINS`.
+- Verify login with `COOKIE_SAMESITE`/`COOKIE_SECURE`/`CORS_ALLOWED_ORIGINS` in deployment.
 
-## Consistency note (2026-08-19)
-
-- bcrypt has been bumped to `5.0.0` (from `>=4.1.3,<4.2` shown above) via subsequent dependency updates.
-- `get_cookie_samesite()` was refactored to accept `is_cockie_secure: bool` as an explicit parameter rather than reading the `COOKIE_SECURE` global directly; the call site in settings.py now passes `is_cockie_secure=COOKIE_SECURE`.
-- `CORS_ALLOWED_ORIGINS` is now parsed via the `env_get_list()` helper rather than the inline list comprehension shown above.
-
-## Consistency note (2026-08-27)
-
-- `demetra/services/passwords.py` (Step 1's before/after snippet) no longer exists at that
-  path — the "Refactor services" commit `04436c6` (2026-08-07) moved it to
-  `demetra/services/auth/passwords.py` as part of splitting the flat `demetra/services/auth.py`
-  into an `auth/` subpackage. Current `hash_password`/`verify_password` logic matches what's
-  shown here; only the module location changed.
+> **Consistency (2026-08-27):** `demetra/services/passwords.py` → `demetra/services/auth/passwords.py` (commit `04436c6`). Logic unchanged.
 
 ## References
 
-- Related: [[2026-07-24-plain-auth-review-followups]] (MNT-148 auth work this builds on),
-  [[2026-08-03-check-api-auth-and-credentials]] (subsequent auth hardening)
+- Related: [[2026-07-24-plain-auth-review-followups]], [[2026-08-03-check-api-auth-and-credentials]]

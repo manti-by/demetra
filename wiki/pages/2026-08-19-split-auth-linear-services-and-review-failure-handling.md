@@ -15,173 +15,70 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-06-allowlist-review
 
 ## TL;DR
 
-On the MNT-170 env-layers branch (merged to `master` via PR #80, 2026-08-19), a follow-up refactor split the two remaining
-monolithic service facades — `auth` and `linear` — into per-concern submodules
-behind their `__init__.py` facades, and deleted the `sys.meta_path` relocation
-shim from `demetra/services/__init__.py` (the last trace of the legacy flat
-import paths). In parallel, review/PR-description LLM failures changed from
-silent empty returns (`[]` / `""`) to typed exceptions (`ReviewError`,
-`PrDescriptionError`) that route the ticket to `Awaiting Input` with a new
-`review_failed` template. All 83 + 72 targeted tests pass.
-
----
+On the MNT-170 branch (merged via PR #80, 2026-08-19), the `auth` and `linear` monolithic facades were split into per-concern submodules behind `__init__.py` facades and the `sys.meta_path` relocation shim was deleted from `demetra/services/__init__.py`. In parallel, `summarize_review`/`generate_pr_description` now raise typed `ReviewError`/`PrDescriptionError` → `Awaiting Input` with a `review_failed` template instead of silently returning `[]`/`""`. 83 + 72 tests pass.
 
 ## Overview
 
-The MNT-170 branch (env-var layers) carried two distinct strands of work. The
-committed `59637b4` did the migration itself; this session staged the follow-up
-cleanup on top: service subpackage splits plus the review-failure error path.
+Branch `59637b4` did the env-layers migration; this session staged the follow-up cleanup: service splits plus the review-failure error path.
 
-## Step 1 — Split `auth` service into submodules
+## Auth split
 
-**File:** `demetra/services/auth/__init__.py` — the ~450-line single module was
-reduced to a facade that re-exports via `__all__` and delegates to three new
-modules:
+`demetra/services/auth/__init__.py` (~450 lines) → facade re-exporting via `__all__` to three modules:
 
 - `demetra/services/auth/jwt.py` — `create_jwt_token`, `verify_jwt_token`
-- `demetra/services/auth/oauth.py` — `get_github_auth_url`,
-  `exchange_code_for_token`, `get_github_user`
-- `demetra/services/auth/sessions.py` — `get_or_create_user`,
-  `authenticate_user`, `signup_with_password`, `login_with_password`, `logout`,
-  `get_current_user`, `get_current_user_dep`, `has_permission`,
-  `reset_password`, `reset_password_cli`
+- `demetra/services/auth/oauth.py` — `get_github_auth_url`, `exchange_code_for_token`, `get_github_user`
+- `demetra/services/auth/sessions.py` — `get_or_create_user`, `authenticate_user`, `signup_with_password`, `login_with_password`, `logout`, `get_current_user`, `get_current_user_dep`, `has_permission`, `reset_password`, `reset_password_cli`
 
-The submodules read shared state through the facade at call time —
-`import demetra.services.auth as service` then `service.JWT`,
-`service.create_user`, `service.get_transaction`, etc. — so monkeypatch seams on
-the facade keep holding. `sessions.py` keeps the two heavy imports
-(`sqlalchemy`, `tui`) local to the functions that need them to break the import
-cycle.
+Submodules read shared state via `import demetra.services.auth as service` (`service.JWT`, `service.get_transaction`, etc.) so facade monkeypatches still hold. Heavy imports (`sqlalchemy`, `tui`) kept local to break cycles.
 
-## Step 2 — Split `linear` service into submodules
+## Linear split
 
-**File:** `demetra/services/linear/__init__.py` — likewise reduced to a facade
-re-exporting via `__all__`, delegating to:
+`demetra/services/linear/__init__.py` → facade delegating to:
 
 - `demetra/services/linear/config.py` — `get_linear_config_value`
-- `demetra/services/linear/mutations.py` — `update_ticket_status`,
-  `post_comment`, `linear_cleanup`, `create_linear_ticket`
-- `demetra/services/linear/tasks.py` — `get_linked_projects`,
-  `extract_comments`, `extract_labels`, `get_todo_issues`,
-  `get_linear_task_by_id`, `get_linear_task`
+- `demetra/services/linear/mutations.py` — `update_ticket_status`, `post_comment`, `linear_cleanup`, `create_linear_ticket`
+- `demetra/services/linear/tasks.py` — `get_linked_projects`, `extract_comments`, `extract_labels`, `get_todo_issues`, `get_linear_task_by_id`, `get_linear_task`
 
-Same facade-at-call-time pattern (`import demetra.services.linear as service`
-then `service.get_connection`, `service.print_message`, `service.get_query`).
+Same `import demetra.services.linear as service` pattern.
 
-## Step 3 — Remove the `services` relocation shim
+## Relocation shim removal
 
-**File:** `demetra/services/__init__.py` — the previous `sys.meta_path`-installed
-`_RelocatedFinder` / `_RelocatedLoader` (which served the legacy flat import
-paths like `demetra.services.git`, `demetra.services.groq`) was deleted. The
-package is now a plain marker:
+`demetra/services/__init__.py` — deleted `_RelocatedFinder`/`_RelocatedLoader` (`sys.meta_path`) that served legacy flat imports (`demetra.services.git`, `demetra.services.groq`). Now a plain marker package. Completes migration begun in [[2026-08-07-split-wiki-service-into-subpackage]] and the `vcs`/`agents`/`llm`/`persistence` splits.
 
-```python
-"""Service layer package marker.
+## Tools registry
 
-Individual services live in subpackages (e.g. ``auth``, ``linear``,
-``vcs``) whose ``__init__.py`` acts as the public facade. This package
-contains no executable code.
-"""
-```
+`demetra/tools/registry.py` extracted from `demetra/tools/__init__.py` — aggregating `list_tools`/`call_tool` moved verbatim; package `__init__` now only re-exports. No behaviour change.
 
-This completes the subpackage migration begun with
-[[2026-08-07-split-wiki-service-into-subpackage]] and the earlier
-`vcs`/`agents`/`llm`/`persistence` splits. A grep confirms no remaining
-`services.auth` / `services.linear` legacy references — only the facade imports
-`demetra.services.auth` / `demetra.services.linear`.
+## Review/PR-description typed failures
 
-## Step 4 — Extract the tools registry
+Previously `summarize_review` → `[]` and `generate_pr_description` → `""` on LLM failure, silently passing review / empty PR body.
 
-**File:** `demetra/tools/__init__.py` / `demetra/tools/registry.py` — the
-aggregating `list_tools` / `call_tool` dispatcher moved verbatim out of
-`tools/__init__.py` into a new `registry.py`; the package `__init__` now only
-re-exports them. No behaviour change.
-
-## Step 5 — Review / PR-description failures become typed exceptions
-
-Previously the OpenRouter summarization silently degraded: `summarize_review`
-returned `[]` on LLM failure and `generate_pr_description` returned `""`, so a
-broken review produced a passed review and an empty PR body.
-
-**File:** `demetra/library/exceptions.py` — added two exceptions:
-
-```python
-class ReviewError(DemetraError):
-    pass
-
-
-class PrDescriptionError(DemetraError):
-    pass
-```
-
-**File:** `demetra/services/llm/openrouter.py` —
-`summarize_review` now `raise ReviewError("Failed to summarize the review")`,
-`generate_pr_description` now `raise PrDescriptionError("Failed to generate the PR description")`
-(was `return []` / `return ""`).
-
-**File:** `demetra/workflows/cleanup.py` — `commit_and_push` catches
-`PrDescriptionError` and re-raises as `PullRequestError`, so a failed PR body no
-longer silently proceeds with an empty body.
-
-**File:** `demetra/workflows/failure.py` — `process_pr_failure` was generalized
-from `PullRequestError`-only to `DemetraError`. A `ReviewError` posts the new
-`review_failed` template and labels the comment `review-failure`; everything else
-keeps the existing `pr_creation_failed` template / `PR-creation-failure` label.
-Both paths still move the ticket to `Awaiting Input`.
-
-**File:** `demetra/templates/review_failed.md` — new template reporting that the
-review agents ran but summarization failed, with the error and a request to
-investigate.
-
-**File:** `main.py` — a new `except ReviewError` handler delegates to
-`process_pr_failure` and records the step as `awaiting_input`, mirroring the
-existing `PullRequestError` handler
-([[2026-08-05-pr-creation-failure-handler]]).
+- `demetra/library/exceptions.py` — added `ReviewError(DemetraError)` and `PrDescriptionError(DemetraError)`
+- `demetra/services/llm/openrouter.py` — `summarize_review` raises `ReviewError("Failed to summarize the review")`, `generate_pr_description` raises `PrDescriptionError(...)`
+- `demetra/workflows/cleanup.py` — `commit_and_push` catches `PrDescriptionError` → re-raises `PullRequestError`
+- `demetra/workflows/failure.py` — `process_pr_failure` generalized from `PullRequestError`-only to `DemetraError`; `ReviewError` posts `review_failed` template (`review-failure` label), else `pr_creation_failed` (`PR-creation-failure` label); both move to `Awaiting Input`
+- `demetra/templates/review_failed.md` — new template
+- `main.py` — added `except ReviewError` → `process_pr_failure` with `awaiting_input` (mirrors [[2026-08-05-pr-creation-failure-handler]])
 
 ## Test Results
 
-Targeted suites green:
-
-```text
+```
 83 passed in 1.60s   # test_failure, test_openrouter, test_entrypoints, test_workflows
 72 passed in 1.93s   # test_linear, test_auth
 ```
 
-New coverage added:
-- `tests/test_openrouter.py` — `summarize_review` raises `ReviewError`,
-  `generate_pr_description` raises `PrDescriptionError` on LLM failure.
-- `tests/test_failure.py` — `process_pr_failure` posts the `review_failed`
-  comment with the error text and moves to `Awaiting Input`.
-- `tests/test_entrypoints.py` — `main()` delegates a `ReviewError` from the
-  build step to `process_pr_failure` + `awaiting_input` cleanup.
-- `tests/test_workflows.py` — `run_review_agents` propagates `ReviewError`;
-  `commit_and_push` raises `PullRequestError` when PR-description generation
-  fails and never opens the PR.
-
----
+New coverage: `test_openrouter` (ReviewError/PrDescriptionError on LLM failure), `test_failure` (`review_failed` comment → Awaiting Input), `test_entrypoints` (ReviewError delegation), `test_workflows` (review propagation, PR-description failure).
 
 ## Consistency note (2026-08-23)
 
-MNT-170 merged to `master` via PR #80 (2026-08-19): the auth/linear subpackage split,
-tools registry extraction, review-failure exception path, and relocation-shim removal
-are all live. The first follow-up above is done (gates ran green before the merge);
-the `render.py` TODO is still present (`demetra/services/wiki/render.py:57`). Note that
-allowlist logic referenced by [[2026-08-06-allowlist-review-fixes]] now lives at
-`demetra/services/auth/allowlist.py`, not the legacy flat `demetra/services/allowlist.py`.
+Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render.py:57` still present. Allowlist now at `demetra/services/auth/allowlist.py` (see [[2026-08-06-allowlist-review-fixes]]).
 
 ## Follow-ups
 
-- ~~Complete the MNT-170 review gates (`ruff`, `ty`, `bandit`, `pre-commit`,
-  full `pytest`) before commit; this page documents the staged (uncommitted)
-  work on top of `59637b4`.~~ **Done** — merged via PR #80.
-- The `render.py` `# TODO: Add template and render` comment in
-  `demetra/services/wiki/render.py` was added this session — confirm whether it
-  is a deliberate placeholder or leftover.
+- ~~Complete MNT-170 review gates before commit~~ **Done** — merged via PR #80.
+- Confirm whether `demetra/services/wiki/render.py` `# TODO: Add template and render` is deliberate or leftover.
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]],
-  [[2026-08-18-migrate-llm-groq-to-openrouter]],
-  [[2026-08-05-pr-creation-failure-handler]],
-  [[2026-08-06-allowlist-review-fixes]]
+- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-06-allowlist-review-fixes]]
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)

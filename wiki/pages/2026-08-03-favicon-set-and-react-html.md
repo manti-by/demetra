@@ -15,91 +15,43 @@ related: [2026-07-22-react-frontend-template-warp.md]
 
 ## TL;DR
 
-Generated a full favicon set (`.ico` + PNGs + PWA webmanifest) from the existing `media/logo.svg` and wired it into `react/index.html`. The source SVG is a dark `#25292e` square with a white glyph, so the `theme-color` and manifest colors are taken from the logo. `cairosvg` was unusable (no system cairo lib), so rendering was done with `sharp` (bundles libvips + librsvg) in a throwaway temp dir; `sharp` can't emit ICO, so the multi-size `favicon.ico` was assembled by hand from 16/32/48 PNGs. Verified with `file` and a full `vite build`.
-
----
+Generated a full favicon set (`.ico` + PNGs + PWA manifest) from `media/logo.svg` and wired it into `react/index.html`. `cairosvg` failed (no system cairo), so `sharp` (bundles libvips+librsvg, zero system deps) rasterized in a throwaway temp dir; `sharp` can't emit ICO, so `favicon.ico` was hand-assembled from 16/32/48 PNGs. Verified with `file` + `vite build`.
 
 ## Overview
 
-| Layer      | Change                                                                                    |
-| ---------- | ----------------------------------------------------------------------------------------- |
-| Assets     | `react/public/` gets `favicon.ico`, `favicon-16x16.png`, `favicon-32x32.png`, `apple-touch-icon.png`, `android-chrome-192x192.png`, `android-chrome-512x512.png` |
-| Manifest   | New `react/public/site.webmanifest` (PWA icons, theme/background color)                   |
-| HTML       | `react/index.html` gains icon links, `apple-touch-icon`, `manifest`, and `theme-color`    |
-| Build      | `vite build` copies `public/` to `dist/` unchanged; HTML references `/favicon.ico` etc.    |
+| Layer | Change |
+|-------|--------|
+| Assets | `react/public/` → `favicon.ico`, `favicon-16/32.png`, `apple-touch-icon.png`, `android-chrome-192/512.png` |
+| Manifest | `site.webmanifest` (icons, `theme_color`/`background_color` `#25292e`) |
+| HTML | `react/index.html:7-12` icon/manifest/theme-color links |
+| Build | `vite build` copies `public/`→`dist/` |
 
----
+## Step 1 — Tooling
 
-## Step 1 — Tooling check
+`media/logo.svg` — `viewBox 0 0 83.38 83.38`, `#25292e` rect + white path. No rasterizer on machine (`rsvg-convert`/`convert`/`inkscape`/`sips` absent). `uv run --with cairosvg` → `OSError: no library called "cairo-2"`. Fallback: `sharp` in `/var/folders/.../T/opencode/favicon-build` (outside repo, no `react/package.json` change).
 
-`media/logo.svg` is a 1-line SVG (`viewBox="0 0 83.38 83.38"`): a `#25292e` rect with a white speech-bubble-ish path. No SVG rasterizer on the machine (`rsvg-convert`/`convert`/`inkscape` absent; `sips` doesn't handle SVG; no `sharp` in `react/node_modules`).
-
-`uv run --with cairosvg` failed with `no library called "cairo-2" was found` — cairosvg needs the system cairo C library, which isn't installed:
-
-```python
-OSError: no library called "cairo-2" was found
-```
-
-Fallback: install `sharp` in `/var/folders/.../T/opencode/favicon-build` (outside the repo so `react/package.json` stays untouched). `sharp` bundles libvips with its own librsvg, so it rasterizes SVG with zero system deps.
-
----
-
-## Step 2 — Rasterize the logo to PNG sizes
-
-**File:** `react/public/*.png` (new)
+## Step 2 — Rasterize to PNG
 
 ```js
-const sizes = {
-  "favicon-16x16.png": 16,
-  "favicon-32x32.png": 32,
-  "apple-touch-icon.png": 180,
-  "android-chrome-192x192.png": 192,
-  "android-chrome-512x512.png": 512,
-};
-for (const [name, size] of Object.entries(sizes)) {
-  await sharp(svg).resize(size, size).png().toFile(path.join(outDir, name));
-}
+for (const [name, size] of Object.entries({"favicon-16x16.png":16,"favicon-32x32.png":32,"apple-touch-icon.png":180,"android-chrome-192x192.png":192,"android-chrome-512x512.png":512}))
+  await sharp(svg).resize(size,size).png().toFile(path.join(outDir,name));
 ```
 
----
+## Step 3 — Hand-assemble `favicon.ico`
 
-## Step 3 — Build `favicon.ico` manually
+`sharp` `toFormat("ico")` throws unsupported format. Built ICO container manually: `ICONDIR` header (6 bytes) + 3× `ICONDIRENTRY` (16 bytes each) + raw PNG payloads (PNG-compressed entries accepted by browsers). Result 1060 bytes, `file` → `MS Windows icon resource - 3 icons`.
 
-`sharp`'s `toFormat("ico", ...)` throws `Expected one of: heic, heif, ... for format but received ico` — ICO output isn't supported. Since browsers accept PNG-compressed entries in `.ico`, the container was assembled by hand:
+## Step 4 — Webmanifest
 
-- `ICONDIR` header (6 bytes: reserved=0, type=1, count=3)
-- One 16-byte `ICONDIRENTRY` per size (width, height, planes=1, bitCount=32, byte length, file offset)
-- Then the raw 16/32/48 PNG payloads
-
-Result: a valid `MS Windows icon resource - 3 icons` (confirmed via `file favicon.ico`), 1060 bytes.
-
----
-
-## Step 4 — PWA webmanifest
-
-**File:** `react/public/site.webmanifest` (new)
+**`react/public/site.webmanifest`:**
 
 ```json
-{
-  "name": "Demetra",
-  "short_name": "Demetra",
-  "icons": [
-    { "src": "/android-chrome-192x192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/android-chrome-512x512.png", "sizes": "512x512", "type": "image/png" }
-  ],
-  "theme_color": "#25292e",
-  "background_color": "#25292e",
-  "display": "standalone"
-}
+{"name":"Demetra","short_name":"Demetra","icons":[{"src":"/android-chrome-192x192.png","sizes":"192x192"},{"src":"/android-chrome-512x512.png","sizes":"512x512"}],"theme_color":"#25292e","background_color":"#25292e","display":"standalone"}
 ```
 
-`#25292e` is the logo's square color (`media/logo.svg`, `.cls-1{fill:#25292e}`), so theme/background match the brand mark.
+Colors from logo square `media/logo.svg` `.cls-1{fill:#25292e}`.
 
----
-
-## Step 5 — Wire into `react/index.html`
-
-**File:** `react/index.html:7-12`
+## Step 5 — Wire into `react/index.html:7-12`
 
 ```html
 <link rel="icon" href="/favicon.ico" sizes="48x48" />
@@ -110,45 +62,23 @@ Result: a valid `MS Windows icon resource - 3 icons` (confirmed via `file favico
 <meta name="theme-color" content="#25292e" />
 ```
 
-Order follows the real favicon-style convention: `.ico` for legacy browsers, PNG for modern (16/32), apple-touch-icon (180) for iOS home screen, webmanifest for Android/PWA. Vite serves `react/public/` at `/` so all paths are root-relative.
-
----
+Vite serves `public/` at `/`, paths are root-relative.
 
 ## Step 6 — Cleanup
 
-The first (failed cairosvg→sharp) run left `_favicon-*.png` temp files in `public/`; removed with `rm`. The `favicon-build` temp dir was left for reuse but contains only the `sharp` install.
-
----
+Removed `_favicon-*.png` temps from failed cairosvg attempt. `favicon-build` temp dir left for reuse (only `sharp` install).
 
 ## Test Results
 
-```shell
-$ file favicon.ico favicon-16x16.png favicon-32x32.png apple-touch-icon.png android-chrome-192x192.png android-chrome-512x512.png
-favicon.ico:                MS Windows icon resource - 3 icons, 16x16 ... 32x32 ... (PNG data)
-favicon-16x16.png:          PNG image data, 16 x 16, 8-bit/color RGBA
-favicon-32x32.png:          PNG image data, 32 x 32, 8-bit/color RGBA
-apple-touch-icon.png:       PNG image data, 180 x 180, 8-bit/color RGBA
-android-chrome-192x192.png: PNG image data, 192 x 192, 8-bit/color RGBA
-android-chrome-512x512.png: PNG image data, 512 x 512, 8-bit/color RGBA
-
-$ cd react && npx vite build
-✓ 59 modules transformed.
-dist/index.html                           1.18 kB │ gzip:  0.55 kB
-✓ built in 401ms
-```
-
-`dist/` now contains all favicon assets + `site.webmanifest` next to `index.html`, confirming the `public/`→`dist/` copy. Visual inspection of the rendered glyph is the one thing not verified in-session (no image input available) — the source is a trivial rect+path, so risk is minimal.
-
----
+`file` confirms all PNGs + ICO; `vite build` 59 modules, 401ms, `dist/` contains all assets beside `index.html`. Visual glyph not verified in-session (trivial rect+path, minimal risk).
 
 ## Follow-ups
 
-- Eyeball the favicon in a browser tab (and iOS home screen via `apple-touch-icon.png`) once the app is deployed.
-- If the `.ico` needs Windows-Vista-era BMP entries instead of PNG-compressed ones, rebuild with a proper ICO encoder (Pillow's `Image.save(..., format="ICO")` handles it).
+- Eyeball favicon in browser / iOS home screen after deploy.
+- If BMP ICO entries needed, rebuild with Pillow `Image.save(format="ICO")`.
 
 ## References
 
-- [[2026-07-22-react-frontend-template-warp]] — warp theme / React frontend context
-- `media/logo.svg` — source artwork (1-line SVG, `#25292e` square + white path)
-- `react/index.html` — edited head
-- `react/public/` — Vite static-asset root (served at `/`)
+- [[2026-07-22-react-frontend-template-warp]] — warp theme / React context
+- `media/logo.svg` — source (1-line SVG, `#25292e` + white path)
+- `react/index.html` · `react/public/` (Vite static root at `/`)

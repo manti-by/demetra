@@ -15,254 +15,100 @@ related: [2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2
 
 ## TL;DR
 
-Merged from three sessions covering the React frontend end-to-end: mapped the component tree and flexbox layout, removed the gap between sidebar and console, reorganized border/background ownership so sidebar and console sit flush as a single card, added a sidebar footer to balance the artifacts row, made `SessionArtifacts` always render, added typography baseline for rendered markdown, widened the build-plan modal, removed excessive `<li>` spacing in rendered content, and added Playwright MCP to the toolchain.
-
----
+Three sessions covering the React frontend: mapped the component tree and flexbox layout, closed the sidebar–console gap into a single card (border/radius ownership moved to containers, `gap: 0`, `sidebar-footer` added), made `SessionArtifacts` always render to preserve borders, added typography baseline for rendered markdown, widened the build-plan modal, removed excessive `li` spacing, and added Playwright MCP.
 
 ## 1. Component Structure
 
-**File layout under `react/src/`:**
-
-```text
+```
 src/
-├── main.tsx                          # React entry point
-├── index.css                         # Global styles + design tokens (CSS custom properties)
-├── App.tsx                           # Root component with auth, routing, layout
-├── App.css                           # All component-specific styles (single CSS file)
-├── vite-env.d.ts
-├── contexts/
-│   ├── AuthContext.tsx                # Auth state (GitHub OAuth)
-│   └── ThemeContext.tsx               # Dark/light theme toggle
-├── services/
-│   └── api.ts                        # REST API client (sessions, projects, env, auth)
-├── pages/
-│   └── GitHubCallback.tsx            # OAuth callback page
-└── components/
-    ├── Header.tsx                    # Top nav bar with theme toggle, burger menu
-    ├── SessionSidebar.tsx            # Parent wrapper for SessionList
-    ├── SessionList.tsx               # Vertical list of session items
-    ├── LogConsole.tsx                # WebSocket live log viewer
-    ├── SessionArtifacts.tsx          # External links (Linear, PR, build plan modal)
-    ├── CommandPalette.tsx            # Cmd+K palette
-    ├── UserSettings.tsx              # User preferences modal
-    ├── ProjectList.tsx               # Project management
-    ├── EnvSettings.tsx               # Environment variable editor
-    └── GitHubLoginButton.tsx         # GitHub OAuth button
+├── main.tsx, index.css (tokens), App.tsx, App.css
+├── contexts/AuthContext.tsx, ThemeContext.tsx
+├── services/api.ts
+├── pages/GitHubCallback.tsx
+└── components/Header, SessionSidebar, SessionList, LogConsole, SessionArtifacts,
+                CommandPalette, UserSettings, ProjectList, EnvSettings, GitHubLoginButton
 ```
 
-The key layout is in `AppContent()` inside `App.tsx`:
+Key layout in `AppContent()` (`App.tsx`):
 
 ```tsx
 <main className="main-content">
-  <div className="main-content-body">     // flex row
-    <SessionSidebar ... />                 // fixed-width 280px left column
-    <div className="console-container">    // flex-1 right column
-      <LogConsole ... />
-      <SessionArtifacts ... />
+  <div className="main-content-body">  {/* flex row */}
+    <SessionSidebar />                 {/* 280px fixed */}
+    <div className="console-container">{/* flex:1 */}
+      <LogConsole /><SessionArtifacts />
     </div>
   </div>
 </main>
 ```
 
----
-
 ## 2. Layout / CSS
 
-The layout uses **flexbox** (no CSS Grid). Key classes:
+Flexbox (no grid):
 
 | Class | Role |
 |-------|------|
-| `.app` | Full-height vertical column (`100vh`) |
-| `.main-content` | Centered content area (`max-width: 1400px`, `flex: 1`) |
-| `.main-content-body` | Horizontal flex row (`gap: 0`, `align-items: stretch`) |
-| `.session-sidebar` | Fixed 280px left column |
-| `.console-container` | Right column (`flex: 1`, `max-width: 1200px`) |
-| `.log-console` | Log panel inside container (`flex: 1`) |
-| `.sidebar-footer` | Bottom spacer in sidebar matching artifacts height |
+| `.app` | `100vh` column |
+| `.main-content` | centered `max-width:1400px` |
+| `.main-content-body` | flex row, `gap:0`, `stretch` |
+| `.session-sidebar` | 280px, `radius: lg 0 0 lg` |
+| `.console-container` | `flex:1`, `max-width:1200px`, `radius: 0 lg lg 0` |
+| `.sidebar-footer` | spacer matching artifacts height |
 
-```text
-┌──────────────────────────────────────────────────────────────┐
-│  .header (sticky top bar)                                    │
-├──────────────────────────────────────────────────────────────┤
-│  .main-content (max-width 1400px, centered, flex column)     │
-│                                                              │
-│  .main-content-body (flex row, gap: 0)                       │
-│  ┌──────────────────────────┬──────────────────────────────┐ │
-│  │ .session-sidebar         │ .console-container           │ │
-│  │ (280px fixed)            │ (flex: 1, max-width 1200px)  │ │
-│  │ radius: lg 0 0 lg       │ radius: 0 lg lg 0             │ │
-│  │ ──────────────────────   │ ──────────────────────────── │ │
-│  │ sidebar-header           │ .log-console                 │ │
-│  │   "Sessions"             │   log-header + log-content   │ │
-│  │ .session-list            │   (scrollable log lines)     │ │
-│  │   (scrollable items)     │ .session-artifacts           │ │
-│  │ .sidebar-footer          │   (links row, always renders)│ │
-│  └──────────────────────────┴──────────────────────────────┘ │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
-```
-
----
+Sidebar + console join as one card when gap is 0.
 
 ## 3. Template Layout Changes
 
-Closing the gap between sidebar and console, adjusting border ownership so they sit flush.
-
 ### 3.1 `react/src/App.css`
 
-- `.main-content-body`: `gap: 1rem` → `gap: 0`
-- `.session-sidebar`: removed `margin-bottom: 1.5rem`, changed `border-radius` to `var(--radius-lg) 0 0 var(--radius-lg)`
-- `.console-container`: moved `background`, `border`, and `border-radius` from `.log-console` here — outer border now wraps both log and artifacts, `border-radius: 0 var(--radius-lg) var(--radius-lg) 0`
-- `.log-console`: stripped `background`/`border`/`border-radius` — just flex layout now
-- `.session-artifacts`: added `min-height: 2.25rem`, `border-top: 1px solid var(--color-border)`, horizontal padding `0 1rem` — always reserves space
-- Added `.sidebar-footer` matching the artifacts height/border
-
-**Before — border-radius belonged to `.log-console`:**
-
-```css
-.log-console {
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-}
-```
-
-**After — moved to `.console-container`:**
-
-```css
-.console-container {
-  background: var(--color-surface-1);
-  border: 1px solid var(--color-border);
-  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-  overflow: hidden;
-}
-```
-
-**Motivation:** Sidebar (`border-radius: lg 0 0 lg`) and console (`border-radius: 0 lg lg 0`) join into a single card when there is no gap.
+- `.main-content-body`: `gap: 1rem` → `0`
+- `.session-sidebar`: removed `margin-bottom`, `border-radius: lg 0 0 lg`
+- `.console-container`: moved `background`/`border`/`border-radius` from `.log-console` here (`0 lg lg 0`, `overflow:hidden`)
+- `.log-console`: stripped `background`/`border`/`radius` — flex only
+- `.session-artifacts`: `min-height:2.25rem`, `border-top`, `padding: 0 1rem` — always reserves space
+- Added `.sidebar-footer` matching artifacts height
 
 ### 3.2 `react/src/components/SessionSidebar.tsx`
 
-Added `<div className="sidebar-footer" />` after the session list to match the console's artifacts footer height.
+Added `<div className="sidebar-footer" />` after session list.
 
 ### 3.3 `react/src/components/SessionArtifacts.tsx`
 
-**Problem:** The component returned `null` in two cases:
-1. When `session` was falsy (loading state).
-2. When the session had no PR link, build plan, or Linear link.
-
-This made `.session-artifacts` (which carries `border-top`) disappear, breaking the border line.
-
-**Fix:** Both early returns emit `<div className="session-artifacts" />` — an empty container that keeps the footer border visible.
-
-```tsx
-// Before
-if (!session) { return null; }
-if (!hasPrLink && !hasBuildPlan && !hasLinearLink) { return null; }
-
-// After
-if (!session) { return <div className="session-artifacts" />; }
-if (!hasPrLink && !hasBuildPlan && !hasLinearLink) { return <div className="session-artifacts" />; }
-```
-
----
+Previously returned `null` when `!session` or no links — broke `border-top`. Now both early returns emit `<div className="session-artifacts" />` to keep footer border visible.
 
 ## 4. Typography Baseline
 
-Added full typography reset and baseline for HTML elements in `App.css`. Before this, heading, paragraph, list, code, blockquote, and horizontal-rule elements inherited browser defaults — no consistent `font-family`, sizing, or color.
+Added `h1`–`h3`, `code`, `pre`, `blockquote`, `hr` reset using `--font-ui`/`--font-mono` and `--color-text-*`/`--color-surface-*` tokens. Motivation: warp theme had tokens but no element styles, so rendered markdown looked unstyled.
 
-The entire system uses the theme's `--font-ui` / `--font-mono` variables and the `--color-text-*` / `--color-surface-*` palette.
-
-```css
-h1 { font-size: 1.75rem; letter-spacing: -0.035em; }
-h2 { font-size: 1.5rem;  letter-spacing: -0.03em; }
-h3 { font-size: 1.25rem; letter-spacing: -0.025em; font-weight: 500; }
-code { font-family: var(--font-mono); font-size: 0.8125rem;
-       background: var(--color-surface-2); padding: 0.125rem 0.375rem;
-       border-radius: var(--radius-sm); }
-pre  { font-family: var(--font-mono); font-size: 0.8125rem; line-height: 1.618;
-       background: var(--color-surface-2); padding: 1rem;
-       border-radius: var(--radius-md); overflow-x: auto; }
-blockquote { border-left: 2px solid var(--color-border); padding-left: 1rem;
-             color: var(--color-text-secondary); font-style: italic; }
-hr { border-top: 1px solid var(--color-border); }
-```
-
-**Motivation:** The Warp theme defined color and spacing tokens but no element-level styles, so rendered markdown (build plans, rendered-content in the log panel) looked unstyled.
-
-> **Status update (2026-08-27, Consistency Agent):** This typography block no longer lives in
-> `App.css`. Later the same day, [[2026-07-22-warp-theme-review-fixes-and-ops]] (Step 4, commit
-> `ed8bcc4`) removed the entire "Basic elements" block from `App.css` and added the identical
-> rules to the end of `react/src/index.css`. Confirmed in current code: `h1`–`h3`, `code`, `pre`,
-> `blockquote`, `hr` selectors are defined in `react/src/index.css` (around line 122 onward) and
-> are absent from `App.css`. The rules and their motivation below are otherwise unchanged.
-
----
+> **Status update (2026-08-27):** This block was moved from `App.css` to `react/src/index.css` the same day by [[2026-07-22-warp-theme-review-fixes-and-ops]] (commit `ed8bcc4`). Rules identical, only location changed.
 
 ## 5. Misc CSS & Tooling
 
-### 5.1 `.modal-btn` and build-plan modal width
-
-Added `.modal-btn` class for modal action buttons. Increased `.build-plan-modal` max-width from `680px` to `980px` — the previous width caused horizontal scroll for typical build plans.
-
-### 5.2 Remove `.rendered-content li` margin
-
-Removed `margin-bottom: 0.25rem` from `.rendered-content li` to eliminate excessive spacing between list items. Nested list overrides (`li > ul`, `li > ol`) were kept intact.
-
-### 5.3 Playwright MCP
-
-Added to `opencode.json`:
-
-```json
-"Playwright": {
-  "type": "local",
-  "command": ["npx", "-y", "@tontoko/fast-playwright-mcp"],
-  "enabled": true
-}
-```
-
-This gives AI agents browser automation capabilities directly via MCP.
-
----
+- **`.modal-btn` + build-plan modal:** added button class; `max-width` `680px` → `980px`.
+- **`.rendered-content li`:** removed `margin-bottom: 0.25rem`; kept `li > ul/ol` overrides.
+- **Playwright MCP** (`opencode.json`): `["npx","-y","@tontoko/fast-playwright-mcp"]` → browser automation via MCP.
 
 ## Test Results
 
-All existing tests pass — CSS changes are purely presentational and TypeScript changes are type-safe. The `SessionArtifacts` early-return change is covered by existing rendering tests (loading / no-artifacts states).
-
----
+CSS-only, type-safe. `SessionArtifacts` early-return covered by existing render tests. All tests pass.
 
 ## Source — [[2026-03-04-basic-react-app]]
 
-Originally added in [[2026-03-04-basic-react-app]] on 2026-03-04 (MNT-49): the
-frontend is **React + TypeScript**, bundled with **Vite**, with **Bun** as the
-package manager and script runner, scaffolded under `react/`.
-The design system is a dark theme: grey `#2b2b2b`, green `#60843d`, dark-green
-`#274e13`, black background — the origin of the design tokens this page's Warp theme
-refines. Tooling: Vitest + testing-library; Makefile targets `make react`,
-`react-install`, `react-build`, `react-test`. Deployment originally via systemd
-serving the built `dist/`.
+React + TypeScript + Vite + Bun under `react/` (MNT-49, 2026-03-04). Dark theme tokens (grey `#2b2b2b`, green `#60843d`) refined by warp. Vitest, `make react*` targets.
 
 ## Source — [[2026-03-09-user-settings-frontend]]
 
-Originally added in [[2026-03-09-user-settings-frontend]] on 2026-03-09 (MNT-57): a
-`user-settings` component with a "keys" group renders and edits the current user's
-encrypted settings. It PATCHes the user update API (`/users/me`) with the settings
-object as the request body — the API layer this page's `UserSettings.tsx` and
-`services/api.ts` continue to build on.
+User-settings "keys" group editing via `PATCH /users/me` (MNT-57, 2026-03-09). Basis for `UserSettings.tsx` / `services/api.ts`.
 
 ## Source — [[2026-06-01-refactor-frontend-app]]
 
-Originally decided in [[2026-06-01-refactor-frontend-app]] on 2026-06-01 (MNT-77): the
-frontend directory is named `react/` — the early `hera` scaffold was renamed, with the
-Makefile targets and docs updated to match. Every component path in this page's
-component tree hangs off that canonical name.
+Frontend dir renamed `hera` → `react/` (MNT-77, 2026-06-01). All paths in this page hang off that name.
 
 ## Follow-ups
 
-- Add `sidebar-footer` CSS styles if/when footer content is added.
-- Consider making `.modal-btn` a reusable component shared across all modals.
-
----
+- Add `sidebar-footer` content/styles when needed.
+- Consider making `.modal-btn` a shared component.
 
 ## References
 
-- External: [MNT-142 in Linear](https://linear.app/manti/project/warp-theme-for-react-0c0c0c0c)
+- External: [MNT-142](https://linear.app/manti/project/warp-theme-for-react-0c0c0c0c)

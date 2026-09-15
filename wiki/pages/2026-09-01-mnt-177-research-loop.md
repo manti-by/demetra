@@ -4,93 +4,61 @@ date: 2026-09-01
 type: implementation
 status: resolved
 session_id: ses_mnt177_20260901
-services: [workflows, agents, opencode, linear, settings, prompts]
+services:
+- workflows
+- agents
+- opencode
+- linear
+- settings
+- prompts
 branch: mnt-177-research-loop
-tickets: [MNT-177]
-tags: [research, research-agent, research-report, research-labels, opencode, workflow, awaiting-input]
-related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md, 2026-09-14-opencode-agent-prompts-hardening.md]
+tickets:
+- MNT-177
+tags:
+- research
+- research-agent
+- research-report
+- research-labels
+- opencode
+- workflow
+- awaiting-input
+related:
+- 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md
+- 2026-08-24-guard-empty-plan-output.md
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
+- 2026-09-02-review-findings-cleanup.md
+- 2026-09-14-opencode-agent-prompts-hardening.md
+- 2026-09-10-mnt-200-update-research-loop.md
 ---
-
 # MNT-177 research loop — research agent, workflow and settings
 
 ## TL;DR
 
-Implemented the Research loop for Linear tickets carrying a `Research` label: a dedicated `research-agent` mirrors the plan agent but validates the ticket against wiki and web sources, extracts a `## Research Report`, posts it as a Linear comment, and moves the ticket to `Awaiting Input`. Added `MAX_RESEARCH_ATTEMPTS` (default 5), `OPENCODE["research_model"]`, `LINEAR["research_labels"]`, the `research` StepType, and the `main.py` branch that short-circuits the normal plan→build pipeline for research tickets. All 920 tests, ruff, ty, and bandit remain green.
+Added Research loop: tickets with `Research` label run a read-only `research-agent` (wiki + web validation) that extracts `## Research Report`, posts it as a Linear comment, and moves the ticket to `Awaiting Input`. Branch short-circuits the normal plan→build pipeline in `main.py`. Added `MAX_RESEARCH_ATTEMPTS=5`, `OPENCODE["research_model"]`, `LINEAR["research_labels"]`, `research` StepType. 920 tests, ruff/ty/bandit green.
 
 ---
 
 ## Overview
 
-**Ticket:** [MNT-177](https://linear.app/mnt/issue/MNT-177/research-loop) — *Research loop* — run a research agent instead of the plan agent when a Research label is present; post the report and finish in `Awaiting Input`.
+**Ticket:** [MNT-177](https://linear.app/mnt/issue/MNT-177/research-loop) — run research agent instead of plan agent when Research label present. Prior workflow (`main.py` → `run_plan_step` → `run_build_step` → `commit_and_push` → `cleanup_workflow`) had no label branching or `research` step. Follows plan comment's 10 steps.
 
-Existing workflow (`main.py` → `run_plan_step` → `run_build_step` → `commit_and_push` → `cleanup_workflow`) had no research concept, no `research` step, and no mechanism to branch on labels. This implementation follows the plan comment on MNT-177 verbatim (10 steps) with minimal deviations noted below.
+## Changes
 
----
+**Step 1 — `demetra/library/models.py:9`:** added `"research"` to `StepType` Literal.
 
-## Step 1 — Extend `StepType` to include `research`
+**Step 2 — `demetra/library/types.py:17`:** `LinearConfig.research_labels: list[str]`, `OpenCodeConfig.research_model: str`.
 
-**File:** `demetra/library/models.py:9`
+**Step 3 — `demetra/settings.py:43` / `.env.docker.example:59`:** `MAX_RESEARCH_ATTEMPTS = env_get_int("MAX_RESEARCH_ATTEMPTS", 5)`, `LINEAR["research_labels"] = env_get_list("LINEAR_RESEARCH_LABELS", ["Research"])` (case-insensitive check), `OPENCODE["research_model"] = env_get_str("OPENCODE_RESEARCH_MODEL", "opencode-go/minimax-m3")` via `_resolve_opencode_model`; added commented `# MAX_RESEARCH_ATTEMPTS=5`.
 
-- Added `"research"` to the `StepType` Literal alongside `plan`, `build`, `validate`, etc.
-- Keeps session step tracking consistent for `update_session_step(task_id, step="research")` and `step="awaiting_input"` after research.
+**Step 4 — `.opencode/agents/research-agent.md`:** read-only prompt mirroring `plan-agent.md`; wiki first, then web, codebase scan only if strictly necessary; mandates `## Research Report` with summary/validation/risks/next steps.
 
-## Step 2 — Extend `LinearConfig` and `OpenCodeConfig` types
+**Step 5 — `demetra/prompts/research_agent.md`:** template with `{task}` via `get_prompt(name="research_agent", task=task)`, instructs wiki + web synthesis with citations.
 
-**File:** `demetra/library/types.py:17`
+**Step 6 — `demetra/services/agents/opencode.py:14`:** added `RESEARCH_HEADER_STRING = "## Research Report"`, `opencode_research_agent(target_path, task, task_title, env, user_environment)` (resolves `OPENCODE_RESEARCH_MODEL` via `_resolve_opencode_model`, `agent="research-agent"`), `extract_research_report(str) -> str` (slice from header, no terminal markers).
 
-- `LinearConfig` — added `research_labels: list[str]`
-- `OpenCodeConfig` — added `research_model: str`
+**Step 7 — `demetra/workflows/research.py`:** `is_research_ticket(context)` — case-insensitive intersection of `LINEAR["research_labels"]` vs `context.linear_task.labels`; `run_research_step(context) -> str | None` loops `MAX_RESEARCH_ATTEMPTS`: `update_session_step(step="research")` → `opencode_research_agent` → check `exit_code` + `RESEARCH_HEADER_STRING` → `extract_research_report` → `post_comment` → move to `awaiting_input` + `update_session_step(step="awaiting_input")`. Empty/missing-header or non-zero exit retries; `LinearError` on mutation prevents reaching `Awaiting Input` without posted report.
 
-Matches strict typed-dict layering (`demetra/library/` is pure, no I/O).
-
-## Step 3 — Add settings for research loop
-
-**File:** `demetra/settings.py:43`
-
-- `MAX_RESEARCH_ATTEMPTS = env_get_int("MAX_RESEARCH_ATTEMPTS", 5)` — retry budget, mirrors `MAX_PLAN_ATTEMPTS` pattern.
-- `LINEAR["research_labels"] = env_get_list("LINEAR_RESEARCH_LABELS", ["Research"])` — labels that trigger the research workflow; case-insensitive check in the workflow.
-- `OPENCODE["research_model"] = env_get_str("OPENCODE_RESEARCH_MODEL", "opencode-go/minimax-m3")` — own model, override via user-shared env `OPENCODE_RESEARCH_MODEL` using the same `_resolve_opencode_model` helper as plan/build/resolve.
-
-**File:** `.env.docker.example:59`
-
-- Added commented `# MAX_RESEARCH_ATTEMPTS=5` under Daemons, consistent with other commented env examples.
-
-## Step 4 — Create `research-agent` system prompt
-
-**File:** `.opencode/agents/research-agent.md`
-
-- Mirrors `plan-agent.md` structure but read-only: wiki first, then web, only scan codebase when strictly necessary (`The main purpose of Research agent - check and validate ticket against wiki and web data sources, and in the end add a report to the ticket. It shouldn't scan the code base, only in case if it strictly necessary.`).
-- Required output format mandates `## Research Report` section with summary, validation, risks/open questions, and next steps.
-
-## Step 5 — Create research user prompt
-
-**File:** `demetra/prompts/research_agent.md`
-
-- Template with `{task}` placeholder rendered via `get_prompt(name="research_agent", task=task)` (Python `str.format` path).
-- Instructs to check wiki knowledge base for prior decisions, web for external facts, avoid codebase scanning unless necessary, and synthesize into `## Research Report` with citations.
-
-## Step 6 — Add research service to `opencode.py`
-
-**File:** `demetra/services/agents/opencode.py:14`
-
-- Added `RESEARCH_HEADER_STRING = "## Research Report"` next to `PLAN_HEADER_STRING`.
-- Added `opencode_research_agent(target_path, task, task_title, env, user_environment)` — loads `research_agent` prompt via `await get_prompt(name="research_agent", task=task)` and delegates to `run_opencode_agent(..., model=_resolve_opencode_model(OPENCODE["research_model"], key="OPENCODE_RESEARCH_MODEL", ...), agent="research-agent")`, mirroring `opencode_plan_agent`/`opencode_resolve_agent`.
-- Added `extract_research_report(research_output: str) -> str` — slices from `RESEARCH_HEADER_STRING` and strips, analogous to `extract_plan` but without terminal markers (research report has no `Ready to proceed` / `Please check my questions` markers).
-
-## Step 7 — Create research workflow
-
-**File:** `demetra/workflows/research.py`
-
-- `is_research_ticket(context: Context) -> bool` — case-insensitive intersection of `LINEAR["research_labels"]` and `context.linear_task.labels` (`{label.casefold()}`).
-- `run_research_step(context: Context) -> str | None` — loops up to `MAX_RESEARCH_ATTEMPTS`:
-  - `update_session_step(step="research")`, calls `opencode_research_agent(task=context.linear_task.text)`, checks `exit_code`, verifies stdout contains `RESEARCH_HEADER_STRING`, extracts via `extract_research_report`, posts via `post_comment`, then moves ticket to `awaiting_input` via `get_linear_config_value(name="awaiting_input")` + `update_ticket_status` + `update_session_step(step="awaiting_input")` and returns the report. On empty/missing-header/empty-report or non-zero exit, decrements attempts and retries; logs with `print_message`. Failed Linear mutations (`post_comment`, `update_ticket_status`) raise `LinearError`, so the ticket never reaches `Awaiting Input` without the posted report.
-
-## Step 8 — Branch `main.py` to research workflow
-
-**File:** `main.py:31`
-
-- Imported `is_research_ticket, run_research_step`.
-- After moving ticket to `in_progress`, inserted:
+**Step 8 — `main.py:31`:** after moving to `in_progress`, branch:
 
 ```python
 if is_research_ticket(context=context):
@@ -102,42 +70,31 @@ if is_research_ticket(context=context):
     return
 ```
 
-- A `None` result (all attempts exhausted, nothing posted to Linear) keeps `is_success=False`, so `cleanup_workflow` runs the normal failure path (`linear_cleanup` included) instead of reporting success. Only a posted report marks the session successful.
-- `should_update_linear_status = False` preserves the `awaiting_input` state set by `run_research_step` — `cleanup_workflow` with `is_success=True` would otherwise move the ticket to `done` via `linear_cleanup`. `finally` still runs `cleanup_workflow` to remove the worktree.
-- Keeps existing pending-session creation before the branch, so research tickets have a session for logging/history.
+`None` keeps `is_success=False` → normal failure cleanup; `should_update_linear_status=False` preserves `awaiting_input` (otherwise `cleanup_workflow` would move to `done`). `finally` still removes worktree.
 
-## Deviation from plan
+## Deviations
 
-- **Frontend settings** — Plan comment says “Add new necessary settings to BE and FE”, but the 10 enumerated steps list only BE files (none under `react/`). Left React untouched; research settings are backend env-only (`LINEAR_RESEARCH_LABELS`, `OPENCODE_RESEARCH_MODEL`, `MAX_RESEARCH_ATTEMPTS`). If FE exposure is desired (e.g., `UserSettings`/`EnvSettings` UI), a follow-up should add a `research` section to the React config.
-- **Tests** — Plan lists `TestOpencodeResearchAgent` in `tests/test_opencode.py` and `TestWorkflowResearch` in `tests/test_workflows.py`. Not added this session (no assertions had been specified); both classes landed the next day in [[2026-09-02-review-findings-cleanup]], mirroring the existing plan/resolve fixtures.
+- **Frontend:** plan listed BE files only — React untouched; research settings env-only.
+- **Tests:** `TestOpencodeResearchAgent` / `TestWorkflowResearch` landed next day in [[2026-09-02-review-findings-cleanup]].
 
 ## Test Results
 
-- `uv run ruff check .` — All checks passed
-- `uv run ty check` — All checks passed
-- `uv run bandit -c pyproject.toml -r demetra` — No issues (10139 lines scanned)
-- `uv run pytest tests/test_opencode.py tests/test_workflows.py -q` — 79 passed
-- `uv run pytest tests/ -q` — 920 passed
+- `uv run ruff check .` / `uv run ty check` / `uv run bandit -c pyproject.toml -r demetra` (10139 lines) — clean
+- `uv run pytest tests/test_opencode.py tests/test_workflows.py -q` — 79 passed; `tests/ -q` — 920 passed
 
 ## Follow-ups
 
-- Decide if React should surface research settings (label list, model, max attempts) or if env-only is sufficient — currently BE-only.
-- Consider reusing the `openwiki-sessions` mapping and `research` step in session history aggregation (already covered by generic `record_session_step_history` if needed).
+- Decide if React should surface research settings or env-only suffices.
+- Consider reusing `research` step in session history aggregation.
 
-> **2026-09-14:** `research-agent.md` was the only agent with `description`/`permission`
-> frontmatter until this date; the other six `.opencode/agents/*.md` files were brought up to the
-> same standard (plus a merge/rebase semantics fix and injection guards on plan/build) in
-> [[2026-09-14-opencode-agent-prompts-hardening]].
+> **2026-09-14:** `research-agent.md` was only agent with `description`/`permission` until [[2026-09-14-opencode-agent-prompts-hardening]] brought other six to same standard.
+> **Consistency note (2026-09-02):** `opencode_research_agent` gained `project_id` param and label check split into `is_research_task(linear_task)` / `is_research_ticket(context)` (`demetra/workflows/research.py`).
 
-> **Consistency note (2026-09-02, post-merge revalidation):** PR #119 review updates —
-> `opencode_research_agent` gained an optional `project_id: str | None = None` parameter
-> (OS-env opt-in tokens, matching plan/build), and the label check was split into
-> `is_research_task(linear_task)` with `is_research_ticket(context)` delegating to it
-> (`demetra/workflows/research.py`). Behavior is unchanged.
+> **Consistency note (2026-09-15, Consistency Agent):** Post-research step `awaiting_input` superseded by [[2026-09-10-mnt-200-update-research-loop]] — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
 
 ## References
 
 - Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]]
+- External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop)
 
-> **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related` to mirror body link.
-- External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop), plan comment by Demetra on 2026-08-28
+> **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related`.

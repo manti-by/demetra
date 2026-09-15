@@ -15,104 +15,51 @@ related: [2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md, 20
 
 ## TL;DR
 
-The MCP server can now search, list, and retrieve project function and method docstrings through
-`docstring_search`, `docstring_get`, and `docstring_list`. The index is compiled in memory from
-Python syntax trees and rebuilt only when source files change, so ordinary searches never re-parse
-the tree. The same branch centralizes wiki and docstring search settings in a shared `SEARCH` dict,
-hardens the docstring search tool against malformed input, and reworks `bump_project_version` to
-support explicit major/minor/patch bumps. PR
-[#120](https://github.com/manti-by/demetra/pull/120) (`MNT-171`).
+MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — ranked qualified names + snippets, full docstring by name, and catalog dump. Index built in-memory from `ast` (`_FunctionCollector` at `demetra/tools/docstrings.py:74`) without importing modules, cached via `(path, mtime_ns, size)` fingerprint. Same branch centralizes search config in `SEARCH` dict, hardens dispatcher, and reworks `bump_project_version` to explicit major/minor/patch. PR #120.
 
 ---
 
 ## Overview
 
-**File:** `demetra/tools/docstrings.py:1`
+**File:** `demetra/tools/docstrings.py:1` — `docstring_search` returns ranked `qualified_name` + source location + snippet; `docstring_get` returns full docstring; `docstring_list` dumps catalog. Names fully qualified (`module.Class.method`) from module path + scope. Definitions in `AVAILABLE_TOOLS` (`docstrings.py:228`), registered in `demetra/tools/registry.py:3` (`list_tools` concatenates database/docstring/project/wiki; `call_tool` routes by name).
 
-`docstring_search` returns ranked qualified names, source locations, and matching docstring
-snippets; `docstring_get` returns the full docstring by qualified name; `docstring_list` dumps the
-catalog. Names are fully qualified, e.g. `demetra.tools.wiki.call_tool`, and are derived from the
-module path plus class/function scope so methods are addressable as
-`module.Class.method`. Extraction uses `ast` (`_FunctionCollector` at
-`demetra/tools/docstrings.py:74`), so it never imports project modules or runs their import-time
-side effects.
+## Cache invalidation — `demetra/tools/docstrings.py:45,125`
 
-The three tool definitions live in `AVAILABLE_TOOLS` (`demetra/tools/docstrings.py:228`) and are
-registered in `demetra/tools/registry.py:3` — `list_tools` concatenates the database, docstring,
-project, and wiki tool lists, and `call_tool` routes by name to the owning module.
+`_load_functions` fingerprints every Python source as `(relative path, mtime_ns, size)`; reuses index until fingerprint changes. Additions/removals/edits invalidate; unchanged tree → pure in-memory scan.
 
-## Cache invalidation
+## Search config — `demetra/settings.py:59`
 
-**File:** `demetra/tools/docstrings.py:45`, `demetra/tools/docstrings.py:125`
+Shared `SEARCH` dict: query/result limits, snippet limits, tokenization rules, stop words, wiki + docstring ranking weights (`docstring_name_weight`, `docstring_path_weight`). Both tools tokenize via `demetra/tools/search.py:6` (`tokenize` extracted from wiki tool), so they cannot drift. Wiki scoring in `demetra/tools/wiki.py` reads same dict.
 
-`_load_functions` builds a fingerprint of every Python source file as
-`(relative path, mtime_ns, size)` (`_fingerprint`) and reuses the compiled index until that
-fingerprint changes. Additions, removals, and edits all invalidate it; searches against an
-unchanged tree are pure in-memory scans.
+## Review fixes (2026-09-11) — `demetra/tools/docstrings.py:278`, `demetra/settings.py:62`
 
-## Search configuration
+- `docstring_search` rejects non-string `query` and `len > SEARCH["max_query_length"]` (500) before work; schema advertises same `maxLength`.
+- Dispatcher `except` also catches `AttributeError` (non-mapping `arguments` via `.get`) → tool error not propagation.
+- New tests in `tests/test_docstring_tools.py`: `test_search_rejects_non_string_query`, `test_search_rejects_overlong_query`.
 
-**File:** `demetra/settings.py:59`
+## Version bump rework (2026-09-11) — `demetra/services/runtime/project.py:328,331`
 
-All shared search behavior is centralized in the `SEARCH` dict: query/result limits, snippet
-limits, tokenization rules, stop words, and the wiki and docstring ranking weights
-(`docstring_name_weight`, `docstring_path_weight`). The wiki and docstring tools tokenize through
-`demetra.tools.search.tokenize` (`demetra/tools/search.py:6`), which was extracted from the wiki
-tool, so the two cannot drift. Wiki scoring in `demetra/tools/wiki.py` now reads the same dict.
+`bump_project_version` changed from fixed minor-only to explicit axis: `is_major`/`is_minor`/`is_patch` (default `is_patch=True`, so default now increments patch not minor). More significant flag clears lower ones (`is_major → major+1.0.0`, `is_minor → major.minor+1.0`). Renamed `_VERSION_PATTERN` → `PROJECT_VERSION_PATTERN`. Supersedes all-minor contract in [[2026-08-21-mnt-176-bump-version-error]] (`1.14.1 → 1.14.2` vs `→ 1.15.0`).
 
-## Review fixes (2026-09-11)
+Two consumers **not** updated:
 
-**File:** `demetra/tools/docstrings.py:278`, `demetra/settings.py:62`
+- Docstring (`project.py:334`) still says feature/bugfix bumps minor and patch resets.
+- Workflow call site (`demetra/workflows/build.py:167`) still calls without `is_minor=True`, so auto bump silently switched minor→patch.
 
-Follow-up review hardening on the tool dispatcher:
-
-- `docstring_search` rejects a non-string `query` and a query longer than
-  `SEARCH["max_query_length"]` (500 chars) before doing any work; the schema advertises the same
-  `maxLength`.
-- The dispatcher's `except` clause also catches `AttributeError` (a non-mapping `arguments` could
-  reach `.get`), so a malformed call returns a tool error instead of propagating.
-
-New coverage in `tests/test_docstring_tools.py`: `test_search_rejects_non_string_query` and
-`test_search_rejects_overlong_query`.
-
-## Version bump rework (2026-09-11)
-
-**File:** `demetra/services/runtime/project.py:328`, `demetra/services/runtime/project.py:331`
-
-The branch also changes `bump_project_version` from a fixed minor-only bump to an explicit bump
-axis: `is_major`, `is_minor`, `is_patch` flags (default `is_patch=True`, so the default call now
-increments the patch, not the minor). Each more significant flag clears the lower ones, so
-`is_major` yields `major+1.0.0`, `is_minor` yields `major.minor+1.0`, and the default yields
-`major.minor.patch+1` while preserving any PEP 440 suffix. The private `_VERSION_PATTERN` was
-renamed to the public `PROJECT_VERSION_PATTERN`.
-
-This supersedes the all-minor contract from [[2026-08-21-mnt-176-bump-version-error]]; note the
-default call site semantics changed (`1.14.1 → 1.14.2` instead of `1.14.1 → 1.15.0`).
-`tests/test_project.py` now covers major, minor, and patch bumps.
-
-Two consumers were **not** updated to match:
-
-- The docstring (`demetra/services/runtime/project.py:334`) still says every feature/bugfix
-  workflow bumps the minor version and that "the patch component is reset".
-- The workflow call site (`demetra/workflows/build.py:167`) still calls
-  `bump_project_version(target_path=...)` with no `is_minor=True`, so the automatic
-  feature/bugfix bump silently switched from minor to patch.
-
-> This commit (`dd4f152`) is on the local branch and was **not** in the PR diff at the time of
-> this page. Confirm the intended bump axis with the release workflow before merge.
+> Commit `dd4f152` on local branch, not in PR diff — confirm intended axis before merge.
 
 ## Test Results
 
-- `uv run ruff check demetra/settings.py demetra/tools/docstrings.py demetra/tools/search.py demetra/tools/wiki.py tests/test_docstring_tools.py tests/test_wiki_tools.py`
-- `uv run ruff format --check demetra/settings.py demetra/tools/docstrings.py demetra/tools/search.py demetra/tools/wiki.py tests/test_docstring_tools.py tests/test_wiki_tools.py`
-- `uv run pytest tests/test_docstring_tools.py tests/test_wiki_tools.py tests/test_project.py` — 45 passed (2026-09-11)
+- `ruff check` + `ruff format --check` on `settings.py`, `docstrings.py`, `search.py`, `wiki.py`, `test_docstring_tools.py`, `test_wiki_tools.py` — clean
+- `pytest tests/test_docstring_tools.py tests/test_wiki_tools.py tests/test_project.py` — 45 passed (2026-09-11)
 
 ---
 
 ## Follow-ups
 
-- Confirm the `bump_project_version` default axis (patch vs minor) is intended and that callers
-  expecting a minor bump still pass `is_minor=True`.
+- Confirm `bump_project_version` default axis (patch vs minor) and whether callers expecting minor still pass `is_minor=True`.
+
+> **Consistency note (2026-09-15, Consistency Agent):** Default bump axis `is_patch=True` verified against `demetra/services/runtime/project.py:331` and `demetra/workflows/build.py:167` (bare call → patch). Docstring at `project.py:334` still says minor — stale per 2026-09-08-docstring-mcp-search self-flag and Q-001 resolved 2026-09-11 (patch intentional). No wiki edit needed beyond this note.
 
 ## References
 

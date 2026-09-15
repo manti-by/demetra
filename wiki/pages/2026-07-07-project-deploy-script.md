@@ -15,44 +15,24 @@ related: [2026-08-10-docker-compose-deploy.md]
 
 ## TL;DR
 
-Built a fast setup/deploy path: a `Makefile` `deploy` target for updates plus `configs/bootstrap.sh` for first-time setup, backed by systemd unit files and an nginx site. GitHub integration and OpenCode auth — the main pain point — are handled via the `.env` file consumed by the systemd `EnvironmentFile`. Docker support from MNT-106 remains an alternative. Implemented incrementally as a research-flavored ticket.
+Added a fast deploy path: `Makefile` `deploy` target for updates plus `configs/bootstrap.sh` for first-time setup, with systemd units and nginx. Auth (GitHub/OpenCode) lives in `.env` via `EnvironmentFile`. Docker (MNT-106) remains an alternative.
 
 ---
 
 ## Overview
 
-Deploying Demetra manually was slow, and wiring up GitHub integration and OpenCode auth on a fresh host was the painful part. The result is a Makefile target for repeatable deploys and a bootstrap script for first setup.
+Manual deploys were slow; wiring GitHub + OpenCode auth on a fresh host was the main pain point.
 
-## Step 1 — Makefile deploy target
+## Changes
 
-**File:** `Makefile`
-
-The `deploy` target runs, in order:
-
-- `git pull --ff-only`
-- `uv sync`
-- `alembic upgrade head`
-- `bun install` + `bun run build` in `react`
-- `daemon-reload` and restart of `demetra-api`, `react`, `watcher`, `listener`, and `worker@1..4`
-- nginx reload
-
-## Step 2 — Bootstrap script
-
-**File:** `configs/bootstrap.sh`
-
-On first setup the script symlinks, enables, and starts the systemd services (`configs/services/*.service`) and the nginx site (`configs/nginx.conf`).
-
-## Step 3 — Auth via environment file
-
-GitHub integration and OpenCode auth are the main setup pain point. Credentials live in the `.env` file, which the systemd services consume through `EnvironmentFile` — no interactive auth prompts during deploy.
-
-## Step 4 — Alternative: Docker
-
-Docker support added in MNT-106 provides an alternative deployment path to the systemd setup; a full compose stack on the `mantiby/demetra` image is documented in [[2026-08-10-docker-compose-deploy]].
+- **Makefile `deploy`**: `git pull --ff-only` → `uv sync` → `alembic upgrade head` → `bun install` + `bun run build` in `react` → `daemon-reload` + restart `demetra-api`, `react`, `watcher`, `listener`, `worker@1..4` → nginx reload.
+- **Bootstrap** (`configs/bootstrap.sh`): symlinks, enables, and starts systemd services (`configs/services/*.service`) and nginx site (`configs/nginx.conf`).
+- **Auth**: credentials in `.env` consumed via systemd `EnvironmentFile` — no interactive prompts.
+- **Docker**: alternative path via MNT-106 compose stack (`mantiby/demetra`), documented in [[2026-08-10-docker-compose-deploy]].
 
 ## Test Results
 
-Validated by running the bootstrap script on a fresh host and exercising the `deploy` target end to end.
+Bootstrap verified on fresh host; `deploy` target exercised end-to-end.
 
 ---
 

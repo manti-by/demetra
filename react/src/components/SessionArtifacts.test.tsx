@@ -23,10 +23,25 @@ const mockSessionWithBuildPlanOnly = {
   pr_link: null,
 };
 
+const mockSessionWithResearchReportOnly = {
+  ...mockSessionWithPrLink,
+  pr_link: null,
+  build_plan: null,
+  linear_link: null,
+  session_id: '',
+  research_report: '## Research Report\n\nFindings body.',
+};
+
+const mockSessionWithAllArtifacts = {
+  ...mockSessionWithPrLink,
+  research_report: '## Research Report\n\nFindings body.',
+};
+
 const mockSessionWithoutArtifacts = {
   ...mockSessionWithPrLink,
   pr_link: null,
   build_plan: null,
+  research_report: null,
   linear_link: null,
   session_id: '',
 };
@@ -35,6 +50,7 @@ const mockSessionWithHistoryOnly = {
   ...mockSessionWithPrLink,
   pr_link: null,
   build_plan: null,
+  research_report: null,
   linear_link: null,
   session_id: 'session-abc',
 };
@@ -96,6 +112,34 @@ describe('SessionArtifacts', () => {
     const link = screen.getByText('View Build Plan');
     expect(link).toBeInTheDocument();
     expect(link.tagName).toBe('A');
+  });
+
+  it('renders research plan link when session has research_report', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithResearchReportOnly]} />,
+    );
+
+    const link = screen.getByText('View Research Report');
+    expect(link).toBeInTheDocument();
+    expect(link.tagName).toBe('A');
+  });
+
+  it('does not render research plan link when research_report is null', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithBuildPlanOnly]} />,
+    );
+
+    expect(screen.queryByText('View Research Report')).not.toBeInTheDocument();
+  });
+
+  it('renders research plan link alongside other artifact links', () => {
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithAllArtifacts]} />,
+    );
+
+    expect(screen.getByText('View Research Report')).toBeInTheDocument();
+    expect(screen.getByText('View Build Plan')).toBeInTheDocument();
+    expect(screen.getByText('View History')).toBeInTheDocument();
   });
 
   it('does not render PR link when pr_link is null', () => {
@@ -192,6 +236,40 @@ describe('SessionArtifacts', () => {
     await user.click(closeButton);
 
     expect(screen.queryByText('Build Plan')).not.toBeInTheDocument();
+  });
+
+  it('opens research plan modal on link click and closes it', async () => {
+    const user = userEvent.setup();
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithResearchReportOnly]} />,
+    );
+
+    const link = screen.getByText('View Research Report');
+    await user.click(link);
+
+    const headings = screen.getAllByRole('heading', { name: 'Research Report' });
+    expect(headings.length).toBeGreaterThanOrEqual(1);
+    expect(headings[0]).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('Findings body'))).toBeInTheDocument();
+
+    const closeButton = screen.getByLabelText('Close');
+    await user.click(closeButton);
+
+    expect(screen.queryByRole('heading', { name: 'Research Report' })).not.toBeInTheDocument();
+  });
+
+  it('toggles the research plan modal between rendered and markdown', async () => {
+    const user = userEvent.setup();
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithResearchReportOnly]} />,
+    );
+
+    await user.click(screen.getByText('View Research Report'));
+
+    await user.click(screen.getByText('Show Markdown'));
+
+    expect(screen.getByText('Show Rendered')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('## Research Report'))).toBeInTheDocument();
   });
 
   it('reflects PR link when sessions prop updates after initial render', () => {

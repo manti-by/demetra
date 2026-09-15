@@ -15,96 +15,47 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-07-21-rich-markuperror
 
 ## TL;DR
 
-When the watcher daemon picked up a TODO task it created a pending session and enqueued a
-workflow, but never moved the ticket to `In Progress` itself — it relied on `main.py`
-updating the status only after `setup_workflow` succeeded. If setup failed the ticket stayed
-stuck in TODO forever and was re-picked every poll. `process_tasks` now moves a new task to
-`in_progress` the moment it accepts it. Tests added.
+Watcher created a pending session and enqueued a workflow for TODO tickets but never moved the Linear ticket to `In Progress` itself — that update lived only in `main.py` after `setup_workflow` succeeded. On setup failure the ticket stayed in TODO and was re-picked every poll. `process_tasks` now moves the ticket to `in_progress` immediately on acceptance; `main.py` remains as safety net.
 
 ---
 
 ## Overview
 
-The Linear ticket reported: "When ticket moved in `Todo` and watcher picked it up status
-isn't changed from `Todo` to `In progress`".
+Linear report: moving ticket to `Todo` did not change status to `In progress` after watcher pickup.
 
-## Step 1 — Move a task to `in_progress` when the watcher accepts it
+## Fix — `demetra/services/daemons/watcher.py:126-170` (`process_tasks`)
 
-**File:** `demetra/services/daemons/watcher.py:126-170` (`process_tasks`)
+**Root cause:** `process_tasks` upserted pending session + enqueued RQ job but never touched Linear status. `main.py:98-103` updated to `in_progress` only inside `try` after `setup_workflow` succeeded; on `None` return (MNT-191 failure path) status never moved, ticket re-picked each poll until `MAX_RUN_ATTEMPTS`.
 
-Root cause: `process_tasks` picked up TODO tasks, upserted a pending session row and enqueued
-a workflow run on the RQ queue, but never touched the Linear status. The `in_progress`
-update lived only in `main.py:98-103`, inside the `try` block **after** `setup_workflow` had
-already succeeded. If `setup_workflow` failed it returned `None` from `main.py:74` and the
-ticket was never moved out of TODO. On the next poll the same task was picked again, a
-duplicate pending session was created and another workflow enqueued, leaving the ticket stuck
-in TODO until `MAX_RUN_ATTEMPTS` was hit.
-
-Fix: inside the `if task.id not in pending_ids:` block, right after the pending session is
-upserted, resolve the `in_progress` state via `get_linear_config_value` (reusing the same
-`user_id`) and call `update_ticket_status`. A missing config logs an error and continues; a
-failed update logs a warning and continues — the watcher loop is never crashed.
+**Fix:** after upserting pending session in `if task.id not in pending_ids:`, resolve `in_progress` via `get_linear_config_value(name="in_progress", user_id=user_id)` and call `update_ticket_status`. Missing config → error log + continue; failed update → warning + continue; never crashes watcher loop.
 
 ```python
-if task.id not in pending_ids:
-    user_id = task.user_id or DEFAULT_USER_ID
-    if not task.project_id or not user_id:
-        logger.warning(f"Skipping task {task.id}: missing project_id={task.project_id}, user_id={user_id}")
-        continue
-    await upsert_pending_session(
-        task_id=task.id,
-        session_id=None,
-        project_id=task.project_id,
-        user_id=user_id,
-        name=task.full_title,
-        linear_link=task.url,
-    )
-
-    state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
-    if state_id is None:
-        logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")
-    elif not await update_ticket_status(task_id=task.id, state_id=state_id):
-        logger.warning(f"Failed to move task {task.id} to 'in_progress'")
+state_id = await get_linear_config_value(name="in_progress", user_id=user_id)
+if state_id is None:
+    logger.error(f"Linear state 'in_progress' is not configured for task {task.id}")
+elif not await update_ticket_status(task_id=task.id, state_id=state_id):
+    logger.warning(f"Failed to move task {task.id} to 'in_progress'")
 ```
 
-The existing `in_progress` update in `main.py` remains as a safety net for manual CLI runs.
+Existing `main.py` update kept as safety net for manual CLI runs.
 
-> **Status update (2026-09-01, Consistency Agent):** the fix above was partially superseded
-> by MNT-183 (commit `dfd64f6`, "Fix ticket status update", merged 2026-09-01): the
-> `in_progress` move was moved **out** of the `if task.id not in pending_ids:` block, so an
-> accepted TODO task is moved to `in_progress` on **every** poll, not only on first pickup
-> (`demetra/services/daemons/watcher.py`, `process_tasks`). Rationale per the commit: a task
-> can return to TODO while still pending (session_id="") after a failed run, and
-> `update_ticket_status` can fail transiently — re-applying the same state each poll is
-> idempotent. The Step 1 snippet above reflects the MNT-191 form and is kept as the session
-> record.
+> **Status update (2026-09-01, Consistency Agent):** superseded by MNT-183 (`dfd64f6`, merged 2026-09-01): `in_progress` move lifted **outside** `if task.id not in pending_ids:` so every poll re-applies `in_progress` (idempotent) — handles tasks that revert to TODO while pending and transient `update_ticket_status` failures. Snippet above is the MNT-191 form kept as record.
 
-## Step 2 — Tests
+## Tests — `tests/test_api_coverage.py` (`TestWatcherService`)
 
-**File:** `tests/test_api_coverage.py` (`TestWatcherService`)
+Fixtures: `mock_upsert_pending_session`, `mock_update_ticket_status`, `mock_get_linear_config_value`, `mock_delay_run_workflow`. Five tests:
 
-Added fixtures (`mock_upsert_pending_session`, `mock_update_ticket_status`,
-`mock_get_linear_config_value`, `mock_delay_run_workflow`) and five new tests:
-
-- `test_process_tasks_moves_new_task_to_in_progress` — asserts the state is resolved with the
-  task's `user_id`, `update_ticket_status` is called with the resolved id, and the workflow is
-  still enqueued.
-- `test_process_tasks_skips_in_progress_update_for_existing_pending` — a task already pending
-  is enqueued without touching the status.
-- `test_process_tasks_logs_and_continues_when_in_progress_state_missing` — a missing config
-  logs an error but the workflow is still enqueued.
-- `test_process_tasks_logs_and_continues_when_update_fails` — a failed status update logs a
-  warning but the workflow is still enqueued.
-- The two pre-existing tests (`filters_missing_project_name`, `skips_missing_project_id`) were
-  refactored to share a `_task` helper.
+- `test_process_tasks_moves_new_task_to_in_progress` — resolves with `task.user_id`, calls `update_ticket_status`, still enqueues.
+- `test_process_tasks_skips_in_progress_update_for_existing_pending` — already pending → enqueue only.
+- `test_process_tasks_logs_and_continues_when_in_progress_state_missing` — missing config logs error, still enqueues.
+- `test_process_tasks_logs_and_continues_when_update_fails` — failed update logs warning, still enqueues.
+- Two pre-existing tests refactored with `_task` helper.
 
 ## Test Results
 
-- `uv run pytest tests/test_api_coverage.py -k TestWatcherService` — 6 passed.
-- `uv run pytest tests/` — 920 passed.
-- `uv run ruff check demetra/services/daemons/watcher.py tests/test_api_coverage.py` — clean.
-- `uv run ty check demetra/services/daemons/watcher.py` — clean.
-- `uv run bandit -c pyproject.toml demetra/services/daemons/watcher.py` — 0 issues.
+- `uv run pytest tests/test_api_coverage.py -k TestWatcherService` — 6 passed
+- `uv run pytest tests/` — 920 passed
+- `uv run ruff check` / `uv run ty check` / `bandit` on `watcher.py` — clean
 
 ---
 

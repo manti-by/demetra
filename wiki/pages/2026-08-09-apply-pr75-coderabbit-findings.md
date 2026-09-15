@@ -15,89 +15,65 @@ related: [2026-07-24-plain-auth-review-followups.md, 2026-08-09-apply-code-revie
 
 ## TL;DR
 
-Applied all 5 open CodeRabbit findings on PR #75 ("Code review of release candidate"): added a per-user `password_version` so JWTs minted concurrently with a password reset are rejected after it commits (closes the snapshot race), handled `Request` inputs in `authFetch`/`authenticatedFetch` (method + `request.url` origin guard), rejected negative `env_get_int` defaults, passed `db_name` by name in `get_transaction`, and synced the Step 6 wiki doc with the `--porcelain=v1 -z` implementation. Migration `a4b5c6d7e8f9`; full suite 739 passed in 4.95s.
+Applied 5 CodeRabbit findings on PR #75: versioned JWTs via `password_version` to close the post-snapshot race, fixed `Request`-aware `authFetch` origin guard, rejected negative `env_get_int` defaults, named `db_name` arg in `get_transaction`, and synced wiki docs to `--porcelain=v1 -z`. Migration `a4b5c6d7e8f9`; 739 passed in 4.95s.
 
 ---
 
-## Step 1 — MAJOR: password reset no longer leaves post-snapshot JWTs alive
+## Step 1 — MAJOR: password reset race via `password_version`
 
-**File:** demetra/services/auth/__init__.py:168; demetra/services/persistence/database.py:1061,1184; migration `a4b5c6d7e8f9`
+**Files:** `demetra/services/auth/__init__.py:168`, `demetra/services/persistence/database.py:1061,1184`, migration `a4b5c6d7e8f9`
 
-`reset_password` snapshotted the user's JWTs *before* the transaction, while `save_jwt_token` runs in its own autocommitted transaction — a session minted after the snapshot survived the password change. Fix: versioned sessions instead of racing.
+`reset_password` snapshotted JWTs before its transaction; `save_jwt_token` runs in a separate autocommit — a session minted after the snapshot survived reset.
 
-- New `users.password_version` and `jwt_tokens.password_version` columns (both `server_default=1`).
-- `save_jwt_token` reads the user's current version at issuance and stores it on the token row.
-- `update_user_password` bumps `password_version = password_version + 1` in the same statement.
-- `verify_jwt_token` rejects any token whose stored version differs from the user's current version (a pre-reset token is always `< current`, so the reset invalidates it regardless of timing).
+- New columns `users.password_version` + `jwt_tokens.password_version` (`server_default=1`).
+- `save_jwt_token` stores user's current version on the token row.
+- `update_user_password` bumps `password_version + 1` atomically.
+- `verify_jwt_token` rejects mismatched versions.
 
 ```python
-# database.py — save_jwt_token
-version_result = await connection.execute(
-    text("SELECT password_version FROM users WHERE id = :user_id"),
-    {"user_id": user_id},
-)
-...
-# update_user_password
-.values(password_hash=password_hash, password_version=users.c.password_version + 1)
-
-# auth/__init__.py — verify_jwt_token
-if user_data.get("password_version", 1) != token_data.get("password_version", 1):
-    return None
+# save_jwt_token: fetch version then insert
+# update_user_password: .values(password_version=users.c.password_version + 1)
+# verify_jwt_token: if user_version != token_version: return None
 ```
 
-Regression test `test_reset_password_rejects_token_minted_before_reset` re-inserts a token row with the old version after a reset and asserts `verify_jwt_token` returns `None`.
+Test `test_reset_password_rejects_token_minted_before_reset` re-inserts old-version token and asserts rejection. Note: `INSERT ... SELECT` with doubled `:user_id` hit `AmbiguousParameterError` on asyncpg; fetch-then-insert used instead.
 
-Note: `save_jwt_token` initially used `INSERT ... SELECT` but asyncpg rejected the doubled `:user_id` parameter (`AmbiguousParameterError: text versus character varying`); a fetch-then-insert with `RuntimeError` on a missing user row matches the persistence layer's existing error style.
+## Step 2 — MAJOR: `authFetch` handles `Request` inputs
 
-## Step 2 — MAJOR: `authFetch`/`authenticatedFetch` handle `Request` inputs
+**File:** `react/src/services/api.ts:17,38`
 
-**File:** react/src/services/api.ts:17,38
-
-`RequestInfo` accepts a `Request`, but the origin guard derived the method only from `init` and passed the raw input to `assertTrustedOrigin` (`input.toString()` on a `Request` yields `[object Request]`, which resolved against `window.location.origin` and skipped the trusted-origin check). Now the method falls back to `request.method` and the guard receives `request.url`:
+`RequestInfo` accepts `Request`; method was derived only from `init` and `input.toString()` on `Request` gave `[object Request]`, skipping the trusted-origin check.
 
 ```ts
 const request = input instanceof Request ? input : undefined;
 const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
-if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS')
   assertTrustedOrigin(request?.url ?? input);
-}
 ```
 
-## Step 3 — MINOR: `env_get_int` rejects negative fallback defaults
+## Step 3 — MINOR: `env_get_int` rejects negative defaults
 
-**File:** demetra/services/runtime/utils.py:215
+**File:** `demetra/services/runtime/utils.py:215` — now raises `ValueError` if `default < 0`. Test: `test_env_get_int_rejects_negative_default`.
 
-The docstring promised a nonnegative result, but a negative `default` was returned verbatim. `env_get_int` now raises `ValueError` when `default < 0`; all callers pass nonnegative defaults, so nothing breaks. Test: `test_env_get_int_rejects_negative_default`.
+## Step 4 — TRIVIAL: named argument
 
-## Step 4 — TRIVIAL: named argument in `get_transaction`
+**File:** `demetra/services/persistence/database.py:152` — `get_connection(db_name)` → `get_connection(db_name=db_name)`.
 
-**File:** demetra/services/persistence/database.py:152
+## Step 5 — MINOR: wiki doc fix
 
-`get_connection(db_name)` → `get_connection(db_name=db_name)` per the named-arguments guideline.
-
-## Step 5 — MINOR: Step 6 wiki doc matches the porcelain implementation
-
-**File:** wiki/pages/2026-08-09-apply-code-review-findings.md:110
-
-The doc showed `-- "wiki/"` and "skipped the rename/copy destination record"; the implementation scopes `-- "wiki/" "AGENTS.md"` and *consumes the second NUL-delimited record* (`--porcelain=v1 -z` emits the destination first, source second). Prose and snippet updated.
+**File:** `wiki/pages/2026-08-09-apply-code-review-findings.md:110` — doc said `-- "wiki/"` and "skipped destination"; impl scopes `-- "wiki/" "AGENTS.md"` and *consumes* the second NUL record (destination first, source second for `-z` renames).
 
 ## Test Results
 
-- New tests: `test_auth.py` (stale-version token rejected after reset), `test_utils.py` (negative default rejected).
-- Full suite: **739 passed in 4.95s** (was 737).
-- Gates: `ruff check .`, `ty check`, `bandit`, React `tsc --noEmit` + `vite build` all pass.
-- `alembic check` drift (users index/constraint, `session_history.length` comment) is pre-existing on the base commit and unrelated to `password_version`.
+- New: `test_auth.py` (stale-version rejection), `test_utils.py` (negative default).
+- Full: **739 passed in 4.95s**; `ruff`, `ty`, `bandit`, `tsc` + `vite build` clean.
+- `alembic check` drift is pre-existing, unrelated.
 
 ---
 
 ## Follow-ups
 
-- Working tree is uncommitted on `code-review`; the orchestrator handles the commit/PR.
-- Dev DB `alembic_version` was stamped `d1e2f3a4b5c6` (schema matched, version stale) before applying `a4b5c6d7e8f9`.
-
-## Consistency fix (2026-08-25)
-
-- Frontmatter `title` quoted to preserve `#75` (unquoted `#` is a YAML comment and truncated the title).
+Working tree uncommitted on `code-review`; orchestrator handles commit/PR.
 
 ## References
 

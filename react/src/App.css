@@ -665,6 +665,10 @@
   max-width: 980px;
 }
 
+.research-plan-modal {
+  max-width: 980px;
+}
+
 .build-plan-text {
   font-family: var(--font-mono);
   font-size: 0.775rem;

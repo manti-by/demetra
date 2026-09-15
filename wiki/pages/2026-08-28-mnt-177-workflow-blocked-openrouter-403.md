@@ -15,57 +15,51 @@ related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-
 
 ## TL;DR
 
-The MNT-177 (`Research loop`) workflow was retried 6 times on amon-ra (2026-08-28) and never completed. Three distinct failure signatures were isolated: the MNT-162 empty-summarizer path (`Plan is empty, exiting the workflow.`, once), the plan agent being cut off by an auto-rejected `read (.env.docker.example)` tool call (no `## Implementation Plan` header, twice), and — the dominant blocker (3 of 6 runs) — an **OpenRouter HTTP 403** from `extract_plan` because the user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` requires an uncompleted **18+ age attestation**. Verified both models directly against the OpenRouter key: `meta-llama/llama-3.3-70b-instruct` works (200 OK), `meta/muse-spark-1.2` 403s with `age_18plus`. The MNT-162 hardening (treat empty `extract_plan` as `PlanError`) is valid but does not fix these blockers.
+MNT-177 retried 6× on 2026-08-28 and never left the plan step. Dominant cause (3/6 runs) was OpenRouter 403 on `meta/muse-spark-1.2` requiring 18+ attestation; 2 runs truncated by auto-rejected `read (.env.docker.example)` permission (no `## Implementation Plan` header); 1 run hit the MNT-162 empty-`extract_plan` path. Fix is switching `OPENROUTER_MODEL` to `meta-llama/llama-3.3-70b-instruct` or completing attestation.
 
 ---
 
 ## Symptom
 
-Demetra posted `## Error\nPlan step failed: ...` comments on MNT-177 and kept moving the ticket back to Awaiting Input / Todo. Worker log (`/mnt/data/www/demetra/log/worker.log`) showed six `Retrieved task: MNT-177` runs between 07:27 and 10:00, all failing in the plan step.
+Worker log `/mnt/data/www/demetra/log/worker.log` shows six `Retrieved task: MNT-177` runs 07:27–10:00, all failing in plan with `## Error / Plan step failed` comments and ticket cycling back to Awaiting Input/Todo.
 
-## Step 1 — Categorize the six runs into three failure signatures
-
-From worker.log (all 2026-08-28):
+## Three failure signatures
 
 | Time | Error | Root cause |
-|------|-------|-----------|
-| 07:35 | `Plan is empty, exiting the workflow.` | The MNT-162 finding: raw plan was valid (`## Implementation Plan` + `Ready to proceed to build.` present), but `extract_plan` returned empty content → `plan.py:101` returned `None`. Fired **once**. |
-| 09:33, 09:51 | `Plan agent output is missing the implementation plan section` | Plan agent run truncated mid-investigation. Last tool call before exit: `! permission requested: read (.env.docker.example); auto-rejecting` → `✗ Read .env.docker.example failed` → `Error: The user rejected permission to use this specific tool call.` Output ended with commentary only, no plan header. Not a summarizer issue. |
-| 09:40, 09:44, 10:00 | `Failed to summarize the build plan` | OpenRouter **403 PermissionDeniedError**: `extract_plan` → `build_llm` resolved `OPENROUTER_MODEL=meta/muse-spark-1.2` from the user-shared env and OpenRouter rejected it with `This model requires you to complete the following before use: 18+ age confirmation.` (metadata `age_18plus`). Dominant blocker (**3 of 6**). |
+|------|-------|------------|
+| 07:35 | `Plan is empty, exiting the workflow.` | Raw plan valid (`## Implementation Plan` + `Ready to proceed` present) but `extract_plan` returned empty → `plan.py:101` returned `None`. Once. |
+| 09:33, 09:51 | `Plan agent output is missing the implementation plan section` | Plan agent truncated after `! permission requested: read (.env.docker.example); auto-rejecting` → `Error: The user rejected permission…` — output lacked plan header, not a summarizer issue. |
+| 09:40, 09:44, 10:00 | `Failed to summarize the build plan` | OpenRouter 403 `PermissionDeniedError` from `extract_plan` using `OPENROUTER_MODEL=meta/muse-spark-1.2` (metadata `age_18plus`). Dominant (3/6). |
 
-## Step 2 — Trace the 403 to the resolved model
+## 403 trace
 
-`extract_plan` (`demetra/services/llm/openrouter.py:150-191`) → `build_llm` (`demetra/services/llm/factory.py`) → `get_openrouter_config(user_id=...)` (`demetra/services/llm/config.py:24-25`): the **user-shared env override wins** over the container default. The `project_environment` table (user `470ec65e-df79-41d9-bb8a-22a7bfec0688`, `scope=user`) holds `OPENROUTER_MODEL=meta/muse-spark-1.2`, while `.env.docker` only sets `google/gemini-3.7-flash` for non-overridden users. So every `extract_plan`/`summarize_*` call used `meta/muse-spark-1.2` and 403'd.
+`extract_plan` (`demetra/services/llm/openrouter.py:150-191`) → `build_llm` (`demetra/services/llm/factory.py`) → `get_openrouter_config(user_id=...)` (`demetra/services/llm/config.py:24-25`): user-shared env wins over container default. `project_environment` (user `470ec65e-df79-41d9-bb8a-22a7bfec0688`, `scope=user`) held `OPENROUTER_MODEL=meta/muse-spark-1.2`; `.env.docker` default `google/gemini-3.7-flash` was overridden. Model was suggested in the MNT-162 comment — the suggestion itself caused the failure.
 
-`meta/muse-spark-1.2` is exactly the model the MNT-162 comment by the requester suggested trying — so the suggestion was applied and became the very cause of the recurring failure.
+## Verification
 
-## Step 3 — Verify both models against the OpenRouter key
+Direct `https://openrouter.ai/api/v1/chat/completions` with prod `OPENROUTER_API_KEY`:
 
-Tested directly against `https://openrouter.ai/api/v1/chat/completions` with the production `OPENROUTER_API_KEY`:
-
-- `meta-llama/llama-3.3-70b-instruct` → **200 OK**, no attestation required.
-- `meta/muse-spark-1.2` → **403** `{code: 403, metadata: {missing_attestation_types: ["age_18plus"]}}` — matches production logs byte-for-byte.
+- `meta-llama/llama-3.3-70b-instruct` → 200 OK
+- `meta/muse-spark-1.2` → 403 `{code:403, metadata:{missing_attestation_types:["age_18plus"]}}` — matches prod logs
 
 ## Root cause
 
-MNT-177's workflow could not complete because of two independent production issues:
+1. **Model attestation:** `meta/muse-spark-1.2` requires 18+ attestation not completed on account `user_3BDI24M6TiVlok3buh8FEZD18Iz` → every summarize call 403s → `PlanError`.
+2. **Plan agent truncation:** auto-rejected `read .env.docker.example` ends run without `## Implementation Plan` header → `PlanError`. Same class as [[2026-08-24-guard-empty-plan-output]]; guard now surfaces it but opencode behavior unfixed.
 
-1. **OpenRouter model attestation (dominant):** user-shared `OPENROUTER_MODEL=meta/muse-spark-1.2` requires 18+ age confirmation that the OpenRouter account (`user_3BDI24M6TiVlok3buh8FEZD18Iz`) has not completed → every summarize call 403s → `PlanError` → Awaiting Input.
-2. **Plan agent truncation:** an auto-rejected `read (.env.docker.example)` tool call ends the plan-agent run with output lacking the `## Implementation Plan` header → `PlanError`. This is the same permission-rejection class already documented in [[2026-08-24-guard-empty-plan-output]]; the guard now surfaces it as an error comment instead of a hallucinated plan, but the underlying opencode behavior is still not fixed.
+MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 07:35 run; 403 path already raises `PlanError`.
 
-The MNT-162 hardening (empty `extract_plan` → `PlanError`) only addresses signature 1 (the single 07:35 run). It would not let the workflow complete — the 403 path already raises `PlanError`.
+## Resolution
 
-## Resolution / Fix
+- Change user-shared `OPENROUTER_MODEL` to `meta-llama/llama-3.3-70b-instruct`, or complete 18+ attestation at https://openrouter.ai/settings/preferences.
+- Separately fix opencode permission auto-rejection for `read .env.docker.example`.
 
-- Change the user-shared `OPENROUTER_MODEL` from `meta/muse-spark-1.2` to `meta-llama/llama-3.3-70b-instruct` (verified working), **or** complete the 18+ attestation at https://openrouter.ai/settings/preferences.
-- Separately investigate the opencode permission auto-rejection (`read .env.docker.example`) that truncates plan-agent runs.
+## Follow-ups
 
-## Known follow-up (not fixed this session)
-
-- The plan-agent truncation on permission auto-rejection remains open (see the Follow-ups section of [[2026-08-24-guard-empty-plan-output]]).
-- Whether `extract_plan`'s empty-result path (signature 1) should raise `PlanError` instead of silently returning `None` at `plan.py:101` is still a valid hardening, independent of these blockers.
+- Plan-agent truncation on permission auto-rejection remains open (see [[2026-08-24-guard-empty-plan-output]]).
+- Whether empty `extract_plan` should raise `PlanError` at `plan.py:101` remains valid hardening independent of these blockers.
 
 ## References
 
 - Related: [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
-- External: worker.log `/mnt/data/www/demetra/log/worker.log` (MNT-177 runs 07:27–10:00 on 2026-08-28), `project_environment` table (user env `OPENROUTER_MODEL`), https://openrouter.ai/settings/preferences
+- External: worker.log `/mnt/data/www/demetra/log/worker.log` (MNT-177 07:27–10:00 2026-08-28), `project_environment` table, https://openrouter.ai/settings/preferences

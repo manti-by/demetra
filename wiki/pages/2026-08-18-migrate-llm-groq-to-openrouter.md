@@ -3,156 +3,126 @@ title: Migrate LLM summarization from Groq to OpenRouter
 date: 2026-08-18
 type: implementation
 status: resolved
-session_id: "-"
-services: [llm, openrouter, groq, workflows, wiki, settings, review, prompts, opencode]
+session_id: '-'
+services:
+- llm
+- openrouter
+- groq
+- workflows
+- wiki
+- settings
+- review
+- prompts
+- opencode
 branch: openrouter
-tickets: [MNT-168, MNT-87, MNT-35, MNT-98, MNT-41, MNT-61]
-tags: [openrouter, groq, llm, migration, summarization, langchain, review, async, parallelism, multiagent, cursor, coderabbit, llama, parsing, testing, plan, build-plan]
-related: [2026-06-04-review-summarization.md, 2026-06-22-github-pr-description.md, 2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-05-25-async-review.md, 2026-02-26-create-llm-test-script.md, 2026-03-11-task-plan-summarization.md]
+tickets:
+- MNT-168
+- MNT-87
+- MNT-35
+- MNT-98
+- MNT-41
+- MNT-61
+tags:
+- openrouter
+- groq
+- llm
+- migration
+- summarization
+- langchain
+- review
+- async
+- parallelism
+- multiagent
+- cursor
+- coderabbit
+- llama
+- parsing
+- testing
+- plan
+- build-plan
+related:
+- 2026-06-04-review-summarization.md
+- 2026-06-22-github-pr-description.md
+- 2026-08-03-agents-md-and-wiki-consistency.md
+- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+- 2026-05-25-async-review.md
+- 2026-02-26-create-llm-test-script.md
+- 2026-03-11-task-plan-summarization.md
 ---
-
 # Migrate LLM summarization from Groq to OpenRouter
 
 ## TL;DR
 
-Replaced the Groq-backed LLM service with OpenRouter for plan extraction, review
-summarization, ticket breakdown, wiki polish and PR descriptions — removing Groq
-vendor lock-in behind a single provider. A new `demetra/services/llm/openrouter.py`
-module (backed by a single `build_llm()` factory over `langchain-openai`
-`ChatOpenAI` + `OPENROUTER_BASE_URL`) now serves all workflow consumers; the
-legacy `demetra/services/llm/groq.py` was left untouched. Changing the model or
-endpoint is now a one-line config change via `OPENROUTER_*` env vars.
+Replaced Groq with OpenRouter for all LLM summarization (plan extraction, review, ticket breakdown, wiki polish, PR descriptions) via a single `build_llm()` factory over `langchain-openai` `ChatOpenAI`. New `demetra/services/llm/openrouter.py` serves all consumers; legacy `groq.py` left untouched; `OPENROUTER_*` env vars make model/endpoint a one-line config change.
 
 ---
 
 ## Overview
 
-The old `groq.py` had 6 LangChain `ChatGroq` chains (`prompt | llm | parser`)
-with duplicated model instantiation. The migration adds a provider-agnostic
-factory and a new OpenRouter-backed module, then repoints all four consumers
-(`workflows/plan.py`, `workflows/review.py`, `workflows/cleanup.py`,
-`services/wiki/__init__.py`). Per the requester's decisions: `groq.py` and
-`process_text_with_groq` are kept as-is, config is provider-specific
-(`OPENROUTER_*`), `WIKI_GROQ_BUDGET_*` was renamed to `WIKI_LLM_BUDGET_*`, and
-the AGENTS drift anchor keeps `"Groq"` and adds `"OpenRouter"`.
+Old `groq.py` had 6 duplicated `ChatGroq` chains. Migration adds a provider-agnostic factory and OpenRouter module, repointing 4 consumers (`workflows/plan,review,cleanup`, `services/wiki`). Decisions: keep `groq.py`/`process_text_with_groq`, provider-specific `OPENROUTER_*` config, rename `WIKI_GROQ_BUDGET_*` → `WIKI_LLM_BUDGET_*`, AGENTS drift anchor keeps `"Groq"` + adds `"OpenRouter"`.
 
-## Step 1 — Add the OpenRouter dependency
+## Step 1 — Dependency
 
-**File:** `pyproject.toml`
+**File:** `pyproject.toml` — added `langchain-openai==1.4.3` (compatible with pinned `langchain-core==1.5.3`); kept `langchain-groq==1.1.3`; `uv sync` pulled `openai`/`tiktoken`/…
 
-Added `langchain-openai==1.4.3` (the newest release compatible with the pinned
-`langchain-core==1.5.3`; `1.5.x` needs `langchain-core>=1.5.4`). Kept
-`langchain-groq==1.1.3` so the legacy module stays importable. `uv sync` pulled
-in `openai`, `tiktoken`, `jiter`, `tqdm` transitively.
+## Step 2 — Settings
 
-## Step 2 — Provider config in settings
+**Files:** `demetra/library/types.py`, `demetra/settings.py` — added `OpenRouterConfig` (`api_key`, `model`, `base_url`) and `OPENROUTER` block (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL` default `openai/gpt-oss-120b`, `OPENROUTER_BASE_URL` default `https://openrouter.ai/api/v1`). `GROQ` block untouched.
 
-**File:** `demetra/library/types.py`, `demetra/settings.py`
-
-Added `OpenRouterConfig` TypedDict (`api_key`, `model`, `base_url`) and an
-`OPENROUTER` settings block reading `OPENROUTER_API_KEY`,
-`OPENROUTER_MODEL` (default `openai/gpt-oss-120b`, parity with the old Groq
-default) and `OPENROUTER_BASE_URL` (default `https://openrouter.ai/api/v1`).
-The `GROQ` block stays untouched.
-
-## Step 3 — Single LLM factory
+## Step 3 — Factory
 
 **File:** `demetra/services/llm/factory.py` (new)
 
 ```python
 def build_llm(*, temperature: float, max_tokens: int, max_retries: int = 2) -> ChatOpenAI:
-    return ChatOpenAI(
-        model=OPENROUTER["model"], temperature=temperature, max_tokens=max_tokens,
-        max_retries=max_retries, api_key=OPENROUTER["api_key"], base_url=OPENROUTER["base_url"],
-    )
+    return ChatOpenAI(model=OPENROUTER["model"], temperature=temperature, max_tokens=max_tokens,
+                      max_retries=max_retries, api_key=OPENROUTER["api_key"], base_url=OPENROUTER["base_url"])
 ```
 
-`ChatOpenAI` accepts `max_tokens` via its aliased field. Replaces the 6
-duplicated `ChatGroq(model=GROQ["model"], ...)` instantiations so a model or
-endpoint change is a one-line config change.
+Replaces 6 `ChatGroq(...)` instantiations.
 
-## Step 4 — New OpenRouter module
+## Step 4 — OpenRouter module
 
-**File:** `demetra/services/llm/openrouter.py` (new)
+**File:** `demetra/services/llm/openrouter.py` (new) — six functions via `build_llm()`: `extract_questions`, `summarize_review`, `process_text_with_openrouter`, `extract_plan` (keeps `PLAN_OUTPUT_MAX_CHARS = 32_000`), `summarize_session`, `generate_pr_description`. Prompts/parsers/`PLAN_HAS_QUESTIONS` gating unchanged.
 
-Six functions migrated from `groq.py` semantics, all via `build_llm()`:
-`extract_questions`, `summarize_review`, `process_text_with_openrouter`,
-`extract_plan` (keeps the `PLAN_OUTPUT_MAX_CHARS = 32_000` truncation),
-`summarize_session`, `generate_pr_description`. Prompts, parsers
-(`JsonOutputParser`, `NumberedListOutputParser`) and the `PLAN_HAS_QUESTIONS`
-gating are unchanged. `groq.py` itself is not modified.
+## Step 5 — Repoint consumers
 
-## Step 5 — Repoint consumers and docs
+**Files:** `demetra/services/__init__.py`, `workflows/plan,review,cleanup.py`, `services/wiki/__init__.py`, `.env.docker.example`, `AGENTS.md`, `services/wiki/facts,render.py`
 
-**Files:** `demetra/services/__init__.py`, `workflows/plan.py`,
-`workflows/review.py`, `workflows/cleanup.py`, `services/wiki/__init__.py`,
-`.env.docker.example`, `AGENTS.md`, `services/wiki/facts.py`,
-`services/wiki/render.py`
-
-- Relocation shim `demetra/services/__init__.py` gains
-  `"openrouter": "demetra.services.llm.openrouter"` (keeps the `groq` entry)
-- All four workflow/wiki consumers import from `demetra.services.llm.openrouter`
-- `AGENTS.md` external deps: OpenRouter entry (anchor
-  `demetra/services/llm/openrouter.py`), Groq marked legacy
-- `.env.docker.example` gains the `# OpenRouter` block
-- `WIKI_GROQ_BUDGET_FILES` / `WIKI_GROQ_BUDGET_LINES` renamed to
-  `WIKI_LLM_BUDGET_FILES` / `WIKI_LLM_BUDGET_LINES` (settings, wiki facade
-  `__all__`, `facts.py` budget check, render docstring)
+- Relocation shim gains `"openrouter": "demetra.services.llm.openrouter"` (keeps `groq`)
+- 4 workflow/wiki consumers import from `openrouter`
+- `AGENTS.md` external deps updated; `.env.docker.example` gains `# OpenRouter` block
+- `WIKI_GROQ_BUDGET_*` → `WIKI_LLM_BUDGET_*` (settings, wiki `__all__`, budget check)
 
 ## Step 6 — Tests
 
-**Files:** `tests/test_openrouter.py` (new), `tests/test_wiki.py`,
-`tests/conftest.py`
-
-- New `tests/test_openrouter.py` mirrors `test_groq.py` (signatures, empty-input
-  short-circuit, 32k plan truncation, `summarize_session` JSON handling) but
-  patches `demetra.services.llm.openrouter.build_llm` instead of `ChatGroq`
-- `conftest.py` gains a `mock_openrouter` fixture (keeps `mock_groq`)
-- `test_wiki.py`: `infer_services` covers `openrouter.py`; drift-anchor tests
-  assert both `Groq` and `OpenRouter`; budget constants renamed
+**Files:** `tests/test_openrouter.py` (new, mirrors `test_groq.py` patching `build_llm`), `tests/test_wiki.py`, `tests/conftest.py:mock_openrouter`
 
 ## Test Results
 
-- `uv run pytest tests/` — **849 passed** (817 after the migration, plus URL
-  validation and ticket payload coverage added from the CodeRabbit review)
-- `uv run ruff check .` — all checks passed
-- `uv run ty check` — all checks passed
-- `uv run bandit -c pyproject.toml .` — 0 issues
-- `uv run pre-commit run --all-files` — all hooks passed
-- Smoke: all consumer modules (`plan`, `review`, `cleanup`, `wiki`, `app`)
-  import cleanly
+- `pytest` **849 passed** (817 post-migration + URL/ticket coverage); `ruff`, `ty`, `bandit`, `pre-commit` clean; consumer modules import cleanly.
 
 ---
 
 ## Source — [[2026-05-25-async-review]]
 
-Review step runs all agents in parallel. Originally decided in [[2026-05-25-async-review]] on 2026-05-25 (MNT-87/MNT-35): `run_review_agents` launches opencode/cursor/coderabbit concurrently and merges results; empty commits are prevented by staged-change validation. The `merge_review_results` `None` stdout/stderr handling noted there has since been removed in favor of `summarize_review()` in `demetra/services/llm/openrouter.py` (see notes above). Still in effect — build review loop relies on parallel execution.
-
+MNT-87/35 (2026-05-25): `run_review_agents` launches opencode/cursor/coderabbit concurrently; empty commits prevented by staged-change validation. `merge_review_results` `None` handling now via `summarize_review()` in `openrouter.py`.
 
 ## Source — [[2026-06-04-review-summarization]]
 
-Review findings summarized via LLM (originally Groq llama, now OpenRouter) into deduplicated numbered list; merge_review_results removed Originally decided in [[2026-06-04-review-summarization]] on 2026-06-04.
+Groq llama review dedup → numbered list; now via OpenRouter.
 
 ## Follow-ups
 
-- Provision `OPENROUTER_API_KEY` in the production `.env` / `.env.docker` and
-  remove the now-legacy `GROQ_API_KEY` once `groq.py` is retired
-- Historical wiki pages and the `wiki/audits/2026-02-23-questions-extraction/`
-  benchmark script still reference Groq — intentionally left untouched
+- Provision `OPENROUTER_API_KEY` in production env, remove legacy `GROQ_API_KEY` when `groq.py` retired.
+- Historical wiki/audit references intentionally left untouched.
 
-## Consistency note (2026-08-19)
+## Consistency notes
 
-- The relocation shim (`_RelocatedFinder` / `_RelocatedLoader` in `demetra/services/__init__.py`) described in Step 5 was subsequently deleted by the 2026-08-19 work (MNT-170, see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]). The package is now a plain docstring marker.
-
-## Consistency fix (2026-09-01)
-
-- Removed self-link in Source section that pointed to this same page (circular reference) — replaced with plain text.
-
-## Consistency fix (2026-09-02)
-
-- Fixed `session_id: -` YAML parse error (quoted as `"-"`).
+- (2026-08-19) Relocation shim deleted by MNT-170 (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]); package is now plain marker.
+- (2026-09-01) Removed circular self-link; (2026-09-02) quoted `session_id: "-"`.
 
 ## References
 
-- Related: [[2026-06-04-review-summarization]] (original Groq review summarization), [[2026-06-22-github-pr-description]] (original Groq PR description), [[2026-08-03-agents-md-and-wiki-consistency]] (wiki Groq budget rename), [[2026-08-19-split-auth-linear-services-and-review-failure-handling]] (review-error routing)
+- Related: [[2026-06-04-review-summarization]], [[2026-06-22-github-pr-description]], [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-05-25-async-review]], [[2026-02-26-create-llm-test-script]], [[2026-03-11-task-plan-summarization]]
 - External: [MNT-168](https://linear.app/mnt/issue/MNT-168/migrate-llm-summarization-from-groq-to-openrouter)

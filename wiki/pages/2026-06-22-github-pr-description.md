@@ -15,29 +15,22 @@ related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-li
 
 ## TL;DR
 
-PRs created from a completed feature now get a real description instead of an empty/placeholder body. A Groq-backed service summarises what was done and the generated text is passed when creating the GitHub PR. Tests added.
+PRs now get a generated description instead of an empty body: a Groq-backed service summarises the completed work and the text is passed as the GitHub PR body. Tests added.
 
 ---
 
 ## Overview
 
-Before this change the GitHub PR body was empty or a placeholder. Now a summary of the work is generated and attached at PR creation.
+PR body was empty/placeholder. Now a summary is generated and attached at creation.
 
-## Step 1 — Build the description with Groq
+## Changes
 
-**File:** `groq` service
-
-Added a service that builds a PR description summarising what was done for the session/ticket.
-
-## Step 2 — Pass it to GitHub PR creation
-
-**File:** `github` service
-
-When the PR is created, the generated text is used as the PR body, replacing the empty/placeholder description.
+- **Description generation** (`groq` service): builds a summary of what was done for the session/ticket.
+- **PR creation** (`github` service): generated text used as PR body, replacing placeholder.
 
 ## Test Results
 
-Tests cover the description-generation service and that the generated text is passed to PR creation.
+Tests cover description generation and that the text is passed to PR creation.
 
 ---
 
@@ -47,8 +40,8 @@ None.
 
 ## Consistency note (2026-08-19)
 
-- The LLM provider was migrated from Groq to OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py`.
-- On LLM failure, `generate_pr_description` now raises `PrDescriptionError` (routed to Awaiting Input) instead of returning an empty string silently (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]).
+- LLM migrated Groq → OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `generate_pr_description` now in `demetra/services/llm/openrouter.py`.
+- On LLM failure, raises `PrDescriptionError` (→ Awaiting Input) instead of returning empty string (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]).
 
 ## References
 
