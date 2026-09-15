@@ -32,7 +32,6 @@ from demetra.services.persistence.database import (
     save_session,
     update_session_linear_link,
     update_session_pr_link,
-    update_session_research_plan,
     update_session_research_report,
     update_session_step,
     upsert_pending_session,
@@ -103,7 +102,6 @@ class TestDatabaseService:
         assert session.task_id == db_task_id
         assert session.session_id == db_session_id
         assert session.build_plan == db_build_plan
-        assert session.research_plan == ""
         assert session.posted_to_linear is False
         assert session.step == "plan"
 
@@ -111,7 +109,6 @@ class TestDatabaseService:
         assert found is not None
         assert found.task_id == db_task_id
         assert found.build_plan == db_build_plan
-        assert found.research_plan == ""
         assert found.posted_to_linear is False
         assert found.step == "plan"
 
@@ -1229,54 +1226,6 @@ class TestPrLink:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.pr_link == "https://github.com/owner/repo/pull/42"
-
-
-class TestResearchPlan:
-    @pytest.fixture(autouse=True)
-    def _setup_db(self, setup_test_db):
-        pass
-
-    @pytest.mark.asyncio
-    async def test_research_plan_defaults_to_empty(
-        self,
-        db_task_id: str,
-    ):
-        await upsert_pending_session(task_id=db_task_id, session_id=None)
-
-        found = await get_session(db_task_id)
-        assert found is not None
-        assert found.research_plan == ""
-
-    @pytest.mark.asyncio
-    async def test_update_session_research_plan_persists_value(
-        self,
-        db_task_id: str,
-    ):
-        await upsert_pending_session(task_id=db_task_id, session_id=None)
-
-        report = "## Research Report\nFindings body."
-        await update_session_research_plan(task_id=db_task_id, research_plan=report)
-
-        found = await get_session(db_task_id)
-        assert found is not None
-        assert found.research_plan == report
-
-    @pytest.mark.asyncio
-    async def test_research_plan_preserved_on_save_session(
-        self,
-        db_task_id: str,
-        db_session_id: str,
-    ):
-        report = "## Research Report\nPreserved."
-        await upsert_pending_session(task_id=db_task_id, session_id=db_session_id)
-        await update_session_research_plan(task_id=db_task_id, research_plan=report)
-
-        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan A")
-
-        found = await get_session(db_task_id)
-        assert found is not None
-        assert found.build_plan == "Plan A"
-        assert found.research_plan == report
 
 
 class TestResearchReport:

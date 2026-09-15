@@ -93,11 +93,11 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
 
   const hasPrLink = !!session.pr_link;
   const hasBuildPlan = !!session.build_plan;
-  const hasResearchPlan = !!session.research_plan;
+  const hasResearchReport = !!session.research_report;
   const hasLinearLink = !!session.linear_link;
   const hasHistory = !!session.session_id;
 
-  if (!hasPrLink && !hasBuildPlan && !hasResearchPlan && !hasLinearLink && !hasHistory) {
+  if (!hasPrLink && !hasBuildPlan && !hasResearchReport && !hasLinearLink && !hasHistory) {
     return <div className="session-artifacts" />;
   }
 
@@ -144,13 +144,13 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
           View Build Plan
         </a>
       )}
-      {hasResearchPlan && (
+      {hasResearchReport && (
         <a className="session-artifacts-link" href="#" onClick={(e) => { e.preventDefault(); openResearchModal(); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="8" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
-          View Research Plan
+          View Research Report
         </a>
       )}
       {hasHistory && (
@@ -186,20 +186,20 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
         </div>
         </div>
       )}
-      {researchModalOpen && hasResearchPlan && (
+      {researchModalOpen && hasResearchReport && (
         <div className="modal-overlay" onClick={closeResearchModal}>
           <div className="modal-content research-plan-modal" onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>Research Plan</h2>
+              <h2>Research Report</h2>
               <button className="modal-close" onClick={closeResearchModal} aria-label="Close">
                 <CloseIcon />
               </button>
             </div>
             <div className="modal-body">
               {!researchIsRendered ? (
-                <pre className="build-plan-text">{session.research_plan}</pre>
+                <pre className="build-plan-text">{session.research_report}</pre>
               ) : (
-                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_plan!, { async: false }) as string) }} />
+                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_report!, { async: false }) as string) }} />
               )}
             </div>
             <div className="modal-footer">

@@ -130,7 +130,6 @@ class Session:
     listener_attempts: int = 0
     pr_link: str | None = None
     linear_link: str | None = None
-    research_plan: str = ""
     research_report: str | None = None
 
 

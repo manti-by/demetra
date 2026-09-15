@@ -61,7 +61,10 @@ docs:
 migrate:
 	uv run alembic upgrade head
 
-ci: install check test react-build react-test
+check-migrations:
+	uv run alembic -x dry-run=true upgrade head
+
+ci: install check check-migrations test react-build react-test
 
 
 uvicorn:

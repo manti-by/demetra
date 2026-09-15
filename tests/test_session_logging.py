@@ -9,7 +9,6 @@ from demetra.services.persistence.database import (
     get_session,
     save_session,
     update_session_pr_link,
-    update_session_research_plan,
     upsert_pending_session,
 )
 
@@ -159,18 +158,3 @@ class TestSessionListingAPI:
         session = next(s for s in data if s["task_id"] == task_id)
         assert session["build_plan"] == "1. Step one\n2. Step two"
         assert session["pr_link"] == "https://github.com/owner/repo/pull/42"
-
-    @pytest.mark.asyncio
-    @pytest.mark.usefixtures("setup_test_db")
-    async def test_list_sessions_includes_research_plan(self, authenticated_client: TestClient):
-
-        task_id = f"task-{uuid4().hex[:8]}"
-        await upsert_pending_session(
-            task_id=task_id, session_id="session-research-plan", user_id="test_user_id", name="MNT-1: Research"
-        )
-        await update_session_research_plan(task_id=task_id, research_plan="## Research Report\nFindings.")
-        response = authenticated_client.get("/api/v1/sessions")
-        assert response.status_code == 200
-        data = response.json()
-        session = next(s for s in data if s["task_id"] == task_id)
-        assert session["research_plan"] == "## Research Report\nFindings."
