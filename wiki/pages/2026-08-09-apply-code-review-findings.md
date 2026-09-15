@@ -15,142 +15,108 @@ related: [2026-08-03-check-api-auth-and-credentials.md, 2026-08-06-allowlist-rev
 
 ## TL;DR
 
-Applied all 7 findings from the post-refactor code review (`CODE_REVIEW_FINDINGS.md`, scope `v1.15.4..HEAD`): restored cross-origin auth cookies in the React client, rejected negative ints in `env_get_int`, gated validate-agent missing-items on a `Plan step N:` marker, made `reset_password`/`delete_project` atomic under AUTOCOMMIT via a new `get_transaction()` manager, stopped `dedup_pages` from merging distinct-ticket pages, switched `revalidation_changed_files` to `--porcelain=v1 -z` parsing, and replaced error-message string matching with typed exception subclasses. Version bumped 1.16.2 → 1.16.3; full suite **737 passed in 4.84s**.
+Applied all 7 findings from post-refactor review (`CODE_REVIEW_FINDINGS.md`, `v1.15.4..HEAD`): restored cross-origin auth cookies, rejected negative `env_get_int`, gated validate-agent on `Plan step N:` marker, made `reset_password`/`delete_project` atomic via `get_transaction()`, fixed `dedup_pages` and porcelain `-z` parsing, and replaced string-matched errors with typed exceptions. Version 1.16.2→1.16.3; 737 passed in 4.84s.
 
 ---
 
 ## Overview
 
-A review of the large `demetra/services/{agents,auth,...}` refactor plus the allowlist, wiki, MCP 2.0, stdin-prompt, validate-agent, and PR-failure features produced 7 findings (1 HIGH, 2 MEDIUM, 4 LOW). This session implemented fixes for all 7 in the working tree on `master`, each with a regression test. Findings 5 and 6 land in `demetra/services/wiki/maintenance.py` — the seam `revalidation_changed_files()` was added the same day in [[2026-08-09-wiki-fixes-and-test-optimization]], and this session fixes its parsing.
+Review of the large `services/{agents,auth,…}` refactor produced 7 findings (1 HIGH, 2 MEDIUM, 4 LOW). Fixes 5–6 land in `demetra/services/wiki/maintenance.py` alongside the new `revalidation_changed_files()` from [[2026-08-09-wiki-fixes-and-test-optimization]].
 
 ## Step 1 — HIGH: restore auth cookie on cross-origin requests
 
-**File:** react/src/services/api.ts:39
+**File:** `react/src/services/api.ts:39`
 
-`authFetch()` previously forwarded `init` verbatim, dropping the `credentials: 'include'` the login/signup/logout/GitHub-callback calls relied on, so the browser ignored the API's `Set-Cookie` cross-origin (React on :5173, API on :8000) — UI showed logged-in but every authenticated call 401'd, and `logout()` never revoked the server session.
+`authFetch` forwarded `init` verbatim, dropping `credentials: 'include'` — browser ignored `Set-Cookie` cross-origin (5173→8000), every auth call 401'd.
 
 ```ts
-// before
-return fetch(input, init);
-// after
 const method = (init.method ?? 'GET').toUpperCase();
-if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
-  assertTrustedOrigin(input);
-}
+if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') assertTrustedOrigin(input);
 return fetch(input, { ...init, credentials: 'include' });
 ```
 
-Also re-applies the Origin guard for mutating calls, consistent with [[2026-08-03-check-api-auth-and-credentials]].
+## Step 2 — MEDIUM: `env_get_int` rejects negatives
 
-## Step 2 — MEDIUM: `env_get_int` rejects negative values
+**File:** `demetra/services/runtime/utils.py:215`
 
-**File:** demetra/services/runtime/utils.py:215
-
-`int(os.environ.get(name, default))` accepted negatives despite the docstring's claim. `SUBPROCESS_TIMEOUT=-1` would expire every `asyncio.timeout` immediately and kill every subprocess; `MAX_BUILD_ATTEMPTS=-1` makes `while rerun_attempts:` false on entry and raises `InfiniteLoopError`.
+`int(os.environ.get(name, default))` accepted negatives; `SUBPROCESS_TIMEOUT=-1` killed every subprocess.
 
 ```python
-try:
-    value = int(os.environ.get(name, default))
-except ValueError:
-    return default
+try: value = int(os.environ.get(name, default))
+except ValueError: return default
 return value if value >= 0 else default
 ```
 
-## Step 3 — MEDIUM: validate agent only reports marker-prefixed items
+## Step 3 — MEDIUM: validate agent marker filter
 
-**File:** demetra/workflows/validate.py:10,47
+**File:** `demetra/workflows/validate.py:10,47`
 
-`run_validate_agent` treated every non-blank stdout line that wasn't an exact `NO_ISSUE` token as a missing plan item. Any stray prose ("I reviewed the staged diff…") forced another full build+validate cycle, burning `rerun_attempts`/`review_attempts` toward `InfiniteLoopError`. The review path avoids this by routing noisy output through OpenRouter (`summarize_review`); here the cheaper fix is a marker filter.
+Every non-blank line was treated as missing item; stray prose burned retry budget. Now only `^Plan step \d+:` lines count.
 
 ```python
 MISSING_ITEM_RE = re.compile(r"^Plan step \d+:", re.IGNORECASE)
-...
-if not MISSING_ITEM_RE.match(stripped):
-    continue
+if not MISSING_ITEM_RE.match(stripped): continue
 ```
 
-## Step 4 — LOW: atomic `reset_password` under AUTOCOMMIT isolation
+## Step 4 — LOW: atomic `reset_password` under AUTOCOMMIT
 
-**File:** demetra/services/persistence/database.py:138; demetra/services/auth/__init__.py:412
+**File:** `demetra/services/persistence/database.py:138`, `demetra/services/auth/__init__.py:412`
 
-The engine runs at `isolation_level="AUTOCOMMIT"`, so `session.begin()` was a no-op and each DELETE/UPDATE committed immediately — a mid-failure left JWT rows revoked while the password hash stayed old (partial state). The same latent non-atomicity hit `delete_project`. New manager issues the transaction control itself:
+`isolation_level="AUTOCOMMIT"` made `session.begin()` a no-op — DELETE/UPDATE committed immediately, leaving partial state. New `get_transaction()` issues explicit `BEGIN/COMMIT/ROLLBACK`:
 
 ```python
 async with get_connection(db_name) as connection:
     await connection.execute(text("BEGIN"))
-    try:
-        yield connection
-    except BaseException:
-        await connection.execute(text("ROLLBACK"))
-        raise
-    else:
-        await connection.execute(text("COMMIT"))
+    try: yield connection
+    except BaseException: await connection.execute(text("ROLLBACK")); raise
+    else: await connection.execute(text("COMMIT"))
 ```
 
-`reset_password` (auth/__init__.py:412) and `delete_project` (database.py:1541) now use `async with get_transaction() as connection:`.
+`reset_password` and `delete_project` now use `async with get_transaction()`.
 
 ## Step 5 — LOW: `dedup_pages` keeps distinct-ticket pages
 
-**File:** demetra/services/wiki/maintenance.py:44,182
+**File:** `demetra/services/wiki/maintenance.py:44,182`
 
-`dedup_pages` deleted any page with Jaccard similarity ≥ 0.85 to another — two different auth-related tickets with overlapping wording exceeded the threshold and the older page was unlinked. Added `is_duplicate_pair()`: genuine duplicates require a shared `tickets` frontmatter entry **or** an identical normalized title; vocabulary similarity alone no longer merges.
+Similarity ≥0.85 alone merged distinct tickets. New `is_duplicate_pair()` requires shared `tickets` entry or identical normalized title.
 
 ```python
-left_tickets = {str(item).casefold() for item in (left_meta.get("tickets") or [])}
-right_tickets = {str(item).casefold() for item in (right_meta.get("tickets") or [])}
-if left_tickets & right_tickets:
-    return True
-left_title = str(left_meta.get("title") or "").casefold().strip()
-right_title = str(right_meta.get("title") or "").casefold().strip()
+left_tickets = {str(i).casefold() for i in (left_meta.get("tickets") or [])}
+if left_tickets & right_tickets: return True
 return bool(left_title) and left_title == right_title
 ```
 
-Guarded behind `WIKI_REVALIDATION_ENABLED` (default `False`), but the guard now actually preserves distinct pages.
-
 ## Step 6 — LOW: `revalidation_changed_files` parses `--porcelain=v1 -z`
 
-**File:** demetra/services/wiki/maintenance.py:289
+**File:** `demetra/services/wiki/maintenance.py:289`
 
-`line[3:]` on `git status --porcelain` mishandled renames (`R  old -> new` became `"old -> new"`, so `git add` failed and the revalidation commit silently did nothing) and quoted paths with spaces. Switched to NUL-separated v1 output scoped to `wiki/` and `AGENTS.md`. For renames/copies `--porcelain=v1 -z` emits the destination path in the first record and the source path in a second NUL-delimited record; the parser consumes that second record:
+`line[3:]` mishandled renames (`R  old -> new`) and quoted spaces. Switched to NUL-separated output scoped to `wiki/` + `AGENTS.md`, consuming the second record for renames/copies.
 
 ```python
 command = [str(service.GIT["path"]), "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/", "AGENTS.md"]
-...
-records = stdout.split("\0")
-...
-code = record[:2]
-path = record[3:]
-if code[0] in ("R", "C") and index < len(records):
-    index += 1
+if code[0] in ("R", "C") and index < len(records): index += 1
 ```
 
-## Step 7 — LOW: typed exceptions replace message-string matching
+## Step 7 — LOW: typed exceptions
 
-**File:** demetra/library/exceptions.py:45,49; demetra/api/auth.py:76; demetra/api/github.py:81
+**File:** `demetra/library/exceptions.py:45,49`, `demetra/api/auth.py:76`, `demetra/api/github.py:81`
 
-The 403 signal was `str(e) == "Email not authorized for registration"` / `"GitHub account not authorized"` — reword the message and the frontend's 403 key breaks silently. Added `RegistrationNotAllowedError(AuthError)` and `GitHubAccountNotAuthorizedError(AuthError)`, raised in `services/auth/__init__.py:260,211`, and switched the API handlers to `isinstance` checks.
+`str(e) == "Email not authorized…"` was fragile. Added `RegistrationNotAllowedError`/`GitHubAccountNotAuthorizedError(AuthError)`, raised in `services/auth/__init__.py:260,211`, API checks via `isinstance`.
 
-> **Status update (2026-09-02, post-merge revalidation):** both typed subclasses were
-> removed again by the PR #119 review-updates merge — `RegistrationNotAllowedError` and
-> `GitHubAccountNotAuthorizedError` no longer exist in `demetra/library/exceptions.py`
-> and nothing references them. The signup endpoint now raises plain `AuthError` (400),
-> returns 202 via `WaitlistedError` for blocked users, and is rate-limited per client IP
-> (`auth_rate_limiter`, `demetra/services/utils.py`) before any of that.
+> **Status update (2026-09-02):** both subclasses removed by PR #119 — endpoint now raises plain `AuthError` (400) / `WaitlistedError` (202) and is IP rate-limited.
 
 ## Test Results
 
-- New tests: `test_utils.py` (4 × `env_get_int`), `test_validate_workflow.py` (stray prose not reported), `test_wiki.py` (similar pages with distinct tickets kept; porcelain `-z` rename/space parsing; empty set on failure), `test_auth_password_api.py` (403 via typed exception).
-- Affected files: **102 passed in 0.68s**.
-- Full suite: **737 passed in 4.84s**.
-- `pyproject.toml` + `uv.lock` bumped to 1.16.3.
+- New tests: `test_utils.py` (env_get_int), `test_validate_workflow.py` (stray prose), `test_wiki.py` (dedup, porcelain rename/space), `test_auth_password_api.py` (typed 403).
+- Affected: 102 passed in 0.68s; full suite **737 passed in 4.84s**. Bump 1.16.3.
 
 ---
 
 ## Follow-ups
 
-- Working tree is uncommitted on `master`; the orchestrator handles the commit/PR (version bump suggests a release-style commit).
+Working tree uncommitted on `master`; orchestrator handles commit/PR.
 
 ## References
 
-- External: [CODE_REVIEW_FINDINGS.md](../../CODE_REVIEW_FINDINGS.md) — review target `v1.15.4..HEAD`, 7 findings
+- External: [CODE_REVIEW_FINDINGS.md](../../CODE_REVIEW_FINDINGS.md) (`v1.15.4..HEAD`)
 - Related: [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-06-allowlist-review-fixes]], [[2026-08-09-wiki-fixes-and-test-optimization]], [[2026-08-07-split-wiki-service-into-subpackage]]

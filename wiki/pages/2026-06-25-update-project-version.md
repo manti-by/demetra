@@ -15,55 +15,32 @@ related: [2026-08-21-mnt-176-bump-version-error.md, 2026-09-08-docstring-mcp-sea
 
 ## TL;DR
 
-Added automatic version bumping in `pyproject.toml` on every feature/bugfix workflow. Every feature or bug triggers a minor bump; the major version is bumped manually only. The bump is integrated into the workflow with automatic rollback on workflow failure. Tests added.
+Every feature/bugfix workflow now auto-bumps `pyproject.toml`; major bumps are manual. The bump is integrated into the workflow with rollback on failure. Tests added.
 
 ---
 
 ## Overview
 
-The project version previously only changed on manual intervention. The workflow now bumps the minor version deterministically on every feature/bugfix run.
+Version previously changed only manually. Now the workflow bumps deterministically on every feature/bugfix run.
 
-## Step 1 — Version bump service
+## Changes
 
-Added a service that bumps the project version in `pyproject.toml`:
-
-- minor bump for every new feature or bug,
-- the major version is preserved and bumped manually only.
-
-## Step 2 — Integrate into the workflow
-
-**File:** `workflows`
-
-The bump runs as part of the workflow. If the workflow fails, the version change is automatically rolled back so a failed run does not leave a version bump behind.
-
-## Step 3 — Major releases
-
-Major version bumps are done manually only and are out of scope for the automatic workflow bump; the auto-bump always increments the minor version.
+- **Bump service**: increments version in `pyproject.toml` (minor per feature/bug; major manual only).
+- **Workflow integration** (`workflows`): bump runs as part of workflow; rolled back on failure so failed runs leave no version change.
+- **Major releases**: manual only, out of scope for auto-bump.
 
 ## Test Results
 
-Tests cover the bump logic (minor bump, major preservation) and the rollback on workflow failure.
+Tests cover bump logic (minor bump, major preservation) and rollback on failure.
 
 ## Consistency note (2026-08-23)
 
-- Verified against git history: the original MNT-116 implementation (`ad2cf2a`) shipped
-  with a **major** bump for tickets carrying the `EPIC` label (`is_epic_label` /
-  `bump_project_version(..., is_epic=...)`) — i.e. the "major is bumped manually only"
-  wording above never fully matched the code. [[2026-07-22-warp-theme-review-fixes-and-ops]]
-  later hardened `bump_project_version` to log+return `None` instead of raising.
-- The Epic branch was removed on 2026-08-21 in MNT-176
-  ([[2026-08-21-mnt-176-bump-version-error]], `fe33701`): `bump_project_version` now always
-  bumps the minor version and preserves the major; `is_epic_label` / `EPIC_LABEL` no longer
-  exist in the codebase. This page's body reflects the current behavior.
+- Original MNT-116 (`ad2cf2a`) shipped a **major** bump for `EPIC`-labelled tickets (`is_epic_label` / `bump_project_version(..., is_epic=...)`) — the "major manual only" wording never fully matched code. [[2026-07-22-warp-theme-review-fixes-and-ops]] hardened `bump_project_version` to log+return `None` instead of raising.
+- Epic branch removed 2026-08-21 in MNT-176 ([[2026-08-21-mnt-176-bump-version-error]], `fe33701`): always bumps minor now; `is_epic_label`/`EPIC_LABEL` removed.
 
 ## Consistency note (2026-09-11, Consistency Agent)
 
-- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): `bump_project_version` was
-  reworked to explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`).
-  The default auto-bump now increments the **patch** (`1.14.1 → 1.14.2`), not the minor;
-  the workflow call site still uses the default, so the minor-bump wording above is stale.
-  See that page's "Version bump rework" section for the drift (docstring still says minor,
-  call site still uses default).
+- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): reworked to explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`). Default auto-bump now increments **patch** (`1.14.1 → 1.14.2`), not minor; minor-bump wording above is stale.
 
 ---
 

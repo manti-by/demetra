@@ -1,121 +1,103 @@
 ---
-title: "MNT-147 Wiki processes PR #70 — branch check and CI failure root cause"
+title: 'MNT-147 Wiki processes PR #70 — branch check and CI failure root cause'
 date: 2026-08-07
 type: code-review
 status: resolved
 session_id: opencode
-services: [wiki, settings, utils, workflows]
+services:
+- wiki
+- settings
+- utils
+- workflows
 branch: mnt-147-wiki-processes
-tickets: [MNT-147, MNT-155]
-tags: [wiki, code-review, env, ci, regression]
-related: [2026-08-03-wiki-mcp-tools.md, 2026-08-05-post-build-validation.md, 2026-08-06-allowlist-review-fixes.md]
+tickets:
+- MNT-147
+- MNT-155
+tags:
+- wiki
+- code-review
+- env
+- ci
+- regression
+related:
+- 2026-08-03-wiki-mcp-tools.md
+- 2026-08-05-post-build-validation.md
+- 2026-08-06-allowlist-review-fixes.md
 ---
-
 # MNT-147 Wiki processes PR #70 — branch check and CI failure root cause
 
 ## TL;DR
 
-PR #70 (mnt-147-wiki-processes → master) is open; GitHub reports it MERGEABLE (UNSTABLE while CI fails) and both CI "Run checks" runs fail on `test_run_review_agents_filters_thinking_prose`. Root cause is a regression introduced by this branch's `env_get_list` refactor in `demetra/services/utils.py`: it returns `[]` instead of the default when the env var is unset, so with `OPENCODE_REVIEW_MODELS` unset in CI the review agent list is empty and the summarizer receives empty output. The branch is up to date with master: the master merge (MNT-155 allowlist, PR #71) is already committed and pushed as `be8cde5`.
+PR #70 was MERGEABLE (UNSTABLE while CI failed). Root cause: `env_get_list` in `demetra/services/utils.py:249` returned `[]` instead of the default when the env var was unset, so CI (without `OPENCODE_REVIEW_MODELS`) produced an empty review-agent list and empty summarizer output. Fixed, merged as `cbd5b0e`.
 
 ---
 
 ## Findings
 
-### 1. `env_get_list` returns `[]` instead of `default` when the variable is unset
+### 1. `env_get_list` returns `[]` instead of `default` when unset
 
-**File:** demetra/services/utils.py:249
+**File:** `demetra/services/utils.py:249` — **Severity: High**
 
 ```python
 def env_get_list(name: str, default: list) -> list:
-    try:
-        list_value = os.environ.get(name, "").split(",")
-        return [x.strip() for x in list_value if x.strip()]
-    except ValueError:
-        pass
-    return default
+    list_value = os.environ.get(name, "").split(",")
+    return [x.strip() for x in list_value if x.strip()]
 ```
 
-**Severity:** High — CI regression and production behavior change.
+`os.environ.get(name, "")` → `""` → `[""]` → `[]`; default never used when unset.
 
-`os.environ.get(name, "")` yields `""` when unset, which splits to `[""]` and filters to `[]` — the `default` is never used for the unset case. Confirmed live: `env_get_list("FOO", ["a", "b"])` returns `[]` with `FOO` unset.
+Impacted (`demetra/settings.py`):
+- `review_models` line 129 — unset → `[]` → `asyncio.gather(*[])` → empty `review_output` → `tests/test_workflows.py:1147` fails.
+- `CORS_ALLOWED_ORIGINS` line 186 — same bug, blocks all browser origins unless explicitly set.
+- `LINEAR_FILTER_LABELS` line 120 — latent (default `[]`).
 
-**Impacted call sites** (demetra/settings.py):
+**Fix:** `os.environ.get(name, ",".join(default))` or early-return when `name not in os.environ`.
 
-- `"review_models": env_get_list("OPENCODE_REVIEW_MODELS", ["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/minimax-m3"])` — line 129. With the var unset the old code (`os.environ.get("OPENCODE_REVIEW_MODELS", "qwen3.7-plus,glm-5.2,minimax-m3").split(",")`) returned the 3 defaults; the refactor returns `[]`. In CI the var is unset → empty review agent list → `asyncio.gather(*[])` → empty `review_output` → `test_run_review_agents_filters_thinking_prose` fails on `tests/test_workflows.py:1147`.
-- `CORS_ALLOWED_ORIGINS = env_get_list("CORS_ALLOWED_ORIGINS", ["http://localhost:5173", "http://localhost:8000"])` — line 186. Same bug: unset → `[]` → CORS blocks all browser origins in production unless the var is explicitly set.
-- `LINEAR_FILTER_LABELS` — line 120, default `[]`, so the bug is latent only.
+### 2. PR marked CONFLICTING/DIRTY — resolved
 
-**Fix:** use the default as the fallback string, e.g. `os.environ.get(name, ",".join(default)).split(",")`, or early-return `default` when `name not in os.environ`.
+**Severity: Resolved.** Head `f3edc44` was behind master after PR #71 merge (`f9c791f`). Merged master as `be8cde5`; GitHub now MERGEABLE.
 
-### 2. GitHub marked PR #70 as CONFLICTING / DIRTY (now resolved)
+### 3. CI fails on same review test
 
-**File:** PR manti-by/demetra#70 (headSha `be8cde5`, baseSha `99b5880`)
+`tests/test_workflows.py:1147` (`test_run_review_agents_filters_thinking_prose`) — runs 31104702459/31104696195, same as finding 1. Repro: `env -u OPENCODE_REVIEW_MODELS pytest ...`.
 
-**Severity:** Resolved — was Blocker.
+### 4. CodeRabbit threads still open (3/16)
 
-The PR head was the branch HEAD (`f3edc44`), behind master after PR #71 (MNT-155 allowlist merged via `f9c791f`). Git Flow requires the branch to be rebased/merged on latest master before it can merge. The master merge is now committed and pushed as `be8cde5`; GitHub reports the PR MERGEABLE. The remaining check failures are finding 3, caused by finding 1.
-
-### 3. Both CI "Run checks" runs fail on the same review test
-
-**File:** tests/test_workflows.py:1147 (`TestWorkflowReview::test_run_review_agents_filters_thinking_prose`)
-
-**Severity:** High — directly caused by finding 1. Runs 31104702459 and 31104696195 both assert `"Looking at the staged changes..." in ''`. Reproduced locally with `env -u OPENCODE_REVIEW_MODELS uv run pytest tests/test_workflows.py::TestWorkflowReview::test_run_review_agents_filters_thinking_prose`; passes with the var set.
-
-### 4. CodeRabbit review threads still open
-
-**Severity:** Low/Medium — 3 unresolved of 16 threads:
-
-- Thread `797d923e` — review rate limit reached mid-run; noted docstring coverage 66.67% vs 80% target.
-- Thread `e6280678` — settings.py L66-69: use named arguments for `read_int_env`/`env_get_int` calls (WIKI_GROQ_BUDGET_FILES, WIKI_GROQ_BUDGET_LINES, WIKI_DIFF_HUNK_CAP, WIKI_BUILD_PLAN_CAP); also `env_get_int` should reject negative values (current `non_negative_int` helper exists but is not used there).
-- Thread `ee8e79db` — 12 actionable items (5 nitpicks + 7 inline): `logger.warning` should use `msg=` keyword; `queue.enqueue` should use a named callable in `demetra/workflows/merge.py` and `rebase.py`.
+**Severity: Low/Medium.**
+- `797d923e` — rate limit, docstring 66.67% vs 80%.
+- `e6280678` — `settings.py:66-69` use named args for `read_int_env`/`env_get_int`; `env_get_int` should reject negatives.
+- `ee8e79db` — 12 items: `logger.warning` `msg=` keyword; `queue.enqueue` named callable in `merge.py`/`rebase.py`.
 
 ---
 
 ## Summary table
 
-| # | Severity | Repo | File | Description |
-|---|----------|------|------|-------------|
-| 1 | High | demetra | demetra/services/utils.py:249 | `env_get_list` returns `[]` instead of default when env var unset |
-| 2 | Blocker | GitHub | PR #70 | CI checks failing on #1; merge committed as `be8cde5`, GitHub reports MERGEABLE |
-| 3 | High | demetra | tests/test_workflows.py:1147 | CI failure caused by #1; reproduces with `env -u OPENCODE_REVIEW_MODELS` |
-| 4 | Low/Med | linear | CodeRabbit threads | 3 unresolved: named args, `msg=`, enqueue callable, docstring coverage |
+| # | Severity | File | Description |
+|---|----------|------|-------------|
+| 1 | High | `demetra/services/utils.py:249` | `env_get_list` returns `[]` when unset |
+| 2 | Blocker | PR #70 | CONFLICTING → MERGEABLE via `be8cde5` |
+| 3 | High | `tests/test_workflows.py:1147` | CI failure caused by #1 |
+| 4 | Low/Med | CodeRabbit threads | 3 unresolved |
 
 ---
 
 ## Branch state
 
-- `HEAD`: `be8cde5` "Merge branch 'master' into mnt-147-wiki-processes" (matches PR #70 headSha).
-- Branch-only commits: `2bed1c7` (MNT-147: Wiki processes), `618184a` (Fix review findings), `bcbe0dc` (Isolate wiki tests), `f3edc44` (merge), `be8cde5` (merge).
-- Master-only since last sync: none — branch is up to date with master.
-- Diff `master...HEAD`: 21 files, +2640/−251 (new `demetra/services/wiki.py` 1254 lines, `tests/test_wiki.py` 731 lines, this review page, `demetra/prompts/summarize_session.md`, groq/utils/settings/tools/wiki/merge/rebase changes).
-- Master merge (MNT-155) committed as `be8cde5` and pushed; PR #70 is no longer CONFLICTING.
+- `HEAD` `be8cde5` matches PR #70 `headSha`; up to date with master.
+- Diff `master...HEAD`: 21 files +2640/−251 (new `demetra/services/wiki.py` 1254 lines, `tests/test_wiki.py` 731 lines, etc.).
 
 ## Follow-ups
 
-- ~~Fix `env_get_list` unset handling and re-run the two CI checks.~~ **Done** — `f093e19`
-  ("Fix review findings"); `env_get_list` now returns `default` when unset
-  (`demetra/services/runtime/utils.py:272-273`).
-- ~~Once CI passes, PR #70 is ready to merge.~~ **Done** — merged as `cbd5b0e`.
-- Address the 3 open CodeRabbit threads (or mark resolved) — closed with the merge.
-- ~~MNT-147 Linear ticket is In Review — will move to Done on merge.~~ **Done**.
+- Fix `env_get_list` → **Done** `f093e19` (`demetra/services/runtime/utils.py:272-273`).
+- Merge PR #70 → **Done** `cbd5b0e`.
+- CodeRabbit threads closed on merge.
 
-## Consistency note (2026-08-23)
+## Consistency notes
 
-- PR #70 was merged into `master` on 2026-08-07 at 07:14 UTC (verified via the GitHub API);
-  the "open / CI failing" framing above is kept as the session record.
-- Finding 1 is fixed on current `master`: `env_get_list` now lives in
-  `demetra/services/runtime/utils.py:261` and returns the `default` when the variable is
-  unset (`if value is None: return default`).
-
-## Consistency fix (2026-08-25)
-
-- Frontmatter `title` quoted to preserve `#70` (unquoted `#` is a YAML comment and truncated the title to `MNT-147 Wiki processes PR`).
-
-## Consistency note (2026-09-03, Consistency Agent)
-
-- The `OPENCODE_REVIEW_MODELS` default list quoted in Finding 1 (`[..., "opencode-go/minimax-m3"]`) was the transient 2026-08-05 state (swapped in by [[2026-08-05-post-build-validation]], reverted by the 2026-08-23 note on that page). Current `demetra/settings.py:148` defaults to `["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]`. The `env_get_list` unset bug itself is fixed regardless of the default contents.
+- (2026-08-23) PR #70 merged 2026-08-07 07:14 UTC. Finding 1 fixed: `env_get_list` now `if value is None: return default` (`demetra/services/runtime/utils.py:261`).
+- (2026-09-03) Default list transiently contained `minimax-m3` (2026-08-05 swap, reverted 2026-08-23); current `demetra/settings.py:148` is `[qwen3.7-plus, glm-5.2, kimi-k2.7-code]`. Bug fixed regardless.
 
 ## References
 
-- Related: [[2026-08-06-allowlist-review-fixes]], [[2026-08-03-wiki-mcp-tools]]
+- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-05-post-build-validation]], [[2026-08-06-allowlist-review-fixes]]
 - External: https://github.com/manti-by/demetra/pull/70, [MNT-147](https://linear.app/mnt/issue/MNT-147)

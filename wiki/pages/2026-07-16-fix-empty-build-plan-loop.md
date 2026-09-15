@@ -15,196 +15,75 @@ related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-pla
 
 ## TL;DR
 
-Fixed a permanent workflow stall where a run failing before a plan is saved (e.g., due to a Linear API `null` response) locks the session into an unplannable state. Three fixes: (1) replan whenever `build_plan` is empty, not just when `step == 'initial'`; (2) reject malformed Linear payloads as `LinearError` instead of crashing; (3) enable fallback session ID so stuck-pending sessions can be recovered. All 472 tests pass; 9 new tests added.
+Fixed a permanent stall where a run failing before plan save left `step='failed'` + empty `build_plan` → next run skipped planning (`step == 'initial'` gate) and exited forever. Three fixes: (1) replan when `build_plan` empty, not `step == 'initial'`; (2) reject non-dict Linear payloads as `LinearError`; (3) enable fallback session ID for worktree mismatches. 472 tests pass, 9 new tests added.
 
 ---
 
 ## Overview
 
-When a workflow run fails early (before a plan is saved), it leaves the session at `step='failed'` with an empty `build_plan`. The next run skips the plan step entirely because `main.py:55` only replans when `step == 'initial'`, so it exits with "Empty build plan, exiting." — forever. Three root causes and contributing factors prevented recovery:
-
-1. **Replan gate is step-based, not plan-based** — `main.py:55` gates on `step == 'initial'`, but any failure sets `step='failed'` and nothing resets it.
-2. **Linear API null responses crash uncaught** — `graphql_request` returned `None` for non-dict payloads (e.g., `null` body), causing `result.get(...)` calls to throw `AttributeError` before `LinearError` could catch it.
-3. **Fallback session ID disabled** — `get_opencode_session_id` had its fallback commented out, so worktree-directory mismatches returned `None`, leaving `session_id=''` in the DB. The watcher's own step-reset path treats such sessions as "pending" and skips them.
-
-All three are fixed below. Evidence: odin's DB showed 3 sessions stuck in this state (MNT-128, MNT-117, MNT-113, 4 run attempts each, max reached); all had `step='failed'` + empty `build_plan` + empty `session_id`.
-
----
+Odin had 3 sessions stuck (MNT-128/117/113, 4 attempts each, max reached): `step='failed'` + empty `build_plan` + empty `session_id`.
 
 ## Step 1 — Replan on missing build_plan, not step
 
-**File:** `main.py:55–57`
-
-**Before:**
+**File:** `main.py:55-57`
 
 ```python
+# before
 if not context.session or context.session.step == "initial":
-    if not await run_plan_step(context=context):
-        return
-```
-
-**After:**
-
-```python
+# after
 if not context.session or not context.session.build_plan:
-    if not await run_plan_step(context=context):
-        return
 ```
 
-**Why:** A session with `step='failed'` but empty `build_plan` should re-plan. The old gate (`step == 'initial'`) never re-plans a failed session because cleanup sets `step='failed'` and nothing resets it to `'initial'`. Gating on `not context.session.build_plan` instead means "if there's no plan yet, make one" — the right invariant.
+Failed sessions with empty plan now correctly re-plan; previously `step='failed'` never reset to `'initial'`.
 
----
+## Step 2 — Validate Linear API response
 
-## Step 2 — Validate Linear API response payload
-
-**File:** `demetra/services/graphql.py:16–32`
-
-**Before:**
+**File:** `demetra/services/graphql.py:16-32`
 
 ```python
-async with session.post(...) as response:
-    response.raise_for_status()
-    return await response.json()
-```
-
-**After:**
-
-```python
-async with session.post(...) as response:
-    response.raise_for_status()
-    data = await response.json()
-
+data = await response.json()
 if not isinstance(data, dict):
     raise LinearError(f"Linear API returned an unexpected payload: {data!r}")
-
 return data
 ```
 
-**Why:** Linear can respond 200 OK with `null` (or any non-dict JSON). Callers like `update_ticket_status` do `result.get("data", {}).get(...)`, which crashes with `AttributeError: 'NoneType' object has no attribute 'get'` — not caught by `main.py`'s except list. Now it raises `LinearError` (a `DemetraError`), so `main.py:100–104` catches it gracefully.
-
----
+Linear can return 200 with `null`; callers doing `result.get(...)` crashed with `AttributeError` not caught by `main.py`. Now raises `LinearError` (`DemetraError`) and is handled gracefully.
 
 ## Step 3 — Enable fallback session ID
 
-**File:** `demetra/services/opencode.py:127–139`
+**File:** `demetra/services/opencode.py:127-139`
 
-**Before:**
-
-```python
-fallback_session_id = None
-for session in sorted(...):
-    # TODO: Think how to proceed with a worktree mistmatch
-    # if not fallback_session_id:
-    #     fallback_session_id = session["id"]
-
-    if session_directory == target_directory:
-        return session["id"]
-
-print_message("Worktree mistmatch, using fallback session id", style="error")
-return fallback_session_id
-```
-
-**After:**
-
-```python
-fallback_session_id = None
-for session in sorted(...):
-    if not fallback_session_id:
-        fallback_session_id = session["id"]
-
-    if session_directory == target_directory:
-        return session["id"]
-
-if fallback_session_id:
-    print_message("Worktree mistmatch, using fallback session id", style="error")
-return fallback_session_id
-```
-
-**Why:** When worktree directory doesn't match exactly, return the most-recently-updated same-titled session as a fallback. Without this, `get_opencode_session_id` returns `None`, leaving `session_id=''` in the DB. The watcher's `get_pending_session_task_ids()` treats such sessions as "pending" and skips them (`session_id == ""` is the pending marker), which suppresses the watcher's own step-reset path on future polls. Enabling the fallback lets at least some sessions get a valid ID and escape pending status.
-
----
+Uncommented `fallback_session_id` assignment on worktree mismatch; moved warning inside `if fallback_session_id:` guard. Without this, `session_id=''` left sessions as "pending" (watcher skips them), suppressing step-reset.
 
 ## Test Results
 
-> **Consistency note (2026-09-03, Consistency Agent):** Corrected the TL;DR count above (11 → 9) to match the enumerated list below (3 + 3 + 3).
+472 passed, `ruff`/`ty` clean. 9 new tests:
 
-All tests pass; 9 new tests added.
-
-### New tests
-
-**tests/test_entrypoints.py — TestMainReplanning:**
-
-- `test_main_replans_when_step_failed_but_build_plan_empty` — Replans when `step='failed'` but `build_plan` is empty.
-- `test_main_skips_replan_when_build_plan_already_present` — Skips replanning when a plan already exists.
-- `test_main_exits_when_replan_produces_no_plan` — Exits cleanly if replanning still yields nothing.
-
-**tests/test_graphql.py — TestGraphqlRequest:**
-
-- `test_graphql_request_returns_dict_payload` — Valid dict payload passes through.
-- `test_graphql_request_raises_linear_error_on_null_payload` — `null` payload raises `LinearError`.
-- `test_graphql_request_raises_linear_error_on_list_payload` — List payload raises `LinearError`.
-
-**tests/test_opencode.py — TestOpencodeSessionId:**
-
-- `test_returns_exact_directory_match` — Exact directory match wins.
-- `test_returns_fallback_when_no_directory_matches` — Falls back to most-recent same-titled session on mismatch.
-- `test_returns_none_when_no_matching_titles` — Returns `None` when no titles match.
-
-### Validation
-
-```
-$ uv run pytest tests/ -q
-===== 472 passed in 7.78s =====
-
-$ uv run ruff check demetra/services/graphql.py demetra/services/opencode.py main.py tests/test_entrypoints.py tests/test_graphql.py tests/test_opencode.py
-All checks passed!
-
-$ uv run ty check demetra/services/graphql.py demetra/services/opencode.py main.py
-All checks passed!
-```
+- `tests/test_entrypoints.py` (3): replan when `failed`+empty, skip when plan present, exit on still-empty replan.
+- `tests/test_graphql.py` (3): dict passthrough, `null` → `LinearError`, list → `LinearError`.
+- `tests/test_opencode.py` (3): exact match wins, fallback on mismatch, `None` when no title match.
 
 ---
 
 ## Source — [[2026-02-21-add-build-plan-to-linear-task]]
 
-Originally added in [[2026-02-21-add-build-plan-to-linear-task]] on 2026-02-21
-(MNT-29): the extracted build plan is posted to the Linear ticket as a comment as soon
-as the plan step produces it. The async Linear service `post_comment(ticket_id,
-comment_text)` takes exactly the linear task id and the comment text; the workflow
-calls it with the cleaned plan from `extract_plan` right after the plan step. MNT-39's
-`posted_to_linear` flag prevents double-posting when the plan is reused from the
-database.
+MNT-29 (2026-02-21): extracted build plan posted as Linear comment via `post_comment(ticket_id, comment_text)` right after planning; `posted_to_linear` flag (MNT-39) prevents double-post.
 
 ## Source — [[2026-02-23-save-build-plan-to-database]]
 
-Originally added in [[2026-02-23-save-build-plan-to-database]] on 2026-02-23 (MNT-39):
-the `sessions` table gained `build_plan` (text) and `posted_to_linear` (bool) columns.
-Today `save_session(task_id, build_plan=..., linear_link=...)` persists the plan
-(`demetra/services/persistence/database.py`) — the planning workflow
-(`demetra/workflows/plan.py`) passes the extracted plan straight to it; the
-historical `upsert_pending_session` initializes `build_plan` to `""` and no
-longer updates it on conflict, so it does not persist the plan. The setup step
-checks for an existing plan and skips planning (reusing the stored plan for the
-build); `posted_to_linear` gates the MNT-29 post so a plan is only posted once
-across runs. This page's Step 1 replan gate
-(`not context.session.build_plan`) is the modern successor of that
-skip-planning-on-existing-plan behavior — the invariant is "if there's no plan
-yet, make one".
+MNT-39 (2026-02-23): `sessions` gained `build_plan`/`posted_to_linear`; `save_session` persists plan, `upsert_pending_session` inits `build_plan=""`. Setup skips planning when plan exists. This page's `not build_plan` gate is its successor.
 
 ## Follow-ups
 
-- None — all three root causes and contributing factors are fixed.
+None.
 
 ## Consistency note (2026-08-19)
 
-- Line 54 says "cleanup sets `step='failed'`" — this is true for the default `failure_step` but some failure paths now set `step="awaiting_input"` instead (e.g., `AutoCancelledError`, `PullRequestError`, `ReviewError`). The replan gate (`not context.session.build_plan`) still works correctly regardless of which failure step was set.
+- "Cleanup sets `step='failed'`" is true for default `failure_step`; some paths now set `awaiting_input` instead (`AutoCancelledError`, `PullRequestError`, `ReviewError`). Replan gate still correct.
 
-> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/opencode.py → demetra/services/agents/opencode.py. Historical `file:line` refs below are kept as written.
-
-> **Status update (2026-08-27, Consistency Agent):** `demetra/services/graphql.py` (Step 2)
-> has also moved, to `demetra/services/linear/graphql.py`. The `LinearError`-on-non-dict-payload
-> behavior described in Step 2 is still current. Historical `file:line` refs above are kept as written.
+> **Consistency note (2026-08-24):** `demetra/services/opencode.py` → `demetra/services/agents/opencode.py`.
+> **Update (2026-08-27):** `demetra/services/graphql.py` → `demetra/services/linear/graphql.py`; non-dict `LinearError` behavior unchanged.
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]] (PR failure path sets `step="awaiting_input"`)
+- Related: [[2026-08-05-pr-creation-failure-handler]]

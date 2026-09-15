@@ -15,86 +15,42 @@ related: [2026-07-15-duplicated-log-messages.md, 2026-08-19-build-agent-server-e
 
 ## TL;DR
 
-After the opencode spending limit was raised, MNT-151 builds kept failing with the same
-`UnknownError: "Unexpected server error"` (`err_...` ref). Root cause this time: Demetra's
-`sessions.session_id` for the task still pointed at opencode session `ses_fe96234f1ffeADBso4qFrnzE0Y`,
-which is bound to worktree `mnt-151-switch-consumer-py-to-redis-pub-sub-remove-kafka` — deleted by
-cleanup after the first failed run (the ticket title/slug also changed, so new worktrees get a new
-name). Every retry passed `--session <stale-id>` and the opencode server 500s when the session's
-directory no longer exists. Reproduced from scratch; fixed by nulling the session row. Environment
-variables were **not** the problem.
+After the spending limit was raised, MNT-151 kept failing with `UnknownError: Unexpected server error (err_...)` — not the limit but a stale `sessions.session_id` (`ses_fe96234f1ffeADBso4qFrnzE0Y`) bound to a worktree deleted by cleanup. Every retry passed `--session <stale-id>` and the server 500s when the session directory is gone. Fixed by nulling `session_id` in the DB; env vars were not the cause.
 
 ## Symptom
 
-- `Build agent failed (exit 1): Error: { "name": "UnknownError", "data": { "message": "Unexpected server error...", "ref": "err_f9972a06" } }` at 13:15, and again at 13:40 (`err_28589456`) after the user raised the spending limit and set free models.
-- Session log `sessions/a90b02f2-9fa2-4d86-91b1-8ab07bbfea87.log`: failure ~5s after worktree creation, no model call streamed.
+- `Build agent failed (exit 1): {UnknownError, ref err_f9972a06}` at 13:15 and `err_28589456` at 13:40 after raising the limit — ~5s after worktree creation, no model stream (`sessions/a90b02f2-9fa2-4d86-91b1-8ab07bbfea87.log`).
 
-## Step 1 — Rule out the spending limit and model config
+## Investigation
 
-- Direct CLI test with the paid build model: `opencode run --model opencode-go/deepseek-v4-flash` →
-  works. The raised limit is in effect.
-- `demetra/.env` still has paid `OPENCODE_*` models; the DB `project_environment` user-scope rows have
-  no model overrides; no project-scope rows at all. The user's "free models" never reached Demetra's
-  resolution path (`_resolve_opencode_model`, `demetra/services/agents/opencode.py:17`: DB user env →
-  `settings.OPENCODE` from process env). Irrelevant either way — the paid model works.
-- The `err_...` refs appear nowhere under `~/.local/share/opencode/` — they are server-side only.
+**Spending limit ruled out** — Direct `opencode run --model opencode-go/deepseek-v4-flash` works. `demetra/.env` still has paid `OPENCODE_*`; DB `project_environment` has no model overrides. `err_...` refs absent under `~/.local/share/opencode/` (server-side only).
 
-## Step 2 — Reproduce with the exact Demetra invocation
+**Repro with exact Demetra invocation** — `demetra/workflows/build.py:87-94` calls `opencode_build_agent(..., session_id=context.session_id)` → `opencode run --dir <new worktree> --session ses_fe96234f...`. Without `--session`: exit 0. With stale session: `UnknownError` (`err_b3c6f994`) reproduced. Faithful repro: create session in dir A, `rm -rf` A, continue from dir B → `UnknownError` (`err_50227666`). A deleted-directory session can never be resumed.
 
-`demetra/workflows/build.py:87-94` calls `opencode_build_agent(..., session_id=context.session_id)` →
-`opencode run --dir <new worktree> --model ... --agent build-agent --session ses_fe96234f... --title ...`.
-
-- Without `--session`: works (exit 0, answer streamed).
-- With `--session ses_fe96234f1ffeADBso4qFrnzE0Y`: `UnknownError` (`err_b3c6f994`) — reproduced.
-- Faithful repro: create session in temp dir A, `rm -rf` A, continue the session from dir B →
-  `UnknownError` (`err_50227666`). **A session whose directory was deleted can never be resumed.**
-
-## Step 3 — Trace why the session is stale
-
-- `sqlite3 ~/.local/share/opencode/opencode.db`: session `ses_fe96234f...` has
-  `directory=/Users/alexander/.demetra/worktrees/manti-by/coruscant/mnt-151-switch-consumer-py-to-redis-pub-sub-remove-kafka`.
-- That worktree is gone — cleanup (`Removing worktree` / `Deleting branch` in demetra.log) deletes it
-  after every failed run, and the Linear title change (`...consumer.py to Redis pub/sub...` →
-  `Switch to Redis, remove Kafka`) changed the slug, so new worktrees get a different name anyway.
-- opencode log for the failing run (`run=5b2b452e`): creates an instance for both the new worktree and
-  the session's deleted directory (`failed to initialize fff: Invalid path ...`), starts
-  `loop ... step=0`, then dies before any `stream` entry.
-- `main.py:105` skips the plan step when `context.session.build_plan` is set (it is, stored in the DB
-  row), so every retry goes straight to the build step with the poisoned `--session`.
+**Why stale** — `opencode.db` session `ses_fe96234f...` has `directory=/.../worktrees/.../mnt-151-switch-consumer-py-to-redis-pub-sub-remove-kafka` — gone after cleanup (`Removing worktree`/`Deleting branch` in `demetra.log`). Title/slug changed so new worktrees get a different name. Opencode log `run=5b2b452e` shows `failed to initialize fff: Invalid path ...` then dies before `stream`. `main.py:105` skips plan when `context.session.build_plan` is set, so every retry goes straight to build with poisoned `--session`.
 
 ## Root cause
 
-Demetra persists the opencode session id per task (`sessions.session_id`) but cleanup deletes the
-worktree the session belongs to. opencode 1.18.18 cannot resume a session whose directory no longer
-exists and returns a generic 500 instead of a useful error, so a task that fails once after planning
-can never be retried — every rerun fails identically a few seconds into the build step.
+Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencode 1.18.18 cannot resume a session whose directory is gone and returns generic 500, so a once-failed task can never be retried until the session is cleared.
 
-## Resolution / Fix
+## Resolution
 
-- `UPDATE sessions SET session_id = NULL, step = 'initial' WHERE task_id = 'a90b02f2-...'` — the stored
-  `build_plan` is kept, so the next run skips re-planning and the build agent starts a fresh opencode
-  session in the new worktree.
+`UPDATE sessions SET session_id = NULL, step = 'initial' WHERE task_id = 'a90b02f2-...'` — keeps stored `build_plan` so next run skips re-planning but starts a fresh opencode session.
 
 ## Known follow-up (not fixed this session)
 
-- Code fix (systemic): clear `sessions.session_id` when cleanup deletes the worktree, or catch the
-  `UnknownError` signature in `opencode_build_agent` and retry once without `--session`. Other old
-  rows in `sessions` (`ses_013d53a7...`, `ses_01451c57...`, etc.) have the same latent problem if their
-  tasks are re-run.
-- Earlier same-day attribution of the 12:49 failure to the spending limit
-  ([[2026-08-19-build-agent-server-error-handler]]) was at best incomplete — the stale session produces
-  the identical signature, and the limit error was only proven for the title agent.
+- Systemic fix: clear `sessions.session_id` when cleanup deletes worktree, or catch `UnknownError` in `opencode_build_agent` and retry once without `--session`. Other rows (`ses_013d53a7...`, etc.) have same latent risk.
+- Earlier 12:49 attribution to spending limit ([[2026-08-19-build-agent-server-error-handler]]) was incomplete — stale session produces identical signature.
 
 ## Follow-ups
 
-- Decide on the systemic fix (clear session on cleanup vs. retry without `--session`) and implement.
+- Decide on systemic fix (clear on cleanup vs retry without `--session`) and implement.
 
-> **Status update (2026-08-28, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and
-> `demetra/services/vcs/git.py` after PR #106 (MNT-189) merged — no code clears
-> `sessions.session_id` when a worktree is deleted, and `opencode_build_agent` still passes
-> `--session` whenever `context.session_id` is set. The systemic follow-up above remains open.
+> **Status update (2026-08-28, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and `demetra/services/vcs/git.py` after PR #106 (MNT-189) — no code clears `sessions.session_id` on worktree deletion; `opencode_build_agent` still passes `--session` when `context.session_id` is set. Follow-up remains open.
 
-> **Status update (2026-09-11, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and `demetra/services/agents/opencode.py:87` on current master — the systemic fix is still not implemented; the session-id-stale-worktree failure mode remains latent.
+> **Status update (2026-09-11, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and `demetra/services/agents/opencode.py:87` — systemic fix still not implemented; failure mode remains latent.
+
+> **Consistency note (2026-09-15, Consistency Agent):** Re-verified `demetra/workflows/cleanup.py` and `demetra/services/agents/opencode.py:92` on branch `mnt-204-research-result-modal` — no `session_id` clear on cleanup, `opencode_build_agent(session_id=context.session_id)` still passes stale id; systemic retry/clear still not implemented — latent. See follow-up above.
 
 ## References
 

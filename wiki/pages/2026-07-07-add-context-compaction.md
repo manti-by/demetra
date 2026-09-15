@@ -15,52 +15,30 @@ related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-r
 
 ## TL;DR
 
-Added automatic context-length checks and compaction for OpenCode agent sessions. A new `session_history` table records the context length after each workflow step, and when the recorded length exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000 tokens) the agent session is compacted via `/compact`. Compaction was later disabled in MNT-145 because the recorded `length` was cumulative, not per-message — see [[2026-07-23-session-tokens-audit-revalidation]] and [[2026-07-23-session-history-modal]].
+Added automatic context-length tracking and compaction for OpenCode sessions. `session_history` records length after each step; when it exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000) the session is compacted via `/compact`. Later disabled in MNT-145 due to cumulative `length` (see [[2026-07-23-session-tokens-audit-revalidation]]), then re-enabled.
 
 ---
 
 ## Overview
 
-Long agent sessions drift past usable context windows, degrading plan/build quality. This change tracks session length after every build iteration and compacts when over the threshold.
+Long sessions drift past usable context windows, degrading plan/build quality. This tracks length after every step and compacts over threshold.
 
-> **Status update (2026-08-04, Consistency Agent):** the MNT-145 disable was reversed within
-> the same ticket — `5f8e428` commented out the `build.py` caller, and `47d428d` (also
-> 2026-07-23) re-enabled it driven by the non-cumulative `context_tokens` metric. Compaction
-> is live today (`demetra/workflows/build.py:100`); the "disabled in MNT-145" framing below is
-> kept as the historical record. See [[2026-07-23-session-tokens-audit-revalidation]].
+> **Update (2026-08-04):** MNT-145 disable was reversed — `5f8e428` commented out the `build.py` caller, `47d428d` (2026-07-23) re-enabled it via non-cumulative `context_tokens`. Compaction is live (`demetra/workflows/build.py:100`). See [[2026-07-23-session-tokens-audit-revalidation]].
 
-## Step 1 — Persist session history
+## Changes
 
-**File:** `session_history` table + `SessionHistory` dataclass
-
-New table (many-to-one via `session_id`) with `id`, `session_id`, `step`, `length`, `created_at`, plus the `SessionHistory` dataclass. Migration `add_session_history_table` included. `record_session_history` and `get_session_history` services wrap it.
-
-## Step 2 — Measure and compact OpenCode sessions
-
-**File:** opencode helpers
-
-- `get_opencode_session_length` — runs `opencode export` and parses the token counts.
-- `opencode_compact_session` — runs `opencode run --session <id> --dir <target> /compact`.
-
-## Step 3 — Threshold setting
-
-**File:** `settings`
-
-`CONTEXT_COMPACTION_THRESHOLD` setting, default 100_000 tokens.
-
-## Step 4 — Workflow integration
-
-**File:** `workflows`
-
-`check_and_compact_context` records step history after each step and triggers compaction when the recorded length is over the threshold.
+- **Session history** (`session_history` table + `SessionHistory` dataclass): many-to-one via `session_id`, columns `id/session_id/step/length/created_at`, migration `add_session_history_table`, services `record_session_history`/`get_session_history`.
+- **Measurement + compaction** (opencode helpers): `get_opencode_session_length` (parses `opencode export` tokens), `opencode_compact_session` (`opencode run --session <id> --dir <target> /compact`).
+- **Threshold** (`settings`): `CONTEXT_COMPACTION_THRESHOLD`, default 100_000 tokens.
+- **Workflow**: `check_and_compact_context` records history after each step and triggers compaction over threshold.
 
 ## Test Results
 
-Tests across services, models, and workflows for history recording, length measurement, and compaction triggering.
+Tests for history recording, length measurement, and compaction triggering.
 
 ## Known follow-up
 
-Compaction was later disabled in MNT-145 because the recorded `length` was cumulative rather than per-message — see [[2026-07-23-session-tokens-audit-revalidation]].
+Compaction disabled in MNT-145 (cumulative `length`) — see [[2026-07-23-session-tokens-audit-revalidation]]; re-enabled as above.
 
 ---
 
