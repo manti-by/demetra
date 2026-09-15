@@ -36,6 +36,7 @@ describe('SessionList', () => {
         step: 'build',
         pr_link: null,
         linear_link: null,
+        research_report: null,
       },
     ];
 
@@ -68,6 +69,7 @@ describe('SessionList', () => {
         step: 'initial',
         pr_link: null,
         linear_link: null,
+        research_report: null,
       },
     ];
 
@@ -118,6 +120,7 @@ describe('SessionList', () => {
         step: 'build',
         pr_link: null,
         linear_link: null,
+        research_report: null,
       },
       {
         task_id: 'task-2',
@@ -131,6 +134,7 @@ describe('SessionList', () => {
         step: 'completed',
         pr_link: null,
         linear_link: null,
+        research_report: null,
       },
     ];
 
@@ -168,6 +172,7 @@ describe('SessionList', () => {
         step: 'build',
         pr_link: null,
         linear_link: null,
+        research_report: null,
       },
     ];
 

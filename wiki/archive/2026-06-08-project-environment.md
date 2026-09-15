@@ -12,6 +12,8 @@ related: [2026-03-31-project-model-and-space.md]
 ---
 
 # Project environment
+> **Archived on 2026-09-14.** Useful info merged into [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

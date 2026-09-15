@@ -33,6 +33,7 @@ from demetra.services.persistence.database import (
     update_session_linear_link,
     update_session_pr_link,
     update_session_research_plan,
+    update_session_research_report,
     update_session_step,
     upsert_pending_session,
     upsert_project_environment,
@@ -750,7 +751,7 @@ class TestUserEnvironments:
 
     @pytest.mark.asyncio
     async def test_upsert_masks_sensitive_plaintext_key(self, faker, setup_test_db):
-        user_id = await create_user(email=f"{faker.unique.word()}@example.com", github_id=f"git-{uuid4().hex[:8]}")
+        user_id = await create_user(email=f"{uuid4().hex}@example.com", github_id=f"git-{uuid4().hex[:8]}")
 
         entry = await upsert_user_environment(
             user_id=user_id,
@@ -1276,6 +1277,53 @@ class TestResearchPlan:
         assert found is not None
         assert found.build_plan == "Plan A"
         assert found.research_plan == report
+
+
+class TestResearchReport:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_research_report_defaults_to_none(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_report is None
+
+    @pytest.mark.asyncio
+    async def test_update_session_research_report_persists_value(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        await update_session_research_report(task_id=db_task_id, research_report="## Research Report\nFindings.")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_report == "## Research Report\nFindings."
+
+    @pytest.mark.asyncio
+    async def test_research_report_preserved_on_save(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        report = "## Research Report\nOriginal."
+        await upsert_pending_session(task_id=db_task_id, session_id=db_session_id)
+        await update_session_research_report(task_id=db_task_id, research_report=report)
+
+        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan B")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.build_plan == "Plan B"
+        assert found.research_report == report
 
 
 class TestSessionHistory:

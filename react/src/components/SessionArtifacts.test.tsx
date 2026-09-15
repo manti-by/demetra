@@ -16,6 +16,7 @@ const mockSessionWithPrLink = {
   step: 'completed',
   pr_link: 'https://github.com/owner/repo/pull/42',
   linear_link: 'https://linear.app/manti-by/issue/MNT-123',
+  research_report: null,
 };
 
 const mockSessionWithBuildPlanOnly = {

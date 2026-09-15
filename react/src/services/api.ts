@@ -152,6 +152,7 @@ export interface Session {
   step: string | null;
   pr_link: string | null;
   linear_link: string | null;
+  research_report: string | null;
 }
 
 export async function getSessions(): Promise<Session[]> {

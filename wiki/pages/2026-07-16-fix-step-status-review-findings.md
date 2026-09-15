@@ -4,11 +4,11 @@ date: 2026-07-16
 type: implementation
 status: resolved
 session_id: e6a4e432-a337-46a5-8e3a-a027d7cb0cdd
-services: [main, api, database, workflows, linear, sessions]
+services: [main, api, database, workflows, linear, sessions, opencode]
 branch: "-"
-tickets: [MNT-37, MNT-63]
-tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration]
-related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md]
+tickets: [MNT-37, MNT-63, MNT-83, MNT-22]
+tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration, resume, isolation, research]
+related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md, 2026-06-08-session-step-attribute.md, 2026-02-21-opencode-sessions-isolation.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md]
 ---
 
 # Fix code-review findings on step/status refactor
@@ -173,6 +173,11 @@ that user. The separate `task_status` table was merged into `sessions` (status m
 onto the session; table and stale tests removed), and `sessions` gained `project_id`
 and `user_id` columns with improved upserts. The `step`-based lifecycle this page
 documents is the successor of that merged status concept.
+
+
+## Source — [[2026-06-08-session-step-attribute]]
+
+Session.step attribute (initial/plan/build/lint/review/completed etc.) for durable resume; superseded by 13-value StepType including validate/awaiting_input/wiki/research Originally decided in [[2026-06-08-session-step-attribute]] on 2026-06-08.
 
 ## Follow-ups
 

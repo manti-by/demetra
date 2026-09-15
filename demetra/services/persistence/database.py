@@ -212,7 +212,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, research_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, research_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
                 """
             ),
             {
@@ -253,6 +253,7 @@ async def upsert_pending_session(
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -389,6 +390,7 @@ async def get_session(task_id: str) -> Session | None:
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -424,6 +426,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -509,6 +512,7 @@ async def save_session(
             listener_attempts=row.listener_attempts,
             pr_link=row.pr_link,
             linear_link=row.linear_link,
+            research_report=row.research_report,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
         )
@@ -527,6 +531,7 @@ async def save_session(
         listener_attempts=0,
         pr_link=None,
         linear_link=linear_link,
+        research_report=None,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -599,7 +604,7 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
 
 
 async def update_session_research_plan(task_id: str, research_plan: str) -> None:
-    """Record the research report on a session.
+    """Record the research plan on a session.
 
     Args:
         task_id: The Linear task identifier.
@@ -618,6 +623,32 @@ async def update_session_research_plan(task_id: str, research_plan: str) -> None
             {
                 "task_id": task_id,
                 "research_plan": research_plan,
+                "updated_at": now,
+            },
+        )
+        await connection.commit()
+
+
+async def update_session_research_report(task_id: str, research_report: str) -> None:
+    """Record the research report on a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        research_report: The research report markdown to store.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET research_report = :research_report, updated_at = :updated_at
+                WHERE task_id = :task_id
+                """
+            ),
+            {
+                "task_id": task_id,
+                "research_report": research_report,
                 "updated_at": now,
             },
         )

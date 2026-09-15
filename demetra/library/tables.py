@@ -33,6 +33,7 @@ sessions = Table(
     Column("listener_attempts", Integer(), nullable=False, server_default="0"),
     Column("pr_link", String(), nullable=True),
     Column("linear_link", String(), nullable=True),
+    Column("research_report", Text(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
 )

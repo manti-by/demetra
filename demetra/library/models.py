@@ -23,6 +23,7 @@ StepType = Literal[
     "completed",
     "failed",
     "awaiting_input",
+    "researched",
 ]
 
 
@@ -37,6 +38,7 @@ class LinearTask:
     state: str | None = None
     project_name: str | None = None
     project_id: str | None = None
+    linear_project_id: str | None = None
     user_id: str | None = None
     comments: list[str] = field(default_factory=list)
     labels: list[str] = field(default_factory=list)
@@ -129,6 +131,7 @@ class Session:
     pr_link: str | None = None
     linear_link: str | None = None
     research_plan: str = ""
+    research_report: str | None = None
 
 
 EnvironmentType = Literal["text", "encrypted"]

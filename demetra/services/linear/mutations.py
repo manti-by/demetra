@@ -1,7 +1,7 @@
 from typing import Any
 
 import demetra.services.linear as service
-from demetra.library.exceptions import LinearError
+from demetra.library.exceptions import LinearConfigError, LinearError
 from demetra.library.models import Context
 
 
@@ -123,6 +123,152 @@ async def create_linear_ticket(
         raise LinearError("Failed to create Linear ticket")
 
     issue = result.get("data", {}).get("issueCreate", {}).get("issue")
+    if not issue:
+        raise LinearError("Linear API returned success but no issue data")
+
+    return {
+        "ticket_id": issue["id"],
+        "identifier": issue["identifier"],
+        "title": issue["title"],
+    }
+
+
+async def _find_existing_research_ticket(linear_project_id: str, title: str) -> dict[str, Any] | None:
+    """Return an existing issue with the given title in the project, if any.
+
+    Retrying ``issueCreate`` after a post-commit transport failure would
+    otherwise create duplicates; the deterministic research title lets the
+    creation step look up the issue it may already have created.
+
+    Args:
+        linear_project_id: The Linear project id to search.
+        title: The exact issue title to match.
+
+    Returns:
+        dict[str, Any] | None: The matching issue with its id, identifier and
+            title, or None when no issue matches.
+
+    Raises:
+        LinearError: When the lookup request fails or returns GraphQL errors.
+    """
+    query = await service.get_query(name="get_issue_by_title")
+    result = await service.graphql_request(
+        query=query,
+        variables={"projectId": linear_project_id, "title": title},
+    )
+    if result is None:
+        raise LinearError("Failed to lookup existing research ticket: empty response")
+    if result.get("errors"):
+        raise LinearError(f"Failed to lookup existing research ticket: {result['errors']}")
+    data = result.get("data")
+    if data is None:
+        raise LinearError("Failed to lookup existing research ticket: missing data")
+    issues = (data.get("issues") or {}).get("nodes") or []
+    if not issues:
+        return None
+
+    issue = issues[0]
+    return {
+        "ticket_id": issue["id"],
+        "identifier": issue["identifier"],
+        "title": issue["title"],
+    }
+
+
+async def create_research_ticket(context: Context, report: str, *, title: str | None = None) -> dict[str, Any]:
+    """Create a related Linear issue holding a research report.
+
+    Mirrors the originating ticket: the issue is created in the same Linear
+    project and priority, in the ``prd`` state, and labelled with the feature
+    label plus the backend/frontend labels carried by the source ticket. The
+    report is used verbatim as the issue description.
+
+    Idempotent per source ticket: an issue with the deterministic title is
+    looked up first and reused (updating its description so a retried research
+    run does not leave a stale report), so retrying after a lost
+    ``issueCreate`` response does not create a duplicate.
+
+    Args:
+        context: The workflow context with the originating Linear task.
+        report: The research report markdown, used as the description.
+        title: Optional issue title; defaults to
+            ``Research: <source identifier> — <source title>``.
+
+    Returns:
+        dict[str, Any]: The created (or existing) issue with its id,
+            identifier and title.
+
+    Raises:
+        LinearConfigError: When the source project, the PRD state or the team id
+            is missing (permanent configuration error).
+        LinearError: When the API request fails or Linear rejects the
+            creation/update (transient, retryable).
+    """
+    linear_project_id = context.linear_task.linear_project_id
+    if not linear_project_id:
+        raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
+
+    state_id = await service.get_linear_config_value(name="prd", user_id=context.project.user_id)
+    if state_id is None:
+        raise LinearConfigError("Linear state 'prd' is not configured")
+
+    team_id = await service.get_linear_config_value(name="team_id", user_id=context.project.user_id)
+    if team_id is None:
+        raise LinearConfigError("Linear team id is not configured")
+
+    resolved_title = title or f"Research: {context.linear_task.identifier} — {context.linear_task.title}"
+    existing = await _find_existing_research_ticket(linear_project_id=linear_project_id, title=resolved_title)
+    if existing is not None:
+        query_update = await service.get_query(name="update_issue")
+        result_update = await service.graphql_request(
+            query=query_update,
+            variables={"id": existing["ticket_id"], "input": {"description": report}},
+        )
+        if result_update.get("errors"):
+            raise LinearError(f"Failed to update research ticket description: {result_update['errors']}")
+        data_update = (result_update or {}).get("data") or {}
+        issue_update = data_update.get("issueUpdate") or {}
+        if not issue_update.get("success"):
+            raise LinearError("Failed to update research ticket description")
+        updated_issue = issue_update.get("issue")
+        if updated_issue:
+            return {
+                "ticket_id": updated_issue["id"],
+                "identifier": updated_issue["identifier"],
+                "title": updated_issue["title"],
+            }
+        return existing
+
+    label_ids = [service.LINEAR["feature_label_id"]]
+    source_labels = {label.casefold() for label in context.linear_task.labels}
+    if "backend" in source_labels and service.LINEAR["backend_label_id"]:
+        label_ids.append(service.LINEAR["backend_label_id"])
+    if "frontend" in source_labels and service.LINEAR["frontend_label_id"]:
+        label_ids.append(service.LINEAR["frontend_label_id"])
+
+    ticket_input: dict[str, Any] = {
+        "title": resolved_title,
+        "description": report,
+        "teamId": team_id,
+        "stateId": state_id,
+        "projectId": linear_project_id,
+        "labelIds": label_ids,
+        "createAsUser": "Demetra",
+    }
+    if context.linear_task.priority is not None:
+        ticket_input["priority"] = context.linear_task.priority
+
+    query = await service.get_query(name="create_issue")
+    result = await service.graphql_request(query=query, variables={"input": ticket_input})
+
+    data = (result or {}).get("data") or {}
+    issue_create = data.get("issueCreate") or {}
+    if not issue_create.get("success"):
+        errors = (result or {}).get("errors")
+        detail = f": {errors}" if errors else ""
+        raise LinearError(f"Failed to create research Linear ticket{detail}")
+
+    issue = issue_create.get("issue")
     if not issue:
         raise LinearError("Linear API returned success but no issue data")
 

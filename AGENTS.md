@@ -11,9 +11,9 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants, env validation in `env.py`)
 - `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/` plus `utils.py` shared helpers: waitlist-join audit, auth rate limiter)
 - `demetra/queries/`: GraphQL queries
-- `demetra/workflows/`: Workflow orchestration steps (plan, research, build, validate, review, lint, wiki, etc.)
+- `demetra/workflows/`: Workflow orchestration steps (`plan`, `research`, `build`, `validate`, `review`, `lint`, `cleanup`, `merge`/`rebase`, `review_fixes`, etc.)
 - `demetra/api/`: FastAPI REST endpoints (plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
-- `demetra/tools/`: MCP tool definitions
+- `demetra/tools/`: MCP tool definitions (`database`, `docstrings`, `projects`, `wiki` plus `search`/`result`/`registry` helpers)
 - `demetra/prompts/`: LLM prompt templates (`research_agent`, `validate_agent`, etc.)
 - `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
 - `demetra/app.py`: FastAPI application
@@ -22,9 +22,9 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (55 `test_*.py` files, 57 total with `__init__.py`/`conftest.py`)
-- `configs/`: Systemd service files, nginx config, Docker entrypoint (`configs/docker-entrypoint.sh`, plus `bootstrap.sh`/`proxy.params`/`services/`)
-- `wiki/audits/workflow-state-machine.html`: Interactive Mermaid diagram of the workflow state machine (static asset)
+- `tests/`: Comprehensive test suite (56 `test_*.py` files, 58 total with `__init__.py`/`conftest.py`)
+- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`), nginx config (`configs/nginx.conf`, `configs/proxy.params`)
+- `wiki/audits/`: Workflow audit notes plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make docker-deploy`)
 - `.github/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent and skill definitions
@@ -146,7 +146,7 @@ uv run bandit -c pyproject.toml .
 - `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); `auth/`, `linear/`, `llm/`, `vcs/`, `wiki/` re-export through a facade `__init__.py`, while `agents/`, `daemons/`, `persistence/`, `quality/`, `runtime/` are plain packages imported by submodule path (e.g. `demetra.services.runtime.tui`). Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*` (includes `review_fixes.py` for the `@demetra-ai fix review findings` listener flow and `research.py` for the `Research` label loop).
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
-- `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `projects.py`, `wiki.py`) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them, re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
+- `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `docstrings.py`, `projects.py`, `wiki.py` plus shared `search.py` tokenization) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them (database + docstrings + projects + wiki), re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.runtime.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code, bare `except Exception:` (catch specific `OSError`/`RuntimeError` instead; the only accepted uses are MCP `call_tool` dispatchers that `logger.exception` and workflow cleanup paths carrying `# noqa: BLE001`) and `# noqa` suppressions — check `pyproject.toml` (`[tool.ruff]`, `[tool.ruff.lint]`, `[tool.ruff.lint.per-file-ignores]`, `[tool.bandit]`, `[tool.ty.src]`) for the canonical list of allowed ignores/exclusions for `ruff`, `ty` and `bandit`; do not add new suppressions without updating config.
 
