@@ -152,7 +152,7 @@ uv run bandit -c pyproject.toml .
 
 **Imports**: Always place imports at the top of the file (global scope). Local imports inside functions are permitted only in rare cases where they are necessary to resolve circular import dependencies.
 
-**Feature flags**: `demetra/settings.py` defines `FEATURES` (`is_ruff_enabled`, `is_pytest_enabled` from `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED`, both default `False` — `demetra/workflows/lint.py` only runs `ruff`/`pytest` when package installed *and* flag `True`), `SEARCH` (shared wiki/docstring weights, limits, stop_words via `demetra/tools/search.py`), and `WIKI` budgets (`WIKI_LLM_BUDGET_FILES`/`_LINES`, `WIKI_DIFF_HUNK_CAP`/`_BUILD_PLAN_CAP`). Lint/tests are opt-in.
+**Feature flags**: `demetra/settings.py` defines `FEATURES` (`is_ruff_enabled`, `is_pytest_enabled` from `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED`, both default `False` — `demetra/workflows/lint.py` only runs `ruff`/`pytest` when package installed *and* flag `True`), `SEARCH` (shared wiki/docstring weights, limits, stop_words via `demetra/tools/search.py`), and `WIKI` budgets (`WIKI_LLM_BUDGET_FILES`/`_LINES`, `WIKI_DIFF_HUNK_CAP`/`_BUILD_PLAN_CAP`, `WIKI_REVALIDATION_ENABLED`). Lint/tests are opt-in.
 
 ## Testing Guidelines
 

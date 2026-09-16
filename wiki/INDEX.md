@@ -134,8 +134,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
 - [Linear link artifact](pages/2026-06-22-linear-link-artifact.md) — 2026-06-22
 
-### Linear & GitHub integrations (7 pages)
+### Linear & GitHub integrations (8 pages)
 
+- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
 - [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — 2026-08-18
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — 2026-08-10
