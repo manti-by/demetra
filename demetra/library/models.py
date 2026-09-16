@@ -6,7 +6,8 @@ from typing import Literal
 
 from slugify import slugify
 
-from demetra.library.types import WaitlistStatus
+from demetra.library.exceptions import EnvironmentConfigError
+from demetra.library.types import OpenRouterConfig, WaitlistStatus
 
 
 StepType = Literal[
@@ -282,6 +283,177 @@ class UpdateProject:
     linear_project_id: str | None = None
 
 
+def _settings_default(key: str) -> str | None:
+    """Return the ``settings.py`` default for a workflow environment key.
+
+    The settings module is imported lazily so the library layer stays free of
+    import-time configuration reads; only a key that misses both the project
+    and user-shared env layers reaches this fallback.
+
+    Args:
+        key: The environment variable name.
+
+    Returns:
+        str | None: The configured default, or None when settings does not
+            define the key.
+    """
+    from demetra.settings import LINEAR, OPENCODE, OPENROUTER
+
+    if key == "OPENROUTER_API_KEY":
+        return OPENROUTER["api_key"]
+    if key == "OPENROUTER_MODEL":
+        return OPENROUTER["model"]
+    if key == "OPENROUTER_BASE_URL":
+        return OPENROUTER["base_url"]
+    if key == "LINEAR_TEAM_ID":
+        return LINEAR["team_id"]
+    if key == "LINEAR_DEFAULT_STATE_ID":
+        return LINEAR["default_state"]
+    if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
+        agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
+        opencode_models = {
+            "plan": OPENCODE["plan_model"],
+            "build": OPENCODE["build_model"],
+            "resolve": OPENCODE["resolve_model"],
+            "validate": OPENCODE["validate_model"],
+            "research": OPENCODE["research_model"],
+        }
+        return opencode_models.get(agent)
+    if key.startswith("LINEAR_STATE_") and key.endswith("_ID"):
+        state = key[len("LINEAR_STATE_") : -len("_ID")].lower()
+        states = {name: value for name, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
+        return states.get(state)
+    return None
+
+
+@dataclass
+class SessionEnvironment:
+    """Resolve workflow environment keys through the configuration layers.
+
+    Every key is looked up in the project environment first, then the
+    user-shared environment, and finally the ``settings.py`` defaults. A key
+    that no layer provides raises :class:`EnvironmentConfigError` so a workflow
+    fails and rolls back instead of running with a silent empty value.
+
+    Attributes:
+        project_environment: The project-scope env, already merged over the
+            user-shared env for subprocess use.
+        user_environment: The raw user-shared env, consulted before settings.
+    """
+
+    project_environment: dict[str, str]
+    user_environment: dict[str, str]
+
+    def get(self, key: str) -> str:
+        """Resolve a single key through the project, user and settings layers.
+
+        Args:
+            key: The environment variable name.
+
+        Returns:
+            str: The resolved non-empty value.
+
+        Raises:
+            EnvironmentConfigError: When no layer defines the key.
+        """
+        if value := self.project_environment.get(key):
+            return value
+        if value := self.user_environment.get(key):
+            return value
+        if value := _settings_default(key):
+            return value
+        raise EnvironmentConfigError(f"Environment key {key!r} is not configured")
+
+    @property
+    def opencode_plan_model(self) -> str:
+        """Return the OpenCode model used by the plan agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("OPENCODE_PLAN_MODEL")
+
+    @property
+    def opencode_build_model(self) -> str:
+        """Return the OpenCode model used by the build and merge agents.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("OPENCODE_BUILD_MODEL")
+
+    @property
+    def opencode_resolve_model(self) -> str:
+        """Return the OpenCode model used by the resolve agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("OPENCODE_RESOLVE_MODEL")
+
+    @property
+    def opencode_validate_model(self) -> str:
+        """Return the OpenCode model used by the validate agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("OPENCODE_VALIDATE_MODEL")
+
+    @property
+    def opencode_research_model(self) -> str:
+        """Return the OpenCode model used by the research agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("OPENCODE_RESEARCH_MODEL")
+
+    @property
+    def openrouter_config(self) -> OpenRouterConfig:
+        """Return the resolved OpenRouter configuration.
+
+        Returns:
+            OpenRouterConfig: The API key and model resolved through the env
+                layers, with the base URL always taken from settings.
+
+        Raises:
+            EnvironmentConfigError: When the base URL is not configured.
+        """
+        base_url = _settings_default("OPENROUTER_BASE_URL")
+        if not base_url:
+            raise EnvironmentConfigError("Environment key 'OPENROUTER_BASE_URL' is not configured")
+        return {
+            "api_key": self.get("OPENROUTER_API_KEY"),
+            "model": self.get("OPENROUTER_MODEL"),
+            "base_url": base_url,
+        }
+
+    def linear_state(self, name: str) -> str:
+        """Resolve a Linear state id from its state name.
+
+        Args:
+            name: The state name, e.g. ``"todo"`` or ``"in_review"``.
+
+        Returns:
+            str: The resolved Linear state id.
+        """
+        return self.get(f"LINEAR_STATE_{name.upper()}_ID")
+
+    def linear_value(self, name: str) -> str:
+        """Resolve a Linear config value from its config name.
+
+        Args:
+            name: The config name, e.g. ``"team_id"`` or ``"default_state"``.
+
+        Returns:
+            str: The resolved Linear config value.
+        """
+        if name == "default_state":
+            return self.get("LINEAR_DEFAULT_STATE_ID")
+        return self.get(f"LINEAR_{name.upper()}")
+
+
 @dataclass
 class Context:
     project: Project
@@ -292,6 +464,22 @@ class Context:
     session: Session | None
     plan_loop: bool = False
     is_research: bool = False
+    _environment: SessionEnvironment | None = None
+
+    @property
+    def environment(self) -> SessionEnvironment:
+        """Return the resolved workflow environment for the context's project.
+
+        Returns:
+            SessionEnvironment: The resolver over the project env, user-shared
+                env and settings defaults, built lazily and cached.
+        """
+        if self._environment is None:
+            self._environment = SessionEnvironment(
+                project_environment=self.project.environment,
+                user_environment=self.project.user_environment,
+            )
+        return self._environment
 
     @property
     def session_id(self) -> str | None:

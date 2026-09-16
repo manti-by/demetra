@@ -75,7 +75,11 @@ class TestWatcherService:
 
     @pytest.fixture(autouse=True)
     def mock_empty_user_environment(self):
-        with patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}):
+        with patch(
+            "demetra.services.daemons.watcher.get_user_environments_decrypted",
+            new_callable=AsyncMock,
+            return_value={},
+        ):
             yield
 
     @pytest.fixture

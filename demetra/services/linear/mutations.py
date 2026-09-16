@@ -54,16 +54,18 @@ async def linear_cleanup(context: Context, is_success: bool):
     """
     if is_success:
         service.print_message("Workflow complete", style="heading")
-        state_id = await service.get_linear_config_value(name="in_review", user_id=context.project.user_id)
-        if state_id is None:
-            raise LinearError("Linear state 'in_review' is not configured")
+        try:
+            state_id = context.environment.linear_state("in_review")
+        except EnvironmentConfigError as e:
+            raise LinearError("Linear state 'in_review' is not configured") from e
         await service.update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
         return
 
     service.print_message("Moving back a ticket in TODO column", style="heading")
-    state_id = await service.get_linear_config_value(name="todo", user_id=context.project.user_id)
-    if state_id is None:
-        raise LinearError("Linear state 'todo' is not configured")
+    try:
+        state_id = context.environment.linear_state("todo")
+    except EnvironmentConfigError as e:
+        raise LinearError("Linear state 'todo' is not configured") from e
     await service.update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
 
@@ -104,13 +106,16 @@ async def create_linear_ticket(
         f"### Acceptance Criteria\n{acceptance_criteria}"
     )
 
+    user_environment = await service.get_user_environments_decrypted(user_id=user_id) if user_id else {}
+    environment = SessionEnvironment(project_environment={}, user_environment=user_environment)
+
     query = await service.get_query(name="create_issue")
     variables = {
         "input": {
             "title": title,
             "description": full_description,
-            "teamId": team_id or await service.get_linear_config_value(name="team_id", user_id=user_id),
-            "stateId": state_id or await service.get_linear_config_value(name="default_state", user_id=user_id),
+            "teamId": team_id or environment.linear_value("team_id"),
+            "stateId": state_id or environment.linear_value("default_state"),
             "projectId": project_id,
             "labelIds": [service.LINEAR["feature_label_id"]],
             "createAsUser": "Demetra",

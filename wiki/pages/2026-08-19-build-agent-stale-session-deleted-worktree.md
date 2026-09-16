@@ -56,3 +56,9 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 
 - Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-07-15-duplicated-log-messages]]
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
+
+> **Status update (2026-09-16, MNT-205):** The model resolution path described
+> here (`_resolve_opencode_model`) was replaced by
+> `context.environment.opencode_build_model` on the shared
+> `SessionEnvironment` resolver. See
+> [[2026-09-16-mnt-205-context-environment]].

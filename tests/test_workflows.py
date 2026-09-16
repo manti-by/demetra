@@ -292,11 +292,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -349,11 +345,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -406,11 +398,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -1388,7 +1376,7 @@ class TestWorkflowReview:
         result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize_review.assert_awaited_once_with(review_output="", user_id=None)
+        mock_summarize_review.assert_awaited_once_with(review_output="", environment=None)
 
     @pytest.mark.asyncio
     async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):
@@ -2033,8 +2021,8 @@ class TestWorkflowResearch:
             yield m
 
     @pytest.fixture
-    def mock_get_linear_config_value(self):
-        with patch("demetra.workflows.research.get_linear_config_value", new_callable=AsyncMock) as m:
+    def mock_resolve_linear_state(self):
+        with patch.object(SessionEnvironment, "linear_state", return_value="state-123") as m:
             yield m
 
     @pytest.fixture

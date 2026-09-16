@@ -1,4 +1,3 @@
-from demetra.services.llm.config import get_openrouter_config
 from demetra.services.llm.factory import build_llm
 from demetra.services.llm.openrouter import (
     extract_plan,
@@ -18,7 +17,6 @@ __all__ = [
     "extract_plan",
     "extract_questions",
     "generate_pr_description",
-    "get_openrouter_config",
     "get_user_environments_decrypted",
     "process_text_with_openrouter",
     "summarize_review",

@@ -5,8 +5,9 @@ import sys
 
 from rq.job import Job
 
-from demetra.library.models import LinearTask
-from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
+from demetra.library.exceptions import EnvironmentConfigError
+from demetra.library.models import LinearTask, SessionEnvironment
+from demetra.services.linear import get_user_environments_decrypted, post_comment, update_ticket_status
 from demetra.services.persistence.database import (
     get_pending_session_task_ids,
     get_session,
@@ -22,6 +23,24 @@ logging.config.dictConfig(LOGGING)
 logger = logging.getLogger(__name__)
 
 TIMEOUT = 60 * 60
+
+
+async def _resolve_linear_state(name: str, *, user_id: str | None) -> str | None:
+    """Resolve a Linear state id for a user, or None when it is unconfigured.
+
+    Args:
+        name: The Linear state name, e.g. ``"awaiting_input"``.
+        user_id: The user id whose shared environment is consulted.
+
+    Returns:
+        str | None: The resolved state id, or None when no layer provides it.
+    """
+    user_environment = await get_user_environments_decrypted(user_id=user_id) if user_id else {}
+    environment = SessionEnvironment(project_environment={}, user_environment=user_environment)
+    try:
+        return environment.linear_state(name)
+    except EnvironmentConfigError:
+        return None
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
@@ -47,7 +66,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     if session and session.run_attempts > MAX_RUN_ATTEMPTS:
         logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
         await post_comment(task_id=task_id, body="Max run attempts reached")
-        state_id = await get_linear_config_value(name="awaiting_input", user_id=user_id)
+        state_id = await _resolve_linear_state("awaiting_input", user_id=user_id)
         if state_id:
             await update_ticket_status(task_id=task_id, state_id=state_id)
         else:
@@ -100,7 +119,7 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     if attempts > MAX_RUN_ATTEMPTS:
         logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
         await post_comment(task_id=task_id, body="Max run attempts reached")
-        state_id = await get_linear_config_value(name="awaiting_input", user_id=user_id)
+        state_id = await _resolve_linear_state("awaiting_input", user_id=user_id)
         if state_id:
             await update_ticket_status(task_id=task_id, state_id=state_id)
         else:

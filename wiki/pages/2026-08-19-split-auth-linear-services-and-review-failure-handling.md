@@ -82,3 +82,9 @@ Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render
 
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-06-allowlist-review-fixes]]
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)
+
+> **Status update (2026-09-16, MNT-205):** `demetra/services/linear/config.py`
+> (`get_linear_config_value`) and `demetra/services/llm/config.py`
+> (`get_openrouter_config`) were deleted; resolution moved to
+> `SessionEnvironment` / `context.environment`. See
+> [[2026-09-16-mnt-205-context-environment]].

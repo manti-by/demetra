@@ -91,7 +91,7 @@ async def _run_research_agent(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            user_environment=context.project.user_environment,
+            environment=context.environment,
         )
         if exit_code != 0:
             print_message(f"Research agent failed (exit {exit_code}): {(stderr or stdout).strip()}", style="error")

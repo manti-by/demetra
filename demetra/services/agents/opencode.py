@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from demetra.library.models import TokenUsage
+from demetra.library.models import SessionEnvironment, TokenUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.services.runtime.tui import print_message
@@ -16,29 +16,13 @@ PLAN_HAS_QUESTIONS = "Please check my questions above."
 RESEARCH_HEADER_STRING = "## Research Report"
 
 
-def _resolve_opencode_model(value: str, *, key: str, user_environment: dict[str, str] | None = None) -> str:
-    """Resolve an opencode model from the user env, falling back to settings.
-
-    Args:
-        value: The configured default model.
-        key: The user env key that can override the model.
-        user_environment: Optional user env layer consulted for the override.
-
-    Returns:
-        str: The resolved model.
-    """
-    if user_environment and key in user_environment:
-        return user_environment[key]
-    return value
-
-
 async def opencode_plan_agent(
     target_path: Path,
     task: str,
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode plan agent with plan-output formatting rules.
 
@@ -51,7 +35,7 @@ async def opencode_plan_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -67,13 +51,11 @@ async def opencode_plan_agent(
         target_path=target_path,
         task=task,
         task_title=task_title,
-        model=_resolve_opencode_model(
-            OPENCODE["plan_model"], key="OPENCODE_PLAN_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_plan_model if environment is not None else OPENCODE["plan_model"],
         agent="plan-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -84,7 +66,7 @@ async def opencode_build_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode build agent, forbidding commits and pushes.
 
@@ -95,7 +77,7 @@ async def opencode_build_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -106,13 +88,11 @@ async def opencode_build_agent(
         task=task,
         session_id=session_id,
         task_title=task_title,
-        model=_resolve_opencode_model(
-            OPENCODE["build_model"], key="OPENCODE_BUILD_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_build_model if environment is not None else OPENCODE["build_model"],
         agent="build-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -153,7 +133,7 @@ async def opencode_validate_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode validate agent with the validate prompt and build plan.
 
@@ -166,7 +146,7 @@ async def opencode_validate_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -177,13 +157,11 @@ async def opencode_validate_agent(
         target_path=target_path,
         task=task,
         task_title=task_title,
-        model=_resolve_opencode_model(
-            OPENCODE["validate_model"], key="OPENCODE_VALIDATE_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_validate_model if environment is not None else OPENCODE["validate_model"],
         agent="validate-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -192,7 +170,7 @@ async def opencode_review_fixes_agent(
     task: str,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode build-agent with the fix-review-findings skill.
 
@@ -204,7 +182,7 @@ async def opencode_review_fixes_agent(
         task: The task prompt including unresolved review thread details.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -214,13 +192,11 @@ async def opencode_review_fixes_agent(
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
-        model=_resolve_opencode_model(
-            OPENCODE["build_model"], key="OPENCODE_BUILD_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_build_model if environment is not None else OPENCODE["build_model"],
         agent="build-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -229,7 +205,7 @@ async def opencode_merge_agent(
     task: str,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode merge agent to resolve merge conflicts.
 
@@ -238,7 +214,7 @@ async def opencode_merge_agent(
         task: The task prompt for the agent.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -246,13 +222,11 @@ async def opencode_merge_agent(
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
-        model=_resolve_opencode_model(
-            OPENCODE["build_model"], key="OPENCODE_BUILD_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_build_model if environment is not None else OPENCODE["build_model"],
         agent="merge-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -294,7 +268,7 @@ async def opencode_resolve_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode resolve agent to answer open plan questions.
 
@@ -304,7 +278,7 @@ async def opencode_resolve_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -313,13 +287,11 @@ async def opencode_resolve_agent(
         target_path=target_path,
         task=task,
         task_title=task_title,
-        model=_resolve_opencode_model(
-            OPENCODE["resolve_model"], key="OPENCODE_RESOLVE_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_resolve_model if environment is not None else OPENCODE["resolve_model"],
         agent="resolve-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -329,7 +301,7 @@ async def opencode_research_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode research agent to validate a ticket against wiki and web.
 
@@ -342,7 +314,7 @@ async def opencode_research_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -352,13 +324,11 @@ async def opencode_research_agent(
         target_path=target_path,
         task=prompt,
         task_title=task_title,
-        model=_resolve_opencode_model(
-            OPENCODE["research_model"], key="OPENCODE_RESEARCH_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_research_model if environment is not None else OPENCODE["research_model"],
         agent="research-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 
@@ -372,7 +342,7 @@ async def run_opencode_agent(
     disable_stdio: bool = False,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
@@ -390,7 +360,7 @@ async def run_opencode_agent(
         disable_stdio: Whether to suppress live subprocess output.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Reserved; not used by the agent run.
+        environment: Reserved; not used by the agent run.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.

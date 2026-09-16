@@ -67,3 +67,9 @@ None.
 
 - Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-07-21-rich-markuperror-and-run-attempts]]
 - External: Linear ticket MNT-191
+
+> **Status update (2026-09-16, MNT-205):** `get_linear_config_value` was
+> removed. `process_tasks` now resolves the state through the watcher's
+> `_resolve_linear_state` helper, which builds a `SessionEnvironment` from the
+> user-shared env and falls back to settings. See
+> [[2026-09-16-mnt-205-context-environment]].

@@ -479,6 +479,14 @@ class TestGetLinkedProjects:
 
 
 class TestCreateLinearTicket:
+    @pytest.fixture(autouse=True)
+    def mock_linear_settings(self):
+        with patch(
+            "demetra.settings.LINEAR",
+            {"team_id": "team-123", "default_state": "state-default", "states": {}},
+        ):
+            yield
+
     @pytest.fixture
     def mock_get_query(self):
         with patch("demetra.services.linear.get_query", new_callable=AsyncMock) as m:
@@ -968,7 +976,7 @@ class TestGetLinearTaskById:
 class TestLinearCleanup:
     @pytest.fixture
     def mock_linear_settings(self, linear_full_settings):
-        with patch("demetra.services.linear.LINEAR", linear_full_settings):
+        with patch("demetra.settings.LINEAR", linear_full_settings):
             yield linear_full_settings
 
     @pytest.fixture
