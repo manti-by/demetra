@@ -45,7 +45,7 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
-  const logsEndRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const tokenRef = useRef<string | null>(null);
   const onSessionStatusRef = useRef(onSessionStatus);
   onSessionStatusRef.current = onSessionStatus;
@@ -118,10 +118,10 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
   }, [taskId, onSessionStatus]);
 
   useEffect(() => {
-    if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+    if (containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight;
     }
-  }, [logs.length]);
+  }, [logs, taskId]);
 
   const clearLogs = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -162,7 +162,7 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
           </button>
         </div>
       </div>
-      <div className="log-content">
+      <div className="log-content" ref={containerRef}>
         {!taskId ? (
           <SelectSession />
         ) : logs.length === 0 ? (
@@ -170,7 +170,6 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
         ) : (
           logElements
         )}
-        <div ref={logsEndRef} />
       </div>
     </div>
   );

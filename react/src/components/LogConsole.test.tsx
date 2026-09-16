@@ -176,4 +176,114 @@ describe('LogConsole', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('scrolls the log container to the bottom when a session is selected', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    const { rerender } = render(
+      <LogConsole
+        taskId={null}
+        onDeleteSession={vi.fn()}
+        onSessionStatus={vi.fn()}
+      />,
+    );
+
+    const container = document.querySelector('.log-content') as HTMLElement;
+    Object.defineProperty(container, 'scrollHeight', {
+      configurable: true,
+      get: () => 500,
+    });
+
+    rerender(
+      <LogConsole
+        taskId="task-123"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={vi.fn()}
+      />,
+    );
+
+    expect(container.scrollTop).toBe(500);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('scrolls the log container to the bottom after receiving a log envelope', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    render(
+      <LogConsole
+        taskId="task-123"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={vi.fn()}
+      />,
+    );
+
+    const container = document.querySelector('.log-content') as HTMLElement;
+    Object.defineProperty(container, 'scrollHeight', {
+      configurable: true,
+      get: () => 500,
+    });
+
+    act(() => {
+      wsMock.triggerOpen();
+    });
+
+    act(() => {
+      wsMock.triggerMessage(
+        JSON.stringify({ type: 'log', data: { text: 'scroll target' } }),
+      );
+    });
+
+    expect(screen.getByText('scroll target')).toBeInTheDocument();
+    expect(container.scrollTop).toBe(500);
+
+    vi.unstubAllGlobals();
+  });
+
+  it('scrolls the log container to the bottom after the log buffer saturates', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    render(
+      <LogConsole
+        taskId="task-123"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={vi.fn()}
+      />,
+    );
+
+    const container = document.querySelector('.log-content') as HTMLElement;
+    Object.defineProperty(container, 'scrollHeight', {
+      configurable: true,
+      get: () => 500,
+    });
+
+    act(() => {
+      wsMock.triggerOpen();
+      for (let i = 0; i < 300; i += 1) {
+        wsMock.triggerMessage(
+          JSON.stringify({ type: 'log', data: { text: `log ${i}` } }),
+        );
+      }
+    });
+
+    // The capped buffer keeps its length once full; a later record must still scroll.
+    container.scrollTop = 0;
+
+    act(() => {
+      wsMock.triggerMessage(
+        JSON.stringify({ type: 'log', data: { text: 'after saturation' } }),
+      );
+    });
+
+    expect(screen.getByText('after saturation')).toBeInTheDocument();
+    expect(container.scrollTop).toBe(500);
+
+    vi.unstubAllGlobals();
+  });
 });
