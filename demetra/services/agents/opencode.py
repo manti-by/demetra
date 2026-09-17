@@ -235,7 +235,7 @@ async def opencode_rebase_agent(
     task: str,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode rebase agent to resolve rebase conflicts.
 
@@ -244,7 +244,7 @@ async def opencode_rebase_agent(
         task: The task prompt for the agent.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Optional user env layer overriding the model.
+        environment: Optional resolved env layer overriding the model.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -252,13 +252,11 @@ async def opencode_rebase_agent(
     return await run_opencode_agent(
         target_path=target_path,
         task=task,
-        model=_resolve_opencode_model(
-            OPENCODE["build_model"], key="OPENCODE_BUILD_MODEL", user_environment=user_environment
-        ),
+        model=environment.opencode_build_model if environment is not None else OPENCODE["build_model"],
         agent="rebase-agent",
         env=env,
         project_id=project_id,
-        user_environment=user_environment,
+        environment=environment,
     )
 
 

@@ -1,8 +1,8 @@
 from typing import Any
 
 import demetra.services.linear as service
-from demetra.library.exceptions import LinearConfigError, LinearError
-from demetra.library.models import Context
+from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
+from demetra.library.models import Context, SessionEnvironment
 
 
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
@@ -109,13 +109,22 @@ async def create_linear_ticket(
     user_environment = await service.get_user_environments_decrypted(user_id=user_id) if user_id else {}
     environment = SessionEnvironment(project_environment={}, user_environment=user_environment)
 
+    try:
+        resolved_team_id = team_id or environment.linear_value("team_id")
+    except EnvironmentConfigError as e:
+        raise LinearError("Linear team id is not configured") from e
+    try:
+        resolved_state_id = state_id or environment.linear_value("default_state")
+    except EnvironmentConfigError as e:
+        raise LinearError("Linear state 'default_state' is not configured") from e
+
     query = await service.get_query(name="create_issue")
     variables = {
         "input": {
             "title": title,
             "description": full_description,
-            "teamId": team_id or environment.linear_value("team_id"),
-            "stateId": state_id or environment.linear_value("default_state"),
+            "teamId": resolved_team_id,
+            "stateId": resolved_state_id,
             "projectId": project_id,
             "labelIds": [service.LINEAR["feature_label_id"]],
             "createAsUser": "Demetra",
@@ -213,13 +222,15 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
     if not linear_project_id:
         raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
 
-    state_id = await service.get_linear_config_value(name="prd", user_id=context.project.user_id)
-    if state_id is None:
-        raise LinearConfigError("Linear state 'prd' is not configured")
+    try:
+        state_id = context.environment.linear_state("prd")
+    except EnvironmentConfigError as e:
+        raise LinearConfigError("Linear state 'prd' is not configured") from e
 
-    team_id = await service.get_linear_config_value(name="team_id", user_id=context.project.user_id)
-    if team_id is None:
-        raise LinearConfigError("Linear team id is not configured")
+    try:
+        team_id = context.environment.linear_value("team_id")
+    except EnvironmentConfigError as e:
+        raise LinearConfigError("Linear team id is not configured") from e
 
     resolved_title = title or f"Research: {context.linear_task.identifier} — {context.linear_task.title}"
     existing = await _find_existing_research_ticket(linear_project_id=linear_project_id, title=resolved_title)

@@ -69,7 +69,7 @@ The implementation standardized methods for resolving agent models, Linear setti
 
 ## Overview
 
-The SessionEnvironment resolver was implemented in demetra/library/models.py, which looks up workflow environment keys through three layers: project environment, user-shared environment, and settings defaults. Key files and components updated include demetra/library/exceptions.py, demetra/services/agents/opencode.py, and demetra/services/linear/config.py. The changes aim to provide a unified way of accessing environment settings across the application.
+The SessionEnvironment resolver was implemented in demetra/library/models.py, which looks up workflow environment keys through three layers: project environment, user-shared environment, and settings defaults. Key files and components updated include demetra/library/exceptions.py and demetra/services/agents/opencode.py. The changes aim to provide a unified way of accessing environment settings across the application.
 
 ## Changed files
 
@@ -642,7 +642,7 @@ The implementation plan involves standardizing the methods for resolving agent m
 
 ### Key Technical Decisions
 - Introduce a `SessionEnvironment` resolver in `demetra/library/models.py` that looks up workflow environment keys through three layers: project environment, user-shared environment, and settings defaults.
-- Raise an `EnvironmentError` when a key is not found in any of the layers.
+- Raise an `EnvironmentConfigError` when a key is not found in any of the layers.
 - Expose the `SessionEnvironment` resolver as the `environment` property on the `Context` object.
 - Delete duplicate resolvers (`…
 

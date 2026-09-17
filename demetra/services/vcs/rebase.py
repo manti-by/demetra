@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import opencode_rebase_agent
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command

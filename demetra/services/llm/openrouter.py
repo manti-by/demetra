@@ -39,19 +39,19 @@ async def extract_questions(plan_output: str, *, environment: SessionEnvironment
     if PLAN_HAS_QUESTIONS not in plan_output:
         return []
 
-    llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="extract_questions")),
-            ("human", "Text: {input_text}"),
-        ]
-    )
-    output_parser = NumberedListOutputParser()
-
-    chain = prompt | llm | output_parser
-
     result = []
     try:
+        llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="extract_questions")),
+                ("human", "Text: {input_text}"),
+            ]
+        )
+        output_parser = NumberedListOutputParser()
+
+        chain = prompt | llm | output_parser
+
         for item in await chain.ainvoke(input={"input_text": plan_output}):
             if question := str(item):
                 result.append(question)
@@ -79,20 +79,20 @@ async def summarize_review(review_output: str, *, environment: SessionEnvironmen
     if not review_output or not review_output.strip():
         return []
 
-    llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="summarize_review")),
-            ("human", "Text: {input_text}"),
-        ]
-    )
-    output_parser = NumberedListOutputParser()
-
-    chain = prompt | llm | output_parser
-
     seen: set[str] = set()
     result: list[str] = []
     try:
+        llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="summarize_review")),
+                ("human", "Text: {input_text}"),
+            ]
+        )
+        output_parser = NumberedListOutputParser()
+
+        chain = prompt | llm | output_parser
+
         for item in await chain.ainvoke(input={"input_text": review_output}):
             if finding := str(item).strip():
                 key = finding.casefold()
@@ -121,17 +121,17 @@ async def process_text_with_openrouter(text: str, *, environment: SessionEnviron
     Returns:
         dict[str, str]: The structured ticket fields.
     """
-    llm = await build_llm(temperature=0.3, max_tokens=2048, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="analyze_ticket")),
-            ("human", "Text: {input_text}"),
-        ]
-    )
-    output_parser = JsonOutputParser()
-
-    chain = prompt | llm | output_parser
     try:
+        llm = await build_llm(temperature=0.3, max_tokens=2048, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="analyze_ticket")),
+                ("human", "Text: {input_text}"),
+            ]
+        )
+        output_parser = JsonOutputParser()
+
+        chain = prompt | llm | output_parser
         result = await chain.ainvoke(input={"input_text": text})
     except Exception:
         logger.exception("LLM call failed in process_text_with_openrouter")
@@ -175,16 +175,16 @@ async def extract_plan(
         f"{task_description}\n\nComments:\n{chr(10).join(comments)}" if comments else task_description
     )
 
-    llm = await build_llm(temperature=0.1, max_tokens=2048, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="summarize_plan")),
-            ("human", "Task Description:\n{task_description}\n\nPlan Output:\n{plan_output}"),
-        ]
-    )
-
-    chain = prompt | llm
     try:
+        llm = await build_llm(temperature=0.1, max_tokens=2048, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="summarize_plan")),
+                ("human", "Task Description:\n{task_description}\n\nPlan Output:\n{plan_output}"),
+            ]
+        )
+
+        chain = prompt | llm
         result = await chain.ainvoke(input={"task_description": task_description_full, "plan_output": plan_output})
     except Exception:
         logger.exception("LLM call failed in extract_plan")
@@ -218,21 +218,21 @@ async def summarize_session(
         dict[str, str]: A mapping with ``tldr`` and ``overview`` keys, or an
             empty dict when the LLM call fails.
     """
-    llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="summarize_session")),
-            (
-                "human",
-                "Ticket:\n{ticket_text}\n\nDescription:\n{description}\n\n"
-                "Build plan:\n{build_plan}\n\nDiff summary:\n{diff_summary}",
-            ),
-        ]
-    )
-    output_parser = JsonOutputParser()
-
-    chain = prompt | llm | output_parser
     try:
+        llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="summarize_session")),
+                (
+                    "human",
+                    "Ticket:\n{ticket_text}\n\nDescription:\n{description}\n\n"
+                    "Build plan:\n{build_plan}\n\nDiff summary:\n{diff_summary}",
+                ),
+            ]
+        )
+        output_parser = JsonOutputParser()
+
+        chain = prompt | llm | output_parser
         result = await chain.ainvoke(
             input={
                 "ticket_text": ticket_text,
@@ -271,16 +271,16 @@ async def generate_pr_description(
     Raises:
         PrDescriptionError: When the LLM call fails.
     """
-    llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
-    prompt = ChatPromptTemplate.from_messages(
-        messages=[
-            ("system", await get_prompt(name="generate_pr_description")),
-            ("human", "Task details:\n{task_details}\n\nImplementation plan:\n{build_plan}"),
-        ]
-    )
-
-    chain = prompt | llm
     try:
+        llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="generate_pr_description")),
+                ("human", "Task details:\n{task_details}\n\nImplementation plan:\n{build_plan}"),
+            ]
+        )
+
+        chain = prompt | llm
         result = await chain.ainvoke(
             input={
                 "task_details": task_details,

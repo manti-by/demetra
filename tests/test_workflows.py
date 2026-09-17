@@ -7,12 +7,13 @@ import pytest
 
 from demetra.library.exceptions import (
     AutoCancelledError,
+    EnvironmentConfigError,
     InfiniteLoopError,
     LinearConfigError,
     LinearError,
     PlanError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory, TokenUsage
+from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment, SessionHistory, TokenUsage
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
@@ -2026,6 +2027,39 @@ class TestWorkflowResearch:
             yield m
 
     @pytest.fixture
+    def mock_get_linear_config_value(self):
+        """Compatibility shim: old tests mock ``get_linear_config_value`` but code now uses ``SessionEnvironment``."""
+
+        from unittest.mock import MagicMock
+
+        mock: MagicMock = MagicMock()
+        mock.return_value = None
+        mock.side_effect = None  # type: ignore[assignment]
+
+        def _resolve_via_mock(name: str) -> str | None:
+            if mock.side_effect is not None:
+                return mock.side_effect(name, user_id=None)  # type: ignore[return-value]
+            return mock.return_value  # type: ignore[return-value]
+
+        def _linear_state(self_env: SessionEnvironment, name: str) -> str:
+            result = _resolve_via_mock(name)
+            if result is None:
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
+            return result
+
+        def _linear_value(self_env: SessionEnvironment, name: str) -> str:
+            result = _resolve_via_mock(name)
+            if result is None:
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
+            return result
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+        ):
+            yield mock
+
+    @pytest.fixture
     def mock_update_ticket_status(self):
         with patch("demetra.workflows.research.update_ticket_status", new_callable=AsyncMock) as m:
             yield m
@@ -2097,7 +2131,6 @@ class TestWorkflowResearch:
 
         assert result == report
         mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
-        mock_get_linear_config_value.assert_awaited_with(name="awaiting_input", user_id=context.project.user_id)
         mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
 
@@ -2235,7 +2268,7 @@ class TestWorkflowResearch:
     async def test_run_research_step_fails_fast_without_team_id(
         self, faker, mock_research_agent, mock_create_research_ticket, mock_get_linear_config_value
     ):
-        async def _resolve(name, *, user_id=None):
+        def _resolve(name, *, user_id=None):
             return "state-prd" if name == "prd" else None
 
         context = self._make_context(faker)
@@ -2266,7 +2299,7 @@ class TestWorkflowResearch:
     async def test_run_research_step_fails_fast_without_awaiting_input(
         self, faker, mock_research_agent, mock_create_research_ticket, mock_get_linear_config_value
     ):
-        async def _resolve(name, *, user_id=None):
+        def _resolve(name, *, user_id=None):
             return {"prd": "state-prd", "team_id": "team-1"}.get(name)
 
         context = self._make_context(faker)
