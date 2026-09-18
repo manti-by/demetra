@@ -34,8 +34,15 @@ COPY --from=builder /opt/venv /opt/venv
 
 RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
-RUN mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode \
+RUN mkdir -p /home/demetra/.config/gh /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills /home/demetra/.local/share/opencode \
     && chown -R demetra:demetra /home/demetra
+
+COPY --chown=demetra:demetra .opencode/agents/ /home/demetra/.config/opencode/agents/
+COPY --chown=demetra:demetra .opencode/skills/ /home/demetra/.config/opencode/skills/
+RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills \
+    && find /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills -type d -exec chmod 755 {} + \
+    && find /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills -type f -exec chmod 644 {} + \
+    && chown -R demetra:demetra /home/demetra/.config/opencode
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
     && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
