@@ -1,6 +1,7 @@
 ---
 name: release-naming
 description: Generate two-word app release names based on space phenomena. Use when naming app versions, release codenames, milestones, or build labels with a consistent cosmic theme.
+agent: plan
 ---
 
 # Release Naming Skill

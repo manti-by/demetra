@@ -3,12 +3,18 @@ title: Refactor frontend app
 date: 2026-06-01
 type: implementation
 status: resolved
-session_id: "-"
-services: [react]
-branch: "-"
-tickets: [MNT-77]
-tags: [react, refactor, rename]
-related: []
+session_id: '-'
+services:
+- react
+branch: '-'
+tickets:
+- MNT-77
+tags:
+- react
+- refactor
+- rename
+related:
+- 2026-07-22-react-frontend-template-warp.md
 ---
 
 # Refactor frontend app
@@ -53,6 +59,8 @@ In the same PR:
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

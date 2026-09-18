@@ -8,7 +8,9 @@ services: [auth, linear]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, linear, planning, email-password, github-oauth, bcrypt]
-related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-24-plain-auth-review-followups.md]
+related:
+- 2026-08-03-auth-hardening-and-deps-bump.md
+- 2026-07-24-plain-auth-review-followups.md
 ---
 
 # Linear Ticket for Email/Password Authentication
@@ -69,6 +71,8 @@ No code changes — ticket is the deliverable.
 - Move MNT-148 to `In Progress` and branch `feature/mnt-148-…` when starting.
 - Open separate tickets for reset, verification, linking, rate limiting.
 - ~~Fix `AuthError` parent~~ **Done 2026-07-24**.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

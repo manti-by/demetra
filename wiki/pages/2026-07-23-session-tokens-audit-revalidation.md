@@ -8,7 +8,9 @@ services:           [opencode, database, workflows, settings, groq]
 branch:             "-"
 tickets:            [MNT-145]
 tags:               [session-history, compaction, tokens, opencode-export, audit, cost]
-related: [2026-07-16-session-history-tokens-null.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related:
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
+- 2026-07-16-session-history-tokens-null.md
 ---
 
 # Session History & Token Consumption Audit (Revalidated)
@@ -92,6 +94,8 @@ Claim that recording after `git_cleanup` caused NULLs is false — `failed` at `
 - **2026-08-19:** Plan extraction moved Groq → OpenRouter (`services/llm/openrouter.py`), legacy `groq.py` retained. See [[2026-08-18-migrate-llm-groq-to-openrouter]].
 - **2026-08-23/27 / 2026-09-03:** Module moves — `services/opencode.py` → `services/agents/opencode.py`, compaction caller `workflows/build.py:100`→`:102`, `usage.context` at `:428`→`:524`, `context_tokens`/`model` at `tables.py:142`→`:162-163`, `cleanup.py` catches `:110,149`→`:134,179`.
 - **2026-08-28:** Added `branch: "-"` frontmatter.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -8,7 +8,9 @@ services: [sessions, workflows, linear, main]
 branch: "-"
 tickets: [MNT-140, MNT-30]
 tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
-related: [2026-02-23-plan-agent-output-triggers.md, 2026-08-05-pr-creation-failure-handler.md]
+related:
+- 2026-08-05-pr-creation-failure-handler.md
+- 2026-02-23-plan-agent-output-triggers.md
 ---
 
 # Awaiting Input status for session
@@ -42,6 +44,8 @@ MNT-30 (2026-02-23): plan output markers drive workflow — `PLAN_IS_READY_STRIN
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

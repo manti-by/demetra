@@ -3,12 +3,21 @@ title: Link user, tasks and sessions
 date: 2026-04-02
 type: implementation
 status: resolved
-session_id: -
-services: [database, linear, sessions]
-branch: -
-tickets: [MNT-63]
-tags: [user-scoping, sessions, task-status, migration]
-related: []
+session_id: '-'
+services:
+- database
+- linear
+- sessions
+branch: '-'
+tickets:
+- MNT-63
+tags:
+- user-scoping
+- sessions
+- task-status
+- migration
+related:
+- 2026-07-16-fix-step-status-review-findings.md
 ---
 
 # Link user, tasks and sessions
@@ -57,6 +66,8 @@ Tests were updated and added for the user-scoped retrieval and merged status lif
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted bare `session_id: -` / `branch: -` for valid YAML and mirrored body links into `related:` frontmatter.
 
 ## References
 

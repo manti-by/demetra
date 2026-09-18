@@ -8,7 +8,10 @@ services: [deploy, configs]
 branch: "-"
 tickets: [MNT-175]
 tags: [docker, compose, permissions, volume, entrypoint, gh]
-related: [2026-08-20-review-gh-auth-mount-changes.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-18-compose-anchors-refactor.md]
+related:
+- 2026-08-19-worker-opencode-home-permissions.md
+- 2026-08-20-review-gh-auth-mount-changes.md
+- 2026-08-18-compose-anchors-refactor.md
 ---
 
 # gh config.yml permission denied in containers — un-gated entrypoint ownership repair
@@ -66,6 +69,8 @@ As `demetra` (normal compose path): skip to `exec "$@"` — no `setpriv`/`chown`
 ## Follow-ups
 
 - Redeploy amon-ra via `make docker-deploy`; confirm `gh api user -q .login` inside worker and `migrate-1` starts clean.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

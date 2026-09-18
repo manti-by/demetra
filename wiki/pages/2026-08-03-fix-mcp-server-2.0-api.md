@@ -8,7 +8,9 @@ services: [mcp, database]
 branch: master
 tickets: [MNT-90]
 tags: [mcp, dependencies, upgrade, streamable-http, filesystem, database]
-related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.md]
+related:
+- 2026-08-03-auth-hardening-and-deps-bump.md
+- 2026-06-01-add-mcp-server.md
 ---
 
 # Fix MCP Server for the mcp 2.0 API
@@ -65,6 +67,8 @@ None. High-level `MCPServer` with `@server.tool()` exists in 2.0 but no migratio
 ## Source — [[2026-06-01-add-mcp-server]]
 
 First MCP server as repo-root `mcp_server.py` over streamable-http with filesystem+Postgres tools (MNT-90, 2026-06-01). Durable decisions: DB creds from env only, tool surface is DB/project introspection (filesystem tools deleted `e173d7f` 2026-06-02). Now at `demetra/mcp_server.py` over stdio, registry `tools/registry.py` aggregates `database`+`projects`+`wiki` via `ToolResult`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

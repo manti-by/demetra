@@ -8,7 +8,9 @@ services: [watcher, tui, main, database, workflows, linear]
 branch: "-"
 tickets: [MNT-136, MNT-17, MNT-100]
 tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation, guard, sessions, linear]
-related: [2026-02-14-add-tui-support.md, 2026-06-08-max-run-attempts-for-a-ticket.md]
+related:
+- 2026-02-14-add-tui-support.md
+- 2026-06-08-max-run-attempts-for-a-ticket.md
 ---
 
 # Rich MarkupError kills workflow subprocess and run_attempts counter overcounts
@@ -92,6 +94,8 @@ In `manti-by/odin` repo, not `demetra`:
 ## Source — [[2026-06-08-max-run-attempts-for-a-ticket]]
 
 `run_attempts` + `MAX_RUN_ATTEMPTS` (5) guards infinite runs; incremented only on failure → Awaiting Input. Originally decided 2026-06-08.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -1,6 +1,6 @@
 ---
 title: 'MNT-200: Update research loop'
-date: '2026-09-10'
+date: 2026-09-10
 type: implementation
 status: resolved
 session_id: ses_f7309e1b6ffes6G5sccIOnOCdh
@@ -70,9 +70,9 @@ Persist extracted report to `sessions.research_report`, rename post-research ste
 
 - None
 
-> **Consistency note (2026-09-15, Consistency Agent):** `research_report` (`a3b4c5…`) persists here; [[2026-09-14-research-plan-artifact]] (this branch `mnt-204-research-result-modal`) adds parallel `research_plan` (`8023ece…`) column — both exist in `demetra/library/tables.py:27,36` on this branch, not a rename/revert. Earlier "reverted scaffolding" claim in [[2026-09-11-mnt-203-create-related-ticket-for-research]] refers to that branch's diff, not current HEAD where both columns coexist.
+> **Consistency fix (2026-09-18, Consistency Agent):** Supersedes 2026-09-15 note. Verified against HEAD (`demetra/library/tables.py:35`, migration `a3b4c5d6e7f8`): only `research_report` exists; `research_plan`/`8023ece…` from [[2026-09-14-research-plan-artifact]] is not in HEAD. Earlier "both coexist" claim was based on that branch, not current HEAD.
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]]
+- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
 - External: https://linear.app/mnt/issue/MNT-200/update-research-loop

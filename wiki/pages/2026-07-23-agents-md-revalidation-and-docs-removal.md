@@ -8,7 +8,8 @@ services: [docs, opencode, settings]
 branch: "-"
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
-related: [2026-07-22-feature-flag-settings-and-tests.md]
+related:
+- 2026-07-22-feature-flag-settings-and-tests.md
 ---
 
 # AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command
@@ -57,6 +58,8 @@ Docs-only; no test/lint impact.
 > **Status update (2026-08-27):** `.opencode/commands/update-agents-file.md` migrated to `.opencode/skills/wiki-agents-file/SKILL.md` (commit `50755dd`, "Migrate commands to skills") — same revalidation flow (code > wiki > git log).
 
 > **Consistency note (2026-08-28):** Added `branch: "-"` frontmatter.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

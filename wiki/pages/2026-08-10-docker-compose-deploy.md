@@ -8,7 +8,11 @@ services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
 tickets: [MNT-164, MNT-40]
 tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon]
-related: [2026-03-02-process-manager.md, 2026-07-07-project-deploy-script.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md]
+related:
+- 2026-03-02-process-manager.md
+- 2026-08-18-compose-anchors-refactor.md
+- 2026-07-07-project-deploy-script.md
+- 2026-08-17-docker-setup-review.md
 ---
 
 # Docker Compose deploy
@@ -80,6 +84,8 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 - (2026-08-19) Refactored onto anchors — see [[2026-08-18-compose-anchors-refactor]]. Changes: `postgres:18`, volumes `demetra_postgres_data` (was `demetra_db_data`), no `demetra_react_dist`, app mount `/home/demetra/`, per-service `/var/log/demetra/<svc>.log` via bind, `migrate` mounts `.:/srv/demetra/src/`, `react-build` `/srv/demetra/src/`, `--host 0.0.0.0` with `8001:8001`/`9181:9181` all-interfaces, nginx `location / → 127.0.0.1:3000`.
 - (2026-08-24) `deploy.replicas` removed; 4 workers via `Makefile:103,123` `--scale worker=4`.
 - (2026-09-14) `/rq/` 404: `proxy_pass` lacked trailing slash, dashboard serves on `/`. Fixed `rq-dashboard --url-prefix /rq` (`e2509f1`); nginx unchanged.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

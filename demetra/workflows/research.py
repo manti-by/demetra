@@ -1,13 +1,13 @@
 from typing import Any
 
-from demetra.library.exceptions import LinearConfigError, LinearError
+from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
 from demetra.library.models import Context, LinearTask
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
     extract_research_report,
     opencode_research_agent,
 )
-from demetra.services.linear import create_research_ticket, get_linear_config_value, update_ticket_status
+from demetra.services.linear import create_research_ticket, update_ticket_status
 from demetra.services.persistence.database import (
     update_session_research_report,
     update_session_step,
@@ -62,12 +62,18 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
     """
     if not context.linear_task.linear_project_id:
         raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
-    if await get_linear_config_value(name="prd", user_id=context.project.user_id) is None:
-        raise LinearConfigError("Linear state 'prd' is not configured")
-    if await get_linear_config_value(name="team_id", user_id=context.project.user_id) is None:
-        raise LinearConfigError("Linear team id is not configured")
-    if await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id) is None:
-        raise LinearConfigError("Linear state 'awaiting_input' is not configured")
+    try:
+        context.environment.linear_state("prd")
+    except EnvironmentConfigError as e:
+        raise LinearConfigError("Linear state 'prd' is not configured") from e
+    try:
+        context.environment.linear_value("team_id")
+    except EnvironmentConfigError as e:
+        raise LinearConfigError("Linear team id is not configured") from e
+    try:
+        context.environment.linear_state("awaiting_input")
+    except EnvironmentConfigError as e:
+        raise LinearConfigError("Linear state 'awaiting_input' is not configured") from e
 
 
 async def _run_research_agent(context: Context) -> str | None:
@@ -91,7 +97,7 @@ async def _run_research_agent(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            user_environment=context.project.user_environment,
+            environment=context.environment,
         )
         if exit_code != 0:
             print_message(f"Research agent failed (exit {exit_code}): {(stderr or stdout).strip()}", style="error")
@@ -175,8 +181,9 @@ async def _move_to_awaiting_input(context: Context) -> None:
     Args:
         context: The workflow context.
     """
-    state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
-    if state_id is None:
+    try:
+        state_id = context.environment.linear_state("awaiting_input")
+    except EnvironmentConfigError:
         print_message("Linear state 'awaiting_input' is not configured; move the ticket manually.", style="warning")
         return
 

@@ -3,12 +3,19 @@ title: Refactor API
 date: 2026-06-01
 type: implementation
 status: resolved
-session_id: "-"
-services: [api]
-branch: "-"
-tickets: [MNT-81]
-tags: [api, refactor, routers]
-related: [2026-07-16-fix-step-status-review-findings.md]
+session_id: '-'
+services:
+- api
+branch: '-'
+tickets:
+- MNT-81
+tags:
+- api
+- refactor
+- routers
+related:
+- 2026-07-16-fix-step-status-review-findings.md
+- 2026-08-03-check-api-auth-and-credentials.md
 ---
 
 # Refactor API
@@ -55,6 +62,8 @@ Missing API tests were added across the new router files.
 - None.
 
 > **Consistency note (2026-08-24, Consistency Agent):** Session list filtering uses the `step` query parameter (not `status`) since [[2026-07-16-fix-step-status-review-findings]].
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

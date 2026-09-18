@@ -8,7 +8,9 @@ services: [groq, github]
 branch: "-"
 tickets: [MNT-115]
 tags: [groq, pr, description]
-related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
+related:
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
+- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
 ---
 
 # GitHub PR description
@@ -42,6 +44,8 @@ None.
 
 - LLM migrated Groq → OpenRouter on 2026-08-18 (MNT-168, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). `generate_pr_description` now in `demetra/services/llm/openrouter.py`.
 - On LLM failure, raises `PrDescriptionError` (→ Awaiting Input) instead of returning empty string (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]).
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

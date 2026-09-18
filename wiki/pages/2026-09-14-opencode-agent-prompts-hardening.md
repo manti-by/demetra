@@ -8,7 +8,9 @@ services: [agents]
 branch: wiki-updates
 tickets: []
 tags: [opencode, agent-prompts, permissions, prompt-injection, merge, rebase, bmad, ai-dlc]
-related: [2026-09-01-mnt-177-research-loop.md, 2026-08-24-guard-empty-plan-output.md]
+related:
+- 2026-08-24-guard-empty-plan-output.md
+- 2026-09-01-mnt-177-research-loop.md
 ---
 
 # OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics
@@ -123,6 +125,8 @@ Intentionally deferred (user scoped to items 1–4):
 - Pin `temperature`/`top_p` on classifier agents (validate, review) for determinism.
 - Wire wiki lookups into `plan-agent.md` explicitly (only `research-agent.md` does).
 - Design: BMAD/AWS AI-DLC gate planning on human approval; Demetra auto-resolves via `resolve-agent` (`PLAN_HAS_QUESTIONS`/`PLAN_IS_READY_STRING` in `opencode.py:12-14`) and gates at PR review — worth conscious sign-off.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -8,7 +8,11 @@ services: [auth, api, database, wiki, runtime, validation, react]
 branch: "-"
 tickets: []
 tags: [code-review, auth, cookies, exceptions, transactions, wiki, validate, env, react]
-related: [2026-08-03-check-api-auth-and-credentials.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-09-wiki-fixes-and-test-optimization.md]
+related:
+- 2026-08-09-wiki-fixes-and-test-optimization.md
+- 2026-08-03-check-api-auth-and-credentials.md
+- 2026-08-06-allowlist-review-fixes.md
+- 2026-08-07-split-wiki-service-into-subpackage.md
 ---
 
 # Apply code-review findings — auth, transactions, validate, wiki
@@ -115,6 +119,8 @@ if code[0] in ("R", "C") and index < len(records): index += 1
 ## Follow-ups
 
 Working tree uncommitted on `master`; orchestrator handles commit/PR.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

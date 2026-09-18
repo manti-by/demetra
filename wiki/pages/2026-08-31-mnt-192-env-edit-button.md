@@ -8,7 +8,8 @@ services: [api, persistence, react]
 branch: feature/mnt-192-add-edit-button-for-env-settings
 tickets: [MNT-192]
 tags: [env, frontend, encryption]
-related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
+related:
+- 2026-08-10-process-environment-3-layers-encryption-uv-venv.md
 ---
 
 # MNT-192 Add edit button for env settings
@@ -71,6 +72,8 @@ Cursor PR review found two high-severity data-loss paths, both fixed:
 ## Follow-ups
 
 - None
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

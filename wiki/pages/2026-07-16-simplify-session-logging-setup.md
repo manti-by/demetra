@@ -8,7 +8,9 @@ services: [main, merge, rebase]
 branch: "-"
 tickets: []
 tags: [logging, refactoring, cleanup]
-related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]
+related:
+- 2026-07-15-duplicated-log-messages.md
+- 2026-07-16-fix-step-status-review-findings.md
 ---
 
 # Simplify setup_session_logging
@@ -40,6 +42,8 @@ Two cases: (1) **Subprocess** (`LOG_PATH=sessions/<task>.log`) — root already 
 None.
 
 > **Consistency note (2026-08-24):** `demetra/services/utils.py` → `demetra/services/runtime/utils.py`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

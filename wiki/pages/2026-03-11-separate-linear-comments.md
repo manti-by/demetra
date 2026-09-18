@@ -3,12 +3,19 @@ title: Separate Linear comments
 date: 2026-03-11
 type: implementation
 status: resolved
-session_id: -
-services: [linear, graphql]
-branch: -
-tickets: [MNT-60]
-tags: [linear, comments, graphql]
-related: []
+session_id: '-'
+services:
+- linear
+- graphql
+branch: '-'
+tickets:
+- MNT-60
+tags:
+- linear
+- comments
+- graphql
+related:
+- 2026-06-09-check-linear-ticket-text.md
 ---
 
 # Separate Linear comments
@@ -55,6 +62,8 @@ Tests were added for the comment syncing and posting behavior.
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted bare `session_id: -` / `branch: -` for valid YAML and mirrored body links into `related:` frontmatter.
 
 ## References
 

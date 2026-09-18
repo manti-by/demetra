@@ -8,7 +8,10 @@ services: [tests, database, settings, runtime, api, workflows, linear]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: []
 tags: [tests, database, logging, isolation, test_demetra, conftest, websocket, sessions, console]
-related: [2026-06-15-remove-patches-from-tests.md, 2026-07-15-duplicated-log-messages.md, 2026-07-16-simplify-session-logging-setup.md]
+related:
+- 2026-06-15-remove-patches-from-tests.md
+- 2026-07-16-simplify-session-logging-setup.md
+- 2026-07-15-duplicated-log-messages.md
 ---
 
 # Test DB isolation and console-only logging
@@ -70,6 +73,8 @@ Opt-in isolation: DB redirect and console-vs-file distinction weren't guaranteed
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

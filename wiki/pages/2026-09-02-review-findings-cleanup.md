@@ -8,7 +8,11 @@ services: [auth, api, persistence, workflows, listener, watcher, react]
 branch: review-finding
 tickets: [MNT-177, MNT-188, MNT-190, MNT-192, MNT-193]
 tags: [code-review, dedup, waitlist, review-fixes, frontend]
-related: [2026-09-01-mnt-177-research-loop.md, 2026-08-28-mnt-188-waitlist.md, 2026-08-31-mnt-192-env-edit-button.md, 2026-09-02-mobile-template-react-frontend.md]
+related:
+- 2026-09-01-mnt-177-research-loop.md
+- 2026-08-28-mnt-188-waitlist.md
+- 2026-08-31-mnt-192-env-edit-button.md
+- 2026-09-02-mobile-template-react-frontend.md
 ---
 
 # Review findings cleanup — v1.16.7..HEAD two-axis review
@@ -75,6 +79,8 @@ Waitlist "notification" remains pluggable log-only `send_approval_email` per [[2
 
 - Decide on real notification provider for waitlist approvals (MNT-188).
 - Decide if React should surface research settings (MNT-177).
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

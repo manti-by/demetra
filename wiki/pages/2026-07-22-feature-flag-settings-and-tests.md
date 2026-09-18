@@ -8,7 +8,8 @@ services: [settings, workflows, lint]
 branch: "-"
 tickets: [MNT-21]
 tags: [feature-flags, testing, ruff, pytest, pre-commit, lint]
-related: [2026-02-20-add-pre-commit-checks-and-tests.md]
+related:
+- 2026-02-20-add-pre-commit-checks-and-tests.md
 ---
 
 # Add tests for existing feature-flag changes
@@ -55,6 +56,8 @@ Post-build gate is `make check` (ty + ruff via pre-commit) and `make test` (pyte
 None.
 
 > **Status update (2026-08-27):** `FEATURES` now reads via `env_get_bool(name, default)` (`demetra/services/runtime/utils.py:240`) instead of inline `os.environ.get(...).lower() == "true"` — `demetra/settings.py:53-56` uses `env_get_bool("IS_RUFF_ENABLED", False)` / `env_get_bool("IS_PYTEST_ENABLED", False)`, behavior unchanged.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

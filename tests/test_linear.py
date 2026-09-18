@@ -5,8 +5,8 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from demetra.library.exceptions import LinearConfigError, LinearError
-from demetra.library.models import Context, LinearTask, Project
+from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
+from demetra.library.models import Context, LinearTask, Project, SessionEnvironment
 from demetra.library.tables import project_environments, projects
 from demetra.services.linear import (
     create_linear_ticket,
@@ -479,6 +479,14 @@ class TestGetLinkedProjects:
 
 
 class TestCreateLinearTicket:
+    @pytest.fixture(autouse=True)
+    def mock_linear_settings(self):
+        with patch(
+            "demetra.settings.LINEAR",
+            {"team_id": "team-123", "default_state": "state-default", "states": {}},
+        ):
+            yield
+
     @pytest.fixture
     def mock_get_query(self):
         with patch("demetra.services.linear.get_query", new_callable=AsyncMock) as m:
@@ -588,11 +596,23 @@ class TestCreateResearchTicket:
 
     @pytest.fixture
     def mock_config(self):
-        async def _resolve(name, *, user_id=None):
-            return {"prd": "state-prd", "team_id": "team-123"}.get(name)
+        def _linear_state(self, name: str) -> str:
+            values = {"prd": "state-prd"}
+            if name in values:
+                return values[name]
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
 
-        with patch("demetra.services.linear.get_linear_config_value", side_effect=_resolve) as m:
-            yield m
+        def _linear_value(self, name: str) -> str:
+            values = {"team_id": "team-123"}
+            if name in values:
+                return values[name]
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+        ):
+            yield
 
     @staticmethod
     def _make_context(labels=None, priority=2, linear_project_id="linear-project-1"):
@@ -721,12 +741,20 @@ class TestCreateResearchTicket:
         mock_get_query: AsyncMock,
         mock_labels: dict,
     ):
-        async def _resolve(name, *, user_id=None):
-            return "team-123" if name == "team_id" else None
+        def _linear_state(self, name: str) -> str:
+            if name == "prd":
+                raise EnvironmentConfigError("Environment key 'LINEAR_STATE_PRD_ID' is not configured")
+            return "state-prd"
+
+        def _linear_value(self, name: str) -> str:
+            if name == "team_id":
+                return "team-123"
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
 
         context = self._make_context()
         with (
-            patch("demetra.services.linear.get_linear_config_value", side_effect=_resolve),
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
             pytest.raises(LinearConfigError, match="'prd' is not configured"),
         ):
             await create_research_ticket(context=context, report="report")
@@ -869,12 +897,20 @@ class TestCreateResearchTicket:
         mock_get_query: AsyncMock,
         mock_labels: dict,
     ):
-        async def _resolve(name, *, user_id=None):
-            return "state-prd" if name == "prd" else None
+        def _linear_state(self, name: str) -> str:
+            if name == "prd":
+                return "state-prd"
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
+
+        def _linear_value(self, name: str) -> str:
+            if name == "team_id":
+                raise EnvironmentConfigError("Environment key 'LINEAR_TEAM_ID' is not configured")
+            return "team-123"
 
         context = self._make_context()
         with (
-            patch("demetra.services.linear.get_linear_config_value", side_effect=_resolve),
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
             pytest.raises(LinearConfigError, match="team id is not configured"),
         ):
             await create_research_ticket(context=context, report="report")
@@ -968,7 +1004,7 @@ class TestGetLinearTaskById:
 class TestLinearCleanup:
     @pytest.fixture
     def mock_linear_settings(self, linear_full_settings):
-        with patch("demetra.services.linear.LINEAR", linear_full_settings):
+        with patch("demetra.settings.LINEAR", linear_full_settings):
             yield linear_full_settings
 
     @pytest.fixture

@@ -3,12 +3,21 @@ title: Project model and space
 date: 2026-03-31
 type: implementation
 status: resolved
-session_id: -
-services: [database, api, react]
-branch: -
-tickets: [MNT-75]
-tags: [projects, database, provisioning, react]
-related: []
+session_id: '-'
+services:
+- database
+- api
+- react
+branch: '-'
+tickets:
+- MNT-75
+tags:
+- projects
+- database
+- provisioning
+- react
+related:
+- 2026-06-08-project-environment.md
 ---
 
 # Project model and space
@@ -64,6 +73,8 @@ Tests were added for the project model, CRUD API, and provisioning.
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted bare `session_id: -` / `branch: -` for valid YAML and mirrored body links into `related:` frontmatter.
 
 ## References
 

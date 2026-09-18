@@ -8,7 +8,12 @@ services: [auth, linear, tools, llm, workflows]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: [MNT-170]
 tags: [refactor, subpackage, facade, exceptions, review, pr-description, openrouter]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related:
+- 2026-08-07-split-wiki-service-into-subpackage.md
+- 2026-08-05-pr-creation-failure-handler.md
+- 2026-08-06-allowlist-review-fixes.md
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
+- 2026-09-16-mnt-205-revise-merged-environment.md
 ---
 
 # Split auth/linear services into subpackages + review-failure handling
@@ -78,7 +83,15 @@ Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render
 - ~~Complete MNT-170 review gates before commit~~ **Done** — merged via PR #80.
 - Confirm whether `demetra/services/wiki/render.py` `# TODO: Add template and render` is deliberate or leftover.
 
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
 ## References
 
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-06-allowlist-review-fixes]]
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)
+
+> **Status update (2026-09-16, MNT-205):** `demetra/services/linear/config.py`
+> (`get_linear_config_value`) and `demetra/services/llm/config.py`
+> (`get_openrouter_config`) were deleted; resolution moved to
+> `SessionEnvironment` / `context.environment`. See
+> [[2026-09-16-mnt-205-revise-merged-environment]].

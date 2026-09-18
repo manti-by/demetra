@@ -7,12 +7,13 @@ import pytest
 
 from demetra.library.exceptions import (
     AutoCancelledError,
+    EnvironmentConfigError,
     InfiniteLoopError,
     LinearConfigError,
     LinearError,
     PlanError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session, SessionHistory, TokenUsage
+from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment, SessionHistory, TokenUsage
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
@@ -292,11 +293,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -349,11 +346,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -406,11 +399,7 @@ class TestWorkflowPlan:
             patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
-            patch(
-                "demetra.workflows.plan.get_linear_config_value",
-                new_callable=AsyncMock,
-                return_value="awaiting-input-state-id",
-            ),
+            patch.object(SessionEnvironment, "linear_state", return_value="awaiting-input-state-id"),
         ):
             context = Context(
                 project=Project(
@@ -1388,7 +1377,7 @@ class TestWorkflowReview:
         result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize_review.assert_awaited_once_with(review_output="", user_id=None)
+        mock_summarize_review.assert_awaited_once_with(review_output="", environment=None)
 
     @pytest.mark.asyncio
     async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):
@@ -2033,9 +2022,42 @@ class TestWorkflowResearch:
             yield m
 
     @pytest.fixture
-    def mock_get_linear_config_value(self):
-        with patch("demetra.workflows.research.get_linear_config_value", new_callable=AsyncMock) as m:
+    def mock_resolve_linear_state(self):
+        with patch.object(SessionEnvironment, "linear_state", return_value="state-123") as m:
             yield m
+
+    @pytest.fixture
+    def mock_get_linear_config_value(self):
+        """Compatibility shim: old tests mock ``get_linear_config_value`` but code now uses ``SessionEnvironment``."""
+
+        from unittest.mock import MagicMock
+
+        mock: MagicMock = MagicMock()
+        mock.return_value = None
+        mock.side_effect = None  # type: ignore[assignment]
+
+        def _resolve_via_mock(name: str) -> str | None:
+            if mock.side_effect is not None:
+                return mock.side_effect(name, user_id=None)  # type: ignore[return-value]
+            return mock.return_value  # type: ignore[return-value]
+
+        def _linear_state(self_env: SessionEnvironment, name: str) -> str:
+            result = _resolve_via_mock(name)
+            if result is None:
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
+            return result
+
+        def _linear_value(self_env: SessionEnvironment, name: str) -> str:
+            result = _resolve_via_mock(name)
+            if result is None:
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
+            return result
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+        ):
+            yield mock
 
     @pytest.fixture
     def mock_update_ticket_status(self):
@@ -2109,7 +2131,6 @@ class TestWorkflowResearch:
 
         assert result == report
         mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
-        mock_get_linear_config_value.assert_awaited_with(name="awaiting_input", user_id=context.project.user_id)
         mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
 
@@ -2247,7 +2268,7 @@ class TestWorkflowResearch:
     async def test_run_research_step_fails_fast_without_team_id(
         self, faker, mock_research_agent, mock_create_research_ticket, mock_get_linear_config_value
     ):
-        async def _resolve(name, *, user_id=None):
+        def _resolve(name, *, user_id=None):
             return "state-prd" if name == "prd" else None
 
         context = self._make_context(faker)
@@ -2278,7 +2299,7 @@ class TestWorkflowResearch:
     async def test_run_research_step_fails_fast_without_awaiting_input(
         self, faker, mock_research_agent, mock_create_research_ticket, mock_get_linear_config_value
     ):
-        async def _resolve(name, *, user_id=None):
+        def _resolve(name, *, user_id=None):
             return {"prd": "state-prd", "team_id": "team-1"}.get(name)
 
         context = self._make_context(faker)

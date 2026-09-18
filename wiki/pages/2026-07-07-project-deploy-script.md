@@ -8,7 +8,8 @@ services: [deploy, configs]
 branch: "-"
 tickets: [MNT-119]
 tags: [deploy, setup, systemd, makefile]
-related: [2026-08-10-docker-compose-deploy.md]
+related:
+- 2026-08-10-docker-compose-deploy.md
 ---
 
 # Project deploy script
@@ -39,6 +40,8 @@ Bootstrap verified on fresh host; `deploy` target exercised end-to-end.
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

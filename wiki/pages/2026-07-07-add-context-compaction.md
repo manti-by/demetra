@@ -8,7 +8,9 @@ services: [opencode, database, workflows, settings]
 branch: "-"
 tickets: [MNT-122]
 tags: [context, compaction, session-history, tokens]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md]
+related:
+- 2026-07-23-session-tokens-audit-revalidation.md
+- 2026-07-23-session-history-modal.md
 ---
 
 # Add context compaction
@@ -45,6 +47,8 @@ Compaction disabled in MNT-145 (cumulative `length`) — see [[2026-07-23-sessio
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

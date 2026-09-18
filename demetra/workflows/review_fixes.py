@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from demetra.library.models import Context, Project, Session
+from demetra.library.models import Context, Project, Session, SessionEnvironment
 from demetra.services.agents.opencode import opencode_review_fixes_agent
 from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
@@ -253,7 +253,9 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             task=task,
             env=project.environment,
             project_id=project.id,
-            user_environment=project.user_environment,
+            environment=SessionEnvironment(
+                project_environment=project.environment, user_environment=project.user_environment
+            ),
         )
         if exit_code != 0:
             logger.error(f"Review fixes agent failed: {(stderr or stdout).strip()[:500]}")

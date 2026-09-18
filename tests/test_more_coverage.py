@@ -75,7 +75,11 @@ class TestWatcherService:
 
     @pytest.fixture(autouse=True)
     def mock_empty_user_environment(self):
-        with patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}):
+        with patch(
+            "demetra.services.daemons.watcher.get_user_environments_decrypted",
+            new_callable=AsyncMock,
+            return_value={},
+        ):
             yield
 
     @pytest.fixture
@@ -91,6 +95,15 @@ class TestWatcherService:
     @pytest.fixture
     def mock_create_subprocess_exec(self):
         with patch("demetra.services.daemons.watcher.asyncio.create_subprocess_exec", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_resolve_linear_state(self):
+        with patch(
+            "demetra.services.daemons.watcher.resolve_linear_state",
+            new_callable=AsyncMock,
+            return_value="test-state-id",
+        ) as mock:
             yield mock
 
     @pytest.mark.asyncio
@@ -113,11 +126,14 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
+        mock_resolve_linear_state,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
         session = MagicMock(spec=Session)
         session.run_attempts = 4
+        session.user_id = "user-1"
+        session.project_id = "project-1"
 
         mock_get_session.return_value = session
 
@@ -128,6 +144,11 @@ class TestWatcherService:
         mock_update_ticket_status.assert_awaited_once()
         mock_create_subprocess_exec.assert_not_called()
         mock_increment_run_attempts.assert_not_called()
+        mock_resolve_linear_state.assert_awaited_once_with(
+            "awaiting_input",
+            user_id="user-1",
+            project_id="project-1",
+        )
 
     @pytest.mark.asyncio
     async def test_run_workflow_proceeds_when_below_max(
@@ -195,11 +216,14 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
+        mock_resolve_linear_state,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
         session = MagicMock(spec=Session)
         session.run_attempts = 3
+        session.user_id = "user-1"
+        session.project_id = "project-1"
         process_mock = AsyncMock()
         process_mock.returncode = 1
         process_mock.stdout = None
@@ -216,6 +240,11 @@ class TestWatcherService:
         mock_increment_run_attempts.assert_awaited_once_with(task_id)
         mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
         mock_update_ticket_status.assert_awaited_once()
+        mock_resolve_linear_state.assert_awaited_once_with(
+            "awaiting_input",
+            user_id="user-1",
+            project_id="project-1",
+        )
 
     @pytest.mark.asyncio
     async def test_run_workflow_increments_on_timeout(

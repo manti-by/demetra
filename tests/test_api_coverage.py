@@ -104,8 +104,8 @@ class TestWatcherService:
             yield mock
 
     @pytest.fixture
-    def mock_get_linear_config_value(self):
-        with patch("demetra.services.daemons.watcher.get_linear_config_value", new_callable=AsyncMock) as mock:
+    def mock_resolve_linear_state(self):
+        with patch("demetra.services.daemons.watcher.resolve_linear_state", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
@@ -142,17 +142,17 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_get_linear_config_value,
+        mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_linear_config_value.return_value = "in-progress-state"
+        mock_resolve_linear_state.return_value = "in-progress-state"
 
         await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_awaited_once()
-        mock_get_linear_config_value.assert_awaited_once_with(name="in_progress", user_id="user-1")
+        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
         mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
         mock_delay_run_workflow.assert_awaited_once()
 
@@ -162,7 +162,7 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_get_linear_config_value,
+        mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
@@ -170,14 +170,14 @@ class TestWatcherService:
         # skips the session upsert but is still re-moved to in_progress so it does
         # not get stuck in TODO on re-pickup.
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_linear_config_value.return_value = "in-progress-state"
+        mock_resolve_linear_state.return_value = "in-progress-state"
         with patch("demetra.services.daemons.watcher.get_pending_session_task_ids", new_callable=AsyncMock) as mock_ids:
             mock_ids.return_value = {task.id}
 
             await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_not_awaited()
-        mock_get_linear_config_value.assert_awaited_once_with(name="in_progress", user_id="user-1")
+        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
         mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
         mock_delay_run_workflow.assert_awaited_once()
 
@@ -187,12 +187,12 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_get_linear_config_value,
+        mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_linear_config_value.return_value = None
+        mock_resolve_linear_state.return_value = None
 
         await process_tasks(tasks=[task])
 
@@ -205,12 +205,12 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_get_linear_config_value,
+        mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_linear_config_value.return_value = "in-progress-state"
+        mock_resolve_linear_state.return_value = "in-progress-state"
         mock_update_ticket_status.return_value = False
 
         await process_tasks(tasks=[task])

@@ -8,7 +8,9 @@ services: [workflows, llm, openrouter, opencode, linear]
 branch: "-"
 tickets: [MNT-162, MNT-177]
 tags: [openrouter, model, age-attestation, 403, plan-agent, extract-plan, permission, minimax, muse-spark]
-related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related:
+- 2026-08-24-guard-empty-plan-output.md
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
 ---
 
 # MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation
@@ -58,6 +60,8 @@ MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 
 
 - Plan-agent truncation on permission auto-rejection remains open (see [[2026-08-24-guard-empty-plan-output]]).
 - Whether empty `extract_plan` should raise `PlanError` at `plan.py:101` remains valid hardening independent of these blockers.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

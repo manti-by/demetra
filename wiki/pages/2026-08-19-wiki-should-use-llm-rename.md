@@ -8,7 +8,9 @@ services: [wiki]
 branch: master
 tickets: []
 tags: [wiki, naming, refactor, llm]
-related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related:
+- 2026-08-07-split-wiki-service-into-subpackage.md
+- 2026-08-18-migrate-llm-groq-to-openrouter.md
 ---
 
 # Rename wiki budget_exceeded to should_use_llm
@@ -37,6 +39,8 @@ Wiki pages are deterministic scaffold (`render_wiki_page`); LLM generates only T
 ## Follow-ups
 
 - None
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

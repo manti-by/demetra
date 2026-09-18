@@ -8,7 +8,11 @@ services: [workflows, opencode, llm]
 branch: "-"
 tickets: []
 tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
-related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-09-14-opencode-agent-prompts-hardening.md]
+related:
+- 2026-09-14-opencode-agent-prompts-hardening.md
+- 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md
+- 2026-07-16-fix-empty-build-plan-loop.md
+- 2026-08-05-post-build-validation.md
 ---
 
 # Guard empty plan agent output
@@ -48,6 +52,8 @@ except PlanError as e:
 - Auto-rejection with exit 0 not fixed — guard makes it a handled failure. Consider granting read to `.env.docker.example`-style files or failing non-zero on permission denial.
 - **2026-09-14:** 6 agents now declare explicit `permission` blocks — see [[2026-09-14-opencode-agent-prompts-hardening]] (machine-enforced scope, not a fix for auto-rejection).
 - **2026-08-28 MNT-177 recurred:** same `read (.env.docker.example); auto-rejecting` truncation plus unrelated `OPENROUTER_MODEL=meta/muse-spark-1.2` → OpenRouter 403 (18+ attestation) in 3/6 runs — see [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]].
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

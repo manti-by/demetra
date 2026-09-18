@@ -8,7 +8,9 @@ services: [auth, settings, tests]
 branch: "-"
 tickets: [MNT-173]
 tags: [allowlist, auth, settings, tests, feature-flag]
-related: [2026-08-06-allowlist-review-fixes.md, 2026-08-18-test-db-isolation-logging.md]
+related:
+- 2026-08-06-allowlist-review-fixes.md
+- 2026-08-18-test-db-isolation-logging.md
 ---
 
 # Fix allowlist tests after MNT-173 default-on refactor
@@ -45,6 +47,8 @@ Previous default `parse_allowlist_flag(None) → False` meant the allowlist neve
 ## Consistency note (2026-08-24)
 
 Frontmatter `branch: -` quoted to `"-"` for valid YAML.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

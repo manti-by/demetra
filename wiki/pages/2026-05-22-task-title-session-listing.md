@@ -3,12 +3,25 @@ title: Use task title for session listing
 date: 2026-05-22
 type: implementation
 status: resolved
-session_id: "-"
-services: [api, react]
-branch: "-"
-tickets: [MNT-84, MNT-59]
-tags: [sessions, api, react, title, sidebar, websocket]
-related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findings.md]
+session_id: '-'
+services:
+- api
+- react
+branch: '-'
+tickets:
+- MNT-84
+- MNT-59
+tags:
+- sessions
+- api
+- react
+- title
+- sidebar
+- websocket
+related:
+- 2026-03-10-ui-for-sessions.md
+- 2026-07-16-fix-step-status-review-findings.md
+- 2026-08-25-mnt-181-total-tokens-counter.md
 ---
 
 # Use task title for session listing
@@ -70,6 +83,8 @@ watcher/process-manager), and a `LogConsole` component that opens a websocket pe
 - None.
 
 > **Consistency note (2026-08-24, Consistency Agent):** The sessions list filter was renamed from `status` to `step` during the step/status refactor — see [[2026-07-16-fix-step-status-review-findings]]. Current API: `GET /api/v1/sessions?step=...`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

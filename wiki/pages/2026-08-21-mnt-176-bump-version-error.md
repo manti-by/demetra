@@ -8,7 +8,9 @@ services: [workflows]
 branch: mnt-176-bump-version-error
 tickets: [MNT-176]
 tags: [version, bump, pyproject, bug-fix]
-related: [2026-06-25-update-project-version.md, 2026-09-08-docstring-mcp-search.md]
+related:
+- 2026-09-08-docstring-mcp-search.md
+- 2026-06-25-update-project-version.md
 ---
 
 # MNT-176: Bump version error fix
@@ -60,6 +62,8 @@ Deleted `EPIC_LABEL` and `is_epic_label(labels)`. Docstring updated: minor bumpe
 ## Consistency note (2026-09-11, Consistency Agent)
 
 - Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): `bump_project_version` now takes `is_major`/`is_minor`/`is_patch` (default `is_patch=True` → patch, not minor). Always-minor contract above is stale.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

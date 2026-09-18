@@ -16,9 +16,17 @@ relevant current page, then retire the original to `wiki/archive/` so the
 active `wiki/pages/` stays focused on recent sessions.
 
 The default age threshold is **3 months** (compare each page's `date:` against
-`date +%F` today). If the user invokes this command with an explicit age
-(e.g. `/wiki-archive 6mo`), respect that override — accept any duration the
-user names (`3mo`, `90d`, `6 months`, `1y`, …).
+`date +%F` today). **Hard floor: `wiki/pages/` must always contain at least 100
+pages.** Even if a page is older than the threshold, do **not** archive it if
+doing so would drop `wiki/pages/` below 100 — keep the 100 newest pages (by
+`date:` frontmatter, newest first) in `wiki/pages/` regardless of age. In
+practice: sort all age-eligible candidates oldest-first and archive only while
+`remaining_pages > 100`; stop early when the floor would be violated. The floor
+applies before any merge — it is a safety net for agents, not a suggestion. If
+the user invokes this command with an explicit age (e.g. `/wiki-archive 6mo`),
+respect that override — accept any duration the user names (`3mo`, `90d`,
+`6 months`, `1y`, …) — but the 100-page floor still applies unless the user
+explicitly says `force`/`ignore-floor`.
 
 ## 1. Discover candidates
 

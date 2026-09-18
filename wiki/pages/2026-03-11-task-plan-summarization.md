@@ -3,12 +3,23 @@ title: Task plan summarization
 date: 2026-03-11
 type: implementation
 status: resolved
-session_id: -
-services: [groq, opencode, workflows]
-branch: -
-tickets: [MNT-61]
-tags: [groq, llama, plan, summarization, build-plan]
-related: [2026-07-16-fix-empty-build-plan-loop.md]
+session_id: '-'
+services:
+- groq
+- opencode
+- workflows
+branch: '-'
+tickets:
+- MNT-61
+tags:
+- groq
+- llama
+- plan
+- summarization
+- build-plan
+related:
+- 2026-06-04-review-summarization.md
+- 2026-07-16-fix-empty-build-plan-loop.md
 ---
 
 # Task plan summarization
@@ -61,6 +72,8 @@ Tests were added for the summarized plan extraction.
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted bare `session_id: -` / `branch: -` for valid YAML and mirrored body links into `related:` frontmatter.
 
 ## References
 

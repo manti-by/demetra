@@ -8,7 +8,12 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-07-16-session-history-tokens-null.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md]
+related:
+- 2026-07-23-session-history-modal.md
+- 2026-07-23-session-tokens-audit-revalidation.md
+- 2026-05-22-task-title-session-listing.md
+- 2026-07-16-fix-step-status-review-findings.md
+- 2026-07-16-session-history-tokens-null.md
 ---
 
 # MNT-181: Total tokens counter
@@ -68,6 +73,8 @@ Session list title fallback (`task_title`/`custom name` → truncated `session_i
 ## Consistency fix (2026-09-02)
 
 - Quoted `session_id: -` → `"-"`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -1,6 +1,7 @@
 ---
 name: fix-review-findings
 description: Fix all unresolved review findings on a PR
+agent: build
 ---
 
 # Fix Review Findings Skill

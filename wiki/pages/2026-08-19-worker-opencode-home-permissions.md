@@ -8,7 +8,11 @@ services: [deploy, agents, runtime]
 branch: "-"
 tickets: []
 tags: [docker, permissions, volume, opencode, entrypoint]
-related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-20-review-gh-auth-mount-changes.md]
+related:
+- 2026-08-20-review-gh-auth-mount-changes.md
+- 2026-08-18-compose-anchors-refactor.md
+- 2026-08-17-docker-setup-review.md
+- 2026-08-10-docker-compose-deploy.md
 ---
 
 # Worker opencode EACCES on home volume — entrypoint ownership fix
@@ -60,6 +64,8 @@ Prunes bind-mounted secrets (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`,
 ## Follow-ups
 
 - Redeploy on amon-ra: `make docker-deploy`; verify `docker compose exec worker id demetra` → `uid=1000`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -3,12 +3,22 @@ title: Build artifacts
 date: 2026-06-09
 type: implementation
 status: resolved
-session_id: "-"
-services: [database, api, react]
-branch: "-"
-tickets: [MNT-108]
-tags: [artifacts, pr-link, build-plan, react]
-related: [2026-09-14-research-plan-artifact.md]
+session_id: '-'
+services:
+- database
+- api
+- react
+branch: '-'
+tickets:
+- MNT-108
+tags:
+- artifacts
+- pr-link
+- build-plan
+- react
+related:
+- 2026-06-22-linear-link-artifact.md
+- 2026-09-14-research-plan-artifact.md
 ---
 
 # Build artifacts
@@ -55,6 +65,8 @@ Tests on both frontend (artifact block rendering, modal open) and backend (API p
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

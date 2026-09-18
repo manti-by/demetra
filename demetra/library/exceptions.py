@@ -6,6 +6,10 @@ class SettingsError(DemetraError):
     pass
 
 
+class EnvironmentConfigError(DemetraError):
+    pass
+
+
 class ProjectDoesNotExistsError(DemetraError):
     pass
 

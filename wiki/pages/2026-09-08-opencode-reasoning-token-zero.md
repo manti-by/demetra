@@ -8,7 +8,8 @@ services:           [opencode, database, api]
 branch:             "master"
 tickets:            []
 tags:               [opencode, session-history, reasoning-tokens]
-related: [2026-07-23-session-tokens-audit-revalidation]
+related:
+- 2026-07-23-session-tokens-audit-revalidation.md
 ---
 
 # OpenCode Reasoning Token History Is Zero
@@ -44,6 +45,8 @@ If `.reasoning` is zero there, Demetra correctly stores zero. Existing history r
 ## Follow-ups
 
 - Confirm deployed OpenCode version and raw export from a new reasoning-capable session.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -8,7 +8,9 @@ services: [deploy]
 branch: master
 tickets: []
 tags: [docker, compose, refactor]
-related: [2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md]
+related:
+- 2026-08-17-docker-setup-review.md
+- 2026-08-10-docker-compose-deploy.md
 ---
 
 # Docker Compose shared-anchor refactor
@@ -85,6 +87,8 @@ At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `mast
 - Same DRY could apply to `.env.docker.example` and `Makefile` service lists.
 
 > **Consistency note (2026-08-24):** `deploy.replicas` removed; workers via `Makefile` `--scale worker=4`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

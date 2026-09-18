@@ -7,6 +7,7 @@ from demetra.library.exceptions import (
     AutoCancelledError,
     BuildError,
     DemetraError,
+    EnvironmentConfigError,
     InfiniteLoopError,
     LinearError,
     PullRequestError,
@@ -17,7 +18,7 @@ from demetra.library.exceptions import (
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
-from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
+from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
@@ -107,11 +108,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 linear_link=context.linear_task.url,
             )
 
-        state_id = await get_linear_config_value(
-            name="in_progress", user_id=context.linear_task.user_id or DEFAULT_USER_ID
-        )
-        if state_id is None:
-            raise LinearError("Linear state 'in_progress' is not configured")
+        try:
+            state_id = context.environment.linear_state("in_progress")
+        except EnvironmentConfigError as e:
+            raise LinearError("Linear state 'in_progress' is not configured") from e
         await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
         if is_research_ticket(context=context):

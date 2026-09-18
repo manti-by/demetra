@@ -8,7 +8,10 @@ services:           [main, graphql, opencode, linear, workflows, database, sessi
 branch:             "-"
 tickets:            [MNT-29, MNT-39]
 tags:               [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
-related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md, 2026-08-05-pr-creation-failure-handler.md]
+related:
+- 2026-02-21-add-build-plan-to-linear-task.md
+- 2026-02-23-save-build-plan-to-database.md
+- 2026-08-05-pr-creation-failure-handler.md
 ---
 
 # Fix empty build plan infinite loop
@@ -83,6 +86,8 @@ None.
 
 > **Consistency note (2026-08-24):** `demetra/services/opencode.py` → `demetra/services/agents/opencode.py`.
 > **Update (2026-08-27):** `demetra/services/graphql.py` → `demetra/services/linear/graphql.py`; non-dict `LinearError` behavior unchanged.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

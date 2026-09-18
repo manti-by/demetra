@@ -3,12 +3,19 @@ title: Truncate session name
 date: 2026-06-02
 type: implementation
 status: resolved
-session_id: "-"
-services: [react]
-branch: "-"
-tickets: [MNT-92]
-tags: [react, css, truncate, layout]
-related: []
+session_id: '-'
+services:
+- react
+branch: '-'
+tickets:
+- MNT-92
+tags:
+- react
+- css
+- truncate
+- layout
+related:
+- 2026-09-02-mobile-template-react-frontend.md
 ---
 
 # Truncate session name
@@ -55,6 +62,8 @@ Tests were added/updated for the truncated session item layout.
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

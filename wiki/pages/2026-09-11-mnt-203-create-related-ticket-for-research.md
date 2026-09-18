@@ -1,6 +1,6 @@
 ---
 title: 'MNT-203: Create related ticket for research'
-date: '2026-09-11'
+date: 2026-09-11
 type: implementation
 status: resolved
 session_id: ses_f6ef2a998ffefbAQfDD0V9gPcN
@@ -57,9 +57,9 @@ Create related ticket in same project/priority/state, with `Feature` label plus 
 
 - None
 
-> **Consistency note (2026-09-15, Consistency Agent):** "Reverted prior `research_report` scaffolding" above describes MNT-203 branch diff (reverted MNT-200 files that branch didn't need). On branch `mnt-204-research-result-modal` (HEAD) both `research_report` (`a3b4c5…`) and `research_plan` (`8023ece…`) coexist (`demetra/library/tables.py:27,36`); see [[2026-09-10-mnt-200-update-research-loop]] and [[2026-09-14-research-plan-artifact]]. No standalone `research_report` removal in HEAD.
+> **Consistency fix (2026-09-18, Consistency Agent):** Supersedes 2026-09-15 note. HEAD retains `research_report` (`a3b4c5…`, `tables.py:35`); "reverted scaffolding" was branch-local (MNT-203 diff vs MNT-200). `research_plan`/`8023ece…` from [[2026-09-14-research-plan-artifact]] is not in HEAD — see that page's 2026-09-18 fix.
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]]
+- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-09-10-mnt-200-update-research-loop]]
 - External: https://linear.app/mnt/issue/MNT-203/create-related-ticket-for-research

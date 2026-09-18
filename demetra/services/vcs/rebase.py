@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import opencode_rebase_agent
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
@@ -20,7 +21,7 @@ async def perform_git_rebase(
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> bool:
     """
     Handles the Git rebase process, including conflict resolution with opencode-rebase-agent.
@@ -78,7 +79,7 @@ async def perform_git_rebase(
             task=task,
             env=env,
             project_id=project_id,
-            user_environment=user_environment,
+            environment=environment,
         )
 
         if agent_exit != 0:
