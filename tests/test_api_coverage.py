@@ -105,7 +105,7 @@ class TestWatcherService:
 
     @pytest.fixture
     def mock_resolve_linear_state(self):
-        with patch("demetra.services.daemons.watcher._resolve_linear_state", new_callable=AsyncMock) as mock:
+        with patch("demetra.services.daemons.watcher.resolve_linear_state", new_callable=AsyncMock) as mock:
             yield mock
 
     @pytest.fixture
@@ -152,7 +152,7 @@ class TestWatcherService:
         await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_awaited_once()
-        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1")
+        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
         mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
         mock_delay_run_workflow.assert_awaited_once()
 
@@ -177,7 +177,7 @@ class TestWatcherService:
             await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_not_awaited()
-        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1")
+        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
         mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
         mock_delay_run_workflow.assert_awaited_once()
 
