@@ -8,7 +8,10 @@ services:           [api, sessions, react]
 branch:             "-"
 tickets:            []
 tags:               [frontend, modal, session-history, react, api]
-related: [2026-07-16-session-history-tokens-null.md, 2026-07-22-react-frontend-template-warp.md, 2026-08-25-mnt-181-total-tokens-counter.md]
+related:
+- 2026-08-25-mnt-181-total-tokens-counter.md
+- 2026-07-22-react-frontend-template-warp.md
+- 2026-07-16-session-history-tokens-null.md
 ---
 
 # Session History Modal
@@ -91,6 +94,8 @@ No new CSS variables.
 > **Consistency note (2026-08-25):** MNT-181 (PR #101) changed endpoint to `{"total":{…},"history":[…]}`, added Total Tokens summary, `context_tokens`/`model` fields. DB helpers → `demetra/services/persistence/database.py`. See [[2026-08-25-mnt-181-total-tokens-counter]].
 
 > **Status update (2026-08-27):** Auth now `user: UserResponse = Depends(get_current_user_dep)` not raw `auth_token` Cookie; `get_session_id_by_task_id(task_id, user_id)` scopes by user (MNT-156). Behavior unchanged.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

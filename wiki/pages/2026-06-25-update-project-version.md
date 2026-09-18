@@ -8,7 +8,10 @@ services: [workflows, settings]
 branch: "-"
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
-related: [2026-08-21-mnt-176-bump-version-error.md, 2026-09-08-docstring-mcp-search.md, 2026-07-22-warp-theme-review-fixes-and-ops.md]
+related:
+- 2026-07-22-warp-theme-review-fixes-and-ops.md
+- 2026-08-21-mnt-176-bump-version-error.md
+- 2026-09-08-docstring-mcp-search.md
 ---
 
 # Update project version
@@ -47,6 +50,8 @@ Tests cover bump logic (minor bump, major preservation) and rollback on failure.
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

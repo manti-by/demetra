@@ -8,7 +8,12 @@ services: [auth, api, watcher, react]
 branch: mnt-156-check-api-auth
 tickets: [MNT-156, MNT-81]
 tags: [auth, cookies, csrf, origin-validation, websockets, ownership, api, refactor, routers]
-related: [2026-07-23-linear-ticket-email-password-auth.md, 2026-07-24-plain-auth-review-followups.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md]
+related:
+- 2026-08-09-apply-code-review-findings.md
+- 2026-06-01-refactor-api.md
+- 2026-07-24-plain-auth-review-followups.md
+- 2026-07-23-linear-ticket-email-password-auth.md
+- 2026-08-06-allowlist-review-fixes.md
 ---
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
@@ -78,6 +83,8 @@ Thin `demetra/api/` routers by prefix (auth/github, projects, sessions, users, w
 
 - ~~Commit + PR `mnt-156-check-api-auth`~~ **Done** PR #66 (`8abcd8d`); follow-up PR #67 (`bcddc00`). Version trail superseded (master at `1.16.6`).
 - Two anchors now stale (commit `04436c6`, 2026-08-07): `auth.py:241` → `auth/sessions.py:201` (re-exported), `database.py:482` → `persistence/database.py:701`. Further auth reorg: `2026-08-19-split-auth-linear-services-and-review-failure-handling.md`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

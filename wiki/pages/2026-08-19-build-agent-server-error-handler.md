@@ -8,7 +8,11 @@ services: [main, workflows, agents, linear]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, awaiting-input, spending-limit, server-error, linear]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
+related:
+- 2026-08-19-build-agent-stale-session-deleted-worktree.md
+- 2026-08-05-pr-creation-failure-handler.md
+- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+- 2026-07-21-awaiting-input-status-for-session.md
 ---
 
 # Build agent server error — root cause and Awaiting Input handler
@@ -61,6 +65,8 @@ Before re-running MNT-151 clear stale session as above, then address limit: rais
 ## Consistency note (2026-08-20)
 
 `BuildError` handler (`process_build_failure` in `demetra/workflows/failure.py`, wired in `main.py:158`) merged via PR #82 (2026-08-19) on `master`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

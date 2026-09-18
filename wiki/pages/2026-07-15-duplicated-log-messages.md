@@ -8,7 +8,8 @@ services: [main, tui, watcher, build]
 branch: "-"
 tickets: []
 tags: [logging, duplication, type-bug, build-agent]
-related: [2026-07-16-simplify-session-logging-setup.md]
+related:
+- 2026-07-16-simplify-session-logging-setup.md
 ---
 
 # Duplicated log messages and missing build agent logs
@@ -91,6 +92,8 @@ print_message(f"Build agent output:\n{stdout.strip()}", style="info")
 None.
 
 > **Consistency note (2026-08-24):** `demetra/services/utils.py` → `demetra/services/runtime/utils.py`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

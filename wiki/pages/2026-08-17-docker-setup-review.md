@@ -8,7 +8,11 @@ services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
 tags: [docker, compose, security, review]
-related: [2026-07-07-project-deploy-script.md, 2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md]
+related:
+- 2026-08-18-compose-anchors-refactor.md
+- 2026-08-19-worker-opencode-home-permissions.md
+- 2026-08-10-docker-compose-deploy.md
+- 2026-07-07-project-deploy-script.md
 ---
 
 # Docker setup review — Dockerfile + docker-compose.yaml on mnt-164
@@ -151,6 +155,8 @@ Persisted `/root` (worktrees, UV venvs, session logs) gone → `down && up` wipe
 ## Consistency note (2026-08-19)
 
 Most fixed in anchor refactor — see [[2026-08-18-compose-anchors-refactor]]. #11 (`oven/bun:1`) valid; #12 was loopback-only at review, now all-interfaces again (2026-08-23).
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

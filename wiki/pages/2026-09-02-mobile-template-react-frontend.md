@@ -8,7 +8,11 @@ services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
 tickets: [MNT-193, MNT-92, MNT-113]
 tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert, truncate, layout, markdown, marked, modal]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md]
+related:
+- 2026-07-22-react-frontend-template-warp.md
+- 2026-08-25-loader-styleguide.md
+- 2026-06-02-truncate-session-name.md
+- 2026-06-09-markdown-renderer.md
 ---
 
 # MNT-193 — Mobile template for the React frontend
@@ -91,6 +95,8 @@ React 18 has no boolean `inert` prop (React 19) and `@types/react@18` doesn't ty
 - No swipe-to-dismiss (Escape/close button only); grab handle decorative.
 - Tab bar renders all sessions scrollable; consider capping if large.
 - Grouping by step not applicable — search+cards suffices.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -1,6 +1,6 @@
 ---
 title: 'MNT-204: Research result modal'
-date: '2026-09-14'
+date: 2026-09-14
 type: implementation
 status: resolved
 session_id: ses_f6ebf2b52ffeSrLs1KXvA5gPQI
@@ -22,6 +22,7 @@ related:
 - 2026-06-22-linear-link-artifact.md
 - 2026-06-09-build-artifacts.md
 - 2026-09-01-mnt-177-research-loop.md
+- 2026-09-10-mnt-200-update-research-loop.md
 ---
 # MNT-204: Research result modal
 
@@ -55,6 +56,8 @@ Mirrors `build_plan` end-to-end for research output: schema → dataclass → pe
 ## Follow-ups
 
 - None
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Codebase on HEAD uses `sessions.research_report` (`demetra/library/tables.py:35`, `models.py:134`, migration `a3b4c5d6e7f8`), not `research_plan`/`8023ece…` described above. [[2026-09-10-mnt-200-update-research-loop]] is the current persisted column; the `research_plan` rename/modal described here was not merged to HEAD (see `demetra/services/persistence/database.py:596` `update_session_research_report`).
 
 ## References
 

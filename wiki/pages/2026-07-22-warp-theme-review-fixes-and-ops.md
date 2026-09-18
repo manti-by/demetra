@@ -8,7 +8,10 @@ services: [react, build, config]
 branch: master
 tickets: [MNT-142]
 tags: [react, warp-theme, review-fixes, css, infrastructure, version-bump]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-21-mnt-176-bump-version-error.md]
+related:
+- 2026-08-21-mnt-176-bump-version-error.md
+- 2026-07-22-react-frontend-template-warp.md
+- 2026-07-22-feature-flag-settings-and-tests.md
 ---
 
 # Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette
@@ -73,6 +76,8 @@ Post-merge cleanup for MNT-142 Warp theme plus infra updates: applied review fee
 - *(Done)* Green-accent changes in `ed8bcc4`.
 - Consider `ProjectList.test.tsx` for label format.
 - Verify `fast-playwright-mcp@0.1.3` pin in CI.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

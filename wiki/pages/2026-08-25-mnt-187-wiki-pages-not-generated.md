@@ -8,7 +8,10 @@ services: [main, workflows, wiki, cleanup]
 branch: mnt-187-wiki-pages-not-generated
 tickets: [MNT-187]
 tags: [wiki, commit, push, workflow, error-handling, awaiting-input, git]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-07-split-wiki-service-into-subpackage.md]
+related:
+- 2026-08-05-pr-creation-failure-handler.md
+- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+- 2026-08-07-split-wiki-service-into-subpackage.md
 ---
 
 # Wiki pages not generated — move wiki step before commit
@@ -62,6 +65,8 @@ Helpers now accept optional target so main flow writes to worktree while merge/r
 
 - Merge/rebase still use legacy default root (clean post-merge, PR already carries page) — could unify to worktree root.
 - `git_diff_facts` captures uncommitted changes pre-write; staged wiki files appearing in diff is benign.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

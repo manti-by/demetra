@@ -8,7 +8,10 @@ services: [mcp, settings, tools, runtime]
 branch: delta/feature/docstring-mcp-search
 tickets: [MNT-171]
 tags: [docstrings, search, mcp, settings, version-bump]
-related: [2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md, 2026-08-21-mnt-176-bump-version-error.md]
+related:
+- 2026-08-21-mnt-176-bump-version-error.md
+- 2026-08-03-wiki-mcp-tools.md
+- 2026-06-25-update-project-version.md
 ---
 
 # MNT-171: Docstring MCP search
@@ -60,6 +63,8 @@ Two consumers **not** updated:
 - Confirm `bump_project_version` default axis (patch vs minor) and whether callers expecting minor still pass `is_minor=True`.
 
 > **Consistency note (2026-09-15, Consistency Agent):** Default bump axis `is_patch=True` verified against `demetra/services/runtime/project.py:331` and `demetra/workflows/build.py:167` (bare call → patch). Docstring at `project.py:334` still says minor — stale per 2026-09-08-docstring-mcp-search self-flag and Q-001 resolved 2026-09-11 (patch intentional). No wiki edit needed beyond this note.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

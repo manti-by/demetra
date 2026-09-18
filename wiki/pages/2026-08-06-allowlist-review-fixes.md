@@ -8,7 +8,11 @@ services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
 tags: [allowlist, code-review, coderabbit, security, auth, tests]
-related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-09-apply-code-review-findings.md, 2026-08-20-fix-allowlist-tests.md]
+related:
+- 2026-08-20-fix-allowlist-tests.md
+- 2026-07-24-plain-auth-review-followups.md
+- 2026-08-03-check-api-auth-and-credentials.md
+- 2026-08-09-apply-code-review-findings.md
 ---
 
 # Allowlist CodeRabbit Review Fixes and CI Test Fix
@@ -81,6 +85,8 @@ MNT-173 (PR #86) superseded Step 2 naming: gate now reads `IS_ALLOWLIST_ENABLED`
 
 - Committed `d1df1d2` and pushed to PR #71.
 - `_dispose_engines` teardown "Event loop is closed" noise is harmless, could be cleaned later.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

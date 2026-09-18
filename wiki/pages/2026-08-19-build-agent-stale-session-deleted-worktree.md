@@ -8,7 +8,10 @@ services: [main, workflows, agents, opencode]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, session-resume, worktree, server-error]
-related: [2026-07-15-duplicated-log-messages.md, 2026-08-19-build-agent-server-error-handler.md]
+related:
+- 2026-08-19-build-agent-server-error-handler.md
+- 2026-07-15-duplicated-log-messages.md
+- 2026-09-16-mnt-205-revise-merged-environment.md
 ---
 
 # Build agent UnknownError — stale opencode session bound to deleted worktree
@@ -52,6 +55,8 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 
 > **Consistency note (2026-09-15, Consistency Agent):** Re-verified `demetra/workflows/cleanup.py` and `demetra/services/agents/opencode.py:92` on branch `mnt-204-research-result-modal` — no `session_id` clear on cleanup, `opencode_build_agent(session_id=context.session_id)` still passes stale id; systemic retry/clear still not implemented — latent. See follow-up above.
 
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
 ## References
 
 - Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-07-15-duplicated-log-messages]]
@@ -61,4 +66,4 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 > here (`_resolve_opencode_model`) was replaced by
 > `context.environment.opencode_build_model` on the shared
 > `SessionEnvironment` resolver. See
-> [[2026-09-16-mnt-205-context-environment]].
+> [[2026-09-16-mnt-205-revise-merged-environment]].

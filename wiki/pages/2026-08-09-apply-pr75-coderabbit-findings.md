@@ -8,7 +8,9 @@ services: [auth, api, database, runtime, wiki, react]
 branch: code-review
 tickets: []
 tags: [code-review, coderabbit, auth, jwt, password-reset, react, env, wiki]
-related: [2026-07-24-plain-auth-review-followups.md, 2026-08-09-apply-code-review-findings.md]
+related:
+- 2026-08-09-apply-code-review-findings.md
+- 2026-07-24-plain-auth-review-followups.md
 ---
 
 # Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int
@@ -74,6 +76,8 @@ if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS')
 ## Follow-ups
 
 Working tree uncommitted on `code-review`; orchestrator handles commit/PR.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

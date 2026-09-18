@@ -8,7 +8,9 @@ services: [wiki, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
-related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md]
+related:
+- 2026-08-03-agents-md-and-wiki-consistency.md
+- 2026-08-03-fix-mcp-server-2.0-api.md
 ---
 
 # Wiki MCP Tools — Search, Read, and List Pages
@@ -52,6 +54,8 @@ Follows `async list_tools() -> list[Tool]` / `async call_tool(name, arguments) -
 
 - ~~Commit + PR against `master`~~ **Done** PR #68 (`ea754bc`).
 - Consistency/`wiki-*` commands now at `.opencode/skills/wiki-*/SKILL.md` (commit `50755dd` — commands→skills migration).
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

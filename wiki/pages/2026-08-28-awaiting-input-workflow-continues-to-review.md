@@ -8,7 +8,12 @@ services: [main, watcher, workflows]
 branch: "-"
 tickets: []
 tags: [awaiting-input, linear, plan, workflow, review, build-plan, resume, duplicate-enqueue]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-28-mnt-191-ticket-status-not-changed.md]
+related:
+- 2026-08-28-mnt-191-ticket-status-not-changed.md
+- 2026-07-21-awaiting-input-status-for-session.md
+- 2026-08-19-build-agent-server-error-handler.md
+- 2026-08-24-guard-empty-plan-output.md
+- 2026-08-05-pr-creation-failure-handler.md
 ---
 
 # Workflow proceeds to review after ticket moved to Awaiting Input
@@ -67,6 +72,8 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 > **Consistency note (2026-09-11):** Re-verified on current master (`main.py:127`, `watcher.py:165`): both fixes still not implemented.
 
 > **Consistency note (2026-09-15, Consistency Agent):** Re-verified `main.py:127` (`if not context.session or not context.session.build_plan`) and `demetra/services/daemons/watcher.py:165` — replan guard on `awaiting_input` and watcher enqueue dedupe still not implemented on this branch; awaiting product decision. Diagnosis in this page remains current.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

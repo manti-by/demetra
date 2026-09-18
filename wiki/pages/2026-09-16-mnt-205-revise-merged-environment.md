@@ -1,6 +1,6 @@
 ---
-title: 'MNT-205: Revise merged environment'
-date: '2026-09-16'
+title: 'MNT-205 — Revise merged environment: context.environment resolver'
+date: 2026-09-16
 type: implementation
 status: resolved
 session_id: ses_f55832b3effeWJy0LClcVV2V83
@@ -59,7 +59,7 @@ tickets: [MNT-205]
 tags: [wiki, backend, feature]
 related: []
 ---
-# MNT-205: Revise merged environment
+# MNT-205 — Revise merged environment: context.environment resolver
 
 ## TL;DR
 
@@ -656,6 +656,8 @@ The implementation plan involves standardizing the methods for resolving agent m
 ## Follow-ups
 
 - None
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted `title` containing `:` for valid YAML.
 
 ## References
 

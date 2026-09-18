@@ -8,7 +8,10 @@ services: [watcher, linear, daemons]
 branch: "opencode/feature/mnt-191-ticket-status-not-changed"
 tickets: [MNT-191]
 tags: [watcher, linear, status, in-progress, todo, workflow, queue]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-07-21-rich-markuperror-and-run-attempts.md]
+related:
+- 2026-08-05-pr-creation-failure-handler.md
+- 2026-07-21-rich-markuperror-and-run-attempts.md
+- 2026-09-16-mnt-205-revise-merged-environment.md
 ---
 
 # Ticket status isn't changed when watcher picks it up
@@ -63,6 +66,8 @@ Fixtures: `mock_upsert_pending_session`, `mock_update_ticket_status`, `mock_get_
 
 None.
 
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
 ## References
 
 - Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-07-21-rich-markuperror-and-run-attempts]]
@@ -72,4 +77,4 @@ None.
 > removed. `process_tasks` now resolves the state through the watcher's
 > `_resolve_linear_state` helper, which builds a `SessionEnvironment` from the
 > user-shared env and falls back to settings. See
-> [[2026-09-16-mnt-205-context-environment]].
+> [[2026-09-16-mnt-205-revise-merged-environment]].

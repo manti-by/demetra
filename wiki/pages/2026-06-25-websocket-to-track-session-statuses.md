@@ -8,7 +8,9 @@ services: [api, react, workflows, sessions]
 branch: "-"
 tickets: [MNT-101, MNT-54]
 tags: [websocket, json, status, react, logs, streaming, sessions, isolation]
-related: [2026-03-09-isolate-user-sessions.md, 2026-07-16-fix-step-status-review-findings.md]
+related:
+- 2026-07-16-fix-step-status-review-findings.md
+- 2026-03-09-isolate-user-sessions.md
 ---
 # Websocket to track session statuses
 
@@ -43,6 +45,8 @@ Per-session log files added in [[2026-03-09-isolate-user-sessions]] (MNT-54, 202
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

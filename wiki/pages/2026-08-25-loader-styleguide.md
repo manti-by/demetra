@@ -8,7 +8,10 @@ services: [react]
 branch: "-"
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
-related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
+related:
+- 2026-07-22-warp-theme-review-fixes-and-ops.md
+- 2026-07-23-session-history-modal.md
+- 2026-07-22-react-frontend-template-warp.md
 ---
 
 # Loader replacement and Style Guide page
@@ -61,6 +64,8 @@ Tests: `SessionHistory.test.tsx:82` (`querySelector('.loading-spinner')` → `ge
 ## Follow-ups
 
 - Consider Playwright `toHaveScreenshot` for loader grid; reuse `<Loader>` for future waiting states; legacy spinner aliases removable once unreferenced; extend guide with `CommandPalette`/theme matrix.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

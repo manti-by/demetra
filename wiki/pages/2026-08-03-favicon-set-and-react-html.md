@@ -8,7 +8,8 @@ services:           [react]
 branch:             "-"
 tickets:            []
 tags:               [frontend, favicon, icons, branding, react, vite]
-related: [2026-07-22-react-frontend-template-warp.md]
+related:
+- 2026-07-22-react-frontend-template-warp.md
 ---
 
 # Favicon Set for the React App
@@ -76,6 +77,8 @@ Removed `_favicon-*.png` temps from failed cairosvg attempt. `favicon-build` tem
 
 - Eyeball favicon in browser / iOS home screen after deploy.
 - If BMP ICO entries needed, rebuild with Pillow `Image.save(format="ICO")`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

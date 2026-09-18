@@ -8,7 +8,9 @@ services: [auth, main, settings]
 branch: master
 tickets: [MNT-148]
 tags: [auth, security, bcrypt, cors, cookies, dependencies]
-related: [2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md]
+related:
+- 2026-08-03-check-api-auth-and-credentials.md
+- 2026-07-24-plain-auth-review-followups.md
 ---
 
 # Password Hashing, Cookie & CORS Hardening, and Dependency Bump
@@ -73,6 +75,8 @@ Was `allow_origins=["*"]` + `allow_credentials=True` — unsafe. Restricted via 
 - Verify login with `COOKIE_SAMESITE`/`COOKIE_SECURE`/`CORS_ALLOWED_ORIGINS` in deployment.
 
 > **Consistency (2026-08-27):** `demetra/services/passwords.py` → `demetra/services/auth/passwords.py` (commit `04436c6`). Logic unchanged.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

@@ -8,7 +8,10 @@ services: [wiki, tests, runtime]
 branch: "-"
 tickets: []
 tags: [wiki, tests, performance, env, index, revalidation, bug]
-related: [2026-08-07-mnt-147-wiki-processes-pr70-review.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-09-apply-code-review-findings.md]
+related:
+- 2026-08-07-split-wiki-service-into-subpackage.md
+- 2026-08-07-mnt-147-wiki-processes-pr70-review.md
+- 2026-08-09-apply-code-review-findings.md
 ---
 
 # Wiki edge-case fixes and slow-test optimization
@@ -78,6 +81,8 @@ Added `revalidation_changed_files()` (`git status --porcelain --untracked-files=
 ## Follow-ups
 
 None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

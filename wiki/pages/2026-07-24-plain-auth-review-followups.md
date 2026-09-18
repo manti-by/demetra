@@ -8,7 +8,12 @@ services: [auth, api, database, react]
 branch: mnt-148-plain-auth
 tickets: [MNT-148, MNT-50, MNT-48]
 tags: [auth, passwords, jwt, cookies, accessibility, github, oauth, react]
-related: [2026-03-05-github-login.md, 2026-03-05-github-login-react-app.md, 2026-07-22-react-frontend-template-warp.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-08-06-allowlist-review-fixes.md]
+related:
+- 2026-03-05-github-login.md
+- 2026-08-03-auth-hardening-and-deps-bump.md
+- 2026-03-05-github-login-react-app.md
+- 2026-07-22-react-frontend-template-warp.md
+- 2026-08-06-allowlist-review-fixes.md
 ---
 
 # Plain Password Auth Implementation and Review Follow-ups
@@ -82,6 +87,8 @@ React wiring of GitHub button via `AuthContext` — MNT-50, 2026-03-05. Origin o
 
 - All review feedback applied; historical notes: passlib→bcrypt, `SameSite`/`CORS` hardening, token still returned on GitHub callback (`AuthResponse.token?`).
 - **Module paths (2026-08-07, `04436c6`):** `services/auth.py` → `auth/__init__.py` + `auth/sessions.py|jwt.py|oauth.py|copy.py`, `services/passwords.py` → `auth/passwords.py`.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 

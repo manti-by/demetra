@@ -1,6 +1,7 @@
 ---
 name: release-notes
 description: Generate GitHub release notes for the demetra repo between two version tags. Use when asked to "create release notes", "write a changelog", "draft a release", or "build release notes" for a tag range such as v1.15.4..v1.16.7.
+agent: plan
 ---
 
 # Release Notes Skill
