@@ -4,17 +4,17 @@
     "type": "split",
     "children": [
       {
-        "id": "8fa1e313d80f8f01",
+        "id": "361ddfcf221cfdbc",
         "type": "tabs",
         "children": [
           {
-            "id": "cb2ccc668d6c9df0",
+            "id": "11bd73b21fa34114",
             "type": "leaf",
             "state": {
-              "type": "graph",
+              "type": "empty",
               "state": {},
-              "icon": "lucide-git-fork",
-              "title": "Graph view"
+              "icon": "lucide-file",
+              "title": "New tab"
             }
           }
         ]
@@ -182,8 +182,9 @@
       "bases:Create new base": false
     }
   },
-  "active": "cb2ccc668d6c9df0",
+  "active": "765e9e00dfb5cec3",
   "lastOpenFiles": [
+    "Untitled",
     "audits/2026-02-23-questions-extraction/output/meta-llama_llama-guard-4-12b_csv.md",
     "archive/2026-02-15-git-cleanup-on-error.md",
     "audits/2026-07-23-session-tokens/RESULT.md",
@@ -193,7 +194,6 @@
     "README.md",
     "QUESTIONS.md",
     "Untitled 1",
-    "Untitled",
     "Welcome.md"
   ]
 }

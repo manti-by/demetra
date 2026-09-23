@@ -21,6 +21,8 @@ ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
 
 RUN uv sync --frozen --no-dev --no-cache
 
+FROM oven/bun:1 AS bun
+
 FROM python:3.13.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,6 +31,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
 COPY --from=builder /usr/bin/gh /usr/bin/gh
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /bin/uv /bin/uvx /bin/
 COPY --from=builder /opt/venv /opt/venv
 

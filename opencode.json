@@ -18,48 +18,6 @@
       "oauth": {}
     }
   },
-  "command": {
-    "fix-review-findings": {
-      "template": "/skill:fix-review-findings",
-      "description": "Fix PR review comments",
-      "agent": "build"
-    },
-    "release-name": {
-      "template": "/skill:release-name",
-      "description": "Generate release name",
-      "agent": "plan"
-    },
-    "release-notes": {
-      "template": "/skill:release-notes",
-      "description": "Generate release notes",
-      "agent": "plan"
-    },
-    "wiki-agents-file": {
-      "template": "/skill:wiki-agents-file",
-      "description": "Update AGENTS.md file",
-      "agent": "build"
-    },
-    "wiki-archive": {
-      "template": "/skill:wiki-archive",
-      "description": "Archive old wiki pages",
-      "agent": "build"
-    },
-    "wiki-consistency": {
-      "template": "/skill:wiki-consistency",
-      "description": "Check wiki pages for consistency",
-      "agent": "build"
-    },
-    "wiki-dedup": {
-      "template": "/skill:wiki-dedup",
-      "description": "Check wiki pages for duplicates",
-      "agent": "build"
-    },
-    "wiki-sync": {
-      "template": "/skill:wiki-sync",
-      "description": "Create or update wiki for the current session",
-      "agent": "build"
-    }
-  },
   "lsp": {
     "pyright": {
       "disabled": true
