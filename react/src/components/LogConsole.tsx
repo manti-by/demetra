@@ -119,9 +119,9 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
 
   useEffect(() => {
     if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {
-      logsEndRef.current.scrollIntoView({ behavior: "smooth" });
+      logsEndRef.current.scrollIntoView({ block: "end" });
     }
-  }, [logs.length]);
+  }, [taskId, logs]);
 
   const clearLogs = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();

@@ -1,7 +1,9 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { LogConsole } from './LogConsole';
+
+const originalScrollIntoView = HTMLElement.prototype.scrollIntoView;
 
 function createMockWebSocket() {
   let onmessage: ((event: MessageEvent) => void) | null = null;
@@ -48,9 +50,17 @@ vi.mock('../services/api', () => ({
 }));
 
 describe('LogConsole', () => {
+  let scrollIntoViewSpy: ReturnType<typeof vi.fn>;
+
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.setItem('auth_token', 'test-token');
+    scrollIntoViewSpy = vi.fn();
+    HTMLElement.prototype.scrollIntoView = scrollIntoViewSpy;
+  });
+
+  afterEach(() => {
+    HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   });
 
   it('renders select session prompt when no taskId', () => {
@@ -173,6 +183,66 @@ describe('LogConsole', () => {
 
     // Log should be cleared, showing empty state
     expect(screen.getByText('Waiting for log events...')).toBeInTheDocument();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('scrolls to the bottom when a new log record is received', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    render(
+      <LogConsole
+        taskId="task-123"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={vi.fn()}
+      />,
+    );
+
+    act(() => {
+      wsMock.triggerOpen();
+    });
+
+    scrollIntoViewSpy.mockClear();
+
+    act(() => {
+      wsMock.triggerMessage(
+        JSON.stringify({ type: 'log', data: { text: 'tail record' } }),
+      );
+    });
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'end' });
+
+    vi.unstubAllGlobals();
+  });
+
+  it('scrolls to the bottom when the session changes', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    const onSessionStatus = vi.fn();
+
+    const { rerender } = render(
+      <LogConsole
+        taskId="task-1"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={onSessionStatus}
+      />,
+    );
+
+    scrollIntoViewSpy.mockClear();
+
+    rerender(
+      <LogConsole
+        taskId="task-2"
+        onDeleteSession={vi.fn()}
+        onSessionStatus={onSessionStatus}
+      />,
+    );
+
+    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'end' });
 
     vi.unstubAllGlobals();
   });
