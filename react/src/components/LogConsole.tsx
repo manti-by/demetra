@@ -119,7 +119,7 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
 
   useEffect(() => {
     if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {
-      logsEndRef.current.scrollIntoView({ block: "end" });
+      logsEndRef.current.scrollIntoView({ behavior: "instant" as ScrollBehavior });
     }
   }, [taskId, logs]);
 

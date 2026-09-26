@@ -29,4 +29,5 @@ venv/
 **/dist/
 **/.vite/
 
+docs/
 wiki/*.lock

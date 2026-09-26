@@ -1,6 +1,6 @@
 from langchain_openai import ChatOpenAI
 
-from demetra.services.llm.config import get_openrouter_config
+from demetra.library.models import SessionEnvironment
 
 
 async def build_llm(
@@ -8,12 +8,12 @@ async def build_llm(
     temperature: float,
     max_tokens: int,
     max_retries: int = 2,
-    user_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> ChatOpenAI:
     """Build a chat model backed by OpenRouter.
 
     Centralizes the model instantiation so changing the model or endpoint
-    is a one-line config change instead of touching every chain. The user
+    is a one-line config change instead of touching every chain. The resolved
     environment can override the model and API key via ``OPENROUTER_MODEL``
     and ``OPENROUTER_API_KEY``.
 
@@ -21,13 +21,14 @@ async def build_llm(
         temperature: Sampling temperature for the model.
         max_tokens: Maximum number of tokens to generate.
         max_retries: Number of retries on transient API failures.
-        user_id: Optional user id whose shared environment configures the
-            model and API key.
+        environment: Optional resolved env layer configuring the model and
+            API key; falls back to the settings-only layers when omitted.
 
     Returns:
         ChatOpenAI: The configured chat model.
     """
-    config = await get_openrouter_config(user_id=user_id)
+    resolver = environment or SessionEnvironment(project_environment={}, user_environment={})
+    config = resolver.openrouter_config
     return ChatOpenAI(
         model=config["model"],
         temperature=temperature,

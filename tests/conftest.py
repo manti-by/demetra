@@ -377,7 +377,7 @@ def linear_task_data() -> dict:
         "priority": fake.random_int(min=1, max=4),
         "createdAt": fake.date_time().isoformat(),
         "branchName": f"feature/{fake.slug()}",
-        "project": {"name": fake.word()},
+        "project": {"id": f"project-{uuid4().hex[:8]}", "name": fake.word()},
         "state": {"name": "todo"},
         "comments": {"nodes": []},
         "labels": {"nodes": []},
@@ -401,7 +401,7 @@ def linear_task_data_with_labels(linear_task_data_demetra: dict) -> dict:
 
 @pytest.fixture
 def linear_task_data_demetra(linear_task_data: dict) -> dict:
-    linear_task_data.update({"project": {"name": "demetra"}})
+    linear_task_data.update({"project": {"id": "linear-proj-demetra", "name": "demetra"}})
     return linear_task_data
 
 
@@ -463,6 +463,7 @@ def linear_task(linear_task_data: dict):
         priority=linear_task_data["priority"],
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
+        linear_project_id=linear_task_data["project"].get("id"),
         labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
         url=linear_task_data["url"],
     )
@@ -549,6 +550,8 @@ def linear_full_settings(linear_team_id: str, linear_state_id: str) -> dict:
         "default_state": linear_state_id,
         "default_project": "project-123",
         "feature_label_id": "label-123",
+        "backend_label_id": "label-backend",
+        "frontend_label_id": "label-frontend",
         "states": {"todo": linear_state_id, "in_review": "state-review"},
         "projects": {},
         "api_url": "",

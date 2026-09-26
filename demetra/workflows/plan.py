@@ -1,6 +1,13 @@
 from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import AutoCancelledError, InfiniteLoopError, LinearError, PlanError, UserCancelledError
+from demetra.library.exceptions import (
+    AutoCancelledError,
+    EnvironmentConfigError,
+    InfiniteLoopError,
+    LinearError,
+    PlanError,
+    UserCancelledError,
+)
 from demetra.library.models import Context
 from demetra.services.agents.opencode import (
     PLAN_HEADER_STRING,
@@ -8,13 +15,13 @@ from demetra.services.agents.opencode import (
     get_opencode_session_tokens,
     opencode_plan_agent,
 )
-from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
+from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
-from demetra.settings import MAX_PLAN_ATTEMPTS, OPENCODE
+from demetra.settings import MAX_PLAN_ATTEMPTS
 from demetra.workflows.resolve import run_resolve_step
 
 
@@ -32,9 +39,10 @@ async def move_to_awaiting_input(context: Context) -> None:
         LinearError: When the awaiting_input state is not configured.
         AutoCancelledError: Always, to halt the workflow.
     """
-    state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
-    if state_id is None:
-        raise LinearError("Linear state 'awaiting_input' is not configured")
+    try:
+        state_id = context.environment.linear_state("awaiting_input")
+    except EnvironmentConfigError as e:
+        raise LinearError("Linear state 'awaiting_input' is not configured") from e
     await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
     await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
     print_message("Task moved to Awaiting Input state.", style="result")
@@ -74,7 +82,7 @@ async def run_plan_step(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            user_environment=context.project.user_environment,
+            environment=context.environment,
         )
         if exit_code != 0:
             raise PlanError(
@@ -93,7 +101,7 @@ async def run_plan_step(context: Context) -> str | None:
                 plan_output=plan_output,
                 task_description=context.linear_task.description,
                 comments=context.linear_task.comments,
-                user_id=context.project.user_id,
+                environment=context.environment,
             )
         except PlanError as e:
             print_message(f"Plan step failed: {e}", style="error")
@@ -143,12 +151,12 @@ async def run_plan_step(context: Context) -> str | None:
                     session_id=context.session_id,
                     step="plan",
                     usage=usage,
-                    model=OPENCODE["plan_model"],
+                    model=context.environment.opencode_plan_model,
                 )
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")
 
-        questions = await extract_questions(plan_output=plan_output, user_id=context.project.user_id)
+        questions = await extract_questions(plan_output=plan_output, environment=context.environment)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
         if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")

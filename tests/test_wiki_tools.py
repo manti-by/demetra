@@ -1,5 +1,6 @@
 import pytest
 
+from demetra.settings import SEARCH
 from demetra.tools import wiki
 
 
@@ -128,12 +129,12 @@ class TestExtractSnippets:
 
     def test_max_snippets_respected(self):
         body = "\n".join(f"line {i} mentions token" for i in range(10))
-        assert len(wiki._extract_snippets(body, ["token"])) == wiki.MAX_SNIPPETS
+        assert len(wiki._extract_snippets(body, ["token"])) == SEARCH["max_snippets"]
 
     def test_long_lines_truncated(self):
         body = "token " + "x" * 500
         snippet = wiki._extract_snippets(body, ["token"])[0]
-        assert len(snippet) <= wiki.SNIPPET_LENGTH + len("L1: ")
+        assert len(snippet) <= SEARCH["snippet_length"] + len("L1: ")
 
 
 class TestResolvePage:

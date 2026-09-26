@@ -15,33 +15,32 @@ related: []
 
 ## TL;DR
 
-ANSI escape codes in logs were causing coloring issues. Fixed by adding a stripping filter at multiple levels.
+Raw ANSI escape sequences (`\x1b[31m` etc.) in logs rendered as garbled text. Fixed by adding stripping via regex `\x1b\[[0-9;]*[a-zA-Z]` at source and in the logging config, covering all handlers.
+
+---
 
 ## Symptom
 
-Logs contained raw ANSI escape sequences (e.g., `\x1b[31m`) that rendered as garbled text in log viewers and files.
+Logs contained raw ANSI escapes that polluted log viewers and files.
 
 ## Resolution
 
-Applied ANSI stripping filtering in four places:
-
-1. **`demetra/services/utils.py:12-22`** — `AnsiStrippingFilter` class and `ansi_strip` helper using regex `\x1b\[[0-9;]*[a-zA-Z]` to strip all ANSI escape codes.
-
-2. **`demetra/services/utils.py:57`** — Strip at source in `live_stream()` before subprocess output is logged.
-
-3. **`demetra/settings.py:52-56, 68, 75`** — Register filter in `LOGGING` dictConfig, applied to both `console` and `file` handlers so all log records (including those from `print_message`) are filtered.
-
-4. **`demetra/services/utils.py:109`** — Filter applied to dynamically created session log handlers in `setup_session_logging()`.
+- `demetra/services/utils.py:12-22` — `AnsiStrippingFilter` + `ansi_strip` helper (regex `\x1b\[[0-9;]*[a-zA-Z]`).
+- `demetra/services/utils.py:57` — stripped at source in `live_stream()` before subprocess output is logged.
+- `demetra/settings.py:52-56, 68, 75` — registered in `LOGGING` dictConfig on both `console` and `file` handlers (covers `print_message`).
+- `demetra/services/utils.py:109` — applied to dynamically created session handlers in `setup_session_logging()`.
 
 ## Verification
 
-No colored escape sequences remain in log output.
+No ANSI escapes remain in log output.
 
-## Known follow-up
+---
 
-None
+## Follow-ups
 
-> **Consistency note (2026-08-24, Consistency Agent):** Module paths in this session record have moved — demetra/services/utils.py → demetra/services/runtime/utils.py. Historical `file:line` refs below are kept as written.
+None.
+
+> **Consistency note (2026-08-24):** `demetra/services/utils.py` → `demetra/services/runtime/utils.py`.
 
 ## References
 

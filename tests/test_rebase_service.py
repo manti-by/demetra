@@ -129,7 +129,7 @@ class TestPerformGitRebase:
         ]
         with (
             patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.opencode_rebase_agent", new_callable=AsyncMock) as mock_agent,
             patch("demetra.services.vcs.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"
@@ -163,7 +163,7 @@ class TestPerformGitRebase:
         ]
         with (
             patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.opencode_rebase_agent", new_callable=AsyncMock) as mock_agent,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (1, "", "agent failed")
@@ -190,7 +190,7 @@ class TestPerformGitRebase:
         ]
         with (
             patch("demetra.services.vcs.rebase.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.vcs.rebase.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.vcs.rebase.opencode_rebase_agent", new_callable=AsyncMock) as mock_agent,
             patch("demetra.services.vcs.rebase.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"

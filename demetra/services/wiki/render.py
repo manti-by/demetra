@@ -215,7 +215,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
                 description=facts["description"],
                 build_plan=facts["build_plan"] or "",
                 diff_summary=facts["stat_text"] or "",
-                user_id=context.project.user_id,
+                environment=context.environment,
             )
 
         body = service.render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)

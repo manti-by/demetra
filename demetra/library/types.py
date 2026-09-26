@@ -27,6 +27,8 @@ class LinearConfig(TypedDict):
     oauth_token_url: str
     service_name: str
     feature_label_id: str
+    backend_label_id: str
+    frontend_label_id: str
     states: LinearStates
     default_state: str
     filter_labels: list[str]

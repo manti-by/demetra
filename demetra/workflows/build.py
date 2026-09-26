@@ -11,7 +11,7 @@ from demetra.services.persistence.database import record_session_step_history, u
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
-from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
+from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.validate import run_validate_agent
@@ -40,7 +40,7 @@ async def check_and_compact_context(context: Context) -> None:
             session_id=context.session_id,
             step="build",
             usage=usage,
-            model=OPENCODE["build_model"],
+            model=context.environment.opencode_build_model,
         )
     except (SQLAlchemyError, OSError):
         history = None
@@ -92,7 +92,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            user_environment=context.project.user_environment,
+            environment=context.environment,
         )
         if exit_code != 0:
             raise BuildError(
@@ -108,7 +108,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 build_plan=build_plan,
                 env=context.project.environment,
                 project_id=context.project.id,
-                user_environment=context.project.user_environment,
+                environment=context.environment,
             )
             if missing_items:
                 if context.auto_mode:
@@ -137,7 +137,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 task_id=context.linear_task.id,
                 env=context.project.environment,
                 project_id=context.project.id,
-                user_id=context.project.user_id,
+                environment=context.environment,
             )
             if review_comments:
                 if context.auto_mode:
