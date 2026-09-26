@@ -242,7 +242,8 @@ describe('LogConsole', () => {
       />,
     );
 
-    expect(scrollIntoViewSpy).toHaveBeenCalledWith({ block: 'end' });
+    expect(scrollIntoViewSpy).toHaveBeenCalledTimes(2);
+    expect(scrollIntoViewSpy).toHaveBeenLastCalledWith({ block: 'end' });
 
     vi.unstubAllGlobals();
   });
