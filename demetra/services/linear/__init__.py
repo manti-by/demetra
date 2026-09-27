@@ -1,7 +1,7 @@
-from demetra.services.linear.config import get_linear_config_value
 from demetra.services.linear.graphql import get_query, graphql_request
 from demetra.services.linear.mutations import (
     create_linear_ticket,
+    create_research_ticket,
     linear_cleanup,
     post_comment,
     update_ticket_status,
@@ -22,10 +22,10 @@ from demetra.settings import LINEAR
 __all__ = [
     "LINEAR",
     "create_linear_ticket",
+    "create_research_ticket",
     "extract_comments",
     "extract_labels",
     "get_connection",
-    "get_linear_config_value",
     "get_linear_task",
     "get_linear_task_by_id",
     "get_linked_projects",

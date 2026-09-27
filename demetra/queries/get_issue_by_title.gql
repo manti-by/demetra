@@ -1,0 +1,9 @@
+query GetIssueByTitle($projectId: ID!, $title: String!) {
+  issues(first: 1, filter: {project: {id: {eq: $projectId}}, title: {eq: $title}}) {
+    nodes {
+      id
+      identifier
+      title
+    }
+  }
+}

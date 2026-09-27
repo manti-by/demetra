@@ -6,11 +6,19 @@ class SettingsError(DemetraError):
     pass
 
 
+class EnvironmentConfigError(DemetraError):
+    pass
+
+
 class ProjectDoesNotExistsError(DemetraError):
     pass
 
 
 class LinearError(DemetraError):
+    pass
+
+
+class LinearConfigError(LinearError):
     pass
 
 

@@ -15,37 +15,24 @@ related: []
 
 ## TL;DR
 
-Refactored the test suite to drop as many `patch` mocks as possible: DB access now uses fixtures/factories and local service calls use real function calls, while third-party service calls may stay mocked. Also added Docker support with build targets for amd64/ARM64, filtered trivial "no issue" review responses, updated `.dockerignore`, and added import-at-top guidance to AGENTS.md. Version bumped to 1.13.0.
+Replaced `patch` DB mocks with fixtures/factories and local service calls with real invocations (third-party calls may stay mocked). Added Docker amd64/ARM64 targets, filtered trivial "no issue" review responses, updated `.dockerignore`, added import-at-top guidance to AGENTS.md. Bumped to 1.13.0.
 
 ---
 
 ## Overview
 
-The goal was to make tests exercise real code paths rather than mocked ones, which reduces false confidence and makes refactors fail loudly.
+Tests now exercise real code paths instead of mocked ones, reducing false confidence and making refactors fail loudly.
 
-## Step 1 — Replace DB mocks with fixtures/factories
+## Changes
 
-**File:** `tests/`
-
-Introduced fixtures and factories across the suite so tests create real database records instead of patching repository calls. This covers the bulk of the removed `patch` usages.
-
-## Step 2 — Call local services for real
-
-Where a test invoked a local service through a mock, it now calls the real function. Third-party service calls (external systems) may remain mocked.
-
-## Step 3 — Docker support
-
-Added Docker build targets for amd64 and ARM64 and updated `.dockerignore` so the image excludes irrelevant local files. Docker remains an alternative to the systemd deployment (see MNT-119).
-
-## Step 4 — Review filtering + guidelines
-
-- Filtered trivial "no issue" review responses so they do not surface as findings.
-- Added import-at-top guidance to `AGENTS.md`.
-- Version bumped to 1.13.0.
+- **DB fixtures/factories** (`tests/`): real database records replace patched repository calls — bulk of removed patches.
+- **Local services**: tests call real functions instead of mocks; third-party calls may remain mocked.
+- **Docker**: amd64 + ARM64 build targets, `.dockerignore` updated. Alternative to systemd deploy (MNT-119).
+- **Review filtering + guidelines**: trivial "no issue" findings filtered; import-at-top guidance added to `AGENTS.md`.
 
 ## Test Results
 
-Full suite passes after the refactor; the fixture/factory migrations were verified by running the affected test modules.
+Full suite passes after refactor; affected modules verified.
 
 ---
 

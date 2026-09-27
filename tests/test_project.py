@@ -17,15 +17,35 @@ dependencies = []
 
 
 class TestBumpProjectVersion:
+    def test_major_bump(self, tmp_path: Path):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(SAMPLE_PYPROJECT)
+
+        result = bump_project_version(tmp_path, is_major=True)
+
+        assert result == "2.14.1"
+        content = pyproject.read_text()
+        assert 'version = "2.14.1"' in content
+
     def test_minor_bump(self, tmp_path: Path):
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text(SAMPLE_PYPROJECT)
+
+        result = bump_project_version(tmp_path, is_minor=True)
+
+        assert result == "1.15.1"
+        content = pyproject.read_text()
+        assert 'version = "1.15.1"' in content
+
+    def test_patch_bump(self, tmp_path: Path):
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text(SAMPLE_PYPROJECT)
 
         result = bump_project_version(tmp_path)
 
-        assert result == "1.15.0"
+        assert result == "1.14.2"
         content = pyproject.read_text()
-        assert 'version = "1.15.0"' in content
+        assert 'version = "1.14.2"' in content
 
     def test_major_version_preserved(self, tmp_path: Path):
         content = SAMPLE_PYPROJECT.replace('version = "1.14.1"', 'version = "2.14.1"')
@@ -34,9 +54,9 @@ class TestBumpProjectVersion:
 
         result = bump_project_version(tmp_path)
 
-        assert result == "2.15.0"
+        assert result == "2.14.2"
         content = pyproject.read_text()
-        assert 'version = "2.15.0"' in content
+        assert 'version = "2.14.2"' in content
 
     def test_preserves_other_fields(self, tmp_path: Path):
         pyproject = tmp_path / "pyproject.toml"

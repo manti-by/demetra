@@ -12,6 +12,8 @@ related: [2026-07-21-rich-markuperror-and-run-attempts.md]
 ---
 
 # Max run attempts for a ticket
+> **Archived on 2026-09-14.** Useful info merged into [[2026-07-21-rich-markuperror-and-run-attempts]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

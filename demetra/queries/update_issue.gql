@@ -1,0 +1,10 @@
+mutation UpdateIssue($id: ID!, $input: IssueUpdateInput!) {
+  issueUpdate(id: $id, input: $input) {
+    success
+    issue {
+      id
+      identifier
+      title
+    }
+  }
+}

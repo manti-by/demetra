@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 
-from demetra.library.models import Context, Project
+from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_by_id_system,
@@ -90,7 +90,9 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
             pr_number=pr_number,
             full_name=full_name,
             project_id=project.id,
-            user_environment=project.user_environment,
+            environment=SessionEnvironment(
+                project_environment=project.environment, user_environment=project.user_environment
+            ),
         )
         if rebase_succeeded:
             logger.info(f"Successfully rebased and resolved conflicts for PR #{pr_number}")

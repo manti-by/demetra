@@ -65,6 +65,10 @@ NO_ISSUE_TOKENS = {
     "all good",
     "nothing to report.",
     "nothing to report",
+    "no_findings",
+    "no findings",
+    "plan fully covered",
+    "plan_fully_covered",
 }
 
 NO_ISSUE_TOKENS_CASE = {t.casefold() for t in NO_ISSUE_TOKENS}

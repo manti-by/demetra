@@ -15,18 +15,29 @@ from demetra.services.linear import create_linear_ticket
 class TestLinearService:
     @pytest.fixture
     def mock_linear_full(self, linear_full_settings):
-        with patch("demetra.services.linear.LINEAR", linear_full_settings):
+        with (
+            patch("demetra.settings.LINEAR", linear_full_settings),
+            patch("demetra.services.linear.LINEAR", linear_full_settings),
+        ):
             yield
 
     @pytest.mark.asyncio
     async def test_create_linear_ticket_returns_ticket_info(
         self,
-        mock_graphql_request: AsyncMock,
         mock_linear_full,
         linear_issue_id: str,
         linear_identifier: str,
+        linear_graphql_response_success: dict,
     ):
-        result = await create_linear_ticket("Test", "Desc", "Req", "AC")
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock, return_value="mutation IssueCreate..."),
+            patch(
+                "demetra.services.linear.graphql_request",
+                new_callable=AsyncMock,
+                return_value=linear_graphql_response_success,
+            ),
+        ):
+            result = await create_linear_ticket("Test", "Desc", "Req", "AC")
 
         assert result["ticket_id"] == linear_issue_id
         assert result["identifier"] == linear_identifier
@@ -38,11 +49,14 @@ class TestLinearService:
         mock_linear_full,
         linear_graphql_response_failure: dict,
     ):
-        with patch(
-            "demetra.services.linear.graphql_request",
-            new_callable=AsyncMock,
-        ) as mock_request:
-            mock_request.return_value = linear_graphql_response_failure
+        with (
+            patch("demetra.services.linear.get_query", new_callable=AsyncMock, return_value="mutation IssueCreate..."),
+            patch(
+                "demetra.services.linear.graphql_request",
+                new_callable=AsyncMock,
+                return_value=linear_graphql_response_failure,
+            ),
+        ):
             with pytest.raises(LinearError, match="Failed to create Linear ticket"):
                 await create_linear_ticket("Test", "Desc", "Req", "AC")
 

@@ -260,6 +260,10 @@ async def create_pull_request(
         base,
         "--head",
         branch_name,
+        "--assignee",
+        "demetra-ai",
+        "--reviewer",
+        "manti-by",
     ]
     if body:
         cmd.extend(["--body", body])

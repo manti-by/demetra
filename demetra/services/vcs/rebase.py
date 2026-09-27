@@ -1,7 +1,8 @@
 import logging
 from pathlib import Path
 
-from demetra.services.agents.opencode import opencode_merge_agent
+from demetra.library.models import SessionEnvironment
+from demetra.services.agents.opencode import opencode_rebase_agent
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.vcs.git import git_add_all, git_force_push
@@ -20,10 +21,10 @@ async def perform_git_rebase(
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> bool:
     """
-    Handles the Git rebase process, including conflict resolution with opencode-merge-agent.
+    Handles the Git rebase process, including conflict resolution with opencode-rebase-agent.
     """
     # During rebase, ours/theirs are swapped relative to merge: the branch being rebased
     # onto (origin/{base_branch}) is "ours". -X ours keeps the base version on conflict.
@@ -73,16 +74,16 @@ async def perform_git_rebase(
             rebase_error=stderr.strip()[:2000],
         )
 
-        agent_exit, agent_out, agent_err = await opencode_merge_agent(
+        agent_exit, agent_out, agent_err = await opencode_rebase_agent(
             target_path=worktree_path,
             task=task,
             env=env,
             project_id=project_id,
-            user_environment=user_environment,
+            environment=environment,
         )
 
         if agent_exit != 0:
-            logger.error(f"Conflict resolution via merge-agent failed: {(agent_err or agent_out).strip()[:500]}")
+            logger.error(f"Conflict resolution via rebase-agent failed: {(agent_err or agent_out).strip()[:500]}")
             return False
 
         has_staged = await git_add_all(target_path=worktree_path, env=env, project_id=project_id)

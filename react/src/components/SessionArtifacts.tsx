@@ -24,7 +24,8 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
-  const [copied, setCopied] = useState(false);
+  const [researchModalOpen, setResearchModalOpen] = useState(false);
+  const [researchIsRendered, setResearchIsRendered] = useState(true);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -62,6 +63,12 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
       copyResetRef.current = null;
     }, 1500);
   }, [session]);
+
+  const openResearchModal = useCallback(() => {
+    setResearchIsRendered(true);
+    setResearchModalOpen(true);
+  }, []);
+  const closeResearchModal = useCallback(() => setResearchModalOpen(false), []);
 
   useEffect(() => {
     setHistoryOpen(false);
@@ -116,10 +123,11 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
 
   const hasPrLink = !!session.pr_link;
   const hasBuildPlan = !!session.build_plan;
+  const hasResearchReport = !!session.research_report;
   const hasLinearLink = !!session.linear_link;
   const hasHistory = !!session.session_id;
 
-  if (!hasPrLink && !hasBuildPlan && !hasLinearLink && !hasHistory) {
+  if (!hasPrLink && !hasBuildPlan && !hasResearchReport && !hasLinearLink && !hasHistory) {
     return <div className="session-artifacts" />;
   }
 
@@ -166,6 +174,15 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
           View Build Plan
         </a>
       )}
+      {hasResearchReport && (
+        <a className="session-artifacts-link" href="#" onClick={(e) => { e.preventDefault(); openResearchModal(); }}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          View Research Report
+        </a>
+      )}
       {hasHistory && (
         <a className="session-artifacts-link" href="#" onClick={(e) => { e.preventDefault(); openHistory(); }}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -197,6 +214,30 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
               </button>
               <button className="modal-btn" type="button" onClick={handleCopy}>
                 {copied ? 'Copied!' : 'Copy'}
+              </button>
+            </div>
+        </div>
+        </div>
+      )}
+      {researchModalOpen && hasResearchReport && (
+        <div className="modal-overlay" onClick={closeResearchModal}>
+          <div className="modal-content research-plan-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>Research Report</h2>
+              <button className="modal-close" onClick={closeResearchModal} aria-label="Close">
+                <CloseIcon />
+              </button>
+            </div>
+            <div className="modal-body">
+              {!researchIsRendered ? (
+                <pre className="build-plan-text">{session.research_report}</pre>
+              ) : (
+                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_report!, { async: false }) as string, { FORBID_TAGS: ['img', 'style'] }) }} />
+              )}
+            </div>
+            <div className="modal-footer">
+              <button className="modal-btn" onClick={() => setResearchIsRendered(!researchIsRendered)}>
+                {researchIsRendered ? 'Show Markdown' : 'Show Rendered'}
               </button>
             </div>
         </div>
