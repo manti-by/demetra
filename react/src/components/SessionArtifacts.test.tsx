@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { SessionArtifacts } from './SessionArtifacts';
@@ -314,6 +314,46 @@ describe('SessionArtifacts', () => {
 
     await expect(navigator.clipboard.readText()).resolves.toBe(mockSessionWithPrLink.build_plan);
     expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument();
+  });
+
+  it('does not show Copied! when a pending copy resolves after the modal was closed', async () => {
+    const user = userEvent.setup();
+    let resolveWrite: (() => void) | undefined;
+    const writeText = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveWrite = resolve;
+        }),
+    );
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText } });
+
+    try {
+      render(
+        <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+      );
+
+      await user.click(screen.getByText('View Build Plan'));
+      await user.click(screen.getByRole('button', { name: 'Copy' }));
+
+      expect(writeText).toHaveBeenCalledTimes(1);
+
+      await user.click(screen.getByLabelText('Close'));
+      await act(async () => {
+        resolveWrite?.();
+      });
+
+      await user.click(screen.getByText('View Build Plan'));
+
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copied!' })).not.toBeInTheDocument();
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, 'clipboard', originalClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      }
+    }
   });
 
   it('keeps the Copy label when the clipboard API is unavailable', async () => {

@@ -30,8 +30,10 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyData, setHistoryData] = useState<SessionHistoryResponse | null>(null);
+  const [copied, setCopied] = useState(false);
   const historyAbortRef = useRef<AbortController | null>(null);
   const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const copyTokenRef = useRef(0);
 
   const openModal = useCallback(() => {
     setIsRendered(true);
@@ -39,6 +41,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   }, []);
   const closeModal = useCallback(() => {
     setModalOpen(false);
+    copyTokenRef.current += 1;
     setCopied(false);
     if (copyResetRef.current) {
       clearTimeout(copyResetRef.current);
@@ -50,11 +53,15 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
     if (!session?.build_plan) return;
     if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
 
+    const token = copyTokenRef.current;
+
     try {
       await navigator.clipboard.writeText(session.build_plan);
     } catch {
       return;
     }
+
+    if (token !== copyTokenRef.current) return;
 
     setCopied(true);
     if (copyResetRef.current) clearTimeout(copyResetRef.current);

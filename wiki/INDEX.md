@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — Dockerfile now copies `.opencode/agents/` and `.opencode/skills/` to `/home/demetra/.config/opencode/` with demetra ownership and 755/644 modes, plus .dockerignore re-includes. (2026-09-18)
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — The implementation standardized methods for resolving agent models, Linear settings, and OpenRouter settings by introducing a single SessionEnvironment resolver. (2026-09-16)
 - [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — Added "View Research Plan" link + modal mirroring the build-plan artifact — new `sessions.research_plan` column, Session persistence, API exposure, and `SessionArtifacts` UI with markdown toggle. (2026-09-14)
@@ -156,8 +157,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
 
-### React frontend / UI (13 pages)
+### React frontend / UI (14 pages)
 
+- [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — 2026-09-27
 - [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — 2026-09-14
 - [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — 2026-09-02
 - [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
