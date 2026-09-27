@@ -211,4 +211,53 @@ describe('SessionArtifacts', () => {
     expect(link).toBeInTheDocument();
     expect(link.closest('a')).toHaveAttribute('href', 'https://github.com/owner/repo/pull/99');
   });
+
+  it('renders a Copy button alongside the Show Markdown button in the build plan modal', async () => {
+    const user = userEvent.setup();
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
+
+    await user.click(screen.getByText('View Build Plan'));
+
+    expect(screen.getByRole('button', { name: 'Show Markdown' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+  });
+
+  it('copies the build plan markdown to the clipboard on click', async () => {
+    const user = userEvent.setup();
+    render(
+      <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+    );
+
+    await user.click(screen.getByText('View Build Plan'));
+    await user.click(screen.getByRole('button', { name: 'Copy' }));
+
+    await expect(navigator.clipboard.readText()).resolves.toBe(mockSessionWithPrLink.build_plan);
+    expect(screen.getByRole('button', { name: 'Copied!' })).toBeInTheDocument();
+  });
+
+  it('keeps the Copy label when the clipboard API is unavailable', async () => {
+    const user = userEvent.setup();
+    const originalClipboard = Object.getOwnPropertyDescriptor(navigator, 'clipboard');
+    Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined });
+
+    try {
+      render(
+        <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
+      );
+
+      await user.click(screen.getByText('View Build Plan'));
+      await user.click(screen.getByRole('button', { name: 'Copy' }));
+
+      expect(screen.getByRole('button', { name: 'Copy' })).toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: 'Copied!' })).not.toBeInTheDocument();
+    } finally {
+      if (originalClipboard) {
+        Object.defineProperty(navigator, 'clipboard', originalClipboard);
+      } else {
+        Reflect.deleteProperty(navigator, 'clipboard');
+      }
+    }
+  });
 });

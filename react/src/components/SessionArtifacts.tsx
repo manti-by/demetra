@@ -24,17 +24,44 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   );
   const [modalOpen, setModalOpen] = useState(false);
   const [isRendered, setIsRendered] = useState(true);
+  const [copied, setCopied] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyData, setHistoryData] = useState<SessionHistoryResponse | null>(null);
   const historyAbortRef = useRef<AbortController | null>(null);
+  const copyResetRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const openModal = useCallback(() => {
     setIsRendered(true);
     setModalOpen(true);
   }, []);
-  const closeModal = useCallback(() => setModalOpen(false), []);
+  const closeModal = useCallback(() => {
+    setModalOpen(false);
+    setCopied(false);
+    if (copyResetRef.current) {
+      clearTimeout(copyResetRef.current);
+      copyResetRef.current = null;
+    }
+  }, []);
+
+  const handleCopy = useCallback(async () => {
+    if (!session?.build_plan) return;
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return;
+
+    try {
+      await navigator.clipboard.writeText(session.build_plan);
+    } catch {
+      return;
+    }
+
+    setCopied(true);
+    if (copyResetRef.current) clearTimeout(copyResetRef.current);
+    copyResetRef.current = setTimeout(() => {
+      setCopied(false);
+      copyResetRef.current = null;
+    }, 1500);
+  }, [session]);
 
   useEffect(() => {
     setHistoryOpen(false);
@@ -50,6 +77,10 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
       historyAbortRef.current = null;
     };
   }, [taskId]);
+
+  useEffect(() => () => {
+    if (copyResetRef.current) clearTimeout(copyResetRef.current);
+  }, []);
 
   const openHistory = useCallback(async () => {
     if (!taskId) return;
@@ -163,6 +194,9 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
             <div className="modal-footer">
               <button className="modal-btn" onClick={() => setIsRendered(!isRendered)}>
                 {isRendered ? 'Show Markdown' : 'Show Rendered'}
+              </button>
+              <button className="modal-btn" type="button" onClick={handleCopy}>
+                {copied ? 'Copied!' : 'Copy'}
               </button>
             </div>
         </div>
