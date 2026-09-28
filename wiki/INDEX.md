@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. Not live yet: `OS_ENV_ALLOWLIST` drops the key before `opencode` starts and the plugin reads only `TRACE_TO_LANGSMITH`. (2026-09-28)
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
 - [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — Session log now autoscrolls to the latest records on new logs or session change (`LogConsole` `useEffect` on `taskId`+`logs` with `{ block: "end" }`); CSS smooth scroll off on `.log-content`; tests added. (2026-09-24)
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — Dockerfile now copies `.opencode/agents/` and `.opencode/skills/` to `/home/demetra/.config/opencode/` with demetra ownership and 755/644 modes, plus .dockerignore re-includes. (2026-09-18)
