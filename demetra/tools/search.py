@@ -1,5 +1,6 @@
 import re
 
+from demetra.library.constants import SEARCH_STOP_WORDS
 from demetra.settings import SEARCH
 
 
@@ -15,5 +16,5 @@ def tokenize(query: str) -> list[str]:
     return [
         term
         for term in re.findall(SEARCH["term_pattern"], query.lower())
-        if term not in SEARCH["stop_words"] and len(term) >= SEARCH["min_term_length"]
+        if term not in SEARCH_STOP_WORDS and len(term) >= SEARCH["min_term_length"]
     ]

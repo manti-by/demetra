@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
+- [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — Session log now autoscrolls to the latest records on new logs or session change (`LogConsole` `useEffect` on `taskId`+`logs` with `{ block: "end" }`); CSS smooth scroll off on `.log-content`; tests added. (2026-09-24)
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — Dockerfile now copies `.opencode/agents/` and `.opencode/skills/` to `/home/demetra/.config/opencode/` with demetra ownership and 755/644 modes, plus .dockerignore re-includes. (2026-09-18)
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — The implementation standardized methods for resolving agent models, Linear settings, and OpenRouter settings by introducing a single SessionEnvironment resolver. (2026-09-16)
 - [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — Added "View Research Plan" link + modal mirroring the build-plan artifact — new `sessions.research_plan` column, Session persistence, API exposure, and `SessionArtifacts` UI with markdown toggle. (2026-09-14)
@@ -106,15 +107,12 @@ _Newest first._
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — The session list now shows the task title instead of the truncated session id. The sessions API gained an endpoint with optional status filtering, sessions display a custom name when available with a fallback to the trun... (2026-05-22)
 - [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — Scoped Demetra's data to the logged-in user: every retrieved task and session is linked to its user, and tasks are retrieved only for projects linked to that user. (2026-04-02)
 - [Project model and space](pages/2026-03-31-project-model-and-space.md) — Replaced the dict-mapped projects in settings with a `Project` database model linked to the logged-in user (`user_id`, `linear_project_id`, `name`, `repository_url`), including a migration that moved existing projects ou... (2026-03-31)
-- [Add SQLAlchemy Core support](pages/2026-03-13-sqlalchemy-core-support.md) — Replaced raw SQL with SQLAlchemy Core (Core only, no declarative base): `demetra/services/database.py` now uses `Table`/`Column` objects. (2026-03-13)
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — Replaced the fragile string-search/trim plan extraction with a cleaned, summarized plan: `extract_plan` moved to `demetra/services/groq.py` and now runs a LangChain chain (Groq + llama, markdown output) over the plan out... (2026-03-11)
-- [Separate Linear comments](pages/2026-03-11-separate-linear-comments.md) — Changed question posting so every found question becomes its own Linear comment instead of one aggregated comment, letting a human answer each one individually. (2026-03-11)
 
 ## By topic
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (24 pages)
+### Workflow orchestration & agents (23 pages)
 
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10
@@ -139,7 +137,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Review summarization](pages/2026-06-04-review-summarization.md) — 2026-06-04
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
 - [Async review](pages/2026-05-25-async-review.md) — 2026-05-25
-- [Task plan summarization](pages/2026-03-11-task-plan-summarization.md) — 2026-03-11
 
 ### MCP / integrations (13 pages)
 
@@ -157,9 +154,10 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
 
-### React frontend / UI (14 pages)
+### React frontend / UI (15 pages)
 
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — 2026-09-27
+- [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — 2026-09-24
 - [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — 2026-09-14
 - [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — 2026-09-02
 - [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
@@ -174,7 +172,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
-### Linear & GitHub integrations (13 pages)
+### Linear & GitHub integrations (12 pages)
 
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
@@ -188,7 +186,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project environment](pages/2026-06-08-project-environment.md) — 2026-06-08
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — 2026-05-25
 - [Project model and space](pages/2026-03-31-project-model-and-space.md) — 2026-03-31
-- [Separate Linear comments](pages/2026-03-11-separate-linear-comments.md) — 2026-03-11
 
 ### Sessions, status & resume (11 pages)
 
@@ -215,7 +212,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 - [Refactor API](pages/2026-06-01-refactor-api.md) — 2026-06-01
 
-### Deploy & infrastructure (6 pages)
+### Deploy & infrastructure (7 pages)
+
+- [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
 
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24
 - [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — 2026-08-18
@@ -224,14 +223,13 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — 2026-07-07
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — 2026-06-10
 
-### Testing & tooling (6 pages)
+### Testing & tooling (5 pages)
 
 - [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
 - [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — 2026-08-18
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — 2026-07-22
 - [Remove patches from tests where possible](pages/2026-06-15-remove-patches-from-tests.md) — 2026-06-15
 - [Fix and squash migrations](pages/2026-06-03-fix-squash-migrations.md) — 2026-06-03
-- [Add SQLAlchemy Core support](pages/2026-03-13-sqlalchemy-core-support.md) — 2026-03-13
 
 ### Logging infrastructure (2 pages)
 

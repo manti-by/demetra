@@ -9,15 +9,15 @@ from demetra.library.tables import metadata
 
 
 def get_url() -> URL:
-    from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+    from demetra.settings import DATABASE
 
     return URL.create(
         drivername="postgresql+psycopg",
-        username=DB_USER,
-        password=DB_PASSWORD,
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
+        username=DATABASE["user"],
+        password=DATABASE["password"],
+        host=DATABASE["host"],
+        port=DATABASE["port"],
+        database=DATABASE["name"],
     )
 
 

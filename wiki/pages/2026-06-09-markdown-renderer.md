@@ -15,6 +15,7 @@ tags:
 - marked
 - modal
 related:
+- 2026-06-09-build-artifacts.md
 - 2026-09-02-mobile-template-react-frontend.md
 ---
 
@@ -30,7 +31,7 @@ Added markdown-to-HTML rendering for the build plan in the React app using the `
 
 ## Overview
 
-The build-plan modal previously displayed raw markdown text. This change renders it as HTML for readability.
+The build-plan modal previously displayed raw markdown text. This change renders it as HTML for readability. (The modal and the persisted plan it renders were introduced in [[2026-06-09-build-artifacts]].)
 
 ## Step 1 — Add the `marked` dependency
 
@@ -62,5 +63,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-06-09-build-artifacts]], [[2026-09-02-mobile-template-react-frontend]]
 - External: [MNT-113 — Markdown renderer (Linear)](https://linear.app/mnt/issue/MNT-113)

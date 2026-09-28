@@ -22,7 +22,7 @@ from demetra.library.tables import (
     users,
     waitlist_entries,
 )
-from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from demetra.settings import DATABASE
 
 
 logger = logging.getLogger(__name__)
@@ -41,14 +41,15 @@ def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEng
     pinging.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
         echo: Whether to log SQL statements.
 
     Returns:
         AsyncEngine: The configured async engine.
     """
-    database = db_name if db_name else DB_NAME
-    url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    database = db_name if db_name else DATABASE["name"]
+    url = f"postgresql+asyncpg://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/{database}"
     return create_async_engine(
         url,
         echo=echo,
@@ -91,14 +92,15 @@ def get_sync_engine(db_name: str | None = None, echo: bool = False):
     Uses psycopg over PostgreSQL.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
         echo: Whether to log SQL statements.
 
     Returns:
         Engine: The configured sync engine.
     """
-    database = db_name if db_name else DB_NAME
-    url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    database = db_name if db_name else DATABASE["name"]
+    url = f"postgresql+psycopg://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/{database}"
     return create_engine(url, echo=echo)
 
 
@@ -108,7 +110,8 @@ async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
     Engines are cached keyed by the running event loop and database name.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Returns:
         AsyncEngine: The cached async engine.
@@ -127,7 +130,8 @@ async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSess
     """Yield a session from the cached engine as an async context manager.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Yields:
         AsyncSession: An open async session.
@@ -148,7 +152,8 @@ async def get_transaction(db_name: str | None = None) -> AsyncGenerator[AsyncSes
     ``COMMIT`` / ``ROLLBACK``), so the yielded block runs atomically.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Yields:
         AsyncSession: A session inside an open transaction.

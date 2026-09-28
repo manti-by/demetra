@@ -99,5 +99,5 @@ In `manti-by/odin` repo, not `demetra`:
 
 ## References
 
-- Related: none
+- Related: [[2026-02-14-add-tui-support]], [[2026-06-08-max-run-attempts-for-a-ticket]]
 - External: [MNT-136](https://linear.app/mnt/issue/MNT-136) · Session log: `/var/log/demetra/sessions/4c32355e-55bf-478f-8cd6-832bacafe6f9.log` · Watcher log: `/var/log/demetra/demetra.log:390177`

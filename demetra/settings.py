@@ -2,9 +2,9 @@ from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
+    DBConfig,
     GitConfig,
     GitHubConfig,
-    GroqConfig,
     JWTConfig,
     LinearConfig,
     OpenCodeConfig,
@@ -29,25 +29,30 @@ HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
 
-DB_HOST = env_get_str("DB_HOST", "localhost")
-DB_PORT = env_get_int("DB_PORT", 5432)
-DB_USER = env_get_str("DB_USER", "demetra")
-DB_NAME = env_get_str("DB_NAME", "demetra")
-DB_PASSWORD = env_get_str("DB_PASSWORD", None)
-
 PARENT_HOME: Path | None = env_get_path("PARENT_HOME", None)
 
 PROJECTS_PATH = env_get_path("PROJECTS_PATH", HOME_PATH / "www")
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
-MAX_BUILD_ATTEMPTS = env_get_int("MAX_BUILD_ATTEMPTS", 50)
-MAX_REVIEW_ATTEMPTS = env_get_int("MAX_REVIEW_ATTEMPTS", 10)
-MAX_MERGE_ATTEMPTS = env_get_int("MAX_MERGE_ATTEMPTS", 10)
-MAX_REBASE_ATTEMPTS = env_get_int("MAX_REBASE_ATTEMPTS", 10)
-MAX_PLAN_ATTEMPTS = env_get_int("MAX_PLAN_ATTEMPTS", 30)
-MAX_RUN_ATTEMPTS = env_get_int("MAX_RUN_ATTEMPTS", 5)
-MAX_LISTENER_ATTEMPTS = env_get_int("MAX_LISTENER_ATTEMPTS", 5)
-MAX_RESEARCH_ATTEMPTS = env_get_int("MAX_RESEARCH_ATTEMPTS", 5)
+DATABASE: DBConfig = {
+    "host": env_get_str("DB_HOST", "localhost"),
+    "port": env_get_int("DB_PORT", 5432),
+    "user": env_get_str("DB_USER", "demetra"),
+    "name": env_get_str("DB_NAME", "demetra"),
+    "password": env_get_str("DB_PASSWORD", None),
+}
+
+MAX_ATTEMPTS: dict = {
+    "run": env_get_int("MAX_RUN_ATTEMPTS", 3),
+    "plan": env_get_int("MAX_PLAN_ATTEMPTS", 10),
+    "build": env_get_int("MAX_BUILD_ATTEMPTS", 10),
+    "review": env_get_int("MAX_REVIEW_ATTEMPTS", 5),
+    "merge": env_get_int("MAX_MERGE_ATTEMPTS", 5),
+    "rebase": env_get_int("MAX_REBASE_ATTEMPTS", 5),
+    "listener": env_get_int("MAX_LISTENER_ATTEMPTS", 5),
+    "research": env_get_int("MAX_RESEARCH_ATTEMPTS", 5),
+}
+
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
 
@@ -64,34 +69,6 @@ SEARCH: dict = {
     "snippet_length": 200,
     "min_term_length": 2,
     "term_pattern": r"[a-z0-9][a-z0-9_.\-]*",
-    "stop_words": (
-        "a",
-        "an",
-        "and",
-        "are",
-        "be",
-        "been",
-        "did",
-        "do",
-        "does",
-        "for",
-        "how",
-        "in",
-        "is",
-        "it",
-        "of",
-        "on",
-        "or",
-        "that",
-        "the",
-        "this",
-        "to",
-        "was",
-        "were",
-        "what",
-        "why",
-        "with",
-    ),
     "wiki_title_weight": 10,
     "wiki_metadata_weight": 5,
     "docstring_name_weight": 10,
@@ -99,8 +76,8 @@ SEARCH: dict = {
 }
 
 WIKI: dict = {
-    "llm_budget_files": env_get_int("WIKI_LLM_BUDGET_FILES", env_get_int("WIKI_GROQ_BUDGET_FILES", 8)),
-    "llm_budget_lines": env_get_int("WIKI_LLM_BUDGET_LINES", env_get_int("WIKI_GROQ_BUDGET_LINES", 200)),
+    "llm_budget_files": env_get_int("WIKI_LLM_BUDGET_FILES", 8),
+    "llm_budget_lines": env_get_int("WIKI_LLM_BUDGET_LINES", 200),
     "diff_hunk_cap": env_get_int("WIKI_DIFF_HUNK_CAP", 200),
     "build_plan_cap": env_get_int("WIKI_BUILD_PLAN_CAP", 800),
     "revalidation_enabled": env_get_bool("WIKI_REVALIDATION_ENABLED", False),
@@ -230,11 +207,6 @@ JWT: JWTConfig = {
     "secret_key": env_get_str("JWT_SECRET_KEY", None),
     "algorithm": "HS256",
     "expiration_days": 14,
-}
-
-GROQ: GroqConfig = {
-    "api_key": env_get_str("GROQ_API_KEY", None),
-    "model": env_get_str("GROQ_MODEL", "openai/gpt-oss-120b"),
 }
 
 OPENROUTER: OpenRouterConfig = {

@@ -11,7 +11,7 @@ from demetra.services.persistence.database import record_session_step_history, u
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
-from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS
+from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_ATTEMPTS
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.validate import run_validate_agent
@@ -76,9 +76,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         InfiniteLoopError: When the attempt budget is exhausted.
     """
     current_task: str = build_plan
-    rerun_attempts = MAX_BUILD_ATTEMPTS
-    validate_attempts = MAX_BUILD_ATTEMPTS
-    review_attempts = MAX_REVIEW_ATTEMPTS
+    rerun_attempts = MAX_ATTEMPTS["build"]
+    validate_attempts = MAX_ATTEMPTS["build"]
+    review_attempts = MAX_ATTEMPTS["review"]
     is_version_updated = False
     review_step_finished = False
     while rerun_attempts:
@@ -126,9 +126,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
-                    rerun_attempts = MAX_BUILD_ATTEMPTS
-                    validate_attempts = MAX_BUILD_ATTEMPTS
-                    review_attempts = MAX_REVIEW_ATTEMPTS
+                    rerun_attempts = MAX_ATTEMPTS["build"]
+                    validate_attempts = MAX_ATTEMPTS["build"]
+                    review_attempts = MAX_ATTEMPTS["review"]
 
             await update_session_step(task_id=context.linear_task.id, step="review")
             review_comments = await run_review_agents(
@@ -155,9 +155,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
-                    rerun_attempts = MAX_BUILD_ATTEMPTS
-                    validate_attempts = MAX_BUILD_ATTEMPTS
-                    review_attempts = MAX_REVIEW_ATTEMPTS
+                    rerun_attempts = MAX_ATTEMPTS["build"]
+                    validate_attempts = MAX_ATTEMPTS["build"]
+                    review_attempts = MAX_ATTEMPTS["review"]
         else:
             print_message("Skipping CODE REVIEW (attempt budget reached)", style="warning")
 

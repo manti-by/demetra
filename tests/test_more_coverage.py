@@ -70,7 +70,7 @@ class TestWatcherService:
 
     @pytest.fixture(autouse=True)
     def mock_max_run_attempts(self):
-        with patch("demetra.services.daemons.watcher.MAX_RUN_ATTEMPTS", 3):
+        with patch("demetra.services.daemons.watcher.MAX_ATTEMPTS", {"run": 3}):
             yield
 
     @pytest.fixture(autouse=True)

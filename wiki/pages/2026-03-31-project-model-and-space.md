@@ -17,6 +17,7 @@ tags:
 - provisioning
 - react
 related:
+- 2026-04-02-link-user-tasks-sessions.md
 - 2026-06-08-project-environment.md
 ---
 
@@ -48,7 +49,7 @@ Added the `Project` model linked to the user, and a migration that moves project
 
 ## Step 2 — CRUD APIs
 
-Added project CRUD endpoints, all scoped to the authenticated user. Default auth, exception handling, and logging are applied to the new APIs.
+Added project CRUD endpoints, all scoped to the authenticated user. Default auth, exception handling, and logging are applied to the new APIs. Task/session user-scoping built on top of this model is recorded in [[2026-04-02-link-user-tasks-sessions]].
 
 ## Step 3 — Provisioning on add
 
@@ -78,4 +79,5 @@ Tests were added for the project model, CRUD API, and provisioning.
 
 ## References
 
+- Related: [[2026-04-02-link-user-tasks-sessions]], [[2026-06-08-project-environment]]
 - External: https://linear.app/mnt/issue/MNT-75

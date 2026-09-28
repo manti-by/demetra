@@ -55,5 +55,5 @@ None.
 
 ## References
 
-- Related: [[2026-08-21-mnt-176-bump-version-error]], [[2026-09-08-docstring-mcp-search]]
+- Related: [[2026-07-22-warp-theme-review-fixes-and-ops]], [[2026-08-21-mnt-176-bump-version-error]], [[2026-09-08-docstring-mcp-search]]
 - External: [MNT-116 — Update project version (Linear)](https://linear.app/mnt/issue/MNT-116)

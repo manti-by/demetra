@@ -61,5 +61,5 @@ None.
 
 ## References
 
-- Related: `<none>`
+- Related: [[2026-02-20-add-pre-commit-checks-and-tests]]
 - External: `<none>`

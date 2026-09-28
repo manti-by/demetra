@@ -16,7 +16,7 @@ from demetra.library.models import Project
 from demetra.services.persistence.database import get_connection
 from demetra.services.runtime.constants import PG_RESERVED_WORDS
 from demetra.services.runtime.subprocess import run_command
-from demetra.settings import DB_USER, GIT, UV, WORKTREE_PATH
+from demetra.settings import DATABASE, GIT, UV, WORKTREE_PATH
 
 
 logger = logging.getLogger(__name__)
@@ -245,7 +245,7 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
             {"db_name": db_name},
         )
         if not result.fetchone():
-            q_user = quote_ident(ident=DB_USER)
+            q_user = quote_ident(ident=DATABASE["user"])
             q_db = quote_ident(ident=db_name)
             await connection.execute(
                 text(f"GRANT {q_role} TO {q_user}"),

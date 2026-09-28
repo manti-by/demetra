@@ -88,5 +88,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-03-31-project-model-and-space]], [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - External: [MNT-110 — Project environment (Linear)](https://linear.app/mnt/issue/MNT-110)

@@ -6,8 +6,6 @@ import pytest
 
 from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import (
-    PLAN_HAS_QUESTIONS,
-    PLAN_IS_READY_STRING,
     RESEARCH_HEADER_STRING,
     extract_research_report,
     get_opencode_session_id,
@@ -63,7 +61,7 @@ class TestOpencodeService:
             project_id=None,
             environment=None,
         )
-        assert result is not None
+        assert result == "plan result"
 
     @pytest.mark.asyncio
     async def test_build_agent_modifies_task_with_instructions(self, mock_run_opencode_agent):
@@ -112,26 +110,6 @@ class TestOpencodeService:
         assert all(arg != long_task for arg in call_args["command"])
 
     @pytest.mark.asyncio
-    async def test_run_opencode_agent_passes_full_task_via_stdin(self, mock_run_command_and_opencode_config):
-
-        mock_run_command_and_opencode_config.return_value = (0, "", "")
-        long_task = "Plan step: implement the feature and stage the diff.\n" * 200
-
-        await run_opencode_agent(Path("/test"), long_task, model="opencode/minimax-m2.5-free", agent="validate")
-
-        call_args = mock_run_command_and_opencode_config.call_args
-        assert call_args.kwargs["input_text"] == long_task
-        assert len(call_args.kwargs["input_text"]) == len(long_task)
-        command = call_args.kwargs["command"]
-        assert all(arg != long_task for arg in command)
-
-    @pytest.mark.asyncio
-    async def test_plan_constants_are_defined(self):
-
-        assert PLAN_IS_READY_STRING == "Ready to proceed to build."
-        assert PLAN_HAS_QUESTIONS == "Please check my questions above."
-
-    @pytest.mark.asyncio
     async def test_resolve_agent_uses_resolve_model(self, mock_run_opencode_agent):
 
         mock_run_opencode_agent.return_value = "resolve result"
@@ -147,17 +125,7 @@ class TestOpencodeService:
             project_id=None,
             environment=None,
         )
-        assert result is not None
-
-    @pytest.mark.asyncio
-    async def test_resolve_agent_uses_new_session(self, mock_run_opencode_agent):
-
-        mock_run_opencode_agent.return_value = "resolve result"
-        await opencode_resolve_agent(Path("/test/path"), "answer these questions", task_title="resolve-title")
-
-        call_kwargs = mock_run_opencode_agent.call_args.kwargs
-        assert call_kwargs.get("session_id") is None
-        assert call_kwargs.get("agent") == "resolve-agent"
+        assert result == "resolve result"
 
 
 class TestOpencodeValidateAgent:
@@ -189,7 +157,7 @@ class TestOpencodeValidateAgent:
             project_id=None,
             environment=None,
         )
-        assert result is not None
+        assert result == "validate result"
 
     @pytest.mark.asyncio
     async def test_validate_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
@@ -237,16 +205,6 @@ class TestOpencodeSessionId:
 
         assert result == "ses-newer"
 
-    @pytest.mark.asyncio
-    async def test_returns_none_when_no_matching_titles(self, mock_get_opencode_sessions):
-        mock_get_opencode_sessions.return_value = [
-            {"id": "ses-other", "title": "MNT-999", "directory": "/test/path", "updated": 1},
-        ]
-
-        result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
-
-        assert result is None
-
 
 class TestOpencodeSessionLength:
     @pytest.fixture
@@ -277,27 +235,19 @@ class TestOpencodeSessionLength:
         result = await get_opencode_session_length(Path("/p"), "session-1")
         assert result == 23
 
+    @pytest.mark.parametrize(
+        ("exit_code", "stdout", "stderr"),
+        [
+            (1, "", "error"),
+            (0, "not json", ""),
+            (0, "{}", ""),
+            (0, '{"info": {}}', ""),
+        ],
+        ids=["nonzero_exit", "invalid_json", "info_missing", "tokens_missing"],
+    )
     @pytest.mark.asyncio
-    async def test_returns_none_on_nonzero_exit(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (1, "", "error")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_invalid_json(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, "not json", "")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_info_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, "{}", "")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_tokens_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, '{"info": {}}', "")
+    async def test_returns_none_for_unusable_export(self, mock_run_command_and_config, exit_code, stdout, stderr):
+        mock_run_command_and_config.return_value = (exit_code, stdout, stderr)
         result = await get_opencode_session_length(Path("/p"), "session-1")
         assert result is None
 
@@ -366,51 +316,32 @@ class TestOpencodeSessionTokens:
         assert result is not None
         assert result.context == 220  # 20 + 200
 
+    @pytest.mark.parametrize(
+        "messages",
+        [
+            [{"info": {"role": "user"}}],
+            None,
+            [
+                {"info": {"role": "user"}},
+                {"info": {"role": "assistant"}},
+                {"info": {"role": "assistant", "tokens": {"input": 0, "output": 0, "reasoning": 0}}},
+            ],
+        ],
+        ids=["no_assistant_messages", "messages_missing", "last_assistant_has_no_tokens"],
+    )
     @pytest.mark.asyncio
-    async def test_context_is_none_when_no_assistant_messages(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps(
-                {
-                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
-                    "messages": [{"info": {"role": "user"}}],
-                }
-            ),
-            "",
-        )
-        result = await get_opencode_session_tokens(Path("/p"), "session-1")
-        assert result is not None
-        assert result.context is None
+    async def test_context_is_none_without_a_token_bearing_assistant_message(
+        self, mock_run_command_and_config, messages
+    ):
+        payload = {"info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}}}
+        if messages is not None:
+            payload["messages"] = messages
+        mock_run_command_and_config.return_value = (0, json.dumps(payload), "")
 
-    @pytest.mark.asyncio
-    async def test_context_is_none_when_messages_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps({"info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}}}),
-            "",
-        )
         result = await get_opencode_session_tokens(Path("/p"), "session-1")
-        assert result is not None
-        assert result.context is None
 
-    @pytest.mark.asyncio
-    async def test_context_is_none_when_last_assistant_has_no_tokens(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps(
-                {
-                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
-                    "messages": [
-                        {"info": {"role": "user"}},
-                        {"info": {"role": "assistant"}},
-                        {"info": {"role": "assistant", "tokens": {"input": 0, "output": 0, "reasoning": 0}}},
-                    ],
-                }
-            ),
-            "",
-        )
-        result = await get_opencode_session_tokens(Path("/p"), "session-1")
         assert result is not None
+        assert result.input == 100
         assert result.context is None
 
     @pytest.mark.asyncio

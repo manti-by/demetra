@@ -3,7 +3,7 @@ from pathlib import Path
 import pytest
 
 from demetra import settings
-from demetra.library.constants import OS_ENV_ALLOWLIST
+from demetra.library.constants import OS_ENV_ALLOWLIST, SEARCH_STOP_WORDS
 from demetra.library.exceptions import SettingsError
 
 
@@ -58,17 +58,40 @@ class TestSettings:
             monkeypatch.delenv("OPENCODE_VALIDATE_MODEL", raising=False)
             importlib.reload(settings_module)
 
-    def test_max_plan_attempts_default(self, monkeypatch):
-        monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
+    def test_attempts_defaults(self, monkeypatch):
+        for name in (
+            "MAX_RUN_ATTEMPTS",
+            "MAX_PLAN_ATTEMPTS",
+            "MAX_BUILD_ATTEMPTS",
+            "MAX_REVIEW_ATTEMPTS",
+            "MAX_MERGE_ATTEMPTS",
+            "MAX_REBASE_ATTEMPTS",
+            "MAX_LISTENER_ATTEMPTS",
+            "MAX_RESEARCH_ATTEMPTS",
+        ):
+            monkeypatch.delenv(name, raising=False)
         import importlib
 
         import demetra.settings as settings_module
 
         importlib.reload(settings_module)
 
-        assert settings_module.MAX_PLAN_ATTEMPTS == 30
+        try:
+            assert settings_module.MAX_ATTEMPTS == {
+                "run": 3,
+                "plan": 10,
+                "build": 10,
+                "review": 5,
+                "merge": 5,
+                "rebase": 5,
+                "listener": 5,
+                "research": 5,
+            }
+        finally:
+            importlib.reload(settings_module)
 
-    def test_max_plan_attempts_env_override(self, monkeypatch):
+    def test_attempts_env_override(self, monkeypatch):
+        monkeypatch.setenv("MAX_RUN_ATTEMPTS", "7")
         monkeypatch.setenv("MAX_PLAN_ATTEMPTS", "5")
         import importlib
 
@@ -77,8 +100,10 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.MAX_PLAN_ATTEMPTS == 5
+            assert settings_module.MAX_ATTEMPTS["run"] == 7
+            assert settings_module.MAX_ATTEMPTS["plan"] == 5
         finally:
+            monkeypatch.delenv("MAX_RUN_ATTEMPTS", raising=False)
             monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
             importlib.reload(settings_module)
 
@@ -278,29 +303,8 @@ class TestSettings:
             monkeypatch.delenv("SECRET_KEY", raising=False)
             importlib.reload(settings_module)
 
-    def test_wiki_budget_falls_back_to_legacy_env_names(self, monkeypatch):
-        monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
-        monkeypatch.delenv("WIKI_LLM_BUDGET_LINES", raising=False)
-        monkeypatch.setenv("WIKI_GROQ_BUDGET_FILES", "12")
-        monkeypatch.setenv("WIKI_GROQ_BUDGET_LINES", "300")
-
-        import importlib
-
-        import demetra.settings as settings_module
-
-        importlib.reload(settings_module)
-
-        try:
-            assert settings_module.WIKI["llm_budget_files"] == 12
-            assert settings_module.WIKI["llm_budget_lines"] == 300
-        finally:
-            monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
-            monkeypatch.delenv("WIKI_GROQ_BUDGET_LINES", raising=False)
-            importlib.reload(settings_module)
-
-    def test_wiki_budget_new_names_take_precedence(self, monkeypatch):
+    def test_wiki_budget_reads_llm_budget_files(self, monkeypatch):
         monkeypatch.setenv("WIKI_LLM_BUDGET_FILES", "5")
-        monkeypatch.setenv("WIKI_GROQ_BUDGET_FILES", "12")
 
         import importlib
 
@@ -312,7 +316,6 @@ class TestSettings:
             assert settings_module.WIKI["llm_budget_files"] == 5
         finally:
             monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
-            monkeypatch.delenv("WIKI_GROQ_BUDGET_FILES", raising=False)
             importlib.reload(settings_module)
 
     def test_openrouter_base_url_default(self, monkeypatch):
@@ -382,3 +385,16 @@ class TestSettings:
             importlib.reload(settings_module)
         monkeypatch.delenv("OPENROUTER_BASE_URL", raising=False)
         importlib.reload(settings_module)
+
+
+class TestSearchStopWords:
+    def test_stop_words_not_in_search_settings(self):
+        assert "stop_words" not in settings.SEARCH
+
+    def test_search_stop_words_are_lowercase(self):
+        assert isinstance(SEARCH_STOP_WORDS, frozenset)
+        assert SEARCH_STOP_WORDS == {word.lower() for word in SEARCH_STOP_WORDS}
+        assert not any(" " in word for word in SEARCH_STOP_WORDS)
+
+    def test_search_stop_words_cover_common_english_stop_words(self):
+        assert {"a", "an", "and", "in", "is", "of", "the", "to", "was", "with"} <= SEARCH_STOP_WORDS

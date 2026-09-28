@@ -25,7 +25,7 @@ from demetra.services.runtime.utils import setup_session_logging
 from demetra.settings import (
     DEFAULT_USER_ID,
     LOGGING,
-    MAX_BUILD_ATTEMPTS,
+    MAX_ATTEMPTS,
 )
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
@@ -141,7 +141,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 await mark_session_posted(task_id=context.linear_task.id)
 
         build_plan = context.session.build_plan
-        commit_retries = MAX_BUILD_ATTEMPTS
+        commit_retries = MAX_ATTEMPTS["build"]
         while commit_retries:
             await run_build_step(build_plan=build_plan, context=context)
 

@@ -1,3 +1,34 @@
+SEARCH_STOP_WORDS: frozenset[str] = frozenset(
+    {
+        "a",
+        "an",
+        "and",
+        "are",
+        "be",
+        "been",
+        "did",
+        "do",
+        "does",
+        "for",
+        "how",
+        "in",
+        "is",
+        "it",
+        "of",
+        "on",
+        "or",
+        "that",
+        "the",
+        "this",
+        "to",
+        "was",
+        "were",
+        "what",
+        "why",
+        "with",
+    }
+)
+
 OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
     {
         "PATH",

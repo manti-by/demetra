@@ -4,60 +4,11 @@ date: 2026-09-16
 type: implementation
 status: resolved
 session_id: ses_f55832b3effeWJy0LClcVV2V83
-services: [.coderabbit, .gitattributes, .gitignore, build-agent, merge-agent, plan-agent,
-  rebase-agent, research-agent, resolve-agent, review-agent, validate-agent, AGENTS,
-  Makefile, README, bootstrap, api, listener, react, rq-dashboard, watcher, worker,
-  library, queries, agents/opencode, daemons/watcher, linear/__init__, linear/config,
-  linear/mutations, linear/tasks, llm/__init__, llm/config, llm/factory, llm/openrouter,
-  persistence/database, runtime/project, runtime/utils, vcs/github, vcs/merge, vcs/rebase,
-  wiki/render, settings, tools, workflows, docker-compose, main, a3b4c5d6e7f8_add_sessions_research_report_column,
-  pyproject, App, LogConsole, SessionArtifacts.test, SessionArtifacts, SessionList.test,
-  index, conftest, test_api_coverage, test_database, test_docstring_tools, test_github,
-  test_linear, test_more_coverage, test_opencode, test_openrouter, test_project, test_rebase_service,
-  test_session_environment, test_settings_layers, test_validate_workflow, test_wiki_tools,
-  test_workflows, uv, app, appearance, core-plugins, graph, workspace, .sessions,
-  INDEX, QUESTIONS, 2026-09-03-wiki-search-vs-bm25, 2026-06-02-delete-session-button,
-  2026-06-02-plan-loop-resolve-questions, 2026-06-02-truncate-session-name, 2026-06-03-context-bloating,
-  2026-06-03-fix-squash-migrations, 2026-06-04-review-summarization, 2026-06-08-max-run-attempts-for-a-ticket,
-  2026-06-08-project-environment, 2026-06-08-session-step-attribute, 2026-06-09-build-artifacts,
-  2026-06-09-check-linear-ticket-text, 2026-06-09-markdown-renderer, 2026-06-10-fix-project-creation-timeouts,
-  2026-06-15-remove-patches-from-tests, 2026-06-22-github-pr-description, 2026-06-22-linear-link-artifact,
-  2026-06-25-update-project-version, 2026-06-25-websocket-to-track-session-statuses,
-  2026-07-07-add-context-compaction, 2026-07-07-project-deploy-script, 2026-07-15-duplicated-log-messages,
-  2026-07-16-fix-empty-build-plan-loop, 2026-07-16-fix-notification-mark-read, 2026-07-16-fix-step-status-review-findings,
-  2026-07-16-session-history-tokens-null, 2026-07-16-simplify-session-logging-setup,
-  2026-07-20-resolve-ansi-color-escape-codes-in-logs, 2026-07-21-awaiting-input-status-for-session,
-  2026-07-21-rich-markuperror-and-run-attempts, 2026-07-22-feature-flag-settings-and-tests,
-  2026-07-22-react-frontend-template-warp, 2026-07-22-warp-theme-review-fixes-and-ops,
-  2026-07-23-agents-md-revalidation-and-docs-removal, 2026-07-23-linear-ticket-email-password-auth,
-  2026-07-23-session-history-modal, 2026-07-23-session-tokens-audit-revalidation,
-  2026-07-24-plain-auth-review-followups, 2026-08-03-auth-hardening-and-deps-bump,
-  2026-08-03-check-api-auth-and-credentials, 2026-08-03-favicon-set-and-react-html,
-  2026-08-03-fix-mcp-server-2.0-api, 2026-08-03-wiki-mcp-tools, 2026-08-04-fix-resolve-agent-truncated-context,
-  2026-08-05-post-build-validation, 2026-08-05-pr-creation-failure-handler, 2026-08-06-allowlist-review-fixes,
-  2026-08-07-mnt-147-wiki-processes-pr70-review, 2026-08-07-split-wiki-service-into-subpackage,
-  2026-08-09-apply-code-review-findings, 2026-08-09-apply-pr75-coderabbit-findings,
-  2026-08-09-wiki-fixes-and-test-optimization, 2026-08-10-docker-compose-deploy, 2026-08-10-process-environment-3-layers-encryption-uv-venv,
-  2026-08-17-docker-setup-review, 2026-08-18-categorize-settings-env-vars-by-layer,
-  2026-08-18-compose-anchors-refactor, 2026-08-18-migrate-llm-groq-to-openrouter,
-  2026-08-18-test-db-isolation-logging, 2026-08-19-build-agent-server-error-handler,
-  2026-08-19-build-agent-stale-session-deleted-worktree, 2026-08-19-split-auth-linear-services-and-review-failure-handling,
-  2026-08-19-wiki-should-use-llm-rename, 2026-08-19-worker-opencode-home-permissions,
-  2026-08-20-fix-allowlist-tests, 2026-08-20-review-gh-auth-mount-changes, 2026-08-21-mnt-176-bump-version-error,
-  2026-08-24-gh-config-dir-permission-entrypoint, 2026-08-24-guard-empty-plan-output,
-  2026-08-25-loader-styleguide, 2026-08-25-mnt-181-total-tokens-counter, 2026-08-25-mnt-187-wiki-pages-not-generated,
-  2026-08-28-awaiting-input-workflow-continues-to-review, 2026-08-28-fix-index-lock-concurrency,
-  2026-08-28-mnt-177-workflow-blocked-openrouter-403, 2026-08-28-mnt-188-waitlist,
-  2026-08-28-mnt-191-ticket-status-not-changed, 2026-08-31-mnt-192-env-edit-button,
-  2026-09-01-mnt-177-research-loop, 2026-09-02-mobile-template-react-frontend, 2026-09-02-review-findings-cleanup,
-  2026-09-08-docstring-mcp-search, 2026-09-08-opencode-reasoning-token-zero, 2026-09-10-mnt-200-update-research-loop,
-  2026-09-11-mnt-203-create-related-ticket-for-research, 2026-09-14-listener-readline-limit-crash,
-  2026-09-14-opencode-agent-prompts-hardening, 2026-09-14-research-plan-artifact,
-  2026-09-16-mnt-205-context-environment]
+services: [library, workflows, settings]
 branch: mnt-205-revise-merged-environment
 tickets: [MNT-205]
 tags: [wiki, backend, feature]
-related: []
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-categorize-settings-env-vars-by-layer.md]
 ---
 # MNT-205 — Revise merged environment: context.environment resolver
 
@@ -661,4 +612,7 @@ The implementation plan involves standardizing the methods for resolving agent m
 
 ## References
 
+- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]], [[2026-08-18-categorize-settings-env-vars-by-layer]]
 - External: https://linear.app/mnt/issue/MNT-205/revise-merged-environment
+
+> **Consistency fix (2026-09-28, Consistency Agent):** `related:` was empty and `services:` was a ~150-entry dump of filenames/wiki slugs from the wiki generator (since trimmed to subsystem tags). The `Changed files`/`Stat` sections below are a whole-tree diff, not this ticket's changeset: they correctly include the ticket's real deletions (`demetra/services/linear/config.py`, `demetra/services/llm/config.py`, both deleted in `68e53b7` and folded into the resolver) but also sweep in unrelated churn — e.g. `wiki/pages/2026-09-10-mnt-200-update-research-loop.md`, `2026-09-11-mnt-203-create-related-ticket-for-research.md` and `2026-09-14-research-plan-artifact.md` shown as deleted although all three exist on HEAD, plus the never-committed duplicate `2026-09-16-mnt-205-context-environment.md`. Do not trust per-file counts below; the ticket's substance is the `SessionEnvironment` resolver in the TL;DR/Overview.

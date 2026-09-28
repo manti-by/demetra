@@ -18,7 +18,7 @@ tags:
 - wiki
 - feature
 related:
-- 2026-09-01-mnt-177-research-loop
+- 2026-09-01-mnt-177-research-loop.md
 - 2026-09-10-mnt-200-update-research-loop.md
 - 2026-09-14-research-plan-artifact.md
 ---

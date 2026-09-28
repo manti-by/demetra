@@ -9,6 +9,14 @@ WaitlistEntryType = Literal["email", "github_username"]
 WaitlistStatus = Literal["pending", "approved", "rejected", "joined"]
 
 
+class DBConfig(TypedDict):
+    host: str
+    port: int
+    user: str
+    name: str
+    password: str | None
+
+
 class LinearStates(TypedDict):
     prd: str
     todo: str
@@ -75,11 +83,6 @@ class JWTConfig(TypedDict):
     secret_key: str | None
     algorithm: str
     expiration_days: int
-
-
-class GroqConfig(TypedDict):
-    api_key: str | None
-    model: str
 
 
 class OpenRouterConfig(TypedDict):

@@ -66,5 +66,5 @@ None.
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [[2026-07-16-fix-empty-build-plan-loop]], [[2026-08-04-fix-resolve-agent-truncated-context]]
 - External: [MNT-105 — Context bloating (Linear)](https://linear.app/mnt/issue/MNT-105)

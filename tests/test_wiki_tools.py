@@ -1,5 +1,6 @@
 import pytest
 
+from demetra.library.constants import SEARCH_STOP_WORDS
 from demetra.settings import SEARCH
 from demetra.tools import wiki
 
@@ -100,6 +101,9 @@ class TestTokenize:
 
     def test_keeps_dotted_and_dashed_terms(self):
         assert wiki._tokenize("mcp_server.py on_list_tools") == ["mcp_server.py", "on_list_tools"]
+
+    def test_every_configured_stop_word_is_dropped(self):
+        assert wiki._tokenize(" ".join(sorted(SEARCH_STOP_WORDS))) == []
 
 
 class TestScoring:

@@ -101,7 +101,6 @@ class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_emits_log_envelope(
         self,
-        mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -137,7 +136,6 @@ class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_streams_logs_for_pending_session_without_session_id(
         self,
-        mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
         """A session row without an opencode session id (e.g. still on the plan
@@ -172,7 +170,6 @@ class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_streams_logs_before_session_row_exists(
         self,
-        mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
         """A task without a session row yet must still stream its task-keyed
@@ -204,7 +201,6 @@ class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_emits_status_on_step_change(
         self,
-        mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -248,7 +244,6 @@ class TestWatcherLogsWebSocket:
     @pytest.mark.asyncio
     async def test_websocket_closes_when_session_deleted(
         self,
-        mock_groq: AsyncMock,
         mock_create_linear_ticket: AsyncMock,
     ):
         with tempfile.TemporaryDirectory() as tmpdir:

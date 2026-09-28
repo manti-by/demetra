@@ -144,8 +144,8 @@ class TestInferServices:
 
     def test_deduplicated_and_ordered(self):
         assert service.infer_services(
-            ["demetra/services/wiki.py", "demetra/services/groq.py", "demetra/services/openrouter.py"]
-        ) == ["groq", "openrouter", "wiki"]
+            ["demetra/services/wiki.py", "demetra/services/utils.py", "demetra/services/openrouter.py"]
+        ) == ["openrouter", "utils", "wiki"]
 
 
 class TestInferTags:
@@ -815,13 +815,12 @@ class TestAgentsDrift:
         wiki_dirs["agents"].write_text("# AGENTS.md\n\nNo anchors here.\n")
         drift = await service.check_agents_drift()
         assert "wiki/" in drift
-        assert "Groq" in drift
         assert "OpenRouter" in drift
         assert "Ruff" in drift
         assert "demetra/services/wiki.py" not in drift
 
     async def test_anchors_present_pass(self, wiki_dirs):
-        wiki_dirs["agents"].write_text("wiki/\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub Groq OpenRouter Ruff\n")
+        wiki_dirs["agents"].write_text("wiki/\ndemetra/tools/wiki.py\nuv.lock\nLinear GitHub OpenRouter Ruff\n")
         assert await service.check_agents_drift() == []
 
 

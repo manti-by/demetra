@@ -13,7 +13,7 @@ from demetra.services.persistence.database import (
     update_session_step,
 )
 from demetra.services.runtime.tui import print_message
-from demetra.settings import LINEAR, MAX_RESEARCH_ATTEMPTS
+from demetra.settings import LINEAR, MAX_ATTEMPTS
 
 
 def is_research_task(linear_task: LinearTask) -> bool:
@@ -50,7 +50,7 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
 
     Checks the permanent prerequisites (source project, ``prd`` state,
     ``team_id`` and ``awaiting_input`` state) before the research agent runs,
-    so a misconfigured workspace does not burn ``MAX_RESEARCH_ATTEMPTS`` LLM
+    so a misconfigured workspace does not burn ``MAX_ATTEMPTS["research"]`` LLM
     calls on a retry that can never succeed.
 
     Args:
@@ -84,9 +84,9 @@ async def _run_research_agent(context: Context) -> str | None:
 
     Returns:
         str | None: The extracted research report, or None when no report could
-            be produced after ``MAX_RESEARCH_ATTEMPTS`` attempts.
+            be produced after ``MAX_ATTEMPTS["research"]`` attempts.
     """
-    attempts = MAX_RESEARCH_ATTEMPTS
+    attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         print_message("Running RESEARCH agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="research")
@@ -149,12 +149,12 @@ async def _create_research_ticket(context: Context, report: str) -> dict[str, An
 
     Returns:
         dict[str, Any] | None: The created ticket, or None when Linear kept
-            failing after ``MAX_RESEARCH_ATTEMPTS`` attempts.
+            failing after ``MAX_ATTEMPTS["research"]`` attempts.
 
     Raises:
         LinearConfigError: When Linear permanently rejects the ticket.
     """
-    attempts = MAX_RESEARCH_ATTEMPTS
+    attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         try:
             created_ticket = await create_research_ticket(context=context, report=report)
@@ -204,7 +204,7 @@ async def _move_to_awaiting_input(context: Context) -> None:
 async def run_research_step(context: Context) -> str | None:
     """Run the research agent, create a related ticket and move to Awaiting Input.
 
-    Runs the research agent (retrying up to ``MAX_RESEARCH_ATTEMPTS`` times)
+    Runs the research agent (retrying up to ``MAX_ATTEMPTS["research"]`` times)
     until it produces a ``## Research Report``, then creates a related Linear
     ticket with the report as its description, retrying transient Linear
     failures with a separate budget. Permanent configuration errors fail before

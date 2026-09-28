@@ -49,5 +49,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-02-23-plan-agent-output-triggers]], [[2026-08-05-pr-creation-failure-handler]]
 - External: [MNT-140 — Awaiting Input status for session (Linear)](https://linear.app/mnt/issue/MNT-140)

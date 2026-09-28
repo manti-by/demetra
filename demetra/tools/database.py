@@ -48,18 +48,18 @@ async def get_db_pool() -> asyncpg.Pool:
     Raises:
         ValueError: If no DB_PASSWORD is configured.
     """
-    from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+    from demetra.settings import DATABASE
 
     global db_pool
     if db_pool is None:
-        if not DB_PASSWORD:
+        if not DATABASE["password"]:
             raise ValueError("DB_PASSWORD environment variable is required")
         db_pool = await asyncpg.create_pool(
-            host=DB_HOST,
-            port=DB_PORT,
-            user=DB_USER,
-            password=DB_PASSWORD,
-            database=DB_NAME,
+            host=DATABASE["host"],
+            port=DATABASE["port"],
+            user=DATABASE["user"],
+            password=DATABASE["password"],
+            database=DATABASE["name"],
             min_size=1,
             max_size=5,
         )

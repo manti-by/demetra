@@ -7,7 +7,7 @@ from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.vcs.git import git_add_all, git_force_push
 from demetra.services.vcs.github import pr_comment
-from demetra.settings import GIT, MAX_MERGE_ATTEMPTS
+from demetra.settings import GIT, MAX_ATTEMPTS
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ async def perform_git_merge(
     logger.warning(f"Merge with -X theirs failed, attempting conflict resolution: {stderr.strip()[:500]}")
 
     conflict_cmd = [str(GIT["path"]), "diff", "--name-only", "--diff-filter=U"]
-    for attempt in range(MAX_MERGE_ATTEMPTS):
+    for attempt in range(MAX_ATTEMPTS["merge"]):
         _, conflict_files, _ = await run_command(
             command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
         )
@@ -62,7 +62,7 @@ async def perform_git_merge(
         if not conflicted_files:
             break
 
-        logger.info(f"Conflict resolution attempt {attempt + 1}/{MAX_MERGE_ATTEMPTS}")
+        logger.info(f"Conflict resolution attempt {attempt + 1}/{MAX_ATTEMPTS['merge']}")
 
         task = await get_prompt(
             "merge_agent",
@@ -86,7 +86,7 @@ async def perform_git_merge(
         command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
     )
     if remaining.strip():
-        logger.error(f"Conflicts remain after {MAX_MERGE_ATTEMPTS} resolution attempts: {remaining.strip()[:500]}")
+        logger.error(f"Conflicts remain after {MAX_ATTEMPTS['merge']} resolution attempts: {remaining.strip()[:500]}")
         return False
 
     has_staged = await git_add_all(target_path=worktree_path, env=env, project_id=project_id)

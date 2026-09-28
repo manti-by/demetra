@@ -47,7 +47,6 @@ related:
 - 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
 - 2026-05-25-async-review.md
 - 2026-02-26-create-llm-test-script.md
-- 2026-03-11-task-plan-summarization.md
 ---
 # Migrate LLM summarization from Groq to OpenRouter
 
@@ -124,5 +123,5 @@ Groq llama review dedup → numbered list; now via OpenRouter.
 
 ## References
 
-- Related: [[2026-06-04-review-summarization]], [[2026-06-22-github-pr-description]], [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-05-25-async-review]], [[2026-02-26-create-llm-test-script]], [[2026-03-11-task-plan-summarization]]
+- Related: [[2026-06-04-review-summarization]], [[2026-06-22-github-pr-description]], [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-05-25-async-review]], [[2026-02-26-create-llm-test-script]]
 - External: [MNT-168](https://linear.app/mnt/issue/MNT-168/migrate-llm-summarization-from-groq-to-openrouter)

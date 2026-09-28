@@ -24,7 +24,7 @@ related:
 
 # Task plan summarization
 
-> **Archived on 2026-08-18.** Useful info merged into
+> **Archived on 2026-09-28.** Useful info merged into
 > [[2026-06-04-review-summarization]]. See wiki/archive/ for the
 > original.
 
@@ -77,5 +77,5 @@ Tests were added for the summarized plan extraction.
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [[2026-06-04-review-summarization]], [[2026-07-16-fix-empty-build-plan-loop]]
 - External: https://linear.app/mnt/issue/MNT-61, MNT-20

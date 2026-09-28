@@ -45,5 +45,5 @@ None.
 
 ## References
 
-- Related: none
+- Related: [[2026-08-10-docker-compose-deploy]]
 - External: [MNT-119 — Project deploy script (Linear)](https://linear.app/mnt/issue/MNT-119)

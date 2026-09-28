@@ -20,7 +20,7 @@ tags:
 - stdin
 related:
 - 2026-02-23-add-multiagent-code-review.md
-- 2026-03-11-task-plan-summarization.md
+- 2026-06-04-review-summarization.md
 - 2026-08-18-migrate-llm-groq-to-openrouter.md
 - 2026-07-16-fix-step-status-review-findings.md
 - 2026-07-16-fix-empty-build-plan-loop.md
@@ -124,6 +124,6 @@ Covered: full coverage → `None`, partial → missing items, empty diff → all
 
 ## References
 
-- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-03-11-task-plan-summarization]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-07-16-fix-step-status-review-findings]], [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-04-review-summarization]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-07-16-fix-step-status-review-findings]], [[2026-07-16-fix-empty-build-plan-loop]]
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)
 - GitHub: [PR #72](https://github.com/manti-by/demetra/pull/72)

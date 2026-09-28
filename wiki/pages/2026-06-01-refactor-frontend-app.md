@@ -64,4 +64,5 @@ In the same PR:
 
 ## References
 
+- Related: [[2026-07-22-react-frontend-template-warp]]
 - External: https://linear.app/mnt/issue/MNT-77

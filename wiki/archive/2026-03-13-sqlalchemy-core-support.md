@@ -21,7 +21,7 @@ related:
 
 # Add SQLAlchemy Core support
 
-> **Archived on 2026-08-18.** Useful info merged into
+> **Archived on 2026-09-28.** Useful info merged into
 > [[2026-06-03-fix-squash-migrations]]. See wiki/archive/ for the
 > original.
 

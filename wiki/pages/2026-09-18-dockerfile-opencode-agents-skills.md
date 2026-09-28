@@ -5,10 +5,10 @@ type: implementation
 status: resolved
 session_id: ses_f4b5d623fffe8VuQZEl0Uvm3ug
 services: []
-branch: -
+branch: "-"
 tickets: []
 tags: [docker, opencode, agents, skills, permissions]
-related: [2026-08-17-docker-setup-review, 2026-08-19-worker-opencode-home-permissions, 2026-08-24-gh-config-dir-permission-entrypoint, 2026-09-14-opencode-agent-prompts-hardening]
+related: [2026-08-17-docker-setup-review.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-24-gh-config-dir-permission-entrypoint.md, 2026-09-14-opencode-agent-prompts-hardening.md]
 ---
 
 # Bake opencode agents and skills into the Docker image
@@ -84,6 +84,8 @@ Why this shape:
 
 - Stale-volume caveat: `docker-compose.yaml` mounts `demetra_app_data:/home/demetra/`, so containers created from an older volume will not see the newly baked agents/skills until the volume is recreated. Consider an entrypoint refresh (rsync from a pristine baked copy) if stale agents become a problem.
 - Consider baking `opencode.json` command definitions next, if containers need the `/skill:*` command wiring without a project mount.
+
+> **Consistency fix (2026-09-28, Consistency Agent):** quoted bare `branch: -` (invalid YAML) and normalized `related:` entries to `.md` filenames. The "8 skill dirs" claim above was true at commit `ceac6b9` (verified: `fix-review-findings`, `release-name`, `release-notes`, `wiki-agents-file`, `wiki-archive`, `wiki-consistency`, `wiki-dedup`, `wiki-sync`); 7 of them were deleted in `94fefa7` (2026-09-23) — only `.opencode/skills/wiki-sync/` remains on HEAD.
 
 ## References
 

@@ -57,7 +57,7 @@ Mirrors `build_plan` end-to-end for research output: schema → dataclass → pe
 
 - None
 
-> **Consistency fix (2026-09-18, Consistency Agent):** Codebase on HEAD uses `sessions.research_report` (`demetra/library/tables.py:35`, `models.py:134`, migration `a3b4c5d6e7f8`), not `research_plan`/`8023ece…` described above. [[2026-09-10-mnt-200-update-research-loop]] is the current persisted column; the `research_plan` rename/modal described here was not merged to HEAD (see `demetra/services/persistence/database.py:596` `update_session_research_report`).
+> **Consistency fix (2026-09-18, Consistency Agent; refined 2026-09-28):** Codebase on HEAD uses `sessions.research_report` (`demetra/library/tables.py:35`, `models.py:134`, migration `a3b4c5d6e7f8`), not `research_plan`/`8023ece…` described above. [[2026-09-10-mnt-200-update-research-loop]] is the current persisted column; the `research_plan` rename was merged as `7a5ee99` but backed out the next day by `af8970e` ("MNT-204: Fix tests"), which deleted the `8023ece…` migration and restored `research_report` (see `demetra/services/persistence/database.py:596` `update_session_research_report`).
 
 ## References
 

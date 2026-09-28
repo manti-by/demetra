@@ -17,7 +17,7 @@ from demetra.services.persistence.database import (
 )
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.utils import log_stream
-from demetra.settings import BASE_PATH, DEFAULT_USER_ID, LOG_DIR, LOGGING, MAX_RUN_ATTEMPTS
+from demetra.settings import BASE_PATH, DEFAULT_USER_ID, LOG_DIR, LOGGING, MAX_ATTEMPTS
 
 
 logging.config.dictConfig(LOGGING)
@@ -64,11 +64,12 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
         logger.error(f"Task ID is empty: {task_id}")
         return False
 
+    max_run_attempts = MAX_ATTEMPTS["run"]
     session = await get_session(task_id)
     user_id = session.user_id if session else DEFAULT_USER_ID
     project_id = session.project_id if session else None
-    if session and session.run_attempts > MAX_RUN_ATTEMPTS:
-        logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
+    if session and session.run_attempts > max_run_attempts:
+        logger.warning(f"Max run attempts ({max_run_attempts}) reached for task {task_id}, moving to Awaiting Input")
         await post_comment(task_id=task_id, body="Max run attempts reached")
         state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
         if state_id:
@@ -120,8 +121,8 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
         logger.error(f"Process creation/execution error for task {task_id}: {e}")
 
     attempts = await increment_run_attempts(task_id)
-    if attempts > MAX_RUN_ATTEMPTS:
-        logger.warning(f"Max run attempts ({MAX_RUN_ATTEMPTS}) reached for task {task_id}, moving to Awaiting Input")
+    if attempts > max_run_attempts:
+        logger.warning(f"Max run attempts ({max_run_attempts}) reached for task {task_id}, moving to Awaiting Input")
         await post_comment(task_id=task_id, body="Max run attempts reached")
         state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
         if state_id:

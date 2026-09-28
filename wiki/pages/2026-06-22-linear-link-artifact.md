@@ -49,5 +49,5 @@ None.
 
 ## References
 
-- Related: [[2026-09-14-research-plan-artifact]]
+- Related: [[2026-06-09-build-artifacts]], [[2026-09-14-research-plan-artifact]]
 - External: [MNT-114 — Linear link artifact (Linear)](https://linear.app/mnt/issue/MNT-114)

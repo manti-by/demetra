@@ -320,7 +320,7 @@ class TestProcessMergeNotification:
             patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
             patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
             patch("demetra.services.daemons.listener.queue") as mock_queue,
-            patch("demetra.services.daemons.listener.MAX_LISTENER_ATTEMPTS", 3),
+            patch("demetra.services.daemons.listener.MAX_ATTEMPTS", {"listener": 3}),
         ):
             mock_db.return_value = session
             mock_inc.return_value = 4
@@ -418,7 +418,7 @@ class TestProcessRebaseNotification:
             patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
             patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
             patch("demetra.services.daemons.listener.queue") as mock_queue,
-            patch("demetra.services.daemons.listener.MAX_LISTENER_ATTEMPTS", 3),
+            patch("demetra.services.daemons.listener.MAX_ATTEMPTS", {"listener": 3}),
         ):
             mock_db.return_value = session
             mock_inc.return_value = 4

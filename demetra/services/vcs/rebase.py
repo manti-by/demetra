@@ -7,7 +7,7 @@ from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.vcs.git import git_add_all, git_force_push
 from demetra.services.vcs.github import pr_comment
-from demetra.settings import GIT, MAX_REBASE_ATTEMPTS
+from demetra.settings import GIT, MAX_ATTEMPTS
 
 
 logger = logging.getLogger(__name__)
@@ -58,7 +58,7 @@ async def perform_git_rebase(
     logger.warning(f"Rebase with -X ours failed, attempting conflict resolution: {stderr.strip()[:500]}")
 
     conflict_cmd = [str(GIT["path"]), "diff", "--name-only", "--diff-filter=U"]
-    for attempt in range(MAX_REBASE_ATTEMPTS):
+    for attempt in range(MAX_ATTEMPTS["rebase"]):
         _, conflict_files, _ = await run_command(
             command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
         )
@@ -66,7 +66,7 @@ async def perform_git_rebase(
         if not conflicted_files:
             break
 
-        logger.info(f"Conflict resolution attempt {attempt + 1}/{MAX_REBASE_ATTEMPTS}")
+        logger.info(f"Conflict resolution attempt {attempt + 1}/{MAX_ATTEMPTS['rebase']}")
 
         task = await get_prompt(
             "rebase_agent",
@@ -100,7 +100,7 @@ async def perform_git_rebase(
         command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
     )
     if remaining.strip():
-        logger.error(f"Conflicts remain after {MAX_REBASE_ATTEMPTS} resolution attempts: {remaining.strip()[:500]}")
+        logger.error(f"Conflicts remain after {MAX_ATTEMPTS['rebase']} resolution attempts: {remaining.strip()[:500]}")
         return False
 
     await git_force_push(target_path=worktree_path, branch_name=head_branch, env=env, project_id=project_id)

@@ -15,12 +15,13 @@ tags:
 - comments
 - graphql
 related:
+- 2026-06-02-plan-loop-resolve-questions.md
 - 2026-06-09-check-linear-ticket-text.md
 ---
 
 # Separate Linear comments
 
-> **Archived on 2026-08-18.** Useful info merged into
+> **Archived on 2026-09-28.** Useful info merged into
 > [[2026-06-09-check-linear-ticket-text]]. See wiki/archive/ for the
 > original.
 
@@ -51,7 +52,7 @@ Ensured `LinearTask.text` includes the task's comments so downstream summarizati
 
 ## Step 3 — One comment per question
 
-Plan questions are now posted as individual Linear comments, one per question, rather than aggregated into a single comment.
+Plan questions are now posted as individual Linear comments, one per question, rather than aggregated into a single comment. (Default mode; with `--plan-loop` they go to the resolve agent instead — see [[2026-06-02-plan-loop-resolve-questions]].)
 
 ## Test Results
 
@@ -67,4 +68,5 @@ Tests were added for the comment syncing and posting behavior.
 
 ## References
 
+- Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-06-09-check-linear-ticket-text]]
 - External: https://linear.app/mnt/issue/MNT-60

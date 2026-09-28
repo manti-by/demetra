@@ -616,12 +616,12 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_max_plan_attempts_3(self):
-        with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 3):
+        with patch("demetra.workflows.plan.MAX_ATTEMPTS", {"plan": 3}):
             yield
 
     @pytest.fixture
     def mock_max_plan_attempts_2(self):
-        with patch("demetra.workflows.plan.MAX_PLAN_ATTEMPTS", 2):
+        with patch("demetra.workflows.plan.MAX_ATTEMPTS", {"plan": 2}):
             yield
 
     @pytest.fixture(autouse=True)
@@ -1129,17 +1129,14 @@ class TestWorkflowBuild:
 
         missing_items = "Plan step 1: Add endpoint — not implemented (no corresponding change in diff)"
         mock_build_agent.return_value = (0, "", "")
-        # More validate failures than MAX_REVIEW_ATTEMPTS: the review step must
+        # More validate failures than the review budget: the review step must
         # still run once instead of being starved by validate retries.
         mock_run_validate_agent.side_effect = [missing_items] * 11 + [None]
         mock_run_review_agents.return_value = None
         mock_run_lint_and_test.return_value = (False, None)
         mock_user_input.return_value = ("1", None)
 
-        with (
-            patch("demetra.workflows.build.MAX_BUILD_ATTEMPTS", 50),
-            patch("demetra.workflows.build.MAX_REVIEW_ATTEMPTS", 10),
-        ):
+        with patch("demetra.workflows.build.MAX_ATTEMPTS", {"build": 50, "review": 10}):
             result = await run_build_step("test build plan", context)
 
         assert result is None
@@ -2201,7 +2198,7 @@ class TestWorkflowResearch:
         mock_research_agent.return_value = (0, "output without report header", "")
         mock_get_linear_config_value.return_value = "state-123"
 
-        with patch("demetra.workflows.research.MAX_RESEARCH_ATTEMPTS", 1):
+        with patch("demetra.workflows.research.MAX_ATTEMPTS", {"research": 1}):
             result = await run_research_step(context)
 
         assert result is None
@@ -2248,7 +2245,7 @@ class TestWorkflowResearch:
         mock_get_linear_config_value.return_value = "state-123"
         mock_create_research_ticket.side_effect = LinearError("Failed to create research Linear ticket")
 
-        with patch("demetra.workflows.research.MAX_RESEARCH_ATTEMPTS", 2):
+        with patch("demetra.workflows.research.MAX_ATTEMPTS", {"research": 2}):
             with pytest.raises(LinearError, match="after all attempts"):
                 await run_research_step(context)
 

@@ -8,7 +8,7 @@ services: [workflows, review]
 branch: "-"
 tickets: [MNT-87, MNT-35]
 tags: [review, async, parallelism, multiagent, cursor, coderabbit]
-related: [2026-02-23-add-multiagent-code-review.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-button.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # Async review
@@ -49,7 +49,7 @@ Added staged-change validation so the workflow never creates a commit when there
 
 ## Step 4 — Test mocks and styling
 
-Fixed the review test mocks to match the parallel execution, and added the session delete button styling shared with MNT-86.
+Fixed the review test mocks to match the parallel execution, and added the session delete button styling shared with MNT-86 ([[2026-06-02-delete-session-button]]).
 
 ## Test Results
 
@@ -77,5 +77,5 @@ config controls tool permissions per role (plan/build/review).
 
 ## References
 
-- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-02-delete-session-button]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
 - External: https://linear.app/mnt/issue/MNT-87

@@ -44,7 +44,7 @@ The removal is confirmed by orphaned bytecode (`demetra/api/__pycache__/tickets.
 
 ## Follow-ups
 
-- None.
+- None (removal merged to master 2026-06-09 in `0c72a40` "Fix UI and API issues").
 
 ## References
 

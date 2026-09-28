@@ -17,6 +17,7 @@ tags:
 - task-status
 - migration
 related:
+- 2026-03-31-project-model-and-space.md
 - 2026-07-16-fix-step-status-review-findings.md
 ---
 
@@ -47,7 +48,7 @@ Multi-user isolation was the driver: before this change, tasks/sessions were not
 
 **File:** `demetra/services/database.py`, `demetra/services/linear.py`
 
-Every retrieved task and session is now linked to the authenticated user. Linear task retrieval is filtered to projects linked to that user, so no user sees another user's tasks.
+Every retrieved task and session is now linked to the authenticated user. Linear task retrieval is filtered to projects linked to that user, so no user sees another user's tasks. The per-user `Project` model this builds on is recorded in [[2026-03-31-project-model-and-space]].
 
 ## Step 2 — Merge task-status into sessions
 
@@ -71,4 +72,5 @@ Tests were updated and added for the user-scoped retrieval and merged status lif
 
 ## References
 
+- Related: [[2026-03-31-project-model-and-space]], [[2026-07-16-fix-step-status-review-findings]]
 - External: https://linear.app/mnt/issue/MNT-63

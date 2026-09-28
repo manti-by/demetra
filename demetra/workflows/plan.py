@@ -21,7 +21,7 @@ from demetra.services.persistence.database import record_session_step_history, s
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
-from demetra.settings import MAX_PLAN_ATTEMPTS
+from demetra.settings import MAX_ATTEMPTS
 from demetra.workflows.resolve import run_resolve_step
 
 
@@ -71,7 +71,7 @@ async def run_plan_step(context: Context) -> str | None:
         InfiniteLoopError: When the plan loop attempt budget is exhausted.
     """
     current_task: str = context.linear_task.text
-    plan_attempts = MAX_PLAN_ATTEMPTS if context.plan_loop else 1
+    plan_attempts = MAX_ATTEMPTS["plan"] if context.plan_loop else 1
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
