@@ -40,7 +40,7 @@ async def move_to_awaiting_input(context: Context) -> None:
     except EnvironmentConfigError as e:
         raise LinearError("Linear state 'awaiting_input' is not configured") from e
     await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
-    await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
+    await update_session_step(task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id)
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError
 
@@ -70,7 +70,7 @@ async def run_plan_step(context: Context) -> str | None:
     plan_attempts = MAX_ATTEMPTS["plan"] if context.plan_loop else 1
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="plan")
+        await update_session_step(task_id=context.linear_task.id, step="plan", session_id=context.session_id)
 
         pregenerated_session_id = harness.new_session_id(environment=context.environment)
         exit_code, stdout, stderr = await harness.plan_agent(

@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — Implementation of MNT-228: Intermediate history states (2026-09-30)
 - [MNT-230 — Switchable agent harness (OpenCode / Claude Code)](pages/2026-09-30-mnt-230-claude-code-harness.md) — Added `AGENT_HARNESS` (`opencode`/`claude`), `services/agents/claude.py` + `harness.py` facade, `.claude/agents/*.md`, `sessions.harness` pinning. No CLI turn-cap exists (verified) — a USD budget cap is the real guard; build now gets its own Claude session since `--resume` can't switch `--agent` persona. (2026-09-30)
 - [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. Not live yet: `OS_ENV_ALLOWLIST` drops the key before `opencode` starts and the plugin reads only `TRACE_TO_LANGSMITH`. (2026-09-28)
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
@@ -155,6 +156,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
+- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — 2026-09-30
 
 ### React frontend / UI (15 pages)
 

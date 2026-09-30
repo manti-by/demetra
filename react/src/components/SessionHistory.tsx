@@ -16,17 +16,11 @@ const CloseIcon = () => (
   </svg>
 );
 
-function formatRelativeTime(iso: string): string {
-  const now = Date.now();
-  const then = new Date(iso).getTime();
-  const diffSec = Math.round((now - then) / 1000);
-
-  if (diffSec < 60) return `${diffSec}s ago`;
-  if (diffSec < 3600) return `${Math.round(diffSec / 60)}m ago`;
-  if (diffSec < 86400) return `${Math.round(diffSec / 3600)}h ago`;
-  return new Date(iso).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
+function formatTime(iso: string): string {
+  return new Date(iso).toLocaleTimeString(undefined, {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
   });
 }
 
@@ -52,9 +46,9 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
         <time
           className="session-history-time"
           dateTime={entry.created_at}
-          title={entry.created_at}
+          title={new Date(entry.created_at).toLocaleString()}
         >
-          {formatRelativeTime(entry.created_at)}
+          {formatTime(entry.created_at)}
         </time>
       </div>
       {hasTokens && (
