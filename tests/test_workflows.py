@@ -333,7 +333,9 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+            mock_update_session_step.assert_any_await(
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
+            )
 
     @pytest.mark.asyncio
     async def test_run_plan_step_empty_agent_output_moves_to_awaiting_input(
@@ -386,7 +388,9 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+            mock_update_session_step.assert_any_await(
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
+            )
 
     @pytest.mark.asyncio
     async def test_run_plan_step_output_missing_plan_header_moves_to_awaiting_input(
@@ -439,7 +443,9 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+            mock_update_session_step.assert_any_await(
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
+            )
 
 
 class TestWorkflowResolve:
@@ -889,7 +895,9 @@ class TestWorkflowPlanLoop:
         with pytest.raises(AutoCancelledError):
             await run_plan_step(context)
 
-        mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
+        mock_update_session_step.assert_any_await(
+            task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
+        )
 
 
 class TestWorkflowBuild:
@@ -921,6 +929,11 @@ class TestWorkflowBuild:
     @pytest.fixture
     def mock_bump_version(self):
         with patch("demetra.workflows.build.bump_project_version", return_value="1.15.0") as m:
+            yield m
+
+    @pytest.fixture
+    def mock_update_session_step(self):
+        with patch("demetra.workflows.build.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
@@ -1210,6 +1223,68 @@ class TestWorkflowBuild:
         new_build_session_id = build_call_kwargs["session_id"]
         assert new_build_session_id != plan_session_id
         assert context.session_id == plan_session_id
+
+    @pytest.mark.asyncio
+    async def test_run_build_step_passes_session_id_to_validate_and_review_steps(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_bump_version,
+        mock_update_session_step,
+    ):
+        session_id = str(uuid4())
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id=str(uuid4()),
+                build_plan="plan",
+                posted_to_linear=False,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                step="plan",
+                session_id=session_id,
+            ),
+        )
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+
+        await run_build_step("test build plan", context)
+
+        steps_seen = {
+            call.kwargs["step"]: call.kwargs.get("session_id") for call in mock_update_session_step.await_args_list
+        }
+        assert steps_seen["build"] == session_id
+        assert steps_seen["validate"] == session_id
+        assert steps_seen["review"] == session_id
 
 
 class TestContextCompaction:

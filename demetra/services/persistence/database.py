@@ -761,17 +761,35 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
         return row.access_token, str(expires_at)
 
 
-async def update_session_step(task_id: str, step: str) -> None:
+async def update_session_step(task_id: str, step: str, session_id: str | None = None) -> None:
     """Update the current workflow step of a session.
+
+    When ``session_id`` is given, also inserts a step-only ``session_history``
+    row (timestamp only, token columns and ``model`` left NULL) in the same
+    transaction, so intermediate steps (e.g. ``build``, ``validate``,
+    ``review``, ``lint``) show up in the session history timeline even when
+    no token usage is recorded for them.
 
     Args:
         task_id: The Linear task identifier.
         step: The new step value.
+        session_id: Optional opencode session id to record a step-only
+            history row for; omit to skip recording.
     """
+    now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
-            sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=datetime.now(UTC))
+            sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=now)
         )
+        if session_id:
+            await connection.execute(
+                insert(session_history).values(
+                    id=str(uuid4()),
+                    session_id=session_id,
+                    step=step,
+                    created_at=now,
+                )
+            )
         await connection.commit()
 
 

@@ -86,7 +86,7 @@ async def _run_research_agent(context: Context) -> str | None:
     attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         print_message("Running RESEARCH agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="research")
+        await update_session_step(task_id=context.linear_task.id, step="research", session_id=context.session_id)
 
         exit_code, stdout, stderr = await harness.research_agent(
             target_path=context.worktree_path,
@@ -194,7 +194,7 @@ async def _move_to_awaiting_input(context: Context) -> None:
         print_message("Failed to move the ticket to Awaiting Input in Linear; move it manually.", style="warning")
         return
 
-    await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
+    await update_session_step(task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id)
     print_message("Task moved to Awaiting Input state.", style="result")
 
 
