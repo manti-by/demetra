@@ -218,6 +218,10 @@ CLAUDE: ClaudeConfig = {
     "review_models": env_get_list("CLAUDE_REVIEW_MODELS", ["opus:xhigh"]),
 }
 
+for _review_model in CLAUDE["review_models"]:
+    if ":" in _review_model:
+        _validate_claude_effort("CLAUDE_REVIEW_MODELS", _review_model.rpartition(":")[2].strip() or None)
+
 # The Claude CLI has no turn-cap flag (verified against the installed CLI); a
 # per-run USD budget cap (--max-budget-usd, subtype error_max_budget_usd on the
 # result event) is the real bound against a runaway/looping headless run.

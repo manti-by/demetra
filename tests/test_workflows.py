@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from demetra.library.constants import RESEARCH_HEADER_STRING
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
@@ -14,7 +15,6 @@ from demetra.library.exceptions import (
     PlanError,
 )
 from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment, SessionHistory, TokenUsage
-from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import PullRequestError, cleanup_workflow, commit_and_push
 from demetra.workflows.lint import run_lint_and_test

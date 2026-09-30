@@ -216,7 +216,7 @@ def format_claude_stream_event(line: str) -> str | None:
             elif block_type == "tool_use":
                 summary = _summarize_tool_input(block.get("input"))
                 name = block.get("name", "?")
-                rendered.append(f"→ {name} {summary}".rstrip())
+                rendered.append(f"-> {name} {summary}".rstrip())
         return "\n".join(rendered) if rendered else None
 
     if event_type == "user":
@@ -229,9 +229,9 @@ def format_claude_stream_event(line: str) -> str | None:
                 continue
             if block.get("is_error"):
                 detail = _first_line_of_tool_result(block.get("content"))
-                rendered.append(f"✗ {detail}".rstrip())
+                rendered.append(f"[tool error] {detail}".rstrip())
             else:
-                rendered.append("✓")
+                rendered.append("[tool ok]")
         return "\n".join(rendered) if rendered else None
 
     if event_type == "result":
@@ -424,6 +424,32 @@ async def run_claude_agent(
     return exit_code, parsed.result, stderr
 
 
+def _claude_run_options(
+    environment: SessionEnvironment | None,
+    agent: str,
+    default_model: str,
+    default_effort: str | None,
+) -> tuple[str, str | None, float]:
+    """Resolve the model, effort and USD budget for a Claude agent run.
+
+    Args:
+        environment: The resolved env layer, or None to use bare settings.
+        agent: The settings agent key, e.g. ``"plan"`` or ``"build"``.
+        default_model: The settings model used when ``environment`` is None.
+        default_effort: The settings effort used when ``environment`` is None.
+
+    Returns:
+        tuple[str, str | None, float]: The model, optional effort and budget.
+    """
+    if environment is None:
+        return default_model, default_effort, CLAUDE_MAX_BUDGET_USD[agent]
+    return (
+        environment.get(f"CLAUDE_{agent.upper()}_MODEL"),
+        environment.claude_effort(agent),
+        environment.claude_max_budget_usd(agent),
+    )
+
+
 async def claude_plan_agent(
     target_path: Path,
     task: str,
@@ -453,9 +479,9 @@ async def claude_plan_agent(
         f"\n- If you have some question about implementation, just print in the end `{PLAN_HAS_QUESTIONS}`"
         f"\n- If there are no questions, just print in the end `{PLAN_IS_READY_STRING}`"
     )
-    model = environment.claude_plan_model if environment is not None else CLAUDE["plan_model"]
-    effort = environment.claude_effort("plan") if environment is not None else CLAUDE["plan_effort"]
-    budget = environment.claude_max_budget_usd("plan") if environment is not None else CLAUDE_MAX_BUDGET_USD["plan"]
+    model, effort, budget = _claude_run_options(
+        environment=environment, agent="plan", default_model=CLAUDE["plan_model"], default_effort=CLAUDE["plan_effort"]
+    )
     return await run_claude_agent(
         target_path=target_path,
         task=task,
@@ -493,9 +519,12 @@ async def claude_build_agent(
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
     """
     task += "\nDO NOT commit or push any changes, just stage them"
-    model = environment.claude_build_model if environment is not None else CLAUDE["build_model"]
-    effort = environment.claude_effort("build") if environment is not None else CLAUDE["build_effort"]
-    budget = environment.claude_max_budget_usd("build") if environment is not None else CLAUDE_MAX_BUDGET_USD["build"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="build",
+        default_model=CLAUDE["build_model"],
+        default_effort=CLAUDE["build_effort"],
+    )
 
     resume = False
     if session_id is not None:
@@ -578,10 +607,11 @@ async def claude_validate_agent(
     """
     task = await get_prompt(name="validate_agent")
     task += f"\n\nBuild Plan:\n{build_plan}"
-    model = environment.claude_validate_model if environment is not None else CLAUDE["validate_model"]
-    effort = environment.claude_effort("validate") if environment is not None else CLAUDE["validate_effort"]
-    budget = (
-        environment.claude_max_budget_usd("validate") if environment is not None else CLAUDE_MAX_BUDGET_USD["validate"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="validate",
+        default_model=CLAUDE["validate_model"],
+        default_effort=CLAUDE["validate_effort"],
     )
     return await run_claude_agent(
         target_path=target_path,
@@ -616,9 +646,12 @@ async def claude_review_fixes_agent(
     """
     task = f"Use the fix-review-findings skill to address all unresolved review findings.\n\n{task}"
     task += "\nDO NOT commit or push any changes, just stage them"
-    model = environment.claude_build_model if environment is not None else CLAUDE["build_model"]
-    effort = environment.claude_effort("build") if environment is not None else CLAUDE["build_effort"]
-    budget = environment.claude_max_budget_usd("build") if environment is not None else CLAUDE_MAX_BUDGET_USD["build"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="build",
+        default_model=CLAUDE["build_model"],
+        default_effort=CLAUDE["build_effort"],
+    )
     return await run_claude_agent(
         target_path=target_path,
         task=task,
@@ -650,9 +683,12 @@ async def claude_merge_agent(
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
     """
-    model = environment.claude_build_model if environment is not None else CLAUDE["build_model"]
-    effort = environment.claude_effort("build") if environment is not None else CLAUDE["build_effort"]
-    budget = environment.claude_max_budget_usd("build") if environment is not None else CLAUDE_MAX_BUDGET_USD["build"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="build",
+        default_model=CLAUDE["build_model"],
+        default_effort=CLAUDE["build_effort"],
+    )
     return await run_claude_agent(
         target_path=target_path,
         task=task,
@@ -684,9 +720,12 @@ async def claude_rebase_agent(
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
     """
-    model = environment.claude_build_model if environment is not None else CLAUDE["build_model"]
-    effort = environment.claude_effort("build") if environment is not None else CLAUDE["build_effort"]
-    budget = environment.claude_max_budget_usd("build") if environment is not None else CLAUDE_MAX_BUDGET_USD["build"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="build",
+        default_model=CLAUDE["build_model"],
+        default_effort=CLAUDE["build_effort"],
+    )
     return await run_claude_agent(
         target_path=target_path,
         task=task,
@@ -720,10 +759,11 @@ async def claude_resolve_agent(
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
     """
-    model = environment.claude_resolve_model if environment is not None else CLAUDE["resolve_model"]
-    effort = environment.claude_effort("resolve") if environment is not None else CLAUDE["resolve_effort"]
-    budget = (
-        environment.claude_max_budget_usd("resolve") if environment is not None else CLAUDE_MAX_BUDGET_USD["resolve"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="resolve",
+        default_model=CLAUDE["resolve_model"],
+        default_effort=CLAUDE["resolve_effort"],
     )
     return await run_claude_agent(
         target_path=target_path,
@@ -759,10 +799,11 @@ async def claude_research_agent(
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
     """
     prompt = await get_prompt(name="research_agent", task=task)
-    model = environment.claude_research_model if environment is not None else CLAUDE["research_model"]
-    effort = environment.claude_effort("research") if environment is not None else CLAUDE["research_effort"]
-    budget = (
-        environment.claude_max_budget_usd("research") if environment is not None else CLAUDE_MAX_BUDGET_USD["research"]
+    model, effort, budget = _claude_run_options(
+        environment=environment,
+        agent="research",
+        default_model=CLAUDE["research_model"],
+        default_effort=CLAUDE["research_effort"],
     )
     return await run_claude_agent(
         target_path=target_path,

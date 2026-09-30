@@ -18,7 +18,10 @@ async def check_and_compact_context(context: Context, session_id: str | None) ->
 
     Also records the full TokenUsage breakdown (input, output, reasoning,
     cache, and context tokens) along with the model in session_history for the
-    ``build`` step.
+    ``build`` step. Token usage is read from ``session_id`` (the session the
+    build agent actually ran under) but the history row is keyed by the
+    persisted ``context.session_id`` so it stays attached to the session that
+    ``sessions.session_id`` and the history API refer to.
 
     Args:
         context: The workflow context with the active session.
@@ -37,7 +40,7 @@ async def check_and_compact_context(context: Context, session_id: str | None) ->
             env=context.project.environment,
         )
         history = await record_session_step_history(
-            session_id=session_id,
+            session_id=context.session_id or session_id,
             step="build",
             usage=usage,
             model=context.environment.agent_model("build"),

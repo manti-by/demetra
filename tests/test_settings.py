@@ -424,6 +424,33 @@ class TestClaudeSettings:
         finally:
             importlib.reload(settings_module)
 
+    def test_claude_review_models_invalid_effort_raises_at_load(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_REVIEW_MODELS", "opus:ultra")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        try:
+            with pytest.raises(SettingsError, match="CLAUDE_REVIEW_MODELS"):
+                importlib.reload(settings_module)
+        finally:
+            monkeypatch.delenv("CLAUDE_REVIEW_MODELS", raising=False)
+            importlib.reload(settings_module)
+
+    def test_claude_review_models_without_effort_load(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_REVIEW_MODELS", "opus, sonnet:high")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.CLAUDE["review_models"] == ["opus", "sonnet:high"]
+        finally:
+            monkeypatch.delenv("CLAUDE_REVIEW_MODELS", raising=False)
+            importlib.reload(settings_module)
+
     def test_claude_plan_effort_env_override(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_PLAN_EFFORT", "low")
         import importlib

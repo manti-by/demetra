@@ -123,7 +123,7 @@ class TestFormatClaudeStreamEvent:
 
     def test_user_tool_result_ok(self):
         line = json.dumps({"type": "user", "message": {"content": [{"type": "tool_result", "is_error": False}]}})
-        assert format_claude_stream_event(line) == "✓"
+        assert format_claude_stream_event(line) == "[tool ok]"
 
     def test_user_tool_result_error(self):
         line = json.dumps(
@@ -138,7 +138,7 @@ class TestFormatClaudeStreamEvent:
         )
         result = format_claude_stream_event(line)
         assert result is not None
-        assert result.startswith("✗")
+        assert result.startswith("[tool error]")
         assert "boom: file not found" in result
 
     def test_result_event(self):

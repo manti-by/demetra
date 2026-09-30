@@ -338,6 +338,24 @@ class TestSessionEnvironmentClaudeBudget:
 
         assert environment.claude_max_budget_usd("build") == 15.0
 
+    def test_project_global_override_beats_settings_per_agent_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"CLAUDE_MAX_BUDGET_USD": "20"}, user_environment={})
+
+        assert environment.claude_max_budget_usd("build") == 20.0
+
+    def test_user_global_override_beats_settings_per_agent_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={"CLAUDE_MAX_BUDGET_USD": "7"})
+
+        assert environment.claude_max_budget_usd("plan") == 7.0
+
+    def test_per_agent_override_beats_global_override(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"CLAUDE_MAX_BUDGET_USD": "20", "CLAUDE_BUILD_MAX_BUDGET_USD": "2"},
+            user_environment={},
+        )
+
+        assert environment.claude_max_budget_usd("build") == 2.0
+
     def test_non_numeric_value_raises(self, settings_defaults):
         environment = SessionEnvironment(
             project_environment={"CLAUDE_PLAN_MAX_BUDGET_USD": "not-a-number"}, user_environment={}

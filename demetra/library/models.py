@@ -576,8 +576,12 @@ class SessionEnvironment:
     def claude_max_budget_usd(self, agent: str) -> float:
         """Return the Claude per-run USD budget cap configured for an agent.
 
-        Falls back to the global ``CLAUDE_MAX_BUDGET_USD`` when no per-agent
-        override is configured in any layer.
+        Resolution order: a per-agent override in the project or user layer,
+        then a global ``CLAUDE_MAX_BUDGET_USD`` override in the project or
+        user layer, then the ``settings.py`` per-agent default (which itself
+        falls back to the settings-level global). Settings always provide a
+        per-agent value, so the project/user global must be consulted before
+        the settings layer or it would never take effect.
 
         Args:
             agent: The agent name, e.g. ``"plan"`` or ``"build"``.
@@ -589,10 +593,17 @@ class SessionEnvironment:
             EnvironmentConfigError: When the resolved value is not a number.
         """
         key = f"CLAUDE_{agent.upper()}_MAX_BUDGET_USD"
-        try:
-            value = self.get(key)
-        except EnvironmentConfigError:
-            value = self.get("CLAUDE_MAX_BUDGET_USD")
+        value = (
+            self.project_environment.get(key)
+            or self.user_environment.get(key)
+            or self.project_environment.get("CLAUDE_MAX_BUDGET_USD")
+            or self.user_environment.get("CLAUDE_MAX_BUDGET_USD")
+        )
+        if not value:
+            try:
+                value = self.get(key)
+            except EnvironmentConfigError:
+                value = self.get("CLAUDE_MAX_BUDGET_USD")
         try:
             return float(value)
         except ValueError as e:
