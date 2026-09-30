@@ -3,7 +3,7 @@ title: Switchable issue tracker (Linear / ClickUp)
 date: 2026-09-30
 type: implementation
 status: resolved
-session_id: -
+session_id: 0b089937-70cf-47c7-bb45-30a65ced6ee1
 services: [clickup, linear, tracker, workflows, daemons, agents, settings, library]
 branch: clickup-tracker-support
 tickets: []
@@ -14,6 +14,7 @@ related:
   - 2026-09-11-mnt-203-create-related-ticket-for-research
   - 2026-08-28-mnt-191-ticket-status-not-changed
   - 2026-08-19-split-auth-linear-services-and-review-failure-handling
+  - 2026-09-30-move-settings-default-hermetic-tests
 ---
 
 # Switchable issue tracker (Linear / ClickUp)
@@ -129,6 +130,20 @@ sets (`.claude/agents`, `.opencode/agents`) were reworded to "issue tracker tick
 
 ---
 
+## Update — 2026-09-30 17:28
+
+- **Verification closed out** — the last red test (`tests/test_venv_bootstrap.py`, it patched the removed
+  `setup.get_linear_task` name) now patches `get_task`; two `ty` diagnostics in the new tests (`await_args` is
+  `_Call | None`) were fixed by reading `await_args_list[0]`. Final state: full `pytest` 1091 passed, `ruff`, `ty`,
+  `pre-commit run --all-files`, `bun run test` (72) and `bun run build` all green.
+- **Landed** — committed together with the concurrent LangSmith config work as `013ca41` ("Add ClickUp support, fix
+  LangSmith config") on `clickup-tracker-support`. That parallel session also moved `_settings_default` out of
+  `demetra/library/models.py` into `demetra/services/settings.py::settings_default` (see
+  [[2026-09-30-move-settings-default-hermetic-tests]]); the `ISSUE_TRACKER` / `CLICKUP_*` fallbacks added here now live
+  in that module, so the "Step 1" snippet above refers to the resolver methods, not the fallback location.
+- **Open question filed** — `wiki/QUESTIONS.md` Q-002 records the single-tracker watcher scope described under
+  Follow-ups.
+
 ## Follow-ups
 
 - The watcher polls a single tracker (the settings default). A project whose env sets `ISSUE_TRACKER=clickup` while the
@@ -142,6 +157,7 @@ sets (`.claude/agents`, `.opencode/agents`) were reworded to "issue tracker tick
 
 - Related: [[2026-09-30-mnt-230-claude-code-harness]], [[2026-09-16-mnt-205-revise-merged-environment]],
   [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-08-28-mnt-191-ticket-status-not-changed]],
-  [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
+  [[2026-08-19-split-auth-linear-services-and-review-failure-handling]],
+  [[2026-09-30-move-settings-default-hermetic-tests]]
 - External: https://developer.clickup.com/reference/getfilteredteamtasks, https://developer.clickup.com/reference/updatetask,
   https://developer.clickup.com/reference/createtask, https://developer.clickup.com/reference/gettaskcomments
