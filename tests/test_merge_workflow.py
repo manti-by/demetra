@@ -48,7 +48,7 @@ def base_mocks():
         patch("demetra.workflows.merge.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.merge.perform_git_merge", new_callable=AsyncMock) as mock_perform_merge,
         patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
-        patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+        patch("demetra.workflows.merge.get_task_by_id", new_callable=AsyncMock) as mock_get_task,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
@@ -161,7 +161,7 @@ class TestRunMergeWorkflow:
                 "demetra.workflows.merge.queue.enqueue",
                 side_effect=ConnectionError("Redis down"),
             ) as mock_enqueue,
-            patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+            patch("demetra.workflows.merge.get_task_by_id", new_callable=AsyncMock) as mock_get_task,
         ):
             mock_get_task.return_value = None
 
@@ -184,7 +184,7 @@ class TestRunMergeWorkflow:
         with (
             patch("demetra.workflows.merge.WIKI", {"revalidation_enabled": True}),
             patch("demetra.workflows.merge.queue.enqueue") as mock_enqueue,
-            patch("demetra.workflows.merge.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+            patch("demetra.workflows.merge.get_task_by_id", new_callable=AsyncMock) as mock_get_task,
             patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
         ):
 

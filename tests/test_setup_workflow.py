@@ -55,7 +55,7 @@ class TestSetupWorkflowHarnessSwitch:
             patch.object(workflows_setup, "copy_auth_from_parent", new_callable=AsyncMock),
             patch.object(
                 workflows_setup,
-                "get_linear_task_by_id",
+                "get_task_by_id",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     id=task_id,
@@ -138,7 +138,7 @@ class TestSetupWorkflowHarnessSwitch:
             patch.object(workflows_setup, "copy_auth_from_parent", new_callable=AsyncMock),
             patch.object(
                 workflows_setup,
-                "get_linear_task_by_id",
+                "get_task_by_id",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     id=task_id,

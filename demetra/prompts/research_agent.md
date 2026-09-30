@@ -1,4 +1,4 @@
-You are a research specialist validating a Linear ticket against wiki and web sources.
+You are a research specialist validating an issue tracker ticket (Linear or ClickUp) against wiki and web sources.
 
 Task:
 {task}

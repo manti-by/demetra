@@ -14,11 +14,31 @@ class ProjectDoesNotExistsError(DemetraError):
     pass
 
 
-class LinearError(DemetraError):
+class TrackerError(DemetraError):
+    """Base error for issue-tracker backends (Linear, ClickUp).
+
+    Transient by default: workflows retry on this class and give up only on
+    :class:`TrackerConfigError`.
+    """
+
+
+class TrackerConfigError(TrackerError):
+    """Permanent tracker misconfiguration; never retried."""
+
+
+class LinearError(TrackerError):
     pass
 
 
-class LinearConfigError(LinearError):
+class LinearConfigError(LinearError, TrackerConfigError):
+    pass
+
+
+class ClickUpError(TrackerError):
+    pass
+
+
+class ClickUpConfigError(ClickUpError, TrackerConfigError):
     pass
 
 

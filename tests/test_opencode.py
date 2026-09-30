@@ -126,6 +126,56 @@ class TestOpencodeService:
         assert result == "resolve result"
 
 
+class TestRunOpencodeAgentLangSmithEnv:
+    @pytest.fixture
+    def mock_run_command_and_opencode_config(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_no_environment_passes_env_through_unchanged(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = "output"
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", env={"FOO": "bar"})
+
+        assert mock_run_command_and_opencode_config.call_args.kwargs["env"] == {"FOO": "bar"}
+
+    @pytest.mark.asyncio
+    async def test_environment_merges_langsmith_env_into_subprocess_env(self, mock_run_command_and_opencode_config):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            user_environment={},
+        )
+        mock_run_command_and_opencode_config.return_value = "output"
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", environment=environment)
+
+        env = mock_run_command_and_opencode_config.call_args.kwargs["env"]
+        assert env["LANGSMITH_TRACING"] == "true"
+        assert env["TRACE_TO_LANGSMITH"] == "true"
+        assert env["LANGSMITH_API_KEY"] == "key-1"
+
+    @pytest.mark.asyncio
+    async def test_explicit_env_override_wins_over_langsmith_env(self, mock_run_command_and_opencode_config):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            user_environment={},
+        )
+        mock_run_command_and_opencode_config.return_value = "output"
+        await run_opencode_agent(
+            Path("/test"),
+            "task",
+            model="m",
+            agent="plan-agent",
+            env={"LANGSMITH_API_KEY": "override-key"},
+            environment=environment,
+        )
+
+        env = mock_run_command_and_opencode_config.call_args.kwargs["env"]
+        assert env["LANGSMITH_API_KEY"] == "override-key"
+
+
 class TestOpencodeValidateAgent:
     @pytest.fixture
     def mock_run_opencode_agent(self):

@@ -7,6 +7,8 @@ import aiofiles
 import yaml
 
 from demetra.library.constants import (
+    CLAUDE_CLICKUP_CREATE_TOOLS,
+    CLAUDE_CLICKUP_READ_TOOLS,
     CLAUDE_LINEAR_CREATE_TOOLS,
     CLAUDE_LINEAR_READ_TOOLS,
     PLAN_HAS_QUESTIONS,
@@ -17,7 +19,7 @@ from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import non_negative_int
-from demetra.settings import BASE_PATH, CLAUDE, CLAUDE_IDLE_TIMEOUT, CLAUDE_MAX_BUDGET_USD, UV
+from demetra.settings import BASE_PATH, CLAUDE, CLAUDE_IDLE_TIMEOUT, CLAUDE_MAX_BUDGET_USD, ISSUE_TRACKER, UV
 
 
 # Denied on every agent regardless of its own tool policy; the orchestrator
@@ -29,10 +31,38 @@ CLAUDE_FAILURE_SUBTYPES: frozenset[str] = frozenset(
     {"error_max_turns", "error_max_budget_usd", "error_during_execution"}
 )
 
-# Agent names whose base tool set (from .claude/agents/<name>.md) gets Linear
-# and/or web tools injected at runtime, by exact tool name (never a wildcard).
-_LINEAR_READ_AGENTS: frozenset[str] = frozenset({"plan-agent", "resolve-agent", "research-agent"})
-_LINEAR_CREATE_AGENTS: frozenset[str] = frozenset({"research-agent"})
+# Agent names whose base tool set (from .claude/agents/<name>.md) gets issue
+# tracker tools injected at runtime, by exact tool name (never a wildcard).
+_TRACKER_READ_AGENTS: frozenset[str] = frozenset({"plan-agent", "resolve-agent", "research-agent"})
+_TRACKER_CREATE_AGENTS: frozenset[str] = frozenset({"research-agent"})
+
+# Per-tracker MCP server and tool sets keyed by ``SessionEnvironment.issue_tracker``.
+_TRACKER_MCP_SERVERS: dict[str, dict] = {
+    "linear": {"type": "http", "url": "https://mcp.linear.app/mcp"},
+    "clickup": {"type": "http", "url": "https://mcp.clickup.com/mcp"},
+}
+_TRACKER_READ_TOOLS: dict[str, frozenset[str]] = {
+    "linear": CLAUDE_LINEAR_READ_TOOLS,
+    "clickup": CLAUDE_CLICKUP_READ_TOOLS,
+}
+_TRACKER_CREATE_TOOLS: dict[str, frozenset[str]] = {
+    "linear": CLAUDE_LINEAR_CREATE_TOOLS,
+    "clickup": CLAUDE_CLICKUP_CREATE_TOOLS,
+}
+
+
+def _claude_tracker(environment: SessionEnvironment | None) -> str:
+    """Return the issue tracker a Claude run should expose tools for.
+
+    Args:
+        environment: The resolved env layer, or None to use bare settings.
+
+    Returns:
+        str: ``"linear"`` or ``"clickup"``.
+    """
+    if environment is None:
+        return ISSUE_TRACKER
+    return environment.issue_tracker
 
 
 def _parse_agent_frontmatter(text: str) -> tuple[dict, str]:
@@ -58,15 +88,17 @@ def _parse_agent_frontmatter(text: str) -> tuple[dict, str]:
     return frontmatter, parts[2].strip()
 
 
-def load_claude_agent_definition(agent: str) -> dict:
+def load_claude_agent_definition(agent: str, tracker: str = "linear") -> dict:
     """Load and assemble a Claude subagent definition for ``--agents``.
 
     Parses ``.claude/agents/<agent>.md`` (a Demetra asset addressed from
-    ``BASE_PATH``, not the worktree), then injects the Linear and web tools
-    the agent needs by exact tool name, and the shared commit/push deny list.
+    ``BASE_PATH``, not the worktree), then injects the issue tracker tools the
+    agent needs by exact tool name, and the shared commit/push deny list.
 
     Args:
         agent: The agent name, e.g. ``"build-agent"``.
+        tracker: The active issue tracker whose MCP tools are injected,
+            ``"linear"`` or ``"clickup"``.
 
     Returns:
         dict: The agent definition ready to serialize under ``--agents``.
@@ -75,10 +107,10 @@ def load_claude_agent_definition(agent: str) -> dict:
     frontmatter, body = _parse_agent_frontmatter(path.read_text())
 
     tools = list(frontmatter.get("tools") or [])
-    if agent in _LINEAR_READ_AGENTS:
-        tools.extend(sorted(CLAUDE_LINEAR_READ_TOOLS))
-    if agent in _LINEAR_CREATE_AGENTS:
-        tools.extend(sorted(CLAUDE_LINEAR_CREATE_TOOLS))
+    if agent in _TRACKER_READ_AGENTS:
+        tools.extend(sorted(_TRACKER_READ_TOOLS[tracker]))
+    if agent in _TRACKER_CREATE_AGENTS:
+        tools.extend(sorted(_TRACKER_CREATE_TOOLS[tracker]))
 
     disallowed_tools = list(CLAUDE_DENIED_TOOLS)
     for tool in ("Edit", "Write"):
@@ -93,17 +125,20 @@ def load_claude_agent_definition(agent: str) -> dict:
     }
 
 
-def build_claude_mcp_config(project_id: str | None = None) -> str:
+def build_claude_mcp_config(project_id: str | None = None, tracker: str = "linear") -> str:
     """Build the inline ``--mcp-config`` JSON for a Claude agent run.
 
     The Demetra MCP server is launched with ``--directory`` (cwd is the
     worktree, not Demetra) and ``--env-file`` so its subprocess has DB
     credentials despite only inheriting the allowlisted OS env. No secret
     value is ever written into the JSON or argv; the env file path is a
-    reference the ``uv`` subprocess reads itself.
+    reference the ``uv`` subprocess reads itself. Only the active tracker's
+    hosted MCP server is attached, so a ClickUp project never sees Linear
+    tools and vice versa.
 
     Args:
         project_id: Reserved for future per-project MCP scoping.
+        tracker: The active issue tracker, ``"linear"`` or ``"clickup"``.
 
     Returns:
         str: The JSON-encoded MCP server configuration.
@@ -124,10 +159,7 @@ def build_claude_mcp_config(project_id: str | None = None) -> str:
                     "demetra.mcp_server",
                 ],
             },
-            "linear": {
-                "type": "http",
-                "url": "https://mcp.linear.app/mcp",
-            },
+            tracker: dict(_TRACKER_MCP_SERVERS[tracker]),
         }
     }
     return json.dumps(config)
@@ -333,6 +365,8 @@ async def run_claude_agent(
     env: dict[str, str] | None = None,
     project_id: str | None = None,
     disable_stdio: bool = False,
+    tracker: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run a Claude Code agent with the given model, task and session options.
 
@@ -357,12 +391,17 @@ async def run_claude_agent(
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
         disable_stdio: Whether to suppress live subprocess output.
+        tracker: The issue tracker whose MCP server and tools are attached;
+            defaults to the ``ISSUE_TRACKER`` setting when None.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, the agent's final result text (not
             the raw stream) and stderr, matching the OpenCode wrapper contract.
     """
-    agent_definition = load_claude_agent_definition(agent)
+    tracker = tracker or ISSUE_TRACKER
+    agent_definition = load_claude_agent_definition(agent=agent, tracker=tracker)
 
     command = [
         str(CLAUDE["path"]),
@@ -377,7 +416,7 @@ async def run_claude_agent(
         "--agent",
         agent,
         "--mcp-config",
-        build_claude_mcp_config(project_id=project_id),
+        build_claude_mcp_config(project_id=project_id, tracker=tracker),
         "--strict-mcp-config",
         "--permission-mode",
         "acceptEdits",
@@ -396,11 +435,15 @@ async def run_claude_agent(
         else:
             command.extend(["--session-id", session_id])
 
+    merged_env = environment.langsmith_env if environment is not None else {}
+    if env:
+        merged_env.update(env)
+
     exit_code, stdout, stderr = await run_command(
         command=command,
         target_path=target_path,
         disable_stdio=disable_stdio,
-        env=env,
+        env=merged_env or None,
         input_text=task,
         project_id=project_id,
         line_formatter=format_claude_stream_event,
@@ -492,6 +535,8 @@ async def claude_plan_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -543,6 +588,8 @@ async def claude_build_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -554,6 +601,7 @@ async def claude_review_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the Claude review agent with the review prompt.
 
@@ -566,6 +614,8 @@ async def claude_review_agent(
         task_title: Reserved; Claude sessions are addressed by id, not title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -581,6 +631,8 @@ async def claude_review_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(None),
+        environment=environment,
     )
 
 
@@ -622,6 +674,8 @@ async def claude_validate_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -661,6 +715,8 @@ async def claude_review_fixes_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -698,6 +754,8 @@ async def claude_merge_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -735,6 +793,8 @@ async def claude_rebase_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -774,6 +834,8 @@ async def claude_resolve_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 
@@ -814,6 +876,8 @@ async def claude_research_agent(
         max_budget_usd=budget,
         env=env,
         project_id=project_id,
+        tracker=_claude_tracker(environment),
+        environment=environment,
     )
 
 

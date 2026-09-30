@@ -38,6 +38,13 @@ OPENROUTER_SETTINGS: dict = {
     "base_url": "https://openrouter.example/v1",
 }
 
+LANGSMITH_SETTINGS: dict = {
+    "tracing": False,
+    "endpoint": "https://api.smith.langchain.com",
+    "api_key": None,
+    "project": "settings-project",
+}
+
 LINEAR_SETTINGS: dict = {
     "team_id": "settings-team",
     "default_state": "settings-default-state",
@@ -70,6 +77,7 @@ def settings_defaults():
         patch("demetra.settings.CLAUDE_DEFAULT_MAX_BUDGET_USD", 5.0),
         patch("demetra.settings.CLAUDE_MAX_BUDGET_USD", {"plan": 5.0, "build": 15.0, "review": 5.0}),
         patch("demetra.settings.OPENROUTER", OPENROUTER_SETTINGS),
+        patch("demetra.settings.LANGSMITH", LANGSMITH_SETTINGS),
         patch("demetra.settings.LINEAR", LINEAR_SETTINGS),
     ):
         yield
@@ -166,6 +174,61 @@ class TestSessionEnvironmentOpenRouter:
                 _ = environment.openrouter_config
 
 
+class TestSessionEnvironmentLangSmith:
+    def test_disabled_by_default_from_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.langsmith_env == {
+            "LANGSMITH_TRACING": "false",
+            "TRACE_TO_LANGSMITH": "false",
+            "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
+            "LANGSMITH_API_KEY": "",
+            "LANGSMITH_PROJECT": "settings-project",
+        }
+
+    def test_sets_both_trace_flags_when_tracing_and_key_configured(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "project-key"},
+            user_environment={},
+        )
+
+        env = environment.langsmith_env
+        assert env["LANGSMITH_TRACING"] == "true"
+        assert env["TRACE_TO_LANGSMITH"] == "true"
+        assert env["LANGSMITH_API_KEY"] == "project-key"
+
+    def test_tracing_forced_off_without_an_api_key(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true"},
+            user_environment={},
+        )
+
+        env = environment.langsmith_env
+        assert env["LANGSMITH_TRACING"] == "false"
+        assert env["TRACE_TO_LANGSMITH"] == "false"
+
+    def test_project_key_wins_over_user_and_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_API_KEY": "project-key"},
+            user_environment={"LANGSMITH_API_KEY": "user-key"},
+        )
+
+        assert environment.langsmith_env["LANGSMITH_API_KEY"] == "project-key"
+
+    def test_endpoint_and_project_are_overridable(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={
+                "LANGSMITH_ENDPOINT": "https://project.example",
+                "LANGSMITH_PROJECT": "project-name",
+            },
+            user_environment={},
+        )
+
+        env = environment.langsmith_env
+        assert env["LANGSMITH_ENDPOINT"] == "https://project.example"
+        assert env["LANGSMITH_PROJECT"] == "project-name"
+
+
 class TestSessionEnvironmentLinear:
     def test_linear_state_reads_user_override(self, settings_defaults):
         environment = SessionEnvironment(
@@ -195,6 +258,87 @@ class TestSessionEnvironmentLinear:
         )
 
         assert environment.linear_value("default_state") == "user-default-state"
+
+
+CLICKUP_SETTINGS: dict = {
+    "team_id": "settings-team",
+    "list_id": "settings-list",
+    "default_state": "settings-prd",
+    "states": {"todo": "to do", "in_review": "in review"},
+}
+
+
+@pytest.fixture
+def tracker_defaults(settings_defaults):
+    with (
+        patch("demetra.settings.ISSUE_TRACKER", "linear"),
+        patch("demetra.settings.CLICKUP", CLICKUP_SETTINGS),
+    ):
+        yield
+
+
+class TestSessionEnvironmentIssueTracker:
+    def test_defaults_to_settings_tracker(self, tracker_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.issue_tracker == "linear"
+
+    def test_project_layer_overrides_user_and_settings(self, tracker_defaults):
+        environment = SessionEnvironment(
+            project_environment={"ISSUE_TRACKER": "clickup"},
+            user_environment={"ISSUE_TRACKER": "linear"},
+        )
+
+        assert environment.issue_tracker == "clickup"
+
+    def test_user_layer_overrides_settings(self, tracker_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={"ISSUE_TRACKER": "clickup"})
+
+        assert environment.issue_tracker == "clickup"
+
+    def test_unknown_tracker_raises(self, tracker_defaults):
+        environment = SessionEnvironment(project_environment={"ISSUE_TRACKER": "jira"}, user_environment={})
+
+        with pytest.raises(EnvironmentConfigError, match="ISSUE_TRACKER must be one of"):
+            _ = environment.issue_tracker
+
+    def test_clickup_state_reads_user_override_then_settings(self, tracker_defaults):
+        environment = SessionEnvironment(
+            project_environment={},
+            user_environment={"CLICKUP_STATE_TODO": "backlog"},
+        )
+
+        assert environment.clickup_state("todo") == "backlog"
+        assert environment.clickup_state("in_review") == "in review"
+
+    def test_clickup_value_reads_settings_defaults(self, tracker_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.clickup_value("team_id") == "settings-team"
+        assert environment.clickup_value("list_id") == "settings-list"
+        assert environment.clickup_value("default_state") == "settings-prd"
+
+    def test_clickup_state_missing_raises(self, tracker_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        with pytest.raises(EnvironmentConfigError, match="CLICKUP_STATE_PRD"):
+            environment.clickup_state("prd")
+
+    def test_tracker_state_dispatches_on_tracker(self, tracker_defaults):
+        linear_environment = SessionEnvironment(project_environment={}, user_environment={})
+        clickup_environment = SessionEnvironment(project_environment={"ISSUE_TRACKER": "clickup"}, user_environment={})
+
+        assert linear_environment.tracker_state("todo") == LINEAR_SETTINGS["states"]["todo"]
+        assert clickup_environment.tracker_state("todo") == "to do"
+
+    def test_tracker_value_dispatches_on_tracker(self, tracker_defaults):
+        linear_environment = SessionEnvironment(project_environment={}, user_environment={})
+        clickup_environment = SessionEnvironment(project_environment={"ISSUE_TRACKER": "clickup"}, user_environment={})
+
+        assert linear_environment.tracker_value("team_id") == LINEAR_SETTINGS["team_id"]
+        assert clickup_environment.tracker_value("team_id") == "settings-team"
+        assert linear_environment.tracker_value("default_state") == LINEAR_SETTINGS["default_state"]
+        assert clickup_environment.tracker_value("default_state") == "settings-prd"
 
 
 class TestContextEnvironment:

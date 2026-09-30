@@ -1,13 +1,15 @@
 from pathlib import Path
 
-from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS, ISSUE_TRACKERS
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
     ClaudeConfig,
+    ClickUpConfig,
     DBConfig,
     GitConfig,
     GitHubConfig,
     JWTConfig,
+    LangSmithConfig,
     LinearConfig,
     OpenCodeConfig,
     OpenRouterConfig,
@@ -168,6 +170,36 @@ LINEAR: LinearConfig = {
     "research_labels": env_get_list("LINEAR_RESEARCH_LABELS", ["Research"]),
 }
 
+# ClickUp statuses are per-list names, not ids: every CLICKUP_STATE_* value is
+# the status label exactly as configured on the list (case-insensitive on the
+# API side). The Demetra "project" maps to a ClickUp List, so
+# ``projects.linear_project_id`` holds the ClickUp list id under this tracker.
+CLICKUP: ClickUpConfig = {
+    "api_url": "https://api.clickup.com/api/v2",
+    "api_token": env_get_str("CLICKUP_API_TOKEN", None),
+    "team_id": env_get_str("CLICKUP_TEAM_ID", None),
+    "list_id": env_get_str("CLICKUP_LIST_ID", None),
+    "service_name": "clickup",
+    "feature_tag": env_get_str("CLICKUP_FEATURE_TAG", "feature"),
+    "backend_tag": env_get_str("CLICKUP_BACKEND_TAG", "backend"),
+    "frontend_tag": env_get_str("CLICKUP_FRONTEND_TAG", "frontend"),
+    "states": {
+        "prd": env_get_str("CLICKUP_STATE_PRD", "prd"),
+        "todo": env_get_str("CLICKUP_STATE_TODO", "to do"),
+        "in_progress": env_get_str("CLICKUP_STATE_IN_PROGRESS", "in progress"),
+        "in_review": env_get_str("CLICKUP_STATE_IN_REVIEW", "in review"),
+        "awaiting_input": env_get_str("CLICKUP_STATE_AWAITING_INPUT", "awaiting input"),
+        "done": env_get_str("CLICKUP_STATE_DONE", "complete"),
+    },
+    "default_state": env_get_str("CLICKUP_DEFAULT_STATE", "prd"),
+    "filter_labels": env_get_list("CLICKUP_FILTER_LABELS", []),
+    "research_labels": env_get_list("CLICKUP_RESEARCH_LABELS", ["Research"]),
+}
+
+ISSUE_TRACKER = env_get_str("ISSUE_TRACKER", "linear")
+if ISSUE_TRACKER not in ISSUE_TRACKERS:
+    raise SettingsError(f"ISSUE_TRACKER must be one of {sorted(ISSUE_TRACKERS)}, got {ISSUE_TRACKER!r}")
+
 OPENCODE: OpenCodeConfig = {
     "path": env_get_path("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"),
     "plan_model": env_get_str("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
@@ -278,6 +310,18 @@ OPENROUTER: OpenRouterConfig = {
     "api_key": env_get_str("OPENROUTER_API_KEY", None),
     "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
+}
+
+# Forwarded to every agent subprocess by ``SessionEnvironment.langsmith_env`` under
+# both ``LANGSMITH_TRACING`` (read directly from the environment by the
+# ``langsmith``/``langchain-core`` Python SDK) and ``TRACE_TO_LANGSMITH`` (read by
+# the ``@langchain/langsmith-opencode`` OpenCode plugin) since the two tracing
+# consumers do not share an env var name.
+LANGSMITH: LangSmithConfig = {
+    "tracing": env_get_bool("LANGSMITH_TRACING", False),
+    "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+    "api_key": env_get_str("LANGSMITH_API_KEY", None),
+    "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

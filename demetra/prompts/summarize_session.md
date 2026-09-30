@@ -1,6 +1,6 @@
 You are an expert at writing concise wiki page summaries for implementation sessions.
 
-Given the Linear ticket text, description, build plan, and git diff summary, produce a
+Given the issue tracker ticket text, description, build plan, and git diff summary, produce a
 JSON object with exactly two keys:
 
 - `tldr`: 2-4 sentences a teammate can read in 20 seconds — what this session was about

@@ -31,6 +31,8 @@ SEARCH_STOP_WORDS: frozenset[str] = frozenset(
 
 AGENT_HARNESSES: frozenset[str] = frozenset({"opencode", "claude"})
 
+ISSUE_TRACKERS: frozenset[str] = frozenset({"linear", "clickup"})
+
 CLAUDE_EFFORT_LEVELS: frozenset[str] = frozenset({"low", "medium", "high", "xhigh", "max"})
 
 # Explicit Linear MCP tool names, never a "mcp__linear__*" wildcard, so a new
@@ -53,6 +55,29 @@ CLAUDE_LINEAR_CREATE_TOOLS: frozenset[str] = frozenset(
     {
         "mcp__linear__create_issue",
         "mcp__linear__create_comment",
+    }
+)
+
+# Explicit ClickUp MCP tool names (the hosted https://mcp.clickup.com/mcp
+# server), never a "mcp__clickup__*" wildcard, for the same reason as above.
+# Names mirror the Linear set and have not been confirmed against a live,
+# authenticated ClickUp MCP session.
+CLAUDE_CLICKUP_READ_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__clickup__search_workspace",
+        "mcp__clickup__get_task",
+        "mcp__clickup__get_task_comments",
+        "mcp__clickup__get_list",
+        "mcp__clickup__get_folder",
+        "mcp__clickup__get_space",
+        "mcp__clickup__get_workspace_members",
+    }
+)
+
+CLAUDE_CLICKUP_CREATE_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__clickup__create_task",
+        "mcp__clickup__create_task_comment",
     }
 )
 

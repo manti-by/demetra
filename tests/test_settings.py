@@ -516,6 +516,50 @@ class TestClaudeSettings:
         monkeypatch.delenv("AGENT_HARNESS", raising=False)
         importlib.reload(settings_module)
 
+    def test_issue_tracker_default(self, monkeypatch):
+        monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.ISSUE_TRACKER == "linear"
+            assert settings_module.CLICKUP["api_url"] == "https://api.clickup.com/api/v2"
+            assert settings_module.CLICKUP["states"]["todo"] == "to do"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_issue_tracker_env_override(self, monkeypatch):
+        monkeypatch.setenv("ISSUE_TRACKER", "clickup")
+        monkeypatch.setenv("CLICKUP_STATE_TODO", "backlog")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.ISSUE_TRACKER == "clickup"
+            assert settings_module.CLICKUP["states"]["todo"] == "backlog"
+        finally:
+            monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+            monkeypatch.delenv("CLICKUP_STATE_TODO", raising=False)
+            importlib.reload(settings_module)
+
+    def test_invalid_issue_tracker_raises_settings_error(self, monkeypatch):
+        monkeypatch.setenv("ISSUE_TRACKER", "jira")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError, match="ISSUE_TRACKER"):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+        importlib.reload(settings_module)
+
     def test_claude_idle_timeout_below_minimum_raises(self, monkeypatch):
         monkeypatch.setenv("CLAUDE_IDLE_TIMEOUT", "100")
         import importlib

@@ -13,6 +13,8 @@ from demetra.library.exceptions import (
     LinearConfigError,
     LinearError,
     PlanError,
+    TrackerConfigError,
+    TrackerError,
 )
 from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment, SessionHistory, TokenUsage
 from demetra.workflows.build import check_and_compact_context, run_build_step
@@ -48,7 +50,7 @@ class TestWorkflowSetup:
 
     @pytest.fixture
     def mock_get_linear_task(self):
-        with patch("demetra.workflows.setup.get_linear_task", new_callable=AsyncMock) as m:
+        with patch("demetra.workflows.setup.get_task", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -331,7 +333,7 @@ class TestWorkflowPlan:
 
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id", environment=context.environment
             )
             mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
 
@@ -384,7 +386,7 @@ class TestWorkflowPlan:
             mock_extract_plan.assert_not_called()
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id", environment=context.environment
             )
             mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
 
@@ -437,7 +439,7 @@ class TestWorkflowPlan:
             mock_extract_plan.assert_not_called()
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.linear_task.id, state_id="awaiting-input-state-id", environment=context.environment
             )
             mock_update_session_step.assert_any_await(task_id=context.linear_task.id, step="awaiting_input")
 
@@ -1649,7 +1651,7 @@ class TestWorkflowCleanup:
 
     @pytest.fixture
     def mock_linear_cleanup(self):
-        with patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as m:
+        with patch("demetra.workflows.cleanup.tracker_cleanup", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -2196,7 +2198,9 @@ class TestWorkflowResearch:
 
         assert result == report
         mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
-        mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=context.linear_task.id, state_id="state-123", environment=context.environment
+        )
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
 
     @pytest.mark.asyncio
@@ -2314,7 +2318,7 @@ class TestWorkflowResearch:
         mock_create_research_ticket.side_effect = LinearError("Failed to create research Linear ticket")
 
         with patch("demetra.workflows.research.MAX_ATTEMPTS", {"research": 2}):
-            with pytest.raises(LinearError, match="after all attempts"):
+            with pytest.raises(TrackerError, match="after all attempts"):
                 await run_research_step(context)
 
     @pytest.mark.asyncio
@@ -2323,7 +2327,7 @@ class TestWorkflowResearch:
     ):
         context = self._make_context(faker, linear_project_id=None)
 
-        with pytest.raises(LinearConfigError, match="has no project"):
+        with pytest.raises(TrackerConfigError, match="has no project"):
             await run_research_step(context)
 
         mock_research_agent.assert_not_awaited()
@@ -2339,7 +2343,7 @@ class TestWorkflowResearch:
         context = self._make_context(faker)
         mock_get_linear_config_value.side_effect = _resolve
 
-        with pytest.raises(LinearConfigError, match="team id is not configured"):
+        with pytest.raises(TrackerConfigError, match="team id is not configured"):
             await run_research_step(context)
 
         mock_research_agent.assert_not_awaited()
@@ -2370,7 +2374,7 @@ class TestWorkflowResearch:
         context = self._make_context(faker)
         mock_get_linear_config_value.side_effect = _resolve
 
-        with pytest.raises(LinearConfigError, match="'awaiting_input' is not configured"):
+        with pytest.raises(TrackerConfigError, match="'awaiting_input' is not configured"):
             await run_research_step(context)
 
         mock_research_agent.assert_not_awaited()

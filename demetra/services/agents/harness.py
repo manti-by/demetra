@@ -191,6 +191,7 @@ async def review_agents(
                     max_budget_usd=environment.claude_max_budget_usd("review"),
                     env=env,
                     project_id=project_id,
+                    environment=environment,
                 )
             )
         else:
@@ -200,6 +201,7 @@ async def review_agents(
                     model=review_model.model,
                     env=env,
                     project_id=project_id,
+                    environment=environment,
                 )
             )
     return list(await asyncio.gather(*runs))

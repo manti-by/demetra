@@ -3,7 +3,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from demetra.library.exceptions import PrDescriptionError, PullRequestError, WikiError
 from demetra.library.models import Context
 from demetra.services.agents import harness
-from demetra.services.linear import linear_cleanup
 from demetra.services.llm.openrouter import generate_pr_description
 from demetra.services.persistence.database import (
     record_session_step_history,
@@ -11,6 +10,7 @@ from demetra.services.persistence.database import (
     update_session_step,
 )
 from demetra.services.runtime.tui import print_message
+from demetra.services.tracker import tracker_cleanup
 from demetra.services.vcs.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.vcs.github import create_pull_request, extract_pr_link
 from demetra.services.wiki import write_session_wiki_page
@@ -149,16 +149,16 @@ async def cleanup_workflow(
     should_update_linear_status: bool,
     failure_step: str = "failed",
 ) -> None:
-    """Finalize a workflow run: record history, clean up git and update Linear.
+    """Finalize a workflow run: record history, clean up git and update the tracker.
 
     On failure the session step and token history are recorded under
     ``failure_step``. The worktree is always removed and, when requested, the
-    Linear ticket is moved according to the outcome.
+    tracker ticket is moved according to the outcome.
 
     Args:
         context: The workflow context.
         is_success: Whether the workflow completed successfully.
-        should_update_linear_status: Whether to move the Linear ticket.
+        should_update_linear_status: Whether to move the tracker ticket.
         failure_step: Step name to record on failure.
     """
     if not is_success:
@@ -182,4 +182,4 @@ async def cleanup_workflow(
 
     await git_cleanup(context=context, is_success=is_success)
     if should_update_linear_status:
-        await linear_cleanup(context=context, is_success=is_success)
+        await tracker_cleanup(context=context, is_success=is_success)

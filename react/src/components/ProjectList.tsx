@@ -162,7 +162,7 @@ export function ProjectList({ onClose, inline = false }: ProjectListProps) {
                     </p>
                     {project.linear_project_id && (
                       <p className="project-linear">
-                        Linear ID: {project.linear_project_id}
+                        Tracker project ID: {project.linear_project_id}
                       </p>
                     )}
                   </div>
@@ -214,7 +214,7 @@ export function ProjectList({ onClose, inline = false }: ProjectListProps) {
               />
               <input
                 type="text"
-                placeholder="Linear Project ID (optional)"
+                placeholder="Tracker project / ClickUp list ID (optional)"
                 value={newProject.linear_project_id}
                 onChange={(e) =>
                   setNewProject((prev) => ({

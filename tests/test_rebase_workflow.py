@@ -48,7 +48,7 @@ def base_mocks():
         patch("demetra.workflows.rebase.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.rebase.perform_git_rebase", new_callable=AsyncMock) as mock_perform_rebase,
         patch("demetra.workflows.rebase.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
-        patch("demetra.workflows.rebase.get_linear_task_by_id", new_callable=AsyncMock) as mock_get_task,
+        patch("demetra.workflows.rebase.get_task_by_id", new_callable=AsyncMock) as mock_get_task,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA

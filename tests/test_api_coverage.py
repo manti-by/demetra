@@ -4,7 +4,7 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.models import LinearTask
+from demetra.library.models import LinearTask, SessionEnvironment
 from demetra.services.daemons.watcher import process_tasks
 from demetra.services.runtime.project import parse_github_url
 from demetra.services.runtime.tui import print_message
@@ -104,8 +104,18 @@ class TestWatcherService:
             yield mock
 
     @pytest.fixture
-    def mock_resolve_linear_state(self):
-        with patch("demetra.services.daemons.watcher.resolve_linear_state", new_callable=AsyncMock) as mock:
+    def mock_resolve_tracker_environment(self):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+        with patch(
+            "demetra.services.daemons.watcher.resolve_tracker_environment",
+            new_callable=AsyncMock,
+            return_value=environment,
+        ) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_resolve_tracker_state(self):
+        with patch("demetra.services.daemons.watcher.resolve_tracker_state") as mock:
             yield mock
 
     @pytest.fixture
@@ -142,18 +152,24 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
+        mock_resolve_tracker_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_resolve_linear_state.return_value = "in-progress-state"
+        mock_resolve_tracker_state.return_value = "in-progress-state"
 
         await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_awaited_once()
-        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
-        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_resolve_tracker_environment.assert_awaited_once_with(user_id="user-1", project_id="project-1")
+        mock_resolve_tracker_state.assert_called_once_with(
+            environment=mock_resolve_tracker_environment.return_value, name="in_progress"
+        )
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=task.id, state_id="in-progress-state", environment=mock_resolve_tracker_environment.return_value
+        )
         mock_delay_run_workflow.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -162,7 +178,8 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
+        mock_resolve_tracker_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
@@ -170,15 +187,20 @@ class TestWatcherService:
         # skips the session upsert but is still re-moved to in_progress so it does
         # not get stuck in TODO on re-pickup.
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_resolve_linear_state.return_value = "in-progress-state"
+        mock_resolve_tracker_state.return_value = "in-progress-state"
         with patch("demetra.services.daemons.watcher.get_pending_session_task_ids", new_callable=AsyncMock) as mock_ids:
             mock_ids.return_value = {task.id}
 
             await process_tasks(tasks=[task])
 
         mock_upsert_pending_session.assert_not_awaited()
-        mock_resolve_linear_state.assert_awaited_once_with("in_progress", user_id="user-1", project_id="project-1")
-        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_resolve_tracker_environment.assert_awaited_once_with(user_id="user-1", project_id="project-1")
+        mock_resolve_tracker_state.assert_called_once_with(
+            environment=mock_resolve_tracker_environment.return_value, name="in_progress"
+        )
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=task.id, state_id="in-progress-state", environment=mock_resolve_tracker_environment.return_value
+        )
         mock_delay_run_workflow.assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -187,12 +209,13 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
+        mock_resolve_tracker_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_resolve_linear_state.return_value = None
+        mock_resolve_tracker_state.return_value = None
 
         await process_tasks(tasks=[task])
 
@@ -205,15 +228,18 @@ class TestWatcherService:
         faker,
         mock_get_pending_session_task_ids,
         mock_upsert_pending_session,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
+        mock_resolve_tracker_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_resolve_linear_state.return_value = "in-progress-state"
+        mock_resolve_tracker_state.return_value = "in-progress-state"
         mock_update_ticket_status.return_value = False
 
         await process_tasks(tasks=[task])
 
-        mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=task.id, state_id="in-progress-state", environment=mock_resolve_tracker_environment.return_value
+        )
         mock_delay_run_workflow.assert_awaited_once()

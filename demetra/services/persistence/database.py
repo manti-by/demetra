@@ -1507,6 +1507,32 @@ async def search_projects_by_name(name: str) -> list[dict]:
     return [dict(row._mapping) for row in rows]
 
 
+async def get_linked_projects() -> dict[str, tuple[str, str]]:
+    """Build a lookup of tracker project ids and names to Demetra projects.
+
+    ``projects.linear_project_id`` holds the Linear project id under the
+    Linear tracker and the ClickUp list id under the ClickUp tracker; both
+    are matched case-insensitively, as is the project name.
+
+    Returns:
+        dict[str, tuple[str, str]]: Maps a lowercased tracker project id or
+            project name to a tuple of ``(project_id, user_id)``.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(projects.c.id, projects.c.user_id, projects.c.linear_project_id, projects.c.name)
+        )
+        rows = result.fetchall()
+
+    mapping: dict[str, tuple[str, str]] = {}
+    for row in rows:
+        if row.linear_project_id:
+            mapping[row.linear_project_id.lower()] = (row.id, row.user_id)
+        if row.name:
+            mapping[row.name.lower()] = (row.id, row.user_id)
+    return mapping
+
+
 async def get_projects_by_user(user_id: str) -> list[dict]:
     """List all projects owned by a user.
 

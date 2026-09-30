@@ -18,7 +18,7 @@ from demetra.services.agents.claude import (
     new_claude_session_id,
     run_claude_agent,
 )
-from demetra.settings import BASE_PATH, UV
+from demetra.settings import BASE_PATH, CLAUDE, UV
 
 
 class TestLoadClaudeAgentDefinition:
@@ -89,6 +89,76 @@ class TestBuildClaudeMcpConfig:
         raw_string = build_claude_mcp_config()
         for needle in ("SECRET", "PASSWORD", "postgresql://", "DB_PASSWORD"):
             assert needle not in raw_string
+
+    def test_clickup_tracker_attaches_only_the_clickup_server(self):
+        from demetra.services.agents.claude import build_claude_mcp_config
+
+        raw = json.loads(build_claude_mcp_config(tracker="clickup"))
+
+        assert raw["mcpServers"]["clickup"] == {"type": "http", "url": "https://mcp.clickup.com/mcp"}
+        assert "linear" not in raw["mcpServers"]
+        assert "demetra" in raw["mcpServers"]
+
+    def test_linear_tracker_does_not_attach_clickup(self):
+        raw = _build_config()
+
+        assert "clickup" not in raw["mcpServers"]
+
+
+class TestClaudeTrackerTools:
+    @pytest.mark.parametrize("agent", ["plan-agent", "resolve-agent", "research-agent"])
+    def test_clickup_read_tools_injected_for_read_agents(self, agent):
+        from demetra.library.constants import CLAUDE_CLICKUP_READ_TOOLS, CLAUDE_LINEAR_READ_TOOLS
+
+        definition = load_claude_agent_definition(agent, tracker="clickup")
+
+        assert set(CLAUDE_CLICKUP_READ_TOOLS) <= set(definition["tools"])
+        assert not set(CLAUDE_LINEAR_READ_TOOLS) & set(definition["tools"])
+        assert not any(tool.endswith("*") and "clickup" in tool for tool in definition["tools"])
+
+    def test_clickup_create_tools_only_on_research_agent(self):
+        from demetra.library.constants import CLAUDE_CLICKUP_CREATE_TOOLS
+
+        research = load_claude_agent_definition("research-agent", tracker="clickup")
+        plan = load_claude_agent_definition("plan-agent", tracker="clickup")
+
+        assert set(CLAUDE_CLICKUP_CREATE_TOOLS) <= set(research["tools"])
+        assert not set(CLAUDE_CLICKUP_CREATE_TOOLS) & set(plan["tools"])
+
+    def test_build_agent_has_no_tracker_tools_under_clickup(self):
+        definition = load_claude_agent_definition("build-agent", tracker="clickup")
+
+        assert not any(tool.startswith("mcp__clickup__") for tool in definition["tools"])
+
+    def test_claude_tracker_follows_environment(self):
+        from demetra.library.models import SessionEnvironment
+        from demetra.services.agents.claude import _claude_tracker
+
+        clickup = SessionEnvironment(project_environment={"ISSUE_TRACKER": "clickup"}, user_environment={})
+        with patch("demetra.services.agents.claude.ISSUE_TRACKER", "linear"):
+            assert _claude_tracker(None) == "linear"
+            assert _claude_tracker(clickup) == "clickup"
+
+    @pytest.mark.asyncio
+    async def test_run_claude_agent_passes_tracker_into_mcp_config_and_tools(self, tmp_path):
+        from demetra.library.models import ClaudeResult, SessionEnvironment
+        from demetra.services.agents.claude import claude_plan_agent
+
+        environment = SessionEnvironment(project_environment={"ISSUE_TRACKER": "clickup"}, user_environment={})
+        parsed = ClaudeResult(result="ok", is_error=False, session_id="s", usage=None, subtype="success")
+        with (
+            patch("demetra.services.agents.claude.run_command", new_callable=AsyncMock) as run_mock,
+            patch("demetra.services.agents.claude.extract_claude_result", return_value=parsed),
+        ):
+            run_mock.return_value = (0, "", "")
+            await claude_plan_agent(target_path=tmp_path, task="t", environment=environment)
+
+        command = run_mock.await_args_list[0].kwargs["command"]
+        mcp_config = json.loads(command[command.index("--mcp-config") + 1])
+        assert "clickup" in mcp_config["mcpServers"]
+        assert "linear" not in mcp_config["mcpServers"]
+        assert "mcp__clickup__get_task" in command
+        assert "mcp__linear__get_issue" not in command
 
 
 def _build_config() -> dict:
@@ -306,7 +376,7 @@ class TestRunClaudeAgentCommand:
         call_kwargs = mock_run_command.call_args.kwargs
         command = call_kwargs["command"]
 
-        assert command[0].endswith("claude")
+        assert command[0] == str(CLAUDE["path"])
         assert "-p" in command
         assert command[command.index("--output-format") + 1] == "stream-json"
         assert command[command.index("--model") + 1] == "opus"
@@ -355,6 +425,59 @@ class TestRunClaudeAgentCommand:
         assert "--max-budget-usd" not in command
         assert "--session-id" not in command
         assert "--resume" not in command
+
+
+class TestRunClaudeAgentLangSmithEnv:
+    @pytest.fixture
+    def mock_run_command(self):
+        with patch("demetra.services.agents.claude.run_command", new_callable=AsyncMock) as mock:
+            mock.return_value = (0, _ndjson_result(), "")
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_no_environment_passes_env_through_unchanged(self, mock_run_command):
+        await run_claude_agent(
+            target_path=Path("/tmp/worktree"), task="task", model="haiku", agent="plan-agent", env={"FOO": "bar"}
+        )
+
+        assert mock_run_command.call_args.kwargs["env"] == {"FOO": "bar"}
+
+    @pytest.mark.asyncio
+    async def test_environment_merges_langsmith_env_into_subprocess_env(self, mock_run_command):
+        from demetra.library.models import SessionEnvironment
+
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            user_environment={},
+        )
+        await run_claude_agent(
+            target_path=Path("/tmp/worktree"), task="task", model="haiku", agent="plan-agent", environment=environment
+        )
+
+        env = mock_run_command.call_args.kwargs["env"]
+        assert env["LANGSMITH_TRACING"] == "true"
+        assert env["TRACE_TO_LANGSMITH"] == "true"
+        assert env["LANGSMITH_API_KEY"] == "key-1"
+
+    @pytest.mark.asyncio
+    async def test_explicit_env_override_wins_over_langsmith_env(self, mock_run_command):
+        from demetra.library.models import SessionEnvironment
+
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            user_environment={},
+        )
+        await run_claude_agent(
+            target_path=Path("/tmp/worktree"),
+            task="task",
+            model="haiku",
+            agent="plan-agent",
+            env={"LANGSMITH_API_KEY": "override-key"},
+            environment=environment,
+        )
+
+        env = mock_run_command.call_args.kwargs["env"]
+        assert env["LANGSMITH_API_KEY"] == "override-key"
 
 
 class TestRunClaudeAgentFailureHandling:

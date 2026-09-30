@@ -148,7 +148,7 @@ class TestSetupWorkflowVenvWiring:
             ),
             patch.object(
                 setup_module,
-                "get_linear_task",
+                "get_task",
                 new_callable=AsyncMock,
                 return_value=MagicMock(
                     id="MNT-1",

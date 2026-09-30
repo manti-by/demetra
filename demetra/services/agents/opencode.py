@@ -96,6 +96,7 @@ async def opencode_review_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode review agent with the review prompt.
 
@@ -105,6 +106,8 @@ async def opencode_review_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -118,6 +121,7 @@ async def opencode_review_agent(
         agent="review-agent",
         env=env,
         project_id=project_id,
+        environment=environment,
     )
 
 
@@ -352,7 +356,8 @@ async def run_opencode_agent(
         disable_stdio: Whether to suppress live subprocess output.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        environment: Reserved; not used by the agent run.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -364,11 +369,15 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
+    merged_env = environment.langsmith_env if environment is not None else {}
+    if env:
+        merged_env.update(env)
+
     return await run_command(
         command=command,
         target_path=target_path,
         disable_stdio=disable_stdio,
-        env=env,
+        env=merged_env or None,
         input_text=task,
         project_id=project_id,
     )

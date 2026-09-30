@@ -6,7 +6,7 @@ from typing import Literal
 
 from slugify import slugify
 
-from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS, ISSUE_TRACKERS
 from demetra.library.exceptions import EnvironmentConfigError
 from demetra.library.types import OpenRouterConfig, WaitlistStatus
 
@@ -330,88 +330,6 @@ class UpdateProject:
     linear_project_id: str | None = None
 
 
-def _settings_default(key: str) -> str | None:
-    """Return the ``settings.py`` default for a workflow environment key.
-
-    The settings module is imported lazily so the library layer stays free of
-    import-time configuration reads; only a key that misses both the project
-    and user-shared env layers reaches this fallback.
-
-    Args:
-        key: The environment variable name.
-
-    Returns:
-        str | None: The configured default, or None when settings does not
-            define the key.
-    """
-    from demetra.settings import (
-        AGENT_HARNESS,
-        CLAUDE,
-        CLAUDE_DEFAULT_MAX_BUDGET_USD,
-        CLAUDE_MAX_BUDGET_USD,
-        LINEAR,
-        OPENCODE,
-        OPENROUTER,
-    )
-
-    if key == "OPENROUTER_API_KEY":
-        return OPENROUTER["api_key"]
-    if key == "OPENROUTER_MODEL":
-        return OPENROUTER["model"]
-    if key == "OPENROUTER_BASE_URL":
-        return OPENROUTER["base_url"]
-    if key == "LINEAR_TEAM_ID":
-        return LINEAR["team_id"]
-    if key == "LINEAR_DEFAULT_STATE_ID":
-        return LINEAR["default_state"]
-    if key == "AGENT_HARNESS":
-        return AGENT_HARNESS
-    if key == "OPENCODE_REVIEW_MODELS":
-        return ",".join(OPENCODE["review_models"])
-    if key == "CLAUDE_REVIEW_MODELS":
-        return ",".join(CLAUDE["review_models"])
-    if key == "CLAUDE_MAX_BUDGET_USD":
-        return str(CLAUDE_DEFAULT_MAX_BUDGET_USD)
-    if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
-        agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
-        opencode_models = {
-            "plan": OPENCODE["plan_model"],
-            "build": OPENCODE["build_model"],
-            "resolve": OPENCODE["resolve_model"],
-            "validate": OPENCODE["validate_model"],
-            "research": OPENCODE["research_model"],
-        }
-        return opencode_models.get(agent)
-    if key.startswith("CLAUDE_") and key.endswith("_MAX_BUDGET_USD"):
-        agent = key[len("CLAUDE_") : -len("_MAX_BUDGET_USD")].lower()
-        return str(CLAUDE_MAX_BUDGET_USD.get(agent, CLAUDE_DEFAULT_MAX_BUDGET_USD))
-    if key.startswith("CLAUDE_") and key.endswith("_MODEL"):
-        agent = key[len("CLAUDE_") : -len("_MODEL")].lower()
-        claude_models = {
-            "plan": CLAUDE["plan_model"],
-            "build": CLAUDE["build_model"],
-            "resolve": CLAUDE["resolve_model"],
-            "validate": CLAUDE["validate_model"],
-            "research": CLAUDE["research_model"],
-        }
-        return claude_models.get(agent)
-    if key.startswith("CLAUDE_") and key.endswith("_EFFORT"):
-        agent = key[len("CLAUDE_") : -len("_EFFORT")].lower()
-        claude_efforts = {
-            "plan": CLAUDE["plan_effort"],
-            "build": CLAUDE["build_effort"],
-            "resolve": CLAUDE["resolve_effort"],
-            "validate": CLAUDE["validate_effort"],
-            "research": CLAUDE["research_effort"],
-        }
-        return claude_efforts.get(agent)
-    if key.startswith("LINEAR_STATE_") and key.endswith("_ID"):
-        state = key[len("LINEAR_STATE_") : -len("_ID")].lower()
-        states = {name: value for name, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
-        return states.get(state)
-    return None
-
-
 @dataclass
 class SessionEnvironment:
     """Resolve workflow environment keys through the configuration layers.
@@ -442,11 +360,13 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When no layer defines the key.
         """
+        from demetra.services.settings import settings_default
+
         if value := self.project_environment.get(key):
             return value
         if value := self.user_environment.get(key):
             return value
-        if value := _settings_default(key):
+        if value := settings_default(key):
             return value
         raise EnvironmentConfigError(f"Environment key {key!r} is not configured")
 
@@ -646,13 +566,47 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When the base URL is not configured.
         """
-        base_url = _settings_default("OPENROUTER_BASE_URL")
+        from demetra.services.settings import settings_default
+
+        base_url = settings_default("OPENROUTER_BASE_URL")
         if not base_url:
             raise EnvironmentConfigError("Environment key 'OPENROUTER_BASE_URL' is not configured")
         return {
             "api_key": self.get("OPENROUTER_API_KEY"),
             "model": self.get("OPENROUTER_MODEL"),
             "base_url": base_url,
+        }
+
+    @property
+    def langsmith_env(self) -> dict[str, str]:
+        """Return the LangSmith tracing vars to forward to an agent subprocess.
+
+        Resolved through the project, user-shared and settings layers like
+        :meth:`get`, but every key is optional: an unset value disables
+        tracing instead of raising. Both ``LANGSMITH_TRACING`` (read directly
+        from the environment by the ``langsmith``/``langchain-core`` Python
+        SDK) and ``TRACE_TO_LANGSMITH`` (read by the
+        ``@langchain/langsmith-opencode`` OpenCode plugin) are set from the
+        same resolved flag, since the two tracing consumers do not share an
+        env var name.
+
+        Returns:
+            dict[str, str]: The LangSmith env vars; tracing is forced off
+                when no API key is configured, even if the trace flag is set,
+                so a subprocess never attempts to ingest with an empty key.
+        """
+        tracing = self.get("LANGSMITH_TRACING").strip().lower() in {"true", "1", "yes", "on"}
+        try:
+            api_key = self.get("LANGSMITH_API_KEY")
+        except EnvironmentConfigError:
+            api_key = ""
+        enabled = "true" if tracing and api_key else "false"
+        return {
+            "LANGSMITH_TRACING": enabled,
+            "TRACE_TO_LANGSMITH": enabled,
+            "LANGSMITH_ENDPOINT": self.get("LANGSMITH_ENDPOINT"),
+            "LANGSMITH_API_KEY": api_key,
+            "LANGSMITH_PROJECT": self.get("LANGSMITH_PROJECT"),
         }
 
     def linear_state(self, name: str) -> str:
@@ -678,6 +632,82 @@ class SessionEnvironment:
         if name == "default_state":
             return self.get("LINEAR_DEFAULT_STATE_ID")
         return self.get(f"LINEAR_{name.upper()}")
+
+    @property
+    def issue_tracker(self) -> str:
+        """Return the active issue tracker, ``"linear"`` or ``"clickup"``.
+
+        Resolved the same way as :attr:`agent_harness`: project env, then
+        user-shared env, then the ``ISSUE_TRACKER`` settings default.
+
+        Returns:
+            str: The resolved tracker name.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a
+                recognized tracker.
+        """
+        value = self.get("ISSUE_TRACKER")
+        if value not in ISSUE_TRACKERS:
+            raise EnvironmentConfigError(f"ISSUE_TRACKER must be one of {sorted(ISSUE_TRACKERS)}, got {value!r}")
+        return value
+
+    def clickup_state(self, name: str) -> str:
+        """Resolve a ClickUp status name from its state name.
+
+        ClickUp statuses are labels scoped to a list, not ids, so the
+        resolved value is the status string passed verbatim to the API.
+
+        Args:
+            name: The state name, e.g. ``"todo"`` or ``"in_review"``.
+
+        Returns:
+            str: The resolved ClickUp status label.
+        """
+        return self.get(f"CLICKUP_STATE_{name.upper()}")
+
+    def clickup_value(self, name: str) -> str:
+        """Resolve a ClickUp config value from its config name.
+
+        Args:
+            name: The config name, ``"team_id"``, ``"list_id"`` or
+                ``"default_state"``.
+
+        Returns:
+            str: The resolved ClickUp config value.
+        """
+        return self.get(f"CLICKUP_{name.upper()}")
+
+    def tracker_state(self, name: str) -> str:
+        """Resolve a ticket state for the active issue tracker.
+
+        Dispatches to :meth:`linear_state` (a Linear state id) or
+        :meth:`clickup_state` (a ClickUp status label) on
+        :attr:`issue_tracker`, so workflows never branch on the tracker
+        themselves.
+
+        Args:
+            name: The state name, e.g. ``"todo"`` or ``"in_review"``.
+
+        Returns:
+            str: The tracker-specific state value.
+        """
+        if self.issue_tracker == "clickup":
+            return self.clickup_state(name)
+        return self.linear_state(name)
+
+    def tracker_value(self, name: str) -> str:
+        """Resolve a config value for the active issue tracker.
+
+        Args:
+            name: The config name, e.g. ``"team_id"`` or ``"default_state"``.
+
+        Returns:
+            str: The tracker-specific config value.
+        """
+        if self.issue_tracker == "clickup":
+            return self.clickup_value(name)
+        return self.linear_value(name)
 
 
 @dataclass

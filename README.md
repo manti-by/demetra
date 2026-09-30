@@ -1,6 +1,6 @@
 # Demetra
 
-An autonomous coding platform that coordinates multiple AI agents to automate software development. Integrates Linear (issues), OpenCode (plan/build/resolve/review), with automatic linting (Ruff) and testing (pytest).
+An autonomous coding platform that coordinates multiple AI agents to automate software development. Integrates Linear or ClickUp (issues), OpenCode or Claude Code (plan/build/resolve/review), with automatic linting (Ruff) and testing (pytest).
 
 ![DAG Diagram](/media/interface.jpg)
 
@@ -9,7 +9,7 @@ An autonomous coding platform that coordinates multiple AI agents to automate so
 - **Workflow Orchestration**: Coordinated development from task to a pull request.
 - **OpenCode Integration**: AI-powered planning, building and review.
 - **Build Loop**: Automatically resolve review agents findings, lint and test errors.
-- **Linear Integration**: Task retrieval from Linear issue tracker.
+- **Issue Tracker Integration**: Task retrieval from Linear or ClickUp, selected per project via `ISSUE_TRACKER`.
 - **Git Worktree Management**: Isolated feature development.
 - **PostgreSQL**: Persistent storage for sessions and state.
 
