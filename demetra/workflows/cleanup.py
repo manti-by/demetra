@@ -2,7 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import PrDescriptionError, PullRequestError, WikiError
 from demetra.library.models import Context
-from demetra.services.agents.opencode import get_opencode_session_tokens
+from demetra.services.agents import harness
 from demetra.services.linear import linear_cleanup
 from demetra.services.llm.openrouter import generate_pr_description
 from demetra.services.persistence.database import (
@@ -119,16 +119,17 @@ async def commit_and_push(context: Context) -> bool:
 
     if context.session_id:
         try:
-            usage = await get_opencode_session_tokens(
+            usage = await harness.get_session_tokens(
                 target_path=context.worktree_path,
                 session_id=context.session_id,
+                environment=context.environment,
                 env=context.project.environment,
             )
             await record_session_step_history(
                 session_id=context.session_id,
                 step="completed",
                 usage=usage,
-                model=context.environment.opencode_build_model,
+                model=context.environment.agent_model("build"),
             )
         except Exception:  # noqa: BLE001
             print_message("Failed to record session step history, continuing.", style="warning")
@@ -164,16 +165,17 @@ async def cleanup_workflow(
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
         if context.session_id:
             try:
-                usage = await get_opencode_session_tokens(
+                usage = await harness.get_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
+                    environment=context.environment,
                     env=context.project.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,
                     step=failure_step,
                     usage=usage,
-                    model=context.environment.opencode_build_model,
+                    model=context.environment.agent_model("build"),
                 )
             except Exception:  # noqa: BLE001
                 print_message("Failed to record session step history, continuing.", style="warning")

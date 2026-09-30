@@ -2,6 +2,12 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
+from migrations.versions.b4c5d6e7f8a9_add_sessions_harness_column import (
+    downgrade as downgrade_harness_column,
+)
+from migrations.versions.b4c5d6e7f8a9_add_sessions_harness_column import (
+    upgrade as upgrade_harness_column,
+)
 from migrations.versions.e5f6a7b8c9d0_seed_linear_defaults_into_user_environment import (
     _linear_default_rows,
     downgrade,
@@ -67,3 +73,33 @@ def test_downgrade_removes_every_seeded_key():
         ).fetchall()
 
     assert remaining == []
+
+
+def test_add_sessions_harness_column_upgrade_adds_column_with_default():
+    engine = sa.create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.execute(sa.text("CREATE TABLE sessions (task_id TEXT PRIMARY KEY)"))
+        connection.execute(sa.text("INSERT INTO sessions (task_id) VALUES ('task-1')"))
+
+        ctx = MigrationContext.configure(connection)
+        with Operations.context(ctx):
+            upgrade_harness_column()
+
+        row = connection.execute(sa.text("SELECT harness FROM sessions WHERE task_id = 'task-1'")).fetchone()
+
+    assert row is not None
+    assert row[0] == "opencode"
+
+
+def test_add_sessions_harness_column_downgrade_drops_column():
+    engine = sa.create_engine("sqlite://")
+    with engine.begin() as connection:
+        connection.execute(sa.text("CREATE TABLE sessions (task_id TEXT PRIMARY KEY, harness TEXT NOT NULL)"))
+
+        ctx = MigrationContext.configure(connection)
+        with Operations.context(ctx):
+            downgrade_harness_column()
+
+        columns = {row[1] for row in connection.execute(sa.text("PRAGMA table_info(sessions)")).fetchall()}
+
+    assert "harness" not in columns

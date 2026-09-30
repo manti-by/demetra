@@ -1,7 +1,9 @@
 from pathlib import Path
 
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
+    ClaudeConfig,
     DBConfig,
     GitConfig,
     GitHubConfig,
@@ -13,6 +15,7 @@ from demetra.library.types import (
 )
 from demetra.services.runtime.utils import (
     env_get_bool,
+    env_get_float,
     env_get_int,
     env_get_list,
     env_get_path,
@@ -54,7 +57,14 @@ MAX_ATTEMPTS: dict = {
 }
 
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
+SUBPROCESS_STREAM_LIMIT = env_get_int("SUBPROCESS_STREAM_LIMIT", 16 * 1024 * 1024)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
+
+CLAUDE_IDLE_TIMEOUT = env_get_int("CLAUDE_IDLE_TIMEOUT", 900)
+if CLAUDE_IDLE_TIMEOUT < 660 or CLAUDE_IDLE_TIMEOUT > SUBPROCESS_TIMEOUT:
+    raise SettingsError(
+        f"CLAUDE_IDLE_TIMEOUT must be between 660 and SUBPROCESS_TIMEOUT ({SUBPROCESS_TIMEOUT}), got {CLAUDE_IDLE_TIMEOUT}"
+    )
 
 FEATURES: dict = {
     "is_ruff_enabled": env_get_bool("IS_RUFF_ENABLED", False),
@@ -168,6 +178,61 @@ OPENCODE: OpenCodeConfig = {
     "review_models": env_get_list(
         "OPENCODE_REVIEW_MODELS", ["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]
     ),
+}
+
+AGENT_HARNESS = env_get_str("AGENT_HARNESS", "opencode")
+if AGENT_HARNESS not in AGENT_HARNESSES:
+    raise SettingsError(f"AGENT_HARNESS must be one of {sorted(AGENT_HARNESSES)}, got {AGENT_HARNESS!r}")
+
+
+def _validate_claude_effort(name: str, value: str | None) -> str | None:
+    """Validate an optional Claude effort level read from the environment.
+
+    Args:
+        name: The environment variable name, used in the error message.
+        value: The effort value to validate, or None when unset.
+
+    Returns:
+        str | None: The value unchanged, when valid.
+
+    Raises:
+        SettingsError: When the value is set but not a recognized effort level.
+    """
+    if value is not None and value not in CLAUDE_EFFORT_LEVELS:
+        raise SettingsError(f"{name} must be one of {sorted(CLAUDE_EFFORT_LEVELS)} or unset, got {value!r}")
+    return value
+
+
+CLAUDE: ClaudeConfig = {
+    "path": env_get_path("CLAUDE_PATH", HOME_PATH / ".local/bin/claude"),
+    "plan_model": env_get_str("CLAUDE_PLAN_MODEL", "opus"),
+    "plan_effort": _validate_claude_effort("CLAUDE_PLAN_EFFORT", env_get_str("CLAUDE_PLAN_EFFORT", "medium")),
+    "resolve_model": env_get_str("CLAUDE_RESOLVE_MODEL", "opus"),
+    "resolve_effort": _validate_claude_effort("CLAUDE_RESOLVE_EFFORT", env_get_str("CLAUDE_RESOLVE_EFFORT", "xhigh")),
+    "research_model": env_get_str("CLAUDE_RESEARCH_MODEL", "opus"),
+    "research_effort": _validate_claude_effort("CLAUDE_RESEARCH_EFFORT", env_get_str("CLAUDE_RESEARCH_EFFORT", "high")),
+    "build_model": env_get_str("CLAUDE_BUILD_MODEL", "sonnet"),
+    "build_effort": _validate_claude_effort("CLAUDE_BUILD_EFFORT", env_get_str("CLAUDE_BUILD_EFFORT", None)),
+    "validate_model": env_get_str("CLAUDE_VALIDATE_MODEL", "haiku"),
+    "validate_effort": _validate_claude_effort("CLAUDE_VALIDATE_EFFORT", env_get_str("CLAUDE_VALIDATE_EFFORT", None)),
+    "review_models": env_get_list("CLAUDE_REVIEW_MODELS", ["opus:xhigh"]),
+}
+
+for _review_model in CLAUDE["review_models"]:
+    if ":" in _review_model:
+        _validate_claude_effort("CLAUDE_REVIEW_MODELS", _review_model.rpartition(":")[2].strip() or None)
+
+# The Claude CLI has no turn-cap flag (verified against the installed CLI); a
+# per-run USD budget cap (--max-budget-usd, subtype error_max_budget_usd on the
+# result event) is the real bound against a runaway/looping headless run.
+CLAUDE_DEFAULT_MAX_BUDGET_USD = env_get_float("CLAUDE_MAX_BUDGET_USD", 5.0)
+CLAUDE_MAX_BUDGET_USD: dict[str, float] = {
+    "plan": env_get_float("CLAUDE_PLAN_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "resolve": env_get_float("CLAUDE_RESOLVE_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "research": env_get_float("CLAUDE_RESEARCH_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "build": env_get_float("CLAUDE_BUILD_MAX_BUDGET_USD", 3 * CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "validate": env_get_float("CLAUDE_VALIDATE_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "review": env_get_float("CLAUDE_REVIEW_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
 }
 
 CURSOR: PathConfig = {

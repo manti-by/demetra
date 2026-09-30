@@ -56,6 +56,20 @@ class OpenCodeConfig(PathConfig):
     research_model: str
 
 
+class ClaudeConfig(PathConfig):
+    plan_model: str
+    plan_effort: str | None
+    resolve_model: str
+    resolve_effort: str | None
+    research_model: str
+    research_effort: str | None
+    build_model: str
+    build_effort: str | None
+    validate_model: str
+    validate_effort: str | None
+    review_models: list[str]
+
+
 class GitConfig(PathConfig):
     worktree_path: Path
 

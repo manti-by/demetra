@@ -1,12 +1,13 @@
 import asyncio
 import os
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
 from demetra.library.constants import OS_ENV_ALLOWLIST
-from demetra.services.runtime.utils import live_stream
-from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_TIMEOUT
+from demetra.services.runtime.utils import IdleTimeoutError, live_stream
+from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_STREAM_LIMIT, SUBPROCESS_TIMEOUT
 
 
 def filter_os_env(project_id: str | None = None) -> dict[str, str]:
@@ -95,6 +96,8 @@ async def run_command(
     input_text: str | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
     project_id: str | None = None,
+    line_formatter: Callable[[str], str | None] | None = None,
+    idle_timeout: int | None = None,
 ) -> tuple[int, str, str]:
     """Run a command as a subprocess and capture its output.
 
@@ -115,6 +118,10 @@ async def run_command(
             code -1 is returned.
         project_id: Optional project id whose OS opt-ins are merged into the
             subprocess environment.
+        line_formatter: Optional callable formatting each raw stdout line for
+            display; see :func:`demetra.services.runtime.utils.live_stream`.
+        idle_timeout: Optional seconds to wait between lines before killing
+            the process; on expiry exit code -2 is returned.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr.
@@ -129,6 +136,7 @@ async def run_command(
         "env": merged_env,
         "stdout": asyncio.subprocess.PIPE,
         "stderr": asyncio.subprocess.PIPE,
+        "limit": SUBPROCESS_STREAM_LIMIT,
     }
     if input_text is not None:
         process_kwargs["stdin"] = asyncio.subprocess.PIPE
@@ -141,7 +149,13 @@ async def run_command(
     try:
         async with asyncio.timeout(timeout):
             streams = [
-                live_stream(process.stdout, result=result, disable_stdio=disable_stdio),
+                live_stream(
+                    process.stdout,
+                    result=result,
+                    disable_stdio=disable_stdio,
+                    line_formatter=line_formatter,
+                    idle_timeout=idle_timeout,
+                ),
                 live_stream(process.stderr, result=error, disable_stdio=disable_stdio),
             ]
             if input_text is not None:
@@ -152,6 +166,11 @@ async def run_command(
             await asyncio.gather(*streams)
 
             exit_code = await process.wait()
+    except IdleTimeoutError as e:
+        process.kill()
+        await process.wait()
+        exit_code = -2
+        error.append(f"{e}\n")
     except TimeoutError:
         process.kill()
         await process.wait()

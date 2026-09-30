@@ -1,10 +1,11 @@
-from demetra.library.models import Context, Project
+from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.auth.copy import copy_auth_from_parent
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_environments,
     get_session,
     get_user_environments_decrypted,
+    reset_session_harness,
     search_projects_by_name,
 )
 from demetra.services.runtime.project import setup_project_venv
@@ -73,6 +74,21 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     print_message(f"Retrieved task: {linear_task.full_title}", style="result")
 
     session = await get_session(task_id=linear_task.id)
+    if session is not None:
+        environment = SessionEnvironment(
+            project_environment=project.environment, user_environment=project.user_environment
+        )
+        if session.harness != environment.agent_harness:
+            if session.session_id:
+                print_message(
+                    f"Agent harness changed ({session.harness} -> {environment.agent_harness}); "
+                    "starting a fresh agent session and keeping the existing build plan.",
+                    style="warning",
+                )
+            await reset_session_harness(task_id=linear_task.id, harness=environment.agent_harness)
+            session.session_id = None
+            session.harness = environment.agent_harness
+
     branch_name = linear_task.slug
 
     print_message("Pulling latest changes", style="heading")

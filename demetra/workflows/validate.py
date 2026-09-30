@@ -3,7 +3,7 @@ from pathlib import Path
 
 from demetra.library.exceptions import BuildError
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_validate_agent
+from demetra.services.agents import harness
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 
@@ -39,7 +39,7 @@ async def run_validate_agent(
     """
     print_message(message="Running VALIDATE agent", style="heading")
 
-    exit_code, stdout, stderr = await opencode_validate_agent(
+    exit_code, stdout, stderr = await harness.validate_agent(
         target_path=target_path,
         build_plan=build_plan,
         env=env,

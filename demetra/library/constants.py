@@ -29,6 +29,39 @@ SEARCH_STOP_WORDS: frozenset[str] = frozenset(
     }
 )
 
+AGENT_HARNESSES: frozenset[str] = frozenset({"opencode", "claude"})
+
+CLAUDE_EFFORT_LEVELS: frozenset[str] = frozenset({"low", "medium", "high", "xhigh", "max"})
+
+# Explicit Linear MCP tool names, never a "mcp__linear__*" wildcard, so a new
+# write tool added on the server side is never picked up automatically.
+CLAUDE_LINEAR_READ_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__linear__list_issues",
+        "mcp__linear__get_issue",
+        "mcp__linear__list_comments",
+        "mcp__linear__list_projects",
+        "mcp__linear__get_project",
+        "mcp__linear__list_teams",
+        "mcp__linear__get_team",
+        "mcp__linear__list_users",
+        "mcp__linear__get_user",
+    }
+)
+
+CLAUDE_LINEAR_CREATE_TOOLS: frozenset[str] = frozenset(
+    {
+        "mcp__linear__create_issue",
+        "mcp__linear__create_comment",
+    }
+)
+
+PLAN_HEADER_STRING = "## Implementation Plan"
+PLAN_IS_READY_STRING = "Ready to proceed to build."
+PLAN_HAS_QUESTIONS = "Please check my questions above."
+
+RESEARCH_HEADER_STRING = "## Research Report"
+
 OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
     {
         "PATH",
