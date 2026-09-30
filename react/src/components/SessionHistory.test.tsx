@@ -105,6 +105,25 @@ describe('SessionHistory', () => {
     expect(screen.getByText('review')).toBeInTheDocument();
   });
 
+  it('displays clock time with the full date in the title tooltip', () => {
+    const iso = '2026-01-01T12:34:56Z';
+    const entry = { ...mockEntries[2], created_at: iso };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const expectedTime = new Date(iso).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+    const timeEl = document.querySelector('time.session-history-time')!;
+    expect(timeEl.textContent).toBe(expectedTime);
+    expect(timeEl.getAttribute('title')).toBe(new Date(iso).toLocaleString());
+    expect(timeEl.getAttribute('datetime')).toBe(iso);
+  });
+
   it('renders token dl only for entries with token data', () => {
     render(
       <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />

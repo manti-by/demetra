@@ -83,7 +83,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     review_step_finished = False
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="build")
+        await update_session_step(task_id=context.linear_task.id, step="build", session_id=context.session_id)
 
         exit_code, stdout, stderr = await opencode_build_agent(
             target_path=context.worktree_path,
@@ -102,7 +102,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await check_and_compact_context(context)
 
         if review_attempts > 0 and validate_attempts > 0 and not review_step_finished:
-            await update_session_step(task_id=context.linear_task.id, step="validate")
+            await update_session_step(task_id=context.linear_task.id, step="validate", session_id=context.session_id)
             missing_items = await run_validate_agent(
                 target_path=context.worktree_path,
                 build_plan=build_plan,
@@ -130,7 +130,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     validate_attempts = MAX_ATTEMPTS["build"]
                     review_attempts = MAX_ATTEMPTS["review"]
 
-            await update_session_step(task_id=context.linear_task.id, step="review")
+            await update_session_step(task_id=context.linear_task.id, step="review", session_id=context.session_id)
             review_comments = await run_review_agents(
                 target_path=context.worktree_path,
                 session_id=context.session_id,
