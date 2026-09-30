@@ -117,9 +117,9 @@ docker-clean:
 
 
 gh-use-manti:
-	git config user.name "$(MANTI_GIT_NAME)"
-	git config user.email "$(MANTI_GIT_EMAIL)"
-	git config user.signingkey "$(MANTI_SIGNIN_KEY_ID)"
+	git config --global user.name "$(MANTI_GIT_NAME)"
+	git config --global user.email "$(MANTI_GIT_EMAIL)"
+	git config --global user.signingkey "$(MANTI_SIGNIN_KEY_ID)"
 	gh auth login
 
 gh-use-demetra:
