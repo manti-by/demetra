@@ -1198,36 +1198,18 @@ class TestWorkflowBuild:
         mock_run_review_agents.return_value = None
         mock_run_lint_and_test.return_value = (False, None)
 
-        with patch("demetra.workflows.build.save_session", new_callable=AsyncMock) as mock_save_session:
-            mock_save_session.side_effect = lambda **kwargs: Session(
-                task_id="TASK-1",
-                session_id=kwargs["session_id"],
-                build_plan=kwargs["build_plan"],
-                posted_to_linear=False,
-                step="plan",
-                harness=kwargs["harness"],
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-            )
+        await run_build_step("test build plan", context)
 
-            await run_build_step("test build plan", context)
-
-            mock_save_session.assert_awaited_once()
-            save_call_kwargs = mock_save_session.call_args.kwargs
-            assert save_call_kwargs["task_id"] == context.linear_task.id
-            assert save_call_kwargs["build_plan"] == "test build plan"
-            assert save_call_kwargs["harness"] == "claude"
-            assert save_call_kwargs["session_id"] != plan_session_id
-            new_build_session_id = save_call_kwargs["session_id"]
-
-        # context.session was reassigned to the save_session result, so
-        # context.session_id (and every later call site reading it) reflects
-        # the build session, not the plan's — this is what lets build-agent
-        # safely --resume across the retry loop without ever touching the
-        # plan agent's snapshotted session.
-        assert context.session_id == new_build_session_id
+        # The build agent runs under its own fresh session (never the plan's,
+        # since Claude can't --resume a session under a different --agent),
+        # but that id is scoped to build execution and token lookup only —
+        # it is never persisted, so the canonical, plan-linked session_id
+        # (sessions.session_id) is left untouched for everything else
+        # (Linear links, review, lint, cleanup) to keep reading.
         build_call_kwargs = mock_build_agent.call_args.kwargs
-        assert build_call_kwargs["session_id"] == new_build_session_id
+        new_build_session_id = build_call_kwargs["session_id"]
+        assert new_build_session_id != plan_session_id
+        assert context.session_id == plan_session_id
 
 
 class TestContextCompaction:

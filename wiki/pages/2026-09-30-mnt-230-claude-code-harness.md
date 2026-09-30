@@ -76,9 +76,15 @@ as the read-only, no-edit plan agent forever.
 **Fix:** `workflows/build.py::run_build_step` now calls `harness.new_session_id(environment=context.environment)` for
 its own session, ignoring `context.session_id` (the plan's session) entirely on Claude. `new_session_id` returns `None`
 on OpenCode, so `build_session_id = harness.new_session_id(...) or context.session_id` preserves the exact prior
-behavior there. When a fresh id is generated, `save_session(..., harness=...)` persists it once and reassigns
-`context.session`, so every later read of `context.session_id` (review, lint, cleanup, token history) transparently
-picks up the build session instead of the plan's — no other call site needed to change.
+behavior there. This id is threaded explicitly into the two call sites that need it — `harness.build_agent(session_id=
+build_session_id, ...)` and `check_and_compact_context(context, session_id=build_session_id)` — and reused across every
+iteration of the build retry loop, so resuming stays safe (always the same agent). It is deliberately **not** persisted:
+a first attempt at this (`save_session(..., harness=...)` reassigning `context.session`) was reverted after review —
+overwriting the canonical, plan-linked `session_id` would have made `sessions.session_id` mean "whichever agent session
+last touched this ticket" instead of "the session for this ticket," breaking traceability back to the plan conversation
+for no benefit (a process restart losing build's conversational memory is an accepted, already-precedented tradeoff; see
+`2026-08-19-build-agent-stale-session-deleted-worktree`). Every other call site (`review`, `lint`, `cleanup`) keeps
+reading `context.session_id` unchanged.
 
 ## Step 3 — Session pinning
 

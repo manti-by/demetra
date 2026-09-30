@@ -76,10 +76,12 @@ between two coding-agent backends:
   NOT switch persona — Claude snapshots the first agent's system prompt for the life of the conversation and reuses it
   verbatim on every later request/resume, so resuming the plan agent's session under `build-agent` would silently keep
   answering as the plan agent (wrong tools, read-only). Unlike OpenCode, `workflows/build.py::run_build_step` therefore
-  gives the build step its own fresh session for Claude (`harness.new_session_id`, ignoring the plan's `context.session_id`
-  entirely) and persists it once via `save_session`; every later iteration of the build/validate/review retry loop resumes
-  that same build session safely, since it is always the same agent. OpenCode is unaffected (`new_session_id` returns
-  `None` for it, preserving the existing continued-session behavior).
+  runs the build step under its own fresh session for Claude (`harness.new_session_id`, ignoring the plan's
+  `context.session_id` entirely) and reuses that same id across every iteration of the build retry loop, so resuming
+  stays safe (always the same agent). This id is scoped to build execution and token lookup only and is never
+  persisted — `context.session_id` (`sessions.session_id`) stays the canonical, plan-linked id throughout, so a process
+  restart simply starts a fresh build session rather than resuming a stale one. OpenCode is unaffected (`new_session_id`
+  returns `None` for it, preserving the existing continued-session behavior).
 - **Linear tool scope:** `CLAUDE_LINEAR_READ_TOOLS` / `CLAUDE_LINEAR_CREATE_TOOLS` (`demetra/library/constants.py`) list
   exact Linear MCP tool names (never a `mcp__linear__*` wildcard) — read-only tools for plan/resolve/research, plus
   create-issue/create-comment for research only. **The exact tool names have not been confirmed against a live,

@@ -3,7 +3,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.agents import harness
-from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
+from demetra.services.persistence.database import record_session_step_history, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
@@ -81,19 +81,16 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     # Claude cannot resume the plan agent's session under a different --agent
     # (its system prompt is snapshotted on the first turn and reused verbatim
     # on every later request/resume, verified against the installed CLI) — so
-    # the build step gets its own fresh session for this run instead of
+    # the build step runs under its own fresh session for this run instead of
     # continuing the plan's. harness.new_session_id returns None for OpenCode,
     # which keeps resuming the plan session exactly as before. Every iteration
     # of the loop below reuses this same id under the same "build-agent", so
-    # resuming across iterations stays safe.
+    # resuming across iterations stays safe. This id is never persisted: it is
+    # scoped to build execution and token lookup only, so context.session_id
+    # (sessions.session_id) stays the canonical, plan-linked id throughout —
+    # a process restart simply starts a fresh build session, which is fine
+    # since only conversational memory is lost, not the build plan or state.
     build_session_id = harness.new_session_id(environment=context.environment) or context.session_id
-    if build_session_id and build_session_id != context.session_id:
-        context.session = await save_session(
-            task_id=context.linear_task.id,
-            session_id=build_session_id,
-            build_plan=build_plan,
-            harness=context.environment.agent_harness,
-        )
 
     current_task: str = build_plan
     rerun_attempts = MAX_ATTEMPTS["build"]

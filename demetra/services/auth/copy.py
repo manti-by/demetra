@@ -56,7 +56,17 @@ async def copy_auth_from_parent(parent_home: Path | None) -> None:
     claude_dst = current_home / ".claude"
     if claude_src.is_dir():
         try:
-            await asyncio.to_thread(shutil.copytree, claude_src, claude_dst, dirs_exist_ok=True)
+            # Copy auth/config, not session transcripts or project history:
+            # ~/.claude/projects holds per-project session transcripts (also
+            # read by demetra/services/agents/claude.py for token usage) and
+            # is potentially large and sensitive; it carries no auth material.
+            await asyncio.to_thread(
+                shutil.copytree,
+                claude_src,
+                claude_dst,
+                ignore=shutil.ignore_patterns("projects"),
+                dirs_exist_ok=True,
+            )
             copied_anything = True
             print_message(f"Copied Claude Code config from {claude_src}", style="result")
         except Exception:
