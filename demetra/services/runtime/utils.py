@@ -74,31 +74,56 @@ NO_ISSUE_TOKENS = {
 NO_ISSUE_TOKENS_CASE = {t.casefold() for t in NO_ISSUE_TOKENS}
 
 
+class IdleTimeoutError(TimeoutError):
+    pass
+
+
 async def live_stream(
-    stream: asyncio.StreamReader, result: list[str] | None = None, disable_stdio: bool = False
+    stream: asyncio.StreamReader,
+    result: list[str] | None = None,
+    disable_stdio: bool = False,
+    line_formatter: Callable[[str], str | None] | None = None,
+    idle_timeout: int | None = None,
 ) -> None:
     """Stream lines from a subprocess stream until EOF.
 
-    Lines are ANSI-stripped, optionally collected and optionally echoed to
-    stdout and the stream logger.
+    Lines are ANSI-stripped and always appended to ``result`` in full. When
+    ``line_formatter`` is given, only its non-``None`` output is echoed to
+    stdout and the stream logger, so noisy raw formats (e.g. stream-json) stay
+    readable; without a formatter every line is echoed as-is.
 
     Args:
         stream: The stream reader to consume.
         result: Optional list to append decoded lines to.
         disable_stdio: Whether to suppress live output to stdout.
+        line_formatter: Optional callable turning a raw decoded line into a
+            display line, or None to skip displaying it. The raw line is
+            still captured in ``result`` regardless.
+        idle_timeout: Optional seconds to wait for the next line before
+            raising :class:`IdleTimeoutError`. None disables the watchdog.
+
+    Raises:
+        IdleTimeoutError: When no line arrives within ``idle_timeout`` seconds.
     """
     while True:
-        if not (line := await stream.readline()):
+        try:
+            async with asyncio.timeout(idle_timeout):
+                line = await stream.readline()
+        except TimeoutError as e:
+            raise IdleTimeoutError(f"Command idle for {idle_timeout}s, killed") from e
+        if not line:
             break
 
-        decoded = ansi_strip(line.decode())
+        decoded = ansi_strip(line.decode(errors="replace"))
         if result is not None:
             result.append(decoded)
 
         if not disable_stdio:
-            sys.stdout.write(decoded)
-            sys.stdout.flush()
-            stream_logger.info(decoded.rstrip())
+            display = line_formatter(decoded) if line_formatter is not None else decoded
+            if display is not None:
+                sys.stdout.write(display if display.endswith("\n") else f"{display}\n")
+                sys.stdout.flush()
+                stream_logger.info(display.rstrip())
 
 
 async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) -> None:
@@ -238,6 +263,29 @@ def env_get_int(name: str, default: int) -> int:
         raise ValueError(f"{name} default must be nonnegative")
     try:
         value = int(os.environ.get(name, default))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
+def env_get_float(name: str, default: float) -> float:
+    """Read a nonnegative float from the environment, falling back on invalid values.
+
+    Args:
+        name: The environment variable name.
+        default: The fallback value when the variable is unset, not a float,
+            or negative.
+
+    Returns:
+        float: The parsed value, or the default.
+
+    Raises:
+        ValueError: When the default is negative.
+    """
+    if default < 0:
+        raise ValueError(f"{name} default must be nonnegative")
+    try:
+        value = float(os.environ.get(name, default))
     except ValueError:
         return default
     return value if value >= 0 else default

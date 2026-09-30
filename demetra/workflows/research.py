@@ -1,12 +1,9 @@
 from typing import Any
 
+from demetra.library.constants import RESEARCH_HEADER_STRING
 from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
 from demetra.library.models import Context, LinearTask
-from demetra.services.agents.opencode import (
-    RESEARCH_HEADER_STRING,
-    extract_research_report,
-    opencode_research_agent,
-)
+from demetra.services.agents import harness
 from demetra.services.linear import create_research_ticket, update_ticket_status
 from demetra.services.persistence.database import (
     update_session_research_report,
@@ -91,7 +88,7 @@ async def _run_research_agent(context: Context) -> str | None:
         print_message("Running RESEARCH agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="research")
 
-        exit_code, stdout, stderr = await opencode_research_agent(
+        exit_code, stdout, stderr = await harness.research_agent(
             target_path=context.worktree_path,
             task=context.linear_task.text,
             task_title=context.linear_task.full_title,
@@ -117,7 +114,7 @@ async def _run_research_agent(context: Context) -> str | None:
             attempts -= 1
             continue
 
-        report = await extract_research_report(research_output=research_output)
+        report = await harness.extract_research_report(research_output=research_output)
         if not report:
             print_message("Extracted research report is empty, retrying.", style="warning")
             attempts -= 1

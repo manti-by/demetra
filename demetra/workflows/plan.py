@@ -1,5 +1,6 @@
 from sqlalchemy.exc import SQLAlchemyError
 
+from demetra.library.constants import PLAN_HEADER_STRING
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
@@ -9,12 +10,7 @@ from demetra.library.exceptions import (
     UserCancelledError,
 )
 from demetra.library.models import Context
-from demetra.services.agents.opencode import (
-    PLAN_HEADER_STRING,
-    get_opencode_session_id,
-    get_opencode_session_tokens,
-    opencode_plan_agent,
-)
+from demetra.services.agents import harness
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
@@ -76,13 +72,15 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
 
-        exit_code, stdout, stderr = await opencode_plan_agent(
+        pregenerated_session_id = harness.new_session_id(environment=context.environment)
+        exit_code, stdout, stderr = await harness.plan_agent(
             target_path=context.worktree_path,
             task=current_task,
+            environment=context.environment,
+            session_id=pregenerated_session_id,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            environment=context.environment,
         )
         if exit_code != 0:
             raise PlanError(
@@ -117,9 +115,11 @@ async def run_plan_step(context: Context) -> str | None:
 
         session_id = None
         if not context.session_id:
-            session_id = await get_opencode_session_id(
+            session_id = await harness.get_session_id(
                 target_path=context.worktree_path,
                 task_title=context.linear_task.full_title,
+                environment=context.environment,
+                pregenerated_session_id=pregenerated_session_id,
                 env=context.project.environment,
             )
         if session_id:
@@ -129,29 +129,34 @@ async def run_plan_step(context: Context) -> str | None:
                 build_plan=build_plan,
                 name=context.linear_task.full_title,
                 linear_link=context.linear_task.url,
+                harness=context.environment.agent_harness,
             )
             print_message(f"Saved session {session_id}.", style="result")
         else:
             context.session = await save_session(
-                task_id=context.linear_task.id, build_plan=build_plan, linear_link=context.linear_task.url
+                task_id=context.linear_task.id,
+                build_plan=build_plan,
+                linear_link=context.linear_task.url,
+                harness=context.environment.agent_harness,
             )
-            print_message("No opencode session found, saved build plan without session_id.", style="warning")
+            print_message("No agent session found, saved build plan without session_id.", style="warning")
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
 
         if context.session_id:
             try:
-                usage = await get_opencode_session_tokens(
+                usage = await harness.get_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
+                    environment=context.environment,
                     env=context.project.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,
                     step="plan",
                     usage=usage,
-                    model=context.environment.opencode_plan_model,
+                    model=context.environment.agent_model("plan"),
                 )
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")

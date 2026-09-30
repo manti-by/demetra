@@ -10,7 +10,7 @@ from demetra.workflows.validate import run_validate_agent
 class TestWorkflowValidate:
     @pytest.fixture
     def mock_validate_agent(self):
-        with patch("demetra.workflows.validate.opencode_validate_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.validate_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio

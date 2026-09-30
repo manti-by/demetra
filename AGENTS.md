@@ -29,6 +29,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent (8 agents: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter) and skill definitions (`wiki-sync` — the other vendored skills were removed in `94fefa7`, 2026-09-23; `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` and the release skills now resolve as installed skills)
 - `opencode.json`: OpenCode agent toolchain configuration (MCP servers including Playwright, plugins including LangSmith)
+- `.claude/agents/`: Claude Code subagent definitions, one `.md` per OpenCode agent (`plan-agent`, `build-agent`, `validate-agent`, `review-agent`, `resolve-agent`, `research-agent`, `merge-agent`, `rebase-agent`), YAML frontmatter (`name`, `description`, `tools`) plus the system prompt body. Parsed at runtime by `demetra/services/agents/claude.py` (not installed to `~/.claude/agents`) and assembled into the `--agents` JSON passed to the `claude` CLI; Linear/web tools are injected by agent name, never a `mcp__linear__*` wildcard.
 - `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
@@ -38,6 +39,53 @@ The `wiki/` directory is a persistent, compounding knowledge base: one Markdown 
 - Before planning or building, skim `wiki/INDEX.md` for prior sessions on the same subsystem.
 - For questions about past incidents, design decisions, or prior investigations, search the wiki first via the `wiki_search` MCP tool (browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
 - After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see `.opencode/skills/wiki-sync/` and the installed `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` skills).
+
+## Agent Harness
+
+Demetra dispatches every agent call (plan, resolve, build, validate, review, review-fixes, merge, rebase, research) plus
+session/token helpers through a facade rather than calling an agent CLI wrapper directly, so a project or user can switch
+between two coding-agent backends:
+
+- `settings.AGENT_HARNESS` (`opencode` | `claude`, default `opencode`) selects the backend; it also resolves per-project /
+  per-user through `SessionEnvironment.agent_harness`, which raises `EnvironmentConfigError` for any other value.
+- `demetra/services/agents/opencode.py`: the original `opencode run` CLI wrapper (unchanged).
+- `demetra/services/agents/claude.py`: the `claude -p` CLI wrapper. Runs on the host OS using the current interactive
+  `claude` login (keychain / `~/.claude`) — no API key plumbing. Builds `--agents` JSON at runtime from `.claude/agents/*.md`
+  (tool allow/deny lists enforced both in the agent JSON and again via `--allowedTools`/`--disallowedTools`), an inline
+  `--mcp-config` (Demetra MCP + Linear MCP, `--strict-mcp-config` so user-level MCP servers stay out), and
+  `--output-format stream-json --verbose` parsed by `format_claude_stream_event`/`extract_claude_result`. Global
+  `~/.claude/CLAUDE.md`, hooks and plugins load same as any interactive session — nothing scopes them out.
+- `demetra/services/agents/harness.py`: the facade. Every function takes `environment: SessionEnvironment` (optional,
+  defaulting to bare settings) and dispatches on `environment.agent_harness`; workflows and `services/vcs/{merge,rebase}.py`
+  import only this facade, never `opencode.py`/`claude.py` directly. `review_agents(...)` fans the configured review models
+  out concurrently (`environment.review_models`, a list of `ReviewModel(model, effort)` — Claude entries may carry a
+  `model:effort` pair, OpenCode entries never do).
+- Per-agent Claude models/effort live in `settings.CLAUDE` (`CLAUDE_PLAN_MODEL`/`CLAUDE_PLAN_EFFORT`, etc.), each
+  overridable per project/user like the OpenCode models. `CLAUDE_REVIEW_MODELS` defaults to `["opus:xhigh"]`.
+- **No turn cap:** the installed Claude CLI has no `--max-turns` flag and `maxTurns` in agent JSON/frontmatter does not
+  bound a top-level `-p` run (verified empirically against the installed CLI, 2026-09-30). A per-run USD budget
+  (`--max-budget-usd`, `settings.CLAUDE_MAX_BUDGET_USD` + per-agent `CLAUDE_<AGENT>_MAX_BUDGET_USD` overrides) is the real
+  bound against a looping/runaway run instead — the result event's `subtype` becomes `error_max_budget_usd` when it fires.
+  Combined with `CLAUDE_IDLE_TIMEOUT` (idle-stdout watchdog on the subprocess, 900s default, must be between 660s and
+  `SUBPROCESS_TIMEOUT`) and the existing overall `SUBPROCESS_TIMEOUT`.
+- **Session pinning:** `sessions.harness` (migration `add_sessions_harness_column`) pins the harness a session last ran
+  under. On re-entry (`workflows/setup.py`), a stored harness that differs from the resolved one clears `session_id` and
+  re-pins the harness (`reset_session_harness`) so a mid-ticket switch never resumes a foreign session id; the build plan
+  is kept. This check runs on every re-entry, not only once.
+- **No cross-agent `--resume`:** verified empirically (2026-09-30) that `--resume <id>` with a different `--agent` does
+  NOT switch persona — Claude snapshots the first agent's system prompt for the life of the conversation and reuses it
+  verbatim on every later request/resume, so resuming the plan agent's session under `build-agent` would silently keep
+  answering as the plan agent (wrong tools, read-only). Unlike OpenCode, `workflows/build.py::run_build_step` therefore
+  gives the build step its own fresh session for Claude (`harness.new_session_id`, ignoring the plan's `context.session_id`
+  entirely) and persists it once via `save_session`; every later iteration of the build/validate/review retry loop resumes
+  that same build session safely, since it is always the same agent. OpenCode is unaffected (`new_session_id` returns
+  `None` for it, preserving the existing continued-session behavior).
+- **Linear tool scope:** `CLAUDE_LINEAR_READ_TOOLS` / `CLAUDE_LINEAR_CREATE_TOOLS` (`demetra/library/constants.py`) list
+  exact Linear MCP tool names (never a `mcp__linear__*` wildcard) — read-only tools for plan/resolve/research, plus
+  create-issue/create-comment for research only. **The exact tool names have not been confirmed against a live,
+  authenticated `linear` MCP session (`/mcp` in an interactive `claude` session) — verify before relying on them.**
+- Out of scope for v1: Docker image support (host OS only), Cursor/CodeRabbit cleanup, a React UI toggle (the env editor
+  already covers `AGENT_HARNESS`).
 
 ## Git Workflow
 
@@ -185,6 +233,7 @@ Declared in `pyproject.toml` (core under `dependencies`, dev tooling under `[dep
 Demetra coordinates the following external tools:
 
 - **OpenCode**: AI coding assistant for planning and building features
+- **Claude Code**: alternative agent harness for planning and building features, selected via `AGENT_HARNESS=claude` (see [Agent Harness](#agent-harness)); runs on the host OS, `claude -p` CLI
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API

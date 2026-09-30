@@ -3,6 +3,7 @@ import logging
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from demetra.library.constants import PLAN_HAS_QUESTIONS
 from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError
 from demetra.library.models import SessionEnvironment
 from demetra.services.llm.factory import build_llm
@@ -34,8 +35,6 @@ async def extract_questions(plan_output: str, *, environment: SessionEnvironment
         list[str]: The extracted questions, or an empty list when none were
             signalled.
     """
-    from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
-
     if PLAN_HAS_QUESTIONS not in plan_output:
         return []
 

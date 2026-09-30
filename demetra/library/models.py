@@ -6,6 +6,7 @@ from typing import Literal
 
 from slugify import slugify
 
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS
 from demetra.library.exceptions import EnvironmentConfigError
 from demetra.library.types import OpenRouterConfig, WaitlistStatus
 
@@ -100,6 +101,51 @@ class TokenUsage:
 
 
 @dataclass
+class ReviewModel:
+    model: str
+    effort: str | None = None
+
+
+def parse_review_model(entry: str, harness: str) -> ReviewModel:
+    """Parse a single ``model[:effort]`` review model entry.
+
+    OpenCode model names never carry an effort suffix (the harness has no
+    effort flag); only Claude entries are split on the trailing ``:effort``.
+
+    Args:
+        entry: The raw review model entry, e.g. ``"opus:xhigh"``.
+        harness: The active agent harness, ``"opencode"`` or ``"claude"``.
+
+    Returns:
+        ReviewModel: The parsed model and optional effort.
+
+    Raises:
+        EnvironmentConfigError: When a Claude entry's effort is not a
+            recognized effort level.
+    """
+    entry = entry.strip()
+    if harness != "claude" or ":" not in entry:
+        return ReviewModel(model=entry)
+
+    model, _, effort = entry.rpartition(":")
+    effort = effort.strip() or None
+    if effort is not None and effort not in CLAUDE_EFFORT_LEVELS:
+        raise EnvironmentConfigError(f"Invalid effort {effort!r} in review model {entry!r}")
+    return ReviewModel(model=model.strip(), effort=effort)
+
+
+@dataclass
+class ClaudeResult:
+    result: str
+    is_error: bool
+    session_id: str | None
+    usage: TokenUsage | None
+    subtype: str = ""
+    num_turns: int = 0
+    permission_denials: list[str] = field(default_factory=list)
+
+
+@dataclass
 class SessionHistory:
     id: str
     session_id: str
@@ -125,6 +171,7 @@ class Session:
     step: StepType = "initial"
     name: str | None = None
     session_id: str | None = None
+    harness: str = "opencode"
     project_id: str | None = None
     user_id: str | None = None
     run_attempts: int = 0
@@ -297,7 +344,15 @@ def _settings_default(key: str) -> str | None:
         str | None: The configured default, or None when settings does not
             define the key.
     """
-    from demetra.settings import LINEAR, OPENCODE, OPENROUTER
+    from demetra.settings import (
+        AGENT_HARNESS,
+        CLAUDE,
+        CLAUDE_DEFAULT_MAX_BUDGET_USD,
+        CLAUDE_MAX_BUDGET_USD,
+        LINEAR,
+        OPENCODE,
+        OPENROUTER,
+    )
 
     if key == "OPENROUTER_API_KEY":
         return OPENROUTER["api_key"]
@@ -309,6 +364,14 @@ def _settings_default(key: str) -> str | None:
         return LINEAR["team_id"]
     if key == "LINEAR_DEFAULT_STATE_ID":
         return LINEAR["default_state"]
+    if key == "AGENT_HARNESS":
+        return AGENT_HARNESS
+    if key == "OPENCODE_REVIEW_MODELS":
+        return ",".join(OPENCODE["review_models"])
+    if key == "CLAUDE_REVIEW_MODELS":
+        return ",".join(CLAUDE["review_models"])
+    if key == "CLAUDE_MAX_BUDGET_USD":
+        return str(CLAUDE_DEFAULT_MAX_BUDGET_USD)
     if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
         agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
         opencode_models = {
@@ -319,6 +382,29 @@ def _settings_default(key: str) -> str | None:
             "research": OPENCODE["research_model"],
         }
         return opencode_models.get(agent)
+    if key.startswith("CLAUDE_") and key.endswith("_MAX_BUDGET_USD"):
+        agent = key[len("CLAUDE_") : -len("_MAX_BUDGET_USD")].lower()
+        return str(CLAUDE_MAX_BUDGET_USD.get(agent, CLAUDE_DEFAULT_MAX_BUDGET_USD))
+    if key.startswith("CLAUDE_") and key.endswith("_MODEL"):
+        agent = key[len("CLAUDE_") : -len("_MODEL")].lower()
+        claude_models = {
+            "plan": CLAUDE["plan_model"],
+            "build": CLAUDE["build_model"],
+            "resolve": CLAUDE["resolve_model"],
+            "validate": CLAUDE["validate_model"],
+            "research": CLAUDE["research_model"],
+        }
+        return claude_models.get(agent)
+    if key.startswith("CLAUDE_") and key.endswith("_EFFORT"):
+        agent = key[len("CLAUDE_") : -len("_EFFORT")].lower()
+        claude_efforts = {
+            "plan": CLAUDE["plan_effort"],
+            "build": CLAUDE["build_effort"],
+            "resolve": CLAUDE["resolve_effort"],
+            "validate": CLAUDE["validate_effort"],
+            "research": CLAUDE["research_effort"],
+        }
+        return claude_efforts.get(agent)
     if key.startswith("LINEAR_STATE_") and key.endswith("_ID"):
         state = key[len("LINEAR_STATE_") : -len("_ID")].lower()
         states = {name: value for name, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
@@ -408,6 +494,135 @@ class SessionEnvironment:
             str: The resolved model.
         """
         return self.get("OPENCODE_RESEARCH_MODEL")
+
+    @property
+    def agent_harness(self) -> str:
+        """Return the active agent harness, ``"opencode"`` or ``"claude"``.
+
+        Returns:
+            str: The resolved harness name.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a
+                recognized harness.
+        """
+        value = self.get("AGENT_HARNESS")
+        if value not in AGENT_HARNESSES:
+            raise EnvironmentConfigError(f"AGENT_HARNESS must be one of {sorted(AGENT_HARNESSES)}, got {value!r}")
+        return value
+
+    @property
+    def claude_plan_model(self) -> str:
+        """Return the Claude model used by the plan agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_PLAN_MODEL")
+
+    @property
+    def claude_build_model(self) -> str:
+        """Return the Claude model used by the build, merge, rebase and review-fixes agents.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_BUILD_MODEL")
+
+    @property
+    def claude_resolve_model(self) -> str:
+        """Return the Claude model used by the resolve agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_RESOLVE_MODEL")
+
+    @property
+    def claude_validate_model(self) -> str:
+        """Return the Claude model used by the validate agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_VALIDATE_MODEL")
+
+    @property
+    def claude_research_model(self) -> str:
+        """Return the Claude model used by the research agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_RESEARCH_MODEL")
+
+    def claude_effort(self, agent: str) -> str | None:
+        """Return the Claude effort level configured for an agent, if any.
+
+        Unlike :meth:`get`, a missing effort is not an error: most agents run
+        without an explicit effort level.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            str | None: The resolved effort level, or None when unset.
+        """
+        try:
+            return self.get(f"CLAUDE_{agent.upper()}_EFFORT")
+        except EnvironmentConfigError:
+            return None
+
+    def claude_max_budget_usd(self, agent: str) -> float:
+        """Return the Claude per-run USD budget cap configured for an agent.
+
+        Falls back to the global ``CLAUDE_MAX_BUDGET_USD`` when no per-agent
+        override is configured in any layer.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            float: The resolved budget cap in USD.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a number.
+        """
+        key = f"CLAUDE_{agent.upper()}_MAX_BUDGET_USD"
+        try:
+            value = self.get(key)
+        except EnvironmentConfigError:
+            value = self.get("CLAUDE_MAX_BUDGET_USD")
+        try:
+            return float(value)
+        except ValueError as e:
+            raise EnvironmentConfigError(f"{key} must be a number, got {value!r}") from e
+
+    @property
+    def review_models(self) -> list[ReviewModel]:
+        """Return the review models configured for the active harness.
+
+        Returns:
+            list[ReviewModel]: The parsed review models; Claude entries may
+                carry a ``model:effort`` pair, OpenCode entries never do.
+        """
+        harness = self.agent_harness
+        key = "CLAUDE_REVIEW_MODELS" if harness == "claude" else "OPENCODE_REVIEW_MODELS"
+        raw = self.get(key)
+        entries = [entry.strip() for entry in raw.split(",") if entry.strip()]
+        return [parse_review_model(entry=entry, harness=harness) for entry in entries]
+
+    def agent_model(self, agent: str) -> str:
+        """Return the model configured for an agent under the active harness.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            str: The resolved model for the active harness.
+        """
+        prefix = "CLAUDE" if self.agent_harness == "claude" else "OPENCODE"
+        return self.get(f"{prefix}_{agent.upper()}_MODEL")
 
     @property
     def openrouter_config(self) -> OpenRouterConfig:

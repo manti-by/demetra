@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project, Session, SessionEnvironment
-from demetra.services.agents.opencode import opencode_review_fixes_agent
+from demetra.services.agents import harness
 from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_by_id_system,
@@ -248,7 +248,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             f"Address every thread. Stage your changes when done."
         )
 
-        exit_code, stdout, stderr = await opencode_review_fixes_agent(
+        exit_code, stdout, stderr = await harness.review_fixes_agent(
             target_path=worktree_path,
             task=task,
             env=project.environment,

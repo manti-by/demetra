@@ -52,5 +52,15 @@ async def copy_auth_from_parent(parent_home: Path | None) -> None:
         except Exception:
             logger.exception("Failed to copy gh auth from %s", gh_src)
 
+    claude_src = parent_home / ".claude"
+    claude_dst = current_home / ".claude"
+    if claude_src.is_dir():
+        try:
+            await asyncio.to_thread(shutil.copytree, claude_src, claude_dst, dirs_exist_ok=True)
+            copied_anything = True
+            print_message(f"Copied Claude Code config from {claude_src}", style="result")
+        except Exception:
+            logger.exception("Failed to copy Claude Code config from %s", claude_src)
+
     if not copied_anything:
         print_message("No auth files found in parent OS home", style="info")

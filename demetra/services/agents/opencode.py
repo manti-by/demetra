@@ -1,6 +1,12 @@
 import json
 from pathlib import Path
 
+from demetra.library.constants import (
+    PLAN_HAS_QUESTIONS,
+    PLAN_HEADER_STRING,
+    PLAN_IS_READY_STRING,
+    RESEARCH_HEADER_STRING,
+)
 from demetra.library.models import SessionEnvironment, TokenUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
@@ -9,11 +15,29 @@ from demetra.services.runtime.utils import non_negative_int
 from demetra.settings import OPENCODE
 
 
-PLAN_HEADER_STRING = "## Implementation Plan"
-PLAN_IS_READY_STRING = "Ready to proceed to build."
-PLAN_HAS_QUESTIONS = "Please check my questions above."
-
-RESEARCH_HEADER_STRING = "## Research Report"
+__all__ = [
+    "PLAN_HAS_QUESTIONS",
+    "PLAN_HEADER_STRING",
+    "PLAN_IS_READY_STRING",
+    "RESEARCH_HEADER_STRING",
+    "extract_plan",
+    "extract_research_report",
+    "get_opencode_session_id",
+    "get_opencode_session_length",
+    "get_opencode_session_tokens",
+    "get_opencode_sessions",
+    "opencode_build_agent",
+    "opencode_compact_session",
+    "opencode_merge_agent",
+    "opencode_plan_agent",
+    "opencode_rebase_agent",
+    "opencode_research_agent",
+    "opencode_resolve_agent",
+    "opencode_review_agent",
+    "opencode_review_fixes_agent",
+    "opencode_validate_agent",
+    "run_opencode_agent",
+]
 
 
 async def opencode_plan_agent(
@@ -571,8 +595,10 @@ async def opencode_compact_session(
 async def extract_plan(plan_output: str) -> str:
     """Slice the implementation plan section out of a plan agent output.
 
-    Trims leading text before the plan header and strips any trailing
-    readiness or question marker.
+    Kept here as a re-export for backward compatibility; the implementation
+    lives in :mod:`demetra.services.agents.harness` (harness-neutral, since
+    both agent prompts share the same markers). Imported lazily to avoid a
+    circular import with the harness facade, which dispatches to this module.
 
     Args:
         plan_output: The raw plan agent output.
@@ -580,21 +606,18 @@ async def extract_plan(plan_output: str) -> str:
     Returns:
         str: The extracted plan text.
     """
-    if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
-        plan_output = plan_output[start_index:]
+    from demetra.services.agents.harness import extract_plan as _extract_plan
 
-    for end_string in (PLAN_IS_READY_STRING, PLAN_HAS_QUESTIONS):
-        if (end_index := plan_output.find(end_string)) != -1:
-            plan_output = plan_output[:end_index]
-            break
-
-    return plan_output.strip()
+    return await _extract_plan(plan_output=plan_output)
 
 
 async def extract_research_report(research_output: str) -> str:
     """Slice the research report section out of a research agent output.
 
-    Trims leading text before the research header.
+    Kept here as a re-export for backward compatibility; the implementation
+    lives in :mod:`demetra.services.agents.harness`. Imported lazily to avoid
+    a circular import with the harness facade, which dispatches to this
+    module.
 
     Args:
         research_output: The raw research agent output.
@@ -602,7 +625,6 @@ async def extract_research_report(research_output: str) -> str:
     Returns:
         str: The extracted report text.
     """
-    if (start_index := research_output.find(RESEARCH_HEADER_STRING)) != -1:
-        research_output = research_output[start_index:]
+    from demetra.services.agents.harness import extract_research_report as _extract_research_report
 
-    return research_output.strip()
+    return await _extract_research_report(research_output=research_output)
