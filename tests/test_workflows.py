@@ -40,16 +40,12 @@ from demetra.workflows.setup import setup_workflow
 class TestWorkflowSetup:
     @pytest.fixture
     def mock_search_projects(self):
-        with patch(
-            "demetra.workflows.setup.search_projects_by_name", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.setup.search_projects_by_name", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_get_environments(self):
-        with patch(
-            "demetra.workflows.setup.get_project_environments", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.setup.get_project_environments", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -62,16 +58,12 @@ class TestWorkflowSetup:
 
     @pytest.fixture
     def mock_setup_project_venv(self):
-        with patch(
-            "demetra.workflows.setup.setup_project_venv", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.setup.setup_project_venv", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_get_linear_task(self):
-        with patch(
-            "demetra.workflows.setup.get_linear_task", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.setup.get_linear_task", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -86,9 +78,7 @@ class TestWorkflowSetup:
 
     @pytest.fixture
     def mock_git_worktree_create(self):
-        with patch(
-            "demetra.workflows.setup.git_worktree_create", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.setup.git_worktree_create", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -168,9 +158,7 @@ class TestWorkflowSetup:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_setup_workflow_multiple_projects_found(
-        self, faker, mock_search_projects
-    ):
+    async def test_setup_workflow_multiple_projects_found(self, faker, mock_search_projects):
         project_data = {
             "id": str(uuid4()),
             "user_id": str(uuid4()),
@@ -192,9 +180,7 @@ class TestWorkflowSetup:
 class TestWorkflowPlan:
     @pytest.fixture
     def mock_plan_agent(self):
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -204,9 +190,7 @@ class TestWorkflowPlan:
 
     @pytest.fixture
     def mock_extract_questions(self):
-        with patch(
-            "demetra.workflows.plan.extract_questions", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.extract_questions", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -216,16 +200,12 @@ class TestWorkflowPlan:
 
     @pytest.fixture
     def mock_get_opencode_session_id(self):
-        with patch(
-            "demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture(autouse=True)
     def _mock_record_session_step_history(self):
-        with patch(
-            "demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
@@ -333,15 +313,9 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch(
-                "demetra.workflows.plan.post_comment", new_callable=AsyncMock
-            ) as mock_post_comment,
-            patch(
-                "demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock
-            ) as mock_update_ticket_status,
-            patch(
-                "demetra.workflows.plan.update_session_step", new_callable=AsyncMock
-            ) as mock_update_session_step,
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
                 "linear_state",
@@ -377,9 +351,7 @@ class TestWorkflowPlan:
             )
 
             mock_plan_agent.return_value = (0, faker.text(), "")
-            mock_extract_plan.side_effect = PlanError(
-                "Failed to summarize the build plan"
-            )
+            mock_extract_plan.side_effect = PlanError("Failed to summarize the build plan")
 
             with pytest.raises(AutoCancelledError):
                 await run_plan_step(context)
@@ -402,15 +374,9 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch(
-                "demetra.workflows.plan.post_comment", new_callable=AsyncMock
-            ) as mock_post_comment,
-            patch(
-                "demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock
-            ) as mock_update_ticket_status,
-            patch(
-                "demetra.workflows.plan.update_session_step", new_callable=AsyncMock
-            ) as mock_update_session_step,
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
                 "linear_state",
@@ -469,15 +435,9 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch(
-                "demetra.workflows.plan.post_comment", new_callable=AsyncMock
-            ) as mock_post_comment,
-            patch(
-                "demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock
-            ) as mock_update_ticket_status,
-            patch(
-                "demetra.workflows.plan.update_session_step", new_callable=AsyncMock
-            ) as mock_update_session_step,
+            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
                 "linear_state",
@@ -532,9 +492,7 @@ class TestWorkflowPlan:
 class TestWorkflowResolve:
     @pytest.fixture
     def mock_resolve_agent(self):
-        with patch(
-            "demetra.workflows.resolve.opencode_resolve_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.resolve.opencode_resolve_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -547,9 +505,7 @@ class TestWorkflowResolve:
         return mock_resolve_agent, mock_get_prompt
 
     @pytest.mark.asyncio
-    async def test_run_resolve_step_passes_task_and_questions(
-        self, faker, mock_resolve_deps
-    ):
+    async def test_run_resolve_step_passes_task_and_questions(self, faker, mock_resolve_deps):
 
         mock_agent, mock_prompt = mock_resolve_deps
         context = Context(
@@ -591,9 +547,7 @@ class TestWorkflowResolve:
         mock_agent.return_value = (0, "answer text", None)
         mock_prompt.return_value = resolved_prompt
 
-        result = await run_resolve_step(
-            context=context, original_task=original_task, questions=questions
-        )
+        result = await run_resolve_step(context=context, original_task=original_task, questions=questions)
 
         assert result == "answer text"
         mock_agent.assert_called_once()
@@ -654,9 +608,7 @@ class TestWorkflowResolve:
 class TestWorkflowPlanLoop:
     @pytest.fixture
     def mock_plan_agent(self):
-        with patch(
-            "demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -666,16 +618,12 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_extract_questions(self):
-        with patch(
-            "demetra.workflows.plan.extract_questions", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.extract_questions", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_resolve_step(self):
-        with patch(
-            "demetra.workflows.plan.run_resolve_step", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.run_resolve_step", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -685,9 +633,7 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_get_opencode_session_id(self):
-        with patch(
-            "demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -697,16 +643,12 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_update_ticket_status(self):
-        with patch(
-            "demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_record_session_step_history(self):
-        with patch(
-            "demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -719,9 +661,7 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_update_session_step(self):
-        with patch(
-            "demetra.workflows.plan.update_session_step", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1033,30 +973,22 @@ class TestWorkflowPlanLoop:
 class TestWorkflowBuild:
     @pytest.fixture
     def mock_build_agent(self):
-        with patch(
-            "demetra.workflows.build.opencode_build_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.opencode_build_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_review_agents(self):
-        with patch(
-            "demetra.workflows.build.run_review_agents", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.run_review_agents", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_validate_agent(self):
-        with patch(
-            "demetra.workflows.build.run_validate_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.run_validate_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_lint_and_test(self):
-        with patch(
-            "demetra.workflows.build.run_lint_and_test", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.run_lint_and_test", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1066,16 +998,12 @@ class TestWorkflowBuild:
 
     @pytest.fixture
     def mock_bump_version(self):
-        with patch(
-            "demetra.workflows.build.bump_project_version", return_value="1.15.0"
-        ) as m:
+        with patch("demetra.workflows.build.bump_project_version", return_value="1.15.0") as m:
             yield m
 
     @pytest.fixture
     def mock_update_session_step(self):
-        with patch(
-            "demetra.workflows.build.update_session_step", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
@@ -1305,9 +1233,7 @@ class TestContextCompaction:
 
     @pytest.fixture
     def mock_opencode_compact_session(self):
-        with patch(
-            "demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1370,9 +1296,7 @@ class TestContextCompaction:
             else None,
         )
 
-    def _make_history(
-        self, length: int | None, context_tokens: int | None = None
-    ) -> SessionHistory:
+    def _make_history(self, length: int | None, context_tokens: int | None = None) -> SessionHistory:
         return SessionHistory(
             id="hist_1",
             session_id="ses_test123",
@@ -1392,12 +1316,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(
-            input=100, output=50, context=150_000
-        )
-        mock_record_session_step_history.return_value = self._make_history(
-            150_000, context_tokens=150_000
-        )
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
+        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (0, "compacted", "")
 
         await check_and_compact_context(context)
@@ -1418,12 +1338,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(
-            input=100, output=50, context=150_000
-        )
-        mock_record_session_step_history.return_value = self._make_history(
-            150_000, context_tokens=150_000
-        )
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
+        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (1, "", "error details")
 
         await check_and_compact_context(context)
@@ -1440,12 +1356,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(
-            input=100, output=50, context=50_000
-        )
-        mock_record_session_step_history.return_value = self._make_history(
-            50_000, context_tokens=50_000
-        )
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=50_000)
+        mock_record_session_step_history.return_value = self._make_history(50_000, context_tokens=50_000)
 
         await check_and_compact_context(context)
 
@@ -1461,12 +1373,8 @@ class TestContextCompaction:
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(
-            input=100, output=50, context=None
-        )
-        mock_record_session_step_history.return_value = self._make_history(
-            None, context_tokens=None
-        )
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=None)
+        mock_record_session_step_history.return_value = self._make_history(None, context_tokens=None)
 
         await check_and_compact_context(context)
 
@@ -1528,22 +1436,16 @@ class TestContextCompaction:
 class TestWorkflowReview:
     @pytest.fixture
     def mock_review_agent(self):
-        with patch(
-            "demetra.workflows.review.opencode_review_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.review.opencode_review_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_summarize_review(self):
-        with patch(
-            "demetra.workflows.review.summarize_review", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.review.summarize_review", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_returns_comments(
-        self, faker, mock_review_agent, mock_summarize_review
-    ):
+    async def test_run_review_agents_returns_comments(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_review_agent.return_value = (0, "Raw review output from agent.", None)
         mock_summarize_review.return_value = ["Some comments here"]
@@ -1553,9 +1455,7 @@ class TestWorkflowReview:
         assert result and "Some comments here" in result
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_no_issue_tokens(
-        self, faker, mock_review_agent, mock_summarize_review
-    ):
+    async def test_run_review_agents_no_issue_tokens(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_review_agent.return_value = (0, "no issues found.", None)
         mock_summarize_review.return_value = []
@@ -1563,14 +1463,10 @@ class TestWorkflowReview:
         result = await run_review_agents(target_path)
 
         assert result is None
-        mock_summarize_review.assert_awaited_once_with(
-            review_output="", environment=None
-        )
+        mock_summarize_review.assert_awaited_once_with(review_output="", environment=None)
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_filters_thinking_prose(
-        self, faker, mock_review_agent, mock_summarize_review
-    ):
+    async def test_run_review_agents_filters_thinking_prose(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
         thinking_prose = (
             "Looking at the staged changes, they're all test additions and configuration updates.\n"
@@ -1606,16 +1502,12 @@ class TestWorkflowReview:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_run_review_agents_propagates_review_error(
-        self, faker, mock_review_agent, mock_summarize_review
-    ):
+    async def test_run_review_agents_propagates_review_error(self, faker, mock_review_agent, mock_summarize_review):
         from demetra.library.exceptions import ReviewError
 
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_review_agent.return_value = (0, "Some review output", None)
-        mock_summarize_review.side_effect = ReviewError(
-            "Failed to summarize the review"
-        )
+        mock_summarize_review.side_effect = ReviewError("Failed to summarize the review")
 
         with pytest.raises(ReviewError, match="Failed to summarize the review"):
             await run_review_agents(target_path)
@@ -1624,23 +1516,17 @@ class TestWorkflowReview:
 class TestWorkflowLint:
     @pytest.fixture
     def mock_is_package_installed(self):
-        with patch(
-            "demetra.workflows.lint.is_package_installed", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.lint.is_package_installed", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_ruff_format(self):
-        with patch(
-            "demetra.workflows.lint.run_ruff_format", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.lint.run_ruff_format", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_run_ruff_checks(self):
-        with patch(
-            "demetra.workflows.lint.run_ruff_checks", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.lint.run_ruff_checks", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1764,9 +1650,7 @@ class TestWorkflowLint:
 class TestWorkflowCleanup:
     @pytest.fixture
     def mock_git_add_all(self):
-        with patch(
-            "demetra.workflows.cleanup.git_add_all", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.git_add_all", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1781,45 +1665,33 @@ class TestWorkflowCleanup:
 
     @pytest.fixture
     def mock_create_pull_request(self):
-        with patch(
-            "demetra.workflows.cleanup.create_pull_request", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.create_pull_request", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_generate_pr_description(self):
-        with patch(
-            "demetra.workflows.cleanup.generate_pr_description", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.generate_pr_description", new_callable=AsyncMock) as m:
             m.return_value = "Generated PR body"
             yield m
 
     @pytest.fixture
     def mock_update_session_pr_link(self):
-        with patch(
-            "demetra.workflows.cleanup.update_session_pr_link", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.update_session_pr_link", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_git_cleanup(self):
-        with patch(
-            "demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_linear_cleanup(self):
-        with patch(
-            "demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_write_session_wiki_page(self):
-        with patch(
-            "demetra.workflows.cleanup.write_session_wiki_page", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.cleanup.write_session_wiki_page", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1843,9 +1715,7 @@ class TestWorkflowCleanup:
 
     @pytest.mark.asyncio
     async def test_commit_and_push(self, faker, mock_commit_deps):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1879,17 +1749,13 @@ class TestWorkflowCleanup:
 
         result = await commit_and_push(context)
         assert result is True
-        mock_wiki.assert_awaited_once_with(
-            context=context, wiki_root=context.worktree_path / "wiki"
-        )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
         assert _mock_add_all.await_count == 2
 
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):
 
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1923,19 +1789,13 @@ class TestWorkflowCleanup:
 
         with pytest.raises(PullRequestError, match="could not create PR"):
             await commit_and_push(context)
-        mock_wiki.assert_awaited_once_with(
-            context=context, wiki_root=context.worktree_path / "wiki"
-        )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_pr_description_failure_raises_pull_request_error(
-        self, faker, mock_commit_deps
-    ):
+    async def test_commit_and_push_pr_description_failure_raises_pull_request_error(self, faker, mock_commit_deps):
         from demetra.library.exceptions import PrDescriptionError
 
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -1965,17 +1825,13 @@ class TestWorkflowCleanup:
         )
 
         _mock_add_all.return_value = True
-        mock_pr_body.side_effect = PrDescriptionError(
-            "Failed to generate the PR description"
-        )
+        mock_pr_body.side_effect = PrDescriptionError("Failed to generate the PR description")
 
         with pytest.raises(PullRequestError, match="Failed to generate PR description"):
             await commit_and_push(context)
 
         mock_pr.assert_not_awaited()
-        mock_wiki.assert_awaited_once_with(
-            context=context, wiki_root=context.worktree_path / "wiki"
-        )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
     async def test_commit_and_push_persists_pr_link(
@@ -1984,9 +1840,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -2022,9 +1876,7 @@ class TestWorkflowCleanup:
             task_id=context.linear_task.id,
             pr_link="https://github.com/test/demetra/pull/42",
         )
-        mock_wiki.assert_awaited_once_with(
-            context=context, wiki_root=context.worktree_path / "wiki"
-        )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
     async def test_commit_and_push_skips_pr_link_when_url_missing(
@@ -2033,9 +1885,7 @@ class TestWorkflowCleanup:
         mock_commit_deps,
         mock_update_session_pr_link,
     ):
-        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+        _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -2068,17 +1918,11 @@ class TestWorkflowCleanup:
 
         await commit_and_push(context)
         mock_update_session_pr_link.assert_not_awaited()
-        mock_wiki.assert_awaited_once_with(
-            context=context, wiki_root=context.worktree_path / "wiki"
-        )
+        mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
 
     @pytest.mark.asyncio
-    async def test_commit_and_push_wiki_failure_returns_true_after_successful_push(
-        self, faker, mock_commit_deps
-    ):
-        _mock_add_all, _mock_commit, _mock_push, _mock_pr, _mock_pr_body, mock_wiki = (
-            mock_commit_deps
-        )
+    async def test_commit_and_push_wiki_failure_returns_true_after_successful_push(self, faker, mock_commit_deps):
+        _mock_add_all, _mock_commit, _mock_push, _mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -2119,9 +1963,7 @@ class TestWorkflowCleanup:
         assert _mock_add_all.await_count == 1
 
     @pytest.mark.asyncio
-    async def test_cleanup_workflow_success(
-        self, faker, mock_git_cleanup, mock_linear_cleanup
-    ):
+    async def test_cleanup_workflow_success(self, faker, mock_git_cleanup, mock_linear_cleanup):
         context = Context(
             project=Project(
                 id=str(uuid4()),
@@ -2150,9 +1992,7 @@ class TestWorkflowCleanup:
             session=None,
         )
 
-        await cleanup_workflow(
-            context, is_success=True, should_update_linear_status=True
-        )
+        await cleanup_workflow(context, is_success=True, should_update_linear_status=True)
 
     @pytest.mark.asyncio
     async def test_cleanup_workflow_failure_with_awaiting_input(
@@ -2162,9 +2002,7 @@ class TestWorkflowCleanup:
         mock_linear_cleanup,
     ):
         with (
-            patch(
-                "demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock
-            ) as mock_update_step,
+            patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock) as mock_update_step,
             patch(
                 "demetra.workflows.cleanup.get_opencode_session_tokens",
                 new_callable=AsyncMock,
@@ -2217,9 +2055,7 @@ class TestWorkflowCleanup:
                 failure_step="awaiting_input",
             )
 
-            mock_update_step.assert_awaited_once_with(
-                task_id=context.linear_task.id, step="awaiting_input"
-            )
+            mock_update_step.assert_awaited_once_with(task_id=context.linear_task.id, step="awaiting_input")
 
 
 class TestMainBumpVersion:
@@ -2285,23 +2121,17 @@ class TestMainBumpVersion:
 class TestWorkflowResearch:
     @pytest.fixture
     def mock_research_agent(self):
-        with patch(
-            "demetra.workflows.research.opencode_research_agent", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.research.opencode_research_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_create_research_ticket(self):
-        with patch(
-            "demetra.workflows.research.create_research_ticket", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.research.create_research_ticket", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_resolve_linear_state(self):
-        with patch.object(
-            SessionEnvironment, "linear_state", return_value="state-123"
-        ) as m:
+        with patch.object(SessionEnvironment, "linear_state", return_value="state-123") as m:
             yield m
 
     @pytest.fixture
@@ -2322,17 +2152,13 @@ class TestWorkflowResearch:
         def _linear_state(self_env: SessionEnvironment, name: str) -> str:
             result = _resolve_via_mock(name)
             if result is None:
-                raise EnvironmentConfigError(
-                    f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured"
-                )
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
             return result
 
         def _linear_value(self_env: SessionEnvironment, name: str) -> str:
             result = _resolve_via_mock(name)
             if result is None:
-                raise EnvironmentConfigError(
-                    f"Environment key 'LINEAR_{name.upper()}' is not configured"
-                )
+                raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
             return result
 
         with (
@@ -2343,9 +2169,7 @@ class TestWorkflowResearch:
 
     @pytest.fixture
     def mock_update_ticket_status(self):
-        with patch(
-            "demetra.workflows.research.update_ticket_status", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.research.update_ticket_status", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -2358,9 +2182,7 @@ class TestWorkflowResearch:
 
     @pytest.fixture
     def mock_update_session_step(self):
-        with patch(
-            "demetra.workflows.research.update_session_step", new_callable=AsyncMock
-        ) as m:
+        with patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
     @staticmethod
@@ -2419,12 +2241,8 @@ class TestWorkflowResearch:
         result = await run_research_step(context)
 
         assert result == report
-        mock_create_research_ticket.assert_awaited_once_with(
-            context=context, report=report
-        )
-        mock_update_ticket_status.assert_awaited_once_with(
-            task_id=context.linear_task.id, state_id="state-123"
-        )
+        mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
+        mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
 
     @pytest.mark.asyncio
@@ -2547,9 +2365,7 @@ class TestWorkflowResearch:
             "",
         )
         mock_get_linear_config_value.return_value = "state-123"
-        mock_create_research_ticket.side_effect = LinearError(
-            "Failed to create research Linear ticket"
-        )
+        mock_create_research_ticket.side_effect = LinearError("Failed to create research Linear ticket")
 
         with patch("demetra.workflows.research.MAX_ATTEMPTS", {"research": 2}):
             with pytest.raises(LinearError, match="after all attempts"):
@@ -2628,9 +2444,7 @@ class TestWorkflowResearch:
         context = self._make_context(faker)
         mock_get_linear_config_value.side_effect = _resolve
 
-        with pytest.raises(
-            LinearConfigError, match="'awaiting_input' is not configured"
-        ):
+        with pytest.raises(LinearConfigError, match="'awaiting_input' is not configured"):
             await run_research_step(context)
 
         mock_research_agent.assert_not_awaited()
@@ -2660,13 +2474,8 @@ class TestWorkflowResearch:
         result = await run_research_step(context)
 
         assert result == report
-        mock_create_research_ticket.assert_awaited_once_with(
-            context=context, report=report
-        )
-        assert all(
-            call.kwargs.get("step") != "awaiting_input"
-            for call in mock_update_session_step.await_args_list
-        )
+        mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
+        assert all(call.kwargs.get("step") != "awaiting_input" for call in mock_update_session_step.await_args_list)
 
     @pytest.mark.asyncio
     async def test_run_research_step_tolerates_status_move_error(
