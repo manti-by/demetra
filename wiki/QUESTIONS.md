@@ -7,7 +7,21 @@ pages and moves the entry to **Resolved**.
 
 ## Open
 
-_None._
+### Q-003 — `researched` session step defined but never persisted
+
+- **Date:** 2026-10-02
+- **Pages:** [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+- **Discrepancy:** MNT-200 added `"researched"` to `StepType` and persisted `step="researched"` after research (`e177403`); MNT-203's restructure (`14d0d02`) restored `step="awaiting_input"` (`_move_to_awaiting_input`, `demetra/workflows/research.py:203`) while keeping `research_report`. At HEAD `"researched"` is still in `StepType` (`demetra/library/models.py:28`) with navy badge CSS (`react/src/App.css:1018,1072`), but no code path or test writes it. Was the revert deliberate (then remove the `StepType`/CSS and correct the MNT-200 page) or accidental (then restore the `researched` write)?
+- **Checked:** git history `e177403`/`14d0d02`, HEAD `research.py:93,203`, `models.py:28`, `App.css:1018,1072`, `grep researched tests/` (no hits).
+- **Answer:** _(human writes here)_
+
+### Q-002 — Watcher polls a single tracker while `ISSUE_TRACKER` is per-project
+
+- **Date:** 2026-09-30
+- **Pages:** [[2026-09-30-clickup-issue-tracker-support]], [[2026-09-30-mnt-230-claude-code-harness]]
+- **Discrepancy:** `ISSUE_TRACKER` resolves per project / per user (like `AGENT_HARNESS`), but `demetra/watcher.py` runs without a project and polls only the tracker `settings.ISSUE_TRACKER` names. A project overriding `ISSUE_TRACKER=clickup` under a `linear` server default is never picked up by the poller (only by `main.py --project-name` / `--task-id`). Should the watcher poll every distinct tracker among configured projects, or is one tracker per deployment the intended scope?
+- **Checked:** `demetra/watcher.py` (`get_todo_issues()` with no environment), `demetra/services/tracker/__init__.py` (`load_environment` needs a `user_id`/`project_id`), `demetra/services/daemons/watcher.py` (per-task env is resolved only after a task is known). The harness page has no equivalent problem because the harness is only consulted inside a workflow run.
+- **Answer:** _(human writes here)_
 
 _Newest first. Entry format:_
 

@@ -2,8 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project, Session, SessionEnvironment
-from demetra.services.agents.opencode import opencode_review_fixes_agent
-from demetra.services.linear import get_linear_task_by_id
+from demetra.services.agents import harness
 from demetra.services.persistence.database import (
     get_project_by_id_system,
     get_project_environments,
@@ -14,6 +13,7 @@ from demetra.services.persistence.queue import queue
 from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import setup_session_logging
+from demetra.services.tracker import get_task_by_id
 from demetra.services.vcs.git import (
     git_add_all,
     git_commit,
@@ -134,7 +134,12 @@ async def _record_review_fixes_wiki(
         worktree_path: The worktree the fixes were made in.
     """
     try:
-        linear_task = await get_linear_task_by_id(task_id=task_id)
+        linear_task = await get_task_by_id(
+            task_id=task_id,
+            environment=SessionEnvironment(
+                project_environment=project.environment, user_environment=project.user_environment
+            ),
+        )
         if linear_task is not None:
             context = Context(
                 project=project,
@@ -248,7 +253,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             f"Address every thread. Stage your changes when done."
         )
 
-        exit_code, stdout, stderr = await opencode_review_fixes_agent(
+        exit_code, stdout, stderr = await harness.review_fixes_agent(
             target_path=worktree_path,
             task=task,
             env=project.environment,

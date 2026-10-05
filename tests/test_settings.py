@@ -387,6 +387,220 @@ class TestSettings:
         importlib.reload(settings_module)
 
 
+class TestClaudeSettings:
+    def test_claude_defaults(self, monkeypatch):
+        for name in (
+            "CLAUDE_PLAN_MODEL",
+            "CLAUDE_PLAN_EFFORT",
+            "CLAUDE_RESOLVE_MODEL",
+            "CLAUDE_RESOLVE_EFFORT",
+            "CLAUDE_RESEARCH_MODEL",
+            "CLAUDE_RESEARCH_EFFORT",
+            "CLAUDE_BUILD_MODEL",
+            "CLAUDE_BUILD_EFFORT",
+            "CLAUDE_VALIDATE_MODEL",
+            "CLAUDE_VALIDATE_EFFORT",
+            "CLAUDE_REVIEW_MODELS",
+        ):
+            monkeypatch.delenv(name, raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.CLAUDE["plan_model"] == "opus"
+            assert settings_module.CLAUDE["plan_effort"] == "medium"
+            assert settings_module.CLAUDE["resolve_model"] == "opus"
+            assert settings_module.CLAUDE["resolve_effort"] == "xhigh"
+            assert settings_module.CLAUDE["research_model"] == "opus"
+            assert settings_module.CLAUDE["research_effort"] == "high"
+            assert settings_module.CLAUDE["build_model"] == "sonnet"
+            assert settings_module.CLAUDE["build_effort"] is None
+            assert settings_module.CLAUDE["validate_model"] == "haiku"
+            assert settings_module.CLAUDE["validate_effort"] is None
+            assert settings_module.CLAUDE["review_models"] == ["opus:xhigh"]
+        finally:
+            importlib.reload(settings_module)
+
+    def test_claude_review_models_invalid_effort_raises_at_load(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_REVIEW_MODELS", "opus:ultra")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        try:
+            with pytest.raises(SettingsError, match="CLAUDE_REVIEW_MODELS"):
+                importlib.reload(settings_module)
+        finally:
+            monkeypatch.delenv("CLAUDE_REVIEW_MODELS", raising=False)
+            importlib.reload(settings_module)
+
+    def test_claude_review_models_without_effort_load(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_REVIEW_MODELS", "opus, sonnet:high")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.CLAUDE["review_models"] == ["opus", "sonnet:high"]
+        finally:
+            monkeypatch.delenv("CLAUDE_REVIEW_MODELS", raising=False)
+            importlib.reload(settings_module)
+
+    def test_claude_plan_effort_env_override(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_PLAN_EFFORT", "low")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.CLAUDE["plan_effort"] == "low"
+        finally:
+            monkeypatch.delenv("CLAUDE_PLAN_EFFORT", raising=False)
+            importlib.reload(settings_module)
+
+    def test_invalid_claude_effort_raises_settings_error(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_PLAN_EFFORT", "not-a-level")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("CLAUDE_PLAN_EFFORT", raising=False)
+        importlib.reload(settings_module)
+
+    def test_agent_harness_default(self, monkeypatch):
+        monkeypatch.delenv("AGENT_HARNESS", raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.AGENT_HARNESS == "opencode"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_agent_harness_env_override(self, monkeypatch):
+        monkeypatch.setenv("AGENT_HARNESS", "claude")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.AGENT_HARNESS == "claude"
+        finally:
+            monkeypatch.delenv("AGENT_HARNESS", raising=False)
+            importlib.reload(settings_module)
+
+    def test_invalid_agent_harness_raises_settings_error(self, monkeypatch):
+        monkeypatch.setenv("AGENT_HARNESS", "bogus")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("AGENT_HARNESS", raising=False)
+        importlib.reload(settings_module)
+
+    def test_issue_tracker_default(self, monkeypatch):
+        monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.ISSUE_TRACKER == "linear"
+            assert settings_module.CLICKUP["api_url"] == "https://api.clickup.com/api/v2"
+            assert settings_module.CLICKUP["states"]["todo"] == "to do"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_issue_tracker_env_override(self, monkeypatch):
+        monkeypatch.setenv("ISSUE_TRACKER", "clickup")
+        monkeypatch.setenv("CLICKUP_STATE_TODO", "backlog")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.ISSUE_TRACKER == "clickup"
+            assert settings_module.CLICKUP["states"]["todo"] == "backlog"
+        finally:
+            monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+            monkeypatch.delenv("CLICKUP_STATE_TODO", raising=False)
+            importlib.reload(settings_module)
+
+    def test_invalid_issue_tracker_raises_settings_error(self, monkeypatch):
+        monkeypatch.setenv("ISSUE_TRACKER", "jira")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError, match="ISSUE_TRACKER"):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("ISSUE_TRACKER", raising=False)
+        importlib.reload(settings_module)
+
+    def test_claude_idle_timeout_below_minimum_raises(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_IDLE_TIMEOUT", "100")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("CLAUDE_IDLE_TIMEOUT", raising=False)
+        importlib.reload(settings_module)
+
+    def test_claude_idle_timeout_above_subprocess_timeout_raises(self, monkeypatch):
+        monkeypatch.setenv("SUBPROCESS_TIMEOUT", "700")
+        monkeypatch.setenv("CLAUDE_IDLE_TIMEOUT", "1000")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        with pytest.raises(SettingsError):
+            importlib.reload(settings_module)
+
+        monkeypatch.delenv("SUBPROCESS_TIMEOUT", raising=False)
+        monkeypatch.delenv("CLAUDE_IDLE_TIMEOUT", raising=False)
+        importlib.reload(settings_module)
+
+    def test_claude_idle_timeout_valid_value_accepted(self, monkeypatch):
+        monkeypatch.setenv("CLAUDE_IDLE_TIMEOUT", "700")
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.CLAUDE_IDLE_TIMEOUT == 700
+        finally:
+            monkeypatch.delenv("CLAUDE_IDLE_TIMEOUT", raising=False)
+            importlib.reload(settings_module)
+
+
 class TestSearchStopWords:
     def test_stop_words_not_in_search_settings(self):
         assert "stop_words" not in settings.SEARCH

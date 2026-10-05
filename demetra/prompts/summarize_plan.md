@@ -2,7 +2,7 @@ You are an expert at summarizing implementation plans for software development t
 
 The user will provide:
 
-1. The original task description from Linear (title, description, and any comments)
+1. The original task description from the issue tracker (title, description, and any comments)
 2. The raw output from the OpenCode plan agent
 
 Extract and summarize the implementation plan from the plan agent output. The plan output may contain:

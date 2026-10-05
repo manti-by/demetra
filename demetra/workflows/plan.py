@@ -1,26 +1,22 @@
 from sqlalchemy.exc import SQLAlchemyError
 
+from demetra.library.constants import PLAN_HEADER_STRING
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
     InfiniteLoopError,
-    LinearError,
     PlanError,
+    TrackerError,
     UserCancelledError,
 )
 from demetra.library.models import Context
-from demetra.services.agents.opencode import (
-    PLAN_HEADER_STRING,
-    get_opencode_session_id,
-    get_opencode_session_tokens,
-    opencode_plan_agent,
-)
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.agents import harness
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
+from demetra.services.tracker import post_comment, update_ticket_status
 from demetra.settings import MAX_ATTEMPTS
 from demetra.workflows.resolve import run_resolve_step
 
@@ -28,22 +24,22 @@ from demetra.workflows.resolve import run_resolve_step
 async def move_to_awaiting_input(context: Context) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
-    Updates the Linear ticket status and the session step, then raises
+    Updates the tracker ticket status and the session step, then raises
     AutoCancelledError so the caller's cleanup rolls back the worktree and
-    branch without moving the Linear status again.
+    branch without moving the ticket status again.
 
     Args:
         context: The workflow context.
 
     Raises:
-        LinearError: When the awaiting_input state is not configured.
+        TrackerError: When the awaiting_input state is not configured.
         AutoCancelledError: Always, to halt the workflow.
     """
     try:
-        state_id = context.environment.linear_state("awaiting_input")
+        state_id = context.environment.tracker_state("awaiting_input")
     except EnvironmentConfigError as e:
-        raise LinearError("Linear state 'awaiting_input' is not configured") from e
-    await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        raise TrackerError("Tracker state 'awaiting_input' is not configured") from e
+    await update_ticket_status(task_id=context.linear_task.id, state_id=state_id, environment=context.environment)
     await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError
@@ -76,13 +72,15 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
 
-        exit_code, stdout, stderr = await opencode_plan_agent(
+        pregenerated_session_id = harness.new_session_id(environment=context.environment)
+        exit_code, stdout, stderr = await harness.plan_agent(
             target_path=context.worktree_path,
             task=current_task,
+            environment=context.environment,
+            session_id=pregenerated_session_id,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            environment=context.environment,
         )
         if exit_code != 0:
             raise PlanError(
@@ -105,7 +103,11 @@ async def run_plan_step(context: Context) -> str | None:
             )
         except PlanError as e:
             print_message(f"Plan step failed: {e}", style="error")
-            await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan step failed: {e}")
+            await post_comment(
+                task_id=context.linear_task.id,
+                body=f"## Error\nPlan step failed: {e}",
+                environment=context.environment,
+            )
             await move_to_awaiting_input(context=context)
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
@@ -117,9 +119,11 @@ async def run_plan_step(context: Context) -> str | None:
 
         session_id = None
         if not context.session_id:
-            session_id = await get_opencode_session_id(
+            session_id = await harness.get_session_id(
                 target_path=context.worktree_path,
                 task_title=context.linear_task.full_title,
+                environment=context.environment,
+                pregenerated_session_id=pregenerated_session_id,
                 env=context.project.environment,
             )
         if session_id:
@@ -129,29 +133,34 @@ async def run_plan_step(context: Context) -> str | None:
                 build_plan=build_plan,
                 name=context.linear_task.full_title,
                 linear_link=context.linear_task.url,
+                harness=context.environment.agent_harness,
             )
             print_message(f"Saved session {session_id}.", style="result")
         else:
             context.session = await save_session(
-                task_id=context.linear_task.id, build_plan=build_plan, linear_link=context.linear_task.url
+                task_id=context.linear_task.id,
+                build_plan=build_plan,
+                linear_link=context.linear_task.url,
+                harness=context.environment.agent_harness,
             )
-            print_message("No opencode session found, saved build plan without session_id.", style="warning")
+            print_message("No agent session found, saved build plan without session_id.", style="warning")
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
 
         if context.session_id:
             try:
-                usage = await get_opencode_session_tokens(
+                usage = await harness.get_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
+                    environment=context.environment,
                     env=context.project.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,
                     step="plan",
                     usage=usage,
-                    model=context.environment.opencode_plan_model,
+                    model=context.environment.agent_model("plan"),
                 )
             except (SQLAlchemyError, OSError):
                 print_message("Failed to record session step history.", style="warning")
@@ -186,10 +195,12 @@ async def run_plan_step(context: Context) -> str | None:
             continue
 
         if context.auto_mode:
-            print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
+            print_message("Auto mode: posting questions to the issue tracker and exiting.", style="heading")
             for question in questions:
-                if not await post_comment(task_id=context.linear_task.id, body=f"## Question:\n{question}"):
-                    print_message("Failed to post question to Linear", style="error")
+                if not await post_comment(
+                    task_id=context.linear_task.id, body=f"## Question:\n{question}", environment=context.environment
+                ):
+                    print_message("Failed to post question to the issue tracker", style="error")
 
             await move_to_awaiting_input(context=context)
 

@@ -80,6 +80,7 @@ class TestRunFailureStep:
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,
             state_id=LINEAR["states"]["awaiting_input"],
+            environment=context.environment,
         )
 
     @pytest.mark.asyncio
@@ -95,6 +96,7 @@ class TestRunFailureStep:
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,
             state_id=LINEAR["states"]["awaiting_input"],
+            environment=context.environment,
         )
 
     @pytest.mark.asyncio
@@ -111,6 +113,7 @@ class TestRunFailureStep:
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,
             state_id=LINEAR["states"]["awaiting_input"],
+            environment=context.environment,
         )
 
     @pytest.mark.asyncio
@@ -127,6 +130,7 @@ class TestRunFailureStep:
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,
             state_id=LINEAR["states"]["awaiting_input"],
+            environment=context.environment,
         )
 
     @pytest.mark.asyncio
@@ -152,7 +156,7 @@ class TestRunFailureStep:
             await process_pr_failure(context=context, error=PullRequestError("gh: could not create PR"))
 
         messages = [call.args[0] for call in mock_print_message.call_args_list]
-        assert any("Failed to update Linear" in message for message in messages)
+        assert any("Failed to update the issue tracker" in message for message in messages)
 
     @pytest.mark.asyncio
     async def test_reports_failed_comment(self, mock_linear_deps):

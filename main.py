@@ -9,19 +9,19 @@ from demetra.library.exceptions import (
     DemetraError,
     EnvironmentConfigError,
     InfiniteLoopError,
-    LinearError,
     PullRequestError,
     ReviewError,
+    TrackerError,
     UserCancelledError,
     WikiError,
 )
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
-from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
+from demetra.services.tracker import post_comment, update_ticket_status
 from demetra.settings import (
     DEFAULT_USER_ID,
     LOGGING,
@@ -40,13 +40,13 @@ logger = logging.getLogger(__name__)
 
 parser = argparse.ArgumentParser(prog="demetra", description="Run implementation workflow.", add_help=True)
 parser.add_argument("-p", "--project-name", help="Project name to run workflow on", type=str)
-parser.add_argument("-t", "--task-id", help="Specific Linear task ID to run", type=str)
+parser.add_argument("-t", "--task-id", help="Specific tracker (Linear / ClickUp) task ID to run", type=str)
 parser.add_argument(
     "--auto", help="Automatic mode - post questions and exit", action=argparse.BooleanOptionalAction, default=True
 )
 parser.add_argument(
     "--plan-loop",
-    help="Loop between plan and resolve agents instead of posting questions to Linear",
+    help="Loop between plan and resolve agents instead of posting questions to the issue tracker",
     action=argparse.BooleanOptionalAction,
     default=False,
 )
@@ -109,10 +109,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             )
 
         try:
-            state_id = context.environment.linear_state("in_progress")
+            state_id = context.environment.tracker_state("in_progress")
         except EnvironmentConfigError as e:
-            raise LinearError("Linear state 'in_progress' is not configured") from e
-        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+            raise TrackerError("Tracker state 'in_progress' is not configured") from e
+        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id, environment=context.environment)
 
         if is_research_ticket(context=context):
             report = await run_research_step(context=context)
@@ -137,7 +137,9 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             return
 
         if not context.session.posted_to_linear:
-            if await post_comment(task_id=context.linear_task.id, body=context.session.build_plan):
+            if await post_comment(
+                task_id=context.linear_task.id, body=context.session.build_plan, environment=context.environment
+            ):
                 await mark_session_posted(task_id=context.linear_task.id)
 
         build_plan = context.session.build_plan

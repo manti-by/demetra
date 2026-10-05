@@ -23,6 +23,7 @@ sessions = Table(
     Column("task_id", String(), primary_key=True),
     Column("name", String(), nullable=True),
     Column("session_id", String(), nullable=True),
+    Column("harness", String(), nullable=False, server_default="opencode"),
     Column("build_plan", Text(), nullable=False, server_default=""),
     Column("posted_to_linear", Boolean(), nullable=False, server_default="false"),
     Column("step", String(), nullable=False, server_default="initial"),

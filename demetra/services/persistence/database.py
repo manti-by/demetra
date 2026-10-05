@@ -217,7 +217,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
+                RETURNING task_id, name, session_id, harness, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
                 """
             ),
             {
@@ -247,6 +247,7 @@ async def upsert_pending_session(
         task_id=row.task_id,
         name=row.name,
         session_id=row.session_id,
+        harness=row.harness or "opencode",
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
@@ -383,6 +384,7 @@ async def get_session(task_id: str) -> Session | None:
         task_id=row.task_id,
         name=row.name,
         session_id=row.session_id,
+        harness=row.harness or "opencode",
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
@@ -418,6 +420,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         task_id=row.task_id,
         name=row.name,
         session_id=row.session_id,
+        harness=row.harness or "opencode",
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
@@ -439,17 +442,23 @@ async def save_session(
     name: str | None = None,
     session_id: str | None = None,
     linear_link: str | None = None,
+    harness: str = "opencode",
 ) -> Session:
     """Persist a session with its build plan, advancing the step to ``plan``.
 
-    Upserts the session row by task id and returns the resulting record.
+    Upserts the session row by task id and returns the resulting record. The
+    harness is always overwritten (not preserved on conflict): it pins to
+    whichever harness this run resolved, so a later re-entry can detect a
+    mid-ticket switch.
 
     Args:
         task_id: The Linear task identifier.
         build_plan: The build plan markdown to store.
         name: Optional display name for the session.
-        session_id: Optional opencode session id.
+        session_id: Optional agent session id.
         linear_link: Optional link to the Linear issue.
+        harness: The agent harness this run resolved to, ``"opencode"`` or
+            ``"claude"``.
 
     Returns:
         Session: The saved session record.
@@ -459,11 +468,12 @@ async def save_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, harness, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :harness, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
+                    harness = EXCLUDED.harness,
                     build_plan = EXCLUDED.build_plan,
                     step = EXCLUDED.step,
                     project_id = COALESCE(EXCLUDED.project_id, sessions.project_id),
@@ -476,6 +486,7 @@ async def save_session(
                 "task_id": task_id,
                 "name": name if name else "",
                 "session_id": session_id if session_id else "",
+                "harness": harness,
                 "build_plan": build_plan,
                 "posted_to_linear": False,
                 "step": "plan",
@@ -499,6 +510,7 @@ async def save_session(
             task_id=row.task_id,
             name=row.name,
             session_id=row.session_id,
+            harness=row.harness or "opencode",
             build_plan=row.build_plan,
             posted_to_linear=bool(row.posted_to_linear),
             step=row.step or "initial",
@@ -517,6 +529,7 @@ async def save_session(
         task_id=task_id,
         name=name,
         session_id=session_id,
+        harness=harness,
         build_plan=build_plan,
         posted_to_linear=False,
         step="plan",
@@ -530,6 +543,29 @@ async def save_session(
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
+
+
+async def reset_session_harness(task_id: str, harness: str) -> None:
+    """Reset a session's agent id when the configured harness changes.
+
+    Clears the stored session id and pins the new harness, so a mid-ticket
+    switch (OpenCode <-> Claude) never resumes a foreign session id; the
+    build plan and every other column are left untouched. Called durably on
+    every re-entry (see :func:`demetra.workflows.setup.setup_workflow`), not
+    only once, so a crash between the reset and the next agent run still
+    leaves the row consistent on the following re-entry.
+
+    Args:
+        task_id: The Linear task identifier.
+        harness: The new harness to pin, ``"opencode"`` or ``"claude"``.
+    """
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update()
+            .where(sessions.c.task_id == task_id)
+            .values(session_id=None, harness=harness, updated_at=datetime.now(UTC))
+        )
+        await connection.commit()
 
 
 async def mark_session_posted(task_id: str) -> None:
@@ -1469,6 +1505,32 @@ async def search_projects_by_name(name: str) -> list[dict]:
         result = await connection.execute(select(projects).where(func.lower(projects.c.name) == name.lower()))
         rows = result.fetchall()
     return [dict(row._mapping) for row in rows]
+
+
+async def get_linked_projects() -> dict[str, tuple[str, str]]:
+    """Build a lookup of tracker project ids and names to Demetra projects.
+
+    ``projects.linear_project_id`` holds the Linear project id under the
+    Linear tracker and the ClickUp list id under the ClickUp tracker; both
+    are matched case-insensitively, as is the project name.
+
+    Returns:
+        dict[str, tuple[str, str]]: Maps a lowercased tracker project id or
+            project name to a tuple of ``(project_id, user_id)``.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(projects.c.id, projects.c.user_id, projects.c.linear_project_id, projects.c.name)
+        )
+        rows = result.fetchall()
+
+    mapping: dict[str, tuple[str, str]] = {}
+    for row in rows:
+        if row.linear_project_id:
+            mapping[row.linear_project_id.lower()] = (row.id, row.user_id)
+        if row.name:
+            mapping[row.name.lower()] = (row.id, row.user_id)
+    return mapping
 
 
 async def get_projects_by_user(user_id: str) -> list[dict]:

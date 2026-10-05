@@ -1,19 +1,13 @@
 import json
 from pathlib import Path
 
+from demetra.library.constants import PLAN_HAS_QUESTIONS, PLAN_IS_READY_STRING
 from demetra.library.models import SessionEnvironment, TokenUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import non_negative_int
 from demetra.settings import OPENCODE
-
-
-PLAN_HEADER_STRING = "## Implementation Plan"
-PLAN_IS_READY_STRING = "Ready to proceed to build."
-PLAN_HAS_QUESTIONS = "Please check my questions above."
-
-RESEARCH_HEADER_STRING = "## Research Report"
 
 
 async def opencode_plan_agent(
@@ -102,6 +96,7 @@ async def opencode_review_agent(
     task_title: str | None = None,
     env: dict[str, str] | None = None,
     project_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode review agent with the review prompt.
 
@@ -111,6 +106,8 @@ async def opencode_review_agent(
         task_title: Optional session title.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -124,6 +121,7 @@ async def opencode_review_agent(
         agent="review-agent",
         env=env,
         project_id=project_id,
+        environment=environment,
     )
 
 
@@ -358,7 +356,8 @@ async def run_opencode_agent(
         disable_stdio: Whether to suppress live subprocess output.
         env: Optional environment overrides for the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
-        environment: Reserved; not used by the agent run.
+        environment: Optional resolved env layer forwarding LangSmith tracing
+            vars to the subprocess.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -370,11 +369,15 @@ async def run_opencode_agent(
     if task_title is not None:
         command.extend(["--title", task_title])
 
+    merged_env = environment.langsmith_env if environment is not None else {}
+    if env:
+        merged_env.update(env)
+
     return await run_command(
         command=command,
         target_path=target_path,
         disable_stdio=disable_stdio,
-        env=env,
+        env=merged_env or None,
         input_text=task,
         project_id=project_id,
     )
@@ -566,43 +569,3 @@ async def opencode_compact_session(
         "/compact",
     ]
     return await run_command(command=command, target_path=target_path, disable_stdio=False, env=env)
-
-
-async def extract_plan(plan_output: str) -> str:
-    """Slice the implementation plan section out of a plan agent output.
-
-    Trims leading text before the plan header and strips any trailing
-    readiness or question marker.
-
-    Args:
-        plan_output: The raw plan agent output.
-
-    Returns:
-        str: The extracted plan text.
-    """
-    if (start_index := plan_output.find(PLAN_HEADER_STRING)) != -1:
-        plan_output = plan_output[start_index:]
-
-    for end_string in (PLAN_IS_READY_STRING, PLAN_HAS_QUESTIONS):
-        if (end_index := plan_output.find(end_string)) != -1:
-            plan_output = plan_output[:end_index]
-            break
-
-    return plan_output.strip()
-
-
-async def extract_research_report(research_output: str) -> str:
-    """Slice the research report section out of a research agent output.
-
-    Trims leading text before the research header.
-
-    Args:
-        research_output: The raw research agent output.
-
-    Returns:
-        str: The extracted report text.
-    """
-    if (start_index := research_output.find(RESEARCH_HEADER_STRING)) != -1:
-        research_output = research_output[start_index:]
-
-    return research_output.strip()

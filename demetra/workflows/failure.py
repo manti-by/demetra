@@ -2,20 +2,20 @@ from demetra.library.exceptions import (
     BuildError,
     DemetraError,
     EnvironmentConfigError,
-    LinearError,
     ReviewError,
+    TrackerError,
     WikiError,
 )
 from demetra.library.models import Context
-from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.runtime.template import get_template
 from demetra.services.runtime.tui import print_message
+from demetra.services.tracker import post_comment, update_ticket_status
 
 
-async def notify_linear_failure(context: Context, body: str, comment_label: str) -> None:
-    """Post a failure comment to Linear and move the ticket to ``Awaiting Input``.
+async def notify_tracker_failure(context: Context, body: str, comment_label: str) -> None:
+    """Post a failure comment to the issue tracker and move the ticket to ``Awaiting Input``.
 
-    Linear API failures and failed status updates surface a manual-recovery
+    Tracker API failures and failed status updates surface a manual-recovery
     message instead of failing silently, since cleanup will not move the ticket.
 
     Args:
@@ -24,28 +24,30 @@ async def notify_linear_failure(context: Context, body: str, comment_label: str)
         comment_label: Short label for the comment, used in error messages.
     """
     try:
-        comment_posted = await post_comment(task_id=context.linear_task.id, body=body)
-        state_id = context.environment.linear_state("awaiting_input")
-        status_updated = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
-    except (LinearError, EnvironmentConfigError) as e:
+        comment_posted = await post_comment(task_id=context.linear_task.id, body=body, environment=context.environment)
+        state_id = context.environment.tracker_state("awaiting_input")
+        status_updated = await update_ticket_status(
+            task_id=context.linear_task.id, state_id=state_id, environment=context.environment
+        )
+    except (TrackerError, EnvironmentConfigError) as e:
         print_message(
-            f"Failed to update Linear after failure: {e}. Move the ticket to Awaiting Input manually.",
+            f"Failed to update the issue tracker after failure: {e}. Move the ticket to Awaiting Input manually.",
             style="error",
         )
     else:
         if not comment_posted:
-            print_message(f"Failed to post {comment_label} comment to Linear", style="error")
+            print_message(f"Failed to post {comment_label} comment to the issue tracker", style="error")
         if not status_updated:
             print_message(
-                "Failed to move the ticket to Awaiting Input in Linear; move it manually.",
+                "Failed to move the ticket to Awaiting Input in the issue tracker; move it manually.",
                 style="error",
             )
 
 
 async def process_pr_failure(context: Context, error: DemetraError) -> None:
-    """Handle a workflow failure: notify Linear and set recovery state.
+    """Handle a workflow failure: notify the tracker and set recovery state.
 
-    Posts a Linear comment describing the failure and moves the ticket to
+    Posts a ticket comment describing the failure and moves the ticket to
     ``Awaiting Input``. For a pull request creation failure the branch already
     lives on the remote, so the comment includes the branch and a manual
     compare URL; for a review summarization failure it reports the error.
@@ -68,13 +70,13 @@ async def process_pr_failure(context: Context, error: DemetraError) -> None:
             error=error,
         )
         comment_label = "PR-creation-failure"
-    await notify_linear_failure(context=context, body=body, comment_label=comment_label)
+    await notify_tracker_failure(context=context, body=body, comment_label=comment_label)
 
 
 async def process_build_failure(context: Context, error: BuildError) -> None:
-    """Handle a build agent failure: notify Linear and set recovery state.
+    """Handle a build agent failure: notify the tracker and set recovery state.
 
-    Posts a Linear comment describing the build failure (e.g. an OpenCode
+    Posts a ticket comment describing the build failure (e.g. an OpenCode
     gateway error such as a workspace spending limit) and moves the ticket to
     ``Awaiting Input``.
 
@@ -84,13 +86,13 @@ async def process_build_failure(context: Context, error: BuildError) -> None:
     """
     print_message(f"Build agent failed: {error}", style="error")
     body = await get_template("build_failed", error=error)
-    await notify_linear_failure(context=context, body=body, comment_label="build-failure")
+    await notify_tracker_failure(context=context, body=body, comment_label="build-failure")
 
 
 async def process_wiki_failure(context: Context, error: WikiError) -> None:
-    """Handle a wiki page generation failure: notify Linear and set recovery state.
+    """Handle a wiki page generation failure: notify the tracker and set recovery state.
 
-    Posts a Linear comment describing the wiki failure and moves the ticket to
+    Posts a ticket comment describing the wiki failure and moves the ticket to
     ``Awaiting Input``. The build changes are already committed and pushed, so
     the branch and pull request exist without the wiki page and can be recovered
     manually.
@@ -101,4 +103,4 @@ async def process_wiki_failure(context: Context, error: WikiError) -> None:
     """
     print_message(f"Wiki page generation failed: {error}", style="error")
     body = await get_template("wiki_failed", error=error)
-    await notify_linear_failure(context=context, body=body, comment_label="wiki-failure")
+    await notify_tracker_failure(context=context, body=body, comment_label="wiki-failure")

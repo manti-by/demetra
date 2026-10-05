@@ -2,7 +2,6 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project, SessionEnvironment
-from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_by_id_system,
     get_project_environments,
@@ -12,6 +11,7 @@ from demetra.services.persistence.database import (
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.utils import setup_session_logging
+from demetra.services.tracker import get_task_by_id
 from demetra.services.vcs.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
 from demetra.services.vcs.github import get_pr_info
 from demetra.services.vcs.merge import perform_git_merge
@@ -107,7 +107,12 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
     finally:
         if worktree_path and merge_succeeded:
             try:
-                linear_task = await get_linear_task_by_id(task_id=task_id)
+                linear_task = await get_task_by_id(
+                    task_id=task_id,
+                    environment=SessionEnvironment(
+                        project_environment=project.environment, user_environment=project.user_environment
+                    ),
+                )
                 if linear_task is not None:
                     context = Context(
                         project=project,

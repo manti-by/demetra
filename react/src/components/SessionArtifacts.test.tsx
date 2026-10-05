@@ -92,12 +92,12 @@ describe('SessionArtifacts', () => {
     expect(link.closest('a')).toHaveAttribute('rel', 'noopener noreferrer');
   });
 
-  it('renders Linear issue link when session has linear_link', () => {
+  it('renders issue link when session has linear_link', () => {
     render(
       <SessionArtifacts taskId="TASK-123" sessions={[mockSessionWithPrLink]} />,
     );
 
-    const link = screen.getByText('View Linear Issue');
+    const link = screen.getByText('View Issue');
     expect(link).toBeInTheDocument();
     expect(link.closest('a')).toHaveAttribute('href', 'https://linear.app/manti-by/issue/MNT-123');
     expect(link.closest('a')).toHaveAttribute('target', '_blank');
@@ -217,7 +217,7 @@ describe('SessionArtifacts', () => {
     expect(link).toBeInTheDocument();
     expect(screen.queryByText('View Build Plan')).not.toBeInTheDocument();
     expect(screen.queryByText('View Pull Request')).not.toBeInTheDocument();
-    expect(screen.queryByText('View Linear Issue')).not.toBeInTheDocument();
+    expect(screen.queryByText('View Issue')).not.toBeInTheDocument();
   });
 
   it('opens build plan modal on link click and closes it', async () => {

@@ -6,6 +6,7 @@ from typing import Literal
 
 from slugify import slugify
 
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS, ISSUE_TRACKERS
 from demetra.library.exceptions import EnvironmentConfigError
 from demetra.library.types import OpenRouterConfig, WaitlistStatus
 
@@ -100,6 +101,51 @@ class TokenUsage:
 
 
 @dataclass
+class ReviewModel:
+    model: str
+    effort: str | None = None
+
+
+def parse_review_model(entry: str, harness: str) -> ReviewModel:
+    """Parse a single ``model[:effort]`` review model entry.
+
+    OpenCode model names never carry an effort suffix (the harness has no
+    effort flag); only Claude entries are split on the trailing ``:effort``.
+
+    Args:
+        entry: The raw review model entry, e.g. ``"opus:xhigh"``.
+        harness: The active agent harness, ``"opencode"`` or ``"claude"``.
+
+    Returns:
+        ReviewModel: The parsed model and optional effort.
+
+    Raises:
+        EnvironmentConfigError: When a Claude entry's effort is not a
+            recognized effort level.
+    """
+    entry = entry.strip()
+    if harness != "claude" or ":" not in entry:
+        return ReviewModel(model=entry)
+
+    model, _, effort = entry.rpartition(":")
+    effort = effort.strip() or None
+    if effort is not None and effort not in CLAUDE_EFFORT_LEVELS:
+        raise EnvironmentConfigError(f"Invalid effort {effort!r} in review model {entry!r}")
+    return ReviewModel(model=model.strip(), effort=effort)
+
+
+@dataclass
+class ClaudeResult:
+    result: str
+    is_error: bool
+    session_id: str | None
+    usage: TokenUsage | None
+    subtype: str = ""
+    num_turns: int = 0
+    permission_denials: list[str] = field(default_factory=list)
+
+
+@dataclass
 class SessionHistory:
     id: str
     session_id: str
@@ -125,6 +171,7 @@ class Session:
     step: StepType = "initial"
     name: str | None = None
     session_id: str | None = None
+    harness: str = "opencode"
     project_id: str | None = None
     user_id: str | None = None
     run_attempts: int = 0
@@ -283,49 +330,6 @@ class UpdateProject:
     linear_project_id: str | None = None
 
 
-def _settings_default(key: str) -> str | None:
-    """Return the ``settings.py`` default for a workflow environment key.
-
-    The settings module is imported lazily so the library layer stays free of
-    import-time configuration reads; only a key that misses both the project
-    and user-shared env layers reaches this fallback.
-
-    Args:
-        key: The environment variable name.
-
-    Returns:
-        str | None: The configured default, or None when settings does not
-            define the key.
-    """
-    from demetra.settings import LINEAR, OPENCODE, OPENROUTER
-
-    if key == "OPENROUTER_API_KEY":
-        return OPENROUTER["api_key"]
-    if key == "OPENROUTER_MODEL":
-        return OPENROUTER["model"]
-    if key == "OPENROUTER_BASE_URL":
-        return OPENROUTER["base_url"]
-    if key == "LINEAR_TEAM_ID":
-        return LINEAR["team_id"]
-    if key == "LINEAR_DEFAULT_STATE_ID":
-        return LINEAR["default_state"]
-    if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
-        agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
-        opencode_models = {
-            "plan": OPENCODE["plan_model"],
-            "build": OPENCODE["build_model"],
-            "resolve": OPENCODE["resolve_model"],
-            "validate": OPENCODE["validate_model"],
-            "research": OPENCODE["research_model"],
-        }
-        return opencode_models.get(agent)
-    if key.startswith("LINEAR_STATE_") and key.endswith("_ID"):
-        state = key[len("LINEAR_STATE_") : -len("_ID")].lower()
-        states = {name: value for name, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
-        return states.get(state)
-    return None
-
-
 @dataclass
 class SessionEnvironment:
     """Resolve workflow environment keys through the configuration layers.
@@ -356,11 +360,13 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When no layer defines the key.
         """
+        from demetra.services.settings import settings_default
+
         if value := self.project_environment.get(key):
             return value
         if value := self.user_environment.get(key):
             return value
-        if value := _settings_default(key):
+        if value := settings_default(key):
             return value
         raise EnvironmentConfigError(f"Environment key {key!r} is not configured")
 
@@ -410,6 +416,146 @@ class SessionEnvironment:
         return self.get("OPENCODE_RESEARCH_MODEL")
 
     @property
+    def agent_harness(self) -> str:
+        """Return the active agent harness, ``"opencode"`` or ``"claude"``.
+
+        Returns:
+            str: The resolved harness name.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a
+                recognized harness.
+        """
+        value = self.get("AGENT_HARNESS")
+        if value not in AGENT_HARNESSES:
+            raise EnvironmentConfigError(f"AGENT_HARNESS must be one of {sorted(AGENT_HARNESSES)}, got {value!r}")
+        return value
+
+    @property
+    def claude_plan_model(self) -> str:
+        """Return the Claude model used by the plan agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_PLAN_MODEL")
+
+    @property
+    def claude_build_model(self) -> str:
+        """Return the Claude model used by the build, merge, rebase and review-fixes agents.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_BUILD_MODEL")
+
+    @property
+    def claude_resolve_model(self) -> str:
+        """Return the Claude model used by the resolve agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_RESOLVE_MODEL")
+
+    @property
+    def claude_validate_model(self) -> str:
+        """Return the Claude model used by the validate agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_VALIDATE_MODEL")
+
+    @property
+    def claude_research_model(self) -> str:
+        """Return the Claude model used by the research agent.
+
+        Returns:
+            str: The resolved model.
+        """
+        return self.get("CLAUDE_RESEARCH_MODEL")
+
+    def claude_effort(self, agent: str) -> str | None:
+        """Return the Claude effort level configured for an agent, if any.
+
+        Unlike :meth:`get`, a missing effort is not an error: most agents run
+        without an explicit effort level.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            str | None: The resolved effort level, or None when unset.
+        """
+        try:
+            return self.get(f"CLAUDE_{agent.upper()}_EFFORT")
+        except EnvironmentConfigError:
+            return None
+
+    def claude_max_budget_usd(self, agent: str) -> float:
+        """Return the Claude per-run USD budget cap configured for an agent.
+
+        Resolution order: a per-agent override in the project or user layer,
+        then a global ``CLAUDE_MAX_BUDGET_USD`` override in the project or
+        user layer, then the ``settings.py`` per-agent default (which itself
+        falls back to the settings-level global). Settings always provide a
+        per-agent value, so the project/user global must be consulted before
+        the settings layer or it would never take effect.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            float: The resolved budget cap in USD.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a number.
+        """
+        key = f"CLAUDE_{agent.upper()}_MAX_BUDGET_USD"
+        value = (
+            self.project_environment.get(key)
+            or self.user_environment.get(key)
+            or self.project_environment.get("CLAUDE_MAX_BUDGET_USD")
+            or self.user_environment.get("CLAUDE_MAX_BUDGET_USD")
+        )
+        if not value:
+            try:
+                value = self.get(key)
+            except EnvironmentConfigError:
+                value = self.get("CLAUDE_MAX_BUDGET_USD")
+        try:
+            return float(value)
+        except ValueError as e:
+            raise EnvironmentConfigError(f"{key} must be a number, got {value!r}") from e
+
+    @property
+    def review_models(self) -> list[ReviewModel]:
+        """Return the review models configured for the active harness.
+
+        Returns:
+            list[ReviewModel]: The parsed review models; Claude entries may
+                carry a ``model:effort`` pair, OpenCode entries never do.
+        """
+        harness = self.agent_harness
+        key = "CLAUDE_REVIEW_MODELS" if harness == "claude" else "OPENCODE_REVIEW_MODELS"
+        raw = self.get(key)
+        entries = [entry.strip() for entry in raw.split(",") if entry.strip()]
+        return [parse_review_model(entry=entry, harness=harness) for entry in entries]
+
+    def agent_model(self, agent: str) -> str:
+        """Return the model configured for an agent under the active harness.
+
+        Args:
+            agent: The agent name, e.g. ``"plan"`` or ``"build"``.
+
+        Returns:
+            str: The resolved model for the active harness.
+        """
+        prefix = "CLAUDE" if self.agent_harness == "claude" else "OPENCODE"
+        return self.get(f"{prefix}_{agent.upper()}_MODEL")
+
+    @property
     def openrouter_config(self) -> OpenRouterConfig:
         """Return the resolved OpenRouter configuration.
 
@@ -420,13 +566,47 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When the base URL is not configured.
         """
-        base_url = _settings_default("OPENROUTER_BASE_URL")
+        from demetra.services.settings import settings_default
+
+        base_url = settings_default("OPENROUTER_BASE_URL")
         if not base_url:
             raise EnvironmentConfigError("Environment key 'OPENROUTER_BASE_URL' is not configured")
         return {
             "api_key": self.get("OPENROUTER_API_KEY"),
             "model": self.get("OPENROUTER_MODEL"),
             "base_url": base_url,
+        }
+
+    @property
+    def langsmith_env(self) -> dict[str, str]:
+        """Return the LangSmith tracing vars to forward to an agent subprocess.
+
+        Resolved through the project, user-shared and settings layers like
+        :meth:`get`, but every key is optional: an unset value disables
+        tracing instead of raising. Both ``LANGSMITH_TRACING`` (read directly
+        from the environment by the ``langsmith``/``langchain-core`` Python
+        SDK) and ``TRACE_TO_LANGSMITH`` (read by the
+        ``@langchain/langsmith-opencode`` OpenCode plugin) are set from the
+        same resolved flag, since the two tracing consumers do not share an
+        env var name.
+
+        Returns:
+            dict[str, str]: The LangSmith env vars; tracing is forced off
+                when no API key is configured, even if the trace flag is set,
+                so a subprocess never attempts to ingest with an empty key.
+        """
+        tracing = self.get("LANGSMITH_TRACING").strip().lower() in {"true", "1", "yes", "on"}
+        try:
+            api_key = self.get("LANGSMITH_API_KEY")
+        except EnvironmentConfigError:
+            api_key = ""
+        enabled = "true" if tracing and api_key else "false"
+        return {
+            "LANGSMITH_TRACING": enabled,
+            "TRACE_TO_LANGSMITH": enabled,
+            "LANGSMITH_ENDPOINT": self.get("LANGSMITH_ENDPOINT"),
+            "LANGSMITH_API_KEY": api_key,
+            "LANGSMITH_PROJECT": self.get("LANGSMITH_PROJECT"),
         }
 
     def linear_state(self, name: str) -> str:
@@ -452,6 +632,82 @@ class SessionEnvironment:
         if name == "default_state":
             return self.get("LINEAR_DEFAULT_STATE_ID")
         return self.get(f"LINEAR_{name.upper()}")
+
+    @property
+    def issue_tracker(self) -> str:
+        """Return the active issue tracker, ``"linear"`` or ``"clickup"``.
+
+        Resolved the same way as :attr:`agent_harness`: project env, then
+        user-shared env, then the ``ISSUE_TRACKER`` settings default.
+
+        Returns:
+            str: The resolved tracker name.
+
+        Raises:
+            EnvironmentConfigError: When the resolved value is not a
+                recognized tracker.
+        """
+        value = self.get("ISSUE_TRACKER")
+        if value not in ISSUE_TRACKERS:
+            raise EnvironmentConfigError(f"ISSUE_TRACKER must be one of {sorted(ISSUE_TRACKERS)}, got {value!r}")
+        return value
+
+    def clickup_state(self, name: str) -> str:
+        """Resolve a ClickUp status name from its state name.
+
+        ClickUp statuses are labels scoped to a list, not ids, so the
+        resolved value is the status string passed verbatim to the API.
+
+        Args:
+            name: The state name, e.g. ``"todo"`` or ``"in_review"``.
+
+        Returns:
+            str: The resolved ClickUp status label.
+        """
+        return self.get(f"CLICKUP_STATE_{name.upper()}")
+
+    def clickup_value(self, name: str) -> str:
+        """Resolve a ClickUp config value from its config name.
+
+        Args:
+            name: The config name, ``"team_id"``, ``"list_id"`` or
+                ``"default_state"``.
+
+        Returns:
+            str: The resolved ClickUp config value.
+        """
+        return self.get(f"CLICKUP_{name.upper()}")
+
+    def tracker_state(self, name: str) -> str:
+        """Resolve a ticket state for the active issue tracker.
+
+        Dispatches to :meth:`linear_state` (a Linear state id) or
+        :meth:`clickup_state` (a ClickUp status label) on
+        :attr:`issue_tracker`, so workflows never branch on the tracker
+        themselves.
+
+        Args:
+            name: The state name, e.g. ``"todo"`` or ``"in_review"``.
+
+        Returns:
+            str: The tracker-specific state value.
+        """
+        if self.issue_tracker == "clickup":
+            return self.clickup_state(name)
+        return self.linear_state(name)
+
+    def tracker_value(self, name: str) -> str:
+        """Resolve a config value for the active issue tracker.
+
+        Args:
+            name: The config name, e.g. ``"team_id"`` or ``"default_state"``.
+
+        Returns:
+            str: The tracker-specific config value.
+        """
+        if self.issue_tracker == "clickup":
+            return self.clickup_value(name)
+        return self.linear_value(name)
 
 
 @dataclass

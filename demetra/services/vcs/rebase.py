@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_rebase_agent
+from demetra.services.agents import harness
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.vcs.git import git_add_all, git_force_push
@@ -74,7 +74,7 @@ async def perform_git_rebase(
             rebase_error=stderr.strip()[:2000],
         )
 
-        agent_exit, agent_out, agent_err = await opencode_rebase_agent(
+        agent_exit, agent_out, agent_err = await harness.rebase_agent(
             target_path=worktree_path,
             task=task,
             env=env,

@@ -43,7 +43,7 @@ class TestSubprocessService:
 
     @pytest.mark.asyncio
     async def test_run_command_returns_combined_output(self, mock_subprocess_exec):
-        async def capture_stream(stream, result=None, disable_stdio=False):
+        async def capture_stream(stream, result=None, disable_stdio=False, line_formatter=None, idle_timeout=None):
             while True:
                 line = await stream.readline()
                 if not line:

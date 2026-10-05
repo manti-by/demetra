@@ -68,7 +68,7 @@ Persist extracted report to `sessions.research_report`, rename post-research ste
 
 ## Follow-ups
 
-- None
+> **Consistency note (2026-10-02, Consistency Agent):** MNT-203 (`14d0d02`, next day) restructured `demetra/workflows/research.py` and restored the post-research session step to `awaiting_input` (`_move_to_awaiting_input`, `research.py:203`) — the `researched` step introduced here is still defined (`StepType`, `models.py:28`) with its navy badge (`App.css:1018,1072`), but no code path or test persists it at HEAD. The `research_report` persistence from this change is retained. Intent is tracked in Q-003 (`wiki/QUESTIONS.md`).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Supersedes 2026-09-15 note. Verified against HEAD (`demetra/library/tables.py:35`, migration `a3b4c5d6e7f8`): only `research_report` exists; `research_plan`/`8023ece…` from [[2026-09-14-research-plan-artifact]] is not in HEAD. Earlier "both coexist" claim was based on that branch, not current HEAD.
 

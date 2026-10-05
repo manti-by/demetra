@@ -43,6 +43,30 @@ class LinearConfig(TypedDict):
     research_labels: list[str]
 
 
+class ClickUpStates(TypedDict):
+    prd: str
+    todo: str
+    in_progress: str
+    in_review: str
+    awaiting_input: str
+    done: str
+
+
+class ClickUpConfig(TypedDict):
+    api_url: str
+    api_token: str | None
+    team_id: str | None
+    list_id: str | None
+    service_name: str
+    feature_tag: str
+    backend_tag: str
+    frontend_tag: str
+    states: ClickUpStates
+    default_state: str
+    filter_labels: list[str]
+    research_labels: list[str]
+
+
 class PathConfig(TypedDict):
     path: Path
 
@@ -54,6 +78,20 @@ class OpenCodeConfig(PathConfig):
     review_models: list[str]
     validate_model: str
     research_model: str
+
+
+class ClaudeConfig(PathConfig):
+    plan_model: str
+    plan_effort: str | None
+    resolve_model: str
+    resolve_effort: str | None
+    research_model: str
+    research_effort: str | None
+    build_model: str
+    build_effort: str | None
+    validate_model: str
+    validate_effort: str | None
+    review_models: list[str]
 
 
 class GitConfig(PathConfig):
@@ -89,3 +127,10 @@ class OpenRouterConfig(TypedDict):
     api_key: str | None
     model: str
     base_url: str
+
+
+class LangSmithConfig(TypedDict):
+    tracing: bool
+    endpoint: str
+    api_key: str | None
+    project: str

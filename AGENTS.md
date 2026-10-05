@@ -9,7 +9,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `main.py`: CLI entry point and supervisor orchestration
 - `demetra/settings.py`: Core configuration and environment variables
 - `demetra/library/`: Pure data layer (dataclasses, TypedDicts, exceptions, tables, constants, env validation in `env.py`, `header.py` banner helpers)
-- `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/` plus `utils.py` shared helpers: waitlist-join audit, auth rate limiter)
+- `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `clickup/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `tracker/`, `vcs/`, `wiki/` plus `utils.py` shared helpers: waitlist-join audit, auth rate limiter; `settings.py`: `settings_default(key)`, the `settings.py` fallback layer that `SessionEnvironment.get` imports lazily so `library/` never imports settings at module load)
 - `demetra/queries/`: GraphQL queries
 - `demetra/workflows/`: Workflow orchestration steps (`plan`, `research`, `resolve`, `build`, `validate`, `review`, `lint`, `cleanup`, `merge`/`rebase`, `review_fixes`, `setup`, `failure`, `postprocess`, etc.)
 - `demetra/api/`: FastAPI REST endpoints (`auth`, `github`, `projects`, `sessions`, `users`, `watcher`, `webhooks` plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
@@ -29,6 +29,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent (8 agents: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter) and skill definitions (`wiki-sync` — the other vendored skills were removed in `94fefa7`, 2026-09-23; `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` and the release skills now resolve as installed skills)
 - `opencode.json`: OpenCode agent toolchain configuration (MCP servers including Playwright, plugins including LangSmith)
+- `.claude/agents/`: Claude Code subagent definitions, one `.md` per OpenCode agent (`plan-agent`, `build-agent`, `validate-agent`, `review-agent`, `resolve-agent`, `research-agent`, `merge-agent`, `rebase-agent`), YAML frontmatter (`name`, `description`, `tools`) plus the system prompt body. Parsed at runtime by `demetra/services/agents/claude.py` (not installed to `~/.claude/agents`) and assembled into the `--agents` JSON passed to the `claude` CLI; Linear/web tools are injected by agent name, never a `mcp__linear__*` wildcard.
 - `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
@@ -38,6 +39,97 @@ The `wiki/` directory is a persistent, compounding knowledge base: one Markdown 
 - Before planning or building, skim `wiki/INDEX.md` for prior sessions on the same subsystem.
 - For questions about past incidents, design decisions, or prior investigations, search the wiki first via the `wiki_search` MCP tool (browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
 - After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see `.opencode/skills/wiki-sync/` and the installed `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` skills).
+
+## Agent Harness
+
+Demetra dispatches every agent call (plan, resolve, build, validate, review, review-fixes, merge, rebase, research) plus
+session/token helpers through a facade rather than calling an agent CLI wrapper directly, so a project or user can switch
+between two coding-agent backends:
+
+- `settings.AGENT_HARNESS` (`opencode` | `claude`, default `opencode`) selects the backend; it also resolves per-project /
+  per-user through `SessionEnvironment.agent_harness`, which raises `EnvironmentConfigError` for any other value.
+- `demetra/services/agents/opencode.py`: the original `opencode run` CLI wrapper (unchanged).
+- `demetra/services/agents/claude.py`: the `claude -p` CLI wrapper. Runs on the host OS using the current interactive
+  `claude` login (keychain / `~/.claude`) — no API key plumbing. Builds `--agents` JSON at runtime from `.claude/agents/*.md`
+  (tool allow/deny lists enforced both in the agent JSON and again via `--allowedTools`/`--disallowedTools`), an inline
+  `--mcp-config` (Demetra MCP + the active tracker's hosted MCP, Linear or ClickUp, `--strict-mcp-config` so user-level
+  MCP servers stay out), and
+  `--output-format stream-json --verbose` parsed by `format_claude_stream_event`/`extract_claude_result`. Global
+  `~/.claude/CLAUDE.md`, hooks and plugins load same as any interactive session — nothing scopes them out.
+- `demetra/services/agents/harness.py`: the facade. Every function takes `environment: SessionEnvironment` (optional,
+  defaulting to bare settings) and dispatches on `environment.agent_harness`; workflows and `services/vcs/{merge,rebase}.py`
+  import only this facade, never `opencode.py`/`claude.py` directly. `review_agents(...)` fans the configured review models
+  out concurrently (`environment.review_models`, a list of `ReviewModel(model, effort)` — Claude entries may carry a
+  `model:effort` pair, OpenCode entries never do).
+- Per-agent Claude models/effort live in `settings.CLAUDE` (`CLAUDE_PLAN_MODEL`/`CLAUDE_PLAN_EFFORT`, etc.), each
+  overridable per project/user like the OpenCode models. `CLAUDE_REVIEW_MODELS` defaults to `["opus:xhigh"]`.
+- **No turn cap:** the installed Claude CLI has no `--max-turns` flag and `maxTurns` in agent JSON/frontmatter does not
+  bound a top-level `-p` run (verified empirically against the installed CLI, 2026-09-30). A per-run USD budget
+  (`--max-budget-usd`, `settings.CLAUDE_MAX_BUDGET_USD` + per-agent `CLAUDE_<AGENT>_MAX_BUDGET_USD` overrides) is the real
+  bound against a looping/runaway run instead — the result event's `subtype` becomes `error_max_budget_usd` when it fires.
+  Combined with `CLAUDE_IDLE_TIMEOUT` (idle-stdout watchdog on the subprocess, 900s default, must be between 660s and
+  `SUBPROCESS_TIMEOUT`) and the existing overall `SUBPROCESS_TIMEOUT`.
+- **Session pinning:** `sessions.harness` (migration `add_sessions_harness_column`) pins the harness a session last ran
+  under. On re-entry (`workflows/setup.py`), a stored harness that differs from the resolved one clears `session_id` and
+  re-pins the harness (`reset_session_harness`) so a mid-ticket switch never resumes a foreign session id; the build plan
+  is kept. This check runs on every re-entry, not only once.
+- **No cross-agent `--resume`:** verified empirically (2026-09-30) that `--resume <id>` with a different `--agent` does
+  NOT switch persona — Claude snapshots the first agent's system prompt for the life of the conversation and reuses it
+  verbatim on every later request/resume, so resuming the plan agent's session under `build-agent` would silently keep
+  answering as the plan agent (wrong tools, read-only). Unlike OpenCode, `workflows/build.py::run_build_step` therefore
+  runs the build step under its own fresh session for Claude (`harness.new_session_id`, ignoring the plan's
+  `context.session_id` entirely) and reuses that same id across every iteration of the build retry loop, so resuming
+  stays safe (always the same agent). This id is scoped to build execution and token lookup only and is never
+  persisted — `context.session_id` (`sessions.session_id`) stays the canonical, plan-linked id throughout, so a process
+  restart simply starts a fresh build session rather than resuming a stale one. OpenCode is unaffected (`new_session_id`
+  returns `None` for it, preserving the existing continued-session behavior).
+- **Tracker tool scope:** `CLAUDE_LINEAR_READ_TOOLS` / `CLAUDE_LINEAR_CREATE_TOOLS` and `CLAUDE_CLICKUP_READ_TOOLS` /
+  `CLAUDE_CLICKUP_CREATE_TOOLS` (`demetra/library/constants.py`) list exact MCP tool names (never a `mcp__<tracker>__*`
+  wildcard) — read-only tools for plan/resolve/research, plus create-issue/create-comment for research only. Only the
+  active tracker's set (and MCP server) is attached, selected by `SessionEnvironment.issue_tracker` (see
+  [Issue Tracker](#issue-tracker)). **Neither set has been confirmed against a live, authenticated MCP session (`/mcp`
+  in an interactive `claude` session) — verify before relying on them.**
+- Out of scope for v1: Docker image support (host OS only), Cursor/CodeRabbit cleanup, a React UI toggle (the env editor
+  already covers `AGENT_HARNESS`).
+
+## Issue Tracker
+
+Demetra dispatches every ticket call (TODO polling, task lookup, status moves, comments, ticket creation, research
+ticket, cleanup) through a facade rather than calling the Linear service directly, so a project or user can switch
+between two issue trackers exactly the way `AGENT_HARNESS` switches the agent harness:
+
+- `settings.ISSUE_TRACKER` (`linear` | `clickup`, default `linear`) selects the backend; it also resolves per-project /
+  per-user through `SessionEnvironment.issue_tracker` (project env → user-shared env → settings), which raises
+  `EnvironmentConfigError` for any other value.
+- `demetra/services/linear/`: the original GraphQL + OAuth client-credentials backend (unchanged API).
+- `demetra/services/clickup/`: the ClickUp REST v2 backend (`api.py` request wrapper, `tasks.py` reads, `mutations.py`
+  writes). Auth is a personal/OAuth token in `CLICKUP_API_TOKEN`, sent verbatim in `Authorization` (no `Bearer`). TODO
+  polling uses the workspace-wide filtered tasks endpoint (`GET /team/{CLICKUP_TEAM_ID}/task?statuses[]=<todo>`), paged;
+  comments and threaded replies are fetched per task (`/task/{id}/comment`, `/comment/{id}/reply`) because ClickUp has
+  no embedded comment query.
+- `demetra/services/tracker/__init__.py`: the facade. Every function takes `environment: SessionEnvironment` (optional)
+  and dispatches on `environment.issue_tracker`; workflows, `main.py` and the daemons import only this facade, never
+  `services/linear` or `services/clickup` directly. Callers that hold only ids use `tracker.load_environment(user_id,
+  project_id)` to build the resolver from the stored env layers. `SessionEnvironment.tracker_state(name)` /
+  `tracker_value(name)` dispatch to `linear_state`/`linear_value` or `clickup_state`/`clickup_value`, so workflows never
+  branch on the tracker themselves.
+- **Mapping:** the tracker-neutral task model is still `LinearTask` (and `Context.linear_task`); the ClickUp backend
+  fills it from a task payload (`identifier` = `custom_id` or `id`, `description` = markdown description, priority
+  `priority.id` on the shared 1–4 scale, `created_at` from the ms epoch). A ClickUp **List** plays the role of the Linear
+  **project**: `projects.linear_project_id` holds the ClickUp list id under this tracker and `LinearTask.linear_project_id`
+  carries the source list id; `sessions.linear_link` holds the task URL for both trackers. No schema change.
+- **States are labels, not ids:** ClickUp statuses are per-list names, so `CLICKUP_STATE_<NAME>` values (`prd`, `to do`,
+  `in progress`, `in review`, `awaiting input`, `complete` by default) are passed verbatim to `PUT /task/{id}`; the update
+  is confirmed by comparing the returned status case-insensitively. Labels map to ClickUp **tags** by name
+  (`CLICKUP_FEATURE_TAG`/`_BACKEND_TAG`/`_FRONTEND_TAG`, `CLICKUP_FILTER_LABELS`, `CLICKUP_RESEARCH_LABELS`).
+- **Errors:** `TrackerError` (transient, retried) / `TrackerConfigError` (permanent) are the base classes;
+  `LinearError`/`LinearConfigError` and `ClickUpError`/`ClickUpConfigError` subclass them, and workflows catch only the
+  `Tracker*` bases.
+- **Watcher scope:** `demetra/watcher.py` polls one tracker — the one `settings.ISSUE_TRACKER` names — because it runs
+  without a project. Per-project / per-user `ISSUE_TRACKER` overrides apply to everything downstream (setup, workflow
+  steps, the run-attempt guard in `services/daemons/watcher.py`, merge/rebase/review-fixes, Claude MCP tool injection).
+- `opencode.json` ships the ClickUp remote MCP entry disabled; enable it (and disable `Linear`) for a ClickUp workspace.
+  The ClickUp MCP server needs an OAuth login like the Linear one.
 
 ## Git Workflow
 
@@ -63,7 +155,9 @@ This project adheres strictly to the Git Flow branching model. AI agents must fo
 - PRs must be reviewed and pass all CI checks before merging.
 - The PR title should follow the Conventional Commits specification.
 
-## Linear Workflow
+## Linear / ClickUp Workflow
+
+The same column flow applies to both trackers (ClickUp statuses are configured via `CLICKUP_STATE_*`):
 
 - When starting implementation of any issue from `TODO`, move it to `In Progress` column.
 - When feature is completed and PR is created, move it to `In Review` column.
@@ -95,9 +189,9 @@ uv run main.py --project-name <project_name>
 
 ### Containerized Deploy
 
-`make deploy` is the deploy path and runs the full app layer (Postgres, Redis, API, 4 workers, watcher, listener, RQ dashboard and a one-shot React build) on top of the `mantiby/demetra` image. The old systemd path (`configs/bootstrap.sh`, `configs/services/*.service`, `systemctl restart demetra-*`) was removed in `f5904d5` (2026-09-11).
+`make deploy` is the deploy path and runs the full app layer (Postgres, Redis, API, 2 workers, watcher, listener, RQ dashboard and a one-shot React build) on top of the `mantiby/demetra` image. The old systemd path (`configs/bootstrap.sh`, `configs/services/*.service`, `systemctl restart demetra-*`) was removed in `f5904d5` (2026-09-11).
 
-Prerequisites: Docker Compose v2 (the `docker-up` target passes `--scale worker=4` so 4 workers run — the compose file declares `worker.deploy.replicas: 2` as a default at `docker-compose.yaml:102`; the `deploy` target uses `--scale worker=2` at `Makefile:31`); the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`), and `docker-build` needs Docker BuildKit.
+Prerequisites: Docker Compose v2 (the `docker-up` target passes `--scale worker=4` so 4 workers run — the compose file declares `worker.deploy.replicas: 2` as a default at `docker-compose.yaml:106-107`; the `deploy` target uses `--scale worker=2` at `Makefile:31`); the `mantiby/demetra:latest` image (built from the local Dockerfile by `make docker-build`), and `docker-build` needs Docker BuildKit.
 
 ```bash
 cp .env.docker.example .env.docker   # then fill in real values
@@ -185,13 +279,22 @@ Declared in `pyproject.toml` (core under `dependencies`, dev tooling under `[dep
 Demetra coordinates the following external tools:
 
 - **OpenCode**: AI coding assistant for planning and building features
+- **Claude Code**: alternative agent harness for planning and building features, selected via `AGENT_HARNESS=claude` (see [Agent Harness](#agent-harness)); runs on the host OS, `claude -p` CLI
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
-- **Linear**: Issue tracking via GraphQL API
+- **Linear**: Issue tracking via GraphQL API (default `ISSUE_TRACKER=linear`)
+- **ClickUp**: Alternative issue tracker via REST API v2, selected via `ISSUE_TRACKER=clickup` (see [Issue Tracker](#issue-tracker))
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 - **Playwright**: browser automation via MCP (`opencode.json` `mcp.Playwright`; no React E2E suite — frontend tests are vitest component tests)
-- **LangSmith**: tracing plugin for OpenCode (`opencode.json` `plugins`)
+- **LangSmith**: tracing for OpenCode (`opencode.json` `plugins`, reads `TRACE_TO_LANGSMITH`) and for the in-process
+  LangChain/OpenRouter calls (`langsmith`/`langchain-core` read `LANGSMITH_TRACING` directly from the environment).
+  `settings.LANGSMITH` (`LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT`) is the settings-layer fallback for
+  `SessionEnvironment.langsmith_env`, which resolves project → user-shared → settings (like every other
+  `SessionEnvironment` config) and is merged into every OpenCode/Claude agent subprocess env by
+  `run_opencode_agent`/`run_claude_agent`, setting both `LANGSMITH_TRACING` and `TRACE_TO_LANGSMITH` from one flag since
+  the two consumers don't share an env var name. Tracing is forced off when no API key resolves, even if the trace flag
+  is set.
 
 ## Security Guidelines
 

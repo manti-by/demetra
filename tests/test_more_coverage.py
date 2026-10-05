@@ -3,7 +3,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.library.models import Session
+from demetra.library.models import Session, SessionEnvironment
 from demetra.services.agents.coderabbit import coderabbit_review_agent
 from demetra.services.daemons.watcher import process_tasks, run_workflow
 from demetra.services.persistence.encryption import get_fernet
@@ -75,10 +75,17 @@ class TestWatcherService:
 
     @pytest.fixture(autouse=True)
     def mock_empty_user_environment(self):
-        with patch(
-            "demetra.services.daemons.watcher.get_user_environments_decrypted",
-            new_callable=AsyncMock,
-            return_value={},
+        with (
+            patch(
+                "demetra.services.tracker.get_user_environments_decrypted",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
+            patch(
+                "demetra.services.tracker.get_project_environments",
+                new_callable=AsyncMock,
+                return_value={},
+            ),
         ):
             yield
 
@@ -98,11 +105,14 @@ class TestWatcherService:
             yield mock
 
     @pytest.fixture
-    def mock_resolve_linear_state(self):
+    def mock_resolve_tracker_environment(self):
+        environment = SessionEnvironment(
+            project_environment={"LINEAR_STATE_AWAITING_INPUT_ID": "test-state-id"}, user_environment={}
+        )
         with patch(
-            "demetra.services.daemons.watcher.resolve_linear_state",
+            "demetra.services.daemons.watcher.resolve_tracker_environment",
             new_callable=AsyncMock,
-            return_value="test-state-id",
+            return_value=environment,
         ) as mock:
             yield mock
 
@@ -126,7 +136,7 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
@@ -140,15 +150,16 @@ class TestWatcherService:
         result = await run_workflow("demetra", task_id)
 
         assert result is False
-        mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
-        mock_update_ticket_status.assert_awaited_once()
+        environment = mock_resolve_tracker_environment.return_value
+        mock_post_comment.assert_awaited_once_with(
+            task_id=task_id, body="Max run attempts reached", environment=environment
+        )
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=task_id, state_id="test-state-id", environment=environment
+        )
         mock_create_subprocess_exec.assert_not_called()
         mock_increment_run_attempts.assert_not_called()
-        mock_resolve_linear_state.assert_awaited_once_with(
-            "awaiting_input",
-            user_id="user-1",
-            project_id="project-1",
-        )
+        mock_resolve_tracker_environment.assert_awaited_once_with(user_id="user-1", project_id="project-1")
 
     @pytest.mark.asyncio
     async def test_run_workflow_proceeds_when_below_max(
@@ -216,7 +227,7 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
-        mock_resolve_linear_state,
+        mock_resolve_tracker_environment,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
@@ -238,13 +249,14 @@ class TestWatcherService:
 
         assert result is False
         mock_increment_run_attempts.assert_awaited_once_with(task_id)
-        mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
-        mock_update_ticket_status.assert_awaited_once()
-        mock_resolve_linear_state.assert_awaited_once_with(
-            "awaiting_input",
-            user_id="user-1",
-            project_id="project-1",
+        environment = mock_resolve_tracker_environment.return_value
+        mock_post_comment.assert_awaited_once_with(
+            task_id=task_id, body="Max run attempts reached", environment=environment
         )
+        mock_update_ticket_status.assert_awaited_once_with(
+            task_id=task_id, state_id="test-state-id", environment=environment
+        )
+        mock_resolve_tracker_environment.assert_awaited_once_with(user_id="user-1", project_id="project-1")
 
     @pytest.mark.asyncio
     async def test_run_workflow_increments_on_timeout(

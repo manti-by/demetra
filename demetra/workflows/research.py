@@ -1,79 +1,80 @@
 from typing import Any
 
-from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
-from demetra.library.models import Context, LinearTask
-from demetra.services.agents.opencode import (
-    RESEARCH_HEADER_STRING,
-    extract_research_report,
-    opencode_research_agent,
-)
-from demetra.services.linear import create_research_ticket, update_ticket_status
+from demetra.library.constants import RESEARCH_HEADER_STRING
+from demetra.library.exceptions import EnvironmentConfigError, TrackerConfigError, TrackerError
+from demetra.library.models import Context, LinearTask, SessionEnvironment
+from demetra.services.agents import harness
 from demetra.services.persistence.database import (
     update_session_research_report,
     update_session_step,
 )
 from demetra.services.runtime.tui import print_message
-from demetra.settings import LINEAR, MAX_ATTEMPTS
+from demetra.services.tracker import create_research_ticket, research_labels, update_ticket_status
+from demetra.settings import MAX_ATTEMPTS
 
 
-def is_research_task(linear_task: LinearTask) -> bool:
-    """Return whether a Linear task carries a research label.
+def is_research_task(linear_task: LinearTask, environment: SessionEnvironment | None = None) -> bool:
+    """Return whether a tracker task carries a research label.
 
-    Compares the task's labels against the configured research labels
-    case-insensitively.
+    Compares the task's labels against the research labels configured for
+    the active tracker (Linear labels or ClickUp tags) case-insensitively.
 
     Args:
-        linear_task: The Linear task to inspect.
+        linear_task: The tracker task to inspect.
+        environment: Optional resolved environment selecting the tracker;
+            defaults to settings when omitted.
 
     Returns:
         bool: True when at least one label matches a research label.
     """
-    research_labels = {label.casefold() for label in LINEAR["research_labels"]}
+    configured = {label.casefold() for label in research_labels(environment)}
     task_labels = {label.casefold() for label in linear_task.labels}
-    return bool(research_labels & task_labels)
+    return bool(configured & task_labels)
 
 
 def is_research_ticket(context: Context) -> bool:
     """Return whether the ticket carries a research label.
 
     Args:
-        context: The workflow context with the linear task.
+        context: The workflow context with the tracker task.
 
     Returns:
         bool: True when at least one label matches a research label.
     """
-    return is_research_task(linear_task=context.linear_task)
+    return is_research_task(linear_task=context.linear_task, environment=context.environment)
 
 
 async def _validate_research_ticket_prerequisites(context: Context) -> None:
     """Fail fast when the related research ticket cannot be created.
 
-    Checks the permanent prerequisites (source project, ``prd`` state,
-    ``team_id`` and ``awaiting_input`` state) before the research agent runs,
-    so a misconfigured workspace does not burn ``MAX_ATTEMPTS["research"]`` LLM
-    calls on a retry that can never succeed.
+    Checks the permanent prerequisites (source project, ``prd`` state, the
+    Linear ``team_id`` and ``awaiting_input`` state) before the research agent
+    runs, so a misconfigured workspace does not burn ``MAX_ATTEMPTS["research"]``
+    LLM calls on a retry that can never succeed. ClickUp creates the task in
+    the source list, so it needs no team id.
 
     Args:
-        context: The workflow context with the originating Linear task.
+        context: The workflow context with the originating tracker task.
 
     Raises:
-        LinearConfigError: When the source project, the PRD state, the team id
+        TrackerConfigError: When the source project, the PRD state, the team id
             or the awaiting-input state is not configured.
     """
     if not context.linear_task.linear_project_id:
-        raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
+        raise TrackerConfigError("Source task has no project to attach the research ticket to")
     try:
-        context.environment.linear_state("prd")
+        context.environment.tracker_state("prd")
     except EnvironmentConfigError as e:
-        raise LinearConfigError("Linear state 'prd' is not configured") from e
+        raise TrackerConfigError("Tracker state 'prd' is not configured") from e
+    if context.environment.issue_tracker == "linear":
+        try:
+            context.environment.linear_value("team_id")
+        except EnvironmentConfigError as e:
+            raise TrackerConfigError("Linear team id is not configured") from e
     try:
-        context.environment.linear_value("team_id")
+        context.environment.tracker_state("awaiting_input")
     except EnvironmentConfigError as e:
-        raise LinearConfigError("Linear team id is not configured") from e
-    try:
-        context.environment.linear_state("awaiting_input")
-    except EnvironmentConfigError as e:
-        raise LinearConfigError("Linear state 'awaiting_input' is not configured") from e
+        raise TrackerConfigError("Tracker state 'awaiting_input' is not configured") from e
 
 
 async def _run_research_agent(context: Context) -> str | None:
@@ -91,7 +92,7 @@ async def _run_research_agent(context: Context) -> str | None:
         print_message("Running RESEARCH agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="research")
 
-        exit_code, stdout, stderr = await opencode_research_agent(
+        exit_code, stdout, stderr = await harness.research_agent(
             target_path=context.worktree_path,
             task=context.linear_task.text,
             task_title=context.linear_task.full_title,
@@ -117,7 +118,7 @@ async def _run_research_agent(context: Context) -> str | None:
             attempts -= 1
             continue
 
-        report = await extract_research_report(research_output=research_output)
+        report = await harness.extract_research_report(research_output=research_output)
         if not report:
             print_message("Extracted research report is empty, retrying.", style="warning")
             attempts -= 1
@@ -138,29 +139,29 @@ async def _run_research_agent(context: Context) -> str | None:
 
 
 async def _create_research_ticket(context: Context, report: str) -> dict[str, Any] | None:
-    """Create the related research ticket, retrying transient Linear failures.
+    """Create the related research ticket, retrying transient tracker failures.
 
     Uses its own retry budget so a flaky research agent cannot starve the
-    Linear retries, and never re-runs the agent.
+    tracker retries, and never re-runs the agent.
 
     Args:
         context: The workflow context.
         report: The research report to store as the ticket description.
 
     Returns:
-        dict[str, Any] | None: The created ticket, or None when Linear kept
-            failing after ``MAX_ATTEMPTS["research"]`` attempts.
+        dict[str, Any] | None: The created ticket, or None when the tracker
+            kept failing after ``MAX_ATTEMPTS["research"]`` attempts.
 
     Raises:
-        LinearConfigError: When Linear permanently rejects the ticket.
+        TrackerConfigError: When the tracker permanently rejects the ticket.
     """
     attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         try:
             created_ticket = await create_research_ticket(context=context, report=report)
-        except LinearConfigError:
+        except TrackerConfigError:
             raise
-        except LinearError as e:
+        except TrackerError as e:
             print_message(f"Failed to create research ticket: {e}, retrying.", style="warning")
             attempts -= 1
             continue
@@ -182,19 +183,21 @@ async def _move_to_awaiting_input(context: Context) -> None:
         context: The workflow context.
     """
     try:
-        state_id = context.environment.linear_state("awaiting_input")
+        state_id = context.environment.tracker_state("awaiting_input")
     except EnvironmentConfigError:
-        print_message("Linear state 'awaiting_input' is not configured; move the ticket manually.", style="warning")
+        print_message("Tracker state 'awaiting_input' is not configured; move the ticket manually.", style="warning")
         return
 
     try:
-        moved = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
-    except LinearError as e:
+        moved = await update_ticket_status(
+            task_id=context.linear_task.id, state_id=state_id, environment=context.environment
+        )
+    except TrackerError as e:
         print_message(f"Failed to move the ticket to Awaiting Input: {e}; move it manually.", style="warning")
         return
 
     if not moved:
-        print_message("Failed to move the ticket to Awaiting Input in Linear; move it manually.", style="warning")
+        print_message("Failed to move the ticket to Awaiting Input in the tracker; move it manually.", style="warning")
         return
 
     await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
@@ -205,8 +208,8 @@ async def run_research_step(context: Context) -> str | None:
     """Run the research agent, create a related ticket and move to Awaiting Input.
 
     Runs the research agent (retrying up to ``MAX_ATTEMPTS["research"]`` times)
-    until it produces a ``## Research Report``, then creates a related Linear
-    ticket with the report as its description, retrying transient Linear
+    until it produces a ``## Research Report``, then creates a related tracker
+    ticket with the report as its description, retrying transient tracker
     failures with a separate budget. Permanent configuration errors fail before
     the agent runs. A failure to move the originating ticket after the research
     ticket exists is reported but does not discard the deliverable.
@@ -219,9 +222,9 @@ async def run_research_step(context: Context) -> str | None:
             could be produced after all attempts.
 
     Raises:
-        LinearConfigError: When the research ticket prerequisites are missing
-            or Linear permanently rejects the ticket.
-        LinearError: When the research ticket could not be created after all
+        TrackerConfigError: When the research ticket prerequisites are missing
+            or the tracker permanently rejects the ticket.
+        TrackerError: When the research ticket could not be created after all
             attempts.
     """
     await _validate_research_ticket_prerequisites(context=context)
@@ -233,7 +236,7 @@ async def run_research_step(context: Context) -> str | None:
 
     created_ticket = await _create_research_ticket(context=context, report=report)
     if created_ticket is None:
-        raise LinearError("Failed to create research ticket after all attempts")
+        raise TrackerError("Failed to create research ticket after all attempts")
     print_message(f"Created research ticket {created_ticket['identifier']}.", style="result")
 
     await _move_to_awaiting_input(context=context)

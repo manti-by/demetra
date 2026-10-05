@@ -1,11 +1,15 @@
 from pathlib import Path
 
+from demetra.library.constants import AGENT_HARNESSES, CLAUDE_EFFORT_LEVELS, ISSUE_TRACKERS
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
+    ClaudeConfig,
+    ClickUpConfig,
     DBConfig,
     GitConfig,
     GitHubConfig,
     JWTConfig,
+    LangSmithConfig,
     LinearConfig,
     OpenCodeConfig,
     OpenRouterConfig,
@@ -13,6 +17,7 @@ from demetra.library.types import (
 )
 from demetra.services.runtime.utils import (
     env_get_bool,
+    env_get_float,
     env_get_int,
     env_get_list,
     env_get_path,
@@ -54,7 +59,14 @@ MAX_ATTEMPTS: dict = {
 }
 
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
+SUBPROCESS_STREAM_LIMIT = env_get_int("SUBPROCESS_STREAM_LIMIT", 16 * 1024 * 1024)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
+
+CLAUDE_IDLE_TIMEOUT = env_get_int("CLAUDE_IDLE_TIMEOUT", 900)
+if CLAUDE_IDLE_TIMEOUT < 660 or CLAUDE_IDLE_TIMEOUT > SUBPROCESS_TIMEOUT:
+    raise SettingsError(
+        f"CLAUDE_IDLE_TIMEOUT must be between 660 and SUBPROCESS_TIMEOUT ({SUBPROCESS_TIMEOUT}), got {CLAUDE_IDLE_TIMEOUT}"
+    )
 
 FEATURES: dict = {
     "is_ruff_enabled": env_get_bool("IS_RUFF_ENABLED", False),
@@ -158,6 +170,36 @@ LINEAR: LinearConfig = {
     "research_labels": env_get_list("LINEAR_RESEARCH_LABELS", ["Research"]),
 }
 
+# ClickUp statuses are per-list names, not ids: every CLICKUP_STATE_* value is
+# the status label exactly as configured on the list (case-insensitive on the
+# API side). The Demetra "project" maps to a ClickUp List, so
+# ``projects.linear_project_id`` holds the ClickUp list id under this tracker.
+CLICKUP: ClickUpConfig = {
+    "api_url": "https://api.clickup.com/api/v2",
+    "api_token": env_get_str("CLICKUP_API_TOKEN", None),
+    "team_id": env_get_str("CLICKUP_TEAM_ID", None),
+    "list_id": env_get_str("CLICKUP_LIST_ID", None),
+    "service_name": "clickup",
+    "feature_tag": env_get_str("CLICKUP_FEATURE_TAG", "feature"),
+    "backend_tag": env_get_str("CLICKUP_BACKEND_TAG", "backend"),
+    "frontend_tag": env_get_str("CLICKUP_FRONTEND_TAG", "frontend"),
+    "states": {
+        "prd": env_get_str("CLICKUP_STATE_PRD", "prd"),
+        "todo": env_get_str("CLICKUP_STATE_TODO", "to do"),
+        "in_progress": env_get_str("CLICKUP_STATE_IN_PROGRESS", "in progress"),
+        "in_review": env_get_str("CLICKUP_STATE_IN_REVIEW", "in review"),
+        "awaiting_input": env_get_str("CLICKUP_STATE_AWAITING_INPUT", "awaiting input"),
+        "done": env_get_str("CLICKUP_STATE_DONE", "complete"),
+    },
+    "default_state": env_get_str("CLICKUP_DEFAULT_STATE", "prd"),
+    "filter_labels": env_get_list("CLICKUP_FILTER_LABELS", []),
+    "research_labels": env_get_list("CLICKUP_RESEARCH_LABELS", ["Research"]),
+}
+
+ISSUE_TRACKER = env_get_str("ISSUE_TRACKER", "linear")
+if ISSUE_TRACKER not in ISSUE_TRACKERS:
+    raise SettingsError(f"ISSUE_TRACKER must be one of {sorted(ISSUE_TRACKERS)}, got {ISSUE_TRACKER!r}")
+
 OPENCODE: OpenCodeConfig = {
     "path": env_get_path("OPENCODE_PATH", HOME_PATH / ".opencode/bin/opencode"),
     "plan_model": env_get_str("OPENCODE_PLAN_MODEL", "opencode-go/minimax-m3"),
@@ -168,6 +210,61 @@ OPENCODE: OpenCodeConfig = {
     "review_models": env_get_list(
         "OPENCODE_REVIEW_MODELS", ["opencode-go/qwen3.7-plus", "opencode-go/glm-5.2", "opencode-go/kimi-k2.7-code"]
     ),
+}
+
+AGENT_HARNESS = env_get_str("AGENT_HARNESS", "opencode")
+if AGENT_HARNESS not in AGENT_HARNESSES:
+    raise SettingsError(f"AGENT_HARNESS must be one of {sorted(AGENT_HARNESSES)}, got {AGENT_HARNESS!r}")
+
+
+def _validate_claude_effort(name: str, value: str | None) -> str | None:
+    """Validate an optional Claude effort level read from the environment.
+
+    Args:
+        name: The environment variable name, used in the error message.
+        value: The effort value to validate, or None when unset.
+
+    Returns:
+        str | None: The value unchanged, when valid.
+
+    Raises:
+        SettingsError: When the value is set but not a recognized effort level.
+    """
+    if value is not None and value not in CLAUDE_EFFORT_LEVELS:
+        raise SettingsError(f"{name} must be one of {sorted(CLAUDE_EFFORT_LEVELS)} or unset, got {value!r}")
+    return value
+
+
+CLAUDE: ClaudeConfig = {
+    "path": env_get_path("CLAUDE_PATH", HOME_PATH / ".local/bin/claude"),
+    "plan_model": env_get_str("CLAUDE_PLAN_MODEL", "opus"),
+    "plan_effort": _validate_claude_effort("CLAUDE_PLAN_EFFORT", env_get_str("CLAUDE_PLAN_EFFORT", "medium")),
+    "resolve_model": env_get_str("CLAUDE_RESOLVE_MODEL", "opus"),
+    "resolve_effort": _validate_claude_effort("CLAUDE_RESOLVE_EFFORT", env_get_str("CLAUDE_RESOLVE_EFFORT", "xhigh")),
+    "research_model": env_get_str("CLAUDE_RESEARCH_MODEL", "opus"),
+    "research_effort": _validate_claude_effort("CLAUDE_RESEARCH_EFFORT", env_get_str("CLAUDE_RESEARCH_EFFORT", "high")),
+    "build_model": env_get_str("CLAUDE_BUILD_MODEL", "sonnet"),
+    "build_effort": _validate_claude_effort("CLAUDE_BUILD_EFFORT", env_get_str("CLAUDE_BUILD_EFFORT", None)),
+    "validate_model": env_get_str("CLAUDE_VALIDATE_MODEL", "haiku"),
+    "validate_effort": _validate_claude_effort("CLAUDE_VALIDATE_EFFORT", env_get_str("CLAUDE_VALIDATE_EFFORT", None)),
+    "review_models": env_get_list("CLAUDE_REVIEW_MODELS", ["opus:xhigh"]),
+}
+
+for _review_model in CLAUDE["review_models"]:
+    if ":" in _review_model:
+        _validate_claude_effort("CLAUDE_REVIEW_MODELS", _review_model.rpartition(":")[2].strip() or None)
+
+# The Claude CLI has no turn-cap flag (verified against the installed CLI); a
+# per-run USD budget cap (--max-budget-usd, subtype error_max_budget_usd on the
+# result event) is the real bound against a runaway/looping headless run.
+CLAUDE_DEFAULT_MAX_BUDGET_USD = env_get_float("CLAUDE_MAX_BUDGET_USD", 5.0)
+CLAUDE_MAX_BUDGET_USD: dict[str, float] = {
+    "plan": env_get_float("CLAUDE_PLAN_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "resolve": env_get_float("CLAUDE_RESOLVE_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "research": env_get_float("CLAUDE_RESEARCH_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "build": env_get_float("CLAUDE_BUILD_MAX_BUDGET_USD", 3 * CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "validate": env_get_float("CLAUDE_VALIDATE_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
+    "review": env_get_float("CLAUDE_REVIEW_MAX_BUDGET_USD", CLAUDE_DEFAULT_MAX_BUDGET_USD),
 }
 
 CURSOR: PathConfig = {
@@ -213,6 +310,18 @@ OPENROUTER: OpenRouterConfig = {
     "api_key": env_get_str("OPENROUTER_API_KEY", None),
     "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
+}
+
+# Forwarded to every agent subprocess by ``SessionEnvironment.langsmith_env`` under
+# both ``LANGSMITH_TRACING`` (read directly from the environment by the
+# ``langsmith``/``langchain-core`` Python SDK) and ``TRACE_TO_LANGSMITH`` (read by
+# the ``@langchain/langsmith-opencode`` OpenCode plugin) since the two tracing
+# consumers do not share an env var name.
+LANGSMITH: LangSmithConfig = {
+    "tracing": env_get_bool("LANGSMITH_TRACING", False),
+    "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+    "api_key": env_get_str("LANGSMITH_API_KEY", None),
+    "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

@@ -40,6 +40,14 @@ _test_db_engine = None
 
 
 @pytest.fixture(autouse=True)
+def pin_default_backends(monkeypatch):
+    """Pin the settings-layer harness and tracker defaults so the suite does not
+    depend on ``AGENT_HARNESS`` / ``ISSUE_TRACKER`` in the developer's shell."""
+    monkeypatch.setattr("demetra.settings.AGENT_HARNESS", "opencode")
+    monkeypatch.setattr("demetra.settings.ISSUE_TRACKER", "linear")
+
+
+@pytest.fixture(autouse=True)
 def isolate_wiki(tmp_path, monkeypatch):
     """Redirect all wiki I/O to a per-test temp dir so tests can never create
     or patch pages in the real ``wiki/`` directory."""

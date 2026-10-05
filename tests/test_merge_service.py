@@ -130,7 +130,7 @@ class TestPerformGitMerge:
         ]
         with (
             patch("demetra.services.vcs.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.vcs.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.agents.harness.merge_agent", new_callable=AsyncMock) as mock_agent,
             patch("demetra.services.vcs.merge.git_add_all", new_callable=AsyncMock) as mock_add_all,
         ):
             mock_get_prompt.return_value = "resolve this"
@@ -164,7 +164,7 @@ class TestPerformGitMerge:
         ]
         with (
             patch("demetra.services.vcs.merge.get_prompt", new_callable=AsyncMock) as mock_get_prompt,
-            patch("demetra.services.vcs.merge.opencode_merge_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.services.agents.harness.merge_agent", new_callable=AsyncMock) as mock_agent,
         ):
             mock_get_prompt.return_value = "resolve this"
             mock_agent.return_value = (1, "", "agent failed")

@@ -11,10 +11,9 @@ from demetra.services.linear.tasks import (
     extract_labels,
     get_linear_task,
     get_linear_task_by_id,
-    get_linked_projects,
     get_todo_issues,
 )
-from demetra.services.persistence.database import get_connection, get_user_environments_decrypted
+from demetra.services.persistence.database import get_connection, get_linked_projects, get_user_environments_decrypted
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR
 
