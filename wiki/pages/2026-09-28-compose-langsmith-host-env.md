@@ -13,6 +13,7 @@ related:
 - 2026-08-10-docker-compose-deploy.md
 - 2026-08-17-docker-setup-review.md
 - 2026-08-20-fix-allowlist-tests.md
+- 2026-08-06-allowlist-review-fixes.md
 - 2026-07-23-agents-md-revalidation-and-docs-removal.md
 ---
 

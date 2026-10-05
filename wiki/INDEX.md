@@ -16,7 +16,7 @@ _Newest first._
 - [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — Session log now autoscrolls to the latest records on new logs or session change (`LogConsole` `useEffect` on `taskId`+`logs` with `{ block: "end" }`); CSS smooth scroll off on `.log-content`; tests added. (2026-09-24)
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — Dockerfile now copies `.opencode/agents/` and `.opencode/skills/` to `/home/demetra/.config/opencode/` with demetra ownership and 755/644 modes, plus .dockerignore re-includes. (2026-09-18)
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — The implementation standardized methods for resolving agent models, Linear settings, and OpenRouter settings by introducing a single SessionEnvironment resolver. (2026-09-16)
-- [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — Added "View Research Plan" link + modal mirroring the build-plan artifact — new `sessions.research_plan` column, Session persistence, API exposure, and `SessionArtifacts` UI with markdown toggle. (2026-09-14)
+- [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — Added "View Research Plan" link + modal mirroring the build-plan artifact — new `sessions.research_plan` column, Session persistence, API exposure, and `SessionArtifacts` UI with markdown toggle. Note: the `research_plan` column was backed out later (see page note). (2026-09-14)
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — Hardened all 7 `.opencode/agents/*.md` prompts (only `research-agent.md` had `description`/`permission` before). (2026-09-14)
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — The GitHub notification listener (`demetra/listener.py`) has never processed a single notification: the log shows 2792 `Error polling GitHub notifications` tracebacks and **zero** `Processing notification` / `Enqueuing`... (2026-09-14)
 - [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — Research workflow now creates a related Linear ticket instead of posting a comment on the source ticket. New ticket inherits project, priority, and state (`PRD`), with `Feature` plus source `Backend`/`Frontend` labels. (2026-09-11)
@@ -51,7 +51,7 @@ _Newest first._
 - [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — Classified every workflow env var in `demetra/settings.py` into three layers — **project** (`project_environment`), **user** (`user_environment` `scope='user'`), or **system** (stays in `settings.py`, overridable by user... (2026-08-18)
 - [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — Review of `mnt-164-docker-compose` found the previously-verified Docker setup regressed with multiple blockers preventing boot — missing source copy, stale venv path, `WORKDIR` typo, `.keys/` baked into image, dropped he... (2026-08-17)
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — Extended per-project env into three layers — OS (allowlisted) → user-shared → project → step (last writer wins). (2026-08-10)
-- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — Added a parallel `docker-compose.yaml` path running the full stack (Postgres, Redis, api, 4 workers, watcher, listener, rq-dashboard, one-shot React build) on `mantiby/demetra`. Systemd `make deploy` unchanged. (2026-08-10)
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — Added a `docker-compose.yaml` path running the full stack (Postgres, Redis, api, workers, watcher, listener, rq-dashboard, one-shot React build) on `mantiby/demetra` — now the deploy path (systemd removed in `f5904d5`); `deploy` scales worker=2, `docker-up` scales 4. (2026-08-10)
 - [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — Hardened four wiki-service edge cases from the subpackage split (blank env paths, cluster scoring, last-header insertion, unreadable files, `answer_sweep` preamble) and scoped revalidation commits to changed files. (2026-08-09)
 - [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — Applied 5 CodeRabbit findings on PR #75: versioned JWTs via `password_version` to close the post-snapshot race, fixed `Request`-aware `authFetch` origin guard, rejected negative `env_get_int` defaults, named `db_name` ar... (2026-08-09)
 - [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — Applied all 7 findings from post-refactor review (`CODE_REVIEW_FINDINGS.md`, `v1.15.4..HEAD`): restored cross-origin auth cookies, rejected negative `env_get_int`, gated validate-agent on `Plan step N:` marker, made `res... (2026-08-09)
@@ -117,8 +117,10 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (23 pages)
+### Workflow orchestration & agents (25 pages)
 
+- [MNT-230 — Switchable agent harness (OpenCode / Claude Code)](pages/2026-09-30-mnt-230-claude-code-harness.md) — 2026-09-30
+- [Forward LangSmith env vars to agent subprocesses via SessionEnvironment](pages/2026-09-30-langsmith-subprocess-env.md) — 2026-09-30
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — 2026-09-08
@@ -177,8 +179,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
-### Linear & GitHub integrations (12 pages)
+### Linear & GitHub integrations (13 pages)
 
+- [Switchable issue tracker (Linear / ClickUp)](pages/2026-09-30-clickup-issue-tracker-support.md) — 2026-09-30
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
 - [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — 2026-08-18
@@ -217,8 +220,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 - [Refactor API](pages/2026-06-01-refactor-api.md) — 2026-06-01
 
-### Deploy & infrastructure (7 pages)
+### Deploy & infrastructure (8 pages)
 
+- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — 2026-09-28
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
 
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24
@@ -228,8 +232,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — 2026-07-07
 - [Fix Project creation timeouts](pages/2026-06-10-fix-project-creation-timeouts.md) — 2026-06-10
 
-### Testing & tooling (5 pages)
+### Testing & tooling (6 pages)
 
+- [Move settings_default to services and make the suite hermetic to shell env](pages/2026-09-30-move-settings-default-hermetic-tests.md) — 2026-09-30
 - [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
 - [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — 2026-08-18
 - [Add tests for existing feature-flag changes](pages/2026-07-22-feature-flag-settings-and-tests.md) — 2026-07-22

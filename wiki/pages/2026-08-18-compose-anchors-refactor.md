@@ -88,6 +88,8 @@ At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `mast
 
 > **Consistency note (2026-08-24):** `deploy.replicas` removed; workers via `Makefile` `--scale worker=4`.
 
+> **Consistency note (2026-10-02, Consistency Agent):** Supersedes the 2026-08-24 note above. At HEAD `worker.deploy.replicas: 2` is back (`docker-compose.yaml:106-107`), `make deploy` scales `worker=2` (`Makefile:31`) while `make docker-up` scales `worker=4` (`Makefile:101`).
+
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References

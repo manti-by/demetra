@@ -29,6 +29,8 @@ related:
 - 2026-09-02-review-findings-cleanup.md
 - 2026-09-14-opencode-agent-prompts-hardening.md
 - 2026-09-10-mnt-200-update-research-loop.md
+- 2026-09-11-mnt-203-create-related-ticket-for-research.md
+- 2026-09-10-mnt-200-update-research-loop.md
 ---
 # MNT-177 research loop — research agent, workflow and settings
 
@@ -90,11 +92,13 @@ if is_research_ticket(context=context):
 > **2026-09-14:** `research-agent.md` was only agent with `description`/`permission` until [[2026-09-14-opencode-agent-prompts-hardening]] brought other six to same standard.
 > **Consistency note (2026-09-02):** `opencode_research_agent` gained `project_id` param and label check split into `is_research_task(linear_task)` / `is_research_ticket(context)` (`demetra/workflows/research.py`).
 
-> **Consistency note (2026-09-15, Consistency Agent):** Post-research step `awaiting_input` superseded by [[2026-09-10-mnt-200-update-research-loop]] — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
+> **Consistency note (2026-10-02, Consistency Agent):** Supersedes the 2026-09-15 note below, which is now stale. Full chain verified against git history and HEAD: MNT-200 (`e177403`) renamed the post-research step to `researched` and added `sessions.research_report`; MNT-203 (`14d0d02`) then restructured `demetra/workflows/research.py` and restored `step="awaiting_input"` (`_move_to_awaiting_input`, `research.py:203`) while keeping `research_report` persistence — so the `awaiting_input` wording in Step 7 is current again. But the `post_comment` part of Step 7 is superseded: the report is no longer posted as a comment, it becomes the body of a related ticket per [[2026-09-11-mnt-203-create-related-ticket-for-research]]. `researched` remains in `StepType` (`models.py:28`) with its navy badge CSS, but nothing persists it — see Q-003 in `wiki/QUESTIONS.md`.
+
+> **Consistency note (2026-09-15, Consistency Agent, superseded 2026-10-02):** Post-research step `awaiting_input` superseded by [[2026-09-10-mnt-200-update-research-loop]] — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
 
 ## References
 
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]]
+- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
 - External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop)
 
 > **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related`.

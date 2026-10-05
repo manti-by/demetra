@@ -9,7 +9,6 @@ branch: mnt-230-claude-support
 tickets: [MNT-230]
 tags: [claude-code, opencode, harness, agents, review, mcp, environment]
 related:
-  - 2026-09-30-claude-code-harness-build-plan
   - 2026-09-16-mnt-205-revise-merged-environment
   - 2026-09-14-opencode-agent-prompts-hardening
   - 2026-08-19-build-agent-stale-session-deleted-worktree
@@ -21,7 +20,7 @@ related:
 
 ## TL;DR
 
-Implemented the build plan in [[2026-09-30-claude-code-harness-build-plan]]: a new `AGENT_HARNESS` setting
+Implemented the build plan (`2026-09-30-claude-code-harness-build-plan` — a plan artifact, never a wiki page): a new `AGENT_HARNESS` setting
 (`opencode` | `claude`) resolved through `SessionEnvironment`, a `demetra/services/agents/claude.py` wrapper around the
 `claude -p` CLI, and a `demetra/services/agents/harness.py` facade every workflow now imports instead of `opencode.py`
 directly. Two things in the plan didn't survive contact with the real CLI and were adapted: there is no `--max-turns`
@@ -33,7 +32,7 @@ mid-ticket switch never resumes a foreign session id. Full test suite (1014 test
 
 ## Overview
 
-The plan document ([[2026-09-30-claude-code-harness-build-plan]]) already captures the target design in detail; this
+The plan document (`2026-09-30-claude-code-harness-build-plan` — a plan artifact, never a wiki page) already captures the target design in detail; this
 page records what changed on contact with the real, installed `claude` CLI (v2.1.285) and the final shape of the code.
 
 Layering, unchanged from the plan:
@@ -146,9 +145,11 @@ New: `tests/test_claude.py`, `tests/test_harness.py`, `tests/test_setup_workflow
 - Docker image support, Cursor/CodeRabbit cleanup and a React harness-toggle UI remain out of scope for v1, as decided
   in the build plan.
 
+> **Consistency note (2026-10-02, Consistency Agent):** Removed dead `2026-09-30-claude-code-harness-build-plan` links (body + `related:`) — that is a plan artifact, not a wiki page, so it is now cited as inline code instead.
+
 ## References
 
-- Related: [[2026-09-30-claude-code-harness-build-plan]], [[2026-09-16-mnt-205-revise-merged-environment]],
+- Related: [[2026-09-16-mnt-205-revise-merged-environment]],
   [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-08-19-build-agent-stale-session-deleted-worktree]],
   [[2026-08-04-fix-resolve-agent-truncated-context]], [[2026-08-28-awaiting-input-workflow-continues-to-review]]
 - External: MNT-230
