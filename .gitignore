@@ -20,6 +20,7 @@ venv/
 .env
 .env.docker
 
+.opencode/skills/
 .opencode/package-lock.json
 .claude/
 

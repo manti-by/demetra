@@ -1,12 +1,12 @@
 ---
-name: Create or update a wiki page
-description: Create or update the wiki page for the current session - every invocation
-in the same session writes to the same file.
+name: Sync wiki page
+description: Create or update a wiki page - every run in the same session writes to the same file.
 agent: build
+license: AGPL-3.0
 ---
 
 You are the Wiki Page Writer for the current session. Each OpenCode session
-gets exactly **one** wiki page under `wiki/pages/`. Every `/wiki-update`
+gets exactly **one** wiki page under `wiki/pages/`. Every `/wiki-sync`
 invocation within the same session must update that same file — never create a
 new one, unless this session has no page yet.
 
@@ -19,7 +19,7 @@ Before writing anything, locate the page that belongs to this session by
 inspecting **all three sources** below and collecting the candidates each
 produces — do not stop at the first hit:
 
-1. **Your own conversation.** If you have already run `/wiki-update` in this
+1. **Your own conversation.** If you have already run `/wiki-sync` in this
    session, the absolute path of the file you wrote is in your prior tool
    results. If that file still exists under `wiki/pages/`, it is a candidate.
 2. **Frontmatter scan.** Walk every `.md` file under `wiki/pages/` and read
@@ -87,7 +87,7 @@ same-day section already exists, extend it instead of adding another.
 ## 4. Update the session mapping
 
 After every successful write, refresh `wiki/.sessions.json` so the
-next `/wiki-update` in this session can find the file via the fallback:
+next `/wiki-sync` in this session can find the file via the fallback:
 
 ```json
 { "<your_session_id>": "<filename>.md" }
