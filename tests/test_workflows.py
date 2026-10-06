@@ -2017,8 +2017,19 @@ class TestWorkflowResearch:
             yield m
 
     @pytest.fixture
-    def mock_post_comment(self):
-        with patch("demetra.workflows.research.post_comment", new_callable=AsyncMock) as m:
+    def mock_create_linear_ticket(self):
+        with patch("demetra.workflows.research.create_linear_ticket", new_callable=AsyncMock) as m:
+            m.return_value = {
+                "ticket_id": "related-issue-123",
+                "identifier": "MNT-999",
+                "title": "Research: MNT-123 - test",
+            }
+            yield m
+
+    @pytest.fixture
+    def mock_create_issue_relation(self):
+        with patch("demetra.workflows.research.create_issue_relation", new_callable=AsyncMock) as m:
+            m.return_value = True
             yield m
 
     @pytest.fixture
@@ -2036,8 +2047,15 @@ class TestWorkflowResearch:
         with patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock) as m:
             yield m
 
+    @pytest.fixture
+    def mock_update_session_research_ticket_id(self):
+        with patch("demetra.workflows.research.update_session_research_ticket_id", new_callable=AsyncMock) as m:
+            yield m
+
     @staticmethod
-    def _make_context(faker, labels=None):
+    def _make_context(faker, labels=None, research_ticket_id=None):
+        task_id = str(uuid4())
+        now = datetime.now().isoformat()
         return Context(
             project=Project(
                 id=str(uuid4()),
@@ -2049,30 +2067,39 @@ class TestWorkflowResearch:
                 repository_name="demetra",
                 repository_owner="test",
                 local_path=Path(f"/tmp/{faker.slug()}"),
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
+                created_at=now,
+                updated_at=now,
             ),
             auto_mode=False,
             linear_task=LinearTask(
-                id=str(uuid4()),
+                id=task_id,
                 identifier="MNT-123",
                 title=faker.sentence(),
                 description=faker.text(),
                 priority=1,
-                created_at=datetime.now().isoformat(),
+                created_at=now,
                 labels=labels or [],
             ),
             branch_name="feature/test",
             worktree_path=Path(f"/tmp/{faker.slug()}"),
-            session=None,
+            session=Session(
+                task_id=task_id,
+                build_plan="",
+                posted_to_linear=False,
+                created_at=now,
+                updated_at=now,
+                research_ticket_id=research_ticket_id,
+            ),
         )
 
     @pytest.mark.asyncio
-    async def test_run_research_step_posts_report_and_moves_to_awaiting_input(
+    async def test_run_research_step_creates_related_ticket_links_and_moves_to_in_review(
         self,
         faker,
         mock_research_agent,
-        mock_post_comment,
+        mock_create_linear_ticket,
+        mock_create_issue_relation,
+        mock_update_session_research_ticket_id,
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
@@ -2080,24 +2107,74 @@ class TestWorkflowResearch:
         context = self._make_context(faker)
         report = f"{RESEARCH_HEADER_STRING}\nFindings body."
         mock_research_agent.return_value = (0, f"Preamble\n{report}", "")
-        mock_post_comment.return_value = True
         mock_get_linear_config_value.return_value = "state-123"
         mock_update_ticket_status.return_value = True
 
         result = await run_research_step(context)
 
         assert result == report
-        mock_post_comment.assert_awaited_once_with(task_id=context.linear_task.id, body=report)
-        mock_get_linear_config_value.assert_awaited_once_with(name="awaiting_input", user_id=context.project.user_id)
+        mock_create_linear_ticket.assert_awaited_once_with(
+            title=f"Research: {context.linear_task.identifier} - {context.linear_task.title}",
+            description=report,
+            technical_requirements="",
+            acceptance_criteria="",
+            user_id=context.project.user_id,
+        )
+        mock_update_session_research_ticket_id.assert_awaited_once_with(
+            task_id=context.linear_task.id, research_ticket_id="related-issue-123"
+        )
+        mock_create_issue_relation.assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            related_task_id="related-issue-123",
+        )
+        mock_get_linear_config_value.assert_awaited_once_with(name="in_review", user_id=context.project.user_id)
         mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
-        assert mock_update_session_step.call_args.kwargs["step"] == "awaiting_input"
+        assert mock_update_session_step.call_args.kwargs["step"] == "researched"
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_reuses_existing_research_ticket(
+        self,
+        faker,
+        mock_research_agent,
+        mock_create_linear_ticket,
+        mock_create_issue_relation,
+        mock_update_session_research_ticket_id,
+        mock_get_linear_config_value,
+        mock_update_ticket_status,
+        mock_update_session_step,
+    ):
+        context = self._make_context(faker, research_ticket_id="existing-issue-1")
+        mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")
+        mock_get_linear_config_value.return_value = "state-123"
+        mock_update_ticket_status.return_value = True
+
+        result = await run_research_step(context)
+
+        assert result is not None
+        mock_create_linear_ticket.assert_not_awaited()
+        mock_update_session_research_ticket_id.assert_not_awaited()
+        mock_create_issue_relation.assert_awaited_once_with(
+            task_id=context.linear_task.id, related_task_id="existing-issue-1"
+        )
+        mock_get_linear_config_value.assert_awaited_once_with(name="in_review", user_id=context.project.user_id)
+        assert mock_update_session_step.call_args.kwargs["step"] == "researched"
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_raises_without_session(self, faker):
+        context = self._make_context(faker)
+        context.session = None
+
+        with pytest.raises(RuntimeError, match="requires a session"):
+            await run_research_step(context)
 
     @pytest.mark.asyncio
     async def test_run_research_step_retries_after_agent_failure(
         self,
         faker,
         mock_research_agent,
-        mock_post_comment,
+        mock_create_linear_ticket,
+        mock_create_issue_relation,
+        mock_update_session_research_ticket_id,
         mock_get_linear_config_value,
         mock_update_ticket_status,
         mock_update_session_step,
@@ -2105,7 +2182,6 @@ class TestWorkflowResearch:
         context = self._make_context(faker)
         report = f"{RESEARCH_HEADER_STRING}\nRecovered."
         mock_research_agent.side_effect = [(1, "", "agent crashed"), (0, report, "")]
-        mock_post_comment.return_value = True
         mock_get_linear_config_value.return_value = "state-123"
         mock_update_ticket_status.return_value = True
 
@@ -2116,7 +2192,7 @@ class TestWorkflowResearch:
 
     @pytest.mark.asyncio
     async def test_run_research_step_returns_none_after_all_attempts(
-        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+        self, faker, mock_research_agent, mock_create_linear_ticket
     ):
         context = self._make_context(faker)
         mock_research_agent.return_value = (0, "output without report header", "")
@@ -2126,17 +2202,33 @@ class TestWorkflowResearch:
 
         assert result is None
         assert mock_research_agent.await_count == 1
-        mock_post_comment.assert_not_awaited()
+        mock_create_linear_ticket.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_run_research_step_raises_when_comment_fails(
-        self, faker, mock_research_agent, mock_post_comment, mock_update_session_step
+    async def test_run_research_step_raises_when_ticket_creation_fails(
+        self, faker, mock_research_agent, mock_create_linear_ticket
     ):
         context = self._make_context(faker)
         mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")
-        mock_post_comment.return_value = False
+        mock_create_linear_ticket.side_effect = LinearError("boom")
 
-        with pytest.raises(LinearError):
+        with pytest.raises(LinearError, match="Failed to create research ticket"):
+            await run_research_step(context)
+
+    @pytest.mark.asyncio
+    async def test_run_research_step_raises_when_relation_creation_fails(
+        self,
+        faker,
+        mock_research_agent,
+        mock_create_linear_ticket,
+        mock_create_issue_relation,
+        mock_update_session_research_ticket_id,
+    ):
+        context = self._make_context(faker)
+        mock_research_agent.return_value = (0, f"{RESEARCH_HEADER_STRING}\nFindings.", "")
+        mock_create_issue_relation.return_value = False
+
+        with pytest.raises(LinearError, match="Failed to link research ticket"):
             await run_research_step(context)
 
     @pytest.mark.asyncio

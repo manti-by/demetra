@@ -5,8 +5,13 @@ from demetra.services.agents.opencode import (
     extract_research_report,
     opencode_research_agent,
 )
-from demetra.services.linear import get_linear_config_value, post_comment, update_ticket_status
-from demetra.services.persistence.database import update_session_step
+from demetra.services.linear import (
+    create_issue_relation,
+    create_linear_ticket,
+    get_linear_config_value,
+    update_ticket_status,
+)
+from demetra.services.persistence.database import update_session_research_ticket_id, update_session_step
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR, MAX_RESEARCH_ATTEMPTS
 
@@ -41,11 +46,15 @@ def is_research_ticket(context: Context) -> bool:
 
 
 async def run_research_step(context: Context) -> str | None:
-    """Run the research agent loop, post the report and move to Awaiting Input.
+    """Run the research agent loop, create a related ticket and move to In Review.
 
     Iterates the research agent up to ``MAX_RESEARCH_ATTEMPTS`` times,
-    extracts the ``## Research Report`` section, posts it as a Linear comment,
-    and moves the ticket to ``awaiting_input``.
+    extracts the ``## Research Report`` section, creates a new Linear ticket
+    carrying the report, links it to the source ticket as related, and moves
+    the source ticket to ``in_review``.
+
+    The created ticket id is persisted on the session and reused on a re-run,
+    so a transient failure after creation cannot mint a duplicate.
 
     Args:
         context: The workflow context.
@@ -55,9 +64,15 @@ async def run_research_step(context: Context) -> str | None:
             could be produced after all attempts.
 
     Raises:
-        LinearError: When the awaiting_input state is not configured or a
-            Linear mutation (comment posting, status update) fails.
+        LinearError: When ticket creation, relation creation, the in_review
+            state lookup or a Linear status mutation fails.
+        RuntimeError: When the context has no session, since the created
+            ticket id must be persisted for the step to be idempotent.
     """
+    session = context.session
+    if session is None:
+        raise RuntimeError("Research step requires a session")
+
     attempts = MAX_RESEARCH_ATTEMPTS
     last_report: str | None = None
     while attempts > 0:
@@ -99,16 +114,34 @@ async def run_research_step(context: Context) -> str | None:
         last_report = report
         print_message(f"Research report:\n{report}")
 
-        if not await post_comment(task_id=context.linear_task.id, body=report):
-            raise LinearError("Failed to post research report to Linear")
+        research_ticket_id = session.research_ticket_id
+        if research_ticket_id is None:
+            related_title = f"Research: {context.linear_task.identifier} - {context.linear_task.title}"
+            try:
+                created = await create_linear_ticket(
+                    title=related_title,
+                    description=report,
+                    technical_requirements="",
+                    acceptance_criteria="",
+                    user_id=context.project.user_id,
+                )
+            except LinearError as e:
+                raise LinearError("Failed to create research ticket") from e
+            research_ticket_id = created["ticket_id"]
+            await update_session_research_ticket_id(
+                task_id=context.linear_task.id, research_ticket_id=research_ticket_id
+            )
 
-        state_id = await get_linear_config_value(name="awaiting_input", user_id=context.project.user_id)
+        if not await create_issue_relation(task_id=context.linear_task.id, related_task_id=research_ticket_id):
+            raise LinearError("Failed to link research ticket to source ticket")
+
+        state_id = await get_linear_config_value(name="in_review", user_id=context.project.user_id)
         if state_id is None:
-            raise LinearError("Linear state 'awaiting_input' is not configured")
+            raise LinearError("Linear state 'in_review' is not configured")
         if not await update_ticket_status(task_id=context.linear_task.id, state_id=state_id):
-            raise LinearError("Failed to move ticket to Awaiting Input")
-        await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
-        print_message("Task moved to Awaiting Input state.", style="result")
+            raise LinearError("Failed to move ticket to In Review")
+        await update_session_step(task_id=context.linear_task.id, step="researched")
+        print_message("Research ticket created and linked, task moved to In Review.", style="result")
         return report
 
     if last_report is None:

@@ -13,6 +13,7 @@ StepType = Literal[
     "initial",
     "plan",
     "research",
+    "researched",
     "build",
     "validate",
     "review",
@@ -128,6 +129,7 @@ class Session:
     listener_attempts: int = 0
     pr_link: str | None = None
     linear_link: str | None = None
+    research_ticket_id: str | None = None
 
 
 EnvironmentType = Literal["text", "encrypted"]

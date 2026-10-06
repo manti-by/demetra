@@ -32,6 +32,7 @@ from demetra.services.persistence.database import (
     save_session,
     update_session_linear_link,
     update_session_pr_link,
+    update_session_research_ticket_id,
     update_session_step,
     upsert_pending_session,
     upsert_project_environment,
@@ -1225,6 +1226,51 @@ class TestPrLink:
         found = await get_session(db_task_id)
         assert found is not None
         assert found.pr_link == "https://github.com/owner/repo/pull/42"
+
+
+class TestResearchTicketId:
+    @pytest.fixture(autouse=True)
+    def _setup_db(self, setup_test_db):
+        pass
+
+    @pytest.mark.asyncio
+    async def test_research_ticket_id_defaults_to_none(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_ticket_id is None
+
+    @pytest.mark.asyncio
+    async def test_update_session_research_ticket_id_persists_value(
+        self,
+        db_task_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+
+        await update_session_research_ticket_id(task_id=db_task_id, research_ticket_id="related-issue-1")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.research_ticket_id == "related-issue-1"
+
+    @pytest.mark.asyncio
+    async def test_research_ticket_id_preserved_on_save_without_value(
+        self,
+        db_task_id: str,
+        db_session_id: str,
+    ):
+        await upsert_pending_session(task_id=db_task_id, session_id=None)
+        await update_session_research_ticket_id(task_id=db_task_id, research_ticket_id="related-issue-1")
+        await save_session(task_id=db_task_id, session_id=db_session_id, build_plan="Plan B")
+
+        found = await get_session(db_task_id)
+        assert found is not None
+        assert found.build_plan == "Plan B"
+        assert found.research_ticket_id == "related-issue-1"
 
 
 class TestSessionHistory:

@@ -9,6 +9,7 @@ from demetra.library.exceptions import LinearError
 from demetra.library.models import Context, LinearTask, Project
 from demetra.library.tables import project_environments, projects
 from demetra.services.linear import (
+    create_issue_relation,
     create_linear_ticket,
     extract_comments,
     extract_labels,
@@ -156,6 +157,35 @@ class TestLinearService:
         ):
             mock_request.return_value = graphql_comment_failure_response
             result = await post_comment("issue-1", "Test comment")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_true_on_success(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+            result = await create_issue_relation("issue-1", "issue-2")
+
+        assert result is True
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"] == {"input": {"issueId": "issue-1", "relatedIssueId": "issue-2", "type": "related"}}
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_failure(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": {"success": False}}}
+
+            result = await create_issue_relation("issue-1", "issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_when_relation_is_null(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": None}, "errors": [{"message": "nope"}]}
+
+            result = await create_issue_relation("issue-1", "issue-2")
 
         assert result is False
 
@@ -565,6 +595,28 @@ class TestCreateLinearTicket:
         assert "Tech" in desc
         assert "### Acceptance Criteria" in desc
         assert "AC" in desc
+
+    @pytest.mark.asyncio
+    async def test_create_ticket_omits_empty_sections(
+        self,
+        graphql_create_ticket_success_response: dict,
+        mock_get_query: AsyncMock,
+    ):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_create_ticket_success_response
+
+            await create_linear_ticket(
+                title="Test",
+                description="The description",
+                technical_requirements="",
+                acceptance_criteria="",
+            )
+
+        _, kwargs = mock_request.call_args
+        desc = kwargs["variables"]["input"]["description"]
+        assert desc == "### Description\nThe description"
+        assert "### Tech Requirements" not in desc
+        assert "### Acceptance Criteria" not in desc
 
 
 class TestGetLinearTaskById:

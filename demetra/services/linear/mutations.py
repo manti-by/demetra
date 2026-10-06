@@ -25,6 +25,36 @@ async def update_ticket_status(task_id: str, state_id: str) -> bool:
     return data.get("issueUpdate", {}).get("success", False)
 
 
+async def create_issue_relation(task_id: str, related_task_id: str, relation_type: str = "related") -> bool:
+    """Create a relation between two Linear issues.
+
+    Args:
+        task_id: The id of the primary issue.
+        related_task_id: The id of the related issue.
+        relation_type: The relation type, e.g. ``"related"``.
+
+    Returns:
+        bool: True when the relation was created successfully.
+    """
+    query = await service.get_query(name="create_issue_relation")
+    result = await service.graphql_request(
+        query=query,
+        variables={
+            "input": {
+                "issueId": task_id,
+                "relatedIssueId": related_task_id,
+                "type": relation_type,
+            }
+        },
+    )
+    if result is None:
+        return False
+    data = result.get("data")
+    if data is None:
+        return False
+    return (data.get("issueRelationCreate") or {}).get("success", False)
+
+
 async def post_comment(task_id: str, body: str) -> bool:
     """Post a comment on a Linear issue.
 
@@ -98,11 +128,12 @@ async def create_linear_ticket(
     Raises:
         LinearError: When the ticket creation fails or returns no issue.
     """
-    full_description = (
-        f"### Description\n{description}\n\n"
-        f"### Tech Requirements\n{technical_requirements}\n\n"
-        f"### Acceptance Criteria\n{acceptance_criteria}"
-    )
+    sections = [f"### Description\n{description}"]
+    if technical_requirements:
+        sections.append(f"### Tech Requirements\n{technical_requirements}")
+    if acceptance_criteria:
+        sections.append(f"### Acceptance Criteria\n{acceptance_criteria}")
+    full_description = "\n\n".join(sections)
 
     query = await service.get_query(name="create_issue")
     variables = {
