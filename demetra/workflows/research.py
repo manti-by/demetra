@@ -7,7 +7,7 @@ from demetra.services.agents.opencode import (
     extract_research_report,
     opencode_research_agent,
 )
-from demetra.services.linear import create_research_ticket, update_ticket_status
+from demetra.services.linear import create_issue_relation, create_research_ticket, update_ticket_status
 from demetra.services.persistence.database import (
     update_session_research_report,
     update_session_step,
@@ -49,7 +49,7 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
     """Fail fast when the related research ticket cannot be created.
 
     Checks the permanent prerequisites (source project, ``prd`` state,
-    ``team_id`` and ``awaiting_input`` state) before the research agent runs,
+    ``team_id`` and ``in_review`` state) before the research agent runs,
     so a misconfigured workspace does not burn ``MAX_ATTEMPTS["research"]`` LLM
     calls on a retry that can never succeed.
 
@@ -58,7 +58,7 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
 
     Raises:
         LinearConfigError: When the source project, the PRD state, the team id
-            or the awaiting-input state is not configured.
+            or the in-review state is not configured.
     """
     if not context.linear_task.linear_project_id:
         raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
@@ -71,9 +71,9 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
     except EnvironmentConfigError as e:
         raise LinearConfigError("Linear team id is not configured") from e
     try:
-        context.environment.linear_state("awaiting_input")
+        context.environment.linear_state("in_review")
     except EnvironmentConfigError as e:
-        raise LinearConfigError("Linear state 'awaiting_input' is not configured") from e
+        raise LinearConfigError("Linear state 'in_review' is not configured") from e
 
 
 async def _run_research_agent(context: Context) -> str | None:
@@ -171,8 +171,39 @@ async def _create_research_ticket(context: Context, report: str) -> dict[str, An
     return None
 
 
-async def _move_to_awaiting_input(context: Context) -> None:
-    """Move the originating ticket to Awaiting Input, tolerating failures.
+async def _link_research_ticket(context: Context, research_ticket_id: str) -> None:
+    """Relate the research ticket to the originating ticket, retrying failures.
+
+    Linking is part of the deliverable, so a transient failure is retried with
+    its own budget. A relation is idempotent in Linear: re-running the step
+    after a lost response re-creates the same ``related`` relation instead of
+    duplicating it.
+
+    Args:
+        context: The workflow context with the originating Linear task.
+        research_ticket_id: The id of the created research ticket.
+
+    Raises:
+        LinearError: When the relation could not be created after all attempts.
+    """
+    attempts = MAX_ATTEMPTS["research"]
+    while attempts > 0:
+        try:
+            linked = await create_issue_relation(task_id=context.linear_task.id, related_task_id=research_ticket_id)
+        except LinearError as e:
+            print_message(f"Failed to link research ticket: {e}, retrying.", style="warning")
+            attempts -= 1
+            continue
+
+        if linked:
+            return
+        print_message("Linking the research ticket returned no success, retrying.", style="warning")
+        attempts -= 1
+    raise LinearError("Failed to link research ticket to the originating ticket after all attempts")
+
+
+async def _move_to_in_review(context: Context) -> None:
+    """Move the originating ticket to In Review and mark the step researched.
 
     The related ticket already exists by the time this runs, so a failure to
     move the source ticket is reported but not treated as a step failure.
@@ -181,34 +212,36 @@ async def _move_to_awaiting_input(context: Context) -> None:
         context: The workflow context.
     """
     try:
-        state_id = context.environment.linear_state("awaiting_input")
+        state_id = context.environment.linear_state("in_review")
     except EnvironmentConfigError:
-        print_message("Linear state 'awaiting_input' is not configured; move the ticket manually.", style="warning")
+        print_message("Linear state 'in_review' is not configured; move the ticket manually.", style="warning")
         return
 
     try:
         moved = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
     except LinearError as e:
-        print_message(f"Failed to move the ticket to Awaiting Input: {e}; move it manually.", style="warning")
+        print_message(f"Failed to move the ticket to In Review: {e}; move it manually.", style="warning")
         return
 
     if not moved:
-        print_message("Failed to move the ticket to Awaiting Input in Linear; move it manually.", style="warning")
+        print_message("Failed to move the ticket to In Review in Linear; move it manually.", style="warning")
         return
 
-    await update_session_step(task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id)
-    print_message("Task moved to Awaiting Input state.", style="result")
+    await update_session_step(task_id=context.linear_task.id, step="researched", session_id=context.session_id)
+    print_message("Task moved to In Review state.", style="result")
 
 
 async def run_research_step(context: Context) -> str | None:
-    """Run the research agent, create a related ticket and move to Awaiting Input.
+    """Run the research agent, link a related ticket and move the task to In Review.
 
     Runs the research agent (retrying up to ``MAX_ATTEMPTS["research"]`` times)
     until it produces a ``## Research Report``, then creates a related Linear
-    ticket with the report as its description, retrying transient Linear
-    failures with a separate budget. Permanent configuration errors fail before
-    the agent runs. A failure to move the originating ticket after the research
-    ticket exists is reported but does not discard the deliverable.
+    ticket with the report as its description, links it back to the originating
+    ticket as ``related`` and moves the originating ticket to In Review, marking
+    the session step ``researched``. Transient Linear failures are retried with a
+    separate budget. Permanent configuration errors fail before the agent runs. A
+    failure to move the originating ticket after the research ticket exists is
+    reported but does not discard the deliverable.
 
     Args:
         context: The workflow context.
@@ -220,7 +253,8 @@ async def run_research_step(context: Context) -> str | None:
     Raises:
         LinearConfigError: When the research ticket prerequisites are missing
             or Linear permanently rejects the ticket.
-        LinearError: When the research ticket could not be created after all
+        LinearError: When the research ticket could not be created, or the
+            relation to the originating ticket could not be created, after all
             attempts.
     """
     await _validate_research_ticket_prerequisites(context=context)
@@ -235,5 +269,7 @@ async def run_research_step(context: Context) -> str | None:
         raise LinearError("Failed to create research ticket after all attempts")
     print_message(f"Created research ticket {created_ticket['identifier']}.", style="result")
 
-    await _move_to_awaiting_input(context=context)
+    await _link_research_ticket(context=context, research_ticket_id=created_ticket["ticket_id"])
+
+    await _move_to_in_review(context=context)
     return report

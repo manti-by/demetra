@@ -1,5 +1,6 @@
 from demetra.services.linear.graphql import get_query, graphql_request
 from demetra.services.linear.mutations import (
+    create_issue_relation,
     create_linear_ticket,
     create_research_ticket,
     linear_cleanup,
@@ -21,6 +22,7 @@ from demetra.settings import LINEAR
 
 __all__ = [
     "LINEAR",
+    "create_issue_relation",
     "create_linear_ticket",
     "create_research_ticket",
     "extract_comments",

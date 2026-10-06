@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — Research now links the created ticket back to the originating ticket as `related` (retried on transient failures), moves the source ticket to In Review instead of Awaiting Input, and writes the `researched` step. Rebased onto master, which had already superseded most of the branch via MNT-200/MNT-203; the redundant `research_ticket_id` column and its colliding-revision migration were dropped. (2026-10-05)
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — The legacy `env: dict[str,str]` parameter is gone from `run_command`/`run_command_to_file` and every git/gh/quality/wiki/agent helper: each layer now takes `environment: SessionEnvironment`, and `SessionEnvironment.subprocess_env` assembles user-shared + project + derived LangSmith tracing vars in one place (no `extra` escape hatch). Layer order documented as a table, caller-side pre-merges dropped, review agents fixed (they were called without `environment`), and `get_optional` folded into the shared `env_get_str_from` / `env_get_bool_from` resolver family. (2026-10-06)
 - [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — Session history now records intermediate step transitions (step + timestamp rows via `update_session_step(..., session_id=...)`) without a schema migration, and the frontend history UI shows localized clock times with full timestamps in tooltips. (2026-09-30)
 - [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. Not live yet: `OS_ENV_ALLOWLIST` drops the key before `opencode` starts and the plugin reads only `TRACE_TO_LANGSMITH`. (2026-09-28)
@@ -115,8 +116,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### Workflow orchestration & agents (23 pages)
+### Workflow orchestration & agents (24 pages)
 
+- [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — 2026-10-05
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — 2026-09-08

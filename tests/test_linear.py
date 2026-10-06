@@ -9,6 +9,7 @@ from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError
 from demetra.library.models import Context, LinearTask, Project, SessionEnvironment
 from demetra.library.tables import project_environments, projects
 from demetra.services.linear import (
+    create_issue_relation,
     create_linear_ticket,
     create_research_ticket,
     extract_comments,
@@ -157,6 +158,35 @@ class TestLinearService:
         ):
             mock_request.return_value = graphql_comment_failure_response
             result = await post_comment("issue-1", "Test comment")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_true_on_success(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+            result = await create_issue_relation("issue-1", "issue-2")
+
+        assert result is True
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"] == {"input": {"issueId": "issue-1", "relatedIssueId": "issue-2", "type": "related"}}
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_failure(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": {"success": False}}}
+
+            result = await create_issue_relation("issue-1", "issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_when_relation_is_null(self):
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"data": {"issueRelationCreate": None}, "errors": [{"message": "nope"}]}
+
+            result = await create_issue_relation("issue-1", "issue-2")
 
         assert result is False
 
@@ -914,6 +944,67 @@ class TestCreateResearchTicket:
             pytest.raises(LinearConfigError, match="team id is not configured"),
         ):
             await create_research_ticket(context=context, report="report")
+
+
+class TestCreateIssueRelation:
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_true_on_success(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+                assert result is True
+                _, kwargs = mock_request.call_args
+
+        assert kwargs["variables"]["input"] == {
+            "issueId": "issue-1",
+            "relatedIssueId": "issue-2",
+            "type": "related",
+        }
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_uses_custom_relation_type(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+                await create_issue_relation(task_id="issue-1", related_task_id="issue-2", relation_type="blocks")
+
+                _, kwargs = mock_request.call_args
+
+        assert kwargs["variables"]["input"]["type"] == "blocks"
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_when_unsuccessful(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": False}}}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_empty_response(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = None
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_missing_data(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"errors": ["nope"]}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
 
 
 class TestGetLinearTaskById:
