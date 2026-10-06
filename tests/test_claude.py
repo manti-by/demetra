@@ -18,7 +18,7 @@ from demetra.services.agents.claude import (
     new_claude_session_id,
     run_claude_agent,
 )
-from demetra.settings import BASE_PATH, UV
+from demetra.settings import BASE_PATH, CLAUDE, UV
 
 
 class TestLoadClaudeAgentDefinition:
@@ -306,7 +306,7 @@ class TestRunClaudeAgentCommand:
         call_kwargs = mock_run_command.call_args.kwargs
         command = call_kwargs["command"]
 
-        assert command[0].endswith("claude")
+        assert command[0] == str(CLAUDE["path"])
         assert "-p" in command
         assert command[command.index("--output-format") + 1] == "stream-json"
         assert command[command.index("--model") + 1] == "opus"

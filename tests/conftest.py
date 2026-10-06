@@ -1,6 +1,8 @@
 import asyncio
+import importlib
 import logging
 import logging.config
+import os
 from collections.abc import AsyncGenerator
 from contextlib import ExitStack, contextmanager
 from typing import Any
@@ -55,6 +57,34 @@ def isolate_wiki(tmp_path, monkeypatch):
     monkeypatch.setattr(wiki_service, "QUESTIONS_PATH", wiki_root / "QUESTIONS.md")
     monkeypatch.setattr(wiki_service, "AGENTS_PATH", wiki_root / "AGENTS.md")
     monkeypatch.setattr(wiki_tools, "PAGES_ROOT", pages_dir)
+
+
+@pytest.fixture(scope="session", autouse=True)
+def default_agent_harness():
+    """Pin the settings-layer ``AGENT_HARNESS`` fallback to ``opencode``.
+
+    ``SessionEnvironment`` resolves ``AGENT_HARNESS`` project -> user ->
+    ``settings``. The settings value is read from the ambient environment at
+    import time, so a developer with ``AGENT_HARNESS=claude`` exported (or in
+    ``.env``) would silently flip every dispatch test to the Claude branch.
+    The env var is removed as well as the attribute being pinned, so the
+    ``importlib.reload(demetra.settings)`` calls in ``tests/test_settings.py``
+    re-derive the same default instead of leaking the ambient value into
+    every later test. Tests that exercise the Claude branch set it explicitly
+    on their own ``SessionEnvironment``.
+    """
+    settings_module = importlib.import_module("demetra.settings")
+
+    had_env_value = "AGENT_HARNESS" in os.environ
+    env_value = os.environ.pop("AGENT_HARNESS", None)
+    original_setting = settings_module.AGENT_HARNESS
+    settings_module.AGENT_HARNESS = "opencode"
+
+    yield
+
+    settings_module.AGENT_HARNESS = original_setting
+    if had_env_value and env_value is not None:
+        os.environ["AGENT_HARNESS"] = env_value
 
 
 @pytest.fixture(scope="session", autouse=True)
