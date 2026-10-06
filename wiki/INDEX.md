@@ -7,6 +7,8 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — The legacy `env: dict[str,str]` parameter is gone from `run_command`/`run_command_to_file` and every git/gh/quality/wiki/agent helper: each layer now takes `environment: SessionEnvironment`, and `SessionEnvironment.subprocess_env` assembles user-shared + project + derived LangSmith tracing vars in one place (no `extra` escape hatch). Layer order documented as a table, caller-side pre-merges dropped, review agents fixed (they were called without `environment`), and `get_optional` folded into the shared `env_get_str_from` / `env_get_bool_from` resolver family. (2026-10-06)
+- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — Session history now records intermediate step transitions (step + timestamp rows via `update_session_step(..., session_id=...)`) without a schema migration, and the frontend history UI shows localized clock times with full timestamps in tooltips. (2026-09-30)
 - [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. Not live yet: `OS_ENV_ALLOWLIST` drops the key before `opencode` starts and the plugin reads only `TRACE_TO_LANGSMITH`. (2026-09-28)
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
 - [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — Session log now autoscrolls to the latest records on new logs or session change (`LogConsole` `useEffect` on `taskId`+`logs` with `{ block: "end" }`); CSS smooth scroll off on `.log-content`; tests added. (2026-09-24)
@@ -139,23 +141,6 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
 - [Async review](pages/2026-05-25-async-review.md) — 2026-05-25
 
-### MCP / integrations (13 pages)
-
-- [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — 2026-09-16
-- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
-- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — 2026-09-08
-- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
-- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
-- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — 2026-08-19
-- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — 2026-08-09
-- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — 2026-08-07
-- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
-- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
-- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
-- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
-- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
-- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — 2026-09-30
-
 ### React frontend / UI (15 pages)
 
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — 2026-09-27
@@ -174,6 +159,23 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
+### MCP / integrations (14 pages)
+
+- [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — 2026-10-06
+- [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — 2026-09-16
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
+- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — 2026-09-08
+- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
+- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — 2026-08-19
+- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — 2026-08-09
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — 2026-08-07
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
+- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
+- [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
+- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
+- [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
+
 ### Linear & GitHub integrations (12 pages)
 
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
@@ -189,8 +191,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Remove ticket API](pages/2026-05-25-remove-ticket-api.md) — 2026-05-25
 - [Project model and space](pages/2026-03-31-project-model-and-space.md) — 2026-03-31
 
-### Sessions, status & resume (11 pages)
+### Sessions, status & resume (12 pages)
 
+- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — 2026-09-30
 - [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
 - [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — 2026-07-23
@@ -214,8 +217,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 - [Refactor API](pages/2026-06-01-refactor-api.md) — 2026-06-01
 
-### Deploy & infrastructure (7 pages)
+### Deploy & infrastructure (8 pages)
 
+- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — 2026-09-28
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
 
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24

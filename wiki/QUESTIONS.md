@@ -7,7 +7,13 @@ pages and moves the entry to **Resolved**.
 
 ## Open
 
-_None._
+### Q-002 — MAX_RUN_ATTEMPTS / MAX_PLAN_ATTEMPTS defaults dropped in settings refactor
+
+- **Date:** 2026-10-06
+- **Pages:** [[2026-06-08-max-run-attempts-for-a-ticket]], [[2026-06-02-plan-loop-resolve-questions]], [[2026-07-21-rich-markuperror-and-run-attempts]]
+- **Discrepancy:** [[2026-06-08-max-run-attempts-for-a-ticket]] and [[2026-07-21-rich-markuperror-and-run-attempts]] claim `MAX_RUN_ATTEMPTS` defaults to 5 (bumped 3→5 in `8ffc53b`, 2026-07-20); [[2026-06-02-plan-loop-resolve-questions]] claims `MAX_PLAN_ATTEMPTS` defaults to 30. Current `demetra/settings.py:46-48` reads `"run": env_get_int("MAX_RUN_ATTEMPTS", 3)` and `"plan": env_get_int("MAX_PLAN_ATTEMPTS", 10)` — commit `10ea543` (2026-09-28, "Refactor settings, cleanup repo") reset both when moving to the `MAX_ATTEMPTS` dict, with no recorded intent.
+- **Checked:** `git log -S 'MAX_RUN_ATTEMPTS'` (only `ab2f40a` default 3, `8ffc53b` 3→5, `10ea543` 5→3), `git log -S 'MAX_PLAN_ATTEMPTS'` (`74e8e3f` default 30, `10ea543` 30→10), current `demetra/settings.py:46-48`. Code archaeology confirms the reset happened but not whether it was intentional tuning or an accidental revert to pre-`8ffc53b` values.
+- **Answer:** _(human writes here)_
 
 _Newest first. Entry format:_
 

@@ -17,23 +17,22 @@ async def perform_git_merge(
     worktree_path: Path,
     head_branch: str,
     base_branch: str,
-    env: dict,
+    environment: SessionEnvironment | None = None,
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
-    environment: SessionEnvironment | None = None,
 ) -> bool:
     """
     Handles the Git merge process, including conflict resolution with opencode-merge-agent.
     """
     merge_cmd = [str(GIT["path"]), "merge", "-X", "theirs", f"origin/{base_branch}", "--no-edit"]
     exit_code, _, stderr = await run_command(
-        command=merge_cmd, target_path=worktree_path, env=env, project_id=project_id
+        command=merge_cmd, target_path=worktree_path, environment=environment, project_id=project_id
     )
 
     if exit_code == 0:
         pushed = await git_force_push(
-            target_path=worktree_path, branch_name=head_branch, env=env, project_id=project_id
+            target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project_id
         )
         if not pushed:
             logger.info(f"Nothing to push for branch {head_branch} — already up-to-date")
@@ -44,7 +43,7 @@ async def perform_git_merge(
                     full_name=full_name,
                     body=comment_body,
                     target_path=worktree_path,
-                    env=env,
+                    environment=environment,
                     project_id=project_id,
                 )
         else:
@@ -56,7 +55,11 @@ async def perform_git_merge(
     conflict_cmd = [str(GIT["path"]), "diff", "--name-only", "--diff-filter=U"]
     for attempt in range(MAX_ATTEMPTS["merge"]):
         _, conflict_files, _ = await run_command(
-            command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
+            command=conflict_cmd,
+            target_path=worktree_path,
+            disable_stdio=True,
+            environment=environment,
+            project_id=project_id,
         )
         conflicted_files = "\n- ".join([f.strip() for f in conflict_files.split("\n") if f.strip()])
         if not conflicted_files:
@@ -73,9 +76,8 @@ async def perform_git_merge(
         agent_exit, agent_out, agent_err = await opencode_merge_agent(
             target_path=worktree_path,
             task=task,
-            env=env,
-            project_id=project_id,
             environment=environment,
+            project_id=project_id,
         )
 
         if agent_exit != 0:
@@ -83,18 +85,24 @@ async def perform_git_merge(
             return False
 
     _, remaining, _ = await run_command(
-        command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
+        command=conflict_cmd,
+        target_path=worktree_path,
+        disable_stdio=True,
+        environment=environment,
+        project_id=project_id,
     )
     if remaining.strip():
         logger.error(f"Conflicts remain after {MAX_ATTEMPTS['merge']} resolution attempts: {remaining.strip()[:500]}")
         return False
 
-    has_staged = await git_add_all(target_path=worktree_path, env=env, project_id=project_id)
+    has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project_id)
     if has_staged:
         commit_cmd = [str(GIT["path"]), "commit", "--no-edit"]
-        await run_command(command=commit_cmd, target_path=worktree_path, env=env, project_id=project_id)
+        await run_command(command=commit_cmd, target_path=worktree_path, environment=environment, project_id=project_id)
 
-    pushed = await git_force_push(target_path=worktree_path, branch_name=head_branch, env=env, project_id=project_id)
+    pushed = await git_force_push(
+        target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project_id
+    )
     if not pushed:
         logger.info(f"Nothing to push for branch {head_branch} after conflict resolution — already up-to-date")
     else:

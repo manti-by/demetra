@@ -37,7 +37,7 @@ async def commit_and_push(context: Context) -> bool:
     print_message("Committing changes", style="heading")
 
     has_files = await git_add_all(
-        target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+        target_path=context.worktree_path, environment=context.environment, project_id=context.project.id
     )
     if not has_files:
         print_message("No files to commit, looping back to build agent", style="warning")
@@ -55,7 +55,7 @@ async def commit_and_push(context: Context) -> bool:
         wiki_error.__cause__ = e
     if wiki_error is None:
         if not await git_add_all(
-            target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+            target_path=context.worktree_path, environment=context.environment, project_id=context.project.id
         ):
             print_message("No files to commit after wiki page generation, looping back to build agent", style="warning")
             return False
@@ -69,7 +69,7 @@ async def commit_and_push(context: Context) -> bool:
     await git_commit(
         target_path=context.worktree_path,
         message=context.linear_task.full_title,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
 
@@ -77,7 +77,7 @@ async def commit_and_push(context: Context) -> bool:
     await git_push(
         target_path=context.worktree_path,
         branch_name=context.branch_name,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
 
@@ -101,7 +101,7 @@ async def commit_and_push(context: Context) -> bool:
         branch_name=context.branch_name,
         title=context.linear_task.full_title,
         body=pr_body,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
     if exit_code != 0:
@@ -122,7 +122,7 @@ async def commit_and_push(context: Context) -> bool:
             usage = await get_opencode_session_tokens(
                 target_path=context.worktree_path,
                 session_id=context.session_id,
-                env=context.project.environment,
+                environment=context.environment,
             )
             await record_session_step_history(
                 session_id=context.session_id,
@@ -167,7 +167,7 @@ async def cleanup_workflow(
                 usage = await get_opencode_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
-                    env=context.project.environment,
+                    environment=context.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,

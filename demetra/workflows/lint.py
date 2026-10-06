@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.persistence.database import update_session_step
 from demetra.services.quality.lint import run_ruff_checks, run_ruff_format
 from demetra.services.quality.test import run_pytests
@@ -9,7 +10,11 @@ from demetra.settings import FEATURES
 
 
 async def run_lint_and_test(
-    target_path: Path, session_id: str | None = None, task_id: str | None = None, env: dict[str, str] | None = None
+    target_path: Path,
+    *,
+    session_id: str | None = None,
+    task_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> tuple[bool, str | None]:
     """Run the optional ruff and pytest steps over a project directory.
 
@@ -22,22 +27,22 @@ async def run_lint_and_test(
         session_id: Optional opencode session id used to record step-only
             history rows alongside the session step updates.
         task_id: Optional task id used to update the session step.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
         tuple[bool, str | None]: Whether a step failed, and the failure
             output when one did.
     """
     if (
-        await is_package_installed(target_path=target_path, package_name="ruff", env=env)
+        await is_package_installed(target_path=target_path, package_name="ruff", environment=environment)
         and FEATURES["is_ruff_enabled"]
     ):
         print_message("Running RUFF linter", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="lint", session_id=session_id)
 
-        await run_ruff_format(target_path=target_path, env=env)
-        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, env=env)
+        await run_ruff_format(target_path=target_path, environment=environment)
+        ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, environment=environment)
         if ruff_exit_code:
             print_message("Processing RUFF comments", style="result")
             print_message(ruff_result, style="info")
@@ -46,14 +51,16 @@ async def run_lint_and_test(
             return True, ruff_result
 
     if (
-        await is_package_installed(target_path=target_path, package_name="pytest", env=env)
+        await is_package_installed(target_path=target_path, package_name="pytest", environment=environment)
         and FEATURES["is_pytest_enabled"]
     ):
         print_message("Running PYTESTs", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="test", session_id=session_id)
 
-        pytest_exit_code, pytest_result, _ = await run_pytests(target_path=target_path, session_id=session_id, env=env)
+        pytest_exit_code, pytest_result, _ = await run_pytests(
+            target_path=target_path, session_id=session_id, environment=environment
+        )
         if pytest_exit_code:
             print_message("Processing PYTEST errors", style="result")
             print_message(pytest_result, style="info")

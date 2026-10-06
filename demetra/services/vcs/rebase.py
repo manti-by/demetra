@@ -17,11 +17,10 @@ async def perform_git_rebase(
     worktree_path: Path,
     head_branch: str,
     base_branch: str,
-    env: dict,
+    environment: SessionEnvironment | None = None,
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
-    environment: SessionEnvironment | None = None,
 ) -> bool:
     """
     Handles the Git rebase process, including conflict resolution with opencode-rebase-agent.
@@ -30,12 +29,12 @@ async def perform_git_rebase(
     # onto (origin/{base_branch}) is "ours". -X ours keeps the base version on conflict.
     rebase_cmd = [str(GIT["path"]), "rebase", "-X", "ours", f"origin/{base_branch}"]
     exit_code, _, stderr = await run_command(
-        command=rebase_cmd, target_path=worktree_path, env=env, project_id=project_id
+        command=rebase_cmd, target_path=worktree_path, environment=environment, project_id=project_id
     )
 
     if exit_code == 0:
         pushed = await git_force_push(
-            target_path=worktree_path, branch_name=head_branch, env=env, project_id=project_id
+            target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project_id
         )
         if not pushed:
             logger.info(f"Nothing to push for branch {head_branch} \u2014 already up-to-date")
@@ -48,7 +47,7 @@ async def perform_git_rebase(
                     full_name=full_name,
                     body=comment_body,
                     target_path=worktree_path,
-                    env=env,
+                    environment=environment,
                     project_id=project_id,
                 )
         else:
@@ -60,7 +59,11 @@ async def perform_git_rebase(
     conflict_cmd = [str(GIT["path"]), "diff", "--name-only", "--diff-filter=U"]
     for attempt in range(MAX_ATTEMPTS["rebase"]):
         _, conflict_files, _ = await run_command(
-            command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
+            command=conflict_cmd,
+            target_path=worktree_path,
+            disable_stdio=True,
+            environment=environment,
+            project_id=project_id,
         )
         conflicted_files = "\n- ".join([f.strip() for f in conflict_files.split("\n") if f.strip()])
         if not conflicted_files:
@@ -77,32 +80,37 @@ async def perform_git_rebase(
         agent_exit, agent_out, agent_err = await opencode_rebase_agent(
             target_path=worktree_path,
             task=task,
-            env=env,
-            project_id=project_id,
             environment=environment,
+            project_id=project_id,
         )
 
         if agent_exit != 0:
             logger.error(f"Conflict resolution via rebase-agent failed: {(agent_err or agent_out).strip()[:500]}")
             return False
 
-        has_staged = await git_add_all(target_path=worktree_path, env=env, project_id=project_id)
+        has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project_id)
         if has_staged:
             continue_cmd = [str(GIT["path"]), "rebase", "--continue", "--no-edit"]
             continue_exit, _, continue_err = await run_command(
-                command=continue_cmd, target_path=worktree_path, env=env, project_id=project_id
+                command=continue_cmd, target_path=worktree_path, environment=environment, project_id=project_id
             )
             if continue_exit != 0:
                 logger.error(f"git rebase --continue failed: {continue_err.strip()[:500]}")
                 return False
 
     _, remaining, _ = await run_command(
-        command=conflict_cmd, target_path=worktree_path, disable_stdio=True, env=env, project_id=project_id
+        command=conflict_cmd,
+        target_path=worktree_path,
+        disable_stdio=True,
+        environment=environment,
+        project_id=project_id,
     )
     if remaining.strip():
         logger.error(f"Conflicts remain after {MAX_ATTEMPTS['rebase']} resolution attempts: {remaining.strip()[:500]}")
         return False
 
-    await git_force_push(target_path=worktree_path, branch_name=head_branch, env=env, project_id=project_id)
+    await git_force_push(
+        target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project_id
+    )
     logger.info(f"Successfully rebased and resolved conflicts for branch {head_branch}")
     return True

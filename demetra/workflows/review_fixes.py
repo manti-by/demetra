@@ -189,19 +189,22 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
     project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
     if project.user_id:
         project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
-        project.environment = {**project.user_environment, **project.environment}
 
     worktree_path = None
     fix_succeeded = False
     head_branch = ""
+    environment = None
     try:
         await setup_project_venv(project=project)
+        environment = SessionEnvironment(
+            project_environment=project.environment, user_environment=project.user_environment
+        )
 
         pr_info = await get_pr_info(
             pr_number=pr_number,
             full_name=full_name,
             target_path=project.local_path,
-            env=project.environment,
+            environment=environment,
             project_id=project.id,
         )
         if not pr_info:
@@ -209,20 +212,20 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
 
         head_branch, base_branch = pr_info
 
-        await git_fetch(target_path=project.local_path, env=project.environment, project_id=project.id)
+        await git_fetch(target_path=project.local_path, environment=environment, project_id=project.id)
 
         validate_ref(head_branch, "head branch")
         validate_ref(base_branch, "base branch")
 
         worktree_path = await git_worktree_create(
-            project=project, branch_name=head_branch, env=project.environment, create_branch=False
+            project=project, branch_name=head_branch, environment=environment, create_branch=False
         )
 
         threads = await get_unresolved_review_threads(
             pr_number=pr_number,
             full_name=full_name,
             target_path=worktree_path,
-            env=project.environment,
+            environment=environment,
             project_id=project.id,
         )
 
@@ -233,7 +236,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
                 full_name=full_name,
                 body="No unresolved review threads found — nothing to fix.",
                 target_path=worktree_path,
-                env=project.environment,
+                environment=environment,
                 project_id=project.id,
             )
             return True
@@ -251,21 +254,18 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
         exit_code, stdout, stderr = await opencode_review_fixes_agent(
             target_path=worktree_path,
             task=task,
-            env=project.environment,
             project_id=project.id,
-            environment=SessionEnvironment(
-                project_environment=project.environment, user_environment=project.user_environment
-            ),
+            environment=environment,
         )
         if exit_code != 0:
             logger.error(f"Review fixes agent failed: {(stderr or stdout).strip()[:500]}")
             return False
 
-        has_staged = await git_add_all(target_path=worktree_path, env=project.environment, project_id=project.id)
+        has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project.id)
         has_committed = False
         if not has_staged:
             has_committed = await git_has_unpushed_commits(
-                target_path=worktree_path, branch_name=head_branch, env=project.environment, project_id=project.id
+                target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project.id
             )
             if not has_committed:
                 logger.info(f"Review fixes agent made no changes for PR #{pr_number}")
@@ -274,7 +274,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
                     full_name=full_name,
                     body="Review fixes agent found no changes to apply for the unresolved threads.",
                     target_path=worktree_path,
-                    env=project.environment,
+                    environment=environment,
                     project_id=project.id,
                 )
                 return True
@@ -283,12 +283,12 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             await git_commit(
                 target_path=worktree_path,
                 message=f"fix: address review findings for PR #{pr_number}",
-                env=project.environment,
+                environment=environment,
                 project_id=project.id,
             )
 
         await git_force_push(
-            target_path=worktree_path, branch_name=head_branch, env=project.environment, project_id=project.id
+            target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project.id
         )
 
         comment_body = (
@@ -300,7 +300,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             full_name=full_name,
             body=comment_body,
             target_path=worktree_path,
-            env=project.environment,
+            environment=environment,
             project_id=project.id,
         )
 
@@ -326,7 +326,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
                 await git_worktree_remove(
                     target_path=project.local_path,
                     worktree_path=worktree_path,
-                    env=project.environment,
+                    environment=environment,
                     force=True,
                     project_id=project.id,
                 )

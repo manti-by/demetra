@@ -3,7 +3,7 @@ import re
 import shutil
 from pathlib import Path
 
-from demetra.library.models import Context, Project
+from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.runtime.tui import print_message
 from demetra.settings import GIT
@@ -44,14 +44,14 @@ def get_worktree_path(project: Project, branch_name: str) -> Path:
 
 
 async def git_branch_exists(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Return whether a local branch exists.
 
     Args:
         target_path: Directory of the main checkout to run git in.
         branch_name: The branch to look up.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -59,13 +59,13 @@ async def git_branch_exists(
     """
     command = [str(GIT["path"]), "show-ref", "--verify", f"refs/heads/{branch_name}"]
     exit_code, _, _ = await run_command(
-        command=command, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        command=command, target_path=target_path, disable_stdio=True, environment=environment, project_id=project_id
     )
     return exit_code == 0
 
 
 async def git_branch_has_unique_commits(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Return whether a local branch contains commits not on its remote or base.
 
@@ -77,32 +77,42 @@ async def git_branch_has_unique_commits(
     Args:
         target_path: Directory of the main checkout to run git in.
         branch_name: The branch to inspect.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         bool: True when the branch has unique commits that would be lost.
     """
-    if not await git_branch_exists(target_path=target_path, branch_name=branch_name, env=env, project_id=project_id):
+    if not await git_branch_exists(
+        target_path=target_path, branch_name=branch_name, environment=environment, project_id=project_id
+    ):
         return False
 
     # Prefer origin/<branch> as base when it exists
     remote_branch = f"origin/{branch_name}"
     remote_verify = [str(GIT["path"]), "show-ref", "--verify", f"refs/remotes/{remote_branch}"]
     remote_exit, _, _ = await run_command(
-        command=remote_verify, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        command=remote_verify,
+        target_path=target_path,
+        disable_stdio=True,
+        environment=environment,
+        project_id=project_id,
     )
     base = remote_branch if remote_exit == 0 else "origin/master"
     # If origin/master also missing, fall back to counting all commits on branch
     count_cmd = [str(GIT["path"]), "rev-list", "--count", f"{base}..{branch_name}"]
     count_exit, stdout, _ = await run_command(
-        command=count_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        command=count_cmd, target_path=target_path, disable_stdio=True, environment=environment, project_id=project_id
     )
     if count_exit != 0:
         # If base doesn't exist, count commits on branch directly
         fallback_cmd = [str(GIT["path"]), "rev-list", "--count", branch_name]
         fallback_exit, fallback_out, _ = await run_command(
-            command=fallback_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+            command=fallback_cmd,
+            target_path=target_path,
+            disable_stdio=True,
+            environment=environment,
+            project_id=project_id,
         )
         if fallback_exit == 0:
             try:
@@ -117,30 +127,32 @@ async def git_branch_has_unique_commits(
 
 
 async def git_delete_branch_preserving_unique(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Delete a local branch unless it holds commits that would be lost.
 
     Args:
         target_path: Directory of the main checkout to run git in.
         branch_name: The branch to delete.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         bool: True when the branch was preserved, False when it was deleted.
     """
     if await git_branch_has_unique_commits(
-        target_path=target_path, branch_name=branch_name, env=env, project_id=project_id
+        target_path=target_path, branch_name=branch_name, environment=environment, project_id=project_id
     ):
         logger.warning(f"Preserving branch {branch_name} with unique commits; skipping force-delete")
         return True
-    await git_branch_delete(target_path=target_path, branch_name=branch_name, env=env, project_id=project_id)
+    await git_branch_delete(
+        target_path=target_path, branch_name=branch_name, environment=environment, project_id=project_id
+    )
     return False
 
 
 async def git_worktree_create(
-    project: Project, branch_name: str, env: dict[str, str] | None = None, create_branch: bool = True
+    project: Project, branch_name: str, environment: SessionEnvironment | None = None, create_branch: bool = True
 ) -> Path:
     """Create a git worktree for a branch, cleaning up any stale worktree first.
 
@@ -152,7 +164,7 @@ async def git_worktree_create(
     Args:
         project: The project to operate on.
         branch_name: The branch to check out in the worktree.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         create_branch: Whether to create the branch with the worktree.
 
     Returns:
@@ -166,12 +178,16 @@ async def git_worktree_create(
         git_file = worktree_path / ".git"
         if git_file.exists() and git_file.is_file():
             await git_worktree_remove(
-                target_path=project.local_path, worktree_path=worktree_path, force=True, env=env, project_id=project.id
+                target_path=project.local_path,
+                worktree_path=worktree_path,
+                force=True,
+                environment=environment,
+                project_id=project.id,
             )
         else:
             shutil.rmtree(worktree_path)
         await git_delete_branch_preserving_unique(
-            target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+            target_path=project.local_path, branch_name=branch_name, environment=environment, project_id=project.id
         )
 
     worktree_path.parent.mkdir(parents=True, exist_ok=True)
@@ -180,9 +196,9 @@ async def git_worktree_create(
         # If a previous run orphaned the branch (e.g. research success leaves the
         # local branch), the worktree path no longer exists so the stale-branch
         # cleanup above did not run. Delete it unless it holds unique commits.
-        if await git_branch_exists(target_path=project.local_path, branch_name=branch_name, env=env):
+        if await git_branch_exists(target_path=project.local_path, branch_name=branch_name, environment=environment):
             branch_preserved = await git_delete_branch_preserving_unique(
-                target_path=project.local_path, branch_name=branch_name, env=env, project_id=project.id
+                target_path=project.local_path, branch_name=branch_name, environment=environment, project_id=project.id
             )
         else:
             branch_preserved = False
@@ -193,14 +209,14 @@ async def git_worktree_create(
     else:
         branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
         branch_exit, _, branch_err = await run_command(
-            command=branch_cmd, target_path=project.local_path, env=env, project_id=project.id
+            command=branch_cmd, target_path=project.local_path, environment=environment, project_id=project.id
         )
         if branch_exit != 0:
             raise RuntimeError(f"Failed to create branch {branch_name}: {branch_err.strip() or 'unknown error'}")
         command = [str(GIT["path"]), "worktree", "add", str(worktree_path), branch_name]
 
     exit_code, _, stderr = await run_command(
-        command=command, target_path=project.local_path, env=env, project_id=project.id
+        command=command, target_path=project.local_path, environment=environment, project_id=project.id
     )
     if exit_code != 0:
         raise RuntimeError(f"Failed to create worktree at {worktree_path}: {stderr.strip() or 'unknown error'}")
@@ -212,7 +228,7 @@ async def git_worktree_remove(
     target_path: Path,
     worktree_path: Path,
     force: bool = False,
-    env: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> None:
     """Remove a git worktree, optionally forcing removal.
@@ -221,7 +237,7 @@ async def git_worktree_remove(
         target_path: Directory of the main checkout to run git in.
         worktree_path: Path of the worktree to remove.
         force: Whether to pass ``--force`` to git.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Raises:
@@ -230,41 +246,45 @@ async def git_worktree_remove(
     command = [str(GIT["path"]), "worktree", "remove", str(worktree_path)]
     if force:
         command.append("--force")
-    exit_code, _, stderr = await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    exit_code, _, stderr = await run_command(
+        command=command, target_path=target_path, environment=environment, project_id=project_id
+    )
     if exit_code != 0:
         raise RuntimeError(f"Failed to remove worktree {worktree_path}: {stderr.strip() or 'unknown error'}")
 
 
-async def git_add_all(target_path: Path, env: dict[str, str] | None = None, project_id: str | None = None) -> bool:
+async def git_add_all(
+    target_path: Path, environment: SessionEnvironment | None = None, project_id: str | None = None
+) -> bool:
     """Stage all changes in a directory and report whether anything was staged.
 
     Args:
         target_path: Directory of the git repository.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
         bool: True when at least one file was staged.
     """
     command = [str(GIT["path"]), "add", "."]
-    await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    await run_command(command=command, target_path=target_path, environment=environment, project_id=project_id)
 
     diff_cmd = [str(GIT["path"]), "diff", "--staged", "--name-only"]
     _, stdout, _ = await run_command(
-        command=diff_cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        command=diff_cmd, target_path=target_path, disable_stdio=True, environment=environment, project_id=project_id
     )
     return bool(stdout.strip())
 
 
 async def git_commit(
-    target_path: Path, message: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, message: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> None:
     """Commit the staged changes with the given message.
 
     Args:
         target_path: Directory of the git repository.
         message: The commit message.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Raises:
@@ -272,7 +292,7 @@ async def git_commit(
     """
     command = [str(GIT["path"]), "commit", "-m", message]
     exit_code, stdout, stderr = await run_command(
-        command=command, target_path=target_path, env=env, project_id=project_id
+        command=command, target_path=target_path, environment=environment, project_id=project_id
     )
     if exit_code != 0:
         raise RuntimeError(f"Commit failed: {stderr.strip() or stdout.strip() or 'unknown error'}")
@@ -281,7 +301,7 @@ async def git_commit(
 async def git_pull(
     target_path: Path,
     branch_name: str = "master",
-    env: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> None:
     """Pull updates for a branch from the origin remote.
@@ -289,22 +309,22 @@ async def git_pull(
     Args:
         target_path: Directory of the git repository.
         branch_name: The remote branch to pull, defaulting to ``"master"``.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
     """
     command = [str(GIT["path"]), "pull", "origin", branch_name]
-    await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    await run_command(command=command, target_path=target_path, environment=environment, project_id=project_id)
 
 
 async def git_push(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> None:
     """Push a branch to origin, setting its upstream tracking.
 
     Args:
         target_path: Directory of the git repository.
         branch_name: The branch to push.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Raises:
@@ -312,68 +332,72 @@ async def git_push(
     """
     command = [str(GIT["path"]), "push", "--set-upstream", "origin", branch_name]
     exit_code, stdout, stderr = await run_command(
-        command=command, target_path=target_path, env=env, project_id=project_id
+        command=command, target_path=target_path, environment=environment, project_id=project_id
     )
     if exit_code != 0:
         raise RuntimeError(f"Push failed: {stderr.strip() or stdout.strip() or 'unknown error'}")
 
 
 async def git_branch_delete(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> None:
     """Force-delete a local branch.
 
     Args:
         target_path: Directory of the git repository.
         branch_name: The branch to delete.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
     """
     command = [str(GIT["path"]), "branch", "-D", branch_name]
-    await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    await run_command(command=command, target_path=target_path, environment=environment, project_id=project_id)
 
 
-async def git_fetch(target_path: Path, env: dict[str, str] | None = None, project_id: str | None = None) -> None:
+async def git_fetch(
+    target_path: Path, environment: SessionEnvironment | None = None, project_id: str | None = None
+) -> None:
     """Fetch updates from all configured remotes.
 
     Args:
         target_path: Directory of the git repository.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Raises:
         RuntimeError: When the fetch fails.
     """
     command = [str(GIT["path"]), "fetch", "--all"]
-    exit_code, _, stderr = await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    exit_code, _, stderr = await run_command(
+        command=command, target_path=target_path, environment=environment, project_id=project_id
+    )
     if exit_code != 0:
         raise RuntimeError(f"Fetch failed: {stderr.strip()}")
 
 
 async def git_checkout(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> None:
     """Check out a branch in a repository.
 
     Args:
         target_path: Directory of the git repository.
         branch_name: The branch to check out.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
     """
     command = [str(GIT["path"]), "checkout", branch_name]
-    await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    await run_command(command=command, target_path=target_path, environment=environment, project_id=project_id)
 
 
 async def git_rebase(
-    target_path: Path, base_branch: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, base_branch: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Rebase the current branch onto a remote base branch, preferring theirs.
 
     Args:
         target_path: Directory of the git repository.
         base_branch: The remote base branch to rebase onto.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -383,21 +407,23 @@ async def git_rebase(
         RuntimeError: When the rebase fails.
     """
     command = [str(GIT["path"]), "rebase", "-X", "theirs", f"origin/{base_branch}"]
-    exit_code, _, stderr = await run_command(command=command, target_path=target_path, env=env, project_id=project_id)
+    exit_code, _, stderr = await run_command(
+        command=command, target_path=target_path, environment=environment, project_id=project_id
+    )
     if exit_code == 0:
         return True
     raise RuntimeError(f"Rebase failed: {stderr.strip()}")
 
 
 async def git_has_unpushed_commits(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Return whether the branch has local commits not on the remote.
 
     Args:
         target_path: Directory of the git repository.
         branch_name: The branch to compare against its remote tracking branch.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -408,7 +434,7 @@ async def git_has_unpushed_commits(
     """
     cmd = [str(GIT["path"]), "rev-list", "--count", f"origin/{branch_name}..HEAD"]
     exit_code, stdout, stderr = await run_command(
-        command=cmd, target_path=target_path, disable_stdio=True, env=env, project_id=project_id
+        command=cmd, target_path=target_path, disable_stdio=True, environment=environment, project_id=project_id
     )
     if exit_code != 0:
         raise RuntimeError(f"Failed to check unpushed commits for {branch_name}: {stderr.strip() or 'unknown error'}")
@@ -419,14 +445,14 @@ async def git_has_unpushed_commits(
 
 
 async def git_force_push(
-    target_path: Path, branch_name: str, env: dict[str, str] | None = None, project_id: str | None = None
+    target_path: Path, branch_name: str, environment: SessionEnvironment | None = None, project_id: str | None = None
 ) -> bool:
     """Force-push a branch with lease protection.
 
     Args:
         target_path: Directory of the git repository.
         branch_name: The branch to push.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -438,7 +464,7 @@ async def git_force_push(
     """
     command = [str(GIT["path"]), "push", "--force-with-lease", "origin", branch_name]
     exit_code, stdout, stderr = await run_command(
-        command=command, target_path=target_path, env=env, project_id=project_id
+        command=command, target_path=target_path, environment=environment, project_id=project_id
     )
     if exit_code != 0:
         raise RuntimeError(f"Force push failed: {stderr.strip()}")
@@ -462,7 +488,7 @@ async def git_cleanup(context: Context, is_success: bool):
     if context.is_research:
         return
 
-    env = context.project.environment
+    environment = context.environment
     project_id = context.project.id
     try:
         print_message("Removing worktree", style="heading")
@@ -470,7 +496,7 @@ async def git_cleanup(context: Context, is_success: bool):
             target_path=context.project.local_path,
             worktree_path=context.worktree_path,
             force=(not is_success),
-            env=env,
+            environment=environment,
             project_id=project_id,
         )
     except (OSError, RuntimeError, AttributeError):
@@ -482,7 +508,10 @@ async def git_cleanup(context: Context, is_success: bool):
     try:
         print_message("Deleting branch", style="heading")
         await git_branch_delete(
-            target_path=context.project.local_path, branch_name=context.branch_name, env=env, project_id=project_id
+            target_path=context.project.local_path,
+            branch_name=context.branch_name,
+            environment=environment,
+            project_id=project_id,
         )
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to delete branch", style="error")

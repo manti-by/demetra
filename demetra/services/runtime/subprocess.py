@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from demetra.library.constants import OS_ENV_ALLOWLIST
+from demetra.library.models import SessionEnvironment
 from demetra.services.runtime.utils import live_stream
 from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_TIMEOUT
 
@@ -29,40 +30,42 @@ def filter_os_env(project_id: str | None = None) -> dict[str, str]:
 
 
 def build_subprocess_env(
-    extra: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
     *,
     project_id: str | None = None,
-    user_environment: dict[str, str] | None = None,
-    project_environment: dict[str, str] | None = None,
     target_path: Path | None = None,
 ) -> dict[str, str]:
-    """Build the environment for a subprocess from the three env layers.
+    """Build the environment for a subprocess from the env layers.
 
-    The layers are merged in order OS (allowlisted) → user-shared → project,
-    so project overrides user-shared on key conflict. Per-step ``extra``
-    overrides sit on top of all three layers. This is the single place where
-    the subprocess environment is assembled.
+    The layers are merged in order OS (allowlisted) → the session environment
+    (:attr:`SessionEnvironment.subprocess_env`, itself user-shared → project →
+    derived tracing vars), so project overrides user-shared on key conflict.
+    This is the single place where the subprocess environment is assembled.
+
+    The derived tracing vars are always present in
+    :attr:`SessionEnvironment.subprocess_env` and therefore win over the OS
+    layer, so a project that opted a ``LANGSMITH_*`` key in via
+    ``OS_ENV_PROJECT_OPTINS`` would have it overridden here. That is intended:
+    the tracing flags have to stay internally consistent, and a half-configured
+    ``LANGSMITH_TRACING`` without a key is worse than tracing being off.
 
     Args:
-        extra: Per-step overrides merged last (highest precedence).
+        environment: The resolved session environment. When omitted only the OS
+            allowlist layer is used.
         project_id: Optional project id used for OS env opt-in tokens.
-        user_environment: Pre-resolved user-shared env mapping; when omitted
-            the OS allowlist layer is used as-is.
-        project_environment: Pre-resolved project env mapping.
         target_path: The working directory; sets ``PWD`` when given.
 
     Returns:
         dict[str, str]: The merged environment.
     """
     merged_env = filter_os_env(project_id=project_id)
-    if user_environment is not None:
-        merged_env.update(user_environment)
-    if project_environment is not None:
-        merged_env.update(project_environment)
-    if extra:
-        merged_env.update(extra)
+
+    if environment is not None:
+        merged_env.update(environment.subprocess_env)
+
     if target_path is not None:
         merged_env["PWD"] = str(target_path)
+
     return merged_env
 
 
@@ -91,7 +94,7 @@ async def run_command(
     command: list,
     target_path: Path,
     disable_stdio: bool = False,
-    env: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
     input_text: str | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
     project_id: str | None = None,
@@ -108,8 +111,8 @@ async def run_command(
         command: The command to run as a list of arguments.
         target_path: The working directory for the process.
         disable_stdio: Whether to suppress live output to stdout.
-        env: Optional per-step environment overrides merged on top of the
-            three-layer merged environment.
+        environment: The resolved session environment; its subprocess layers
+            (user-shared, project and derived tracing vars) are forwarded.
         input_text: Optional text to pipe to the process on stdin.
         timeout: Timeout in seconds; on expiry the process is killed and exit
             code -1 is returned.
@@ -120,7 +123,7 @@ async def run_command(
         tuple[int, str, str]: Exit code, stdout and stderr.
     """
     merged_env = build_subprocess_env(
-        extra=env,
+        environment=environment,
         project_id=project_id,
         target_path=target_path,
     )
@@ -165,7 +168,7 @@ async def run_command_to_file(
     command: list,
     target_path: Path,
     disable_stdio: bool = False,
-    env: dict[str, str] | None = None,
+    environment: SessionEnvironment | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
     project_id: str | None = None,
 ) -> tuple[int, str, str]:
@@ -180,8 +183,8 @@ async def run_command_to_file(
         command: The command to run as a list of arguments.
         target_path: The working directory for the process.
         disable_stdio: Whether to suppress live stderr output.
-        env: Optional per-step environment overrides merged on top of the
-            three-layer merged environment.
+        environment: The resolved session environment; its subprocess layers
+            (user-shared, project and derived tracing vars) are forwarded.
         timeout: Timeout in seconds; on expiry the process is killed.
         project_id: Optional project id whose OS opt-ins are merged into the
             subprocess environment.
@@ -190,7 +193,7 @@ async def run_command_to_file(
         tuple[int, str, str]: Exit code, stdout and stderr.
     """
     merged_env = build_subprocess_env(
-        extra=env,
+        environment=environment,
         project_id=project_id,
         target_path=target_path,
     )

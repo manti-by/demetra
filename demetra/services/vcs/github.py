@@ -8,6 +8,7 @@ from urllib.parse import urlparse
 import aiohttp
 
 from demetra.library import MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
+from demetra.library.models import SessionEnvironment
 from demetra.services.persistence.database import get_session_by_pr_link
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.subprocess import run_command
@@ -66,7 +67,7 @@ async def get_pr_info(
     pr_number: int,
     full_name: str,
     target_path: Path,
-    env: dict,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> tuple[str, str] | None:
     """Fetch the head and base branch names of a pull request.
@@ -75,7 +76,7 @@ async def get_pr_info(
         pr_number: The pull request number.
         full_name: The repository full name, e.g. ``"owner/repo"``.
         target_path: Directory to run the GitHub CLI in.
-        env: Environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -93,7 +94,7 @@ async def get_pr_info(
         full_name,
     ]
     exit_code, stdout, stderr = await run_command(
-        command=pr_cmd, target_path=target_path, env=env, project_id=project_id
+        command=pr_cmd, target_path=target_path, environment=environment, project_id=project_id
     )
     if exit_code != 0:
         logger.error(f"Failed to get PR info for PR #{pr_number}: {stderr.strip()}")
@@ -111,7 +112,7 @@ async def get_unresolved_review_threads(
     pr_number: int,
     full_name: str,
     target_path: Path,
-    env: dict,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> list[dict]:
     """Fetch unresolved review threads for a pull request via the GitHub CLI.
@@ -128,7 +129,7 @@ async def get_unresolved_review_threads(
         pr_number: The pull request number.
         full_name: The repository full name, e.g. ``"owner/repo"``.
         target_path: Directory to run the GitHub CLI in.
-        env: Environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -162,7 +163,7 @@ async def get_unresolved_review_threads(
         f"pr={pr_number}",
     ]
     exit_code, stdout, stderr = await run_command(
-        command=command, target_path=target_path, env=env, project_id=project_id, disable_stdio=True
+        command=command, target_path=target_path, environment=environment, project_id=project_id, disable_stdio=True
     )
     if exit_code != 0:
         raise RuntimeError(f"Failed to fetch review threads for PR #{pr_number}: {stderr.strip()[:500]}")
@@ -233,7 +234,7 @@ async def create_pull_request(
     title: str,
     base: str = "master",
     body: str | None = None,
-    env: dict | None = None,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Create a pull request for a branch using the GitHub CLI.
@@ -244,7 +245,7 @@ async def create_pull_request(
         title: The pull request title.
         base: The base branch, defaulting to ``"master"``.
         body: Optional pull request body.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -267,7 +268,7 @@ async def create_pull_request(
     ]
     if body:
         cmd.extend(["--body", body])
-    return await run_command(command=cmd, target_path=target_path, env=env, project_id=project_id)
+    return await run_command(command=cmd, target_path=target_path, environment=environment, project_id=project_id)
 
 
 async def pr_comment(
@@ -275,7 +276,7 @@ async def pr_comment(
     full_name: str,
     body: str,
     target_path: Path,
-    env: dict,
+    environment: SessionEnvironment | None = None,
     project_id: str | None = None,
 ) -> bool:
     """Post a comment on a GitHub pull request using the GitHub CLI.
@@ -285,7 +286,7 @@ async def pr_comment(
         full_name: The repository full name, e.g. ``"owner/repo"``.
         body: The comment body.
         target_path: Directory to run the GitHub CLI in.
-        env: Environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
         project_id: Optional project id used for OS env opt-in tokens.
 
     Returns:
@@ -301,7 +302,9 @@ async def pr_comment(
         "-R",
         full_name,
     ]
-    exit_code, _, stderr = await run_command(command=cmd, target_path=target_path, env=env, project_id=project_id)
+    exit_code, _, stderr = await run_command(
+        command=cmd, target_path=target_path, environment=environment, project_id=project_id
+    )
     if exit_code != 0:
         logger.error(f"Failed to comment on PR #{pr_number}: {stderr.strip()[:500]}")
         return False

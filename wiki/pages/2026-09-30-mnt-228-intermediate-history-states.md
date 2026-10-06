@@ -98,4 +98,7 @@ Here is the summary of the implementation plan:
 
 ## References
 
+- Related: [[2026-07-23-session-history-modal]]
+- Related: [[2026-08-25-mnt-181-total-tokens-counter]]
+- Related: [[2026-07-23-session-tokens-audit-revalidation]]
 - External: https://linear.app/mnt/issue/MNT-228/intermediate-history-states

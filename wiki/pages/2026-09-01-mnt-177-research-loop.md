@@ -29,6 +29,7 @@ related:
 - 2026-09-02-review-findings-cleanup.md
 - 2026-09-14-opencode-agent-prompts-hardening.md
 - 2026-09-10-mnt-200-update-research-loop.md
+- 2026-09-11-mnt-203-create-related-ticket-for-research.md
 ---
 # MNT-177 research loop — research agent, workflow and settings
 
@@ -91,10 +92,20 @@ if is_research_ticket(context=context):
 > **Consistency note (2026-09-02):** `opencode_research_agent` gained `project_id` param and label check split into `is_research_task(linear_task)` / `is_research_ticket(context)` (`demetra/workflows/research.py`).
 
 > **Consistency note (2026-09-15, Consistency Agent):** Post-research step `awaiting_input` superseded by [[2026-09-10-mnt-200-update-research-loop]] — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
+>
+> **Consistency note (2026-10-06, Consistency Agent):** the 2026-09-15 note above is
+> itself superseded by [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+> (`14d0d02`, MNT-203): the research flow no longer posts the report as a Linear
+> comment — it persists `sessions.research_report`, creates a *related* ticket
+> (`_create_research_ticket`), and moves the source ticket back to
+> `awaiting_input` (`demetra/workflows/research.py:139-171,233-238`,
+> `:199`). The `researched` `StepType` (`models.py:27`) and navy badge CSS remain
+> but no workflow writes `step="researched"` — the only writers are
+> `step="research"` (`:92`) and `step="awaiting_input"` (`:199`).
 
 ## References
 
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]]
+- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
 - External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop)
 
 > **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related`.

@@ -31,7 +31,6 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
         target_path=context.worktree_path,
         task=task,
         task_title=f"{context.linear_task.full_title} - resolve",
-        env=context.project.environment,
         project_id=context.project.id,
         environment=context.environment,
     )
