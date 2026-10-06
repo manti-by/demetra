@@ -1,12 +1,10 @@
-import asyncio
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_review_agent
+from demetra.services.agents import harness
 from demetra.services.llm.openrouter import summarize_review
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
-from demetra.settings import OPENCODE
 
 
 def filter_meaningful_reviews(findings: list[str]) -> list[str]:
@@ -51,12 +49,12 @@ async def run_review_agents(
     """
     print_message("Running REVIEW agents", style="heading")
 
-    review_agents = []
-    for model in OPENCODE["review_models"]:
-        review_agents.append(
-            opencode_review_agent(target_path=target_path, model=model, env=env, project_id=project_id)
-        )
-    results = await asyncio.gather(*review_agents)
+    results = await harness.review_agents(
+        target_path=target_path,
+        env=env,
+        project_id=project_id,
+        environment=environment,
+    )
 
     parts = []
     for _, stdout, _ in results:

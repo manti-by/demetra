@@ -17,6 +17,21 @@ OPENCODE_SETTINGS: dict = {
     "review_models": ["settings/review-1", "settings/review-2"],
 }
 
+CLAUDE_SETTINGS: dict = {
+    "path": Path("/bin/claude"),
+    "plan_model": "settings/claude-plan",
+    "plan_effort": "medium",
+    "build_model": "settings/claude-build",
+    "build_effort": None,
+    "resolve_model": "settings/claude-resolve",
+    "resolve_effort": "xhigh",
+    "validate_model": "settings/claude-validate",
+    "validate_effort": None,
+    "research_model": "settings/claude-research",
+    "research_effort": "high",
+    "review_models": ["opus:xhigh"],
+}
+
 OPENROUTER_SETTINGS: dict = {
     "api_key": "settings-key",
     "model": "settings/model",
@@ -50,6 +65,10 @@ def _make_project(local_path: Path) -> Project:
 def settings_defaults():
     with (
         patch("demetra.settings.OPENCODE", OPENCODE_SETTINGS),
+        patch("demetra.settings.CLAUDE", CLAUDE_SETTINGS),
+        patch("demetra.settings.AGENT_HARNESS", "opencode"),
+        patch("demetra.settings.CLAUDE_DEFAULT_MAX_BUDGET_USD", 5.0),
+        patch("demetra.settings.CLAUDE_MAX_BUDGET_USD", {"plan": 5.0, "build": 15.0, "review": 5.0}),
         patch("demetra.settings.OPENROUTER", OPENROUTER_SETTINGS),
         patch("demetra.settings.LINEAR", LINEAR_SETTINGS),
     ):
@@ -221,3 +240,183 @@ class TestContextEnvironment:
         )
 
         assert context.environment is context.environment
+
+
+class TestSessionEnvironmentAgentHarness:
+    def test_project_value_wins_over_user_and_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"AGENT_HARNESS": "claude"},
+            user_environment={"AGENT_HARNESS": "opencode"},
+        )
+
+        assert environment.agent_harness == "claude"
+
+    def test_user_value_wins_over_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={"AGENT_HARNESS": "claude"})
+
+        assert environment.agent_harness == "claude"
+
+    def test_falls_back_to_settings_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.agent_harness == "opencode"
+
+    def test_invalid_value_raises(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"AGENT_HARNESS": "bogus"}, user_environment={})
+
+        with pytest.raises(EnvironmentConfigError, match="AGENT_HARNESS"):
+            _ = environment.agent_harness
+
+
+class TestSessionEnvironmentClaudeModels:
+    @pytest.mark.parametrize(
+        ("property_name", "settings_value"),
+        [
+            ("claude_plan_model", "settings/claude-plan"),
+            ("claude_build_model", "settings/claude-build"),
+            ("claude_resolve_model", "settings/claude-resolve"),
+            ("claude_validate_model", "settings/claude-validate"),
+            ("claude_research_model", "settings/claude-research"),
+        ],
+    )
+    def test_claude_models_fall_back_to_settings(self, settings_defaults, property_name, settings_value):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert getattr(environment, property_name) == settings_value
+
+    def test_claude_build_model_resolves_project_over_user_over_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"CLAUDE_BUILD_MODEL": "project/build"},
+            user_environment={"CLAUDE_BUILD_MODEL": "user/build"},
+        )
+
+        assert environment.claude_build_model == "project/build"
+
+    def test_claude_plan_model_resolves_user_over_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={"CLAUDE_PLAN_MODEL": "user/plan"})
+
+        assert environment.claude_plan_model == "user/plan"
+
+    def test_claude_effort_falls_back_to_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.claude_effort("plan") == "medium"
+        assert environment.claude_effort("resolve") == "xhigh"
+
+    def test_claude_effort_project_override_wins(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"CLAUDE_PLAN_EFFORT": "low"}, user_environment={})
+
+        assert environment.claude_effort("plan") == "low"
+
+    def test_claude_effort_returns_none_when_unset_anywhere(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.claude_effort("build") is None
+
+    def test_claude_effort_never_raises(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        # "unknown" has no settings default and no override in any layer;
+        # claude_effort must swallow the EnvironmentConfigError and return None.
+        assert environment.claude_effort("unknown") is None
+
+
+class TestSessionEnvironmentClaudeBudget:
+    def test_per_agent_override_wins(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"CLAUDE_PLAN_MAX_BUDGET_USD": "9.5"}, user_environment={})
+
+        assert environment.claude_max_budget_usd("plan") == 9.5
+
+    def test_falls_back_to_global_default_when_no_per_agent_override(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        # "validate" has no per-agent settings entry in CLAUDE_MAX_BUDGET_USD.
+        assert environment.claude_max_budget_usd("validate") == 5.0
+
+    def test_falls_back_to_settings_per_agent_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.claude_max_budget_usd("build") == 15.0
+
+    def test_project_global_override_beats_settings_per_agent_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"CLAUDE_MAX_BUDGET_USD": "20"}, user_environment={})
+
+        assert environment.claude_max_budget_usd("build") == 20.0
+
+    def test_user_global_override_beats_settings_per_agent_default(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={"CLAUDE_MAX_BUDGET_USD": "7"})
+
+        assert environment.claude_max_budget_usd("plan") == 7.0
+
+    def test_per_agent_override_beats_global_override(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"CLAUDE_MAX_BUDGET_USD": "20", "CLAUDE_BUILD_MAX_BUDGET_USD": "2"},
+            user_environment={},
+        )
+
+        assert environment.claude_max_budget_usd("build") == 2.0
+
+    def test_non_numeric_value_raises(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"CLAUDE_PLAN_MAX_BUDGET_USD": "not-a-number"}, user_environment={}
+        )
+
+        with pytest.raises(EnvironmentConfigError, match="CLAUDE_PLAN_MAX_BUDGET_USD"):
+            environment.claude_max_budget_usd("plan")
+
+
+class TestSessionEnvironmentReviewModels:
+    def test_opencode_review_models_fall_back_to_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        models = environment.review_models
+        assert [m.model for m in models] == OPENCODE_SETTINGS["review_models"]
+        assert all(m.effort is None for m in models)
+
+    def test_opencode_review_models_are_project_overridable(self, settings_defaults):
+        """OPENCODE_REVIEW_MODELS previously bypassed SessionEnvironment entirely
+        (review.py read OPENCODE["review_models"] straight from settings); this
+        proves the gap is closed."""
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "custom/model-a,custom/model-b"},
+            user_environment={},
+        )
+
+        models = environment.review_models
+        assert [m.model for m in models] == ["custom/model-a", "custom/model-b"]
+
+    def test_claude_review_models_fall_back_to_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"AGENT_HARNESS": "claude"}, user_environment={})
+
+        models = environment.review_models
+        assert models == [type(models[0])(model="opus", effort="xhigh")]
+
+    def test_claude_review_models_parse_model_and_effort(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"AGENT_HARNESS": "claude", "CLAUDE_REVIEW_MODELS": "opus:xhigh,sonnet"},
+            user_environment={},
+        )
+
+        models = environment.review_models
+        assert [(m.model, m.effort) for m in models] == [("opus", "xhigh"), ("sonnet", None)]
+
+    def test_claude_review_models_invalid_effort_raises(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"AGENT_HARNESS": "claude", "CLAUDE_REVIEW_MODELS": "opus:not-a-level"},
+            user_environment={},
+        )
+
+        with pytest.raises(EnvironmentConfigError, match="not-a-level"):
+            _ = environment.review_models
+
+
+class TestSessionEnvironmentAgentModel:
+    def test_agent_model_opencode(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.agent_model("plan") == "settings/plan"
+
+    def test_agent_model_claude(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={"AGENT_HARNESS": "claude"}, user_environment={})
+
+        assert environment.agent_model("plan") == "settings/claude-plan"

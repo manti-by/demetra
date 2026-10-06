@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from demetra.library.constants import RESEARCH_HEADER_STRING
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
@@ -13,16 +14,7 @@ from demetra.library.exceptions import (
     LinearError,
     PlanError,
 )
-from demetra.library.models import (
-    Context,
-    LinearTask,
-    Project,
-    Session,
-    SessionEnvironment,
-    SessionHistory,
-    TokenUsage,
-)
-from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
+from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment, SessionHistory, TokenUsage
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import (
     PullRequestError,
@@ -180,7 +172,7 @@ class TestWorkflowSetup:
 class TestWorkflowPlan:
     @pytest.fixture
     def mock_plan_agent(self):
-        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.plan_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -200,7 +192,7 @@ class TestWorkflowPlan:
 
     @pytest.fixture
     def mock_get_opencode_session_id(self):
-        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.get_session_id", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture(autouse=True)
@@ -361,9 +353,7 @@ class TestWorkflowPlan:
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
             mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-                session_id=context.session_id,
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
             )
 
     @pytest.mark.asyncio
@@ -422,9 +412,7 @@ class TestWorkflowPlan:
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
             mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-                session_id=context.session_id,
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
             )
 
     @pytest.mark.asyncio
@@ -483,16 +471,14 @@ class TestWorkflowPlan:
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
             mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-                session_id=context.session_id,
+                task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
             )
 
 
 class TestWorkflowResolve:
     @pytest.fixture
     def mock_resolve_agent(self):
-        with patch("demetra.workflows.resolve.opencode_resolve_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.resolve_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -608,7 +594,7 @@ class TestWorkflowResolve:
 class TestWorkflowPlanLoop:
     @pytest.fixture
     def mock_plan_agent(self):
-        with patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.plan_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -633,7 +619,7 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_get_opencode_session_id(self):
-        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.get_session_id", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -964,16 +950,14 @@ class TestWorkflowPlanLoop:
             await run_plan_step(context)
 
         mock_update_session_step.assert_any_await(
-            task_id=context.linear_task.id,
-            step="awaiting_input",
-            session_id=context.session_id,
+            task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id
         )
 
 
 class TestWorkflowBuild:
     @pytest.fixture
     def mock_build_agent(self):
-        with patch("demetra.workflows.build.opencode_build_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.build_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1227,21 +1211,147 @@ class TestWorkflowBuild:
         assert mock_run_review_agents.call_count == 1
         assert mock_build_agent.call_count == 12
 
+    @pytest.mark.asyncio
+    async def test_run_build_step_pins_a_fresh_session_for_claude(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_bump_version,
+    ):
+        plan_session_id = str(uuid4())
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="TASK-1",
+                session_id=plan_session_id,
+                build_plan="plan",
+                posted_to_linear=False,
+                step="plan",
+                harness="claude",
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+        context.project.environment = {"AGENT_HARNESS": "claude"}
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+
+        await run_build_step("test build plan", context)
+
+        # The build agent runs under its own fresh session (never the plan's,
+        # since Claude can't --resume a session under a different --agent),
+        # but that id is scoped to build execution and token lookup only —
+        # it is never persisted, so the canonical, plan-linked session_id
+        # (sessions.session_id) is left untouched for everything else
+        # (Linear links, review, lint, cleanup) to keep reading.
+        build_call_kwargs = mock_build_agent.call_args.kwargs
+        new_build_session_id = build_call_kwargs["session_id"]
+        assert new_build_session_id != plan_session_id
+        assert context.session_id == plan_session_id
+
+    @pytest.mark.asyncio
+    async def test_run_build_step_passes_session_id_to_validate_and_review_steps(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_bump_version,
+        mock_update_session_step,
+    ):
+        session_id = str(uuid4())
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id=str(uuid4()),
+                build_plan="plan",
+                posted_to_linear=False,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+                step="plan",
+                session_id=session_id,
+            ),
+        )
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+
+        await run_build_step("test build plan", context)
+
+        steps_seen = {
+            call.kwargs["step"]: call.kwargs.get("session_id") for call in mock_update_session_step.await_args_list
+        }
+        assert steps_seen["build"] == session_id
+        assert steps_seen["validate"] == session_id
+        assert steps_seen["review"] == session_id
+
 
 class TestContextCompaction:
     """Tests for check_and_compact_context in build.py."""
 
     @pytest.fixture
     def mock_opencode_compact_session(self):
-        with patch("demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.compact_session", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_get_opencode_session_tokens(self):
-        with patch(
-            "demetra.workflows.build.get_opencode_session_tokens",
-            new_callable=AsyncMock,
-        ) as m:
+        with patch("demetra.services.agents.harness.get_session_tokens", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1320,11 +1430,12 @@ class TestContextCompaction:
         mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (0, "compacted", "")
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_opencode_compact_session.assert_awaited_once_with(
             target_path=context.worktree_path,
             session_id=context.session_id,
+            environment=context.environment,
             env=context.project.environment,
         )
 
@@ -1342,7 +1453,7 @@ class TestContextCompaction:
         mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (1, "", "error details")
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_opencode_compact_session.assert_awaited_once()
 
@@ -1359,7 +1470,7 @@ class TestContextCompaction:
         mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=50_000)
         mock_record_session_step_history.return_value = self._make_history(50_000, context_tokens=50_000)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_opencode_compact_session.assert_not_called()
 
@@ -1376,7 +1487,7 @@ class TestContextCompaction:
         mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=None)
         mock_record_session_step_history.return_value = self._make_history(None, context_tokens=None)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_opencode_compact_session.assert_not_called()
 
@@ -1390,7 +1501,7 @@ class TestContextCompaction:
     ):
         context = self.make_context(faker, session_id=None)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_get_opencode_session_tokens.assert_not_called()
         mock_record_session_step_history.assert_not_called()
@@ -1409,7 +1520,7 @@ class TestContextCompaction:
         mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
         mock_record_session_step_history.return_value = self._make_history(80_000)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_record_session_step_history.assert_awaited_once()
 
@@ -1426,7 +1537,7 @@ class TestContextCompaction:
         mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
         mock_record_session_step_history.side_effect = OSError("connection refused")
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=context.session_id)
 
         mock_get_opencode_session_tokens.assert_awaited_once()
         mock_record_session_step_history.assert_awaited_once()
@@ -1436,7 +1547,7 @@ class TestContextCompaction:
 class TestWorkflowReview:
     @pytest.fixture
     def mock_review_agent(self):
-        with patch("demetra.workflows.review.opencode_review_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.review_agents", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -1447,7 +1558,7 @@ class TestWorkflowReview:
     @pytest.mark.asyncio
     async def test_run_review_agents_returns_comments(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
-        mock_review_agent.return_value = (0, "Raw review output from agent.", None)
+        mock_review_agent.return_value = [(0, "Raw review output from agent.", None)]
         mock_summarize_review.return_value = ["Some comments here"]
 
         result = await run_review_agents(target_path)
@@ -1457,7 +1568,7 @@ class TestWorkflowReview:
     @pytest.mark.asyncio
     async def test_run_review_agents_no_issue_tokens(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
-        mock_review_agent.return_value = (0, "no issues found.", None)
+        mock_review_agent.return_value = [(0, "no issues found.", None)]
         mock_summarize_review.return_value = []
 
         result = await run_review_agents(target_path)
@@ -1474,7 +1585,7 @@ class TestWorkflowReview:
             "All staged changes pass lint checks. Let me verify the tests can actually run:\n"
             "All 72 tests pass. No high-severity issues found."
         )
-        mock_review_agent.return_value = (0, thinking_prose, None)
+        mock_review_agent.return_value = [(0, thinking_prose, None)]
         mock_summarize_review.return_value = []
 
         result = await run_review_agents(target_path)
@@ -1490,11 +1601,7 @@ class TestWorkflowReview:
         self, faker, mock_review_agent, mock_summarize_review
     ):
         target_path = Path(f"/tmp/{faker.slug()}")
-        mock_review_agent.return_value = (
-            0,
-            "Some prose that turns out to be just thinking.",
-            None,
-        )
+        mock_review_agent.return_value = [(0, "Some prose that turns out to be just thinking.", None)]
         mock_summarize_review.return_value = []
 
         result = await run_review_agents(target_path)
@@ -1506,7 +1613,7 @@ class TestWorkflowReview:
         from demetra.library.exceptions import ReviewError
 
         target_path = Path(f"/tmp/{faker.slug()}")
-        mock_review_agent.return_value = (0, "Some review output", None)
+        mock_review_agent.return_value = [(0, "Some review output", None)]
         mock_summarize_review.side_effect = ReviewError("Failed to summarize the review")
 
         with pytest.raises(ReviewError, match="Failed to summarize the review"):
@@ -2003,14 +2110,8 @@ class TestWorkflowCleanup:
     ):
         with (
             patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock) as mock_update_step,
-            patch(
-                "demetra.workflows.cleanup.get_opencode_session_tokens",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "demetra.workflows.cleanup.record_session_step_history",
-                new_callable=AsyncMock,
-            ),
+            patch("demetra.services.agents.harness.get_session_tokens", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.record_session_step_history", new_callable=AsyncMock),
         ):
             context = Context(
                 project=Project(
@@ -2121,7 +2222,7 @@ class TestMainBumpVersion:
 class TestWorkflowResearch:
     @pytest.fixture
     def mock_research_agent(self):
-        with patch("demetra.workflows.research.opencode_research_agent", new_callable=AsyncMock) as m:
+        with patch("demetra.services.agents.harness.research_agent", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture

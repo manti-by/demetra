@@ -2,11 +2,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
-from demetra.services.agents.opencode import (
-    get_opencode_session_tokens,
-    opencode_build_agent,
-    opencode_compact_session,
-)
+from demetra.services.agents import harness
 from demetra.services.persistence.database import record_session_step_history, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
@@ -17,30 +13,37 @@ from demetra.workflows.review import run_review_agents
 from demetra.workflows.validate import run_validate_agent
 
 
-async def check_and_compact_context(context: Context) -> None:
-    """Check the opencode session context and run /compact if it exceeds the threshold.
+async def check_and_compact_context(context: Context, session_id: str | None) -> None:
+    """Check the session context and run /compact if it exceeds the threshold.
 
     Also records the full TokenUsage breakdown (input, output, reasoning,
     cache, and context tokens) along with the model in session_history for the
-    ``build`` step.
+    ``build`` step. Token usage is read from ``session_id`` (the session the
+    build agent actually ran under) but the history row is keyed by the
+    persisted ``context.session_id`` so it stays attached to the session that
+    ``sessions.session_id`` and the history API refer to.
 
     Args:
         context: The workflow context with the active session.
+        session_id: The session id the build agent actually ran under (see
+            :func:`run_build_step` for why this can differ from
+            ``context.session_id`` on Claude).
     """
-    if not context.session_id:
+    if not session_id:
         return
 
     try:
-        usage = await get_opencode_session_tokens(
+        usage = await harness.get_session_tokens(
             target_path=context.worktree_path,
-            session_id=context.session_id,
+            session_id=session_id,
+            environment=context.environment,
             env=context.project.environment,
         )
         history = await record_session_step_history(
-            session_id=context.session_id,
+            session_id=context.session_id or session_id,
             step="build",
             usage=usage,
-            model=context.environment.opencode_build_model,
+            model=context.environment.agent_model("build"),
         )
     except (SQLAlchemyError, OSError):
         history = None
@@ -51,8 +54,11 @@ async def check_and_compact_context(context: Context) -> None:
             f"Context size ({context_tokens:,} tokens) exceeds threshold ({CONTEXT_COMPACTION_THRESHOLD:,}), compacting.",
             style="info",
         )
-        compact_exit_code, _, compact_stderr = await opencode_compact_session(
-            target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+        compact_exit_code, _, compact_stderr = await harness.compact_session(
+            target_path=context.worktree_path,
+            session_id=session_id,
+            environment=context.environment,
+            env=context.project.environment,
         )
         if compact_exit_code != 0:
             print_message(f"Failed to compact session: {compact_stderr.strip()}", style="error")
@@ -75,6 +81,20 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         BuildError: When the build or validate agent exits with an error.
         InfiniteLoopError: When the attempt budget is exhausted.
     """
+    # Claude cannot resume the plan agent's session under a different --agent
+    # (its system prompt is snapshotted on the first turn and reused verbatim
+    # on every later request/resume, verified against the installed CLI) — so
+    # the build step runs under its own fresh session for this run instead of
+    # continuing the plan's. harness.new_session_id returns None for OpenCode,
+    # which keeps resuming the plan session exactly as before. Every iteration
+    # of the loop below reuses this same id under the same "build-agent", so
+    # resuming across iterations stays safe. This id is never persisted: it is
+    # scoped to build execution and token lookup only, so context.session_id
+    # (sessions.session_id) stays the canonical, plan-linked id throughout —
+    # a process restart simply starts a fresh build session, which is fine
+    # since only conversational memory is lost, not the build plan or state.
+    build_session_id = harness.new_session_id(environment=context.environment) or context.session_id
+
     current_task: str = build_plan
     rerun_attempts = MAX_ATTEMPTS["build"]
     validate_attempts = MAX_ATTEMPTS["build"]
@@ -85,21 +105,21 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         print_message("Running BUILD agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="build", session_id=context.session_id)
 
-        exit_code, stdout, stderr = await opencode_build_agent(
+        exit_code, stdout, stderr = await harness.build_agent(
             target_path=context.worktree_path,
             task=current_task,
-            session_id=context.session_id,
+            environment=context.environment,
+            session_id=build_session_id,
             task_title=context.linear_task.full_title,
             env=context.project.environment,
             project_id=context.project.id,
-            environment=context.environment,
         )
         if exit_code != 0:
             raise BuildError(
                 f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
             )
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, session_id=build_session_id)
 
         if review_attempts > 0 and validate_attempts > 0 and not review_step_finished:
             await update_session_step(task_id=context.linear_task.id, step="validate", session_id=context.session_id)

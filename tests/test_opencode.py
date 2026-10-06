@@ -6,8 +6,6 @@ import pytest
 
 from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import (
-    RESEARCH_HEADER_STRING,
-    extract_research_report,
     get_opencode_session_id,
     get_opencode_session_length,
     get_opencode_session_tokens,
@@ -556,13 +554,3 @@ class TestOpencodeResearchAgent:
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["env"] == {"API_KEY": "1"}
-
-    @pytest.mark.asyncio
-    async def test_extract_research_report_trims_leading_text(self):
-        output = f"Preamble text\n{RESEARCH_HEADER_STRING}\nFindings here."
-
-        assert await extract_research_report(research_output=output) == f"{RESEARCH_HEADER_STRING}\nFindings here."
-
-    @pytest.mark.asyncio
-    async def test_extract_research_report_keeps_output_without_header(self):
-        assert await extract_research_report(research_output="raw output") == "raw output"
