@@ -23,10 +23,12 @@ RUN uv sync --frozen --no-dev --no-cache
 
 FROM oven/bun:1 AS bun
 
+FROM rust:1-slim AS rust
+
 FROM python:3.13.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git gnupg openssh-client \
+    git gnupg openssh-client build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
@@ -34,6 +36,8 @@ COPY --from=builder /usr/bin/gh /usr/bin/gh
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /bin/uv /bin/uvx /bin/
 COPY --from=builder /opt/venv /opt/venv
+COPY --from=rust /usr/local/cargo /usr/local/cargo
+COPY --from=rust /usr/local/rustup /usr/local/rustup
 
 RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
@@ -48,13 +52,15 @@ RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/openco
     && chown -R demetra:demetra /home/demetra/.config/opencode
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
-    && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv
+    && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv /usr/local/cargo /usr/local/rustup
 
 COPY configs/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
-ENV PATH="/opt/venv/bin:$PATH"
+ENV PATH="/usr/local/cargo/bin:/opt/venv/bin:$PATH"
 ENV UV_PATH="/bin/uv"
+ENV CARGO_HOME="/usr/local/cargo"
+ENV RUSTUP_HOME="/usr/local/rustup"
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 
