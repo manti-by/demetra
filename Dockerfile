@@ -21,6 +21,8 @@ ENV UV_PROJECT_ENVIRONMENT="/opt/venv"
 
 RUN uv sync --frozen --no-dev --no-cache
 
+FROM oven/bun:1 AS bun
+
 FROM python:3.13.9-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -29,13 +31,21 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
 COPY --from=builder /usr/bin/gh /usr/bin/gh
+COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /bin/uv /bin/uvx /bin/
 COPY --from=builder /opt/venv /opt/venv
 
 RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
-RUN mkdir -p /home/demetra/.config/gh /home/demetra/.local/share/opencode \
+RUN mkdir -p /home/demetra/.config/gh /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills /home/demetra/.local/share/opencode \
     && chown -R demetra:demetra /home/demetra
+
+COPY --chown=demetra:demetra .opencode/agents/ /home/demetra/.config/opencode/agents/
+COPY --chown=demetra:demetra .opencode/skills/ /home/demetra/.config/opencode/skills/
+RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills \
+    && find /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills -type d -exec chmod 755 {} + \
+    && find /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills -type f -exec chmod 644 {} + \
+    && chown -R demetra:demetra /home/demetra/.config/opencode
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
     && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv

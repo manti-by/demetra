@@ -3,19 +3,32 @@ title: Build artifacts
 date: 2026-06-09
 type: implementation
 status: resolved
-session_id: "-"
-services: [database, api, react]
-branch: "-"
-tickets: [MNT-108]
-tags: [artifacts, pr-link, build-plan, react]
-related: []
+session_id: '-'
+services:
+- database
+- api
+- react
+branch: '-'
+tickets:
+- MNT-108
+tags:
+- artifacts
+- pr-link
+- build-plan
+- react
+related:
+- 2026-06-09-markdown-renderer.md
+- 2026-06-22-linear-link-artifact.md
+- 2026-09-14-research-plan-artifact.md
 ---
 
 # Build artifacts
+> **Archived on 2026-09-14.** Useful info merged into [[2026-06-22-linear-link-artifact]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 
-Session artifacts — the PR link and the build plan — are now persisted and shown in the React app. Added `pr_link` to the `session` model with an Alembic migration; the field is populated when a PR is successfully created via `gh`. The API returns `pr_link` and `build_plan`, the frontend stores both and renders an artifact block at the top of the session log. Tests on both FE and BE.
+Session artifacts — the PR link and the build plan — are now persisted and shown in the React app. Added `pr_link` to the `session` model with an Alembic migration; the field is populated when a PR is successfully created via `gh`. The API returns `pr_link` and `build_plan`, the frontend stores both and renders an artifact block at the top of the session log. Tests on both FE and BE. Client-side markdown rendering of the build plan followed in [[2026-06-09-markdown-renderer]].
 
 ---
 
@@ -54,7 +67,9 @@ Tests on both frontend (artifact block rendering, modal open) and backend (API p
 
 None.
 
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
 ## References
 
-- Related: none
+- Related: [[2026-06-09-markdown-renderer]], [[2026-06-22-linear-link-artifact]], [[2026-09-14-research-plan-artifact]]
 - External: [MNT-108 — Build artifacts (Linear)](https://linear.app/mnt/issue/MNT-108)

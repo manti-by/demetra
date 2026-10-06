@@ -12,6 +12,8 @@ reviews:
     enabled: true
     drafts: false
   path_filters:
+    - "!docs/**"
     - "!tests/**"
+    - "!wiki/**"
 chat:
   auto_reply: true

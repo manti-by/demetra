@@ -3,17 +3,25 @@ title: Add SQLAlchemy Core support
 date: 2026-03-13
 type: implementation
 status: resolved
-session_id: -
-services: [database, tests]
-branch: -
-tickets: [MNT-62]
-tags: [sqlalchemy, database, alembic, testing]
-related: []
+session_id: '-'
+services:
+- database
+- tests
+branch: '-'
+tickets:
+- MNT-62
+tags:
+- sqlalchemy
+- database
+- alembic
+- testing
+related:
+- 2026-06-03-fix-squash-migrations.md
 ---
 
 # Add SQLAlchemy Core support
 
-> **Archived on 2026-08-18.** Useful info merged into
+> **Archived on 2026-09-28.** Useful info merged into
 > [[2026-06-03-fix-squash-migrations]]. See wiki/archive/ for the
 > original.
 
@@ -57,6 +65,8 @@ Tests were updated to run against Postgres and exercise real SQLAlchemy queries.
 ## Follow-ups
 
 - None.
+
+> **Consistency fix (2026-09-18, Consistency Agent):** Quoted bare `session_id: -` / `branch: -` for valid YAML and mirrored body links into `related:` frontmatter.
 
 ## References
 

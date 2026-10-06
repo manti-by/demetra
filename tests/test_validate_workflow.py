@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.library.exceptions import BuildError
+from demetra.library.models import SessionEnvironment
 from demetra.workflows.validate import run_validate_agent
 
 
@@ -67,15 +68,15 @@ class TestWorkflowValidate:
             await run_validate_agent(target_path, "build plan")
 
     @pytest.mark.asyncio
-    async def test_passes_build_plan_and_env(self, faker, mock_validate_agent):
+    async def test_passes_build_plan_and_environment(self, faker, mock_validate_agent):
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_validate_agent.return_value = (0, "", None)
-        env = {"KEY": "val"}
+        environment = SessionEnvironment(project_environment={"KEY": "val"}, user_environment={})
 
-        await run_validate_agent(target_path, "build plan", env=env)
+        await run_validate_agent(target_path, "build plan", environment=environment)
 
         mock_validate_agent.assert_awaited_once_with(
-            target_path=target_path, build_plan="build plan", env=env, project_id=None, user_environment=None
+            target_path=target_path, build_plan="build plan", project_id=None, environment=environment
         )
 
     @pytest.mark.asyncio

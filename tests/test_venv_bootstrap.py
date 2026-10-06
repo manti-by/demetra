@@ -100,7 +100,7 @@ class TestSetupProjectVenv:
 
 class TestSetupWorkflowVenvWiring:
     @pytest.mark.asyncio
-    async def test_setup_workflow_merges_user_env_under_project_env(self):
+    async def test_setup_workflow_layers_user_env_under_project_env(self):
         from demetra.workflows import setup as setup_module
 
         with (
@@ -181,7 +181,10 @@ class TestSetupWorkflowVenvWiring:
             context = await setup_module.setup_workflow(project_name="test-project", auto_mode=True)
 
         assert context is not None
-        assert context.project.environment["CONFLICT_KEY"] == "project-value"
-        assert context.project.environment["PROJECT_ONLY"] == "p"
-        assert context.project.environment["USER_ONLY"] == "u"
+        # Project and user-shared layers stay separate on the project; the
+        # subprocess env is their merge, with the project winning conflicts.
+        assert context.project.environment == {"CONFLICT_KEY": "project-value", "PROJECT_ONLY": "p"}
         assert context.project.user_environment["CONFLICT_KEY"] == "user-value"
+        assert context.environment.subprocess_env["CONFLICT_KEY"] == "project-value"
+        assert context.environment.subprocess_env["PROJECT_ONLY"] == "p"
+        assert context.environment.subprocess_env["USER_ONLY"] == "u"

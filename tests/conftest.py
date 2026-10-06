@@ -31,7 +31,7 @@ from demetra.services.persistence.database import (
 from demetra.services.persistence.database import (
     get_connection as _get_connection,
 )
-from demetra.settings import DB_HOST, DB_PASSWORD, DB_PORT, DB_USER
+from demetra.settings import DATABASE
 
 
 fake = Faker()
@@ -128,17 +128,17 @@ async def setup_test_db(test_db_engine):
         await connection.execute(text("CREATE DATABASE test_demetra"))
     await admin_engine.dispose()
 
-    sync_url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/test_demetra"
+    sync_url = f"postgresql+psycopg://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/test_demetra"
     sync_engine = create_engine(sync_url)
     metadata.create_all(sync_engine)
     sync_engine.dispose()
 
-    _original_db_name = _database_module.DB_NAME
-    _database_module.DB_NAME = "test_demetra"
+    _original_db_name = _database_module.DATABASE["name"]
+    _database_module.DATABASE["name"] = "test_demetra"
 
     yield
 
-    _database_module.DB_NAME = _original_db_name
+    _database_module.DATABASE["name"] = _original_db_name
     if _test_db_engine is not None:
         await _test_db_engine.dispose()
 
@@ -246,7 +246,7 @@ def linear_graphql_response_failure() -> dict:
 
 
 @pytest.fixture
-def groq_processed_data() -> dict:
+def llm_processed_data() -> dict:
     return {
         "title": fake.sentence(nb_words=4),
         "description": fake.paragraph(nb_sentences=3),
@@ -318,22 +318,12 @@ async def mock_graphql_request(
 
 
 @pytest.fixture
-async def mock_groq(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
-    with patch(
-        "demetra.services.llm.groq.process_text_with_groq",
-        new_callable=AsyncMock,
-    ) as mock:
-        mock.return_value = groq_processed_data
-        yield mock
-
-
-@pytest.fixture
-async def mock_openrouter(groq_processed_data: dict) -> AsyncGenerator[AsyncMock]:
+async def mock_openrouter(llm_processed_data: dict) -> AsyncGenerator[AsyncMock]:
     with patch(
         "demetra.services.llm.openrouter.process_text_with_openrouter",
         new_callable=AsyncMock,
     ) as mock:
-        mock.return_value = groq_processed_data
+        mock.return_value = llm_processed_data
         yield mock
 
 
@@ -377,7 +367,7 @@ def linear_task_data() -> dict:
         "priority": fake.random_int(min=1, max=4),
         "createdAt": fake.date_time().isoformat(),
         "branchName": f"feature/{fake.slug()}",
-        "project": {"name": fake.word()},
+        "project": {"id": f"project-{uuid4().hex[:8]}", "name": fake.word()},
         "state": {"name": "todo"},
         "comments": {"nodes": []},
         "labels": {"nodes": []},
@@ -401,7 +391,7 @@ def linear_task_data_with_labels(linear_task_data_demetra: dict) -> dict:
 
 @pytest.fixture
 def linear_task_data_demetra(linear_task_data: dict) -> dict:
-    linear_task_data.update({"project": {"name": "demetra"}})
+    linear_task_data.update({"project": {"id": "linear-proj-demetra", "name": "demetra"}})
     return linear_task_data
 
 
@@ -463,6 +453,7 @@ def linear_task(linear_task_data: dict):
         priority=linear_task_data["priority"],
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
+        linear_project_id=linear_task_data["project"].get("id"),
         labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
         url=linear_task_data["url"],
     )
@@ -549,6 +540,8 @@ def linear_full_settings(linear_team_id: str, linear_state_id: str) -> dict:
         "default_state": linear_state_id,
         "default_project": "project-123",
         "feature_label_id": "label-123",
+        "backend_label_id": "label-backend",
+        "frontend_label_id": "label-frontend",
         "states": {"todo": linear_state_id, "in_review": "state-review"},
         "projects": {},
         "api_url": "",

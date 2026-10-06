@@ -5,12 +5,13 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
-from demetra.library.exceptions import LinearError
-from demetra.library.models import Context, LinearTask, Project
+from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
+from demetra.library.models import Context, LinearTask, Project, SessionEnvironment
 from demetra.library.tables import project_environments, projects
 from demetra.services.linear import (
     create_issue_relation,
     create_linear_ticket,
+    create_research_ticket,
     extract_comments,
     extract_labels,
     get_linear_task,
@@ -259,6 +260,7 @@ class TestLinearService:
         assert len(issues) == 1
         project_id, user_id = mock_linked_projects["demetra"]
         assert issues[0].project_id == project_id
+        assert issues[0].linear_project_id == "linear-proj-demetra"
         assert issues[0].user_id == user_id
 
     @pytest.mark.asyncio
@@ -507,6 +509,14 @@ class TestGetLinkedProjects:
 
 
 class TestCreateLinearTicket:
+    @pytest.fixture(autouse=True)
+    def mock_linear_settings(self):
+        with patch(
+            "demetra.settings.LINEAR",
+            {"team_id": "team-123", "default_state": "state-default", "states": {}},
+        ):
+            yield
+
     @pytest.fixture
     def mock_get_query(self):
         with patch("demetra.services.linear.get_query", new_callable=AsyncMock) as m:
@@ -596,27 +606,405 @@ class TestCreateLinearTicket:
         assert "### Acceptance Criteria" in desc
         assert "AC" in desc
 
+
+class TestCreateResearchTicket:
+    @pytest.fixture
+    def mock_get_query(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock) as m:
+            m.return_value = "mutation IssueCreate..."
+            yield m
+
+    @pytest.fixture
+    def mock_labels(self):
+        settings = {
+            "feature_label_id": "feature-label",
+            "backend_label_id": "backend-label",
+            "frontend_label_id": "frontend-label",
+        }
+        with patch("demetra.services.linear.LINEAR", settings):
+            yield settings
+
+    @pytest.fixture
+    def mock_config(self):
+        def _linear_state(self, name: str) -> str:
+            values = {"prd": "state-prd"}
+            if name in values:
+                return values[name]
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
+
+        def _linear_value(self, name: str) -> str:
+            values = {"team_id": "team-123"}
+            if name in values:
+                return values[name]
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+        ):
+            yield
+
+    @staticmethod
+    def _make_context(labels=None, priority=2, linear_project_id="linear-project-1"):
+        return Context(
+            project=Project(
+                id="project-id",
+                user_id="user-id",
+                linear_project_id="linear-project-1",
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path("/tmp/demetra"),
+                created_at="2026-01-01T00:00:00",
+                updated_at="2026-01-01T00:00:00",
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id="issue-1",
+                identifier="MNT-123",
+                title="Research something",
+                description="desc",
+                priority=priority,
+                created_at="2026-01-01T00:00:00",
+                labels=labels or [],
+                linear_project_id=linear_project_id,
+            ),
+            branch_name="feature/test",
+            worktree_path=Path("/tmp/demetra"),
+            session=None,
+        )
+
     @pytest.mark.asyncio
-    async def test_create_ticket_omits_empty_sections(
+    async def test_create_research_ticket_uses_source_project_priority_and_prd_state(
+        self,
+        graphql_create_ticket_success_response: dict,
+        linear_identifier: str,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research", "Backend"], priority=2)
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_create_ticket_success_response
+            result = await create_research_ticket(context=context, report="# Report\nBody")
+
+        assert result["identifier"] == linear_identifier
+        _, kwargs = mock_request.call_args
+        ticket_input = kwargs["variables"]["input"]
+        assert ticket_input["projectId"] == "linear-project-1"
+        assert ticket_input["priority"] == 2
+        assert ticket_input["stateId"] == "state-prd"
+        assert ticket_input["teamId"] == "team-123"
+        assert ticket_input["description"] == "# Report\nBody"
+        assert ticket_input["title"] == "Research: MNT-123 — Research something"
+        assert ticket_input["labelIds"] == ["feature-label", "backend-label"]
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_adds_frontend_label(
         self,
         graphql_create_ticket_success_response: dict,
         mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
     ):
+        context = self._make_context(labels=["Research", "Frontend"])
+
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = graphql_create_ticket_success_response
-
-            await create_linear_ticket(
-                title="Test",
-                description="The description",
-                technical_requirements="",
-                acceptance_criteria="",
-            )
+            await create_research_ticket(context=context, report="report")
 
         _, kwargs = mock_request.call_args
-        desc = kwargs["variables"]["input"]["description"]
-        assert desc == "### Description\nThe description"
-        assert "### Tech Requirements" not in desc
-        assert "### Acceptance Criteria" not in desc
+        assert kwargs["variables"]["input"]["labelIds"] == ["feature-label", "frontend-label"]
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_adds_both_labels_case_insensitively(
+        self,
+        graphql_create_ticket_success_response: dict,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research", "backend", "frontend"])
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_create_ticket_success_response
+            await create_research_ticket(context=context, report="report")
+
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"]["input"]["labelIds"] == ["feature-label", "backend-label", "frontend-label"]
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_uses_custom_title(
+        self,
+        graphql_create_ticket_success_response: dict,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context()
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_create_ticket_success_response
+            await create_research_ticket(context=context, report="report", title="Custom title")
+
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"]["input"]["title"] == "Custom title"
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_without_project(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(linear_project_id=None)
+
+        with pytest.raises(LinearConfigError, match="has no project"):
+            await create_research_ticket(context=context, report="report")
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_without_prd_state(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+    ):
+        def _linear_state(self, name: str) -> str:
+            if name == "prd":
+                raise EnvironmentConfigError("Environment key 'LINEAR_STATE_PRD_ID' is not configured")
+            return "state-prd"
+
+        def _linear_value(self, name: str) -> str:
+            if name == "team_id":
+                return "team-123"
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_{name.upper()}' is not configured")
+
+        context = self._make_context()
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+            pytest.raises(LinearConfigError, match="'prd' is not configured"),
+        ):
+            await create_research_ticket(context=context, report="report")
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_on_failure(
+        self,
+        graphql_create_ticket_failure_response: dict,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context()
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                graphql_create_ticket_failure_response,
+            ]
+            with pytest.raises(LinearError, match="Failed to create research Linear ticket"):
+                await create_research_ticket(context=context, report="report")
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_on_graphql_error(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research", "Backend"])
+        response = {"data": None, "errors": [{"message": "Invalid label id"}]}
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                response,
+            ]
+            with pytest.raises(LinearError, match="Invalid label id"):
+                await create_research_ticket(context=context, report="report")
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_when_issue_create_is_null(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research"])
+        response = {"data": {"issueCreate": None}}
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                response,
+            ]
+            with pytest.raises(LinearError, match="Failed to create research Linear ticket"):
+                await create_research_ticket(context=context, report="report")
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_reuses_existing_issue(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research"])
+        existing = {"id": "existing-1", "identifier": "MNT-42", "title": "Research: MNT-123 — Research something"}
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": [existing]}}},
+                {"data": {"issueUpdate": {"success": True, "issue": existing}}},
+            ]
+            result = await create_research_ticket(context=context, report="report")
+
+        assert result == {
+            "ticket_id": "existing-1",
+            "identifier": "MNT-42",
+            "title": "Research: MNT-123 — Research something",
+        }
+        assert mock_request.await_count == 2
+        first_kwargs = mock_request.call_args_list[0].kwargs
+        assert first_kwargs["variables"] == {
+            "projectId": "linear-project-1",
+            "title": "Research: MNT-123 — Research something",
+        }
+        second_kwargs = mock_request.call_args_list[1].kwargs
+        assert second_kwargs["variables"] == {"id": "existing-1", "input": {"description": "report"}}
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_looks_up_then_creates(
+        self,
+        graphql_create_ticket_success_response: dict,
+        linear_identifier: str,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+        mock_config: AsyncMock,
+    ):
+        context = self._make_context(labels=["Research"])
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [
+                {"data": {"issues": {"nodes": []}}},
+                graphql_create_ticket_success_response,
+            ]
+            result = await create_research_ticket(context=context, report="report")
+
+        assert result["identifier"] == linear_identifier
+        assert mock_request.await_count == 2
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"]["input"]["title"] == "Research: MNT-123 — Research something"
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_skips_unconfigured_labels(
+        self,
+        graphql_create_ticket_success_response: dict,
+        mock_get_query: AsyncMock,
+        mock_config: AsyncMock,
+    ):
+        settings = {
+            "feature_label_id": "feature-label",
+            "backend_label_id": "",
+            "frontend_label_id": "",
+        }
+        context = self._make_context(labels=["Research", "Backend", "Frontend"])
+
+        with (
+            patch("demetra.services.linear.LINEAR", settings),
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_request.return_value = graphql_create_ticket_success_response
+            await create_research_ticket(context=context, report="report")
+
+        _, kwargs = mock_request.call_args
+        assert kwargs["variables"]["input"]["labelIds"] == ["feature-label"]
+
+    @pytest.mark.asyncio
+    async def test_create_research_ticket_raises_without_team_id(
+        self,
+        mock_get_query: AsyncMock,
+        mock_labels: dict,
+    ):
+        def _linear_state(self, name: str) -> str:
+            if name == "prd":
+                return "state-prd"
+            raise EnvironmentConfigError(f"Environment key 'LINEAR_STATE_{name.upper()}_ID' is not configured")
+
+        def _linear_value(self, name: str) -> str:
+            if name == "team_id":
+                raise EnvironmentConfigError("Environment key 'LINEAR_TEAM_ID' is not configured")
+            return "team-123"
+
+        context = self._make_context()
+        with (
+            patch.object(SessionEnvironment, "linear_state", _linear_state),
+            patch.object(SessionEnvironment, "linear_value", _linear_value),
+            pytest.raises(LinearConfigError, match="team id is not configured"),
+        ):
+            await create_research_ticket(context=context, report="report")
+
+
+class TestCreateIssueRelation:
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_true_on_success(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+                assert result is True
+                _, kwargs = mock_request.call_args
+
+        assert kwargs["variables"]["input"] == {
+            "issueId": "issue-1",
+            "relatedIssueId": "issue-2",
+            "type": "related",
+        }
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_uses_custom_relation_type(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}
+
+                await create_issue_relation(task_id="issue-1", related_task_id="issue-2", relation_type="blocks")
+
+                _, kwargs = mock_request.call_args
+
+        assert kwargs["variables"]["input"]["type"] == "blocks"
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_when_unsuccessful(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"data": {"issueRelationCreate": {"success": False}}}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_empty_response(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = None
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_create_issue_relation_returns_false_on_missing_data(self):
+        with patch("demetra.services.linear.get_query", new_callable=AsyncMock):
+            with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+                mock_request.return_value = {"errors": ["nope"]}
+
+                result = await create_issue_relation(task_id="issue-1", related_task_id="issue-2")
+
+        assert result is False
 
 
 class TestGetLinearTaskById:
@@ -686,6 +1074,7 @@ class TestGetLinearTaskById:
         assert task is not None
         project_id, user_id = mock_linked_projects["demetra"]
         assert task.project_id == project_id
+        assert task.linear_project_id == "linear-proj-demetra"
         assert task.user_id == user_id
 
     @pytest.mark.asyncio
@@ -706,7 +1095,7 @@ class TestGetLinearTaskById:
 class TestLinearCleanup:
     @pytest.fixture
     def mock_linear_settings(self, linear_full_settings):
-        with patch("demetra.services.linear.LINEAR", linear_full_settings):
+        with patch("demetra.settings.LINEAR", linear_full_settings):
             yield linear_full_settings
 
     @pytest.fixture

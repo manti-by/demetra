@@ -6,10 +6,12 @@ import pytest
 from demetra.library.exceptions import SettingsError
 from demetra.services.runtime.utils import (
     env_get_bool,
+    env_get_bool_from,
     env_get_int,
     env_get_list,
     env_get_path,
     env_get_str,
+    env_get_str_from,
     is_loopback_host,
     live_stream,
     validate_llm_base_url,
@@ -106,6 +108,37 @@ class TestEnvHelpers:
     def test_env_get_str_returns_none_when_unset_without_default(self, monkeypatch):
         monkeypatch.delenv("TEST_STR", raising=False)
         assert env_get_str("TEST_STR", None) is None
+
+    def test_env_get_bool_returns_default_for_an_empty_value(self, monkeypatch):
+        monkeypatch.setenv("TEST_BOOL", "")
+        assert env_get_bool("TEST_BOOL", True) is True
+
+    def test_env_get_str_from_reads_through_a_resolver(self):
+        env = {"TEST_STR": "hello"}
+        assert env_get_str_from(getter=env.get, name="TEST_STR", default="fallback") == "hello"
+
+    def test_env_get_str_from_returns_the_default_for_a_missing_key(self):
+        assert env_get_str_from(getter={}.get, name="TEST_STR", default="fallback") == "fallback"
+
+    def test_env_get_str_from_keeps_an_empty_value(self):
+        assert env_get_str_from(getter={"TEST_STR": ""}.get, name="TEST_STR", default="fallback") == ""
+
+    def test_env_get_bool_from_reads_through_a_resolver(self):
+        env = {"TEST_BOOL": "YES"}
+        assert env_get_bool_from(getter=env.get, name="TEST_BOOL", default=False) is True
+
+    def test_env_get_bool_from_returns_the_default_for_a_missing_key(self):
+        assert env_get_bool_from(getter={}.get, name="TEST_BOOL", default=True) is True
+
+    def test_env_get_bool_from_ignores_surrounding_whitespace(self):
+        assert env_get_bool_from(getter={"TEST_BOOL": " true "}.get, name="TEST_BOOL", default=False) is True
+
+    def test_env_get_bool_from_returns_the_default_for_an_empty_value(self):
+        assert env_get_bool_from(getter={"TEST_BOOL": ""}.get, name="TEST_BOOL", default=True) is True
+
+    def test_env_get_bool_from_warns_and_returns_the_default_for_invalid(self, caplog):
+        assert env_get_bool_from(getter={"TEST_BOOL": "definitely-not-a-bool"}.get, name="TEST_BOOL", default=True)
+        assert "ignoring invalid value" in caplog.text
 
     def test_env_get_path_returns_value(self, monkeypatch):
         monkeypatch.setenv("TEST_PATH", "/tmp/foo")

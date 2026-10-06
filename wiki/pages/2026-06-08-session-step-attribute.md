@@ -12,6 +12,8 @@ related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-
 ---
 
 # Plan step completion attribute
+> **Archived on 2026-09-14.** Useful info merged into [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 

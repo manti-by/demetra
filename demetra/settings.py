@@ -2,10 +2,11 @@ from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
+    DBConfig,
     GitConfig,
     GitHubConfig,
-    GroqConfig,
     JWTConfig,
+    LangSmithConfig,
     LinearConfig,
     OpenCodeConfig,
     OpenRouterConfig,
@@ -29,25 +30,30 @@ HOME_PATH = Path.home()
 
 BASE_PATH = Path(__file__).resolve().parent.parent
 
-DB_HOST = env_get_str("DB_HOST", "localhost")
-DB_PORT = env_get_int("DB_PORT", 5432)
-DB_USER = env_get_str("DB_USER", "demetra")
-DB_NAME = env_get_str("DB_NAME", "demetra")
-DB_PASSWORD = env_get_str("DB_PASSWORD", None)
-
 PARENT_HOME: Path | None = env_get_path("PARENT_HOME", None)
 
 PROJECTS_PATH = env_get_path("PROJECTS_PATH", HOME_PATH / "www")
 WORKTREE_PATH = HOME_PATH / ".demetra" / "projects"
 
-MAX_BUILD_ATTEMPTS = env_get_int("MAX_BUILD_ATTEMPTS", 50)
-MAX_REVIEW_ATTEMPTS = env_get_int("MAX_REVIEW_ATTEMPTS", 10)
-MAX_MERGE_ATTEMPTS = env_get_int("MAX_MERGE_ATTEMPTS", 10)
-MAX_REBASE_ATTEMPTS = env_get_int("MAX_REBASE_ATTEMPTS", 10)
-MAX_PLAN_ATTEMPTS = env_get_int("MAX_PLAN_ATTEMPTS", 30)
-MAX_RUN_ATTEMPTS = env_get_int("MAX_RUN_ATTEMPTS", 5)
-MAX_LISTENER_ATTEMPTS = env_get_int("MAX_LISTENER_ATTEMPTS", 5)
-MAX_RESEARCH_ATTEMPTS = env_get_int("MAX_RESEARCH_ATTEMPTS", 5)
+DATABASE: DBConfig = {
+    "host": env_get_str("DB_HOST", "localhost"),
+    "port": env_get_int("DB_PORT", 5432),
+    "user": env_get_str("DB_USER", "demetra"),
+    "name": env_get_str("DB_NAME", "demetra"),
+    "password": env_get_str("DB_PASSWORD", None),
+}
+
+MAX_ATTEMPTS: dict = {
+    "run": env_get_int("MAX_RUN_ATTEMPTS", 3),
+    "plan": env_get_int("MAX_PLAN_ATTEMPTS", 10),
+    "build": env_get_int("MAX_BUILD_ATTEMPTS", 10),
+    "review": env_get_int("MAX_REVIEW_ATTEMPTS", 5),
+    "merge": env_get_int("MAX_MERGE_ATTEMPTS", 5),
+    "rebase": env_get_int("MAX_REBASE_ATTEMPTS", 5),
+    "listener": env_get_int("MAX_LISTENER_ATTEMPTS", 5),
+    "research": env_get_int("MAX_RESEARCH_ATTEMPTS", 5),
+}
+
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
 
@@ -56,9 +62,23 @@ FEATURES: dict = {
     "is_pytest_enabled": env_get_bool("IS_PYTEST_ENABLED", False),
 }
 
+SEARCH: dict = {
+    "default_limit": 5,
+    "max_results": 20,
+    "max_query_length": 500,
+    "max_snippets": 3,
+    "snippet_length": 200,
+    "min_term_length": 2,
+    "term_pattern": r"[a-z0-9][a-z0-9_.\-]*",
+    "wiki_title_weight": 10,
+    "wiki_metadata_weight": 5,
+    "docstring_name_weight": 10,
+    "docstring_path_weight": 5,
+}
+
 WIKI: dict = {
-    "llm_budget_files": env_get_int("WIKI_LLM_BUDGET_FILES", env_get_int("WIKI_GROQ_BUDGET_FILES", 8)),
-    "llm_budget_lines": env_get_int("WIKI_LLM_BUDGET_LINES", env_get_int("WIKI_GROQ_BUDGET_LINES", 200)),
+    "llm_budget_files": env_get_int("WIKI_LLM_BUDGET_FILES", 8),
+    "llm_budget_lines": env_get_int("WIKI_LLM_BUDGET_LINES", 200),
     "diff_hunk_cap": env_get_int("WIKI_DIFF_HUNK_CAP", 200),
     "build_plan_cap": env_get_int("WIKI_BUILD_PLAN_CAP", 800),
     "revalidation_enabled": env_get_bool("WIKI_REVALIDATION_ENABLED", False),
@@ -124,6 +144,8 @@ LINEAR: LinearConfig = {
     "oauth_token_url": "https://api.linear.app/oauth/token",
     "service_name": "linear",
     "feature_label_id": env_get_str("LINEAR_FEATURE_LABEL_ID", "242cd332-e78c-42db-acc2-34441db373ab"),
+    "backend_label_id": env_get_str("LINEAR_BACKEND_LABEL_ID", ""),
+    "frontend_label_id": env_get_str("LINEAR_FRONTEND_LABEL_ID", ""),
     "states": {
         "prd": env_get_str("LINEAR_STATE_PRD_ID", "c2c0b1b6-3fe0-4e60-aa04-1a1ed834f0ed"),
         "todo": env_get_str("LINEAR_STATE_TODO_ID", "9f3c586f-640a-4f78-8170-90217270a0c5"),
@@ -188,15 +210,17 @@ JWT: JWTConfig = {
     "expiration_days": 14,
 }
 
-GROQ: GroqConfig = {
-    "api_key": env_get_str("GROQ_API_KEY", None),
-    "model": env_get_str("GROQ_MODEL", "openai/gpt-oss-120b"),
-}
-
 OPENROUTER: OpenRouterConfig = {
     "api_key": env_get_str("OPENROUTER_API_KEY", None),
     "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
+}
+
+LANGSMITH: LangSmithConfig = {
+    "tracing": env_get_bool("LANGSMITH_TRACING", False),
+    "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+    "api_key": env_get_str("LANGSMITH_API_KEY", None),
+    "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

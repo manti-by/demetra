@@ -14,7 +14,6 @@ from demetra.services.runtime.tui import print_message
 from demetra.services.vcs.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.vcs.github import create_pull_request, extract_pr_link
 from demetra.services.wiki import write_session_wiki_page
-from demetra.settings import OPENCODE
 
 
 async def commit_and_push(context: Context) -> bool:
@@ -38,14 +37,14 @@ async def commit_and_push(context: Context) -> bool:
     print_message("Committing changes", style="heading")
 
     has_files = await git_add_all(
-        target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+        target_path=context.worktree_path, environment=context.environment, project_id=context.project.id
     )
     if not has_files:
         print_message("No files to commit, looping back to build agent", style="warning")
         return False
 
     print_message("Generating wiki page", style="heading")
-    await update_session_step(task_id=context.linear_task.id, step="wiki")
+    await update_session_step(task_id=context.linear_task.id, step="wiki", session_id=context.session_id)
     wiki_error: WikiError | None = None
     try:
         await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
@@ -56,7 +55,7 @@ async def commit_and_push(context: Context) -> bool:
         wiki_error.__cause__ = e
     if wiki_error is None:
         if not await git_add_all(
-            target_path=context.worktree_path, env=context.project.environment, project_id=context.project.id
+            target_path=context.worktree_path, environment=context.environment, project_id=context.project.id
         ):
             print_message("No files to commit after wiki page generation, looping back to build agent", style="warning")
             return False
@@ -66,11 +65,11 @@ async def commit_and_push(context: Context) -> bool:
             style="warning",
         )
 
-    await update_session_step(task_id=context.linear_task.id, step="push")
+    await update_session_step(task_id=context.linear_task.id, step="push", session_id=context.session_id)
     await git_commit(
         target_path=context.worktree_path,
         message=context.linear_task.full_title,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
 
@@ -78,7 +77,7 @@ async def commit_and_push(context: Context) -> bool:
     await git_push(
         target_path=context.worktree_path,
         branch_name=context.branch_name,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
 
@@ -88,7 +87,7 @@ async def commit_and_push(context: Context) -> bool:
         pr_body = await generate_pr_description(
             task_details=task_details,
             build_plan=context.build_plan,
-            user_id=context.project.user_id,
+            environment=context.environment,
         )
     except PrDescriptionError as e:
         raise PullRequestError(f"Failed to generate PR description: {e}") from e
@@ -102,7 +101,7 @@ async def commit_and_push(context: Context) -> bool:
         branch_name=context.branch_name,
         title=context.linear_task.full_title,
         body=pr_body,
-        env=context.project.environment,
+        environment=context.environment,
         project_id=context.project.id,
     )
     if exit_code != 0:
@@ -123,13 +122,13 @@ async def commit_and_push(context: Context) -> bool:
             usage = await get_opencode_session_tokens(
                 target_path=context.worktree_path,
                 session_id=context.session_id,
-                env=context.project.environment,
+                environment=context.environment,
             )
             await record_session_step_history(
                 session_id=context.session_id,
                 step="completed",
                 usage=usage,
-                model=OPENCODE["build_model"],
+                model=context.environment.opencode_build_model,
             )
         except Exception:  # noqa: BLE001
             print_message("Failed to record session step history, continuing.", style="warning")
@@ -168,13 +167,13 @@ async def cleanup_workflow(
                 usage = await get_opencode_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
-                    env=context.project.environment,
+                    environment=context.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,
                     step=failure_step,
                     usage=usage,
-                    model=OPENCODE["build_model"],
+                    model=context.environment.opencode_build_model,
                 )
             except Exception:  # noqa: BLE001
                 print_message("Failed to record session step history, continuing.", style="warning")

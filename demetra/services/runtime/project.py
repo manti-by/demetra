@@ -16,7 +16,7 @@ from demetra.library.models import Project
 from demetra.services.persistence.database import get_connection
 from demetra.services.runtime.constants import PG_RESERVED_WORDS
 from demetra.services.runtime.subprocess import run_command
-from demetra.settings import DB_USER, GIT, UV, WORKTREE_PATH
+from demetra.settings import DATABASE, GIT, UV, WORKTREE_PATH
 
 
 logger = logging.getLogger(__name__)
@@ -245,7 +245,7 @@ async def create_postgres_role_and_database(project: dict[str, Any]) -> tuple[st
             {"db_name": db_name},
         )
         if not result.fetchone():
-            q_user = quote_ident(ident=DB_USER)
+            q_user = quote_ident(ident=DATABASE["user"])
             q_db = quote_ident(ident=db_name)
             await connection.execute(
                 text(f"GRANT {q_role} TO {q_user}"),
@@ -325,10 +325,12 @@ async def cleanup_project_resources(project: dict[str, Any]) -> None:
 
 
 # Matches MAJOR.MINOR.PATCH with optional PEP 440 pre-release / build suffix.
-_VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(.*)$")
+PROJECT_VERSION_PATTERN = re.compile(r"^(\d+)\.(\d+)\.(\d+)(.*)$")
 
 
-def bump_project_version(target_path: Path) -> str | None:
+def bump_project_version(
+    target_path: Path, is_major: bool = False, is_minor: bool = False, is_patch: bool = True
+) -> str | None:
     """Bump the ``[project]`` version in pyproject.toml and write it back.
 
     Every feature/bugfix workflow bumps the minor version; the major version
@@ -362,16 +364,27 @@ def bump_project_version(target_path: Path) -> str | None:
         logger.warning("Project version not found in pyproject.toml")
         return None
 
-    match = _VERSION_PATTERN.match(current_version)
+    match = PROJECT_VERSION_PATTERN.match(current_version)
     if not match:
         logger.warning(f"Invalid version format: {current_version!r}")
         return None
 
     major = int(match.group(1))
-    minor = int(match.group(2))
-    suffix = match.group(4)  # PEP 440 suffix, empty for plain semver
+    if is_major:
+        is_minor = is_patch = False
+        major += 1
 
-    new_version = f"{major}.{minor + 1}.0{suffix}"
+    minor = int(match.group(2))
+    if is_minor:
+        is_patch = False
+        minor += 1
+
+    patch = int(match.group(3))
+    if is_patch:
+        patch += 1
+
+    suffix = match.group(4)  # PEP 440 suffix, empty for plain semver
+    new_version = f"{major}.{minor}.{patch}{suffix}"
 
     lines = content.splitlines(keepends=True)
     project_start = _find_section_start(lines, "[project]")

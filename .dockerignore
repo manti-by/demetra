@@ -13,6 +13,10 @@ __pycache__
 .claude
 .zed
 .opencode
+!.opencode/agents/
+!.opencode/agents/**
+!.opencode/skills/
+!.opencode/skills/**
 .ropeproject
 .DS_Store
 .dockerignore

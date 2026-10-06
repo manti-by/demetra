@@ -7,12 +7,17 @@ import sys
 from collections.abc import Callable
 from logging import Formatter, LogRecord
 from pathlib import Path
-from typing import overload
+from typing import TYPE_CHECKING, overload
 from urllib.parse import urlsplit
 
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import CockieSamesite
 
+
+if TYPE_CHECKING:
+    from demetra.library.models import SessionEnvironment
+
+EnvGetter = Callable[[str], str | None]
 
 ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]")
 
@@ -65,6 +70,10 @@ NO_ISSUE_TOKENS = {
     "all good",
     "nothing to report.",
     "nothing to report",
+    "no_findings",
+    "no findings",
+    "plan fully covered",
+    "plan_fully_covered",
 }
 
 NO_ISSUE_TOKENS_CASE = {t.casefold() for t in NO_ISSUE_TOKENS}
@@ -112,13 +121,15 @@ async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) ->
         logger_callable(decoded)
 
 
-async def is_package_installed(target_path: Path, package_name: str, env: dict[str, str] | None = None) -> bool:
+async def is_package_installed(
+    target_path: Path, package_name: str, environment: "SessionEnvironment | None" = None
+) -> bool:
     """Check whether a package is installed in the project's environment.
 
     Args:
         target_path: Directory of the project whose environment to query.
         package_name: The package name to look for.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
         bool: True when the package appears in the dependency tree.
@@ -130,7 +141,7 @@ async def is_package_installed(target_path: Path, package_name: str, env: dict[s
         command=[str(UV["path"]), "tree", "--quiet", "--package", package_name],
         target_path=target_path,
         disable_stdio=True,
-        env=env,
+        environment=environment,
     )
     return result != ""
 
@@ -239,16 +250,47 @@ def env_get_int(name: str, default: int) -> int:
     return value if value >= 0 else default
 
 
-BOOL_TRUE_VALUES = frozenset({"true", "1", "yes", "on"})
-BOOL_FALSE_VALUES = frozenset({"false", "0", "no", "off"})
+def env_get_bool_from(getter: EnvGetter, name: str, default: bool) -> bool:
+    """Read a boolean through an arbitrary getter, falling back on invalid values.
+
+    Accepts ``true``/``false``, ``1``/``0``, ``yes``/``no`` and ``on``/``off``
+    (case-insensitive, surrounding whitespace ignored). An empty value counts as
+    unset, which keeps layer resolvers — where an empty string means "not
+    configured" — from warning on every read.
+
+    Args:
+        getter: Callable resolving a variable name to its raw value or None.
+        name: The environment variable name.
+        default: The fallback value when the variable is unset or invalid.
+
+    Returns:
+        bool: The parsed value, or the default.
+    """
+    BOOL_TRUE_VALUES: frozenset[str] = frozenset({"true", "1", "yes", "on"})
+    BOOL_FALSE_VALUES: frozenset[str] = frozenset({"false", "0", "no", "off"})
+
+    value = getter(name)
+    if value is None or not value.strip():
+        return default
+
+    normalized = value.strip().lower()
+    if normalized in BOOL_TRUE_VALUES:
+        return True
+
+    if normalized in BOOL_FALSE_VALUES:
+        return False
+
+    logger.warning(
+        "env_get_bool(%s) ignoring invalid value %r, falling back to %s",
+        name,
+        value,
+        default,
+    )
+    return default
 
 
 def env_get_bool(name: str, default: bool) -> bool:
     """Read a string boolean from the environment, falling back on invalid values.
-
-    Accepts ``true``/``false``, ``1``/``0``, ``yes``/``no`` and ``on``/``off``
-    (case-insensitive). Any other value logs a warning and falls back to the
-    default instead of silently ignoring the misconfiguration.
 
     Args:
         name: The environment variable name.
@@ -257,21 +299,7 @@ def env_get_bool(name: str, default: bool) -> bool:
     Returns:
         bool: The parsed value, or the default.
     """
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    normalized = value.lower()
-    if normalized in BOOL_TRUE_VALUES:
-        return True
-    if normalized in BOOL_FALSE_VALUES:
-        return False
-    logger.warning(
-        "env_get_bool(%s) ignoring invalid value %r, falling back to %s",
-        name,
-        value,
-        default,
-    )
-    return default
+    return env_get_bool_from(getter=os.environ.get, name=name, default=default)
 
 
 def env_get_list(name: str, default: list) -> list:
@@ -299,6 +327,31 @@ def env_get_str(name: str, default: str) -> str: ...
 def env_get_str(name: str, default: None) -> str | None: ...
 
 
+@overload
+def env_get_str_from(getter: EnvGetter, name: str, default: str) -> str: ...
+
+
+@overload
+def env_get_str_from(getter: EnvGetter, name: str, default: None) -> str | None: ...
+
+
+def env_get_str_from(getter: EnvGetter, name: str, default: str | None) -> str | None:
+    """Read a string through an arbitrary getter, falling back on the default.
+
+    Args:
+        getter: Callable resolving a variable name to its raw value or None.
+        name: The environment variable name.
+        default: The fallback value when the variable is unset.
+
+    Returns:
+        str | None: The value, or the default.
+    """
+    value = getter(name)
+    if value is None:
+        return default
+    return value
+
+
 def env_get_str(name: str, default: str | None) -> str | None:
     """Read a string from the environment, falling back on the default.
 
@@ -309,10 +362,7 @@ def env_get_str(name: str, default: str | None) -> str | None:
     Returns:
         str | None: The value, or the default.
     """
-    value = os.environ.get(name)
-    if value is None:
-        return default
-    return value
+    return env_get_str_from(getter=os.environ.get, name=name, default=default)
 
 
 @overload

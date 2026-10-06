@@ -11,7 +11,7 @@ from demetra.services.persistence.database import record_session_step_history, u
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
-from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_BUILD_ATTEMPTS, MAX_REVIEW_ATTEMPTS, OPENCODE
+from demetra.settings import CONTEXT_COMPACTION_THRESHOLD, MAX_ATTEMPTS
 from demetra.workflows.lint import run_lint_and_test
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.validate import run_validate_agent
@@ -34,13 +34,13 @@ async def check_and_compact_context(context: Context) -> None:
         usage = await get_opencode_session_tokens(
             target_path=context.worktree_path,
             session_id=context.session_id,
-            env=context.project.environment,
+            environment=context.environment,
         )
         history = await record_session_step_history(
             session_id=context.session_id,
             step="build",
             usage=usage,
-            model=OPENCODE["build_model"],
+            model=context.environment.opencode_build_model,
         )
     except (SQLAlchemyError, OSError):
         history = None
@@ -52,7 +52,7 @@ async def check_and_compact_context(context: Context) -> None:
             style="info",
         )
         compact_exit_code, _, compact_stderr = await opencode_compact_session(
-            target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+            target_path=context.worktree_path, session_id=context.session_id, environment=context.environment
         )
         if compact_exit_code != 0:
             print_message(f"Failed to compact session: {compact_stderr.strip()}", style="error")
@@ -76,23 +76,22 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         InfiniteLoopError: When the attempt budget is exhausted.
     """
     current_task: str = build_plan
-    rerun_attempts = MAX_BUILD_ATTEMPTS
-    validate_attempts = MAX_BUILD_ATTEMPTS
-    review_attempts = MAX_REVIEW_ATTEMPTS
+    rerun_attempts = MAX_ATTEMPTS["build"]
+    validate_attempts = MAX_ATTEMPTS["build"]
+    review_attempts = MAX_ATTEMPTS["review"]
     is_version_updated = False
     review_step_finished = False
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="build")
+        await update_session_step(task_id=context.linear_task.id, step="build", session_id=context.session_id)
 
         exit_code, stdout, stderr = await opencode_build_agent(
             target_path=context.worktree_path,
             task=current_task,
             session_id=context.session_id,
             task_title=context.linear_task.full_title,
-            env=context.project.environment,
             project_id=context.project.id,
-            user_environment=context.project.user_environment,
+            environment=context.environment,
         )
         if exit_code != 0:
             raise BuildError(
@@ -102,13 +101,12 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await check_and_compact_context(context)
 
         if review_attempts > 0 and validate_attempts > 0 and not review_step_finished:
-            await update_session_step(task_id=context.linear_task.id, step="validate")
+            await update_session_step(task_id=context.linear_task.id, step="validate", session_id=context.session_id)
             missing_items = await run_validate_agent(
                 target_path=context.worktree_path,
                 build_plan=build_plan,
-                env=context.project.environment,
                 project_id=context.project.id,
-                user_environment=context.project.user_environment,
+                environment=context.environment,
             )
             if missing_items:
                 if context.auto_mode:
@@ -126,18 +124,17 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
-                    rerun_attempts = MAX_BUILD_ATTEMPTS
-                    validate_attempts = MAX_BUILD_ATTEMPTS
-                    review_attempts = MAX_REVIEW_ATTEMPTS
+                    rerun_attempts = MAX_ATTEMPTS["build"]
+                    validate_attempts = MAX_ATTEMPTS["build"]
+                    review_attempts = MAX_ATTEMPTS["review"]
 
-            await update_session_step(task_id=context.linear_task.id, step="review")
+            await update_session_step(task_id=context.linear_task.id, step="review", session_id=context.session_id)
             review_comments = await run_review_agents(
                 target_path=context.worktree_path,
                 session_id=context.session_id,
                 task_id=context.linear_task.id,
-                env=context.project.environment,
                 project_id=context.project.id,
-                user_id=context.project.user_id,
+                environment=context.environment,
             )
             if review_comments:
                 if context.auto_mode:
@@ -155,9 +152,9 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
-                    rerun_attempts = MAX_BUILD_ATTEMPTS
-                    validate_attempts = MAX_BUILD_ATTEMPTS
-                    review_attempts = MAX_REVIEW_ATTEMPTS
+                    rerun_attempts = MAX_ATTEMPTS["build"]
+                    validate_attempts = MAX_ATTEMPTS["build"]
+                    review_attempts = MAX_ATTEMPTS["review"]
         else:
             print_message("Skipping CODE REVIEW (attempt budget reached)", style="warning")
 
@@ -172,7 +169,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             target_path=context.worktree_path,
             session_id=context.session_id,
             task_id=context.linear_task.id,
-            env=context.project.environment,
+            environment=context.environment,
         )
         if has_errors and lint_result:
             current_task = lint_result

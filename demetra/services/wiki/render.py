@@ -188,7 +188,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
                 existing_meta = {}
             related = [item for item in (existing_meta.get("related") or []) if item != filename]
 
-        diff = await service.git_diff_facts(target_path=context.worktree_path, env=context.project.environment)
+        diff = await service.git_diff_facts(target_path=context.worktree_path, environment=context.environment)
         facts["files"] = diff["files"]
         facts["numstat"] = diff["numstat"]
         facts["changed_lines"] = diff["changed_lines"]
@@ -215,7 +215,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
                 description=facts["description"],
                 build_plan=facts["build_plan"] or "",
                 diff_summary=facts["stat_text"] or "",
-                user_id=context.project.user_id,
+                environment=context.environment,
             )
 
         body = service.render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)

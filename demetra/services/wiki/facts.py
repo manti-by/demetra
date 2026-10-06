@@ -3,7 +3,7 @@ from collections import deque
 from pathlib import Path
 
 import demetra.services.wiki as service
-from demetra.library.models import Context
+from demetra.library.models import Context, SessionEnvironment
 
 
 def session_log_tail(task_id: str) -> str:
@@ -33,7 +33,7 @@ def session_log_tail(task_id: str) -> str:
     return "\n".join(tail)
 
 
-async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> str:
+async def git_default_branch(target_path: Path, environment: SessionEnvironment | None = None) -> str:
     """Resolve the remote-tracking default branch for a worktree.
 
     Reads ``refs/remotes/origin/HEAD``; falls back to ``"origin/master"`` when
@@ -41,7 +41,7 @@ async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> s
 
     Args:
         target_path: The repository worktree.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
         str: The remote-tracking default branch ref, e.g. ``"origin/main"``.
@@ -49,7 +49,7 @@ async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> s
     command = [str(service.GIT["path"]), "symbolic-ref", "--short", "refs/remotes/origin/HEAD"]
     try:
         exit_code, stdout, _ = await service.run_command(
-            command=command, target_path=target_path, disable_stdio=True, env=env
+            command=command, target_path=target_path, disable_stdio=True, environment=environment
         )
     except (OSError, RuntimeError):
         return "origin/master"
@@ -63,7 +63,7 @@ async def git_default_branch(target_path: Path, env: dict[str, str] | None) -> s
     return f"origin/{branch.removeprefix('refs/remotes/origin/')}"
 
 
-async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
+async def git_diff_facts(target_path: Path, environment: SessionEnvironment | None = None) -> dict:
     """Collect deterministic diff facts against the default branch for a worktree.
 
     Diffs the working tree against the default branch so uncommitted changes
@@ -71,27 +71,27 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
 
     Args:
         target_path: The repository worktree to diff.
-        env: Optional environment overrides for the subprocess.
+        environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
         dict: The changed file list, per-file numstat counts, total changed
             lines and the ``--stat`` text. Falls back to empty values on error.
     """
-    base_ref = await service.git_default_branch(target_path=target_path, env=env)
+    base_ref = await service.git_default_branch(target_path=target_path, environment=environment)
     base = [str(service.GIT["path"]), "diff", base_ref]
     files: list[str] = []
     numstat: list[tuple[str, str, str]] = []
     stat_text = ""
     try:
         exit_code, name_only, name_only_err = await service.run_command(
-            command=[*base, "--name-only"], target_path=target_path, disable_stdio=True, env=env
+            command=[*base, "--name-only"], target_path=target_path, disable_stdio=True, environment=environment
         )
         if exit_code != 0:
             raise RuntimeError(f"git diff --name-only failed: {name_only_err.strip()}")
         files = [line for line in name_only.splitlines() if line.strip()]
 
         exit_code, numstat_out, numstat_err = await service.run_command(
-            command=[*base, "--numstat"], target_path=target_path, disable_stdio=True, env=env
+            command=[*base, "--numstat"], target_path=target_path, disable_stdio=True, environment=environment
         )
         if exit_code != 0:
             raise RuntimeError(f"git diff --numstat failed: {numstat_err.strip()}")
@@ -105,7 +105,7 @@ async def git_diff_facts(target_path: Path, env: dict[str, str] | None) -> dict:
             numstat.append((path, added, deleted))
 
         exit_code, stat_out, stat_err = await service.run_command(
-            command=[*base, "--stat"], target_path=target_path, disable_stdio=True, env=env
+            command=[*base, "--stat"], target_path=target_path, disable_stdio=True, environment=environment
         )
         if exit_code != 0:
             raise RuntimeError(f"git diff --stat failed: {stat_err.strip()}")

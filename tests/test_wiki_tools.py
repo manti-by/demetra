@@ -1,5 +1,7 @@
 import pytest
 
+from demetra.library.constants import SEARCH_STOP_WORDS
+from demetra.settings import SEARCH
 from demetra.tools import wiki
 
 
@@ -100,6 +102,9 @@ class TestTokenize:
     def test_keeps_dotted_and_dashed_terms(self):
         assert wiki._tokenize("mcp_server.py on_list_tools") == ["mcp_server.py", "on_list_tools"]
 
+    def test_every_configured_stop_word_is_dropped(self):
+        assert wiki._tokenize(" ".join(sorted(SEARCH_STOP_WORDS))) == []
+
 
 class TestScoring:
     def test_title_match_outranks_body_match(self, pages_root):
@@ -128,12 +133,12 @@ class TestExtractSnippets:
 
     def test_max_snippets_respected(self):
         body = "\n".join(f"line {i} mentions token" for i in range(10))
-        assert len(wiki._extract_snippets(body, ["token"])) == wiki.MAX_SNIPPETS
+        assert len(wiki._extract_snippets(body, ["token"])) == SEARCH["max_snippets"]
 
     def test_long_lines_truncated(self):
         body = "token " + "x" * 500
         snippet = wiki._extract_snippets(body, ["token"])[0]
-        assert len(snippet) <= wiki.SNIPPET_LENGTH + len("L1: ")
+        assert len(snippet) <= SEARCH["snippet_length"] + len("L1: ")
 
 
 class TestResolvePage:

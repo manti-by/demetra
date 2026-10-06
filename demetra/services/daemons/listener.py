@@ -9,7 +9,7 @@ from demetra.services.persistence.database import (
 )
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.subprocess import run_command
-from demetra.settings import BASE_PATH, GITHUB, MAX_LISTENER_ATTEMPTS
+from demetra.settings import BASE_PATH, GITHUB, MAX_ATTEMPTS
 from demetra.workflows.merge import run_merge_workflow
 from demetra.workflows.rebase import run_rebase_workflow
 from demetra.workflows.review_fixes import run_review_fixes_workflow
@@ -213,9 +213,10 @@ async def process_notification(pr_info: dict, action: str) -> bool:
         return False
 
     attempts = await increment_listener_attempts(session.task_id)
-    if attempts > MAX_LISTENER_ATTEMPTS:
+    max_listener_attempts = MAX_ATTEMPTS["listener"]
+    if attempts > max_listener_attempts:
         logger.warning(
-            f"Max listener attempts ({MAX_LISTENER_ATTEMPTS}) reached for session {session.task_id}, "
+            f"Max listener attempts ({max_listener_attempts}) reached for session {session.task_id}, "
             f"giving up on {action} notification for {pr_link}"
         )
         return True

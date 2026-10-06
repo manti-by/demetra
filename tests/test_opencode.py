@@ -4,9 +4,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import (
-    PLAN_HAS_QUESTIONS,
-    PLAN_IS_READY_STRING,
     RESEARCH_HEADER_STRING,
     extract_research_report,
     get_opencode_session_id,
@@ -16,6 +15,7 @@ from demetra.services.agents.opencode import (
     opencode_compact_session,
     opencode_merge_agent,
     opencode_plan_agent,
+    opencode_rebase_agent,
     opencode_research_agent,
     opencode_resolve_agent,
     opencode_validate_agent,
@@ -57,11 +57,10 @@ class TestOpencodeService:
             task_title="do something",
             model=OPENCODE["plan_model"],
             agent="plan-agent",
-            env=None,
             project_id=None,
-            user_environment=None,
+            environment=None,
         )
-        assert result is not None
+        assert result == "plan result"
 
     @pytest.mark.asyncio
     async def test_build_agent_modifies_task_with_instructions(self, mock_run_opencode_agent):
@@ -110,26 +109,6 @@ class TestOpencodeService:
         assert all(arg != long_task for arg in call_args["command"])
 
     @pytest.mark.asyncio
-    async def test_run_opencode_agent_passes_full_task_via_stdin(self, mock_run_command_and_opencode_config):
-
-        mock_run_command_and_opencode_config.return_value = (0, "", "")
-        long_task = "Plan step: implement the feature and stage the diff.\n" * 200
-
-        await run_opencode_agent(Path("/test"), long_task, model="opencode/minimax-m2.5-free", agent="validate")
-
-        call_args = mock_run_command_and_opencode_config.call_args
-        assert call_args.kwargs["input_text"] == long_task
-        assert len(call_args.kwargs["input_text"]) == len(long_task)
-        command = call_args.kwargs["command"]
-        assert all(arg != long_task for arg in command)
-
-    @pytest.mark.asyncio
-    async def test_plan_constants_are_defined(self):
-
-        assert PLAN_IS_READY_STRING == "Ready to proceed to build."
-        assert PLAN_HAS_QUESTIONS == "Please check my questions above."
-
-    @pytest.mark.asyncio
     async def test_resolve_agent_uses_resolve_model(self, mock_run_opencode_agent):
 
         mock_run_opencode_agent.return_value = "resolve result"
@@ -141,21 +120,46 @@ class TestOpencodeService:
             task_title=None,
             model=OPENCODE["resolve_model"],
             agent="resolve-agent",
-            env=None,
             project_id=None,
-            user_environment=None,
+            environment=None,
         )
-        assert result is not None
+        assert result == "resolve result"
+
+
+class TestRunOpencodeAgentLangSmithEnv:
+    @pytest.fixture
+    def mock_run_command_and_opencode_config(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+        ):
+            yield mock_run
 
     @pytest.mark.asyncio
-    async def test_resolve_agent_uses_new_session(self, mock_run_opencode_agent):
+    async def test_environment_is_the_only_env_argument(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = "output"
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent")
 
-        mock_run_opencode_agent.return_value = "resolve result"
-        await opencode_resolve_agent(Path("/test/path"), "answer these questions", task_title="resolve-title")
+        call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
+        assert call_kwargs["environment"] is None
+        assert "extra" not in call_kwargs
+        assert "env" not in call_kwargs
 
-        call_kwargs = mock_run_opencode_agent.call_args.kwargs
-        assert call_kwargs.get("session_id") is None
-        assert call_kwargs.get("agent") == "resolve-agent"
+    @pytest.mark.asyncio
+    async def test_environment_carries_the_tracing_vars_to_the_subprocess(self, mock_run_command_and_opencode_config):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            user_environment={},
+        )
+        mock_run_command_and_opencode_config.return_value = "output"
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", environment=environment)
+
+        call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
+        assert call_kwargs["environment"] is environment
+        subprocess_env = environment.subprocess_env
+        assert subprocess_env["LANGSMITH_TRACING"] == "true"
+        assert subprocess_env["TRACE_TO_LANGSMITH"] == "true"
+        assert subprocess_env["LANGSMITH_API_KEY"] == "key-1"
 
 
 class TestOpencodeValidateAgent:
@@ -183,22 +187,24 @@ class TestOpencodeValidateAgent:
             task_title=None,
             model=OPENCODE["validate_model"],
             agent="validate-agent",
-            env=None,
             project_id=None,
-            user_environment=None,
+            environment=None,
         )
-        assert result is not None
+        assert result == "validate result"
 
     @pytest.mark.asyncio
-    async def test_validate_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
+    async def test_validate_agent_passes_environment(self, mock_run_opencode_agent, mock_get_prompt):
         mock_run_opencode_agent.return_value = "validate result"
         mock_get_prompt.return_value = "validate prompt body"
+        environment = SessionEnvironment(project_environment={"KEY": "val"}, user_environment={})
 
-        await opencode_validate_agent(Path("/test/path"), "build plan", task_title="validate-title", env={"KEY": "val"})
+        await opencode_validate_agent(
+            Path("/test/path"), "build plan", task_title="validate-title", environment=environment
+        )
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs.get("task_title") == "validate-title"
-        assert call_kwargs.get("env") == {"KEY": "val"}
+        assert call_kwargs.get("environment") is environment
         assert call_kwargs.get("agent") == "validate-agent"
 
 
@@ -235,16 +241,6 @@ class TestOpencodeSessionId:
 
         assert result == "ses-newer"
 
-    @pytest.mark.asyncio
-    async def test_returns_none_when_no_matching_titles(self, mock_get_opencode_sessions):
-        mock_get_opencode_sessions.return_value = [
-            {"id": "ses-other", "title": "MNT-999", "directory": "/test/path", "updated": 1},
-        ]
-
-        result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
-
-        assert result is None
-
 
 class TestOpencodeSessionLength:
     @pytest.fixture
@@ -275,27 +271,19 @@ class TestOpencodeSessionLength:
         result = await get_opencode_session_length(Path("/p"), "session-1")
         assert result == 23
 
+    @pytest.mark.parametrize(
+        ("exit_code", "stdout", "stderr"),
+        [
+            (1, "", "error"),
+            (0, "not json", ""),
+            (0, "{}", ""),
+            (0, '{"info": {}}', ""),
+        ],
+        ids=["nonzero_exit", "invalid_json", "info_missing", "tokens_missing"],
+    )
     @pytest.mark.asyncio
-    async def test_returns_none_on_nonzero_exit(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (1, "", "error")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_on_invalid_json(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, "not json", "")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_info_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, "{}", "")
-        result = await get_opencode_session_length(Path("/p"), "session-1")
-        assert result is None
-
-    @pytest.mark.asyncio
-    async def test_returns_none_when_tokens_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (0, '{"info": {}}', "")
+    async def test_returns_none_for_unusable_export(self, mock_run_command_and_config, exit_code, stdout, stderr):
+        mock_run_command_and_config.return_value = (exit_code, stdout, stderr)
         result = await get_opencode_session_length(Path("/p"), "session-1")
         assert result is None
 
@@ -307,12 +295,13 @@ class TestOpencodeSessionLength:
         assert command == ["/bin/opencode", "export", "ses_abc123"]
 
     @pytest.mark.asyncio
-    async def test_passes_target_path_and_env(self, mock_run_command_and_config):
+    async def test_passes_target_path_and_environment(self, mock_run_command_and_config):
         mock_run_command_and_config.return_value = (0, '{"info": {"tokens": {"input": 0}}}', "")
-        await get_opencode_session_length(Path("/custom/path"), "s-1", env={"KEY": "val"})
+        environment = SessionEnvironment(project_environment={"KEY": "val"}, user_environment={})
+        await get_opencode_session_length(Path("/custom/path"), "s-1", environment=environment)
         call_kwargs = mock_run_command_and_config.call_args.kwargs
         assert call_kwargs["target_path"] == Path("/custom/path")
-        assert call_kwargs["env"] == {"KEY": "val"}
+        assert call_kwargs["environment"] is environment
 
 
 class TestOpencodeSessionTokens:
@@ -364,51 +353,32 @@ class TestOpencodeSessionTokens:
         assert result is not None
         assert result.context == 220  # 20 + 200
 
+    @pytest.mark.parametrize(
+        "messages",
+        [
+            [{"info": {"role": "user"}}],
+            None,
+            [
+                {"info": {"role": "user"}},
+                {"info": {"role": "assistant"}},
+                {"info": {"role": "assistant", "tokens": {"input": 0, "output": 0, "reasoning": 0}}},
+            ],
+        ],
+        ids=["no_assistant_messages", "messages_missing", "last_assistant_has_no_tokens"],
+    )
     @pytest.mark.asyncio
-    async def test_context_is_none_when_no_assistant_messages(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps(
-                {
-                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
-                    "messages": [{"info": {"role": "user"}}],
-                }
-            ),
-            "",
-        )
-        result = await get_opencode_session_tokens(Path("/p"), "session-1")
-        assert result is not None
-        assert result.context is None
+    async def test_context_is_none_without_a_token_bearing_assistant_message(
+        self, mock_run_command_and_config, messages
+    ):
+        payload = {"info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}}}
+        if messages is not None:
+            payload["messages"] = messages
+        mock_run_command_and_config.return_value = (0, json.dumps(payload), "")
 
-    @pytest.mark.asyncio
-    async def test_context_is_none_when_messages_missing(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps({"info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}}}),
-            "",
-        )
         result = await get_opencode_session_tokens(Path("/p"), "session-1")
-        assert result is not None
-        assert result.context is None
 
-    @pytest.mark.asyncio
-    async def test_context_is_none_when_last_assistant_has_no_tokens(self, mock_run_command_and_config):
-        mock_run_command_and_config.return_value = (
-            0,
-            json.dumps(
-                {
-                    "info": {"tokens": {"input": 100, "output": 50, "reasoning": 10}},
-                    "messages": [
-                        {"info": {"role": "user"}},
-                        {"info": {"role": "assistant"}},
-                        {"info": {"role": "assistant", "tokens": {"input": 0, "output": 0, "reasoning": 0}}},
-                    ],
-                }
-            ),
-            "",
-        )
-        result = await get_opencode_session_tokens(Path("/p"), "session-1")
         assert result is not None
+        assert result.input == 100
         assert result.context is None
 
     @pytest.mark.asyncio
@@ -466,12 +436,13 @@ class TestOpencodeCompactSession:
         assert command == ["/bin/opencode", "run", "--session", "ses_abc123", "--dir", "/p", "/compact"]
 
     @pytest.mark.asyncio
-    async def test_forwards_target_path_and_env(self, mock_run_command_and_config):
+    async def test_forwards_target_path_and_environment(self, mock_run_command_and_config):
         mock_run_command_and_config.return_value = (0, "", "")
-        await opencode_compact_session(Path("/custom/path"), "s-1", env={"KEY": "val"})
+        environment = SessionEnvironment(project_environment={"KEY": "val"}, user_environment={})
+        await opencode_compact_session(Path("/custom/path"), "s-1", environment=environment)
         call_kwargs = mock_run_command_and_config.call_args.kwargs
         assert call_kwargs["target_path"] == Path("/custom/path")
-        assert call_kwargs["env"] == {"KEY": "val"}
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_disables_stdio_by_default(self, mock_run_command_and_config):
@@ -493,13 +464,15 @@ class TestOpencodeEnvLayers:
 
     @pytest.mark.asyncio
     async def test_plan_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
-        user_environment = {"OPENCODE_PLAN_MODEL": "user/env-plan-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_PLAN_MODEL": "user/env-plan-model"}
+        )
 
-        await opencode_plan_agent(Path("/test/path"), "task", user_environment=user_environment)
+        await opencode_plan_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-plan-model"
-        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_plan_agent_falls_back_to_settings_model(self, mock_run_opencode_agent):
@@ -510,43 +483,65 @@ class TestOpencodeEnvLayers:
 
     @pytest.mark.asyncio
     async def test_build_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
-        user_environment = {"OPENCODE_BUILD_MODEL": "user/env-build-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_BUILD_MODEL": "user/env-build-model"}
+        )
 
-        await opencode_build_agent(Path("/test/path"), "task", user_environment=user_environment)
+        await opencode_build_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-build-model"
-        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_validate_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
-        user_environment = {"OPENCODE_VALIDATE_MODEL": "user/env-validate-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_VALIDATE_MODEL": "user/env-validate-model"}
+        )
 
-        await opencode_validate_agent(Path("/test/path"), "build plan", user_environment=user_environment)
+        await opencode_validate_agent(Path("/test/path"), "build plan", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-validate-model"
-        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_resolve_agent_uses_user_env_model_override(self, mock_run_opencode_agent):
-        user_environment = {"OPENCODE_RESOLVE_MODEL": "user/env-resolve-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_RESOLVE_MODEL": "user/env-resolve-model"}
+        )
 
-        await opencode_resolve_agent(Path("/test/path"), "task", user_environment=user_environment)
+        await opencode_resolve_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-resolve-model"
-        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_merge_agent_uses_user_env_build_model_override(self, mock_run_opencode_agent):
-        user_environment = {"OPENCODE_BUILD_MODEL": "user/env-merge-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_BUILD_MODEL": "user/env-merge-model"}
+        )
 
-        await opencode_merge_agent(Path("/test/path"), "task", user_environment=user_environment)
+        await opencode_merge_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-merge-model"
-        assert call_kwargs["user_environment"] == user_environment
+        assert call_kwargs["environment"] is environment
+        assert call_kwargs["agent"] == "merge-agent"
+
+    @pytest.mark.asyncio
+    async def test_rebase_agent_uses_user_env_build_model_override(self, mock_run_opencode_agent):
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_BUILD_MODEL": "user/env-rebase-model"}
+        )
+
+        await opencode_rebase_agent(Path("/test/path"), "task", environment=environment)
+
+        call_kwargs = mock_run_opencode_agent.call_args.kwargs
+        assert call_kwargs["model"] == "user/env-rebase-model"
+        assert call_kwargs["environment"] is environment
+        assert call_kwargs["agent"] == "rebase-agent"
 
 
 class TestOpencodeResearchAgent:
@@ -574,28 +569,32 @@ class TestOpencodeResearchAgent:
             task_title=None,
             model=OPENCODE["research_model"],
             agent="research-agent",
-            env=None,
             project_id=None,
-            user_environment=None,
+            environment=None,
         )
         assert result == (0, "output", "")
 
     @pytest.mark.asyncio
     async def test_research_agent_respects_user_env_model_override(self, mock_run_opencode_agent, mock_get_prompt):
-        user_environment = {"OPENCODE_RESEARCH_MODEL": "user/env-research-model"}
+        environment = SessionEnvironment(
+            project_environment={}, user_environment={"OPENCODE_RESEARCH_MODEL": "user/env-research-model"}
+        )
 
-        await opencode_research_agent(Path("/test/path"), "task", user_environment=user_environment)
+        await opencode_research_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
         assert call_kwargs["model"] == "user/env-research-model"
         assert call_kwargs["agent"] == "research-agent"
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
-    async def test_research_agent_passes_env(self, mock_run_opencode_agent, mock_get_prompt):
-        await opencode_research_agent(Path("/test/path"), "task", env={"API_KEY": "1"})
+    async def test_research_agent_passes_environment(self, mock_run_opencode_agent, mock_get_prompt):
+        environment = SessionEnvironment(project_environment={"API_KEY": "1"}, user_environment={})
+
+        await opencode_research_agent(Path("/test/path"), "task", environment=environment)
 
         call_kwargs = mock_run_opencode_agent.call_args.kwargs
-        assert call_kwargs["env"] == {"API_KEY": "1"}
+        assert call_kwargs["environment"] is environment
 
     @pytest.mark.asyncio
     async def test_extract_research_report_trims_leading_text(self):

@@ -492,6 +492,10 @@ class TestCreatePullRequest:
                 "master",
                 "--head",
                 "feature/test",
+                "--assignee",
+                "demetra-ai",
+                "--reviewer",
+                "manti-by",
             ]
 
     @pytest.mark.asyncio
@@ -515,14 +519,14 @@ class TestGetPrInfo:
                 '{"headRefName": "feature/test", "baseRefName": "main"}',
                 "",
             )
-            result = await get_pr_info(pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"), env={})
+            result = await get_pr_info(pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"))
             assert result == ("feature/test", "main")
 
     @pytest.mark.asyncio
     async def test_raises_on_nonzero_exit(self):
         with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "PR not found")
-            result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"), env={})
+            result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"))
             assert result is None
 
 

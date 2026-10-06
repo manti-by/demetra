@@ -22,7 +22,7 @@ from demetra.library.tables import (
     users,
     waitlist_entries,
 )
-from demetra.settings import DB_HOST, DB_NAME, DB_PASSWORD, DB_PORT, DB_USER
+from demetra.settings import DATABASE
 
 
 logger = logging.getLogger(__name__)
@@ -41,14 +41,15 @@ def get_async_engine(db_name: str | None = None, echo: bool = False) -> AsyncEng
     pinging.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
         echo: Whether to log SQL statements.
 
     Returns:
         AsyncEngine: The configured async engine.
     """
-    database = db_name if db_name else DB_NAME
-    url = f"postgresql+asyncpg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    database = db_name if db_name else DATABASE["name"]
+    url = f"postgresql+asyncpg://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/{database}"
     return create_async_engine(
         url,
         echo=echo,
@@ -91,14 +92,15 @@ def get_sync_engine(db_name: str | None = None, echo: bool = False):
     Uses psycopg over PostgreSQL.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
         echo: Whether to log SQL statements.
 
     Returns:
         Engine: The configured sync engine.
     """
-    database = db_name if db_name else DB_NAME
-    url = f"postgresql+psycopg://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{database}"
+    database = db_name if db_name else DATABASE["name"]
+    url = f"postgresql+psycopg://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/{database}"
     return create_engine(url, echo=echo)
 
 
@@ -108,7 +110,8 @@ async def get_cached_engine(db_name: str | None = None) -> AsyncEngine:
     Engines are cached keyed by the running event loop and database name.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Returns:
         AsyncEngine: The cached async engine.
@@ -127,7 +130,8 @@ async def get_connection(db_name: str | None = None) -> AsyncGenerator[AsyncSess
     """Yield a session from the cached engine as an async context manager.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Yields:
         AsyncSession: An open async session.
@@ -148,7 +152,8 @@ async def get_transaction(db_name: str | None = None) -> AsyncGenerator[AsyncSes
     ``COMMIT`` / ``ROLLBACK``), so the yielded block runs atomically.
 
     Args:
-        db_name: Optional database name; defaults to the configured DB_NAME.
+        db_name: Optional database name; defaults to the configured
+            ``DATABASE["name"]``.
 
     Yields:
         AsyncSession: A session inside an open transaction.
@@ -202,8 +207,8 @@ async def upsert_pending_session(
         result = await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_ticket_id, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :research_ticket_id, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -212,7 +217,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_ticket_id, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
                 """
             ),
             {
@@ -228,7 +233,6 @@ async def upsert_pending_session(
                 "listener_attempts": 0,
                 "pr_link": None,
                 "linear_link": linear_link,
-                "research_ticket_id": None,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -252,7 +256,7 @@ async def upsert_pending_session(
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
-        research_ticket_id=row.research_ticket_id,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -388,7 +392,7 @@ async def get_session(task_id: str) -> Session | None:
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
-        research_ticket_id=row.research_ticket_id,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -423,7 +427,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         listener_attempts=row.listener_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
-        research_ticket_id=row.research_ticket_id,
+        research_report=row.research_report,
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
@@ -455,8 +459,8 @@ async def save_session(
         await connection.execute(
             text(
                 """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_ticket_id, created_at, updated_at)
-                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :research_ticket_id, :created_at, :updated_at)
+                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
+                VALUES (:task_id, :name, :session_id, :build_plan, :posted_to_linear, :step, :project_id, :user_id, :run_attempts, :listener_attempts, :pr_link, :linear_link, :created_at, :updated_at)
                 ON CONFLICT (task_id) DO UPDATE SET
                     name = COALESCE(NULLIF(EXCLUDED.name, ''), sessions.name),
                     session_id = COALESCE(NULLIF(EXCLUDED.session_id, ''), sessions.session_id),
@@ -481,7 +485,6 @@ async def save_session(
                 "listener_attempts": 0,
                 "pr_link": None,
                 "linear_link": linear_link,
-                "research_ticket_id": None,
                 "created_at": now,
                 "updated_at": now,
             },
@@ -505,7 +508,7 @@ async def save_session(
             listener_attempts=row.listener_attempts,
             pr_link=row.pr_link,
             linear_link=row.linear_link,
-            research_ticket_id=row.research_ticket_id,
+            research_report=row.research_report,
             created_at=row.created_at.isoformat(),
             updated_at=row.updated_at.isoformat(),
         )
@@ -523,7 +526,7 @@ async def save_session(
         listener_attempts=0,
         pr_link=None,
         linear_link=linear_link,
-        research_ticket_id=None,
+        research_report=None,
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -595,33 +598,34 @@ async def update_session_linear_link(task_id: str, linear_link: str) -> None:
         await connection.commit()
 
 
-async def update_session_research_ticket_id(task_id: str, research_ticket_id: str) -> None:
-    """Record the related research ticket id on a session.
-
-    Persisting the created research ticket id keeps the research flow
-    idempotent: a re-run reuses the ticket instead of creating a duplicate.
+async def update_session_research_report(task_id: str, research_report: str) -> bool:
+    """Record the research report on a session.
 
     Args:
         task_id: The Linear task identifier.
-        research_ticket_id: The related research ticket id to store.
+        research_report: The research report markdown to store.
+
+    Returns:
+        bool: True when a row was updated, False when no session matched.
     """
     now = datetime.now(UTC)
     async with get_connection() as connection:
-        await connection.execute(
+        result = await connection.execute(
             text(
                 """
                 UPDATE sessions
-                SET research_ticket_id = :research_ticket_id, updated_at = :updated_at
+                SET research_report = :research_report, updated_at = :updated_at
                 WHERE task_id = :task_id
                 """
             ),
             {
                 "task_id": task_id,
-                "research_ticket_id": research_ticket_id,
+                "research_report": research_report,
                 "updated_at": now,
             },
         )
         await connection.commit()
+        return getattr(result, "rowcount", 0) > 0
 
 
 async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
@@ -721,17 +725,35 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
         return row.access_token, str(expires_at)
 
 
-async def update_session_step(task_id: str, step: str) -> None:
+async def update_session_step(task_id: str, step: str, session_id: str | None = None) -> None:
     """Update the current workflow step of a session.
+
+    When ``session_id`` is given, also inserts a step-only ``session_history``
+    row (timestamp only, token columns and ``model`` left NULL) in the same
+    transaction, so intermediate steps (e.g. ``build``, ``validate``,
+    ``review``, ``lint``) show up in the session history timeline even when
+    no token usage is recorded for them.
 
     Args:
         task_id: The Linear task identifier.
         step: The new step value.
+        session_id: Optional opencode session id to record a step-only
+            history row for; omit to skip recording.
     """
+    now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
-            sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=datetime.now(UTC))
+            sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=now)
         )
+        if session_id:
+            await connection.execute(
+                insert(session_history).values(
+                    id=str(uuid4()),
+                    session_id=session_id,
+                    step=step,
+                    created_at=now,
+                )
+            )
         await connection.commit()
 
 

@@ -34,9 +34,9 @@ class TestPostprocess:
         has_issues, feedback = await postprocess_with_ruff(target_path=self.target_path)
         assert has_issues is False
         assert feedback is None
-        mock_format.assert_awaited_once_with(target_path=self.target_path, env=None)
-        mock_fix.assert_awaited_once_with(target_path=self.target_path, env=None)
-        mock_diff.assert_awaited_once_with(target_path=self.target_path, env=None)
+        mock_format.assert_awaited_once_with(target_path=self.target_path, environment=None)
+        mock_fix.assert_awaited_once_with(target_path=self.target_path, environment=None)
+        mock_diff.assert_awaited_once_with(target_path=self.target_path, environment=None)
 
     @pytest.mark.asyncio
     async def test_with_remaining_issues(self, ruff_mocks):

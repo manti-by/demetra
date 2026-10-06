@@ -3,15 +3,30 @@ title: Project environment
 date: 2026-06-08
 type: implementation
 status: resolved
-session_id: "-"
-services: [database, subprocess, workflows]
-branch: "-"
-tickets: [MNT-110, MNT-75]
-tags: [environment, subprocess, per-project, projects, provisioning, postgres]
-related: [2026-03-31-project-model-and-space.md]
+session_id: '-'
+services:
+- database
+- subprocess
+- workflows
+branch: '-'
+tickets:
+- MNT-110
+- MNT-75
+tags:
+- environment
+- subprocess
+- per-project
+- projects
+- provisioning
+- postgres
+related:
+- 2026-03-31-project-model-and-space.md
+- 2026-08-10-process-environment-3-layers-encryption-uv-venv.md
 ---
 
 # Project environment
+> **Archived on 2026-09-14.** Useful info merged into [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 
@@ -69,7 +84,9 @@ MNT-161 UV venv lives in.
 
 None.
 
+> **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
 ## References
 
-- Related: none
+- Related: [[2026-03-31-project-model-and-space]], [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - External: [MNT-110 — Project environment (Linear)](https://linear.app/mnt/issue/MNT-110)

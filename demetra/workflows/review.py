@@ -1,6 +1,7 @@
 import asyncio
 from pathlib import Path
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.agents.opencode import opencode_review_agent
 from demetra.services.llm.openrouter import summarize_review
 from demetra.services.runtime.tui import print_message
@@ -24,11 +25,11 @@ def filter_meaningful_reviews(findings: list[str]) -> list[str]:
 
 async def run_review_agents(
     target_path: Path,
+    *,
     session_id: str | None = None,
     task_id: str | None = None,
-    env: dict[str, str] | None = None,
     project_id: str | None = None,
-    user_id: str | None = None,
+    environment: SessionEnvironment | None = None,
 ) -> str | None:
     """Run all configured review agents in parallel and summarize their output.
 
@@ -39,8 +40,8 @@ async def run_review_agents(
         target_path: Directory to run the reviews in.
         session_id: Reserved; not used by the review agents.
         task_id: Reserved; not used by the review agents.
-        env: Optional environment overrides for the subprocess.
-        user_id: Optional user id whose shared environment configures the LLM.
+        environment: The resolved session environment, forwarded to the review
+            agents and used to configure the LLM summarizer.
 
     Returns:
         str | None: The numbered review comments, or None when there are none.
@@ -53,7 +54,7 @@ async def run_review_agents(
     review_agents = []
     for model in OPENCODE["review_models"]:
         review_agents.append(
-            opencode_review_agent(target_path=target_path, model=model, env=env, project_id=project_id)
+            opencode_review_agent(target_path=target_path, model=model, environment=environment, project_id=project_id)
         )
     results = await asyncio.gather(*review_agents)
 
@@ -70,7 +71,7 @@ async def run_review_agents(
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
-    findings = await summarize_review(review_output=review_output, user_id=user_id)
+    findings = await summarize_review(review_output=review_output, environment=environment)
     if findings:
         meaningful = filter_meaningful_reviews(findings)
         if meaningful:

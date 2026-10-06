@@ -3,6 +3,10 @@ name: demetra
 x-demetra-env: &demetra-env
   DB_HOST: postgres
   REDIS_URL: redis://redis:6379/1
+  LANGSMITH_TRACING: "${LANGSMITH_TRACING:-true}"
+  LANGSMITH_ENDPOINT: "${LANGSMITH_ENDPOINT:-https://api.smith.langchain.com}"
+  LANGSMITH_API_KEY: "${LANGSMITH_API_KEY:-}"
+  LANGSMITH_PROJECT: "${LANGSMITH_PROJECT:-Demetra}"
 
 x-demetra-base: &demetra-base
   image: mantiby/demetra:latest
@@ -127,6 +131,8 @@ services:
         "0.0.0.0",
         "--port",
         "9181",
+        "--url-prefix",
+        "/rq"
       ]
     environment:
       <<: *demetra-env

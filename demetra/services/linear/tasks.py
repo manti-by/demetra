@@ -1,7 +1,7 @@
 from sqlalchemy import select
 
 import demetra.services.linear as service
-from demetra.library.models import LinearTask
+from demetra.library.models import LinearTask, SessionEnvironment
 from demetra.library.tables import projects
 
 
@@ -74,7 +74,9 @@ async def get_todo_issues(project_name: str | None = None, *, user_id: str | Non
     Returns:
         list[LinearTask]: The matching TODO issues as tasks.
     """
-    state_id = await service.get_linear_config_value(name="todo", user_id=user_id)
+    user_environment = await service.get_user_environments_decrypted(user_id=user_id) if user_id else {}
+    environment = SessionEnvironment(project_environment={}, user_environment=user_environment)
+    state_id = environment.linear_state("todo")
     query = await service.get_query(name="get_all_issues")
     result = await service.graphql_request(query=query, variables={"state_id": state_id})
     issues = result.get("data", {}).get("issues", {}).get("nodes", [])
@@ -115,6 +117,7 @@ async def get_todo_issues(project_name: str | None = None, *, user_id: str | Non
                 state="Todo",
                 project_name=issue_project_name,
                 project_id=project_id,
+                linear_project_id=linear_project_id or None,
                 user_id=user_id,
                 comments=extract_comments(issue),
                 labels=extract_labels(issue),
@@ -155,6 +158,7 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         created_at=issue["createdAt"],
         project_name=project_name,
         project_id=project_id,
+        linear_project_id=linear_project_id or None,
         user_id=user_id,
         comments=extract_comments(issue),
         labels=extract_labels(issue),

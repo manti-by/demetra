@@ -12,6 +12,8 @@ related: [2026-02-26-create-llm-test-script.md, 2026-03-11-task-plan-summarizati
 ---
 
 # Review summarization
+> **Archived on 2026-09-14.** Useful info merged into [[2026-08-18-migrate-llm-groq-to-openrouter]]. See wiki/archive/ for the original.
+
 
 ## TL;DR
 
@@ -84,5 +86,5 @@ follows the same chain shape.
 
 ## References
 
-- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
+- Related: [[2026-02-26-create-llm-test-script]], [[2026-03-11-task-plan-summarization]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - External: https://linear.app/mnt/issue/MNT-98

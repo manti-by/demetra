@@ -80,7 +80,6 @@ AGENTS_DRIFT_ANCHORS = (
     "uv.lock",
     "Linear",
     "GitHub",
-    "Groq",
     "OpenRouter",
     "Ruff",
 )
