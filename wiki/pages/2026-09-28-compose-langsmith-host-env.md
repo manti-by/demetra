@@ -13,7 +13,9 @@ related:
 - 2026-08-10-docker-compose-deploy.md
 - 2026-08-17-docker-setup-review.md
 - 2026-08-20-fix-allowlist-tests.md
+- 2026-08-06-allowlist-review-fixes.md
 - 2026-07-23-agents-md-revalidation-and-docs-removal.md
+- 2026-10-06-unify-subprocess-env-on-session-environment.md
 ---
 
 # Forward LangSmith env vars from host to containers
@@ -112,8 +114,6 @@ real propagation rather than the anchor in isolation:
 - **`test_opencode_services_merge_the_env_anchor`** — `api`, `worker`,
   `watcher`, `listener` (the opencode-spawning services) each carry the four
   interpolated values.
-- **`test_opencode_json_registers_the_langsmith_plugin`** — the consumer of
-  these vars is still wired up.
 
 The expectations live in a `LANGSMITH_ENV_DEFAULTS` mapping rather than being
 mirrored from the file, so the test states intent instead of tautology.
@@ -205,6 +205,16 @@ The only non-env way to enable it is an `.opencode/langsmith.json` with
 `enabled: true`, which the repo does not contain. This is a one-line compose
 change plus a matching test default.
 
+> **Consistency note (2026-10-06, Consistency Agent):** both gaps are closed by
+> [[2026-10-06-unify-subprocess-env-on-session-environment]] —
+> `SessionEnvironment.system_env` (`demetra/library/models.py:482`) emits both
+> `LANGSMITH_TRACING` and `TRACE_TO_LANGSMITH` (plus key/endpoint/project), and
+> `build_subprocess_env` merges `environment.subprocess_env` *after*
+> `filter_os_env`, so the derived vars bypass `OS_ENV_ALLOWLIST`. "Tracing does
+> not turn on yet" above is stale; the remaining concern is the follow-up on
+> that page (unconditional `LANGSMITH_API_KEY` emission widening the credential
+> surface).
+
 ## Follow-ups
 
 - Decide on Gap 1 (`OS_ENV_ALLOWLIST` vs `OS_ENV_PROJECT_OPTINS`) and Gap 2
@@ -224,4 +234,5 @@ change plus a matching test default.
 - Related: [[2026-08-20-fix-allowlist-tests]]
 - Related: [[2026-08-06-allowlist-review-fixes]]
 - Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]]
+- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
 - External: [@langchain/langsmith-opencode](https://github.com/langchain-ai/langsmith-opencode)

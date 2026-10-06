@@ -42,8 +42,3 @@ class TestDockerComposeLangSmithEnv:
             environment = compose["services"][service_name]["environment"]
             for key in LANGSMITH_ENV_DEFAULTS:
                 assert environment[key] == _expected_interpolation(key)
-
-    def test_opencode_json_registers_the_langsmith_plugin(self):
-        opencode_config = yaml.safe_load((COMPOSE_PATH.parents[0] / "opencode.json").read_text())
-
-        assert "@langchain/langsmith-opencode" in opencode_config["plugin"]

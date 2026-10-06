@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.runtime.subprocess import (
     build_subprocess_env,
     filter_os_env,
@@ -156,11 +157,15 @@ class TestSubprocessService:
         assert "stdin" not in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_run_command_accepts_env_parameter(self, mock_subprocess_exec, mock_live_stream):
+    async def test_run_command_accepts_environment_parameter(self, mock_subprocess_exec, mock_live_stream):
 
         mock_process = _make_mock_process()
         mock_subprocess_exec.return_value = mock_process
-        await run_command(["cmd"], Path("/test"), env={"CUSTOM_KEY": "custom_value"})
+        await run_command(
+            ["cmd"],
+            Path("/test"),
+            environment=SessionEnvironment(project_environment={"CUSTOM_KEY": "custom_value"}, user_environment={}),
+        )
 
         call_kwargs = mock_subprocess_exec.call_args.kwargs
         assert "env" in call_kwargs
@@ -168,12 +173,16 @@ class TestSubprocessService:
         assert call_kwargs["env"]["PWD"] == str(Path("/test"))
 
     @pytest.mark.asyncio
-    async def test_run_command_env_does_not_override_parent_env(self, mock_subprocess_exec, mock_live_stream):
+    async def test_run_command_environment_does_not_override_parent_env(self, mock_subprocess_exec, mock_live_stream):
 
         mock_process = _make_mock_process()
         mock_subprocess_exec.return_value = mock_process
 
-        await run_command(["cmd"], Path("/test"), env={"MY_VAR": "my_val"})
+        await run_command(
+            ["cmd"],
+            Path("/test"),
+            environment=SessionEnvironment(project_environment={"MY_VAR": "my_val"}, user_environment={}),
+        )
 
         call_kwargs = mock_subprocess_exec.call_args.kwargs
         merged_env = call_kwargs["env"]
@@ -182,7 +191,7 @@ class TestSubprocessService:
         assert merged_env["PATH"] == os.environ["PATH"]
 
     @pytest.mark.asyncio
-    async def test_run_command_without_env_inherits_parent(self, mock_subprocess_exec, mock_live_stream):
+    async def test_run_command_without_environment_inherits_parent(self, mock_subprocess_exec, mock_live_stream):
 
         mock_process = _make_mock_process()
         mock_subprocess_exec.return_value = mock_process
@@ -296,14 +305,18 @@ class TestSubprocessToFile:
         assert all(not p.exists() for p in captured_paths)
 
     @pytest.mark.asyncio
-    async def test_forwards_env_and_cwd(self, mock_subprocess_exec, mock_live_stream, tmp_path):
+    async def test_forwards_environment_and_cwd(self, mock_subprocess_exec, mock_live_stream, tmp_path):
         mock_process = MagicMock()
         mock_process.stderr = MagicMock()
         mock_process.kill = MagicMock()
         mock_process.wait = AsyncMock(return_value=0)
         mock_subprocess_exec.return_value = mock_process
 
-        await run_command_to_file(["cmd"], tmp_path, env={"CUSTOM_KEY": "custom_value"})
+        await run_command_to_file(
+            ["cmd"],
+            tmp_path,
+            environment=SessionEnvironment(project_environment={"CUSTOM_KEY": "custom_value"}, user_environment={}),
+        )
 
         call_kwargs = mock_subprocess_exec.call_args.kwargs
         assert call_kwargs["cwd"] == tmp_path
@@ -405,39 +418,69 @@ class TestFilterOsEnv:
 
 
 class TestBuildSubprocessEnv:
-    def test_merge_order_os_user_project_extra(self, monkeypatch):
+    def test_merge_order_os_user_project(self, monkeypatch):
         monkeypatch.setenv("SHARED", "os-value")
         monkeypatch.setenv("PROJECT_ONLY", "os-project-value")
-        monkeypatch.setenv("EXTRA_ONLY", "os-extra-value")
 
         merged = build_subprocess_env(
-            user_environment={"SHARED": "user-value", "USER_ONLY": "user-only"},
-            project_environment={"PROJECT_ONLY": "project-value"},
-            extra={"EXTRA_ONLY": "extra-value"},
+            environment=SessionEnvironment(
+                user_environment={"SHARED": "user-value", "USER_ONLY": "user-only"},
+                project_environment={"PROJECT_ONLY": "project-value"},
+            ),
             target_path=Path("/work"),
         )
 
         assert merged["SHARED"] == "user-value"
         assert merged["USER_ONLY"] == "user-only"
         assert merged["PROJECT_ONLY"] == "project-value"
-        assert merged["EXTRA_ONLY"] == "extra-value"
         assert merged["PWD"] == "/work"
 
     def test_project_overrides_user_shared_on_conflict(self, monkeypatch):
         merged = build_subprocess_env(
-            user_environment={"CONFLICT_KEY": "user-value"},
-            project_environment={"CONFLICT_KEY": "project-value"},
+            environment=SessionEnvironment(
+                user_environment={"CONFLICT_KEY": "user-value"},
+                project_environment={"CONFLICT_KEY": "project-value"},
+            )
         )
 
         assert merged["CONFLICT_KEY"] == "project-value"
 
-    def test_extra_overrides_project_on_conflict(self, monkeypatch):
-        merged = build_subprocess_env(
-            project_environment={"CONFLICT_KEY": "project-value"},
-            extra={"CONFLICT_KEY": "extra-value"},
+    def test_derived_tracing_vars_are_forwarded_without_extra_arguments(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.settings.LANGSMITH",
+            {"tracing": False, "endpoint": "https://langsmith.example", "api_key": None, "project": "settings-project"},
+        )
+        environment = SessionEnvironment(
+            user_environment={},
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
         )
 
-        assert merged["CONFLICT_KEY"] == "extra-value"
+        merged = build_subprocess_env(environment=environment)
+
+        # Both tracing consumers are always set, even though the project layer
+        # only carries the key the ``langsmith`` SDK reads.
+        assert merged["LANGSMITH_TRACING"] == "true"
+        assert merged["TRACE_TO_LANGSMITH"] == "true"
+        assert merged["LANGSMITH_ENDPOINT"] == "https://langsmith.example"
+        assert merged["LANGSMITH_API_KEY"] == "key-1"
+
+    def test_derived_tracing_vars_win_over_the_project_layer(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.settings.LANGSMITH",
+            {"tracing": False, "endpoint": "https://langsmith.example", "api_key": None, "project": "settings-project"},
+        )
+        environment = SessionEnvironment(
+            user_environment={},
+            project_environment={"LANGSMITH_TRACING": "true", "TRACE_TO_LANGSMITH": "true"},
+        )
+
+        merged = build_subprocess_env(environment=environment)
+
+        # Tracing is forced off without a key, so the derived flags win over the
+        # raw project values and no subprocess ingests with an empty key.
+        assert merged["LANGSMITH_TRACING"] == "false"
+        assert merged["TRACE_TO_LANGSMITH"] == "false"
+        assert merged["LANGSMITH_API_KEY"] == ""
 
     def test_os_layer_filtered_in_builder(self, monkeypatch):
         monkeypatch.setenv("RANDOM_HOST_VAR", "should-be-dropped")
@@ -459,7 +502,7 @@ class TestBuildSubprocessEnv:
 
         assert merged.get("GITHUB_TOKEN") == "token-a"
 
-    def test_user_environment_none_leaves_os_layer_only(self, monkeypatch):
-        merged = build_subprocess_env(user_environment=None)
+    def test_environment_none_leaves_os_layer_only(self, monkeypatch):
+        merged = build_subprocess_env(environment=None)
 
         assert merged is not None

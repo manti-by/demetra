@@ -56,18 +56,21 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
     project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
     if project.user_id:
         project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
-        project.environment = {**project.user_environment, **project.environment}
 
     worktree_path = None
     merge_succeeded = False
+    environment = None
     try:
         await setup_project_venv(project=project)
+        environment = SessionEnvironment(
+            project_environment=project.environment, user_environment=project.user_environment
+        )
 
         pr_info = await get_pr_info(
             pr_number=pr_number,
             full_name=full_name,
             target_path=project.local_path,
-            env=project.environment,
+            environment=environment,
             project_id=project.id,
         )
         if not pr_info:
@@ -75,26 +78,23 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
 
         head_branch, base_branch = pr_info
 
-        await git_fetch(target_path=project.local_path, env=project.environment, project_id=project.id)
+        await git_fetch(target_path=project.local_path, environment=environment, project_id=project.id)
 
         validate_ref(head_branch, "head branch")
         validate_ref(base_branch, "base branch")
 
         worktree_path = await git_worktree_create(
-            project=project, branch_name=head_branch, env=project.environment, create_branch=False
+            project=project, branch_name=head_branch, environment=environment, create_branch=False
         )
 
         merge_succeeded = await perform_git_merge(
             worktree_path=worktree_path,
             head_branch=head_branch,
             base_branch=base_branch,
-            env=project.environment,
             pr_number=pr_number,
             full_name=full_name,
             project_id=project.id,
-            environment=SessionEnvironment(
-                project_environment=project.environment, user_environment=project.user_environment
-            ),
+            environment=environment,
         )
         if merge_succeeded:
             logger.info(f"Successfully merged and resolved conflicts for PR #{pr_number}")
@@ -130,7 +130,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
                 await git_worktree_remove(
                     target_path=project.local_path,
                     worktree_path=worktree_path,
-                    env=project.environment,
+                    environment=environment,
                     force=True,
                     project_id=project.id,
                 )

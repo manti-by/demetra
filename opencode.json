@@ -1,6 +1,6 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["@langchain/langsmith-opencode"],
+  "plugin": [],
   "mcp": {
     "Demetra": {
       "type": "local",

@@ -1325,7 +1325,7 @@ class TestContextCompaction:
         mock_opencode_compact_session.assert_awaited_once_with(
             target_path=context.worktree_path,
             session_id=context.session_id,
-            env=context.project.environment,
+            environment=context.environment,
         )
 
     @pytest.mark.asyncio

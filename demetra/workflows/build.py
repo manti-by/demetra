@@ -34,7 +34,7 @@ async def check_and_compact_context(context: Context) -> None:
         usage = await get_opencode_session_tokens(
             target_path=context.worktree_path,
             session_id=context.session_id,
-            env=context.project.environment,
+            environment=context.environment,
         )
         history = await record_session_step_history(
             session_id=context.session_id,
@@ -52,7 +52,7 @@ async def check_and_compact_context(context: Context) -> None:
             style="info",
         )
         compact_exit_code, _, compact_stderr = await opencode_compact_session(
-            target_path=context.worktree_path, session_id=context.session_id, env=context.project.environment
+            target_path=context.worktree_path, session_id=context.session_id, environment=context.environment
         )
         if compact_exit_code != 0:
             print_message(f"Failed to compact session: {compact_stderr.strip()}", style="error")
@@ -90,7 +90,6 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             task=current_task,
             session_id=context.session_id,
             task_title=context.linear_task.full_title,
-            env=context.project.environment,
             project_id=context.project.id,
             environment=context.environment,
         )
@@ -106,7 +105,6 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             missing_items = await run_validate_agent(
                 target_path=context.worktree_path,
                 build_plan=build_plan,
-                env=context.project.environment,
                 project_id=context.project.id,
                 environment=context.environment,
             )
@@ -135,7 +133,6 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                 target_path=context.worktree_path,
                 session_id=context.session_id,
                 task_id=context.linear_task.id,
-                env=context.project.environment,
                 project_id=context.project.id,
                 environment=context.environment,
             )
@@ -172,7 +169,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             target_path=context.worktree_path,
             session_id=context.session_id,
             task_id=context.linear_task.id,
-            env=context.project.environment,
+            environment=context.environment,
         )
         if has_errors and lint_result:
             current_task = lint_result

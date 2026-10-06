@@ -23,10 +23,25 @@ OPENROUTER_SETTINGS: dict = {
     "base_url": "https://openrouter.example/v1",
 }
 
+LANGSMITH_SETTINGS: dict = {
+    "tracing": False,
+    "endpoint": "https://api.smith.langchain.com",
+    "api_key": None,
+    "project": "settings-project",
+}
+
 LINEAR_SETTINGS: dict = {
     "team_id": "settings-team",
     "default_state": "settings-default-state",
     "states": {"todo": "settings-todo", "in_review": "settings-in-review"},
+}
+
+TRACING_DEFAULTS: dict[str, str] = {
+    "LANGSMITH_TRACING": "false",
+    "TRACE_TO_LANGSMITH": "false",
+    "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
+    "LANGSMITH_API_KEY": "",
+    "LANGSMITH_PROJECT": "settings-project",
 }
 
 
@@ -51,9 +66,59 @@ def settings_defaults():
     with (
         patch("demetra.settings.OPENCODE", OPENCODE_SETTINGS),
         patch("demetra.settings.OPENROUTER", OPENROUTER_SETTINGS),
+        patch("demetra.settings.LANGSMITH", LANGSMITH_SETTINGS),
         patch("demetra.settings.LINEAR", LINEAR_SETTINGS),
     ):
         yield
+
+
+class TestSessionEnvironmentSubprocessEnv:
+    def test_project_layer_wins_over_user_shared(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"KEY": "project-value", "PROJECT_ONLY": "project-only"},
+            user_environment={"KEY": "user-value", "USER_ONLY": "user-only"},
+        )
+
+        env = environment.subprocess_env
+        assert env["KEY"] == "project-value"
+        assert env["PROJECT_ONLY"] == "project-only"
+        assert env["USER_ONLY"] == "user-only"
+
+    def test_empty_layers_still_resolve_the_tracing_vars(self, settings_defaults):
+        env = SessionEnvironment(project_environment={}, user_environment={}).subprocess_env
+
+        assert env == TRACING_DEFAULTS
+
+    def test_derived_tracing_vars_override_the_raw_layers(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "TRACE_TO_LANGSMITH": "raw-value"},
+            user_environment={},
+        )
+
+        env = environment.subprocess_env
+        assert env["LANGSMITH_TRACING"] == "false"
+        assert env["TRACE_TO_LANGSMITH"] == "false"
+
+    def test_configured_tracing_reaches_the_subprocess_env(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "project-key"},
+            user_environment={},
+        )
+
+        env = environment.subprocess_env
+        assert env["LANGSMITH_TRACING"] == "true"
+        assert env["TRACE_TO_LANGSMITH"] == "true"
+        assert env["LANGSMITH_API_KEY"] == "project-key"
+
+    def test_sources_are_not_mutated_by_the_merge(self, settings_defaults):
+        project_environment = {"KEY": "project-value"}
+        user_environment = {"KEY": "user-value", "OTHER": "other"}
+        environment = SessionEnvironment(project_environment=project_environment, user_environment=user_environment)
+
+        environment.subprocess_env["EXTRA"] = "extra"
+
+        assert "EXTRA" not in project_environment
+        assert "EXTRA" not in user_environment
 
 
 class TestSessionEnvironmentGet:
@@ -145,6 +210,145 @@ class TestSessionEnvironmentOpenRouter:
 
             with pytest.raises(EnvironmentConfigError, match="OPENROUTER_BASE_URL"):
                 _ = environment.openrouter_config
+
+
+class TestSessionEnvironmentLangSmith:
+    def test_disabled_by_default_from_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.system_env == {
+            "LANGSMITH_TRACING": "false",
+            "TRACE_TO_LANGSMITH": "false",
+            "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
+            "LANGSMITH_API_KEY": "",
+            "LANGSMITH_PROJECT": "settings-project",
+        }
+
+    def test_sets_both_trace_flags_when_tracing_and_key_configured(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "project-key"},
+            user_environment={},
+        )
+
+        env = environment.system_env
+        assert env["LANGSMITH_TRACING"] == "true"
+        assert env["TRACE_TO_LANGSMITH"] == "true"
+        assert env["LANGSMITH_API_KEY"] == "project-key"
+
+    def test_tracing_forced_off_without_an_api_key(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_TRACING": "true"},
+            user_environment={},
+        )
+
+        env = environment.system_env
+        assert env["LANGSMITH_TRACING"] == "false"
+        assert env["TRACE_TO_LANGSMITH"] == "false"
+
+    def test_project_key_wins_over_user_and_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_API_KEY": "project-key"},
+            user_environment={"LANGSMITH_API_KEY": "user-key"},
+        )
+
+        assert environment.system_env["LANGSMITH_API_KEY"] == "project-key"
+
+    def test_endpoint_and_project_are_overridable(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={
+                "LANGSMITH_ENDPOINT": "https://project.example",
+                "LANGSMITH_PROJECT": "project-name",
+            },
+            user_environment={},
+        )
+
+        env = environment.system_env
+        assert env["LANGSMITH_ENDPOINT"] == "https://project.example"
+        assert env["LANGSMITH_PROJECT"] == "project-name"
+
+    def test_empty_settings_endpoint_does_not_raise(self, settings_defaults):
+        """An exported-but-empty value degrades to the fallback, not an error.
+
+        ``env_get_str`` returns the raw value when the variable is set, so
+        ``LANGSMITH_ENDPOINT=`` in a ``.env`` reaches settings as ``""``.
+        """
+        with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "endpoint": ""}):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+
+            assert environment.system_env["LANGSMITH_ENDPOINT"] == ""
+
+    def test_empty_settings_project_does_not_raise(self, settings_defaults):
+        with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "project": ""}):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+
+            assert environment.system_env["LANGSMITH_PROJECT"] == ""
+
+    def test_empty_project_layer_endpoint_does_not_raise(self, settings_defaults):
+        """An empty project-layer value is treated as unset and falls through."""
+        environment = SessionEnvironment(
+            project_environment={"LANGSMITH_ENDPOINT": "", "LANGSMITH_TRACING": "  YES  "},
+            user_environment={},
+        )
+
+        env = environment.system_env
+        assert env["LANGSMITH_ENDPOINT"] == "https://api.smith.langchain.com"
+        assert env["LANGSMITH_TRACING"] == "false"
+        assert env["TRACE_TO_LANGSMITH"] == "false"
+
+    def test_truthy_spellings_are_accepted(self, settings_defaults):
+        for value in ("true", "TRUE", "1", "yes", "on", " On "):
+            environment = SessionEnvironment(
+                project_environment={"LANGSMITH_TRACING": value, "LANGSMITH_API_KEY": "key-1"},
+                user_environment={},
+            )
+
+            assert environment.system_env["LANGSMITH_TRACING"] == "true", value
+            assert environment.system_env["TRACE_TO_LANGSMITH"] == "true", value
+
+    def test_other_spellings_leave_tracing_off(self, settings_defaults):
+        for value in ("false", "0", "no", "off", "enabled", ""):
+            environment = SessionEnvironment(
+                project_environment={"LANGSMITH_TRACING": value, "LANGSMITH_API_KEY": "key-1"},
+                user_environment={},
+            )
+
+            assert environment.system_env["LANGSMITH_TRACING"] == "false", value
+
+
+class TestSessionEnvironmentLookup:
+    def test_returns_the_resolved_value(self):
+        environment = SessionEnvironment(
+            project_environment={"KEY": "project-value"},
+            user_environment={"KEY": "user-value", "OTHER": "user-only"},
+        )
+
+        assert environment.lookup(key="KEY") == "project-value"
+        assert environment.lookup(key="OTHER") == "user-only"
+
+    def test_returns_none_when_unset(self):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.lookup(key="MISSING") is None
+
+    def test_treats_an_empty_layer_value_as_unset(self):
+        environment = SessionEnvironment(project_environment={"KEY": ""}, user_environment={"OTHER": ""})
+
+        assert environment.lookup(key="KEY") is None
+        assert environment.lookup(key="OTHER") is None
+
+    def test_get_still_raises_where_lookup_returns_none(self):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        with pytest.raises(EnvironmentConfigError):
+            _ = environment.get(key="MISSING")
+
+    def test_optional_keys_resolve_through_the_env_get_helpers(self):
+        from demetra.services.runtime.utils import env_get_str_from
+
+        environment = SessionEnvironment(project_environment={"KEY": "project-value"}, user_environment={})
+
+        assert env_get_str_from(getter=environment.lookup, name="KEY", default="fallback") == "project-value"
+        assert env_get_str_from(getter=environment.lookup, name="MISSING", default="fallback") == "fallback"
 
 
 class TestSessionEnvironmentLinear:

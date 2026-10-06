@@ -212,7 +212,7 @@ class TestGitDiffFacts:
     async def test_uses_resolved_default_branch(self, monkeypatch):
         commands = []
 
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             commands.append(command)
             if "symbolic-ref" in command:
                 return 0, "origin/main\n", ""
@@ -223,13 +223,13 @@ class TestGitDiffFacts:
             return 0, "1 file changed\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
         assert facts["files"] == ["a.py"]
         assert any("origin/main" in command and "..HEAD" not in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
     async def test_numstat_ignores_blank_lines_from_run_command(self, monkeypatch):
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             if "--name-only" in command:
                 return 0, "a.py\n", ""
             if "--numstat" in command:
@@ -237,7 +237,7 @@ class TestGitDiffFacts:
             return 0, "2 files changed\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
         assert facts["files"] == ["a.py"]
         assert facts["numstat"] == [("a.py", "1", "1"), ("b.py", "2", "2")]
         assert facts["changed_lines"] == 6
@@ -245,7 +245,7 @@ class TestGitDiffFacts:
     async def test_falls_back_to_master_without_origin_head(self, monkeypatch):
         commands = []
 
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             commands.append(command)
             if "symbolic-ref" in command:
                 return 1, "", "fatal: not a symbolic ref"
@@ -256,16 +256,16 @@ class TestGitDiffFacts:
             return 0, "", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
         assert facts["files"] == []
         assert any("origin/master" in command and "..HEAD" not in command for command in commands)
 
     async def test_errors_are_swallowed(self, monkeypatch):
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             raise OSError("git missing")
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
-        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"), env=None)
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
         assert facts == {"files": [], "numstat": [], "changed_lines": 0, "stat_text": ""}
 
 
@@ -386,7 +386,7 @@ class TestCommitRevalidationScoped:
         }
         commit_commands = []
 
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             if command[1] == "add":
                 return 0, "", ""
             if command[1:4] == ["diff", "--staged", "--name-only"]:
@@ -607,7 +607,7 @@ class TestWriteSessionWikiPage:
     async def test_failure_raises_wiki_error(self, tmp_path, wiki_dirs, monkeypatch):
         from demetra.library.exceptions import WikiError
 
-        async def boom(target_path, env=None):
+        async def boom(target_path, environment=None):
             raise OSError("git unavailable")
 
         monkeypatch.setattr(service, "git_diff_facts", boom)
@@ -871,7 +871,7 @@ class TestRevalidateAndCommit:
             "rev": (0, "abc123", ""),
         }
 
-        async def fake_run_command(command, target_path, disable_stdio=False, env=None):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             if command[1] == "add":
                 add_calls.append(command)
                 return calls["add"]

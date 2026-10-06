@@ -25,9 +25,9 @@ def filter_meaningful_reviews(findings: list[str]) -> list[str]:
 
 async def run_review_agents(
     target_path: Path,
+    *,
     session_id: str | None = None,
     task_id: str | None = None,
-    env: dict[str, str] | None = None,
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
 ) -> str | None:
@@ -40,8 +40,8 @@ async def run_review_agents(
         target_path: Directory to run the reviews in.
         session_id: Reserved; not used by the review agents.
         task_id: Reserved; not used by the review agents.
-        env: Optional environment overrides for the subprocess.
-        environment: Optional resolved env layer configuring the LLM.
+        environment: The resolved session environment, forwarded to the review
+            agents and used to configure the LLM summarizer.
 
     Returns:
         str | None: The numbered review comments, or None when there are none.
@@ -54,7 +54,7 @@ async def run_review_agents(
     review_agents = []
     for model in OPENCODE["review_models"]:
         review_agents.append(
-            opencode_review_agent(target_path=target_path, model=model, env=env, project_id=project_id)
+            opencode_review_agent(target_path=target_path, model=model, environment=environment, project_id=project_id)
         )
     results = await asyncio.gather(*review_agents)
 

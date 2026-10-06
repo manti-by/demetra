@@ -85,6 +85,12 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 - (2026-08-24) `deploy.replicas` removed; 4 workers via `Makefile:103,123` `--scale worker=4`.
 - (2026-09-14) `/rq/` 404: `proxy_pass` lacked trailing slash, dashboard serves on `/`. Fixed `rq-dashboard --url-prefix /rq` (`e2509f1`); nginx unchanged.
 
+> **Consistency note (2026-10-06, Consistency Agent):** worker count changed since:
+> `docker-compose.yaml:107` now carries `deploy.replicas: 2`, `make deploy`
+> (`Makefile:31`) runs `--scale worker=2`, and only `make docker-up`
+> (`Makefile:101`) keeps `--scale worker=4`. The "4 workers" wording above is
+> stale for the deploy path.
+
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References

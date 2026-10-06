@@ -364,7 +364,7 @@ async def on_default_branch(target_path: Path) -> bool:
     Returns:
         bool: True when HEAD is on the default branch.
     """
-    default_ref = await service.git_default_branch(target_path=target_path, env=None)
+    default_ref = await service.git_default_branch(target_path=target_path)
     default_name = default_ref.removeprefix("origin/")
     command = [str(service.GIT["path"]), "rev-parse", "--abbrev-ref", "HEAD"]
     try:

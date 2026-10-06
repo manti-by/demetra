@@ -1,4 +1,4 @@
-from demetra.library.models import Context, Project
+from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.auth.copy import copy_auth_from_parent
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.persistence.database import (
@@ -51,11 +51,11 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     if project.user_id:
         print_message("Loading user-shared environment", style="heading")
         project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
-        # The subprocess env receives the combined dict: project overrides user-shared.
-        project.environment = {**project.user_environment, **project.environment}
 
     print_message("Setting up project UV venv", style="heading")
     await setup_project_venv(project=project)
+
+    environment = SessionEnvironment(project_environment=project.environment, user_environment=project.user_environment)
 
     print_message("Copying auth from parent OS", style="heading")
     await copy_auth_from_parent(parent_home=PARENT_HOME)
@@ -77,7 +77,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Pulling latest changes", style="heading")
     print_message("")
-    await git_pull(target_path=project.local_path, env=project.environment, project_id=project.id)
+    await git_pull(target_path=project.local_path, environment=environment, project_id=project.id)
     print_message("")
 
     if is_research_task(linear_task=linear_task):
@@ -96,7 +96,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
 
     print_message("Creating feature worktree", style="heading")
     print_message("")
-    worktree_path = await git_worktree_create(project=project, branch_name=branch_name, env=project.environment)
+    worktree_path = await git_worktree_create(project=project, branch_name=branch_name, environment=environment)
     print_message("")
     print_message(f"Created worktree at: {worktree_path}", style="result")
 

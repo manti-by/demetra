@@ -80,7 +80,6 @@ async def run_plan_step(context: Context) -> str | None:
             target_path=context.worktree_path,
             task=current_task,
             task_title=context.linear_task.full_title,
-            env=context.project.environment,
             project_id=context.project.id,
             environment=context.environment,
         )
@@ -120,7 +119,7 @@ async def run_plan_step(context: Context) -> str | None:
             session_id = await get_opencode_session_id(
                 target_path=context.worktree_path,
                 task_title=context.linear_task.full_title,
-                env=context.project.environment,
+                environment=context.environment,
             )
         if session_id:
             context.session = await save_session(
@@ -145,7 +144,7 @@ async def run_plan_step(context: Context) -> str | None:
                 usage = await get_opencode_session_tokens(
                     target_path=context.worktree_path,
                     session_id=context.session_id,
-                    env=context.project.environment,
+                    environment=context.environment,
                 )
                 await record_session_step_history(
                     session_id=context.session_id,

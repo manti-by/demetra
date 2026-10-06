@@ -89,3 +89,10 @@ class OpenRouterConfig(TypedDict):
     api_key: str | None
     model: str
     base_url: str
+
+
+class LangSmithConfig(TypedDict):
+    tracing: bool
+    endpoint: str
+    api_key: str | None
+    project: str

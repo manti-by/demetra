@@ -32,6 +32,7 @@ related:
 - 2026-03-09-encrypted-user-settings.md
 - 2026-06-08-project-environment.md
 - 2026-03-31-project-model-and-space.md
+- 2026-10-06-unify-subprocess-env-on-session-environment.md
 ---
 # Process environment — 3 layers, encryption, UV venv, env file upload
 
@@ -43,7 +44,7 @@ Extended per-project env into three layers — OS (allowlisted) → user-shared 
 
 ## Overview
 
-Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ` + one project dict. Now three layers merged in one place (`build_subprocess_env`), with step overrides on top.
+Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ` + one project dict. Now three layers merged in one place (`build_subprocess_env`), with step overrides on top. (Revisited by [[2026-10-06-unify-subprocess-env-on-session-environment]], which replaced the raw `env` dict with `SessionEnvironment`.)
 
 ## Step 1 — Three layers in settings
 
@@ -70,6 +71,8 @@ Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ
 **File:** `demetra/services/runtime/subprocess.py`
 
 `filter_os_env(project_id)` → allowlist + per-project opt-ins. `build_subprocess_env(extra, *, project_id, user_environment, project_environment, target_path)` merges OS→user→project→step; `PWD` always set from `target_path` (overwrites any layer). All `run_command`/`run_command_to_file` call it. Workflow call sites pre-merge user env under project env; `project_id` threaded through git/gh for consistent opt-ins.
+
+> **Superseded (2026-10-06, [[2026-10-06-unify-subprocess-env-on-session-environment]]):** the signature above is gone. `build_subprocess_env(environment, *, project_id, target_path)` now takes a `SessionEnvironment` and merges OS → `SessionEnvironment.subprocess_env` (user-shared → project → derived LangSmith vars); the `user_environment`/`project_environment`/`extra` parameters are gone and workflow call sites no longer pre-merge user env under project env. See that page for the current layer order.
 
 ## Step 5 — Per-project UV venv
 
@@ -105,5 +108,5 @@ MNT-110: `project_id/key/value` → `Project.environment` passed to subprocesses
 
 ## References
 
-- Related: [[2026-03-09-encrypted-user-settings]], [[2026-06-08-project-environment]], [[2026-03-31-project-model-and-space]]
+- Related: [[2026-03-09-encrypted-user-settings]], [[2026-06-08-project-environment]], [[2026-03-31-project-model-and-space]], [[2026-10-06-unify-subprocess-env-on-session-environment]]
 - External: [MNT-161](https://linear.app/mnt/issue/MNT-161)

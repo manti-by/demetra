@@ -283,7 +283,7 @@ class UpdateProject:
     linear_project_id: str | None = None
 
 
-def _settings_default(key: str) -> str | None:
+def settings_default(key: str) -> str | None:
     """Return the ``settings.py`` default for a workflow environment key.
 
     The settings module is imported lazily so the library layer stays free of
@@ -297,18 +297,30 @@ def _settings_default(key: str) -> str | None:
         str | None: The configured default, or None when settings does not
             define the key.
     """
-    from demetra.settings import LINEAR, OPENCODE, OPENROUTER
+    from demetra.settings import LANGSMITH, LINEAR, OPENCODE, OPENROUTER
 
-    if key == "OPENROUTER_API_KEY":
-        return OPENROUTER["api_key"]
-    if key == "OPENROUTER_MODEL":
-        return OPENROUTER["model"]
-    if key == "OPENROUTER_BASE_URL":
-        return OPENROUTER["base_url"]
-    if key == "LINEAR_TEAM_ID":
-        return LINEAR["team_id"]
-    if key == "LINEAR_DEFAULT_STATE_ID":
-        return LINEAR["default_state"]
+    match key:
+        case "OPENROUTER_API_KEY":
+            return OPENROUTER["api_key"]
+        case "OPENROUTER_MODEL":
+            return OPENROUTER["model"]
+        case "OPENROUTER_BASE_URL":
+            return OPENROUTER["base_url"]
+
+        case "LANGSMITH_TRACING":
+            return "true" if LANGSMITH["tracing"] else "false"
+        case "LANGSMITH_ENDPOINT":
+            return LANGSMITH["endpoint"]
+        case "LANGSMITH_API_KEY":
+            return LANGSMITH["api_key"]
+        case "LANGSMITH_PROJECT":
+            return LANGSMITH["project"]
+
+        case "LINEAR_TEAM_ID":
+            return LINEAR["team_id"]
+        case "LINEAR_DEFAULT_STATE_ID":
+            return LINEAR["default_state"]
+
     if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
         agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
         opencode_models = {
@@ -319,10 +331,12 @@ def _settings_default(key: str) -> str | None:
             "research": OPENCODE["research_model"],
         }
         return opencode_models.get(agent)
+
     if key.startswith("LINEAR_STATE_") and key.endswith("_ID"):
         state = key[len("LINEAR_STATE_") : -len("_ID")].lower()
         states = {name: value for name, value in dict(LINEAR["states"]).items() if isinstance(value, str)}
         return states.get(state)
+
     return None
 
 
@@ -336,13 +350,37 @@ class SessionEnvironment:
     fails and rolls back instead of running with a silent empty value.
 
     Attributes:
-        project_environment: The project-scope env, already merged over the
+        project_environment: The project-scope env, layered over the
             user-shared env for subprocess use.
         user_environment: The raw user-shared env, consulted before settings.
     """
 
     project_environment: dict[str, str]
     user_environment: dict[str, str]
+
+    def lookup(self, key: str) -> str | None:
+        """Return the first non-empty value for a key across the layers.
+
+        The non-raising sibling of :meth:`get`, and the getter the
+        ``env_get_*_from`` helpers in ``services/runtime/utils.py`` resolve
+        optional keys through. A layer holding an empty string counts as absent,
+        so a variable exported as ``LANGSMITH_ENDPOINT=`` resolves to None rather
+        than to an empty value.
+
+        Args:
+            key: The environment variable name.
+
+        Returns:
+            str | None: The resolved non-empty value, or None when no layer
+                provides one.
+        """
+        if value := self.project_environment.get(key):
+            return value
+
+        if value := self.user_environment.get(key):
+            return value
+
+        return settings_default(key)
 
     def get(self, key: str) -> str:
         """Resolve a single key through the project, user and settings layers.
@@ -356,13 +394,24 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When no layer defines the key.
         """
-        if value := self.project_environment.get(key):
-            return value
-        if value := self.user_environment.get(key):
-            return value
-        if value := _settings_default(key):
+        if (value := self.lookup(key)) is not None:
             return value
         raise EnvironmentConfigError(f"Environment key {key!r} is not configured")
+
+    @property
+    def subprocess_env(self) -> dict[str, str]:
+        """Return everything a demetra subprocess needs, as one mapping.
+
+        The user-shared env is the base, the project env is layered over it (a
+        project key always wins), and the derived LangSmith tracing vars from
+        :attr:`langsmith_env` sit on top so an agent subprocess never reads a
+        half-configured tracing flag. This is the single place where the layers
+        are combined for :func:`run_command`.
+
+        Returns:
+            dict[str, str]: The merged environment.
+        """
+        return {**self.user_environment, **self.project_environment, **self.system_env}
 
     @property
     def opencode_plan_model(self) -> str:
@@ -420,13 +469,37 @@ class SessionEnvironment:
         Raises:
             EnvironmentConfigError: When the base URL is not configured.
         """
-        base_url = _settings_default("OPENROUTER_BASE_URL")
+        base_url = settings_default("OPENROUTER_BASE_URL")
         if not base_url:
             raise EnvironmentConfigError("Environment key 'OPENROUTER_BASE_URL' is not configured")
         return {
             "api_key": self.get("OPENROUTER_API_KEY"),
             "model": self.get("OPENROUTER_MODEL"),
             "base_url": base_url,
+        }
+
+    @property
+    def system_env(self) -> dict[str, str]:
+        """Return the system env vars to forward to an agent subprocess.
+
+        Every key is resolved through the layers, so a project or user override
+        wins over the ``settings.py`` default and an empty value falls through
+        instead of raising.
+
+        Returns:
+            dict[str, str]: The system env vars.
+        """
+        from demetra.services.runtime.utils import env_get_bool_from, env_get_str_from
+
+        tracing = env_get_bool_from(getter=self.lookup, name="LANGSMITH_TRACING", default=False)
+        api_key = env_get_str_from(getter=self.lookup, name="LANGSMITH_API_KEY", default="")
+        enabled = "true" if tracing and api_key else "false"
+        return {
+            "LANGSMITH_TRACING": enabled,
+            "TRACE_TO_LANGSMITH": enabled,
+            "LANGSMITH_API_KEY": api_key,
+            "LANGSMITH_ENDPOINT": env_get_str_from(getter=self.lookup, name="LANGSMITH_ENDPOINT", default=""),
+            "LANGSMITH_PROJECT": env_get_str_from(getter=self.lookup, name="LANGSMITH_PROJECT", default=""),
         }
 
     def linear_state(self, name: str) -> str:

@@ -14,7 +14,7 @@ MISSING_ITEM_RE = re.compile(r"^Plan step \d+:", re.IGNORECASE)
 async def run_validate_agent(
     target_path: Path,
     build_plan: str,
-    env: dict[str, str] | None = None,
+    *,
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
 ) -> str | None:
@@ -27,7 +27,6 @@ async def run_validate_agent(
     Args:
         target_path: Directory to run the validate agent in.
         build_plan: The finalized build plan to check coverage against.
-        env: Optional environment overrides for the subprocess.
         environment: Optional resolved env layer overriding the model.
 
     Returns:
@@ -42,7 +41,6 @@ async def run_validate_agent(
     exit_code, stdout, stderr = await opencode_validate_agent(
         target_path=target_path,
         build_plan=build_plan,
-        env=env,
         project_id=project_id,
         environment=environment,
     )

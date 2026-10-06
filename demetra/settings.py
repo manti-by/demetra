@@ -6,6 +6,7 @@ from demetra.library.types import (
     GitConfig,
     GitHubConfig,
     JWTConfig,
+    LangSmithConfig,
     LinearConfig,
     OpenCodeConfig,
     OpenRouterConfig,
@@ -213,6 +214,13 @@ OPENROUTER: OpenRouterConfig = {
     "api_key": env_get_str("OPENROUTER_API_KEY", None),
     "model": env_get_str("OPENROUTER_MODEL", "openai/gpt-oss-120b"),
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
+}
+
+LANGSMITH: LangSmithConfig = {
+    "tracing": env_get_bool("LANGSMITH_TRACING", False),
+    "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
+    "api_key": env_get_str("LANGSMITH_API_KEY", None),
+    "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)

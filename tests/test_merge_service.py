@@ -3,11 +3,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from demetra.library.models import SessionEnvironment
 from demetra.services.vcs.merge import perform_git_merge
 
 
 WORKTREE_PATH = Path("/tmp/worktree/feature-branch")
-ENV = {"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@test.com"}
+ENV = SessionEnvironment(
+    project_environment={"GIT_AUTHOR_NAME": "test", "GIT_AUTHOR_EMAIL": "test@test.com"},
+    user_environment={},
+)
 
 
 class TestPerformGitMerge:
@@ -35,14 +39,14 @@ class TestPerformGitMerge:
             worktree_path=WORKTREE_PATH,
             head_branch="feature/branch",
             base_branch="main",
-            env=ENV,
+            environment=ENV,
         )
 
         assert result is True
         mock_git_force_push.assert_awaited_once_with(
             target_path=WORKTREE_PATH,
             branch_name="feature/branch",
-            env=ENV,
+            environment=ENV,
             project_id=None,
         )
 
@@ -59,7 +63,7 @@ class TestPerformGitMerge:
             worktree_path=WORKTREE_PATH,
             head_branch="feature/branch",
             base_branch="main",
-            env=ENV,
+            environment=ENV,
         )
 
         assert result is True
@@ -78,7 +82,7 @@ class TestPerformGitMerge:
             worktree_path=WORKTREE_PATH,
             head_branch="feature/branch",
             base_branch="main",
-            env=ENV,
+            environment=ENV,
             pr_number=42,
             full_name="owner/repo",
         )
@@ -89,7 +93,7 @@ class TestPerformGitMerge:
             full_name="owner/repo",
             body="Base branch `main` has no new changes to merge into `feature/branch` — already up-to-date.",
             target_path=WORKTREE_PATH,
-            env=ENV,
+            environment=ENV,
             project_id=None,
         )
 
@@ -107,7 +111,7 @@ class TestPerformGitMerge:
             worktree_path=WORKTREE_PATH,
             head_branch="feature/branch",
             base_branch="main",
-            env=ENV,
+            environment=ENV,
             pr_number=42,
             full_name="owner/repo",
         )
@@ -141,14 +145,14 @@ class TestPerformGitMerge:
                 worktree_path=WORKTREE_PATH,
                 head_branch="feature/branch",
                 base_branch="main",
-                env=ENV,
+                environment=ENV,
             )
 
             assert result is True
             mock_git_force_push.assert_awaited_once_with(
                 target_path=WORKTREE_PATH,
                 branch_name="feature/branch",
-                env=ENV,
+                environment=ENV,
                 project_id=None,
             )
 
@@ -173,7 +177,7 @@ class TestPerformGitMerge:
                 worktree_path=WORKTREE_PATH,
                 head_branch="feature/branch",
                 base_branch="main",
-                env=ENV,
+                environment=ENV,
             )
 
             assert result is False

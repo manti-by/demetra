@@ -95,7 +95,6 @@ async def _run_research_agent(context: Context) -> str | None:
             target_path=context.worktree_path,
             task=context.linear_task.text,
             task_title=context.linear_task.full_title,
-            env=context.project.environment,
             project_id=context.project.id,
             environment=context.environment,
         )
