@@ -8,10 +8,7 @@ services: [deploy, configs]
 branch: "-"
 tickets: [MNT-175]
 tags: [docker, compose, permissions, volume, entrypoint, gh]
-related:
-- 2026-08-19-worker-opencode-home-permissions.md
-- 2026-08-20-review-gh-auth-mount-changes.md
-- 2026-08-18-compose-anchors-refactor.md
+related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-20-review-gh-auth-mount-changes.md, 2026-08-18-compose-anchors-refactor.md]
 ---
 
 # gh config.yml permission denied in containers — un-gated entrypoint ownership repair

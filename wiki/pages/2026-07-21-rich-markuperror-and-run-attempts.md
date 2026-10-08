@@ -8,9 +8,7 @@ services: [watcher, tui, main, database, workflows, linear]
 branch: "-"
 tickets: [MNT-136, MNT-17, MNT-100]
 tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation, guard, sessions, linear]
-related:
-- 2026-02-14-add-tui-support.md
-- 2026-06-08-max-run-attempts-for-a-ticket.md
+related: [2026-02-14-add-tui-support.md, 2026-06-08-max-run-attempts-for-a-ticket.md]
 ---
 
 # Rich MarkupError kills workflow subprocess and run_attempts counter overcounts

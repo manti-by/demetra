@@ -8,9 +8,7 @@ services: [deploy]
 branch: master
 tickets: []
 tags: [docker, compose, refactor]
-related:
-- 2026-08-17-docker-setup-review.md
-- 2026-08-10-docker-compose-deploy.md
+related: [2026-08-17-docker-setup-review.md, 2026-08-10-docker-compose-deploy.md]
 ---
 
 # Docker Compose shared-anchor refactor

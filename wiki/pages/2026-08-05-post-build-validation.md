@@ -4,26 +4,11 @@ date: 2026-08-05
 type: implementation
 status: resolved
 session_id: mnt-146-post-build-validation
-services:
-- opencode
-- workflows
-- subprocess
-- settings
+services: [opencode, workflows, subprocess, settings]
 branch: mnt-146-post-build-validation
-tickets:
-- MNT-146
-tags:
-- validate-agent
-- build-plan
-- coverage
-- review-loop
-- stdin
-related:
-- 2026-02-23-add-multiagent-code-review.md
-- 2026-06-04-review-summarization.md
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-07-16-fix-empty-build-plan-loop.md
+tickets: [MNT-146]
+tags: [validate-agent, build-plan, coverage, review-loop, stdin]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-06-04-review-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 # Post-build validation — plan-coverage validate-agent between build and review
 

@@ -8,9 +8,7 @@ services: [sessions, workflows, linear, main]
 branch: "-"
 tickets: [MNT-140, MNT-30]
 tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
-related:
-- 2026-08-05-pr-creation-failure-handler.md
-- 2026-02-23-plan-agent-output-triggers.md
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-02-23-plan-agent-output-triggers.md]
 ---
 
 # Awaiting Input status for session

@@ -8,9 +8,7 @@ services: [api, react, workflows, sessions]
 branch: "-"
 tickets: [MNT-101, MNT-54]
 tags: [websocket, json, status, react, logs, streaming, sessions, isolation]
-related:
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-03-09-isolate-user-sessions.md
+related: [2026-07-16-fix-step-status-review-findings.md, 2026-03-09-isolate-user-sessions.md]
 ---
 # Websocket to track session statuses
 

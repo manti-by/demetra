@@ -8,9 +8,7 @@ services: [opencode, database, workflows, settings]
 branch: "-"
 tickets: [MNT-122]
 tags: [context, compaction, session-history, tokens]
-related:
-- 2026-07-23-session-tokens-audit-revalidation.md
-- 2026-07-23-session-history-modal.md
+related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-history-modal.md]
 ---
 
 # Add context compaction

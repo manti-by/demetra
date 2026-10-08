@@ -7,10 +7,8 @@ session_id: "-"
 services: [workflows, llm, openrouter, opencode, linear]
 branch: "-"
 tickets: [MNT-162, MNT-177]
-tags: [openrouter, model, age-attestation, 403, plan-agent, extract-plan, permission, minimax, muse-spark]
-related:
-- 2026-08-24-guard-empty-plan-output.md
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
+tags: [openrouter, model, age-attestation, '403', plan-agent, extract-plan, permission, minimax, muse-spark]
+related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation

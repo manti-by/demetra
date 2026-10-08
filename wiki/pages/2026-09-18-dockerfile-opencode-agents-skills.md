@@ -85,7 +85,14 @@ Why this shape:
 - Stale-volume caveat: `docker-compose.yaml` mounts `demetra_app_data:/home/demetra/`, so containers created from an older volume will not see the newly baked agents/skills until the volume is recreated. Consider an entrypoint refresh (rsync from a pristine baked copy) if stale agents become a problem.
 - Consider baking `opencode.json` command definitions next, if containers need the `/skill:*` command wiring without a project mount.
 
-> **Consistency fix (2026-09-28, Consistency Agent):** quoted bare `branch: -` (invalid YAML) and normalized `related:` entries to `.md` filenames. The "8 skill dirs" claim above was true at commit `ceac6b9` (verified: `fix-review-findings`, `release-name`, `release-notes`, `wiki-agents-file`, `wiki-archive`, `wiki-consistency`, `wiki-dedup`, `wiki-sync`); 7 of them were deleted in `94fefa7` (2026-09-23) — only `.opencode/skills/wiki-sync/` remains on HEAD.
+> **Consistency fix (2026-09-28, Consistency Agent):** quoted bare `branch: -` (invalid YAML) and normalized `related:` entries to `.md` filenames. The "8 skill dirs" claim above was true at commit `ceac6b9` (verified: `fix-review-findings`, `release-name`, `release-notes`, `wiki-agents-file`, `wiki-archive`, `wiki-consistency`, `wiki-dedup`, `wiki-sync`); 7 of them were deleted in `94fefa7` (2026-09-23).
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the "only
+> `.opencode/skills/wiki-sync/` remains on HEAD" tail of the 2026-09-28 fix is
+> stale — skills were re-added after `94fefa7`; HEAD now has 6 skill dirs
+> (`code-review`, `wiki-agents-file`, `wiki-archive`, `wiki-consistency`,
+> `wiki-dedup`, `wiki-sync`). The Dockerfile `COPY` covers whatever is present,
+> so no action needed beyond this note.
 
 ## References
 

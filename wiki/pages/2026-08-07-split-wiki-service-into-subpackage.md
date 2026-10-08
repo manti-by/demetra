@@ -8,11 +8,7 @@ services: [wiki]
 branch: "-"
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
-related:
-- 2026-08-19-wiki-should-use-llm-rename.md
-- 2026-08-25-mnt-187-wiki-pages-not-generated.md
-- 2026-08-03-wiki-mcp-tools.md
-- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+related: [2026-08-19-wiki-should-use-llm-rename.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-08-03-wiki-mcp-tools.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-08-llm-authored-wiki-pages.md]
 ---
 
 # Split wiki service into a subpackage
@@ -71,8 +67,14 @@ None — behavior-preserving. Other flat services candidates for same treatment.
 > **Consistency note (2026-08-27):** MNT-187 wiki-write move + `WikiError` contract superseded by PR #106 — `commit_and_push` now logs and continues after commit/push/PR, surfacing `WikiError` only to gate ticket status — see [[2026-08-25-mnt-187-wiki-pages-not-generated]].
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the submodule/facade
+> layout above predates [[2026-10-08-llm-authored-wiki-pages]] —
+> `facts.py: should_use_llm`, `render.py: render_wiki_page` and facade
+> `summarize_session` are removed; the facade now exposes `render_page` /
+> `compose_wiki_page`. Preserved as the split record.
 
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-25-mnt-187-wiki-pages-not-generated]]
+- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-25-mnt-187-wiki-pages-not-generated]], [[2026-10-08-llm-authored-wiki-pages]]
 - External: https://linear.app/mnt/issue/MNT-81, https://linear.app/mnt/issue/MNT-104

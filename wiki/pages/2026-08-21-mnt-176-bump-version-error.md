@@ -8,9 +8,7 @@ services: [workflows]
 branch: mnt-176-bump-version-error
 tickets: [MNT-176]
 tags: [version, bump, pyproject, bug-fix]
-related:
-- 2026-09-08-docstring-mcp-search.md
-- 2026-06-25-update-project-version.md
+related: [2026-09-08-docstring-mcp-search.md, 2026-06-25-update-project-version.md]
 ---
 
 # MNT-176: Bump version error fix

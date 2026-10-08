@@ -1,15 +1,14 @@
 ---
-title:              OpenCode Reasoning Token History Is Zero
-date:               2026-09-08
-type:               investigation
-status:             resolved
-session_id:         "-"
-services:           [opencode, database, api]
-branch:             "master"
-tickets:            []
-tags:               [opencode, session-history, reasoning-tokens]
-related:
-- 2026-07-23-session-tokens-audit-revalidation.md
+title: OpenCode Reasoning Token History Is Zero
+date: 2026-09-08
+type: investigation
+status: resolved
+session_id: "-"
+services: [opencode, database, api]
+branch: "master"
+tickets: []
+tags: [opencode, session-history, reasoning-tokens]
+related: [2026-07-23-session-tokens-audit-revalidation.md]
 ---
 
 # OpenCode Reasoning Token History Is Zero

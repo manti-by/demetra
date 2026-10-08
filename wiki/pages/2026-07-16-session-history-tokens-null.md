@@ -8,7 +8,7 @@ services: [database, alembic, opencode]
 branch: "-"
 tickets: []
 tags: [session-history, pipe-truncation, opencode-export, debugging]
-related: []
+related: [2026-07-23-session-tokens-audit-revalidation.md]
 ---
 
 # Session history tokens always NULL — pipe truncation in opencode export
@@ -53,7 +53,9 @@ Verified on odin after patching: `TokenUsage(input=262843, output=21617, reasoni
 Deploy via git pull to odin.
 
 > **Consistency note (2026-08-27):** `demetra/services/subprocess.py` → `demetra/services/runtime/subprocess.py`, `demetra/services/opencode.py` → `demetra/services/agents/opencode.py:355`; fix still in effect.
+>
+> **Consistency note (2026-10-08, Dedup Agent):** this fix is re-audited as a solved sub-claim in [[2026-07-23-session-tokens-audit-revalidation]] (192-row DB analysis; "truncation confirmed… Solved; no action").
 
 ## References
 
-- Related: none
+- Related: [[2026-07-23-session-tokens-audit-revalidation]]

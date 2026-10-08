@@ -8,9 +8,7 @@ services: [wiki]
 branch: master
 tickets: []
 tags: [wiki, naming, refactor, llm]
-related:
-- 2026-08-07-split-wiki-service-into-subpackage.md
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
+related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-10-08-llm-authored-wiki-pages.md]
 ---
 
 # Rename wiki budget_exceeded to should_use_llm
@@ -41,7 +39,13 @@ Wiki pages are deterministic scaffold (`render_wiki_page`); LLM generates only T
 - None
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** Superseded by
+> [[2026-10-08-llm-authored-wiki-pages]] — `should_use_llm`,
+> `WIKI_LLM_BUDGET_*`, `render_wiki_page` and `summarize_session` are deleted;
+> every session page is now authored by `compose_wiki_page`. Kept as the
+> session record.
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-08-llm-authored-wiki-pages]]

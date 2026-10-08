@@ -8,9 +8,7 @@ services: [auth, linear]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, linear, planning, email-password, github-oauth, bcrypt]
-related:
-- 2026-08-03-auth-hardening-and-deps-bump.md
-- 2026-07-24-plain-auth-review-followups.md
+related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-24-plain-auth-review-followups.md]
 ---
 
 # Linear Ticket for Email/Password Authentication

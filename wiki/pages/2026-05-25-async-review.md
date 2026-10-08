@@ -8,7 +8,7 @@ services: [workflows, review]
 branch: "-"
 tickets: [MNT-87, MNT-35]
 tags: [review, async, parallelism, multiagent, cursor, coderabbit]
-related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-button.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-button.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-06-04-review-summarization.md]
 ---
 
 # Async review
@@ -73,9 +73,9 @@ config controls tool permissions per role (plan/build/review).
 
 ## Consistency note (2026-08-19)
 
-- `merge_review_results` has been fully removed from the codebase. The review pipeline now concatenates agent outputs and passes them to `summarize_review()` in `demetra/services/llm/openrouter.py` (migrated from Groq, see [[2026-08-18-migrate-llm-groq-to-openrouter]]).
+- `merge_review_results` has been fully removed from the codebase. The review pipeline now concatenates agent outputs and passes them to `summarize_review()` in `demetra/services/llm/openrouter.py` (migrated from Groq, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). The concatenation-then-summarize design was introduced in [[2026-06-04-review-summarization]].
 
 ## References
 
-- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-02-delete-session-button]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-02-delete-session-button]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-06-04-review-summarization]]
 - External: https://linear.app/mnt/issue/MNT-87

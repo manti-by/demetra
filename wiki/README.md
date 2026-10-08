@@ -16,6 +16,24 @@ keeping the index current). Pages are plain Markdown so they stay human-readable
 - `QUESTIONS.md` - Open questions from the Consistency Agent about wiki discrepancies, awaiting a human answer.
 - `pages/YYYY-MM-DD-<topic>.md` - The pages themselves.
 
+## How a page gets written
+
+Two paths produce the same file:
+
+- **Session end (automatic)** - `demetra/workflows/cleanup.py` calls
+  `write_session_wiki_page`, which gathers the deterministic facts (git diff, build plan,
+  session log tail, ticket) and hands them to the LLM via `compose_wiki_page`
+  (`demetra/services/llm/openrouter.py`, prompt `demetra/prompts/compose_wiki_page.md`).
+  The LLM authors the entire body from the first `##` heading down. The frontmatter, the
+  H1, the filename and the `INDEX.md` entry stay deterministic, so pages remain
+  machine-queryable. There is no scaffold fallback: if the LLM call fails the session
+  commits without a page and the failure is logged.
+- **In-session (`/wiki-sync`)** - the `wiki-sync` skill has the build agent write the page
+  by hand, following `TEMPLATE.md` and the conventions below.
+
+Both paths are bound by the same rules, so a session-written page and a hand-written page
+are indistinguishable in shape.
+
 ## Naming convention
 
 ```
@@ -43,6 +61,18 @@ machine-queryable — you can grep for a ticket, a service, or a tag across all 
 - `title`, `date`, `type`, `status`, `session_id` - always set.
 - `services`, `branch`, `tickets`, `tags` - set what applies; leave empty (`[]` / `-`) otherwise.
 - `related` - filenames of pages this one links to. Keep it in sync with the `[[...]]` links in the body.
+
+Formatting is fixed so pages diff cleanly against each other and against what
+`demetra/services/wiki/render.py` writes:
+
+- List fields (`services`, `tickets`, `tags`, `related`) use **inline YAML flow style on one
+  line** - `services: [api, react]` - never block style (`services:` followed by `- item` lines).
+  Empty means `[]`, never a blank value.
+- One space after each `:`; no column alignment padding.
+- Quote values only when YAML requires it: `branch: "-"` (a bare `-` is null), or a tag that would
+  otherwise parse as a number or bool (`'403'`, `'true'`).
+- `dump_frontmatter` is the reference implementation - a service-written page and a hand-written
+  page must be byte-identical in shape.
 
 ## Cross-linking
 

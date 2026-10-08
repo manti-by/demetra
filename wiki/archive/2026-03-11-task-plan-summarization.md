@@ -4,22 +4,11 @@ date: 2026-03-11
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- groq
-- opencode
-- workflows
+services: [groq, opencode, workflows]
 branch: '-'
-tickets:
-- MNT-61
-tags:
-- groq
-- llama
-- plan
-- summarization
-- build-plan
-related:
-- 2026-06-04-review-summarization.md
-- 2026-07-16-fix-empty-build-plan-loop.md
+tickets: [MNT-61]
+tags: [groq, llama, plan, summarization, build-plan]
+related: [2026-06-04-review-summarization.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 
 # Task plan summarization

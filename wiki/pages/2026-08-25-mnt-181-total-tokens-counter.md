@@ -8,19 +8,14 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related:
-- 2026-07-23-session-history-modal.md
-- 2026-07-23-session-tokens-audit-revalidation.md
-- 2026-05-22-task-title-session-listing.md
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-07-16-session-history-tokens-null.md
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md]
 ---
 
 # MNT-181: Total tokens counter
 
 ## TL;DR
 
-Added a session-wide **Total Tokens** summary to the history modal. `GET /api/v1/sessions/{task_id}/history` now returns `{"total": {...}, "history": [...]}` via `_compute_total_tokens` in `demetra/api/sessions.py` (sums input/output/reasoning/cache read/write, `None`→0, excludes `context_tokens`, falls back to `row.length` for legacy null rows). React modal renders breakdown grid + grand total. Merged via PR #101.
+Added a session-wide **Total Tokens** summary to the history modal. `GET /api/v1/sessions/{task_id}/history` now returns `{"total": {...}, "history": [...]}` via `_compute_total_tokens` in `demetra/api/sessions.py` (sums input/output/reasoning/cache read/write, `None`→0, excludes `context_tokens`, falls back to `row.length` for all-NULL rows (legacy null rows and MNT-228 step-only rows)). React modal renders breakdown grid + grand total. Merged via PR #101.
 
 ## Overview
 

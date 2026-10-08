@@ -8,9 +8,7 @@ services: [wiki, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
-related:
-- 2026-08-03-agents-md-and-wiki-consistency.md
-- 2026-08-03-fix-mcp-server-2.0-api.md
+related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md]
 ---
 
 # Wiki MCP Tools — Search, Read, and List Pages
@@ -56,6 +54,11 @@ Follows `async list_tools() -> list[Tool]` / `async call_tool(name, arguments) -
 - Consistency/`wiki-*` commands now at `.opencode/skills/wiki-*/SKILL.md` (commit `50755dd` — commands→skills migration).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the tool aggregate is now
+> `db + docstrings + proj + wiki` (`demetra/tools/registry.py:23-25`) —
+> docstrings joined after this page was written. Tokenization/stop-words have
+> since moved to shared `demetra/tools/search.py` + `demetra/library/constants.py`.
 
 ## References
 

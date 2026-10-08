@@ -8,9 +8,7 @@ services: [auth, main, settings]
 branch: master
 tickets: [MNT-148]
 tags: [auth, security, bcrypt, cors, cookies, dependencies]
-related:
-- 2026-08-03-check-api-auth-and-credentials.md
-- 2026-07-24-plain-auth-review-followups.md
+related: [2026-08-03-check-api-auth-and-credentials.md, 2026-07-24-plain-auth-review-followups.md]
 ---
 
 # Password Hashing, Cookie & CORS Hardening, and Dependency Bump

@@ -8,11 +8,7 @@ services: [auth, api, database, wiki, runtime, validation, react]
 branch: "-"
 tickets: []
 tags: [code-review, auth, cookies, exceptions, transactions, wiki, validate, env, react]
-related:
-- 2026-08-09-wiki-fixes-and-test-optimization.md
-- 2026-08-03-check-api-auth-and-credentials.md
-- 2026-08-06-allowlist-review-fixes.md
-- 2026-08-07-split-wiki-service-into-subpackage.md
+related: [2026-08-09-wiki-fixes-and-test-optimization.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-09-apply-pr75-coderabbit-findings.md]
 ---
 
 # Apply code-review findings — auth, transactions, validate, wiki
@@ -121,8 +117,10 @@ if code[0] in ("R", "C") and index < len(records): index += 1
 Working tree uncommitted on `master`; orchestrator handles commit/PR.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Dedup Agent):** sibling review event the same day — [[2026-08-09-apply-pr75-coderabbit-findings]] applies the 5 CodeRabbit findings on PR #75 (including a doc correction to this page).
 
 ## References
 
 - External: [CODE_REVIEW_FINDINGS.md](../../CODE_REVIEW_FINDINGS.md) (`v1.15.4..HEAD`)
-- Related: [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-06-allowlist-review-fixes]], [[2026-08-09-wiki-fixes-and-test-optimization]], [[2026-08-07-split-wiki-service-into-subpackage]]
+- Related: [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-06-allowlist-review-fixes]], [[2026-08-09-wiki-fixes-and-test-optimization]], [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-09-apply-pr75-coderabbit-findings]]

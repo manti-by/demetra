@@ -8,9 +8,7 @@ services: [database, api, react]
 branch: "-"
 tickets: [MNT-114, MNT-108]
 tags: [linear-link, artifact, react, artifacts, pr-link, build-plan]
-related:
-- 2026-06-09-build-artifacts.md
-- 2026-09-14-research-plan-artifact.md
+related: [2026-06-09-build-artifacts.md, 2026-09-14-research-plan-artifact.md]
 ---
 
 # Linear link artifact
