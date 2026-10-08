@@ -1,9 +1,10 @@
 import asyncio
 from pathlib import Path
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock
 
 import pytest
 
+from demetra.library.exceptions import WikiError
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.services import wiki as service
 
@@ -71,8 +72,6 @@ def wiki_dirs(tmp_path, monkeypatch):
 
 FIXED_DIFF = {
     "files": ["demetra/services/wiki.py", "demetra/settings.py"],
-    "numstat": [("demetra/services/wiki.py", "150", "10"), ("demetra/settings.py", "4", "0")],
-    "changed_lines": 164,
     "stat_text": "2 files changed, 154 insertions(+), 10 deletions(-)",
 }
 
@@ -158,22 +157,6 @@ class TestInferTags:
         assert service.infer_tags(linear_task=task) == ["wiki"]
 
 
-class TestShouldUseLlm:
-    def test_under_budget_returns_false(self):
-        facts = {"files": ["a.py", "b.py"], "changed_lines": 50}
-        assert service.should_use_llm(facts=facts) is False
-
-    def test_too_many_files_returns_true(self, monkeypatch):
-        monkeypatch.setitem(service.WIKI, "llm_budget_files", 8)
-        facts = {"files": [f"f{i}.py" for i in range(9)], "changed_lines": 1}
-        assert service.should_use_llm(facts=facts) is True
-
-    def test_too_many_lines_returns_true(self, monkeypatch):
-        monkeypatch.setitem(service.WIKI, "llm_budget_lines", 200)
-        facts = {"files": ["a.py"], "changed_lines": 201}
-        assert service.should_use_llm(facts=facts) is True
-
-
 class TestSessionLogTail:
     def test_returns_last_lines(self, tmp_path, monkeypatch):
         log_dir = tmp_path / "sessions"
@@ -218,29 +201,23 @@ class TestGitDiffFacts:
                 return 0, "origin/main\n", ""
             if "--name-only" in command:
                 return 0, "a.py\n", ""
-            if "--numstat" in command:
-                return 0, "1\t1\ta.py\n", ""
             return 0, "1 file changed\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
-        assert facts["files"] == ["a.py"]
+        assert facts == {"files": ["a.py"], "stat_text": "1 file changed"}
         assert any("origin/main" in command and "..HEAD" not in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
-    async def test_numstat_ignores_blank_lines_from_run_command(self, monkeypatch):
+    async def test_name_only_ignores_blank_lines_from_run_command(self, monkeypatch):
         async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
             if "--name-only" in command:
-                return 0, "a.py\n", ""
-            if "--numstat" in command:
-                return 0, "1\t1\ta.py\n\n2\t2\tb.py\n", ""
+                return 0, "a.py\n\nb.py\n", ""
             return 0, "2 files changed\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
-        assert facts["files"] == ["a.py"]
-        assert facts["numstat"] == [("a.py", "1", "1"), ("b.py", "2", "2")]
-        assert facts["changed_lines"] == 6
+        assert facts["files"] == ["a.py", "b.py"]
 
     async def test_falls_back_to_master_without_origin_head(self, monkeypatch):
         commands = []
@@ -249,10 +226,6 @@ class TestGitDiffFacts:
             commands.append(command)
             if "symbolic-ref" in command:
                 return 1, "", "fatal: not a symbolic ref"
-            if "--name-only" in command:
-                return 0, "", ""
-            if "--numstat" in command:
-                return 0, "", ""
             return 0, "", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
@@ -266,7 +239,7 @@ class TestGitDiffFacts:
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
-        assert facts == {"files": [], "numstat": [], "changed_lines": 0, "stat_text": ""}
+        assert facts == {"files": [], "stat_text": ""}
 
 
 class TestInsertPagesEntry:
@@ -484,7 +457,9 @@ class TestIndexConcurrency:
         assert not list((wiki_dirs["index"].parent).glob("*.md.tmp"))
 
 
-class TestRenderWikiPage:
+class TestRenderPage:
+    BODY = "## TL;DR\n\nThe LLM authored this page.\n\n## Follow-ups\n\n- None\n"
+
     def _meta(self) -> dict:
         return {
             "title": "MNT-147: Wiki processes",
@@ -497,11 +472,10 @@ class TestRenderWikiPage:
             "tickets": ["MNT-147"],
             "tags": ["wiki", "feature"],
             "related": [],
-            "linear_url": "https://linear.app/mnt/issue/MNT-147",
         }
 
     def test_frontmatter_round_trips_through_parser(self, tmp_path):
-        body = service.render_wiki_page(meta=self._meta(), facts=FIXED_DIFF)
+        body = service.render_page(meta=self._meta(), body=self.BODY)
         path = tmp_path / "page.md"
         path.write_text(body)
         page = service.parse_page_file(path)
@@ -514,7 +488,7 @@ class TestRenderWikiPage:
     def test_backslash_in_title_escaped_and_round_trips(self, tmp_path):
         meta = self._meta()
         meta["title"] = "MNT-147: Fix \\path issue"
-        body = service.render_wiki_page(meta=meta, facts=FIXED_DIFF)
+        body = service.render_page(meta=meta, body=self.BODY)
         assert "title: 'MNT-147: Fix \\path issue'" in body
         path = tmp_path / "page.md"
         path.write_text(body)
@@ -523,24 +497,30 @@ class TestRenderWikiPage:
         assert page["meta"]["title"] == "MNT-147: Fix \\path issue"
 
     def test_idempotent_render_produces_stable_content(self):
-        first = service.render_wiki_page(meta=self._meta(), facts=FIXED_DIFF)
-        second = service.render_wiki_page(meta=self._meta(), facts=FIXED_DIFF)
+        first = service.render_page(meta=self._meta(), body=self.BODY)
+        second = service.render_page(meta=self._meta(), body=self.BODY)
         assert first == second
 
-    def test_polished_summary_replaces_tldr_and_overview(self):
-        polished = {"tldr": "Polished TL;DR.", "overview": "Polished overview."}
-        body = service.render_wiki_page(meta=self._meta(), facts=FIXED_DIFF, polished_summary=polished)
-        assert "Polished TL;DR." in body
-        assert "Polished overview." in body
-        assert "Changed 2 file(s)" not in body
+    def test_h1_comes_from_meta_title_and_body_is_unmodified(self):
+        body = service.render_page(meta=self._meta(), body=self.BODY)
+        headings = [line for line in body.splitlines() if line.startswith("# ")]
+        assert headings == ["# MNT-147: Wiki processes"]
+        assert "## TL;DR" in body
+        assert "The LLM authored this page." in body
+        assert "## Changed files" not in body
+        assert "## Stat" not in body
 
-    def test_changed_files_and_stat_included(self):
-        body = service.render_wiki_page(meta=self._meta(), facts=FIXED_DIFF)
-        assert "`demetra/services/wiki.py` (150/10)" in body
-        assert "154 insertions" in body
+    def test_body_is_stripped_and_file_ends_with_newline(self):
+        body = service.render_page(meta=self._meta(), body=f"\n\n{self.BODY}\n\n\n")
+        assert body.endswith("- None\n")
 
 
 class TestWriteSessionWikiPage:
+    @pytest.fixture(autouse=True)
+    def _stub_llm(self, monkeypatch):
+        self.llm = AsyncMock(return_value="## TL;DR\n\nWiki pages are LLM-authored.\n")
+        monkeypatch.setattr(service, "compose_wiki_page", self.llm)
+
     async def test_writes_page_and_patches_index(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
@@ -600,13 +580,11 @@ class TestWriteSessionWikiPage:
         await service.write_session_wiki_page(context=make_context(tmp_path))
 
         assert existing.is_file()
-        assert "Changed 2 file(s)" in existing.read_text()
+        assert "Wiki pages are LLM-authored." in existing.read_text()
         # no duplicate filename created
         assert len(list(wiki_dirs["pages"].glob("*.md"))) == 1
 
     async def test_failure_raises_wiki_error(self, tmp_path, wiki_dirs, monkeypatch):
-        from demetra.library.exceptions import WikiError
-
         async def boom(target_path, environment=None):
             raise OSError("git unavailable")
 
@@ -631,29 +609,62 @@ class TestWriteSessionWikiPage:
         # the conftest-isolated default wiki must be untouched
         assert not (service.WIKI_ROOT / "pages" / "2026-08-04-mnt-147-wiki-processes.md").exists()
 
-    async def test_llm_polish_only_above_budget(self, tmp_path, wiki_dirs, monkeypatch):
+    async def test_llm_is_called_for_every_session(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
-        monkeypatch.setitem(service.WIKI, "llm_budget_files", 1)
-        monkeypatch.setitem(service.WIKI, "llm_budget_lines", 10)
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
 
-        with patch(
-            "demetra.services.wiki.summarize_session", new=AsyncMock(return_value={"tldr": "TLDR", "overview": "OV"})
-        ) as mock:
-            await service.write_session_wiki_page(context=make_context(tmp_path))
-            mock.assert_awaited_once()
+        await service.write_session_wiki_page(context=make_context(tmp_path))
+
+        self.llm.assert_awaited_once()
         page_text = (wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md").read_text()
-        assert "TLDR" in page_text
+        assert "Wiki pages are LLM-authored." in page_text
 
-    async def test_cheap_run_skips_llm(self, tmp_path, wiki_dirs, monkeypatch):
+    async def test_llm_receives_the_session_facts(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
         wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
 
-        with patch("demetra.services.wiki.summarize_session", new=AsyncMock()) as mock:
+        await service.write_session_wiki_page(context=make_context(tmp_path))
+
+        await_args = self.llm.await_args
+        assert await_args is not None
+        kwargs = await_args.kwargs
+        assert kwargs["title"] == "MNT-147: Wiki processes"
+        assert kwargs["page_type"] == service.PAGE_TYPE
+        assert kwargs["description"] == "Automate wiki maintenance loops."
+        assert kwargs["build_plan"] == "Implementation plan steps."
+        assert kwargs["diff_summary"] == FIXED_DIFF["stat_text"]
+        assert kwargs["linear_url"] == "https://linear.app/mnt/issue/MNT-147"
+        assert kwargs["related"] == []
+
+    async def test_llm_receives_sibling_pages_for_references(self, tmp_path, wiki_dirs, monkeypatch):
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
+        existing = wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md"
+        existing.write_text(
+            '---\ntitle: "MNT-147: Wiki processes"\ntickets: [MNT-147]\nrelated: [2026-08-01-other.md]\n---\n\nOld body'
+        )
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
+
+        await service.write_session_wiki_page(context=make_context(tmp_path))
+
+        await_args = self.llm.await_args
+        assert await_args is not None
+        assert await_args.kwargs["related"] == ["2026-08-01-other.md"]
+
+    async def test_llm_failure_raises_wiki_error_and_writes_no_page(self, tmp_path, wiki_dirs, monkeypatch):
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
+        monkeypatch.setattr(
+            service, "compose_wiki_page", AsyncMock(side_effect=WikiError("Failed to compose the wiki page body"))
+        )
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
+
+        with pytest.raises(WikiError, match="Failed to write wiki page"):
             await service.write_session_wiki_page(context=make_context(tmp_path))
-            mock.assert_not_awaited()
+
+        assert not list(wiki_dirs["pages"].glob("*.md"))
 
 
 class TestAnswerSweep:

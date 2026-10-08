@@ -1,9 +1,10 @@
 import logging
+from pathlib import Path
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
-from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError
+from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError, WikiError
 from demetra.library.models import SessionEnvironment
 from demetra.services.llm.factory import build_llm
 from demetra.services.llm.parser import NumberedListOutputParser
@@ -192,65 +193,85 @@ async def extract_plan(
     return str(result.content)
 
 
-async def summarize_session(
+async def compose_wiki_page(
+    *,
+    title: str,
+    page_type: str,
     ticket_text: str,
     description: str,
     build_plan: str,
     diff_summary: str,
-    *,
+    log_tail: str,
+    linear_url: str,
+    related: list[str],
     environment: SessionEnvironment | None = None,
-) -> dict[str, str]:
-    """Generate a wiki page TL;DR and overview for an implementation session.
+) -> str:
+    """Author the Markdown body of a wiki page from the session facts.
 
-    The wiki write side uses this as its optional second pass: when the
-    deterministic scaffold exceeds the LLM budget, the LLM polishes the
-    TL;DR and overview sections from the ticket, plan and diff facts.
+    The wiki write side owns the frontmatter, the filename and the index entry;
+    this call produces everything from the first ``##`` heading down. There is
+    no deterministic scaffold to fall back on, so a failed call raises
+    ``WikiError`` and the session commits without a page.
 
     Args:
+        title: The page title, rendered as the H1 above the returned body.
+        page_type: The page type driving the section presets.
         ticket_text: The Linear ticket body formatted for LLM consumption.
         description: The Linear ticket description.
         build_plan: The session build plan, or an empty string.
         diff_summary: The git diff stat text, or an empty string.
+        log_tail: The tail of the session log, or an empty string.
+        linear_url: The Linear ticket URL for the References section.
+        related: Filenames of sibling wiki pages to cross-link in the References
+            section. Required by the output contract, so it must be supplied
+            even when empty.
         environment: Optional resolved env layer configuring the LLM via
             ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
 
     Returns:
-        dict[str, str]: A mapping with ``tldr`` and ``overview`` keys, or an
-            empty dict when the LLM call fails.
+        str: The page body Markdown, starting at the first ``##`` heading.
+
+    Raises:
+        WikiError: When the LLM call fails or returns no usable body.
     """
+    related_links = "\n".join(f"- Related: [[{Path(name).stem}]]" for name in related) or "- None"
+    template_input = {
+        "title": title,
+        "page_type": page_type,
+        "ticket_text": ticket_text,
+        "description": description,
+        "build_plan": build_plan,
+        "diff_summary": diff_summary,
+        "log_tail": log_tail,
+        "linear_url": linear_url,
+        "related": related_links,
+    }
     try:
-        llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
+        llm = await build_llm(temperature=0.3, max_tokens=4096, environment=environment)
         prompt = ChatPromptTemplate.from_messages(
             messages=[
-                ("system", await get_prompt(name="summarize_session")),
+                ("system", await get_prompt(name="compose_wiki_page")),
                 (
                     "human",
-                    "Ticket:\n{ticket_text}\n\nDescription:\n{description}\n\n"
-                    "Build plan:\n{build_plan}\n\nDiff summary:\n{diff_summary}",
+                    "Page type: {page_type}\n\nTitle: {title}\n\nTicket:\n{ticket_text}\n\n"
+                    "Description:\n{description}\n\nBuild plan:\n{build_plan}\n\n"
+                    "Diff summary:\n{diff_summary}\n\nSession log tail:\n{log_tail}\n\n"
+                    "Linear ticket URL: {linear_url}\n\nSibling pages to cross-link:\n{related}",
                 ),
             ]
         )
-        output_parser = JsonOutputParser()
 
-        chain = prompt | llm | output_parser
-        result = await chain.ainvoke(
-            input={
-                "ticket_text": ticket_text,
-                "description": description,
-                "build_plan": build_plan,
-                "diff_summary": diff_summary,
-            }
-        )
-        if not isinstance(result, dict):
-            logger.warning("summarize_session returned non-dict output: %r", type(result).__name__)
-            return {}
-        return {
-            "tldr": str(result.get("tldr") or "").strip(),
-            "overview": str(result.get("overview") or "").strip(),
-        }
+        chain = prompt | llm
+        result = await chain.ainvoke(input=template_input)
     except Exception:
-        logger.exception("LLM call failed in summarize_session")
-        return {}
+        logger.exception("LLM call failed in compose_wiki_page")
+        raise WikiError("Failed to compose the wiki page body") from None
+
+    body = str(result.content).strip()
+    if not body:
+        logger.error("compose_wiki_page returned an empty body")
+        raise WikiError("LLM returned an empty wiki page body")
+    return body
 
 
 async def generate_pr_description(

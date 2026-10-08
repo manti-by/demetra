@@ -74,13 +74,12 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
-        dict: The changed file list, per-file numstat counts, total changed
-            lines and the ``--stat`` text. Falls back to empty values on error.
+        dict: The changed file list and the ``--stat`` text. Falls back to empty
+            values on error.
     """
     base_ref = await service.git_default_branch(target_path=target_path, environment=environment)
     base = [str(service.GIT["path"]), "diff", base_ref]
     files: list[str] = []
-    numstat: list[tuple[str, str, str]] = []
     stat_text = ""
     try:
         exit_code, name_only, name_only_err = await service.run_command(
@@ -90,20 +89,6 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
             raise RuntimeError(f"git diff --name-only failed: {name_only_err.strip()}")
         files = [line for line in name_only.splitlines() if line.strip()]
 
-        exit_code, numstat_out, numstat_err = await service.run_command(
-            command=[*base, "--numstat"], target_path=target_path, disable_stdio=True, environment=environment
-        )
-        if exit_code != 0:
-            raise RuntimeError(f"git diff --numstat failed: {numstat_err.strip()}")
-        for line in numstat_out.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split("\t", 2)
-            if len(parts) != 3:
-                continue
-            added, deleted, path = parts
-            numstat.append((path, added, deleted))
-
         exit_code, stat_out, stat_err = await service.run_command(
             command=[*base, "--stat"], target_path=target_path, disable_stdio=True, environment=environment
         )
@@ -112,30 +97,9 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
         stat_text = stat_out.strip()
     except (OSError, AttributeError, RuntimeError, ValueError):
         service.logger.exception("Failed to collect git diff facts for wiki page")
-        return {"files": [], "numstat": [], "changed_lines": 0, "stat_text": ""}
+        return {"files": [], "stat_text": ""}
 
-    changed_lines = 0
-    for _, added, deleted in numstat:
-        for value in (added, deleted):
-            if value.isdigit():
-                changed_lines += int(value)
-    return {"files": files, "numstat": numstat, "changed_lines": changed_lines, "stat_text": stat_text}
-
-
-def should_use_llm(facts: dict) -> bool:
-    """Decide whether a session warrants the LLM polish pass.
-
-    Args:
-        facts: The collected session facts.
-
-    Returns:
-        bool: True when over ``WIKI_LLM_BUDGET_FILES`` files or
-            ``WIKI_LLM_BUDGET_LINES`` changed lines.
-    """
-    return (
-        len(facts["files"]) > service.WIKI["llm_budget_files"]
-        or facts["changed_lines"] > service.WIKI["llm_budget_lines"]
-    )
+    return {"files": files, "stat_text": stat_text}
 
 
 def collect_session_facts(context: Context) -> dict:
@@ -145,8 +109,8 @@ def collect_session_facts(context: Context) -> dict:
         context: The workflow context.
 
     Returns:
-        dict: The session facts keyed for scaffold rendering, including the git
-            diff summary against ``master``.
+        dict: The session facts keyed for page composition, including the git
+            diff summary against the default branch.
     """
     linear_task = context.linear_task
     return {
@@ -157,7 +121,7 @@ def collect_session_facts(context: Context) -> dict:
         "labels": linear_task.labels,
         "branch": context.branch_name,
         "worktree_path": context.worktree_path,
-        "build_plan": context.build_plan,
+        "build_plan": service.truncate(text=context.build_plan or "", limit=service.WIKI["build_plan_cap"]),
         "session_id": context.session_id,
         "pr_link": context.session.pr_link if context.session is not None else None,
         "task_id": linear_task.id,

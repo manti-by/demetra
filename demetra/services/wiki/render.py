@@ -51,81 +51,21 @@ def dump_frontmatter(meta: dict) -> str:
     return f"---\n{block}\n---"
 
 
-def render_wiki_page(meta: dict, facts: dict, polished_summary: dict | None = None) -> str:
-    """Compose the full Markdown page from the deterministic scaffold.
+def render_page(meta: dict, body: str) -> str:
+    """Assemble the complete page from the frontmatter and the LLM-authored body.
 
-    TODO: Add template and render
+    The frontmatter and the H1 stay deterministic so the page remains
+    machine-queryable and its title always matches the ``title`` field; the LLM
+    authors everything from the first ``##`` heading down.
 
     Args:
         meta: The frontmatter mapping.
-        facts: The collected session facts.
-        polished_summary: Optional LLM-generated ``tldr``/``overview`` values.
+        body: The page body Markdown, starting at the first ``##`` heading.
 
     Returns:
         str: The complete page Markdown.
     """
-    title = meta["title"]
-    tldr = (polished_summary or {}).get("tldr")
-    overview = (polished_summary or {}).get("overview")
-    if not tldr:
-        tldr = f"Implementation session for {title} on branch `{meta['branch']}`."
-    if not overview:
-        services = ", ".join(meta["services"]) or "none"
-        files = ", ".join(facts.get("files", [])[:5]) or "none"
-        overview = (
-            f"Changed {len(facts.get('files', []))} file(s) "
-            f"({facts.get('changed_lines', 0)} lines) affecting services: {services}. "
-            f"Primary files: {files}."
-        )
-
-    file_lines = "\n".join(f"- `{path}` ({added}/{deleted})" for path, added, deleted in facts.get("numstat", []))
-    build_plan = (facts.get("build_plan") or "").strip() or "No build plan recorded."
-    build_plan = service.truncate(text=build_plan, limit=service.WIKI["build_plan_cap"])
-
-    return "\n".join(
-        [
-            service.dump_frontmatter(meta),
-            f"# {title}",
-            "",
-            "## TL;DR",
-            "",
-            tldr,
-            "",
-            "---",
-            "",
-            "## Overview",
-            "",
-            overview,
-            "",
-            "## Changed files",
-            "",
-            file_lines or "- No changed files captured.",
-            "",
-            "## Stat",
-            "",
-            f"```text\n{facts.get('stat_text') or '- no stat'}\n```",
-            "",
-            "## Build plan",
-            "",
-            build_plan,
-            "",
-            "## Test Results",
-            "",
-            f"- Session status: `{meta['status']}`",
-            f"- OpenCode session id: `{meta['session_id'] or '-'}`",
-            "",
-            "---",
-            "",
-            "## Follow-ups",
-            "",
-            "- None",
-            "",
-            "## References",
-            "",
-            f"- External: {meta.get('linear_url') or '-'}",
-            "",
-        ]
-    )
+    return f"{service.dump_frontmatter(meta)}\n\n# {meta['title']}\n\n{body.strip()}\n"
 
 
 async def write_page(path: Path, body: str) -> None:
@@ -190,8 +130,6 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
 
         diff = await service.git_diff_facts(target_path=context.worktree_path, environment=context.environment)
         facts["files"] = diff["files"]
-        facts["numstat"] = diff["numstat"]
-        facts["changed_lines"] = diff["changed_lines"]
         facts["stat_text"] = diff["stat_text"]
 
         meta = {
@@ -205,21 +143,22 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             "tickets": [identifier],
             "tags": service.infer_tags(linear_task=context.linear_task),
             "related": related,
-            "linear_url": facts["url"] or "-",
         }
 
-        polished_summary: dict | None = None
-        if service.should_use_llm(facts=facts):
-            polished_summary = await service.summarize_session(
-                ticket_text=context.linear_task.text,
-                description=facts["description"],
-                build_plan=facts["build_plan"] or "",
-                diff_summary=facts["stat_text"] or "",
-                environment=context.environment,
-            )
+        page_body = await service.compose_wiki_page(
+            title=meta["title"],
+            page_type=meta["type"],
+            ticket_text=context.linear_task.text,
+            description=facts["description"],
+            build_plan=facts["build_plan"],
+            diff_summary=facts["stat_text"],
+            log_tail=facts["log_tail"],
+            linear_url=facts["url"] or "-",
+            related=related,
+            environment=context.environment,
+        )
 
-        body = service.render_wiki_page(meta=meta, facts=facts, polished_summary=polished_summary)
-        await service.write_page(path=pages_root / filename, body=body)
+        await service.write_page(path=pages_root / filename, body=service.render_page(meta=meta, body=page_body))
         await service.patch_index(meta=meta, filename=filename, index_path=index_path)
         service.logger.info("Wrote wiki page %s for ticket %s", filename, identifier)
     except Exception as e:  # noqa: BLE001

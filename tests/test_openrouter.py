@@ -3,14 +3,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.library.exceptions import PlanError
+from demetra.library.exceptions import PlanError, WikiError
 from demetra.services.llm.openrouter import (
+    compose_wiki_page,
     extract_plan,
     extract_questions,
     generate_pr_description,
     process_text_with_openrouter,
     summarize_review,
-    summarize_session,
 )
 
 
@@ -358,54 +358,128 @@ class TestExtractQuestions:
                 await extract_questions(plan_output=f"Plan output\n{PLAN_HAS_QUESTIONS}")
 
 
-class TestSummarizeSession:
-    @pytest.mark.asyncio
-    async def test_summarize_session_function_exists(self):
-        assert callable(summarize_session)
+class TestComposeWikiPage:
+    @staticmethod
+    def _chain(result) -> MagicMock:
+        mock_chain = AsyncMock()
+        mock_chain.ainvoke.return_value = result
+        mock_chain.__or__.return_value = mock_chain
+        mock_prompt = MagicMock()
+        mock_prompt.__or__.return_value = mock_chain
+        return mock_prompt
+
+    @classmethod
+    def _capturing_chain(cls, result) -> tuple[MagicMock, AsyncMock]:
+        mock_prompt = cls._chain(result)
+        return mock_prompt, mock_prompt.__or__.return_value
 
     @pytest.mark.asyncio
-    async def test_summarize_session_signature(self):
-        sig = inspect.signature(summarize_session)
+    async def test_compose_wiki_page_function_exists(self):
+        assert callable(compose_wiki_page)
+
+    @pytest.mark.asyncio
+    async def test_compose_wiki_page_signature(self):
+        sig = inspect.signature(compose_wiki_page)
         params = list(sig.parameters.keys())
-        assert "ticket_text" in params
-        assert "description" in params
-        assert "build_plan" in params
-        assert "diff_summary" in params
-        assert "environment" in params
+        assert set(params) == {
+            "title",
+            "page_type",
+            "ticket_text",
+            "description",
+            "build_plan",
+            "diff_summary",
+            "log_tail",
+            "linear_url",
+            "related",
+            "environment",
+        }
         assert "user_id" not in params
 
     @pytest.mark.asyncio
-    async def test_summarize_session_returns_tldr_and_overview(self):
+    async def test_compose_wiki_page_returns_body_markdown(self):
         with (
             patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
             patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
             patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.llm.openrouter.JsonOutputParser"),
         ):
-            mock_chain = AsyncMock()
-            mock_chain.ainvoke.return_value = {"tldr": "Short TL;DR", "overview": "Body overview."}
-            mock_chain.__or__.return_value = mock_chain
-            mock_prompt = MagicMock()
-            mock_prompt.__or__.return_value = mock_chain
+            mock_prompt = self._chain(MagicMock(content="## TL;DR\n\nWiki pages are LLM-authored.\n"))
             mock_template.from_messages.return_value = mock_prompt
             mock_llm.return_value = AsyncMock()
 
-            result = await summarize_session(
+            result = await compose_wiki_page(
+                title="MNT-147: Wiki processes",
+                page_type="implementation",
                 ticket_text="MNT-147: Wiki processes",
                 description="Automate wiki maintenance.",
                 build_plan="Build steps.",
                 diff_summary="2 files changed.",
+                log_tail="log line",
+                linear_url="https://linear.app/mnt/issue/MNT-147",
+                related=[],
             )
 
-            assert result == {"tldr": "Short TL;DR", "overview": "Body overview."}
+            assert result.startswith("## TL;DR")
+            assert "LLM-authored" in result
 
     @pytest.mark.asyncio
-    async def test_summarize_session_returns_empty_on_failure(self):
+    async def test_compose_wiki_page_renders_sibling_links_without_extension(self):
         with (
             patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
             patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
             patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.llm.openrouter.JsonOutputParser"),
+        ):
+            mock_prompt, mock_chain = self._capturing_chain(MagicMock(content="## TL;DR\n\nBody.\n"))
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            await compose_wiki_page(
+                title="MNT-147: Wiki processes",
+                page_type="implementation",
+                ticket_text="MNT-147: Wiki processes",
+                description="Automate wiki maintenance.",
+                build_plan="Build steps.",
+                diff_summary="2 files changed.",
+                log_tail="log line",
+                linear_url="https://linear.app/mnt/issue/MNT-147",
+                related=["2026-08-01-other.md", "2026-08-02-another.md"],
+            )
+
+        rendered = mock_chain.ainvoke.call_args.kwargs["input"]["related"]
+        assert "- Related: [[2026-08-01-other]]" in rendered
+        assert "- Related: [[2026-08-02-another]]" in rendered
+        assert ".md" not in rendered
+
+    @pytest.mark.asyncio
+    async def test_compose_wiki_page_renders_no_siblings_as_none(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, mock_chain = self._capturing_chain(MagicMock(content="## TL;DR\n\nBody.\n"))
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            await compose_wiki_page(
+                title="MNT-147: Wiki processes",
+                page_type="implementation",
+                ticket_text="MNT-147: Wiki processes",
+                description="Automate wiki maintenance.",
+                build_plan="Build steps.",
+                diff_summary="2 files changed.",
+                log_tail="log line",
+                linear_url="https://linear.app/mnt/issue/MNT-147",
+                related=[],
+            )
+
+        assert mock_chain.ainvoke.call_args.kwargs["input"]["related"] == "- None"
+
+    @pytest.mark.asyncio
+    async def test_compose_wiki_page_raises_wiki_error_on_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
         ):
             mock_chain = AsyncMock()
             mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
@@ -415,39 +489,42 @@ class TestSummarizeSession:
             mock_template.from_messages.return_value = mock_prompt
             mock_llm.return_value = AsyncMock()
 
-            result = await summarize_session(
-                ticket_text="MNT-147: Wiki processes",
-                description="Automate wiki maintenance.",
-                build_plan="Build steps.",
-                diff_summary="2 files changed.",
-            )
-
-            assert result == {}
+            with pytest.raises(WikiError, match="Failed to compose the wiki page body"):
+                await compose_wiki_page(
+                    title="MNT-147: Wiki processes",
+                    page_type="implementation",
+                    ticket_text="MNT-147: Wiki processes",
+                    description="Automate wiki maintenance.",
+                    build_plan="Build steps.",
+                    diff_summary="2 files changed.",
+                    log_tail="log line",
+                    linear_url="https://linear.app/mnt/issue/MNT-147",
+                    related=[],
+                )
 
     @pytest.mark.asyncio
-    async def test_summarize_session_returns_empty_for_non_dict_output(self):
+    async def test_compose_wiki_page_raises_wiki_error_on_empty_body(self):
         with (
             patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
             patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
             patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
-            patch("demetra.services.llm.openrouter.JsonOutputParser"),
         ):
-            mock_chain = AsyncMock()
-            mock_chain.ainvoke.return_value = ["tldr", "overview"]
-            mock_chain.__or__.return_value = mock_chain
-            mock_prompt = MagicMock()
-            mock_prompt.__or__.return_value = mock_chain
+            mock_prompt = self._chain(MagicMock(content="   "))
             mock_template.from_messages.return_value = mock_prompt
             mock_llm.return_value = AsyncMock()
 
-            result = await summarize_session(
-                ticket_text="MNT-147: Wiki processes",
-                description="Automate wiki maintenance.",
-                build_plan="Build steps.",
-                diff_summary="2 files changed.",
-            )
-
-            assert result == {}
+            with pytest.raises(WikiError, match="empty wiki page body"):
+                await compose_wiki_page(
+                    title="MNT-147: Wiki processes",
+                    page_type="implementation",
+                    ticket_text="MNT-147: Wiki processes",
+                    description="Automate wiki maintenance.",
+                    build_plan="Build steps.",
+                    diff_summary="2 files changed.",
+                    log_tail="log line",
+                    linear_url="https://linear.app/mnt/issue/MNT-147",
+                    related=[],
+                )
 
 
 class TestGeneratePrDescription:
