@@ -8,6 +8,7 @@ from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
     collect_session_facts,
     git_default_branch,
+    git_diff_excerpt,
     git_diff_facts,
     session_log_tail,
 )
@@ -148,6 +149,7 @@ __all__ = [
     "existing_page_for_ticket",
     "find_topic_cluster",
     "git_default_branch",
+    "git_diff_excerpt",
     "git_diff_facts",
     "has_answer",
     "index_entry",

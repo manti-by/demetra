@@ -65,7 +65,7 @@ def render_page(meta: dict, body: str) -> str:
     Returns:
         str: The complete page Markdown.
     """
-    return f"{service.dump_frontmatter(meta)}\n\n# {meta['title']}\n\n{body.strip()}\n"
+    return f"{service.dump_frontmatter(meta=meta)}\n\n# {meta['title']}\n\n{body.strip()}\n"
 
 
 async def write_page(path: Path, body: str) -> None:
@@ -152,6 +152,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             description=facts["description"],
             build_plan=facts["build_plan"],
             diff_summary=facts["stat_text"],
+            diff_excerpt=diff["excerpt_text"],
             log_tail=facts["log_tail"],
             linear_url=facts["url"] or "-",
             related=related,

@@ -29,6 +29,8 @@ SEARCH_STOP_WORDS: frozenset[str] = frozenset(
     }
 )
 
+WIKI_REQUIRED_SECTIONS: tuple[str, ...] = ("## TL;DR", "## Follow-ups", "## References")
+
 OS_ENV_ALLOWLIST: frozenset[str] = frozenset(
     {
         "PATH",

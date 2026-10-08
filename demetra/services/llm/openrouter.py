@@ -4,6 +4,7 @@ from pathlib import Path
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
+from demetra.library.constants import WIKI_REQUIRED_SECTIONS
 from demetra.library.exceptions import PlanError, PrDescriptionError, ReviewError, WikiError
 from demetra.library.models import SessionEnvironment
 from demetra.services.llm.factory import build_llm
@@ -201,6 +202,7 @@ async def compose_wiki_page(
     description: str,
     build_plan: str,
     diff_summary: str,
+    diff_excerpt: str,
     log_tail: str,
     linear_url: str,
     related: list[str],
@@ -220,6 +222,9 @@ async def compose_wiki_page(
         description: The Linear ticket description.
         build_plan: The session build plan, or an empty string.
         diff_summary: The git diff stat text, or an empty string.
+        diff_excerpt: A bounded excerpt of the unified diff holding the changed
+            lines, or an empty string. This is the only source of real code and
+            ``file:line`` evidence in the prompt.
         log_tail: The tail of the session log, or an empty string.
         linear_url: The Linear ticket URL for the References section.
         related: Filenames of sibling wiki pages to cross-link in the References
@@ -232,7 +237,8 @@ async def compose_wiki_page(
         str: The page body Markdown, starting at the first ``##`` heading.
 
     Raises:
-        WikiError: When the LLM call fails or returns no usable body.
+        WikiError: When the LLM call fails, returns no usable body, or returns a
+            body that does not carry every ``WIKI_REQUIRED_SECTIONS`` heading.
     """
     related_links = "\n".join(f"- Related: [[{Path(name).stem}]]" for name in related) or "- None"
     template_input = {
@@ -242,6 +248,7 @@ async def compose_wiki_page(
         "description": description,
         "build_plan": build_plan,
         "diff_summary": diff_summary,
+        "diff_excerpt": diff_excerpt,
         "log_tail": log_tail,
         "linear_url": linear_url,
         "related": related_links,
@@ -255,7 +262,8 @@ async def compose_wiki_page(
                     "human",
                     "Page type: {page_type}\n\nTitle: {title}\n\nTicket:\n{ticket_text}\n\n"
                     "Description:\n{description}\n\nBuild plan:\n{build_plan}\n\n"
-                    "Diff summary:\n{diff_summary}\n\nSession log tail:\n{log_tail}\n\n"
+                    "Diff summary:\n{diff_summary}\n\nDiff excerpt:\n{diff_excerpt}\n\n"
+                    "Session log tail:\n{log_tail}\n\n"
                     "Linear ticket URL: {linear_url}\n\nSibling pages to cross-link:\n{related}",
                 ),
             ]
@@ -271,6 +279,10 @@ async def compose_wiki_page(
     if not body:
         logger.error("compose_wiki_page returned an empty body")
         raise WikiError("LLM returned an empty wiki page body")
+    missing = [section for section in WIKI_REQUIRED_SECTIONS if section not in body]
+    if missing:
+        logger.error("compose_wiki_page body is missing required sections: %s", ", ".join(missing))
+        raise WikiError(f"LLM returned a wiki page body missing required sections: {', '.join(missing)}")
     return body
 
 

@@ -73,6 +73,7 @@ def wiki_dirs(tmp_path, monkeypatch):
 FIXED_DIFF = {
     "files": ["demetra/services/wiki.py", "demetra/settings.py"],
     "stat_text": "2 files changed, 154 insertions(+), 10 deletions(-)",
+    "excerpt_text": "--- a/demetra/settings.py\n+++ b/demetra/settings.py\n@@ -79,0 +80,1 @@\n+WIKI: dict = {}\n",
 }
 
 
@@ -201,11 +202,15 @@ class TestGitDiffFacts:
                 return 0, "origin/main\n", ""
             if "--name-only" in command:
                 return 0, "a.py\n", ""
-            return 0, "1 file changed\n", ""
+            if "--stat" in command:
+                return 0, "1 file changed\n", ""
+            return 0, "@@ -1,0 +2,1 @@\n+x = 1\n", ""
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
-        assert facts == {"files": ["a.py"], "stat_text": "1 file changed"}
+        assert facts["files"] == ["a.py"]
+        assert facts["stat_text"] == "1 file changed"
+        assert facts["excerpt_text"] == "@@ -1,0 +2,1 @@\n+x = 1"
         assert any("origin/main" in command and "..HEAD" not in command for command in commands)
         assert not any("master..HEAD" in command for command in commands)
 
@@ -218,6 +223,42 @@ class TestGitDiffFacts:
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
         assert facts["files"] == ["a.py", "b.py"]
+
+    async def test_excerpt_is_capped_at_the_configured_diff_hunk_cap(self, monkeypatch):
+        lines = "\n".join(f"+line {index}" for index in range(10))
+
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
+            if "--name-only" in command:
+                return 0, "a.py\n", ""
+            if "--stat" in command:
+                return 0, "1 file changed\n", ""
+            return 0, f"{lines}\n", ""
+
+        monkeypatch.setattr(service, "run_command", fake_run_command)
+        monkeypatch.setitem(service.WIKI, "diff_hunk_cap", 4)
+
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
+
+        assert facts["excerpt_text"].splitlines()[-1] == "... (diff excerpt truncated)"
+        assert facts["excerpt_text"].splitlines()[:4] == ["+line 0", "+line 1", "+line 2", "+line 3"]
+
+    async def test_excerpt_failure_does_not_drop_the_other_facts(self, monkeypatch):
+        async def fake_run_command(command, target_path, disable_stdio=False, environment=None):
+            if "symbolic-ref" in command:
+                return 0, "origin/main\n", ""
+            if "--name-only" in command:
+                return 0, "a.py\n", ""
+            if "--stat" in command:
+                return 0, "1 file changed\n", ""
+            return 1, "", "fatal: bad revision"
+
+        monkeypatch.setattr(service, "run_command", fake_run_command)
+
+        facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
+
+        assert facts["files"] == ["a.py"]
+        assert facts["stat_text"] == "1 file changed"
+        assert facts["excerpt_text"] == ""
 
     async def test_falls_back_to_master_without_origin_head(self, monkeypatch):
         commands = []
@@ -239,7 +280,7 @@ class TestGitDiffFacts:
 
         monkeypatch.setattr(service, "run_command", fake_run_command)
         facts = await service.git_diff_facts(target_path=Path("/tmp/repo"))
-        assert facts == {"files": [], "stat_text": ""}
+        assert facts == {"files": [], "stat_text": "", "excerpt_text": ""}
 
 
 class TestInsertPagesEntry:
@@ -635,6 +676,7 @@ class TestWriteSessionWikiPage:
         assert kwargs["description"] == "Automate wiki maintenance loops."
         assert kwargs["build_plan"] == "Implementation plan steps."
         assert kwargs["diff_summary"] == FIXED_DIFF["stat_text"]
+        assert kwargs["diff_excerpt"] == FIXED_DIFF["excerpt_text"]
         assert kwargs["linear_url"] == "https://linear.app/mnt/issue/MNT-147"
         assert kwargs["related"] == []
 

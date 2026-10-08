@@ -67,20 +67,24 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
     """Collect deterministic diff facts against the default branch for a worktree.
 
     Diffs the working tree against the default branch so uncommitted changes
-    (e.g. the build agent output before the commit step) are captured.
+    (e.g. the build agent output before the commit step) are captured. Besides
+    the file list and the ``--stat`` text it returns a bounded excerpt of the
+    unified diff so the page author can quote real code and cite
+    ``file:line`` instead of inventing both.
 
     Args:
         target_path: The repository worktree to diff.
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
-        dict: The changed file list and the ``--stat`` text. Falls back to empty
-            values on error.
+        dict: The changed file list, the ``--stat`` text and the bounded
+            ``excerpt_text``. Falls back to empty values on error.
     """
     base_ref = await service.git_default_branch(target_path=target_path, environment=environment)
     base = [str(service.GIT["path"]), "diff", base_ref]
     files: list[str] = []
     stat_text = ""
+    excerpt_text = ""
     try:
         exit_code, name_only, name_only_err = await service.run_command(
             command=[*base, "--name-only"], target_path=target_path, disable_stdio=True, environment=environment
@@ -95,11 +99,53 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
         if exit_code != 0:
             raise RuntimeError(f"git diff --stat failed: {stat_err.strip()}")
         stat_text = stat_out.strip()
+
+        excerpt_text = await git_diff_excerpt(target_path=target_path, environment=environment, base_ref=base_ref)
     except (OSError, AttributeError, RuntimeError, ValueError):
         service.logger.exception("Failed to collect git diff facts for wiki page")
-        return {"files": [], "stat_text": ""}
+        return {"files": [], "stat_text": "", "excerpt_text": ""}
 
-    return {"files": files, "stat_text": stat_text}
+    return {"files": files, "stat_text": stat_text, "excerpt_text": excerpt_text}
+
+
+async def git_diff_excerpt(
+    target_path: Path,
+    environment: SessionEnvironment | None = None,
+    base_ref: str | None = None,
+) -> str:
+    """Read a bounded excerpt of the unified diff for a worktree.
+
+    Hunks are emitted with zero context so the excerpt carries the changed lines
+    and their ``@@`` line numbers, and the whole excerpt is capped at
+    ``WIKI_DIFF_HUNK_CAP`` lines to keep the prompt bounded. Empty when the diff
+    cannot be read; a failure here never blocks the page.
+
+    Args:
+        target_path: The repository worktree to diff.
+        environment: The resolved session environment forwarded to the subprocess.
+        base_ref: The already-resolved base ref, avoiding a second lookup.
+
+    Returns:
+        str: The truncated unified diff text, or an empty string.
+    """
+    resolved_base = base_ref or await service.git_default_branch(target_path=target_path, environment=environment)
+    command = [str(service.GIT["path"]), "diff", resolved_base, "--unified=0"]
+    try:
+        exit_code, stdout, stderr = await service.run_command(
+            command=command, target_path=target_path, disable_stdio=True, environment=environment
+        )
+    except (OSError, RuntimeError):
+        service.logger.exception("Failed to read the git diff excerpt for the wiki page")
+        return ""
+    if exit_code != 0:
+        service.logger.warning("git diff excerpt failed: %s", stderr.strip())
+        return ""
+    lines = stdout.strip().splitlines()
+    cap = service.WIKI["diff_hunk_cap"]
+    if len(lines) <= cap:
+        return "\n".join(lines)
+    service.logger.warning("Truncated the git diff excerpt from %d to %d lines", len(lines), cap)
+    return "\n".join([*lines[:cap], "... (diff excerpt truncated)"])
 
 
 def collect_session_facts(context: Context) -> dict:
