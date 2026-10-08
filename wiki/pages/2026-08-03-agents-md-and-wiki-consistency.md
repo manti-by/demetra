@@ -8,14 +8,7 @@ services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
-related:
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-07-23-session-tokens-audit-revalidation.md
-- 2026-08-03-wiki-mcp-tools.md
-- 2026-07-23-agents-md-revalidation-and-docs-removal.md
-- 2026-08-03-check-api-auth-and-credentials.md
-- 2026-08-03-auth-hardening-and-deps-bump.md
-- 2026-07-16-fix-notification-mark-read.md
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-wiki-mcp-tools.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md]
 ---
 
 # AGENTS.md Revalidation and Wiki Consistency Audit
@@ -131,6 +124,12 @@ Verified the working tree and git history to correct outdated page statements:
   (`ea754bc`, 2026-08-04).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the f-string and
+> underscore-helper claims above are stale — current AGENTS.md allows two
+> f-string exceptions (`demetra/services/llm/prompt.py`,
+> `demetra/services/runtime/template.py`) and module-level `_`-prefixed private
+> helpers are now the convention (e.g. `demetra/tools/wiki.py`).
 
 ## References
 

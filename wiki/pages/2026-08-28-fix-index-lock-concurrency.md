@@ -8,9 +8,7 @@ services: [wiki]
 branch: mnt-189-release-v16-bugfixes
 tickets: [MNT-189]
 tags: [wiki, index, concurrency, flock, rq-workers, lock, lost-update]
-related:
-- 2026-08-07-split-wiki-service-into-subpackage.md
-- 2026-08-25-mnt-187-wiki-pages-not-generated.md
+related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md]
 ---
 
 # Fix wiki index lock not process-safe

@@ -4,32 +4,11 @@ date: 2026-09-01
 type: implementation
 status: resolved
 session_id: ses_mnt177_20260901
-services:
-- workflows
-- agents
-- opencode
-- linear
-- settings
-- prompts
+services: [workflows, agents, opencode, linear, settings, prompts]
 branch: mnt-177-research-loop
-tickets:
-- MNT-177
-tags:
-- research
-- research-agent
-- research-report
-- research-labels
-- opencode
-- workflow
-- awaiting-input
-related:
-- 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md
-- 2026-08-24-guard-empty-plan-output.md
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-09-02-review-findings-cleanup.md
-- 2026-09-14-opencode-agent-prompts-hardening.md
-- 2026-09-10-mnt-200-update-research-loop.md
-- 2026-09-11-mnt-203-create-related-ticket-for-research.md
+tickets: [MNT-177]
+tags: [research, research-agent, research-report, research-labels, opencode, workflow, awaiting-input]
+related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md, 2026-09-14-opencode-agent-prompts-hardening.md, 2026-09-10-mnt-200-update-research-loop.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-10-05-mnt-232-update-research-flow.md]
 ---
 # MNT-177 research loop — research agent, workflow and settings
 
@@ -102,10 +81,18 @@ if is_research_ticket(context=context):
 > `:199`). The `researched` `StepType` (`models.py:27`) and navy badge CSS remain
 > but no workflow writes `step="researched"` — the only writers are
 > `step="research"` (`:92`) and `step="awaiting_input"` (`:199`).
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the 2026-10-06 note
+> above is itself superseded by [[2026-10-05-mnt-232-update-research-flow]]
+> (PR #135, merged): the research flow now creates and links a related ticket
+> and ends in **In Review** with `step="researched"`
+> (`demetra/workflows/research.py:205-231`, writer at `:230`). The
+> comment-posting and `awaiting_input` body text above (§§ Step 7–8, TL;DR) is
+> historical (MNT-177 → MNT-203 → MNT-232 chain).
 
 ## References
 
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-10-05-mnt-232-update-research-flow]]
 - External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop)
 
 > **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related`.

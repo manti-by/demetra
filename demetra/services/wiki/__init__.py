@@ -3,14 +3,14 @@ import re
 
 from demetra.library.exceptions import WikiError
 from demetra.library.models import Context, LinearTask
-from demetra.services.llm.openrouter import summarize_session
+from demetra.services.llm.openrouter import compose_wiki_page
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
     collect_session_facts,
     git_default_branch,
+    git_diff_excerpt,
     git_diff_facts,
     session_log_tail,
-    should_use_llm,
 )
 from demetra.services.wiki.index import (
     cluster_for,
@@ -43,7 +43,7 @@ from demetra.services.wiki.naming import infer_services, infer_tags, session_fil
 from demetra.services.wiki.parsing import existing_page_for_ticket, page_date, parse_frontmatter, parse_page_file
 from demetra.services.wiki.render import (
     dump_frontmatter,
-    render_wiki_page,
+    render_page,
     truncate,
     write_page,
     write_session_wiki_page,
@@ -143,11 +143,13 @@ __all__ = [
     "cluster_for",
     "collect_session_facts",
     "commit_revalidation",
+    "compose_wiki_page",
     "dedup_pages",
     "dump_frontmatter",
     "existing_page_for_ticket",
     "find_topic_cluster",
     "git_default_branch",
+    "git_diff_excerpt",
     "git_diff_facts",
     "has_answer",
     "index_entry",
@@ -166,16 +168,14 @@ __all__ = [
     "prune_index_pages",
     "read_index",
     "regenerate_by_topic",
-    "render_wiki_page",
+    "render_page",
     "revalidate_wiki_and_agents",
     "revalidation_changed_files",
     "run_command",
     "run_wiki_revalidation",
     "session_filename",
     "session_log_tail",
-    "should_use_llm",
     "similarity",
-    "summarize_session",
     "today",
     "truncate",
     "write_index",

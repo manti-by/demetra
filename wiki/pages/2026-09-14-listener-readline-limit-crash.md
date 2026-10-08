@@ -8,8 +8,7 @@ services: [listener, daemons, runtime, github]
 branch: "-"
 tickets: []
 tags: [listener, github, notifications, asyncio, readline, limit, gh, merge, rebase]
-related:
-- 2026-07-16-fix-notification-mark-read.md
+related: [2026-07-16-fix-notification-mark-read.md]
 ---
 
 # Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications
@@ -82,7 +81,7 @@ Not applied this session (diagnosis only). Proposed fix, matching the existing p
 
 ## Follow-ups
 
-- Fix applied, listener restarted, then watch `/var/log/demetra/listener.log` for a first `Processing notification` / `Enqueuing` line.
+- ~~Fix applied, listener restarted~~ **Fix NOT yet applied** (re-confirmed 2026-10-08: still `run_command` at `demetra/services/daemons/listener.py:36,121`, `stream.readline()` at `demetra/services/runtime/utils.py:96,117`) — apply the `run_command_to_file` switch above, restart the listener, then watch `/var/log/demetra/listener.log` for a first `Processing notification` / `Enqueuing` line.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

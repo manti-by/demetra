@@ -4,21 +4,11 @@ date: 2026-03-31
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- database
-- api
-- react
+services: [database, api, react]
 branch: '-'
-tickets:
-- MNT-75
-tags:
-- projects
-- database
-- provisioning
-- react
-related:
-- 2026-04-02-link-user-tasks-sessions.md
-- 2026-06-08-project-environment.md
+tickets: [MNT-75]
+tags: [projects, database, provisioning, react]
+related: [2026-04-02-link-user-tasks-sessions.md, 2026-06-08-project-environment.md]
 ---
 
 # Project model and space

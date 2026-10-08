@@ -8,17 +8,14 @@ services: [main, workflows, wiki, cleanup]
 branch: mnt-187-wiki-pages-not-generated
 tickets: [MNT-187]
 tags: [wiki, commit, push, workflow, error-handling, awaiting-input, git]
-related:
-- 2026-08-05-pr-creation-failure-handler.md
-- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
-- 2026-08-07-split-wiki-service-into-subpackage.md
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-07-split-wiki-service-into-subpackage.md]
 ---
 
 # Wiki pages not generated — move wiki step before commit
 
 ## TL;DR
 
-Wiki pages were written in `main.py`'s `finally` after `commit_and_push` committed/pushed, targeting the main checkout (`WIKI_ROOT = BASE_PATH / "wiki"`) not the worktree — so `wiki/pages/*.md` never reached the repo. Moved generation into `commit_and_push` (after first `git add`, before commit) targeting `context.worktree_path / "wiki"`, made `git_diff_facts` diff the working tree, and converted swallowed failures into typed `WikiError` → `Awaiting Input`.
+Wiki pages were written in `main.py`'s `finally` after `commit_and_push` committed/pushed, targeting the main checkout (`WIKI_ROOT = BASE_PATH / "wiki"`) not the worktree — so `wiki/pages/*.md` never reached the repo. Moved generation into `commit_and_push` (after first `git add`, before commit) targeting `context.worktree_path / "wiki"`, made `git_diff_facts` diff the working tree, and converted swallowed failures into typed `WikiError` → `Awaiting Input` (superseded by MNT-189, see note below: wiki failure is now best-effort, commit proceeds).
 
 ## Overview
 
@@ -44,13 +41,13 @@ Helpers now accept optional target so main flow writes to worktree while merge/r
 
 ## Wiki inside `commit_and_push`
 
-`demetra/workflows/cleanup.py` — sequence: 1) `git add` build changes (bail `return False` if empty), 2) `update_session_step(..., step="wiki")` then `write_session_wiki_page(context, wiki_root=context.worktree_path / "wiki")` (WikiError aborts commit), 3) second `git add` stages `wiki/pages/*.md` + `wiki/INDEX.md`, 4) `git commit`/`push`/PR.
+`demetra/workflows/cleanup.py` — sequence: 1) `git add` build changes (bail `return False` if empty), 2) `update_session_step(..., step="wiki")` then `write_session_wiki_page(context, wiki_root=context.worktree_path / "wiki")` (~~`WikiError` aborts commit~~ — best-effort since MNT-189, see note below: failure is captured into `wiki_error`, warning logged, commit/push/PR proceed), 3) second `git add` stages `wiki/pages/*.md` + `wiki/INDEX.md`, 4) `git commit`/`push`/PR.
 
 > **Status update (2026-08-28):** PR #106 (MNT-189) superseded deferred-raise: `commit_and_push` now never re-raises `WikiError` — on failure logs warning and returns `True` after successful `commit`/`push`/PR (`demetra/workflows/cleanup.py:137-141`). `process_wiki_failure` in `main.py:except WikiError` is unreachable from commit path; wiki is best-effort, no `Awaiting Input`. Test renamed `test_commit_and_push_wiki_failure_returns_true_after_successful_push` (`tests/test_workflows.py:1820`).
 
 ## Failure handling
 
-`demetra/templates/wiki_failed.md` — `## Wiki page generation failed` template. `demetra/workflows/failure.py` — `process_wiki_failure(context, error)` via `notify_linear_failure(..., comment_label="wiki-failure")` → `Awaiting Input`. `main.py` — removed wiki from `finally`, added `except WikiError` before generic `DemetraError` → `process_wiki_failure` + `failure_step="awaiting_input"` (`should_update_linear_status=False`).
+`demetra/templates/wiki_failed.md` — `## Wiki page generation failed` template. `demetra/workflows/failure.py` — `process_wiki_failure(context, error)` via `notify_linear_failure(..., comment_label="wiki-failure")` → `Awaiting Input`. `main.py` — removed wiki from `finally`, added `except WikiError` before generic `DemetraError` → `process_wiki_failure` + `failure_step="awaiting_input"` (`should_update_linear_status=False`). (Commit-path behavior superseded by MNT-189, see note above — this path is now unreachable from `commit_and_push`; re-confirmed 2026-10-08 against `demetra/workflows/cleanup.py:48-66,136-140`.)
 
 ## Test Results
 

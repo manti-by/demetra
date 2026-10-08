@@ -1,15 +1,14 @@
 ---
-title:              Favicon Set for the React App
-date:               2026-08-03
-type:               implementation
-status:             resolved
-session_id:         "-"
-services:           [react]
-branch:             "-"
-tickets:            []
-tags:               [frontend, favicon, icons, branding, react, vite]
-related:
-- 2026-07-22-react-frontend-template-warp.md
+title: Favicon Set for the React App
+date: 2026-08-03
+type: implementation
+status: resolved
+session_id: "-"
+services: [react]
+branch: "-"
+tickets: []
+tags: [frontend, favicon, icons, branding, react, vite]
+related: [2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Favicon Set for the React App

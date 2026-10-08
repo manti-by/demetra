@@ -8,9 +8,7 @@ services: [main, merge, rebase]
 branch: "-"
 tickets: []
 tags: [logging, refactoring, cleanup]
-related:
-- 2026-07-15-duplicated-log-messages.md
-- 2026-07-16-fix-step-status-review-findings.md
+related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # Simplify setup_session_logging

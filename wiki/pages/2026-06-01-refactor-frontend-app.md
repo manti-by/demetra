@@ -4,17 +4,11 @@ date: 2026-06-01
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- react
+services: [react]
 branch: '-'
-tickets:
-- MNT-77
-tags:
-- react
-- refactor
-- rename
-related:
-- 2026-07-22-react-frontend-template-warp.md
+tickets: [MNT-77]
+tags: [react, refactor, rename]
+related: [2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Refactor frontend app

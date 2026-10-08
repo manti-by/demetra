@@ -8,10 +8,7 @@ services: [workflows, settings]
 branch: "-"
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
-related:
-- 2026-07-22-warp-theme-review-fixes-and-ops.md
-- 2026-08-21-mnt-176-bump-version-error.md
-- 2026-09-08-docstring-mcp-search.md
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-08-21-mnt-176-bump-version-error.md, 2026-09-08-docstring-mcp-search.md]
 ---
 
 # Update project version

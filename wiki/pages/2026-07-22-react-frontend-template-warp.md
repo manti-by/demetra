@@ -8,11 +8,7 @@ services: [react]
 branch: mnt-142-warp-theme-for-react
 tickets: [MNT-142, MNT-49, MNT-57, MNT-77]
 tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings, refactor, rename]
-related:
-- 2026-07-22-warp-theme-review-fixes-and-ops.md
-- 2026-03-04-basic-react-app.md
-- 2026-03-09-user-settings-frontend.md
-- 2026-06-01-refactor-frontend-app.md
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-06-01-refactor-frontend-app.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements

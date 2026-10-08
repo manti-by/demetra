@@ -4,20 +4,11 @@ date: 2026-06-02
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- workflows
-- opencode
-- main
+services: [workflows, opencode, main]
 branch: '-'
-tickets:
-- MNT-79
-tags:
-- plan-loop
-- resolve-agent
-- questions
-- auto
-related:
-- 2026-08-04-fix-resolve-agent-truncated-context.md
+tickets: [MNT-79]
+tags: [plan-loop, resolve-agent, questions, auto]
+related: [2026-08-04-fix-resolve-agent-truncated-context.md]
 ---
 
 # Add Plan loop to resolve questions

@@ -4,24 +4,11 @@ date: 2026-06-08
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- database
-- subprocess
-- workflows
+services: [database, subprocess, workflows]
 branch: '-'
-tickets:
-- MNT-110
-- MNT-75
-tags:
-- environment
-- subprocess
-- per-project
-- projects
-- provisioning
-- postgres
-related:
-- 2026-03-31-project-model-and-space.md
-- 2026-08-10-process-environment-3-layers-encryption-uv-venv.md
+tickets: [MNT-110, MNT-75]
+tags: [environment, subprocess, per-project, projects, provisioning, postgres]
+related: [2026-03-31-project-model-and-space.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
 ---
 
 # Project environment

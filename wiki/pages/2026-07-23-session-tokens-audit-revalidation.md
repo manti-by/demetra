@@ -1,16 +1,14 @@
 ---
-title:              Session History & Token Consumption Audit (Revalidated)
-date:               2026-07-23
-type:               investigation
-status:             resolved
-session_id:         3eae8036-e679-4a09-be65-144e738741e0
-services:           [opencode, database, workflows, settings, groq]
-branch:             "-"
-tickets:            [MNT-145]
-tags:               [session-history, compaction, tokens, opencode-export, audit, cost]
-related:
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-07-16-session-history-tokens-null.md
+title: Session History & Token Consumption Audit (Revalidated)
+date: 2026-07-23
+type: investigation
+status: resolved
+session_id: 3eae8036-e679-4a09-be65-144e738741e0
+services: [opencode, database, workflows, settings, groq]
+branch: "-"
+tickets: [MNT-145]
+tags: [session-history, compaction, tokens, opencode-export, audit, cost]
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md]
 ---
 
 # Session History & Token Consumption Audit (Revalidated)

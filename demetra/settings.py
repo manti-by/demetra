@@ -77,8 +77,6 @@ SEARCH: dict = {
 }
 
 WIKI: dict = {
-    "llm_budget_files": env_get_int("WIKI_LLM_BUDGET_FILES", 8),
-    "llm_budget_lines": env_get_int("WIKI_LLM_BUDGET_LINES", 200),
     "diff_hunk_cap": env_get_int("WIKI_DIFF_HUNK_CAP", 200),
     "build_plan_cap": env_get_int("WIKI_BUILD_PLAN_CAP", 800),
     "revalidation_enabled": env_get_bool("WIKI_REVALIDATION_ENABLED", False),

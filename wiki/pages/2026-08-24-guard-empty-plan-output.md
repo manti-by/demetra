@@ -8,11 +8,7 @@ services: [workflows, opencode, llm]
 branch: "-"
 tickets: []
 tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
-related:
-- 2026-09-14-opencode-agent-prompts-hardening.md
-- 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md
-- 2026-07-16-fix-empty-build-plan-loop.md
-- 2026-08-05-post-build-validation.md
+related: [2026-09-14-opencode-agent-prompts-hardening.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md]
 ---
 
 # Guard empty plan agent output

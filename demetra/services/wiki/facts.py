@@ -67,21 +67,24 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
     """Collect deterministic diff facts against the default branch for a worktree.
 
     Diffs the working tree against the default branch so uncommitted changes
-    (e.g. the build agent output before the commit step) are captured.
+    (e.g. the build agent output before the commit step) are captured. Besides
+    the file list and the ``--stat`` text it returns a bounded excerpt of the
+    unified diff so the page author can quote real code and cite
+    ``file:line`` instead of inventing both.
 
     Args:
         target_path: The repository worktree to diff.
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
-        dict: The changed file list, per-file numstat counts, total changed
-            lines and the ``--stat`` text. Falls back to empty values on error.
+        dict: The changed file list, the ``--stat`` text and the bounded
+            ``excerpt_text``. Falls back to empty values on error.
     """
     base_ref = await service.git_default_branch(target_path=target_path, environment=environment)
     base = [str(service.GIT["path"]), "diff", base_ref]
     files: list[str] = []
-    numstat: list[tuple[str, str, str]] = []
     stat_text = ""
+    excerpt_text = ""
     try:
         exit_code, name_only, name_only_err = await service.run_command(
             command=[*base, "--name-only"], target_path=target_path, disable_stdio=True, environment=environment
@@ -90,52 +93,59 @@ async def git_diff_facts(target_path: Path, environment: SessionEnvironment | No
             raise RuntimeError(f"git diff --name-only failed: {name_only_err.strip()}")
         files = [line for line in name_only.splitlines() if line.strip()]
 
-        exit_code, numstat_out, numstat_err = await service.run_command(
-            command=[*base, "--numstat"], target_path=target_path, disable_stdio=True, environment=environment
-        )
-        if exit_code != 0:
-            raise RuntimeError(f"git diff --numstat failed: {numstat_err.strip()}")
-        for line in numstat_out.splitlines():
-            if not line.strip():
-                continue
-            parts = line.split("\t", 2)
-            if len(parts) != 3:
-                continue
-            added, deleted, path = parts
-            numstat.append((path, added, deleted))
-
         exit_code, stat_out, stat_err = await service.run_command(
             command=[*base, "--stat"], target_path=target_path, disable_stdio=True, environment=environment
         )
         if exit_code != 0:
             raise RuntimeError(f"git diff --stat failed: {stat_err.strip()}")
         stat_text = stat_out.strip()
+
+        excerpt_text = await git_diff_excerpt(target_path=target_path, environment=environment, base_ref=base_ref)
     except (OSError, AttributeError, RuntimeError, ValueError):
         service.logger.exception("Failed to collect git diff facts for wiki page")
-        return {"files": [], "numstat": [], "changed_lines": 0, "stat_text": ""}
+        return {"files": [], "stat_text": "", "excerpt_text": ""}
 
-    changed_lines = 0
-    for _, added, deleted in numstat:
-        for value in (added, deleted):
-            if value.isdigit():
-                changed_lines += int(value)
-    return {"files": files, "numstat": numstat, "changed_lines": changed_lines, "stat_text": stat_text}
+    return {"files": files, "stat_text": stat_text, "excerpt_text": excerpt_text}
 
 
-def should_use_llm(facts: dict) -> bool:
-    """Decide whether a session warrants the LLM polish pass.
+async def git_diff_excerpt(
+    target_path: Path,
+    environment: SessionEnvironment | None = None,
+    base_ref: str | None = None,
+) -> str:
+    """Read a bounded excerpt of the unified diff for a worktree.
+
+    Hunks are emitted with zero context so the excerpt carries the changed lines
+    and their ``@@`` line numbers, and the whole excerpt is capped at
+    ``WIKI_DIFF_HUNK_CAP`` lines to keep the prompt bounded. Empty when the diff
+    cannot be read; a failure here never blocks the page.
 
     Args:
-        facts: The collected session facts.
+        target_path: The repository worktree to diff.
+        environment: The resolved session environment forwarded to the subprocess.
+        base_ref: The already-resolved base ref, avoiding a second lookup.
 
     Returns:
-        bool: True when over ``WIKI_LLM_BUDGET_FILES`` files or
-            ``WIKI_LLM_BUDGET_LINES`` changed lines.
+        str: The truncated unified diff text, or an empty string.
     """
-    return (
-        len(facts["files"]) > service.WIKI["llm_budget_files"]
-        or facts["changed_lines"] > service.WIKI["llm_budget_lines"]
-    )
+    resolved_base = base_ref or await service.git_default_branch(target_path=target_path, environment=environment)
+    command = [str(service.GIT["path"]), "diff", resolved_base, "--unified=0"]
+    try:
+        exit_code, stdout, stderr = await service.run_command(
+            command=command, target_path=target_path, disable_stdio=True, environment=environment
+        )
+    except (OSError, RuntimeError):
+        service.logger.exception("Failed to read the git diff excerpt for the wiki page")
+        return ""
+    if exit_code != 0:
+        service.logger.warning("git diff excerpt failed: %s", stderr.strip())
+        return ""
+    lines = stdout.strip().splitlines()
+    cap = service.WIKI["diff_hunk_cap"]
+    if len(lines) <= cap:
+        return "\n".join(lines)
+    service.logger.warning("Truncated the git diff excerpt from %d to %d lines", len(lines), cap)
+    return "\n".join([*lines[:cap], "... (diff excerpt truncated)"])
 
 
 def collect_session_facts(context: Context) -> dict:
@@ -145,8 +155,8 @@ def collect_session_facts(context: Context) -> dict:
         context: The workflow context.
 
     Returns:
-        dict: The session facts keyed for scaffold rendering, including the git
-            diff summary against ``master``.
+        dict: The session facts keyed for page composition, including the git
+            diff summary against the default branch.
     """
     linear_task = context.linear_task
     return {
@@ -157,7 +167,7 @@ def collect_session_facts(context: Context) -> dict:
         "labels": linear_task.labels,
         "branch": context.branch_name,
         "worktree_path": context.worktree_path,
-        "build_plan": context.build_plan,
+        "build_plan": service.truncate(text=context.build_plan or "", limit=service.WIKI["build_plan_cap"]),
         "session_id": context.session_id,
         "pr_link": context.session.pr_link if context.session is not None else None,
         "task_id": linear_task.id,

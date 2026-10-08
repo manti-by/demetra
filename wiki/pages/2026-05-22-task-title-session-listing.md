@@ -4,24 +4,11 @@ date: 2026-05-22
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- api
-- react
+services: [api, react]
 branch: '-'
-tickets:
-- MNT-84
-- MNT-59
-tags:
-- sessions
-- api
-- react
-- title
-- sidebar
-- websocket
-related:
-- 2026-03-10-ui-for-sessions.md
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-08-25-mnt-181-total-tokens-counter.md
+tickets: [MNT-84, MNT-59]
+tags: [sessions, api, react, title, sidebar, websocket]
+related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findings.md, 2026-08-25-mnt-181-total-tokens-counter.md]
 ---
 
 # Use task title for session listing

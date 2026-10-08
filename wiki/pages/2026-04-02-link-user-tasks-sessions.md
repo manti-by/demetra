@@ -4,21 +4,11 @@ date: 2026-04-02
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- database
-- linear
-- sessions
+services: [database, linear, sessions]
 branch: '-'
-tickets:
-- MNT-63
-tags:
-- user-scoping
-- sessions
-- task-status
-- migration
-related:
-- 2026-03-31-project-model-and-space.md
-- 2026-07-16-fix-step-status-review-findings.md
+tickets: [MNT-63]
+tags: [user-scoping, sessions, task-status, migration]
+related: [2026-03-31-project-model-and-space.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # Link user, tasks and sessions

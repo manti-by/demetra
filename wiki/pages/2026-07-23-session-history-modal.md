@@ -1,17 +1,14 @@
 ---
-title:              Session History Modal
-date:               2026-07-23
-type:               implementation
-status:             resolved
-session_id:         "-"
-services:           [api, sessions, react]
-branch:             "-"
-tickets:            []
-tags:               [frontend, modal, session-history, react, api]
-related:
-- 2026-08-25-mnt-181-total-tokens-counter.md
-- 2026-07-22-react-frontend-template-warp.md
-- 2026-07-16-session-history-tokens-null.md
+title: Session History Modal
+date: 2026-07-23
+type: implementation
+status: resolved
+session_id: "-"
+services: [api, sessions, react]
+branch: "-"
+tickets: []
+tags: [frontend, modal, session-history, react, api]
+related: [2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-22-react-frontend-template-warp.md, 2026-07-16-session-history-tokens-null.md]
 ---
 
 # Session History Modal
