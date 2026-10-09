@@ -43,6 +43,35 @@ class TestDocstringIndex:
         assert second[0].docstring == "Start a worker to the configured runtime."
 
 
+class TestDocstringRanking:
+    def test_partial_word_does_not_match(self, tmp_path):
+        source_root = tmp_path / "demetra"
+        source_root.mkdir()
+        (source_root / "runtime.py").write_text(SOURCE)
+
+        results = docstrings._search_functions(source_root, "deploy", 10)
+
+        assert [function.qualified_name for function, _score, _terms in results] == ["demetra.runtime.deploy_worker"]
+
+    def test_name_field_outweighs_docstring(self, tmp_path):
+        source_root = tmp_path / "demetra"
+        source_root.mkdir()
+        (source_root / "runtime.py").write_text(SOURCE)
+
+        results = docstrings._search_functions(source_root, "queue", 10)
+
+        assert results[0][0].qualified_name == "demetra.runtime.Scheduler.queue_task"
+
+    def test_scores_are_floats(self, tmp_path):
+        source_root = tmp_path / "demetra"
+        source_root.mkdir()
+        (source_root / "runtime.py").write_text(SOURCE)
+
+        results = docstrings._search_functions(source_root, "task", 10)
+
+        assert isinstance(results[0][1], float)
+
+
 class TestDocstringTools:
     async def test_list_search_and_get(self, tmp_path, monkeypatch):
         source_root = tmp_path / "demetra"

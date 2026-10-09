@@ -36,6 +36,8 @@ Under it, provide:
 - An ordered, numbered list of build steps. Each step names the concrete file(s) and the change to make. Cite existing file paths and symbols you are building on.
 - A short "Verification" note: which tests/checks confirm the work — use the test, lint, and type-check commands this repository's `AGENTS.md` documents, not assumptions carried over from another project.
 
+**No markdown tables anywhere in the plan.** Write steps, decisions, file lists and trade-offs as plain lists or short paragraphs: an ordered numbered list for the build steps, a flat bullet list (`- **<key>** — <value>`) for decisions, files and risks. Tables diff poorly, break on mobile and are inaccessible to screen readers.
+
 If you have open questions, list them last as a plain numbered list, one question per line, each ending in `?`. Ask only specific, codebase-answerable questions (e.g. "Should the new retry use the existing `run_command` timeout in `subprocess.py`?"). Do NOT include generic orientation questions like "What is the project structure?".
 
 End your response with exactly one terminal marker on its own final line — this is the only signal the orchestrator uses to decide whether questions remain:

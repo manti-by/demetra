@@ -13,10 +13,11 @@ related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findi
 
 # Use task title for session listing
 
-> **Archived on 2026-08-28.** Useful info merged into
-> [[2026-08-25-mnt-181-total-tokens-counter]]. See wiki/archive/ for the
-> original.
-
+> **Consolidated 2026-08-28.** Still live in `wiki/pages/` — this is the session
+> record, not an archived page. Its reusable content was merged into
+> [[2026-08-25-mnt-181-total-tokens-counter]], the page to read for the current state of that subsystem.
+> The `wiki/archive/` copy this banner used to point at was removed in
+> `70144cb` (2026-09-18), so there is no separate original.
 
 ## TL;DR
 

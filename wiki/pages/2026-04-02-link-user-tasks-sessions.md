@@ -13,9 +13,11 @@ related: [2026-03-31-project-model-and-space.md, 2026-07-16-fix-step-status-revi
 
 # Link user, tasks and sessions
 
-> **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the
-> original.
+> **Consolidated 2026-08-18.** Still live in `wiki/pages/` — this is the session
+> record, not an archived page. Its reusable content was merged into
+> [[2026-07-16-fix-step-status-review-findings]], the page to read for the current state of that subsystem.
+> The `wiki/archive/` copy this banner used to point at was removed in
+> `70144cb` (2026-09-18), so there is no separate original.
 
 ## TL;DR
 

@@ -8,7 +8,7 @@ services: [mcp, settings, tools, runtime]
 branch: delta/feature/docstring-mcp-search
 tickets: [MNT-171]
 tags: [docstrings, search, mcp, settings, version-bump]
-related: [2026-08-21-mnt-176-bump-version-error.md, 2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md]
+related: [2026-08-21-mnt-176-bump-version-error.md, 2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md, 2026-10-09-bm25-search-for-mcp-tools.md]
 ---
 
 # MNT-171: Docstring MCP search
@@ -30,6 +30,13 @@ MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — r
 ## Search config — `demetra/settings.py:59`
 
 Shared `SEARCH` dict: query/result limits, snippet limits, tokenization rules, stop words, wiki + docstring ranking weights (`docstring_name_weight`, `docstring_path_weight`). Both tools tokenize via `demetra/tools/search.py:6` (`tokenize` extracted from wiki tool), so they cannot drift. Wiki scoring in `demetra/tools/wiki.py` reads same dict.
+
+> **Superseded (2026-10-09, Consistency Agent):** the `*_weight` keys named above are
+> gone. `SEARCH` now carries `bm25_k1` plus per-field `*_boost` / `*_length_norm`
+> pairs (`docstring_name_boost`, `docstring_path_boost`, `docstring_text_boost`,
+> …), and both tools rank via `score_document` in `demetra/tools/search.py`. The
+> line stands as the session record for how the shared `SEARCH` dict was first
+> introduced. See [[2026-10-09-bm25-search-for-mcp-tools]].
 
 ## Review fixes (2026-09-11) — `demetra/tools/docstrings.py:278`, `demetra/settings.py:62`
 

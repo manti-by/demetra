@@ -7,12 +7,27 @@ from mcp.types import TextContent, Tool
 
 from demetra.settings import SEARCH
 from demetra.tools.result import ToolResult
-from demetra.tools.search import tokenize
+from demetra.tools.search import (
+    CorpusStats,
+    Field,
+    FieldCounts,
+    build_stats,
+    count_field,
+    line_hits,
+    score_document,
+    tokenize,
+)
 
 
 logger = logging.getLogger(__name__)
 
 DOCSTRING_ROOT = Path(__file__).resolve().parents[1]
+
+DOCSTRING_FIELDS = (
+    Field(weight=SEARCH["docstring_name_boost"], length_norm=SEARCH["docstring_name_length_norm"]),
+    Field(weight=SEARCH["docstring_path_boost"], length_norm=SEARCH["docstring_path_length_norm"]),
+    Field(weight=SEARCH["docstring_text_boost"], length_norm=SEARCH["docstring_text_length_norm"]),
+)
 
 
 @dataclass(frozen=True)
@@ -27,6 +42,8 @@ class DocumentedFunction:
 
 _cached_fingerprint: tuple[tuple[str, int, int], ...] | None = None
 _cached_functions: list[DocumentedFunction] = []
+_cached_documents: list[tuple[FieldCounts, ...]] = []
+_cached_stats: CorpusStats | None = None
 _cached_source_root: Path | None = None
 
 
@@ -122,11 +139,28 @@ class _FunctionCollector(ast.NodeVisitor):
         self._visit_function(node)
 
 
+def _function_fields(function: DocumentedFunction) -> tuple[FieldCounts, ...]:
+    """Count searchable tokens in a function's name, path and docstring zones.
+
+    Args:
+        function: The documented function to tokenize.
+
+    Returns:
+        tuple[FieldCounts, ...]: Field counts aligned to ``DOCSTRING_FIELDS``.
+    """
+    return (
+        count_field(text=function.qualified_name),
+        count_field(text=function.path),
+        count_field(text=function.docstring),
+    )
+
+
 def _load_functions(source_root: Path) -> list[DocumentedFunction]:
     """Extract all function docstrings from the project source tree.
 
-    The parsed index is retained in memory and rebuilt only when a Python
-    source file is added, removed, or changes its modification time or size.
+    The parsed index and its BM25 field counts are retained in memory and
+    rebuilt only when a Python source file is added, removed, or changes its
+    modification time or size.
 
     Args:
         source_root: Root directory containing project Python modules.
@@ -134,7 +168,7 @@ def _load_functions(source_root: Path) -> list[DocumentedFunction]:
     Returns:
         list[DocumentedFunction]: Documented functions in source-path order.
     """
-    global _cached_fingerprint, _cached_functions, _cached_source_root
+    global _cached_fingerprint, _cached_functions, _cached_documents, _cached_stats, _cached_source_root
 
     files = _source_files(source_root)
     fingerprint = _fingerprint(files, source_root)
@@ -155,35 +189,21 @@ def _load_functions(source_root: Path) -> list[DocumentedFunction]:
         collector.visit(tree)
         functions.extend(collector.functions)
 
+    documents = [_function_fields(function=function) for function in functions]
     _cached_fingerprint = fingerprint
     _cached_functions = functions
+    _cached_documents = documents
+    _cached_stats = build_stats(fields=DOCSTRING_FIELDS, documents=documents)
     _cached_source_root = source_root
     return functions
 
 
-def _score_function(function: DocumentedFunction, terms: list[str]) -> int:
-    """Score a documented function against query terms.
-
-    Args:
-        function: Documented function to score.
-        terms: Search terms to match.
-
-    Returns:
-        int: Cumulative relevance score.
-    """
-    name = function.qualified_name.lower()
-    path = function.path.lower()
-    docstring = function.docstring.lower()
-    return sum(
-        SEARCH["docstring_name_weight"] * name.count(term)
-        + SEARCH["docstring_path_weight"] * path.count(term)
-        + docstring.count(term)
-        for term in terms
-    )
-
-
-def _search_functions(source_root: Path, query: str, limit: int) -> list[tuple[DocumentedFunction, int, list[str]]]:
+def _search_functions(source_root: Path, query: str, limit: int) -> list[tuple[DocumentedFunction, float, list[str]]]:
     """Search the compiled function-docstring index.
+
+    Functions are ranked with BM25F across the qualified name, source path and
+    docstring fields, so a name match outweighs prose mentions and rare terms
+    outweigh ubiquitous ones.
 
     Args:
         source_root: Root directory containing project Python modules.
@@ -191,17 +211,21 @@ def _search_functions(source_root: Path, query: str, limit: int) -> list[tuple[D
         limit: Maximum number of results.
 
     Returns:
-        list[tuple[DocumentedFunction, int, list[str]]]: Ranked functions,
+        list[tuple[DocumentedFunction, float, list[str]]]: Ranked functions,
             their scores, and the normalized query terms.
     """
     terms = tokenize(query=query)
     if not terms:
         return []
-    results = [
-        (function, score, terms)
-        for function in _load_functions(source_root)
-        if (score := _score_function(function, terms)) > 0
-    ]
+    functions = _load_functions(source_root)
+    stats = _cached_stats
+    if stats is None:
+        return []
+    results = []
+    for function, document in zip(functions, _cached_documents, strict=True):
+        score = score_document(fields=DOCSTRING_FIELDS, document=document, stats=stats, terms=terms)
+        if score > 0:
+            results.append((function, score, terms))
     return sorted(results, key=lambda result: (-result[1], result[0].qualified_name))[:limit]
 
 
@@ -215,11 +239,14 @@ def _snippets(docstring: str, terms: list[str]) -> list[str]:
     Returns:
         list[str]: Relevant, line-numbered snippets.
     """
-    lines = [
-        (-sum(line.lower().count(term) for term in terms), line_number, line.strip())
-        for line_number, line in enumerate(docstring.splitlines(), start=1)
-        if line.strip() and any(term in line.lower() for term in terms)
-    ]
+    lines = []
+    for line_number, line in enumerate(docstring.splitlines(), start=1):
+        stripped = line.strip()
+        if not stripped:
+            continue
+        hits = line_hits(line=stripped, terms=terms)
+        if hits:
+            lines.append((-hits, line_number, stripped))
     lines.sort()
     selected = sorted(lines[: SEARCH["max_snippets"]], key=lambda line: line[1])
     return [f"L{line_number}: {line[: SEARCH['snippet_length']]}" for _, line_number, line in selected]
@@ -335,7 +362,7 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
             for position, (function, score, terms) in enumerate(results, start=1):
                 snippets = "\n".join(f"   > {snippet}" for snippet in _snippets(function.docstring, terms))
                 blocks.append(
-                    f"{position}. {function.qualified_name} (score {score})\n"
+                    f"{position}. {function.qualified_name} (score {score:.3f})\n"
                     f"   {function.path}:L{function.line}\n{snippets}"
                 )
             return ToolResult(content=[TextContent(type="text", text="\n\n".join(blocks))])

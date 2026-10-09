@@ -1,3 +1,5 @@
+import re
+
 import pytest
 
 from demetra.library.constants import SEARCH_STOP_WORDS
@@ -44,6 +46,67 @@ related: []
 
 The mcp 2.0.0 upgrade removed the list_tools decorators from the low-level Server.
 Rewrote demetra/mcp_server.py against the new API.
+"""
+
+
+CACHE_PAGE = """---
+title: Cache Token Counts
+date: 2026-09-01
+type: implementation
+status: resolved
+session_id: sess-3
+services: [wiki]
+branch: master
+tickets: [MNT-300]
+tags: [cache]
+related: []
+---
+
+# Cache Token Counts
+
+## TL;DR
+
+Reuse parsed pages across searches.
+"""
+
+COMMON_PAGE_TEMPLATE = """---
+title: Notes {index}
+date: 2026-09-02
+type: debug
+status: resolved
+session_id: sess-{index}
+services: [logging]
+branch: master
+tickets: []
+tags: [logging]
+related: []
+---
+
+# Notes {index}
+
+## TL;DR
+
+The logger emitted a line.
+"""
+
+RARE_PAGE = """---
+title: Zephyr rollout notes
+date: 2026-09-03
+type: debug
+status: resolved
+session_id: sess-9
+services: [logging]
+branch: master
+tickets: []
+tags: [logging]
+related: []
+---
+
+# Zephyr rollout notes
+
+## TL;DR
+
+A logger emitted a zephyr line.
 """
 
 
@@ -121,6 +184,64 @@ class TestScoring:
     def test_limit_applied(self, pages_root):
         results = wiki._search_pages(pages_root, "the logging pipeline mcp server", limit=1)
         assert len(results) == 1
+
+
+class TestBm25Ranking:
+    def test_partial_word_does_not_match(self, pages_root):
+        assert wiki._search_pages(pages_root, "strip", 10) == []
+
+    def test_title_field_outweighs_body(self, pages_root):
+        results = wiki._search_pages(pages_root, "ansi", 10)
+
+        assert results[0]["page"]["name"] == "2026-07-20-resolve-ansi-color-escape-codes-in-logs.md"
+
+    def test_rare_term_outweighs_common_term(self, tmp_path):
+        pages_dir = tmp_path / "pages"
+        pages_dir.mkdir()
+        for index in range(9):
+            (pages_dir / f"2026-09-02-notes-{index}.md").write_text(COMMON_PAGE_TEMPLATE.format(index=index))
+        (pages_dir / "2026-09-03-zephyr-rollout.md").write_text(RARE_PAGE)
+
+        common = wiki._search_pages(pages_dir, "logger", 10)[0]
+        rare = wiki._search_pages(pages_dir, "zephyr", 10)[0]
+
+        assert rare["score"] > common["score"]
+
+    def test_scores_are_floats(self, pages_root):
+        results = wiki._search_pages(pages_root, "mcp", 10)
+
+        assert isinstance(results[0]["score"], float)
+
+    def test_scores_render_in_tool_output(self, pages_root):
+        text = wiki._format_search_results(results=wiki._search_pages(pages_root, "mcp", 10))
+
+        assert re.search(r"\(score \d+\.\d{3}\)", text)
+
+
+class TestPageCache:
+    def test_rebuilds_when_page_added(self, pages_root):
+        assert len(wiki._load_pages(pages_root)) == 2
+
+        (pages_root / "2026-09-01-cache-token-counts.md").write_text(CACHE_PAGE)
+
+        assert len(wiki._load_pages(pages_root)) == 3
+
+    def test_rebuilds_when_page_edited(self, pages_root):
+        assert wiki._search_pages(pages_root, "caching", 10) == []
+
+        (pages_root / "2026-08-03-fix-mcp-server-2.0-api.md").write_text(MCP_PAGE.replace("mcp", "caching"))
+
+        assert wiki._search_pages(pages_root, "caching", 10)
+
+    def test_drops_archived_page(self, pages_root):
+        assert wiki._search_pages(pages_root, "mcp", 10)
+
+        (pages_root / "2026-08-03-fix-mcp-server-2.0-api.md").unlink()
+
+        assert wiki._search_pages(pages_root, "mcp", 10) == []
+
+    def test_missing_directory_yields_no_pages(self, tmp_path):
+        assert wiki._load_pages(tmp_path / "nowhere") == []
 
 
 class TestExtractSnippets:

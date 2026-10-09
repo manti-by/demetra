@@ -12,8 +12,11 @@ related: [2026-06-09-markdown-renderer.md, 2026-06-22-linear-link-artifact.md, 2
 ---
 
 # Build artifacts
-> **Archived on 2026-09-14.** Useful info merged into [[2026-06-22-linear-link-artifact]]. See wiki/archive/ for the original.
-
+> **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
+> record, not an archived page. Its reusable content was merged into
+> [[2026-06-22-linear-link-artifact]], the page to read for the current state of that subsystem.
+> The `wiki/archive/` copy this banner used to point at was removed in
+> `70144cb` (2026-09-18), so there is no separate original.
 
 ## TL;DR
 
