@@ -164,7 +164,11 @@ All changes local to `demetra/tools/wiki.py`; `tests/test_wiki_tools.py` expecta
 
 ## Follow-ups
 
-- None — reference audit. Implement §5 if wiki grows past ~150 pages or ranking complaints appear.
+- ~~None — reference audit. Implement §5 if wiki grows past ~150 pages or ranking complaints appear.~~
+  **Implemented (2026-10-09):** §4 BM25F and the IDF core from §3 landed in
+  [[../pages/2026-10-09-bm25-search-for-mcp-tools]] — `demetra/tools/search.py`
+  now scores both `wiki_search` and `docstring_search`. §5 (stemming /
+  stop-word relaxation) was deliberately **not** done and remains open.
 
 ## References
 

@@ -8,7 +8,7 @@ services: [wiki, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
-related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md]
+related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-10-09-bm25-search-for-mcp-tools.md]
 ---
 
 # Wiki MCP Tools — Search, Read, and List Pages
@@ -28,6 +28,13 @@ Follows `async list_tools() -> list[Tool]` / `async call_tool(name, arguments) -
 - **Frontmatter** (`_parse_page`): strips `---`, coerces bare `-` to `"-"`, `yaml.safe_load`; invalid/non-mapping → skip with warning, no frontmatter → `meta=={}`.
 - **Search** (`_search_pages`): tokenizes (stop-word + single-char removal, keeps `mcp_server.py`-like terms), scores `10×title + 5×metadata + 1×body`, sorts descending, limit default 5 max 20.
 - **Snippets** (`_extract_snippets`): top 3 body lines by hit count, 200-char truncation, `L<line>:` prefix, re-sorted to doc order.
+
+> **Superseded (2026-10-09, Consistency Agent):** the linear scorer described above
+> (`10×title + 5×metadata + 1×body`) is retired. `wiki_search` now ranks with
+> BM25F over cached per-field token counts in `demetra/tools/search.py`, and
+> `demetra/tools/wiki.py` carries an mtime+size fingerprint cache — the page text
+> is still the session record for how the tool was first built. See
+> [[2026-10-09-bm25-search-for-mcp-tools]].
 - **Resolution** (`_resolve_page`): accepts `pages/`-prefixed / extension-less names, rejects traversal outside `PAGES_ROOT`.
 - **Tools:** `wiki_search` (ranked name+title+snippets), `wiki_get_page` (full Markdown), `wiki_list_pages` (catalog, no bodies). All failures → `ToolResult(is_error=True)`.
 

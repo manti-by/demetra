@@ -61,7 +61,14 @@ def _fingerprint(paths: list[Path], pages_root: Path) -> tuple[tuple[str, int, i
         tuple[tuple[str, int, int], ...]: Relative paths, modification times,
             and sizes for cache invalidation.
     """
-    return tuple((str(path.relative_to(pages_root)), path.stat().st_mtime_ns, path.stat().st_size) for path in paths)
+    entries: list[tuple[str, int, int]] = []
+    for path in paths:
+        try:
+            metadata = path.stat()
+        except OSError:
+            continue
+        entries.append((str(path.relative_to(pages_root)), metadata.st_mtime_ns, metadata.st_size))
+    return tuple(entries)
 
 
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:

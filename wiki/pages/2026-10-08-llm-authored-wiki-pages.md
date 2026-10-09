@@ -138,17 +138,30 @@ branch: "-"                      # bare `-` is YAML null
 ```
 
 A throwaway script rewrote only those four keys inside the leading `---` block: 93 files under
-`wiki/pages` changed (+305 / −2061). It also stripped the
+`wiki/pages` changed (+305 / −2061), of which 83 carried a block-style list key beforehand and 66
+were frontmatter-only edits. It also stripped the
 column-alignment padding that seven pages had copied from `TEMPLATE.md`, joined one wrapped
 flow list, and quoted `403` in
 [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]] — that tag was parsing as an `int`,
 which breaks tag string-matching in `wiki_search`.
 
-Two pages were not frontmatter-only: `2026-09-24-mnt-219-session-log-autoscroll.md` and
-`2026-09-16-mnt-205-revise-merged-environment.md` also had their now-dead `## Changed files` /
-`## Stat` / `## Build plan` scaffold sections dropped from the body, since this change removes
-the code that wrote them. Leaving those would have documented a rendering path that no longer
-exists.
+Six pages were not frontmatter-only: their now-dead scaffold sections were also dropped from the
+body, since this change removes the code that wrote them. Leaving those would have documented a
+rendering path that no longer exists.
+
+- `## Changed files` removed from all six: `2026-08-28-mnt-188-waitlist`,
+  `2026-09-10-mnt-200-update-research-loop`, `2026-09-11-mnt-203-create-related-ticket-for-research`,
+  `2026-09-14-research-plan-artifact`, `2026-09-16-mnt-205-revise-merged-environment`,
+  `2026-09-24-mnt-219-session-log-autoscroll`, `2026-09-27-mnt-225-add-copy-button` and
+  `2026-09-30-mnt-228-intermediate-history-states`.
+- `## Stat` additionally removed from the four that still had it:
+  `2026-09-16-mnt-205-revise-merged-environment`, `2026-09-24-mnt-219-session-log-autoscroll`,
+  `2026-09-27-mnt-225-add-copy-button`, `2026-09-30-mnt-228-intermediate-history-states`.
+
+> **Correction (2026-10-09, Consistency Agent):** this section originally named only two pages
+> (`2026-09-24-…` and `2026-09-16-…`). Verified against `git show f8b627d`: the scaffold-section
+> removals span **eight** pages and 12 headings, listed above. The `93 files / +305 / −2061`
+> figures above were already correct.
 
 This work landed in commit `f8b627d`, separately from the LLM-composition change described in
 the steps above, which is still staged.
@@ -174,6 +187,12 @@ Replaced tests:
 
 - `WIKI_DIFF_HUNK_CAP` is dead config — nothing reads it (already true before this change).
   Left in place; worth deleting separately.
+
+> **Correction (2026-10-09, Consistency Agent):** the follow-up above is wrong —
+> `WIKI_DIFF_HUNK_CAP` is live. `demetra/services/wiki/facts.py:144` reads
+> `service.WIKI["diff_hunk_cap"]` to bound the diff excerpt handed to the page
+> author (truncating with a `... (diff excerpt truncated)` marker), and
+> `tests/test_wiki.py:227` covers it. Nothing needed deleting.
 - `PAGE_TYPE` is hardcoded to `implementation`, so the LLM only ever writes the
   implementation preset even when a session was a debug chase or an investigation. Classifying
   the type would let the prompt pick the right preset.

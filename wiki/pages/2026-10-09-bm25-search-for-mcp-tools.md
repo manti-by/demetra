@@ -5,12 +5,10 @@ type: implementation
 status: resolved
 session_id: ses_edfd46130ffe5iG0gt24tZYI1o
 services: [wiki, mcp, tools]
-branch: -
+branch: "-"
 tickets: []
 tags: [bm25, search, mcp, wiki, ranking, tools, caching]
-related:
-  - 2026-08-03-wiki-mcp-tools.md
-  - 2026-09-08-docstring-mcp-search.md
+related: [2026-08-03-wiki-mcp-tools.md, 2026-09-08-docstring-mcp-search.md]
 ---
 
 # BM25 ranking for the wiki and docstring MCP tools
