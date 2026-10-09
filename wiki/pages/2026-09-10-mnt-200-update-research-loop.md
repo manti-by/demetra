@@ -4,27 +4,11 @@ date: 2026-09-10
 type: implementation
 status: resolved
 session_id: ses_f7309e1b6ffes6G5sccIOnOCdh
-services:
-- workflows
-- persistence
-- library
-- api
-- react
-- wiki
+services: [workflows, persistence, library, api, react, wiki]
 branch: mnt-200-update-research-loop
-tickets:
-- MNT-200
-tags:
-- research
-- research-loop
-- persistence
-- sessions
-related:
-- 2026-09-01-mnt-177-research-loop.md
-- 2026-07-21-awaiting-input-status-for-session.md
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-09-11-mnt-203-create-related-ticket-for-research.md
-- 2026-09-14-research-plan-artifact.md
+tickets: [MNT-200]
+tags: [research, research-loop, persistence, sessions]
+related: [2026-09-01-mnt-177-research-loop.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-07-16-fix-step-status-review-findings.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-09-14-research-plan-artifact.md, 2026-10-05-mnt-232-update-research-flow.md]
 ---
 # MNT-200: Update research loop
 
@@ -37,17 +21,6 @@ Research loop now persists the extracted report to new `sessions.research_report
 ## Overview
 
 Adds `research_report` persistence and `researched` step to replace post-research `awaiting_input`. Key files: `demetra/library/tables.py`, `demetra/library/models.py`, `demetra/services/persistence/database.py`, `react/src/App.css`/`index.css`, `migrations/versions/a3b4c5d6e7f8_add_sessions_research_report_column.py`.
-
-## Changed files
-
-- `.opencode/package-lock.json`, `pyproject.toml`, `uv.lock`, `wiki/INDEX.md`
-- `demetra/library/models.py` (2/0) — `StepType += "researched"`, `Session.research_report`
-- `demetra/library/tables.py` (1/0) — `research_report Text() nullable`
-- `demetra/services/persistence/database.py` (32/1), `demetra/workflows/research.py` (8/5)
-- `migrations/versions/a3b4c5d6e7f8_add_sessions_research_report_column.py` (32/0)
-- `react/src/App.css` (9/0), `react/src/index.css` (4/0), `react/src/services/api.ts` (1/0)
-- `react/src/components/SessionArtifacts.test.tsx`, `SessionList.test.tsx`, `tests/test_database.py` (48/0), `tests/test_workflows.py` (53/4)
-- 17 files, 355 insertions(+), 22 deletions(-)
 
 ## Build plan
 
@@ -79,8 +52,14 @@ Persist extracted report to `sessions.research_report`, rename post-research ste
 > (`demetra/workflows/research.py:199`), not `step="researched"`. `researched`
 > remains a valid `StepType` (`demetra/library/models.py:27`) with badge CSS, but
 > nothing writes it.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** the 2026-10-06 note
+> above is itself superseded by [[2026-10-05-mnt-232-update-research-flow]]
+> (PR #135, merged): `step="researched"` now has a writer
+> (`demetra/workflows/research.py:230`, after the Linear move to In Review
+> succeeds). Terminal state is In Review / `researched`, not `awaiting_input`.
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]], [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]], [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-10-05-mnt-232-update-research-flow]]
 - External: https://linear.app/mnt/issue/MNT-200/update-research-loop

@@ -8,10 +8,7 @@ services: [mcp, settings, tools, runtime]
 branch: delta/feature/docstring-mcp-search
 tickets: [MNT-171]
 tags: [docstrings, search, mcp, settings, version-bump]
-related:
-- 2026-08-21-mnt-176-bump-version-error.md
-- 2026-08-03-wiki-mcp-tools.md
-- 2026-06-25-update-project-version.md
+related: [2026-08-21-mnt-176-bump-version-error.md, 2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md]
 ---
 
 # MNT-171: Docstring MCP search

@@ -4,19 +4,11 @@ date: 2026-03-11
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- linear
-- graphql
+services: [linear, graphql]
 branch: '-'
-tickets:
-- MNT-60
-tags:
-- linear
-- comments
-- graphql
-related:
-- 2026-06-02-plan-loop-resolve-questions.md
-- 2026-06-09-check-linear-ticket-text.md
+tickets: [MNT-60]
+tags: [linear, comments, graphql]
+related: [2026-06-02-plan-loop-resolve-questions.md, 2026-06-09-check-linear-ticket-text.md]
 ---
 
 # Separate Linear comments

@@ -4,18 +4,11 @@ date: 2026-06-02
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- react
+services: [react]
 branch: '-'
-tickets:
-- MNT-92
-tags:
-- react
-- css
-- truncate
-- layout
-related:
-- 2026-09-02-mobile-template-react-frontend.md
+tickets: [MNT-92]
+tags: [react, css, truncate, layout]
+related: [2026-09-02-mobile-template-react-frontend.md]
 ---
 
 # Truncate session name

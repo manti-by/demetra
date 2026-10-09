@@ -16,7 +16,9 @@ related: [2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-researc
 
 Research now links the ticket it creates back to the originating ticket as
 `related`, and instead of parking the source ticket in **Awaiting Input** it
-moves it to **In Review** and marks the session step `researched`. The new
+moves it to **In Review** and marks the session step `researched` (once the
+Linear move succeeds — on move failure the step stays `research` and the
+deliverable is kept). The new
 `related` relation is retried on transient Linear failures, so a flaky API call
 no longer silently drops the link. Idempotency comes from the existing
 title-based lookup in `create_research_ticket`, so no new column or migration
@@ -247,7 +249,7 @@ tickets.
 - **Page date vs filename — fixed.** Frontmatter read `2026-10-06` against a
   `2026-10-05` filename prefix.
 - **Missing body link — fixed.** `related:` listed
-  `2026-09-01-mnt-177-research-loop.md` with no corresponding `[[...]]` link.
+  `2026-09-01-mnt-177-research-loop.md` with no corresponding body link.
 
 ### Page rewrite
 

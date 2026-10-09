@@ -8,8 +8,7 @@ services: [api, persistence, react]
 branch: feature/mnt-192-add-edit-button-for-env-settings
 tickets: [MNT-192]
 tags: [env, frontend, encryption]
-related:
-- 2026-08-10-process-environment-3-layers-encryption-uv-venv.md
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
 ---
 
 # MNT-192 Add edit button for env settings

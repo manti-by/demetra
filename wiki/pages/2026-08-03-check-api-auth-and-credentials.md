@@ -8,12 +8,7 @@ services: [auth, api, watcher, react]
 branch: mnt-156-check-api-auth
 tickets: [MNT-156, MNT-81]
 tags: [auth, cookies, csrf, origin-validation, websockets, ownership, api, refactor, routers]
-related:
-- 2026-08-09-apply-code-review-findings.md
-- 2026-06-01-refactor-api.md
-- 2026-07-24-plain-auth-review-followups.md
-- 2026-07-23-linear-ticket-email-password-auth.md
-- 2026-08-06-allowlist-review-fixes.md
+related: [2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md, 2026-07-24-plain-auth-review-followups.md, 2026-07-23-linear-ticket-email-password-auth.md, 2026-08-06-allowlist-review-fixes.md]
 ---
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene

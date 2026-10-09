@@ -8,9 +8,7 @@ services: [groq, github]
 branch: "-"
 tickets: [MNT-115]
 tags: [groq, pr, description]
-related:
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
 # GitHub PR description

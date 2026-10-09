@@ -8,8 +8,7 @@ services: [deploy, configs]
 branch: "-"
 tickets: [MNT-119]
 tags: [deploy, setup, systemd, makefile]
-related:
-- 2026-08-10-docker-compose-deploy.md
+related: [2026-08-10-docker-compose-deploy.md]
 ---
 
 # Project deploy script

@@ -4,18 +4,11 @@ date: 2026-06-01
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- api
+services: [api]
 branch: '-'
-tickets:
-- MNT-81
-tags:
-- api
-- refactor
-- routers
-related:
-- 2026-07-16-fix-step-status-review-findings.md
-- 2026-08-03-check-api-auth-and-credentials.md
+tickets: [MNT-81]
+tags: [api, refactor, routers]
+related: [2026-07-16-fix-step-status-review-findings.md, 2026-08-03-check-api-auth-and-credentials.md]
 ---
 
 # Refactor API

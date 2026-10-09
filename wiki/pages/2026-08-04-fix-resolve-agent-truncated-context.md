@@ -4,34 +4,11 @@ date: 2026-08-04
 type: debug
 status: resolved
 session_id: '-'
-services:
-- opencode
-- workflows
-- main
-- subprocess
+services: [opencode, workflows, main, subprocess]
 branch: '-'
-tickets:
-- MNT-79
-- MNT-105
-tags:
-- plan-loop
-- resolve-agent
-- opencode
-- task-delivery
-- arg-max
-- shlex
-- questions
-- auto
-- cwd
-- worktree
-- context
-- bug
-related:
-- 2026-06-02-plan-loop-resolve-questions.md
-- 2026-07-16-session-history-tokens-null.md
-- 2026-08-05-post-build-validation.md
-- 2026-06-03-context-bloating.md
-- 2026-07-16-fix-empty-build-plan-loop.md
+tickets: [MNT-79, MNT-105]
+tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex, questions, auto, cwd, worktree, context, bug]
+related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md, 2026-06-03-context-bloating.md, 2026-07-16-fix-empty-build-plan-loop.md]
 ---
 # Plan loop resolve agent received truncated context
 

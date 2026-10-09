@@ -8,14 +8,7 @@ services: [deploy]
 branch: master
 tickets: []
 tags: [docker, compose, langsmith, opencode, env, tests]
-related:
-- 2026-08-18-compose-anchors-refactor.md
-- 2026-08-10-docker-compose-deploy.md
-- 2026-08-17-docker-setup-review.md
-- 2026-08-20-fix-allowlist-tests.md
-- 2026-08-06-allowlist-review-fixes.md
-- 2026-07-23-agents-md-revalidation-and-docs-removal.md
-- 2026-10-06-unify-subprocess-env-on-session-environment.md
+related: [2026-08-18-compose-anchors-refactor.md, 2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-20-fix-allowlist-tests.md, 2026-08-06-allowlist-review-fixes.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 
 # Forward LangSmith env vars from host to containers
@@ -27,9 +20,11 @@ container via the existing `x-demetra-env` anchor, using host interpolation
 (`${VAR:-default}`) so exporting them in the shell that runs `make deploy` /
 `make docker-up` is enough — the shell outranks `--env-file .env.docker` for
 interpolation. Backed by a new `tests/test_docker_compose.py` (4 tests,
-mutation-verified). Two gaps remain open: the vars are dropped before `opencode`
+mutation-verified). ~~Two gaps remain open: the vars are dropped before `opencode`
 starts by `OS_ENV_ALLOWLIST`, and the plugin never reads `LANGSMITH_TRACING`, so
-tracing does not actually turn on yet.
+tracing does not actually turn on yet.~~ Both gaps were closed by
+[[2026-10-06-unify-subprocess-env-on-session-environment]] (see note below):
+derived vars bypass `OS_ENV_ALLOWLIST` and both flags are emitted in-process.
 
 ---
 
@@ -217,9 +212,10 @@ change plus a matching test default.
 
 ## Follow-ups
 
-- Decide on Gap 1 (`OS_ENV_ALLOWLIST` vs `OS_ENV_PROJECT_OPTINS`) and Gap 2
-  (`TRACE_TO_LANGSMITH`) together — neither alone is sufficient, both are needed
-  for end-to-end tracing.
+- ~~Decide on Gap 1 (`OS_ENV_ALLOWLIST` vs `OS_ENV_PROJECT_OPTINS`) and Gap 2
+  (`TRACE_TO_LANGSMITH`) together~~ — resolved by
+  [[2026-10-06-unify-subprocess-env-on-session-environment]] (see note above):
+  derived vars bypass the allowlist and both flags are emitted in-process.
 - Ruled out while working: an `environment:` entry on `x-demetra-app` (shadowed
   by each service's own block); a `settings.py` constant (the plugin reads the
   OS env directly, no Python layer involved); reading the key from

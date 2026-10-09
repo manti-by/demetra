@@ -1,17 +1,14 @@
 ---
-title:              Fix empty build plan infinite loop
-date:               2026-07-16
-type:               implementation
-status:             resolved
-session_id:         "-"
-services:           [main, graphql, opencode, linear, workflows, database, sessions]
-branch:             "-"
-tickets:            [MNT-29, MNT-39]
-tags:               [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
-related:
-- 2026-02-21-add-build-plan-to-linear-task.md
-- 2026-02-23-save-build-plan-to-database.md
-- 2026-08-05-pr-creation-failure-handler.md
+title: Fix empty build plan infinite loop
+date: 2026-07-16
+type: implementation
+status: resolved
+session_id: "-"
+services: [main, graphql, opencode, linear, workflows, database, sessions]
+branch: "-"
+tickets: [MNT-29, MNT-39]
+tags: [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
+related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Fix empty build plan infinite loop

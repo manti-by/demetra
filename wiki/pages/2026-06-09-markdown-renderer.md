@@ -4,19 +4,11 @@ date: 2026-06-09
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- react
+services: [react]
 branch: '-'
-tickets:
-- MNT-113
-tags:
-- react
-- markdown
-- marked
-- modal
-related:
-- 2026-06-09-build-artifacts.md
-- 2026-09-02-mobile-template-react-frontend.md
+tickets: [MNT-113]
+tags: [react, markdown, marked, modal]
+related: [2026-06-09-build-artifacts.md, 2026-09-02-mobile-template-react-frontend.md]
 ---
 
 # Markdown renderer

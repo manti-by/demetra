@@ -1,5 +1,5 @@
 ---
-title:              MNT-193 — Mobile template for the React frontend
+title: MNT-193 — Mobile template for the React frontend
 date: 2026-09-02
 type: implementation
 status: resolved
@@ -8,11 +8,7 @@ services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
 tickets: [MNT-193, MNT-92, MNT-113]
 tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert, truncate, layout, markdown, marked, modal]
-related:
-- 2026-07-22-react-frontend-template-warp.md
-- 2026-08-25-loader-styleguide.md
-- 2026-06-02-truncate-session-name.md
-- 2026-06-09-markdown-renderer.md
+related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md]
 ---
 
 # MNT-193 — Mobile template for the React frontend

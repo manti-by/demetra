@@ -4,27 +4,11 @@ date: 2026-08-18
 type: investigation
 status: resolved
 session_id: '-'
-services:
-- settings
-- subprocess
-- workflows
-- persistence
+services: [settings, subprocess, workflows, persistence]
 branch: feature/mnt-169-removeupdate-settings
-tickets:
-- MNT-169
-- MNT-170
-tags:
-- environment
-- settings
-- project-env
-- user-env
-- layers
-- subprocess
-related:
-- 2026-08-10-process-environment-3-layers-encryption-uv-venv.md
-- 2026-07-23-session-tokens-audit-revalidation.md
-- 2026-08-18-migrate-llm-groq-to-openrouter.md
-- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
+tickets: [MNT-169, MNT-170]
+tags: [environment, settings, project-env, user-env, layers, subprocess]
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 # Categorize settings env vars by layer
 
@@ -108,6 +92,16 @@ App/DB/auth/logging only, stay in `settings.py`:
 5. **Tests** `tests/test_settings_layers.py`: user wins over default for `OPENROUTER_API_KEY/MODEL`/`OPENCODE_PLAN_MODEL`; project>user; `LINEAR_STATE_TODO_ID`/`TEAM_ID` resolution; `UV_PATH` in `project.environment`.
 
 > **Consistency note (2026-09-02):** new system settings: `AUTH_RATE_LIMIT_MAX` (10), `AUTH_RATE_LIMIT_WINDOW` (3600), `OAUTH_STATE_COOKIE`, `AUTH_COOKIE_NAME`; validation constants moved to `library/env.py`; limits retuned `MAX_BUILD=50`, `REVIEW/MERGE/REBASE=10`.
+>
+> **Consistency note (2026-10-08, Consistency Agent):** §§ Layer model / "Out of
+> scope" / line refs above predate `10ea543` ("Refactor settings, cleanup repo",
+> 2026-09-28) and [[2026-10-06-unify-subprocess-env-on-session-environment]]:
+> scalar `MAX_*_ATTEMPTS` are now the `MAX_ATTEMPTS` dict (`run` 3, `plan` 10,
+> `build` 10 — so `MAX_BUILD=50` above is stale, see Q-002 in
+> `wiki/QUESTIONS.md`), `WIKI_LLM_BUDGET_*` is deleted, the step/`extra`
+> channel is removed (order is now OS → user → project → derived → PWD), and
+> `settings.py` line numbers shifted. `llm/config.py` no longer exists;
+> `linear/` is a subpackage. Preserved as the MNT-170 design record.
 
 ## Follow-ups
 
@@ -116,5 +110,5 @@ App/DB/auth/logging only, stay in `settings.py`:
 
 ## References
 
-- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
+- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-10-06-unify-subprocess-env-on-session-environment]]
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers), [MNT-169](https://linear.app/mnt/issue/MNT-169/removeupdate-settings)

@@ -1,11 +1,11 @@
 ---
-title:              Unify subprocess env on SessionEnvironment
+title: Unify subprocess env on SessionEnvironment
 date: 2026-10-06
-type:               implementation
-status:             resolved
-session_id:         '-'
+type: implementation
+status: resolved
+session_id: '-'
 services: [subprocess, vcs, agents, quality, wiki, workflows]
-branch:             '-'
+branch: '-'
 tickets: []
 tags: [environment, subprocess, session-environment, langsmith, refactor]
 related: [2026-09-16-mnt-205-revise-merged-environment.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-09-28-compose-langsmith-host-env.md, 2026-08-18-categorize-settings-env-vars-by-layer.md]

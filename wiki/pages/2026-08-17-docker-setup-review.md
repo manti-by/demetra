@@ -8,11 +8,7 @@ services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
 tags: [docker, compose, security, review]
-related:
-- 2026-08-18-compose-anchors-refactor.md
-- 2026-08-19-worker-opencode-home-permissions.md
-- 2026-08-10-docker-compose-deploy.md
-- 2026-07-07-project-deploy-script.md
+related: [2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-10-docker-compose-deploy.md, 2026-07-07-project-deploy-script.md]
 ---
 
 # Docker setup review — Dockerfile + docker-compose.yaml on mnt-164

@@ -8,10 +8,7 @@ services: [watcher, linear, daemons]
 branch: "opencode/feature/mnt-191-ticket-status-not-changed"
 tickets: [MNT-191]
 tags: [watcher, linear, status, in-progress, todo, workflow, queue]
-related:
-- 2026-08-05-pr-creation-failure-handler.md
-- 2026-07-21-rich-markuperror-and-run-attempts.md
-- 2026-09-16-mnt-205-revise-merged-environment.md
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-07-21-rich-markuperror-and-run-attempts.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md]
 ---
 
 # Ticket status isn't changed when watcher picks it up
@@ -49,7 +46,7 @@ Existing `main.py` update kept as safety net for manual CLI runs.
 Fixtures: `mock_upsert_pending_session`, `mock_update_ticket_status`, `mock_get_linear_config_value`, `mock_delay_run_workflow`. Five tests:
 
 - `test_process_tasks_moves_new_task_to_in_progress` — resolves with `task.user_id`, calls `update_ticket_status`, still enqueues.
-- `test_process_tasks_skips_in_progress_update_for_existing_pending` — already pending → enqueue only.
+- `test_process_tasks_skips_in_progress_update_for_existing_pending` — already pending → enqueue only. (Stale post-MNT-183: `in_progress` is now re-applied on every poll; this test no longer exists on HEAD — re-confirmed 2026-10-08.)
 - `test_process_tasks_logs_and_continues_when_in_progress_state_missing` — missing config logs error, still enqueues.
 - `test_process_tasks_logs_and_continues_when_update_fails` — failed update logs warning, still enqueues.
 - Two pre-existing tests refactored with `_task` helper.
@@ -67,10 +64,12 @@ Fixtures: `mock_upsert_pending_session`, `mock_update_ticket_status`, `mock_get_
 None.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-10-08, Dedup Agent):** adjacent same-day Linear-status incident — [[2026-08-28-awaiting-input-workflow-continues-to-review]] diagnoses the non-durable halt after posting plan questions (still open, diagnosis only).
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-07-21-rich-markuperror-and-run-attempts]]
+- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-07-21-rich-markuperror-and-run-attempts]], [[2026-08-28-awaiting-input-workflow-continues-to-review]]
 - External: Linear ticket MNT-191
 
 > **Status update (2026-09-16, MNT-205):** `get_linear_config_value` was

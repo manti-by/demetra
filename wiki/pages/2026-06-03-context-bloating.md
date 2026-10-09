@@ -4,21 +4,11 @@ date: 2026-06-03
 type: debug
 status: resolved
 session_id: '-'
-services:
-- subprocess
-- opencode
-- workflows
+services: [subprocess, opencode, workflows]
 branch: '-'
-tickets:
-- MNT-105
-tags:
-- cwd
-- worktree
-- context
-- bug
-related:
-- 2026-07-16-fix-empty-build-plan-loop.md
-- 2026-08-04-fix-resolve-agent-truncated-context.md
+tickets: [MNT-105]
+tags: [cwd, worktree, context, bug]
+related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-04-fix-resolve-agent-truncated-context.md]
 ---
 
 # Context bloating — agents scan repo root instead of worktree

@@ -4,22 +4,11 @@ date: 2026-06-09
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- database
-- api
-- react
+services: [database, api, react]
 branch: '-'
-tickets:
-- MNT-108
-tags:
-- artifacts
-- pr-link
-- build-plan
-- react
-related:
-- 2026-06-09-markdown-renderer.md
-- 2026-06-22-linear-link-artifact.md
-- 2026-09-14-research-plan-artifact.md
+tickets: [MNT-108]
+tags: [artifacts, pr-link, build-plan, react]
+related: [2026-06-09-markdown-renderer.md, 2026-06-22-linear-link-artifact.md, 2026-09-14-research-plan-artifact.md]
 ---
 
 # Build artifacts

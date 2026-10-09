@@ -303,8 +303,8 @@ class TestSettings:
             monkeypatch.delenv("SECRET_KEY", raising=False)
             importlib.reload(settings_module)
 
-    def test_wiki_budget_reads_llm_budget_files(self, monkeypatch):
-        monkeypatch.setenv("WIKI_LLM_BUDGET_FILES", "5")
+    def test_wiki_budget_reads_build_plan_cap(self, monkeypatch):
+        monkeypatch.setenv("WIKI_BUILD_PLAN_CAP", "500")
 
         import importlib
 
@@ -313,9 +313,11 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.WIKI["llm_budget_files"] == 5
+            assert settings_module.WIKI["build_plan_cap"] == 500
+            assert "llm_budget_files" not in settings_module.WIKI
+            assert "llm_budget_lines" not in settings_module.WIKI
         finally:
-            monkeypatch.delenv("WIKI_LLM_BUDGET_FILES", raising=False)
+            monkeypatch.delenv("WIKI_BUILD_PLAN_CAP", raising=False)
             importlib.reload(settings_module)
 
     def test_openrouter_base_url_default(self, monkeypatch):

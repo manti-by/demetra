@@ -22,23 +22,6 @@ A 'Copy' button has been added to the build plan modal footer, allowing users to
 
 The `SessionArtifacts.tsx` component has been extended to include the new 'Copy' button, which uses the `navigator.clipboard.writeText()` API to copy the markdown text. The `SessionArtifacts.test.tsx` file has been updated with new test cases, and a wiki page has been created to document the implementation details.
 
-## Changed files
-
-- `react/src/components/SessionArtifacts.tsx` — `Copy` button in the build plan modal footer, clipboard feature detection, 1.5s "Copied!" feedback, and invalidation of a pending copy when the modal closes.
-- `react/src/components/SessionArtifacts.test.tsx` — tests for Copy button rendering, clipboard write, unavailable clipboard API, and a pending copy resolving after close.
-- `wiki/INDEX.md` — index entry for this page under `Pages` and `React frontend / UI`.
-- `wiki/pages/2026-09-27-mnt-225-add-copy-button.md` — this page.
-
-## Stat
-
-```text
-react/src/components/SessionArtifacts.test.tsx   | 90 +++++++-
-react/src/components/SessionArtifacts.tsx       | 41 ++++++-
-wiki/INDEX.md                                   | 3 +-
-wiki/pages/2026-09-27-mnt-225-add-copy-button.md | 125 ++++++++++
-4 files changed, 259 insertions(+), 3 deletions(-)
-```
-
 ## Build plan
 
 ## Implementation Plan

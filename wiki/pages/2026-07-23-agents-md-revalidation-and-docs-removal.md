@@ -8,8 +8,7 @@ services: [docs, opencode, settings]
 branch: "-"
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
-related:
-- 2026-07-22-feature-flag-settings-and-tests.md
+related: [2026-07-22-feature-flag-settings-and-tests.md]
 ---
 
 # AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command

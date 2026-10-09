@@ -8,8 +8,7 @@ services: [settings, workflows, lint]
 branch: "-"
 tickets: [MNT-21]
 tags: [feature-flags, testing, ruff, pytest, pre-commit, lint]
-related:
-- 2026-02-20-add-pre-commit-checks-and-tests.md
+related: [2026-02-20-add-pre-commit-checks-and-tests.md]
 ---
 
 # Add tests for existing feature-flag changes

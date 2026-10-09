@@ -8,9 +8,7 @@ services: [agents]
 branch: wiki-updates
 tickets: []
 tags: [opencode, agent-prompts, permissions, prompt-injection, merge, rebase, bmad, ai-dlc]
-related:
-- 2026-08-24-guard-empty-plan-output.md
-- 2026-09-01-mnt-177-research-loop.md
+related: [2026-08-24-guard-empty-plan-output.md, 2026-09-01-mnt-177-research-loop.md]
 ---
 
 # OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics

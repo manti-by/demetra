@@ -7,15 +7,12 @@ by the plugin.
 
 ## Pages
 _Newest first._
-<<<<<<< Updated upstream
-=======
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — `wiki_search` and `docstring_search` now rank with BM25F over cached token counts, fixing substring matching (`log` matched `logging`), IDF and length normalization; the wiki tool gained the mtime+size fingerprint cache `docstrings.py` already had, since `wiki/pages/` also shrinks as pages are archived and skills edit pages outside `render.py`. Warm queries 39.8ms → 1.9ms. (2026-10-09)
 - [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — Wiki pages are now always LLM-authored: `render_wiki_page`'s deterministic scaffold is replaced by `compose_wiki_page`, the `should_use_llm` budget gate and `WIKI_LLM_BUDGET_*` settings are deleted, and a failed call raises `WikiError` instead of falling back. 88 block-style pages normalized to inline flow lists and the format rule documented. (2026-10-08)
->>>>>>> Stashed changes
 - [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — Research now links the created ticket back to the originating ticket as `related` (retried on transient failures), moves the source ticket to In Review instead of Awaiting Input, and writes the `researched` step. Rebased onto master, which had already superseded most of the branch via MNT-200/MNT-203; the redundant `research_ticket_id` column and its colliding-revision migration were dropped. (2026-10-05)
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — The legacy `env: dict[str,str]` parameter is gone from `run_command`/`run_command_to_file` and every git/gh/quality/wiki/agent helper: each layer now takes `environment: SessionEnvironment`, and `SessionEnvironment.subprocess_env` assembles user-shared + project + derived LangSmith tracing vars in one place (no `extra` escape hatch). Layer order documented as a table, caller-side pre-merges dropped, review agents fixed (they were called without `environment`), and `get_optional` folded into the shared `env_get_str_from` / `env_get_bool_from` resolver family. (2026-10-06)
 - [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — Session history now records intermediate step transitions (step + timestamp rows via `update_session_step(..., session_id=...)`) without a schema migration, and the frontend history UI shows localized clock times with full timestamps in tooltips. (2026-09-30)
-- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. Not live yet: `OS_ENV_ALLOWLIST` drops the key before `opencode` starts and the plugin reads only `TRACE_TO_LANGSMITH`. (2026-09-28)
+- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — `docker-compose.yaml` forwards `LANGSMITH_TRACING`/`_ENDPOINT`/`_API_KEY`/`_PROJECT` into every container via the `x-demetra-env` anchor using `${VAR:-default}` host interpolation (shell outranks `--env-file`), plus `tests/test_docker_compose.py`. The two gaps noted at the time (allowlist drop, missing `TRACE_TO_LANGSMITH`) were closed by the 2026-10-06 `SessionEnvironment` unification, which emits both flags in-process. (2026-09-28)
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — Added a "Copy" button to the build plan modal footer that writes the raw markdown via `navigator.clipboard.writeText()`, with clipboard feature detection and 1.5s "Copied!" feedback. A pending copy is invalidated when the modal closes so reopening never shows stale feedback. (2026-09-27)
 - [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — Session log now autoscrolls to the latest records on new logs or session change (`LogConsole` `useEffect` on `taskId`+`logs` with `{ block: "end" }`); CSS smooth scroll off on `.log-content`; tests added. (2026-09-24)
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — Dockerfile now copies `.opencode/agents/` and `.opencode/skills/` to `/home/demetra/.config/opencode/` with demetra ownership and 755/644 modes, plus .dockerignore re-includes. (2026-09-18)
@@ -166,8 +163,10 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
-### MCP / integrations (14 pages)
+### MCP / integrations (16 pages)
 
+- [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — 2026-10-09
+- [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — 2026-10-08
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — 2026-10-06
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — 2026-09-16
 - [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11

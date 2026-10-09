@@ -8,8 +8,7 @@ services: [main, tui, watcher, build]
 branch: "-"
 tickets: []
 tags: [logging, duplication, type-bug, build-agent]
-related:
-- 2026-07-16-simplify-session-logging-setup.md
+related: [2026-07-16-simplify-session-logging-setup.md]
 ---
 
 # Duplicated log messages and missing build agent logs

@@ -8,10 +8,7 @@ services: [react]
 branch: "-"
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
-related:
-- 2026-07-22-warp-theme-review-fixes-and-ops.md
-- 2026-07-23-session-history-modal.md
-- 2026-07-22-react-frontend-template-warp.md
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
 ---
 
 # Loader replacement and Style Guide page

@@ -8,9 +8,7 @@ services: [mcp, database]
 branch: master
 tickets: [MNT-90]
 tags: [mcp, dependencies, upgrade, streamable-http, filesystem, database]
-related:
-- 2026-08-03-auth-hardening-and-deps-bump.md
-- 2026-06-01-add-mcp-server.md
+related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.md]
 ---
 
 # Fix MCP Server for the mcp 2.0 API

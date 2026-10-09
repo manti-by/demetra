@@ -4,19 +4,11 @@ date: 2026-03-13
 type: implementation
 status: resolved
 session_id: '-'
-services:
-- database
-- tests
+services: [database, tests]
 branch: '-'
-tickets:
-- MNT-62
-tags:
-- sqlalchemy
-- database
-- alembic
-- testing
-related:
-- 2026-06-03-fix-squash-migrations.md
+tickets: [MNT-62]
+tags: [sqlalchemy, database, alembic, testing]
+related: [2026-06-03-fix-squash-migrations.md]
 ---
 
 # Add SQLAlchemy Core support

@@ -8,11 +8,7 @@ services: [main, workflows, agents, linear]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, awaiting-input, spending-limit, server-error, linear]
-related:
-- 2026-08-19-build-agent-stale-session-deleted-worktree.md
-- 2026-08-05-pr-creation-failure-handler.md
-- 2026-08-19-split-auth-linear-services-and-review-failure-handling.md
-- 2026-07-21-awaiting-input-status-for-session.md
+related: [2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-21-awaiting-input-status-for-session.md]
 ---
 
 # Build agent server error — root cause and Awaiting Input handler
