@@ -7,14 +7,70 @@ from mcp.types import TextContent, Tool
 from demetra.services.wiki import PAGES_ROOT, parse_page_file
 from demetra.settings import SEARCH
 from demetra.tools.result import ToolResult
-from demetra.tools.search import tokenize
+from demetra.tools.search import (
+    CorpusStats,
+    Field,
+    FieldCounts,
+    build_stats,
+    count_field,
+    line_hits,
+    score_document,
+    tokenize,
+)
 
 
 logger = logging.getLogger(__name__)
 
+WIKI_FIELDS = (
+    Field(weight=SEARCH["wiki_title_boost"], length_norm=SEARCH["wiki_title_length_norm"]),
+    Field(weight=SEARCH["wiki_metadata_boost"], length_norm=SEARCH["wiki_metadata_length_norm"]),
+    Field(weight=SEARCH["wiki_body_boost"], length_norm=SEARCH["wiki_body_length_norm"]),
+)
+
+_cached_fingerprint: tuple[tuple[str, int, int], ...] | None = None
+_cached_pages: list[dict[str, Any]] = []
+_cached_documents: list[tuple[FieldCounts, ...]] = []
+_cached_stats: CorpusStats | None = None
+_cached_pages_root: Path | None = None
+
+
+def _page_fields(page: dict[str, Any]) -> tuple[FieldCounts, ...]:
+    """Count searchable tokens in a page's title, metadata and body zones.
+
+    Args:
+        page: The parsed wiki page.
+
+    Returns:
+        tuple[FieldCounts, ...]: Field counts aligned to ``WIKI_FIELDS``.
+    """
+    return (
+        count_field(text=str(page["meta"].get("title") or "")),
+        count_field(text=_metadata_text(meta=page["meta"])),
+        count_field(text=page["body"]),
+    )
+
+
+def _fingerprint(paths: list[Path], pages_root: Path) -> tuple[tuple[str, int, int], ...]:
+    """Build a change fingerprint for the wiki page files.
+
+    Args:
+        paths: Page files to fingerprint.
+        pages_root: Root directory used to create relative paths.
+
+    Returns:
+        tuple[tuple[str, int, int], ...]: Relative paths, modification times,
+            and sizes for cache invalidation.
+    """
+    return tuple((str(path.relative_to(pages_root)), path.stat().st_mtime_ns, path.stat().st_size) for path in paths)
+
 
 def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
     """Load all valid wiki pages from a directory, sorted by name.
+
+    Parsed pages and their BM25 field counts are cached and rebuilt only when a
+    page file is added, removed, archived or otherwise changes its modification
+    time or size, so repeated searches skip re-reading and re-tokenizing every
+    page in the corpus.
 
     Args:
         pages_root: Directory containing ``*.md`` wiki page files.
@@ -22,11 +78,20 @@ def _load_pages(pages_root: Path) -> list[dict[str, Any]]:
     Returns:
         list[dict[str, Any]]: The parsed pages in sorted filename order.
     """
-    pages: list[dict[str, Any]] = []
-    for path in sorted(pages_root.glob("*.md")):
-        page = parse_page_file(path=path)
-        if page is not None:
-            pages.append(page)
+    global _cached_fingerprint, _cached_pages, _cached_documents, _cached_stats, _cached_pages_root
+
+    paths = sorted(pages_root.glob("*.md")) if pages_root.is_dir() else []
+    fingerprint = _fingerprint(paths=paths, pages_root=pages_root)
+    if pages_root == _cached_pages_root and fingerprint == _cached_fingerprint:
+        return _cached_pages
+
+    pages = [page for path in paths if (page := parse_page_file(path=path)) is not None]
+    documents = [_page_fields(page=page) for page in pages]
+    _cached_fingerprint = fingerprint
+    _cached_pages = pages
+    _cached_documents = documents
+    _cached_stats = build_stats(fields=WIKI_FIELDS, documents=documents)
+    _cached_pages_root = pages_root
     return pages
 
 
@@ -88,34 +153,12 @@ def _metadata_text(meta: dict[str, Any]) -> str:
     return " ".join(parts).lower()
 
 
-def _score_page(page: dict[str, Any], terms: list[str]) -> int:
-    """Rank a page against search terms using weighted term counts.
-
-    Title matches count most heavily, followed by metadata and then body text.
-
-    Args:
-        page: The parsed wiki page.
-        terms: The search terms to match.
-
-    Returns:
-        int: The cumulative relevance score for the page.
-    """
-    title = str(page["meta"].get("title") or "").lower()
-    metadata = _metadata_text(page["meta"])
-    body = page["body"].lower()
-    score = 0
-    for term in terms:
-        score += SEARCH["wiki_title_weight"] * title.count(term)
-        score += SEARCH["wiki_metadata_weight"] * metadata.count(term)
-        score += body.count(term)
-    return score
-
-
 def _extract_snippets(body: str, terms: list[str]) -> list[str]:
     """Pick the most relevant line snippets from a page body.
 
-    Lines are scored by term hits, capped at the configured maximum, and returned in
-    line-number order with a length cap per snippet.
+    Lines are scored by how many distinct query terms they contain as whole
+    tokens, capped at the configured maximum, and returned in line-number order
+    with a length cap per snippet.
 
     Args:
         body: The page body text.
@@ -129,7 +172,7 @@ def _extract_snippets(body: str, terms: list[str]) -> list[str]:
         stripped = line.strip()
         if not stripped:
             continue
-        hits = sum(stripped.lower().count(term) for term in terms)
+        hits = line_hits(line=stripped, terms=terms)
         if hits:
             scored.append((-hits, lineno, stripped))
     scored.sort(key=lambda item: item[0])
@@ -140,6 +183,9 @@ def _extract_snippets(body: str, terms: list[str]) -> list[str]:
 
 def _search_pages(pages_root: Path, query: str, limit: int) -> list[dict[str, Any]]:
     """Search the wiki pages and return the top matches for a query.
+
+    Pages are ranked with BM25F across the title, metadata and body fields, so
+    rare terms outweigh common ones and a long page cannot win on bulk alone.
 
     Args:
         pages_root: Directory containing the wiki page files.
@@ -153,12 +199,16 @@ def _search_pages(pages_root: Path, query: str, limit: int) -> list[dict[str, An
     terms = _tokenize(query)
     if not terms:
         return []
+    pages = _load_pages(pages_root)
+    stats = _cached_stats
+    if stats is None:
+        return []
     results: list[dict[str, Any]] = []
-    for page in _load_pages(pages_root):
-        score = _score_page(page, terms)
+    for page, document in zip(pages, _cached_documents, strict=True):
+        score = score_document(fields=WIKI_FIELDS, document=document, stats=stats, terms=terms)
         if score > 0:
             results.append({"page": page, "score": score, "terms": terms})
-    results.sort(key=lambda result: result["score"], reverse=True)
+    results.sort(key=lambda result: (-result["score"], result["page"]["name"]))
     return results[:limit]
 
 
@@ -273,7 +323,7 @@ def _format_search_results(results: list[dict[str, Any]]) -> str:
         snippets = _extract_snippets(page["body"], result["terms"])
         snippet_lines = "\n".join(f"   > {snippet}" for snippet in snippets)
         blocks.append(
-            f"{position}. {page['name']} (score {result['score']})\n"
+            f"{position}. {page['name']} (score {result['score']:.3f})\n"
             f"   {_page_title(page)} — {_summarize_meta(page['meta'])}\n"
             f"{snippet_lines}"
         )

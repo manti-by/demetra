@@ -70,10 +70,19 @@ SEARCH: dict = {
     "snippet_length": 200,
     "min_term_length": 2,
     "term_pattern": r"[a-z0-9][a-z0-9_.\-]*",
-    "wiki_title_weight": 10,
-    "wiki_metadata_weight": 5,
-    "docstring_name_weight": 10,
-    "docstring_path_weight": 5,
+    "bm25_k1": 1.2,
+    "wiki_title_boost": 10.0,
+    "wiki_title_length_norm": 0.0,
+    "wiki_metadata_boost": 5.0,
+    "wiki_metadata_length_norm": 0.0,
+    "wiki_body_boost": 1.0,
+    "wiki_body_length_norm": 0.75,
+    "docstring_name_boost": 10.0,
+    "docstring_name_length_norm": 0.0,
+    "docstring_path_boost": 5.0,
+    "docstring_path_length_norm": 0.0,
+    "docstring_text_boost": 1.0,
+    "docstring_text_length_norm": 0.75,
 }
 
 WIKI: dict = {

@@ -16,6 +16,12 @@
   "ses_093670774ffeRqtTEflrkIDv8O": "2026-07-16-fix-notification-mark-read.md",
   "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-07-15-duplicated-log-messages.md",
   "ses_8f3a2b1c-20260825": "2026-08-25-loader-styleguide.md",
+  "ses_edfd46130ffe5iG0gt24tZYI1o": "2026-10-09-bm25-search-for-mcp-tools.md",
+  "ses_ee2ccebb3ffeZ1p6NUf0IS2y4j": "2026-10-08-llm-authored-wiki-pages.md",
+  "ses_eee80a857ffegPQQy0hcWUtrHk": "2026-10-05-mnt-232-update-research-flow.md",
+  "ses_f18b1bf6dffeluPnstTNqJ32iq": "2026-09-28-compose-langsmith-host-env.md",
+  "ses_f4b5d623fffe8VuQZEl0Uvm3ug": "2026-09-18-dockerfile-opencode-agents-skills.md",
+  "ses_f5e6bd69bffexNX7o87koO5QLl": "2026-09-14-listener-readline-limit-crash.md",
   "ses_fbad8fd5affeytew8qRS0KDVpx": "2026-08-28-fix-index-lock-concurrency.md",
   "ses_fcc17abbaffe7m4bui291JEEZ3": "2026-08-24-guard-empty-plan-output.md",
   "ses_fe1248211ffeLvd40e4OnV1uVR": "2026-08-20-fix-allowlist-tests.md",
@@ -25,9 +31,13 @@
   "ses_mnt177_20260901": "2026-09-01-mnt-177-research-loop.md",
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
   "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
+<<<<<<< Updated upstream
   "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md",
   "ses_f5e6bd69bffexNX7o87koO5QLl": "2026-09-14-listener-readline-limit-crash.md",
   "ses_f4b5d623fffe8VuQZEl0Uvm3ug": "2026-09-18-dockerfile-opencode-agents-skills.md",
   "ses_f18b1bf6dffeluPnstTNqJ32iq": "2026-09-28-compose-langsmith-host-env.md",
   "ses_eee80a857ffegPQQy0hcWUtrHk": "2026-10-05-mnt-232-update-research-flow.md"
+=======
+  "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md"
+>>>>>>> Stashed changes
 }
