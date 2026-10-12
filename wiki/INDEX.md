@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — `OPENCODE_REVIEW_MODELS` was the last agent setting read straight from `settings.py`: review is the only agent with an N-model fan-out, so both env-rework passes skipped it and the plural key never matched the generic `_MODEL` suffix rule. Fixed by adding a `settings_default()` case, a `SessionEnvironment.review_models` property, and iterating that in `run_review_agents`. (2026-10-12)
 - [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md) — Added a `SessionStateFlow` React component that animates the live session step above the log console, updated over the session websocket. Backend gains a `sessions.is_research` column (migration `b7c8d9e0f1a2`), a `SessionState` dataclass, `get_session_state` replacing `get_session_step_name`, and `update_session_is_research`, with `main.py` recording the flag and `upsert_pending_session` returning it. (2026-10-12)
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — `wiki_search` and `docstring_search` now rank with BM25F over cached token counts, fixing substring matching (`log` matched `logging`), IDF and length normalization; the wiki tool gained the mtime+size fingerprint cache `docstrings.py` already had, since `wiki/pages/` also shrinks as pages are archived and skills edit pages outside `render.py`. Warm queries 39.8ms → 1.9ms. (2026-10-09)
 - [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — Wiki pages are now always LLM-authored: `render_wiki_page`'s deterministic scaffold is replaced by `compose_wiki_page`, the `should_use_llm` budget gate and `WIKI_LLM_BUDGET_*` settings are deleted, and a failed call raises `WikiError` instead of falling back. 93 pages normalized to inline flow lists (83 of them block-style) and the format rule documented. (2026-10-08)
@@ -140,8 +141,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
-### Workflow orchestration & agents (16 pages)
+### Workflow orchestration & agents (17 pages)
 
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — 2026-10-12
 - [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — 2026-10-05
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10

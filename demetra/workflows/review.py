@@ -41,7 +41,8 @@ async def run_review_agents(
         session_id: Reserved; not used by the review agents.
         task_id: Reserved; not used by the review agents.
         environment: The resolved session environment, forwarded to the review
-            agents and used to configure the LLM summarizer.
+            agents, used to resolve their models and to configure the LLM
+            summarizer.
 
     Returns:
         str | None: The numbered review comments, or None when there are none.
@@ -52,7 +53,8 @@ async def run_review_agents(
     print_message("Running REVIEW agents", style="heading")
 
     review_agents = []
-    for model in OPENCODE["review_models"]:
+    models = environment.review_models if environment is not None else OPENCODE["review_models"]
+    for model in models:
         review_agents.append(
             opencode_review_agent(target_path=target_path, model=model, environment=environment, project_id=project_id)
         )

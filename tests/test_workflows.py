@@ -1445,6 +1445,21 @@ class TestWorkflowReview:
             yield m
 
     @pytest.mark.asyncio
+    async def test_run_review_agents_uses_the_resolved_models(self, faker, mock_review_agent, mock_summarize_review):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_review_agent.return_value = (0, "Raw review output from agent.", None)
+        mock_summarize_review.return_value = ["Some comments here"]
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,project/b"},
+            user_environment={},
+        )
+
+        await run_review_agents(target_path, environment=environment)
+
+        used_models = [call.kwargs["model"] for call in mock_review_agent.call_args_list]
+        assert used_models == ["project/a", "project/b"]
+
+    @pytest.mark.asyncio
     async def test_run_review_agents_returns_comments(self, faker, mock_review_agent, mock_summarize_review):
         target_path = Path(f"/tmp/{faker.slug()}")
         mock_review_agent.return_value = (0, "Raw review output from agent.", None)
