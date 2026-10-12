@@ -11,6 +11,7 @@ export interface FlowNode {
   label: string;
   steps: string[];
   tone: FlowTone;
+  terminal?: boolean;
 }
 
 export interface FlowFeedback {
@@ -21,8 +22,7 @@ export interface FlowFeedback {
 export const RESEARCH_FLOW: FlowNode[] = [
   { key: "linear", label: "Linear", steps: ["initial"], tone: "warning" },
   { key: "research", label: "Research", steps: ["research"], tone: "warning" },
-  { key: "linear-report", label: "Linear", steps: ["awaiting_input"], tone: "warning" },
-  { key: "done", label: "Done", steps: ["completed"], tone: "success" },
+  { key: "awaiting-input", label: "Awaiting Input", steps: ["awaiting_input"], tone: "success", terminal: true },
 ];
 
 export const BUILD_FLOW: FlowNode[] = [
@@ -43,9 +43,12 @@ export const BUILD_FEEDBACK: FlowFeedback[] = [
 
 export function resolveNodeStates(flow: FlowNode[], step?: string | null): FlowNodeState[] {
   const activeIndex = step ? flow.findIndex((node) => node.steps.includes(step)) : -1;
+  if (activeIndex === -1) return flow.map(() => "upcoming");
+  // A terminal step ends the flow, so it and everything before it read as done.
+  const lastIndex = flow[activeIndex].terminal ? flow.length - 1 : activeIndex;
   return flow.map((_, index) => {
-    if (activeIndex === -1 || index > activeIndex) return "upcoming";
-    return index === activeIndex ? "active" : "done";
+    if (index > lastIndex) return "upcoming";
+    return index === lastIndex && !flow[activeIndex].terminal ? "active" : "done";
   });
 }
 
@@ -87,9 +90,13 @@ export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowP
   }, [step]);
 
   const loop = step === "build" ? activeLoop : null;
+  const currentNode = step ? flow.find((node) => node.steps.includes(step)) : undefined;
 
   return (
     <div className="session-flow">
+      <span className="session-flow-status" role="status" aria-live="polite">
+        {currentNode ? `Current step: ${currentNode.label}` : ""}
+      </span>
       <div className="session-flow-track" aria-label="Session state">
         {flow.map((node, index) => (
           <Fragment key={node.key}>

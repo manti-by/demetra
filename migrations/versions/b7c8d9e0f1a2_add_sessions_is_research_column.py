@@ -26,6 +26,11 @@ def upgrade() -> None:
         sa.Column("is_research", sa.Boolean(), nullable=False, server_default="false"),
     )
 
+    # Backfill sessions stuck in the research step, which only the research
+    # workflow ever writes. The ``awaiting_input`` step is deliberately not
+    # used as a marker: the plan workflow writes it too.
+    op.execute("UPDATE sessions SET is_research = true WHERE step = 'research'")
+
 
 def downgrade() -> None:
     """Downgrade schema."""

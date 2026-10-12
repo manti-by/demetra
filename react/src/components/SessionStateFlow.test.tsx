@@ -53,8 +53,11 @@ describe('resolveNodeStates', () => {
       'upcoming',
       'upcoming',
       'upcoming',
-      'upcoming',
     ]);
+  });
+
+  it('marks the whole research flow done on the terminal awaiting_input step', () => {
+    expect(resolveNodeStates(RESEARCH_FLOW, 'awaiting_input')).toEqual(['done', 'done', 'done']);
   });
 });
 
@@ -83,21 +86,19 @@ describe('SessionStateFlow', () => {
     expect(nodeStates(container)).toEqual([
       { label: 'Linear', state: 'done' },
       { label: 'Research', state: 'active' },
-      { label: 'Linear', state: 'upcoming' },
-      { label: 'Done', state: 'upcoming' },
+      { label: 'Awaiting Input', state: 'upcoming' },
     ]);
     expect(container.querySelector('.session-flow-loops')).toBeNull();
     expect(screen.queryByLabelText('Feedback from review')).not.toBeInTheDocument();
   });
 
-  it('maps awaiting_input to the second linear node in the research chain', () => {
+  it('completes the research chain when the research report reaches awaiting_input', () => {
     const { container } = render(<SessionStateFlow step="awaiting_input" isResearch />);
 
     expect(nodeStates(container)).toEqual([
       { label: 'Linear', state: 'done' },
       { label: 'Research', state: 'done' },
-      { label: 'Linear', state: 'active' },
-      { label: 'Done', state: 'upcoming' },
+      { label: 'Awaiting Input', state: 'done' },
     ]);
   });
 
@@ -150,6 +151,23 @@ describe('SessionStateFlow', () => {
     const { container } = render(<SessionStateFlow step="failed" />);
 
     expect(nodeStates(container).every((node) => node.state === 'upcoming')).toBe(true);
+  });
+
+  it('announces the active step in a polite status region', () => {
+    const { rerender } = render(<SessionStateFlow step="research" isResearch />);
+    const status = screen.getByRole('status');
+
+    expect(status).toHaveAttribute('aria-live', 'polite');
+    expect(status).toHaveTextContent('Current step: Research');
+
+    rerender(<SessionStateFlow step="validate" />);
+    expect(status).toHaveTextContent('Current step: Validate');
+  });
+
+  it('announces nothing while the step matches no node', () => {
+    render(<SessionStateFlow step="failed" />);
+
+    expect(screen.getByRole('status')).toHaveTextContent('');
   });
 
   it('blinks the review feedback arrow only while the build step follows review', () => {
