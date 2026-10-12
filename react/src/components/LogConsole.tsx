@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
+import { SessionStateFlow } from "./SessionStateFlow";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
@@ -32,16 +33,26 @@ const SelectSession = () => <div className="log-empty">Select a session</div>;
 interface SessionStatusData {
   step: string;
   name?: string;
+  is_research?: boolean;
 }
 
 interface LogConsoleProps {
   taskId?: string | null;
   sessionName?: string | null;
+  step?: string | null;
+  isResearch?: boolean;
   onDeleteSession?: (taskId: string) => void;
   onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
 }
 
-export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStatus }: LogConsoleProps) {
+export function LogConsole({
+  taskId,
+  sessionName,
+  step,
+  isResearch,
+  onDeleteSession,
+  onSessionStatus,
+}: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
@@ -96,7 +107,11 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
               setConnected(false);
             }
             if (taskId) {
-              onSessionStatusRef.current?.(taskId, { step: data?.step ?? "", name: data?.name });
+              onSessionStatusRef.current?.(taskId, {
+                step: data?.step ?? "",
+                name: data?.name,
+                is_research: data?.is_research,
+              });
             }
             break;
           }
@@ -162,6 +177,9 @@ export function LogConsole({ taskId, sessionName, onDeleteSession, onSessionStat
           </button>
         </div>
       </div>
+      {taskId && (
+        <SessionStateFlow key={taskId} step={step} isResearch={isResearch} />
+      )}
       <div className="log-content">
         {!taskId ? (
           <SelectSession />

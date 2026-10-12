@@ -123,6 +123,7 @@ class Session:
     created_at: str
     updated_at: str
     step: StepType = "initial"
+    is_research: bool = False
     name: str | None = None
     session_id: str | None = None
     project_id: str | None = None
@@ -132,6 +133,13 @@ class Session:
     pr_link: str | None = None
     linear_link: str | None = None
     research_report: str | None = None
+
+
+@dataclass
+class SessionState:
+    step: str
+    name: str
+    is_research: bool = False
 
 
 EnvironmentType = Literal["text", "encrypted"]

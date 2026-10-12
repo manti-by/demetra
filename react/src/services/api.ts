@@ -149,6 +149,7 @@ export interface Session {
   created_at: string;
   updated_at: string;
   step: string | null;
+  is_research?: boolean;
   pr_link: string | null;
   linear_link: string | null;
   research_report: string | null;
