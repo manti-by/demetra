@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from demetra.app import app
 from demetra.library.exceptions import LinearError
-from demetra.library.models import SessionHistory, UserResponse
+from demetra.library.models import SessionHistory, SessionState, UserResponse
 from demetra.services.linear import create_linear_ticket
 
 
@@ -113,10 +113,10 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_step.return_value = ("initial", "Test Session")
+                mock_step.return_value = SessionState(step="initial", name="Test Session")
 
                 with TestClient(app).websocket_connect(
                     f"{self.WS_PATH}?task_id={self.TASK_ID}",
@@ -127,6 +127,7 @@ class TestWatcherLogsWebSocket:
                     assert status_msg["type"] == "status"
                     assert status_msg["data"]["step"] == "initial"
                     assert status_msg["data"]["name"] == "Test Session"
+                    assert status_msg["data"]["is_research"] is False
 
                     # Next should be the log line
                     log_msg = ws.receive_json()
@@ -150,10 +151,10 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_step.return_value = ("plan", "Test Session")
+                mock_step.return_value = SessionState(step="plan", name="Test Session")
 
                 with TestClient(app).websocket_connect(
                     f"{self.WS_PATH}?task_id={self.TASK_ID}",
@@ -184,7 +185,7 @@ class TestWatcherLogsWebSocket:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
                 patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
@@ -216,13 +217,13 @@ class TestWatcherLogsWebSocket:
                 nonlocal step_call_count
                 step_call_count += 1
                 if step_call_count <= 2:
-                    return ("initial", "Test Session")
-                return ("build", "Test Session")
+                    return SessionState(step="initial", name="Test Session")
+                return SessionState(step="build", name="Test Session")
 
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
                 patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
@@ -259,13 +260,13 @@ class TestWatcherLogsWebSocket:
                 nonlocal step_call_count
                 step_call_count += 1
                 if step_call_count <= 2:
-                    return ("initial", "Test Session")
+                    return SessionState(step="initial", name="Test Session")
                 return None
 
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
                 patch("demetra.api.watcher.asyncio.sleep", new_callable=AsyncMock),
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")

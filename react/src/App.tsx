@@ -55,15 +55,28 @@ function AppContent() {
   const paletteRef = useRef<CommandPaletteHandle>(null);
   const handleOpenPalette = useCallback(() => paletteRef.current?.open(), []);
 
-  const updateSessionStatus = useCallback((taskId: string, data: { step: string; name?: string }) => {
-    setSessions((prev) =>
-      prev.map((s) =>
-        s.task_id === taskId
-          ? { ...s, step: data.step, ...(data.name !== undefined ? { name: data.name } : {}) }
-          : s,
-      ),
-    );
-  }, []);
+  const updateSessionStatus = useCallback(
+    (taskId: string, data: { step: string; name?: string; is_research?: boolean }) => {
+      setSessions((prev) =>
+        prev.map((s) =>
+          s.task_id === taskId
+            ? {
+                ...s,
+                step: data.step,
+                ...(data.name !== undefined ? { name: data.name } : {}),
+                ...(data.is_research !== undefined ? { is_research: data.is_research } : {}),
+              }
+            : s,
+        ),
+      );
+    },
+    [],
+  );
+
+  const selectedSession = useMemo(
+    () => sessions.find((s) => s.task_id === selectedTaskId),
+    [sessions, selectedTaskId],
+  );
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -188,7 +201,14 @@ function AppContent() {
               )}
               <Suspense fallback={<Loader size={48} />}>
 
-                <LogConsole taskId={selectedTaskId} sessionName={sessions.find((s) => s.task_id === selectedTaskId)?.name ?? null} onDeleteSession={handleDeleteSession} onSessionStatus={updateSessionStatus} />
+                <LogConsole
+                  taskId={selectedTaskId}
+                  sessionName={selectedSession?.name ?? null}
+                  step={selectedSession?.step ?? null}
+                  isResearch={selectedSession?.is_research ?? false}
+                  onDeleteSession={handleDeleteSession}
+                  onSessionStatus={updateSessionStatus}
+                />
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} sessions={sessions} />
               <div className="console-toolbar">

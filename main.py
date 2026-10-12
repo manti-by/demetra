@@ -19,7 +19,12 @@ from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
 from demetra.services.linear import post_comment, update_ticket_status
-from demetra.services.persistence.database import init_db, mark_session_posted, upsert_pending_session
+from demetra.services.persistence.database import (
+    init_db,
+    mark_session_posted,
+    update_session_is_research,
+    upsert_pending_session,
+)
 from demetra.services.runtime.tui import print_heading, print_message
 from demetra.services.runtime.utils import setup_session_logging
 from demetra.settings import (
@@ -107,6 +112,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 name=context.linear_task.full_title,
                 linear_link=context.linear_task.url,
             )
+
+        await update_session_is_research(task_id=context.linear_task.id, is_research=context.is_research)
 
         try:
             state_id = context.environment.linear_state("in_progress")
