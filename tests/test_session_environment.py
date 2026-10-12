@@ -183,6 +183,37 @@ class TestSessionEnvironmentModels:
         assert getattr(environment, property_name) == settings_value
 
 
+class TestSessionEnvironmentReviewModels:
+    def test_review_models_fall_back_to_settings(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.review_models == OPENCODE_SETTINGS["review_models"]
+
+    def test_review_models_resolve_project_over_user_over_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,project/b"},
+            user_environment={"OPENCODE_REVIEW_MODELS": "user/a"},
+        )
+
+        assert environment.review_models == ["project/a", "project/b"]
+
+    def test_review_models_read_from_the_user_layer(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={},
+            user_environment={"OPENCODE_REVIEW_MODELS": "user/a, user/b"},
+        )
+
+        assert environment.review_models == ["user/a", "user/b"]
+
+    def test_review_models_drop_blank_entries(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,,project/b,"},
+            user_environment={},
+        )
+
+        assert environment.review_models == ["project/a", "project/b"]
+
+
 class TestSessionEnvironmentOpenRouter:
     def test_reads_api_key_and_model_from_layers(self, settings_defaults):
         environment = SessionEnvironment(

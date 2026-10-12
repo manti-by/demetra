@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — `OPENCODE_REVIEW_MODELS` was the last agent setting read straight from `settings.py`: review is the only agent with an N-model fan-out, so both env-rework passes skipped it and the plural key never matched the generic `_MODEL` suffix rule. Fixed by adding a `settings_default()` case, a `SessionEnvironment.review_models` property, and iterating that in `run_review_agents`. (2026-10-12)
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — `wiki_search` and `docstring_search` now rank with BM25F over cached token counts, fixing substring matching (`log` matched `logging`), IDF and length normalization; the wiki tool gained the mtime+size fingerprint cache `docstrings.py` already had, since `wiki/pages/` also shrinks as pages are archived and skills edit pages outside `render.py`. Warm queries 39.8ms → 1.9ms. (2026-10-09)
 - [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — Wiki pages are now always LLM-authored: `render_wiki_page`'s deterministic scaffold is replaced by `compose_wiki_page`, the `should_use_llm` budget gate and `WIKI_LLM_BUDGET_*` settings are deleted, and a failed call raises `WikiError` instead of falling back. 93 pages normalized to inline flow lists (83 of them block-style) and the format rule documented. (2026-10-08)
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — The legacy `env: dict[str,str]` parameter is gone from `run_command`/`run_command_to_file` and every git/gh/quality/wiki/agent helper: each layer now takes `environment: SessionEnvironment`, and `SessionEnvironment.subprocess_env` assembles user-shared + project + derived LangSmith tracing vars in one place (no `extra` escape hatch). Layer order documented as a table, caller-side pre-merges dropped, review agents fixed (they were called without `environment`), and `get_optional` folded into the shared `env_get_str_from` / `env_get_bool_from` resolver family. (2026-10-06)
@@ -138,8 +139,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add delete button for a session](pages/2026-06-02-delete-session-button.md) — 2026-06-02
 - [Refactor frontend app](pages/2026-06-01-refactor-frontend-app.md) — 2026-06-01
 
-### Workflow orchestration & agents (16 pages)
+### Workflow orchestration & agents (17 pages)
 
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — 2026-10-12
 - [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — 2026-10-05
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10

@@ -321,6 +321,9 @@ def settings_default(key: str) -> str | None:
         case "LINEAR_DEFAULT_STATE_ID":
             return LINEAR["default_state"]
 
+        case "OPENCODE_REVIEW_MODELS":
+            return ",".join(OPENCODE["review_models"])
+
     if key.startswith("OPENCODE_") and key.endswith("_MODEL"):
         agent = key[len("OPENCODE_") : -len("_MODEL")].lower()
         opencode_models = {
@@ -457,6 +460,18 @@ class SessionEnvironment:
             str: The resolved model.
         """
         return self.get("OPENCODE_RESEARCH_MODEL")
+
+    @property
+    def review_models(self) -> list[str]:
+        """Return the OpenCode models the review agents run in parallel.
+
+        The models are configured as a comma-separated list, matching the
+        ``OPENCODE_REVIEW_MODELS`` separator used by ``env_get_list``.
+
+        Returns:
+            list[str]: The resolved models, empty entries removed.
+        """
+        return [model.strip() for model in self.get("OPENCODE_REVIEW_MODELS").split(",") if model.strip()]
 
     @property
     def openrouter_config(self) -> OpenRouterConfig:
