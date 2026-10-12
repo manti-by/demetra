@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import Column, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session, SessionHistory, TokenUsage, WaitlistEntryUpdate
+from demetra.library.models import Session, SessionHistory, SessionState, TokenUsage, WaitlistEntryUpdate
 from demetra.library.tables import (
     allowlist_entries,
     jwt_tokens,
@@ -217,7 +217,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, is_research, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
                 """
             ),
             {
@@ -250,6 +250,7 @@ async def upsert_pending_session(
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
+        is_research=bool(row.is_research),
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
@@ -386,6 +387,7 @@ async def get_session(task_id: str) -> Session | None:
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
+        is_research=bool(row.is_research),
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
@@ -421,6 +423,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         build_plan=row.build_plan,
         posted_to_linear=bool(row.posted_to_linear),
         step=row.step or "initial",
+        is_research=bool(row.is_research),
         project_id=row.project_id,
         user_id=row.user_id,
         run_attempts=row.run_attempts,
@@ -502,6 +505,7 @@ async def save_session(
             build_plan=row.build_plan,
             posted_to_linear=bool(row.posted_to_linear),
             step=row.step or "initial",
+            is_research=bool(row.is_research),
             project_id=row.project_id,
             user_id=row.user_id,
             run_attempts=row.run_attempts,
@@ -520,6 +524,7 @@ async def save_session(
         build_plan=build_plan,
         posted_to_linear=False,
         step="plan",
+        is_research=False,
         project_id=None,
         user_id=None,
         run_attempts=0,
@@ -757,18 +762,18 @@ async def update_session_step(task_id: str, step: str, session_id: str | None = 
         await connection.commit()
 
 
-async def get_session_step_name(task_id: str, user_id: str | None = None) -> tuple[str, str] | None:
-    """Return the current step and name of a session, optionally user-scoped.
+async def get_session_state(task_id: str, user_id: str | None = None) -> SessionState | None:
+    """Return the current step, name and flow of a session, optionally user-scoped.
 
     Args:
         task_id: The Linear task identifier.
         user_id: Optional user id to scope the query to.
 
     Returns:
-        tuple[str, str] | None: The step and name, or None when the session
-            does not exist.
+        SessionState | None: The step, name and research flag, or None when the
+            session does not exist.
     """
-    query = select(sessions.c.step, sessions.c.name).where(sessions.c.task_id == task_id)
+    query = select(sessions.c.step, sessions.c.name, sessions.c.is_research).where(sessions.c.task_id == task_id)
     if user_id is not None:
         query = query.where(sessions.c.user_id == user_id)
     async with get_connection() as connection:
@@ -776,7 +781,23 @@ async def get_session_step_name(task_id: str, user_id: str | None = None) -> tup
         row = result.fetchone()
     if not row:
         return None
-    return row.step or "initial", row.name or ""
+    return SessionState(step=row.step or "initial", name=row.name or "", is_research=bool(row.is_research))
+
+
+async def update_session_is_research(task_id: str, is_research: bool) -> None:
+    """Update the research flow flag of a session.
+
+    Args:
+        task_id: The Linear task identifier.
+        is_research: Whether the session runs the read-only research flow.
+    """
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update()
+            .where(sessions.c.task_id == task_id)
+            .values(is_research=is_research, updated_at=datetime.now(UTC))
+        )
+        await connection.commit()
 
 
 async def record_session_history(

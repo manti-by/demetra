@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from demetra.app import app
-from demetra.library.models import UserResponse
+from demetra.library.models import SessionState, UserResponse
 from demetra.services.auth import get_current_user_dep
 
 
@@ -129,10 +129,10 @@ class TestWatcherWebSocketOwnership:
     async def test_websocket_rejects_task_owned_by_another_user(self):
         with (
             patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-            patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+            patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
         ):
             mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-            mock_step.side_effect = [None, ("initial", "Other User Session")]
+            mock_step.side_effect = [None, SessionState(step="initial", name="Other User Session")]
 
             with TestClient(app).websocket_connect(
                 f"{self.WS_PATH}?task_id={self.TASK_ID}",
@@ -164,10 +164,10 @@ class TestWatcherWebSocketOwnership:
             with (
                 patch("demetra.api.watcher.LOG_DIR", log_dir),
                 patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
-                patch("demetra.api.watcher.get_session_step_name", new_callable=AsyncMock) as mock_step,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
             ):
                 mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
-                mock_step.return_value = ("initial", "Test Session")
+                mock_step.return_value = SessionState(step="initial", name="Test Session")
 
                 with TestClient(app).websocket_connect(
                     f"{self.WS_PATH}?task_id={self.TASK_ID}",

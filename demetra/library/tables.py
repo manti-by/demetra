@@ -26,6 +26,7 @@ sessions = Table(
     Column("build_plan", Text(), nullable=False, server_default=""),
     Column("posted_to_linear", Boolean(), nullable=False, server_default="false"),
     Column("step", String(), nullable=False, server_default="initial"),
+    Column("is_research", Boolean(), nullable=False, server_default="false"),
     Column("project_id", String(), nullable=True),
     Column("user_id", String(), nullable=True),
     Column("run_attempts", Integer(), nullable=False, server_default="0"),

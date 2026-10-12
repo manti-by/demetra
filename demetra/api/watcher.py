@@ -8,7 +8,7 @@ import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
 from demetra.services.auth import get_current_user
-from demetra.services.persistence.database import get_session_step_name
+from demetra.services.persistence.database import get_session_state
 from demetra.settings import DEBUG, LOG_DIR
 
 
@@ -27,15 +27,16 @@ async def send_log(websocket: WebSocket, line: str) -> None:
     await websocket.send_json({"type": "log", "data": {"text": line}})
 
 
-async def send_status(websocket: WebSocket, step: str, name: str = "") -> None:
+async def send_status(websocket: WebSocket, step: str, name: str = "", is_research: bool = False) -> None:
     """Send a session status update over the websocket as a "status" envelope.
 
     Args:
         websocket: The connected websocket.
         step: The current session step.
         name: Optional session or task name.
+        is_research: Whether the session runs the read-only research flow.
     """
-    await websocket.send_json({"type": "status", "data": {"step": step, "name": name}})
+    await websocket.send_json({"type": "status", "data": {"step": step, "name": name, "is_research": is_research}})
 
 
 async def send_deleted(websocket: WebSocket) -> None:
@@ -44,7 +45,7 @@ async def send_deleted(websocket: WebSocket) -> None:
     Args:
         websocket: The connected websocket.
     """
-    await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": ""}})
+    await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": "", "is_research": False}})
 
 
 async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> None:
@@ -92,8 +93,8 @@ async def watcher_logs(
         await reject_connection(websocket=websocket, code=4000, reason="Invalid or missing task_id")
         return
 
-    status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
-    if status_info is None and await get_session_step_name(task_id=task_id):
+    status_info = await get_session_state(task_id=task_id, user_id=user.id)
+    if status_info is None and await get_session_state(task_id=task_id):
         # The task has a session row, but it belongs to another user.
         await reject_connection(websocket=websocket, code=4004, reason="Session not found")
         return
@@ -119,10 +120,18 @@ async def watcher_logs(
 
     last_seen_step: str | None = None
     last_seen_name: str = ""
+    last_seen_is_research: bool = False
     seen_session = status_info is not None
     if seen_session:
-        last_seen_step, last_seen_name = status_info
-        await send_status(websocket=websocket, step=last_seen_step, name=last_seen_name)
+        last_seen_step = status_info.step
+        last_seen_name = status_info.name
+        last_seen_is_research = status_info.is_research
+        await send_status(
+            websocket=websocket,
+            step=last_seen_step,
+            name=last_seen_name,
+            is_research=last_seen_is_research,
+        )
 
     try:
         try:
@@ -163,18 +172,25 @@ async def watcher_logs(
 
                 if status_ticks >= 2:
                     status_ticks = 0
-                    status_info = await get_session_step_name(task_id=task_id, user_id=user.id)
+                    status_info = await get_session_state(task_id=task_id, user_id=user.id)
                     if status_info is None:
                         if seen_session:
                             await send_deleted(websocket=websocket)
                             break
                     else:
                         seen_session = True
-                        step, name = status_info
-                        if step != last_seen_step or name != last_seen_name:
+                        step, name = status_info.step, status_info.name
+                        is_research = status_info.is_research
+                        if step != last_seen_step or name != last_seen_name or is_research != last_seen_is_research:
                             last_seen_step = step
                             last_seen_name = name
-                            await send_status(websocket=websocket, step=step, name=name)
+                            last_seen_is_research = is_research
+                            await send_status(
+                                websocket=websocket,
+                                step=step,
+                                name=name,
+                                is_research=is_research,
+                            )
 
     except WebSocketDisconnect:
         pass

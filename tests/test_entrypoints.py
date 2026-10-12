@@ -50,7 +50,7 @@ class TestMainEntrypoint:
         assert "plan_loop" in sig.parameters
 
 
-def _build_context(*, step, build_plan) -> Context:
+def _build_context(*, step, build_plan, is_research=False) -> Context:
     linear_task = LinearTask(
         id=str(uuid4()),
         identifier="MNT-128",
@@ -79,6 +79,7 @@ def _build_context(*, step, build_plan) -> Context:
         created_at=datetime.now().isoformat(),
         updated_at=datetime.now().isoformat(),
         step=step,
+        is_research=is_research,
     )
     return Context(
         project=project,
@@ -87,6 +88,7 @@ def _build_context(*, step, build_plan) -> Context:
         branch_name="mnt-128-create-bare-react-application",
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
+        is_research=is_research,
     )
 
 
@@ -106,6 +108,7 @@ class TestMainReplanning:
             patch("main.post_comment", new_callable=AsyncMock) as mock_post_comment,
             patch("main.mark_session_posted", new_callable=AsyncMock),
             patch("main.upsert_pending_session", new_callable=AsyncMock) as mock_upsert_pending_session,
+            patch("main.update_session_is_research", new_callable=AsyncMock) as mock_update_session_is_research,
             patch("main.run_plan_step", new_callable=AsyncMock) as mock_run_plan_step,
             patch("main.run_build_step", new_callable=AsyncMock) as mock_run_build_step,
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
@@ -120,6 +123,7 @@ class TestMainReplanning:
                 "update_ticket_status": mock_update_ticket_status,
                 "post_comment": mock_post_comment,
                 "upsert_pending_session": mock_upsert_pending_session,
+                "update_session_is_research": mock_update_session_is_research,
                 "run_plan_step": mock_run_plan_step,
                 "run_build_step": mock_run_build_step,
                 "commit_and_push": mock_commit_and_push,
@@ -301,6 +305,42 @@ class TestMainReplanning:
         await main(project_name="demetra", auto_mode=True)
 
         mock_main_deps["upsert_pending_session"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_main_records_regular_flow(self, mock_main_deps):
+        """A regular task must persist is_research=False on its session."""
+        from main import main
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["update_session_is_research"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            is_research=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_main_records_research_flow(self, mock_main_deps):
+        """A research task must persist is_research=True on its session."""
+        from main import main
+
+        context = _build_context(step="research", build_plan="", is_research=True)
+        mock_main_deps["setup_workflow"].return_value = context
+
+        with (
+            patch("main.is_research_ticket", return_value=True),
+            patch("main.run_research_step", new_callable=AsyncMock) as mock_run_research_step,
+        ):
+            mock_run_research_step.return_value = "research report"
+            await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["update_session_is_research"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            is_research=True,
+        )
+        mock_run_research_step.assert_awaited_once_with(context=context)
 
     @pytest.mark.asyncio
     async def test_main_writes_wiki_before_commit(self, mock_main_deps):
