@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Loader } from "../components/Loader";
 import { GitHubLoginButton } from "../components/GitHubLoginButton";
 import { SessionHistory } from "../components/SessionHistory";
+import { SessionStateFlow } from "../components/SessionStateFlow";
 import "./StyleGuide.css";
 
 const MOCK_HISTORY_ENTRIES = [
@@ -44,6 +45,68 @@ const MOCK_TOTAL = {
   cache_read_tokens: 120,
   cache_write_tokens: 120,
 };
+
+const BUILD_STEP_VARIANTS: { label: string; step: string | null }[] = [
+  { label: "No step yet", step: null },
+  { label: "initial", step: "initial" },
+  { label: "plan", step: "plan" },
+  { label: "awaiting_input → plan node", step: "awaiting_input" },
+  { label: "build", step: "build" },
+  { label: "validate", step: "validate" },
+  { label: "review", step: "review" },
+  { label: "lint", step: "lint" },
+  { label: "test", step: "test" },
+  { label: "wiki / push → github node", step: "wiki" },
+  { label: "completed → whole chain done", step: "completed" },
+  { label: "failed → whole chain greyed", step: "failed" },
+];
+
+const RESEARCH_STEP_VARIANTS: { label: string; step: string | null }[] = [
+  { label: "No step yet", step: null },
+  { label: "initial", step: "initial" },
+  { label: "research", step: "research" },
+  { label: "researched → whole chain done", step: "researched" },
+  { label: "unknown step → greyed", step: "awaiting_input" },
+];
+
+const FEEDBACK_SEQUENCES: { label: string; steps: string[] }[] = [
+  { label: "No loop yet — both dashed", steps: ["plan", "build", "validate", "review"] },
+  { label: "Review loop active — blinking", steps: ["plan", "build", "validate", "review", "build"] },
+  { label: "Lint loop active — review passed", steps: ["plan", "build", "validate", "review", "build", "validate", "lint", "test", "build", "lint"] },
+  { label: "Both loops passed", steps: ["plan", "build", "validate", "review", "build", "validate", "review", "lint", "test", "build", "lint", "test", "wiki"] },
+];
+
+const STEP_DELAY = 1400;
+
+function SessionStateFlowReplay({ steps, isResearch = false }: { steps: string[]; isResearch?: boolean }) {
+  const [index, setIndex] = useState(steps.length - 1);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [steps]);
+
+  useEffect(() => {
+    if (index >= steps.length - 1) return;
+    const timer = window.setTimeout(() => setIndex((current) => current + 1), STEP_DELAY);
+    return () => window.clearTimeout(timer);
+  }, [index, steps]);
+
+  return (
+    <div className="sg-flow-replay">
+      <SessionStateFlow step={steps[index]} isResearch={isResearch} />
+      <div className="sg-flow-replay-bar">
+        <span className="sg-flow-replay-step">
+          {index + 1}/{steps.length} · <code>{steps[index]}</code>
+        </span>
+        <div className="sg-row">
+          <button className="log-btn" onClick={() => setIndex(0)}>Replay</button>
+          <button className="log-btn" onClick={() => setIndex((current) => Math.max(0, current - 1))}>Prev</button>
+          <button className="log-btn" onClick={() => setIndex((current) => Math.min(steps.length - 1, current + 1))}>Next</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function StyleGuide() {
   const [showHistory, setShowHistory] = useState(false);
@@ -240,6 +303,56 @@ const hello = "world";`}</pre>
             <div className="env-row"><span className="env-key">EMPTY_VAR</span><span className="env-value">(empty)</span><span className="env-type">text</span></div>
           </div>
           <p className="empty-message">No environment variables yet. Add your first one!</p>
+        </div>
+      </section>
+
+      {/* ── Session state flow ── */}
+      <section className="sg-section">
+        <h2 className="sg-section-title">Session State Flow</h2>
+        <p className="sg-section-desc">
+          Live <code>SessionStateFlow</code> above the log console. Node states are <code>done</code> /
+          <code> active</code> / <code> upcoming</code>; a step that ends the flow completes every node so
+          nothing blinks on <code>completed</code>. Feedback brackets return to <code>build</code> and read
+          dashed while no loop happened, blinking while the loop is in flight, and plain once the flow moved
+          past its source.
+        </p>
+
+        <h3 className="sg-h3">Build chain steps</h3>
+        <div className="sg-flow-grid">
+          {BUILD_STEP_VARIANTS.map((variant) => (
+            <div className="sg-flow-cell" key={variant.label}>
+              <span className="sg-flow-caption">{variant.label}</span>
+              <SessionStateFlow step={variant.step} />
+            </div>
+          ))}
+        </div>
+
+        <h3 className="sg-h3">Research chain steps</h3>
+        <p className="sg-section-desc">
+          Research tickets run <code>initial → research → researched</code>, have no feedback brackets and
+          reserve no space below the chain.
+        </p>
+        <div className="sg-flow-grid">
+          {RESEARCH_STEP_VARIANTS.map((variant) => (
+            <div className="sg-flow-cell" key={variant.label}>
+              <span className="sg-flow-caption">{variant.label}</span>
+              <SessionStateFlow step={variant.step} isResearch />
+            </div>
+          ))}
+        </div>
+
+        <h3 className="sg-h3">Feedback loop states</h3>
+        <p className="sg-section-desc">
+          Loops are detected from step transitions, so each variant replays its sequence. Both brackets end at{' '}
+          <code>build</code> — review on the shallow lane, lint/test on the deeper one.
+        </p>
+        <div className="sg-flow-grid">
+          {FEEDBACK_SEQUENCES.map((sequence) => (
+            <div className="sg-flow-cell" key={sequence.label}>
+              <span className="sg-flow-caption">{sequence.label}</span>
+              <SessionStateFlowReplay steps={sequence.steps} />
+            </div>
+          ))}
         </div>
       </section>
 

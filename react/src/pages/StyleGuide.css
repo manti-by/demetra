@@ -196,6 +196,47 @@
   box-shadow: none;
 }
 
+.sg-flow-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.sg-flow-cell {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface-1);
+}
+
+.sg-flow-cell .session-flow {
+  border-bottom: none;
+}
+
+.sg-flow-caption {
+  display: block;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+}
+
+.sg-flow-replay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.sg-flow-replay-step {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  color: var(--color-text-tertiary);
+}
+
 .sg-footer {
   display: flex;
   justify-content: space-between;

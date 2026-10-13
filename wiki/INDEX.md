@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Session state flow: completed chain, feedback loops, research chain](pages/2026-10-12-session-state-flow-feedback-loops.md) — `completed` now completes every `SessionStateFlow` node via a new `finalSteps` flag so the GitHub node stops blinking; the free-floating curved feedback arrows became square SVG brackets measured from node centres (`review → build`, `test → build`) that read dashed / blinking / plain by loop state; the research chain was corrected to `initial → research → researched` (terminal **In Review**) because research tickets never take `awaiting_input`; the chain is centred via auto margins, the bar scaled and padded, and all variants catalogued in the style guide. (2026-10-12)
 - [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — `OPENCODE_REVIEW_MODELS` was the last agent setting read straight from `settings.py`: review is the only agent with an N-model fan-out, so both env-rework passes skipped it and the plural key never matched the generic `_MODEL` suffix rule. Fixed by adding a `settings_default()` case, a `SessionEnvironment.review_models` property, and iterating that in `run_review_agents`. (2026-10-12)
 - [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md) — Added a `SessionStateFlow` React component that animates the live session step above the log console, updated over the session websocket. Backend gains a `sessions.is_research` column (migration `b7c8d9e0f1a2`), a `SessionState` dataclass, `get_session_state` replacing `get_session_step_name`, and `update_session_is_research`, with `main.py` recording the flag and `upsert_pending_session` returning it. (2026-10-12)
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — `wiki_search` and `docstring_search` now rank with BM25F over cached token counts, fixing substring matching (`log` matched `logging`), IDF and length normalization; the wiki tool gained the mtime+size fingerprint cache `docstrings.py` already had, since `wiki/pages/` also shrinks as pages are archived and skills edit pages outside `render.py`. Warm queries 39.8ms → 1.9ms. (2026-10-09)
@@ -120,8 +121,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (18 pages)
+### React frontend / UI (19 pages)
 
+- [Session state flow: completed chain, feedback loops, research chain](pages/2026-10-12-session-state-flow-feedback-loops.md) — 2026-10-12
 - [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md) — 2026-10-12
 - [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — 2026-09-30
 - [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — 2026-09-27
