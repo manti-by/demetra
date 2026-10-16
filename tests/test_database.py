@@ -122,7 +122,7 @@ class TestRecordAgentInvocation:
         assert entry.model == "provider/model"
 
     @pytest.mark.asyncio
-    async def test_second_invocation_records_only_the_delta_and_upserts(self):
+    async def test_second_invocation_accumulates_its_delta_and_upserts(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
         await record_agent_invocation(
@@ -133,10 +133,10 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1500)
         )
 
-        assert entry.input_tokens == 500
+        assert entry.input_tokens == 1500
         history = await get_session_history(task_id=task_id)
         assert len(history) == 1
-        assert history[0].input_tokens == 500
+        assert history[0].input_tokens == 1500
 
     @pytest.mark.asyncio
     async def test_delta_is_never_negative_when_cumulative_shrinks(self):
@@ -150,7 +150,7 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=500)
         )
 
-        assert entry.input_tokens == 0
+        assert entry.input_tokens == 2000
 
     @pytest.mark.asyncio
     async def test_cursor_stays_monotonic_across_a_compaction_bump(self):
@@ -167,8 +167,8 @@ class TestRecordAgentInvocation:
         )
 
         assert first.input_tokens == 25_343
-        assert second.input_tokens == 36_267
-        assert third.input_tokens == 18_332
+        assert second.input_tokens == 61_610
+        assert third.input_tokens == 79_942
         assert (await _fetch_agent_sessions(task_id))[session_id]["cursor_input"] == 79_942
 
     @pytest.mark.asyncio
@@ -187,7 +187,7 @@ class TestRecordAgentInvocation:
         entry = await record_agent_invocation(
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1200)
         )
-        assert entry.input_tokens == 200
+        assert entry.input_tokens == 1200
 
     @pytest.mark.asyncio
     async def test_fork_restarts_cursor_from_parent_session(self):
@@ -231,7 +231,7 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=200), cost=0.40
         )
 
-        assert entry.cost == pytest.approx(0.15)
+        assert entry.cost == pytest.approx(0.40)
 
     @pytest.mark.asyncio
     async def test_primary_records_session_pointer_and_clears_previous(self):
@@ -288,8 +288,8 @@ class TestAgentSessions:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1500, output=300)
         )
 
-        assert entry.input_tokens == 500
-        assert entry.output_tokens == 100
+        assert entry.input_tokens == 1500
+        assert entry.output_tokens == 300
         sessions = await _fetch_agent_sessions(task_id)
         assert sessions[session_id]["cursor_input"] == 1500
         assert sessions[session_id]["cursor_output"] == 300

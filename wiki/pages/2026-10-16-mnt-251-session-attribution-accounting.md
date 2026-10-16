@@ -88,7 +88,7 @@ Backfill preserves every legacy total:
 - `kind` defaults to `'step'`, then is set to `'invocation'` where any token column is non-NULL, so populated `plan`/`build`/`completed`/`failed` rows stay in totals while empty markers stay `'step'`.
 - `task_id` is backfilled from the `sessions` join on `session_id`.
 
-`record_agent_invocation` computes `delta[f] = max(0, info.tokens[f] - cursor[f])`, advances the cursor, and upserts one `kind='invocation'` row per `(task_id, session_id, step)`. The previous primary is demoted **before** the insert/update because the partial unique index rejects a second primary row (a real bug found by the tests). A `None` usage records attribution without advancing the cursor.
+`record_agent_invocation` computes `delta[f] = max(0, info.tokens[f] - cursor[f])`, advances the cursor, and upserts one `kind='invocation'` row per `(task_id, session_id, step)`. The delta is **accumulated** onto the existing row rather than replacing it: build iterations share one `(session, step)` row and the cursor has already advanced, so each invocation contributes only its own increment and the row ends up holding the step's whole spend (re-capturing the same invocation adds 0, so it is idempotent). `context_tokens` is a snapshot, so it is overwritten, not summed. The previous primary is demoted **before** the insert/update because the partial unique index rejects a second primary row (a real bug found by the tests). A `None` usage records attribution without advancing the cursor.
 
 ## Step 5 — One row per invocation across every workflow
 
@@ -109,7 +109,7 @@ Backfill preserves every legacy total:
 
 ## Test Results
 
-- `uv run pytest tests/` — **1020 passed**.
+- `uv run pytest tests/` — **1022 passed**.
 - `npx vitest run` — **107 passed** (10 files); `npx tsc --noEmit` clean.
 - `uv run ruff check .` / `uv run ruff format --check .` / `uv run ty check` clean.
 - `uv run bandit -c pyproject.toml -r demetra main.py` — 0 issues.
@@ -119,12 +119,21 @@ Named tests requested by the ticket:
 
 - `TestAgentSessions` — cursor advance, one row per resumed session, fork lineage without cursor seeding, single primary per task, failed export does not advance the cursor.
 - `TestSessionHistoryKind` — step and invocation rows coexist in order.
-- `TestRecordAgentInvocation` — first delta = cumulative, second = delta only, never negative, failed export keeps cursor, fork restarts, monotonic across a compaction bump.
+- `TestRecordAgentInvocation` — first delta = cumulative, second accumulates its delta onto the one row, never negative, failed export keeps cursor, fork restarts, monotonic across a compaction bump.
 - `TestAgentAttribution` — agent + serialized model persisted, missing attribution preserves prior values, review rounds/models get distinct rows.
 - `TestCompactionReducesContext` — shrink logs at info; unchanged/grown warns; unavailable context does not warn.
 - `TestOpencodeSupportsCompaction`, `TestCaptureAgentSession`, `TestContextCompaction` updated for the version-aware paths.
 
 ---
+
+## Review fixes (PR #143)
+
+CodeRabbit flagged four issues on PR #143; all four are fixed on the branch:
+
+- `capture_agent_session` now wraps the whole resolve → export → record sequence in its `try` and catches `(SQLAlchemyError, OSError, ValueError, KeyError)`, so a malformed `session list` payload (`JSONDecodeError`, a `ValueError`), a missing `updated` key, or a CLI `OSError` can no longer abort plan/build/validate/review/resolve/research/merge/rebase/review-fixes.
+- The invocation upsert **accumulates** the delta onto the shared `(session, step)` row instead of replacing it (see Step 4), so multi-iteration builds no longer under-report earlier iterations' tokens and cost.
+- `verify_opencode_cli` moved inside the `try` in `main.py` so `OpenCodeCLIError` is caught by the `DemetraError` handler and `cleanup_workflow` still removes the worktree and resets the ticket.
+- The migration downgrade deletes `session_id IS NULL` step rows before restoring `NOT NULL`, so rollback no longer fails partway through.
 
 ## Follow-ups
 

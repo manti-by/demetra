@@ -80,6 +80,10 @@ def downgrade() -> None:
     """Downgrade schema."""
     op.drop_index("ix_session_history_task_id", table_name="session_history")
     op.drop_constraint("fk_session_history_agent_session_id", "session_history", type_="foreignkey")
+    # ``kind='step'`` rows have a NULL ``session_id``; the pre-MNT-251 schema
+    # required it, so they cannot survive the downgrade and must be removed
+    # before the constraint is restored or the ALTER COLUMN fails.
+    op.execute("DELETE FROM session_history WHERE session_id IS NULL")
     op.alter_column("session_history", "session_id", existing_type=sa.String(), nullable=False)
     op.drop_column("session_history", "agent")
     op.drop_column("session_history", "cost")

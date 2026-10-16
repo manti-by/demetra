@@ -650,6 +650,20 @@ class TestCaptureAgentSession:
 
         assert result is None
 
+    @pytest.mark.asyncio
+    async def test_swallows_session_resolution_errors(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_session_id.side_effect = ValueError("session list returned non-JSON")
+
+        result = await capture_agent_session(
+            task_id="TASK-1", step="build", target_path=Path("/p"), task_title="TASK-1 build"
+        )
+
+        assert result is None
+        mock_get_export.assert_not_called()
+        mock_record_invocation.assert_not_called()
+
 
 class TestOpencodeEnvLayers:
     """The opencode agent wrappers resolve their model from the user env before

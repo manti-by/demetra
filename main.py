@@ -100,12 +100,12 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     await setup_session_logging(task_id=context.linear_task.id)
 
-    await verify_opencode_cli(target_path=context.worktree_path, environment=context.environment)
-
     is_success = False
     should_update_linear_status = True
     failure_step = "failed"
     try:
+        await verify_opencode_cli(target_path=context.worktree_path, environment=context.environment)
+
         if not context.session:
             context.session = await upsert_pending_session(
                 task_id=context.linear_task.id,

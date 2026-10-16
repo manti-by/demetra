@@ -645,21 +645,23 @@ async def capture_agent_session(
     if not task_id:
         return None
 
-    resolved = session_id
-    if resolved is None or forked:
-        if not task_title:
-            return None
-        resolved = await get_opencode_session_id(
-            target_path=target_path,
-            task_title=task_title,
-            environment=environment,
-            include_forks=forked,
-        )
-    if not resolved:
-        return None
-
-    export = await get_opencode_session_export(target_path=target_path, session_id=resolved, environment=environment)
     try:
+        resolved = session_id
+        if resolved is None or forked:
+            if not task_title:
+                return None
+            resolved = await get_opencode_session_id(
+                target_path=target_path,
+                task_title=task_title,
+                environment=environment,
+                include_forks=forked,
+            )
+        if not resolved:
+            return None
+
+        export = await get_opencode_session_export(
+            target_path=target_path, session_id=resolved, environment=environment
+        )
         return await record_agent_invocation(
             task_id=task_id,
             step=step,
@@ -672,8 +674,8 @@ async def capture_agent_session(
             fork_of=session_id if forked else None,
             is_primary=is_primary,
         )
-    except (SQLAlchemyError, OSError):
-        logger.exception("Failed to record agent invocation for %s (%s)", task_id, step)
+    except (SQLAlchemyError, OSError, ValueError, KeyError):
+        logger.exception("Failed to capture agent session for %s (%s)", task_id, step)
         return None
 
 

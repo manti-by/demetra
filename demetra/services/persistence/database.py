@@ -824,13 +824,15 @@ async def record_agent_invocation(
 
     ``agent_sessions`` keeps one row per ``(task_id, session_id)`` and holds the
     cumulative cursor last observed from ``info.tokens``; the delta
-    ``max(0, cumulative - cursor)`` is stored on a ``kind='invocation'``
-    ``session_history`` row that is upserted per ``(task_id, session_id, step)``
-    so a resumed session never produces duplicate rows. A ``None`` ``usage``
-    (a failed export) records attribution without advancing the cursor or
-    clearing previously recorded tokens. The cursor is never seeded from a fork
-    parent: a fork's ``info.tokens`` restarts, so its first delta is its own
-    cumulative total.
+    ``max(0, cumulative - cursor)`` is added to a ``kind='invocation'``
+    ``session_history`` row upserted per ``(task_id, session_id, step)``. The
+    delta is *accumulated* onto the row, not replaced, because build iterations
+    share one ``(session, step)`` row and each contributes only its own
+    increment; re-capturing the same invocation is a no-op since its delta is
+    then 0. A ``None`` ``usage`` (a failed export) records attribution without
+    advancing the cursor or clearing previously recorded tokens. The cursor is
+    never seeded from a fork parent: a fork's ``info.tokens`` restarts, so its
+    first delta is its own cumulative total.
 
     Args:
         task_id: The Linear task identifier.
@@ -973,7 +975,9 @@ async def record_agent_invocation(
         existing_row = await connection.execute(
             text(
                 """
-                SELECT id FROM session_history
+                SELECT id, input_tokens, output_tokens, reasoning_tokens,
+                       cache_read_tokens, cache_write_tokens, context_tokens, cost, length
+                  FROM session_history
                  WHERE task_id = :task_id AND session_id = :session_id AND step = :step AND kind = 'invocation'
                  LIMIT 1
                 """
@@ -984,18 +988,39 @@ async def record_agent_invocation(
 
         if row is not None:
             history_id = row.id
-            values: dict[str, object] = {
-                "agent": agent if agent is not None else session_history.c.agent,
-                "model": model if model is not None else session_history.c.model,
-                "cost": delta_cost if delta_cost is not None else session_history.c.cost,
+            # Accumulate onto the existing row: build iterations share one
+            # (session, step) row and the cursor has already advanced, so each
+            # invocation contributes only its own delta. Re-capturing the same
+            # invocation is a no-op because its delta is then 0. context_tokens
+            # is a snapshot, so it is overwritten rather than summed.
+            accumulated: dict[str, int | None] = {
+                "input_tokens": row.input_tokens,
+                "output_tokens": row.output_tokens,
+                "reasoning_tokens": row.reasoning_tokens,
+                "cache_read_tokens": row.cache_read_tokens,
+                "cache_write_tokens": row.cache_write_tokens,
             }
-            for field, value in delta.items():
-                values[field] = value if value is not None else getattr(session_history.c, field)
-            if context_tokens is not None:
-                values["context_tokens"] = context_tokens
-            if length is not None:
-                values["length"] = length
-            await connection.execute(update(session_history).where(session_history.c.id == history_id).values(**values))
+            row_length = row.length
+            row_cost = row.cost
+            if usage is not None:
+                for field in accumulated:
+                    accumulated[field] = (accumulated[field] or 0) + (delta[field] or 0)
+                row_length = (row_length or 0) + (length or 0)
+            if delta_cost is not None:
+                row_cost = (row_cost or 0.0) + delta_cost
+            row_context = context_tokens if context_tokens is not None else row.context_tokens
+            await connection.execute(
+                update(session_history)
+                .where(session_history.c.id == history_id)
+                .values(
+                    agent=agent if agent is not None else session_history.c.agent,
+                    model=model if model is not None else session_history.c.model,
+                    length=row_length,
+                    context_tokens=row_context,
+                    cost=row_cost,
+                    **accumulated,
+                )
+            )
         else:
             await connection.execute(
                 insert(session_history).values(
@@ -1014,6 +1039,10 @@ async def record_agent_invocation(
                     **delta,
                 )
             )
+            accumulated = dict(delta)
+            row_length = length
+            row_cost = delta_cost
+            row_context = context_tokens
 
     return SessionHistory(
         id=history_id,
@@ -1022,14 +1051,14 @@ async def record_agent_invocation(
         agent_session_id=agent_session_id,
         kind="invocation",
         step=step,
-        length=length,
-        input_tokens=delta["input_tokens"],
-        output_tokens=delta["output_tokens"],
-        reasoning_tokens=delta["reasoning_tokens"],
-        cache_read_tokens=delta["cache_read_tokens"],
-        cache_write_tokens=delta["cache_write_tokens"],
-        context_tokens=context_tokens,
-        cost=delta_cost,
+        length=row_length,
+        input_tokens=accumulated["input_tokens"],
+        output_tokens=accumulated["output_tokens"],
+        reasoning_tokens=accumulated["reasoning_tokens"],
+        cache_read_tokens=accumulated["cache_read_tokens"],
+        cache_write_tokens=accumulated["cache_write_tokens"],
+        context_tokens=row_context,
+        cost=row_cost,
         model=model,
         agent=agent,
         created_at=now.isoformat(),
