@@ -4,6 +4,7 @@ from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError
 from demetra.library.models import Context, LinearTask
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
+    capture_agent_session,
     extract_research_report,
     opencode_research_agent,
 )
@@ -89,7 +90,7 @@ async def _run_research_agent(context: Context) -> str | None:
     attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         print_message("Running RESEARCH agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="research", session_id=context.session_id)
+        await update_session_step(task_id=context.linear_task.id, step="research")
 
         exit_code, stdout, stderr = await opencode_research_agent(
             target_path=context.worktree_path,
@@ -98,6 +99,18 @@ async def _run_research_agent(context: Context) -> str | None:
             project_id=context.project.id,
             environment=context.environment,
         )
+
+        # Research has no plan step, so this is the only place its session is
+        # attributed; capture it (primary) so a research-only task gets history.
+        await capture_agent_session(
+            task_id=context.linear_task.id,
+            step="research",
+            target_path=context.worktree_path,
+            task_title=context.linear_task.full_title,
+            is_primary=True,
+            environment=context.environment,
+        )
+
         if exit_code != 0:
             print_message(f"Research agent failed (exit {exit_code}): {(stderr or stdout).strip()}", style="error")
             attempts -= 1
@@ -227,7 +240,7 @@ async def _move_to_in_review(context: Context) -> None:
         print_message("Failed to move the ticket to In Review in Linear; move it manually.", style="warning")
         return
 
-    await update_session_step(task_id=context.linear_task.id, step="researched", session_id=context.session_id)
+    await update_session_step(task_id=context.linear_task.id, step="researched")
     print_message("Task moved to In Review state.", style="result")
 
 

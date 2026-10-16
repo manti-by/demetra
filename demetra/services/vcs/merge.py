@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_merge_agent
+from demetra.services.agents.opencode import capture_agent_session, opencode_merge_agent
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.vcs.git import git_add_all, git_force_push
@@ -21,6 +21,7 @@ async def perform_git_merge(
     pr_number: int | None = None,
     full_name: str | None = None,
     project_id: str | None = None,
+    task_id: str | None = None,
 ) -> bool:
     """
     Handles the Git merge process, including conflict resolution with opencode-merge-agent.
@@ -76,8 +77,17 @@ async def perform_git_merge(
         agent_exit, agent_out, agent_err = await opencode_merge_agent(
             target_path=worktree_path,
             task=task,
+            task_title=f"{full_name or 'merge'} #{pr_number} - merge",
             environment=environment,
             project_id=project_id,
+        )
+
+        await capture_agent_session(
+            task_id=task_id,
+            step="merge",
+            target_path=worktree_path,
+            task_title=f"{full_name or 'merge'} #{pr_number} - merge",
+            environment=environment,
         )
 
         if agent_exit != 0:

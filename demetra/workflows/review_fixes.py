@@ -2,7 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.models import Context, Project, Session, SessionEnvironment
-from demetra.services.agents.opencode import opencode_review_fixes_agent
+from demetra.services.agents.opencode import capture_agent_session, opencode_review_fixes_agent
 from demetra.services.linear import get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_by_id_system,
@@ -254,12 +254,21 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
         exit_code, stdout, stderr = await opencode_review_fixes_agent(
             target_path=worktree_path,
             task=task,
+            task_title=f"{task_id} - review fixes #{pr_number}",
             project_id=project.id,
             environment=environment,
         )
         if exit_code != 0:
             logger.error(f"Review fixes agent failed: {(stderr or stdout).strip()[:500]}")
             return False
+
+        await capture_agent_session(
+            task_id=task_id,
+            step="review_fixes",
+            target_path=worktree_path,
+            task_title=f"{task_id} - review fixes #{pr_number}",
+            environment=environment,
+        )
 
         has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project.id)
         has_committed = False

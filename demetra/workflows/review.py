@@ -2,7 +2,7 @@ import asyncio
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_review_agent
+from demetra.services.agents.opencode import capture_agent_session, opencode_review_agent
 from demetra.services.llm.openrouter import summarize_review
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
@@ -26,20 +26,25 @@ def filter_meaningful_reviews(findings: list[str]) -> list[str]:
 async def run_review_agents(
     target_path: Path,
     *,
-    session_id: str | None = None,
     task_id: str | None = None,
+    task_title: str | None = None,
+    round_index: int = 0,
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
 ) -> str | None:
     """Run all configured review agents in parallel and summarize their output.
 
-    Gathers review agent outputs, filters no-issue lines, summarizes them via
-    the LLM and keeps only meaningful findings.
+    Each review agent runs in its own session with a title unique to the round
+    and model, so every run is attributed as its own ``review`` invocation row
+    (one per round and model). Gathers the outputs, filters no-issue lines,
+    summarizes them via the LLM and keeps only meaningful findings.
 
     Args:
         target_path: Directory to run the reviews in.
-        session_id: Reserved; not used by the review agents.
-        task_id: Reserved; not used by the review agents.
+        task_id: Optional task id used to record each review invocation.
+        task_title: Optional session title base, suffixed per model.
+        round_index: The 1-based build review round, used in the title.
+        project_id: Optional project id used for OS env opt-in tokens.
         environment: The resolved session environment, forwarded to the review
             agents, used to resolve their models and to configure the LLM
             summarizer.
@@ -52,13 +57,29 @@ async def run_review_agents(
     """
     print_message("Running REVIEW agents", style="heading")
 
-    review_agents = []
     models = environment.review_models if environment is not None else OPENCODE["review_models"]
-    for model in models:
-        review_agents.append(
-            opencode_review_agent(target_path=target_path, model=model, environment=environment, project_id=project_id)
+    base_title = task_title or "review"
+    titles = [f"{base_title} - review r{round_index} {model}" for model in models]
+    review_agents = [
+        opencode_review_agent(
+            target_path=target_path,
+            model=model,
+            task_title=title,
+            environment=environment,
+            project_id=project_id,
         )
+        for model, title in zip(models, titles, strict=True)
+    ]
     results = await asyncio.gather(*review_agents)
+
+    for title in titles:
+        await capture_agent_session(
+            task_id=task_id,
+            step="review",
+            target_path=target_path,
+            task_title=title,
+            environment=environment,
+        )
 
     parts = []
     for _, stdout, _ in results:

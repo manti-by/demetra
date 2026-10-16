@@ -8,7 +8,7 @@ services: [main, workflows, agents, opencode]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, session-resume, worktree, server-error]
-related: [2026-08-19-build-agent-server-error-handler.md, 2026-07-15-duplicated-log-messages.md, 2026-09-16-mnt-205-revise-merged-environment.md]
+related: [2026-08-19-build-agent-server-error-handler.md, 2026-07-15-duplicated-log-messages.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
 ---
 
 # Build agent UnknownError — stale opencode session bound to deleted worktree
@@ -45,6 +45,13 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 ## Follow-ups
 
 - Decide on systemic fix (clear on cleanup vs retry without `--session`) and implement.
+
+> **Resolved (2026-10-16, MNT-251):** the systemic fix shipped in [[2026-10-16-mnt-251-session-attribution-accounting]], and it takes the *resolve-differently* path rather than "clear the pointer". Two changes close this incident:
+>
+> 1. `cleanup_workflow` now calls `invalidate_agent_sessions(task_id)` after worktree removal (the invalidation lives in the workflow, not `services/vcs/git.py`, to keep the layering clean). The task's `agent_sessions` primary marker is cleared so a superseded session is never resolved as live.
+> 2. History now resolves through `session_history`/`agent_sessions` **by `task_id`**, not through the immutable `sessions.session_id` pointer. That was the contradiction this page's follow-up did not foresee: both writers used `COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`, so the column could never be replaced or cleared, and once the worktree was deleted the task's history 404'd and "View History" disappeared permanently. Making the pointer display-only sidesteps the immutability entirely.
+>
+> A stale `--session` can still 500 on the first build after a worktree deletion, but the workflow no longer depends on the pointer to recover or to show history.
 
 > **Status update (2026-08-28, Consistency Agent):** Re-checked `demetra/workflows/cleanup.py` and `demetra/services/vcs/git.py` after PR #106 (MNT-189) — no code clears `sessions.session_id` on worktree deletion; `opencode_build_agent` still passes `--session` when `context.session_id` is set. Follow-up remains open.
 

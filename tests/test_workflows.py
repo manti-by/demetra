@@ -19,7 +19,6 @@ from demetra.library.models import (
     Project,
     Session,
     SessionEnvironment,
-    SessionHistory,
     TokenUsage,
 )
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
@@ -198,16 +197,6 @@ class TestWorkflowPlan:
         with patch("demetra.workflows.plan.save_session", new_callable=AsyncMock) as m:
             yield m
 
-    @pytest.fixture
-    def mock_get_opencode_session_id(self):
-        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
-            yield m
-
-    @pytest.fixture(autouse=True)
-    def _mock_record_session_step_history(self):
-        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
-            yield m
-
     @pytest.mark.asyncio
     async def test_run_plan_step_returns_build_plan(
         self,
@@ -216,7 +205,6 @@ class TestWorkflowPlan:
         mock_extract_plan,
         mock_extract_questions,
         mock_save_session,
-        mock_get_opencode_session_id,
     ):
         context = Context(
             project=Project(
@@ -253,7 +241,6 @@ class TestWorkflowPlan:
         )
         mock_extract_plan.return_value = "build plan content"
         mock_extract_questions.return_value = []
-        mock_get_opencode_session_id.return_value = None
 
         result = await run_plan_step(context)
 
@@ -363,7 +350,6 @@ class TestWorkflowPlan:
             mock_update_session_step.assert_any_await(
                 task_id=context.linear_task.id,
                 step="awaiting_input",
-                session_id=context.session_id,
             )
 
     @pytest.mark.asyncio
@@ -424,7 +410,6 @@ class TestWorkflowPlan:
             mock_update_session_step.assert_any_await(
                 task_id=context.linear_task.id,
                 step="awaiting_input",
-                session_id=context.session_id,
             )
 
     @pytest.mark.asyncio
@@ -485,7 +470,6 @@ class TestWorkflowPlan:
             mock_update_session_step.assert_any_await(
                 task_id=context.linear_task.id,
                 step="awaiting_input",
-                session_id=context.session_id,
             )
 
 
@@ -632,11 +616,6 @@ class TestWorkflowPlanLoop:
             yield m
 
     @pytest.fixture
-    def mock_get_opencode_session_id(self):
-        with patch("demetra.workflows.plan.get_opencode_session_id", new_callable=AsyncMock) as m:
-            yield m
-
-    @pytest.fixture
     def mock_post_comment(self):
         with patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as m:
             yield m
@@ -644,11 +623,6 @@ class TestWorkflowPlanLoop:
     @pytest.fixture
     def mock_update_ticket_status(self):
         with patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as m:
-            yield m
-
-    @pytest.fixture
-    def mock_record_session_step_history(self):
-        with patch("demetra.workflows.plan.record_session_step_history", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -675,10 +649,6 @@ class TestWorkflowPlanLoop:
             yield
 
     @pytest.fixture(autouse=True)
-    def _auto_mock_record_session_step_history(self, mock_record_session_step_history):
-        pass
-
-    @pytest.fixture(autouse=True)
     def _auto_mock_update_session_step(self, mock_update_session_step):
         pass
 
@@ -698,14 +668,12 @@ class TestWorkflowPlanLoop:
         mock_extract_plan,
         mock_extract_questions,
         mock_save_session,
-        mock_get_opencode_session_id,
     ):
         return (
             mock_plan_agent,
             mock_extract_plan,
             mock_extract_questions,
             mock_save_session,
-            mock_get_opencode_session_id,
         )
 
     @pytest.mark.asyncio
@@ -721,7 +689,6 @@ class TestWorkflowPlanLoop:
             mock_extract_plan,
             mock_extract_questions,
             _mock_save_session,
-            mock_get_opencode_session_id,
         ) = mock_plan_loop_base
         context = Context(
             project=Project(
@@ -775,7 +742,6 @@ class TestWorkflowPlanLoop:
         mock_extract_plan.side_effect = extract_plan_results
         mock_extract_questions.side_effect = extract_question_results
         mock_run_resolve_step.return_value = "resolved answers"
-        mock_get_opencode_session_id.return_value = None
 
         result = await run_plan_step(context)
 
@@ -798,7 +764,6 @@ class TestWorkflowPlanLoop:
             mock_extract_plan,
             mock_extract_questions,
             _mock_save_session,
-            mock_get_opencode_session_id,
         ) = mock_plan_loop_base
         context = Context(
             project=Project(
@@ -837,7 +802,6 @@ class TestWorkflowPlanLoop:
         mock_extract_plan.return_value = "build plan"
         mock_extract_questions.return_value = ["What is X?"]
         mock_run_resolve_step.return_value = "answers"
-        mock_get_opencode_session_id.return_value = None
 
         with pytest.raises(InfiniteLoopError):
             await run_plan_step(context)
@@ -859,7 +823,6 @@ class TestWorkflowPlanLoop:
             mock_extract_plan,
             mock_extract_questions,
             _mock_save_session,
-            mock_get_opencode_session_id,
         ) = mock_plan_loop_base
         context = Context(
             project=Project(
@@ -897,7 +860,6 @@ class TestWorkflowPlanLoop:
         )
         mock_extract_plan.return_value = "build plan"
         mock_extract_questions.return_value = ["What is X?"]
-        mock_get_opencode_session_id.return_value = None
 
         with pytest.raises(AutoCancelledError):
             await run_plan_step(context)
@@ -920,7 +882,6 @@ class TestWorkflowPlanLoop:
             mock_extract_plan,
             mock_extract_questions,
             _mock_save_session,
-            mock_get_opencode_session_id,
         ) = mock_plan_loop_base
         context = Context(
             project=Project(
@@ -958,7 +919,6 @@ class TestWorkflowPlanLoop:
         )
         mock_extract_plan.return_value = "build plan"
         mock_extract_questions.return_value = ["What is X?"]
-        mock_get_opencode_session_id.return_value = None
 
         with pytest.raises(AutoCancelledError):
             await run_plan_step(context)
@@ -966,7 +926,6 @@ class TestWorkflowPlanLoop:
         mock_update_session_step.assert_any_await(
             task_id=context.linear_task.id,
             step="awaiting_input",
-            session_id=context.session_id,
         )
 
 
@@ -1245,10 +1204,11 @@ class TestContextCompaction:
             yield m
 
     @pytest.fixture
-    def mock_record_session_step_history(self):
+    def mock_opencode_supports_compaction(self):
         with patch(
-            "demetra.workflows.build.record_session_step_history",
+            "demetra.workflows.build.opencode_supports_compaction",
             new_callable=AsyncMock,
+            return_value=True,
         ) as m:
             yield m
 
@@ -1296,31 +1256,20 @@ class TestContextCompaction:
             else None,
         )
 
-    def _make_history(self, length: int | None, context_tokens: int | None = None) -> SessionHistory:
-        return SessionHistory(
-            id="hist_1",
-            session_id="ses_test123",
-            step="build",
-            length=length,
-            context_tokens=context_tokens,
-            created_at=datetime.now().isoformat(),
-        )
-
     @pytest.mark.asyncio
     async def test_compacts_when_context_exceeds_threshold(
         self,
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
-        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=50_000)
         mock_opencode_compact_session.return_value = (0, "compacted", "")
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 150_000)
 
         mock_opencode_compact_session.assert_awaited_once_with(
             target_path=context.worktree_path,
@@ -1334,17 +1283,16 @@ class TestContextCompaction:
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
-        mock_record_session_step_history.return_value = self._make_history(150_000, context_tokens=150_000)
         mock_opencode_compact_session.return_value = (1, "", "error details")
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 150_000)
 
         mock_opencode_compact_session.assert_awaited_once()
+        mock_get_opencode_session_tokens.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_does_not_compact_when_below_threshold(
@@ -1352,14 +1300,12 @@ class TestContextCompaction:
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=50_000)
-        mock_record_session_step_history.return_value = self._make_history(50_000, context_tokens=50_000)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 50_000)
 
         mock_opencode_compact_session.assert_not_called()
 
@@ -1369,14 +1315,12 @@ class TestContextCompaction:
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=None)
-        mock_record_session_step_history.return_value = self._make_history(None, context_tokens=None)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, None)
 
         mock_opencode_compact_session.assert_not_called()
 
@@ -1386,51 +1330,208 @@ class TestContextCompaction:
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
     ):
         context = self.make_context(faker, session_id=None)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 150_000)
 
         mock_get_opencode_session_tokens.assert_not_called()
-        mock_record_session_step_history.assert_not_called()
+        mock_opencode_supports_compaction.assert_not_called()
         mock_opencode_compact_session.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_records_step_history(
+    async def test_skips_when_compaction_unsupported(
         self,
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.return_value = self._make_history(80_000)
+        mock_opencode_supports_compaction.return_value = False
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 150_000)
 
-        mock_record_session_step_history.assert_awaited_once()
+        mock_opencode_compact_session.assert_not_called()
+        mock_get_opencode_session_tokens.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_handles_step_history_error(
+    async def test_re_exports_context_after_compaction(
         self,
         faker,
         mock_get_opencode_session_tokens,
         mock_opencode_compact_session,
-        mock_record_session_step_history,
+        mock_opencode_supports_compaction,
         mock_threshold,
     ):
         context = self.make_context(faker)
-        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50)
-        mock_record_session_step_history.side_effect = OSError("connection refused")
+        mock_opencode_compact_session.return_value = (0, "compacted", "")
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=20_000)
 
-        await check_and_compact_context(context)
+        await check_and_compact_context(context, 150_000)
 
-        mock_get_opencode_session_tokens.assert_awaited_once()
-        mock_record_session_step_history.assert_awaited_once()
-        mock_opencode_compact_session.assert_not_called()
+        mock_get_opencode_session_tokens.assert_awaited_once_with(
+            target_path=context.worktree_path,
+            session_id=context.session_id,
+            environment=context.environment,
+        )
+
+
+class TestCompactionReducesContext:
+    """Tests that compaction is verified to actually shrink the session context."""
+
+    @pytest.fixture
+    def mock_opencode_compact_session(self):
+        with patch("demetra.workflows.build.opencode_compact_session", new_callable=AsyncMock) as m:
+            m.return_value = (0, "compacted", "")
+            yield m
+
+    @pytest.fixture
+    def mock_get_opencode_session_tokens(self):
+        with patch(
+            "demetra.workflows.build.get_opencode_session_tokens",
+            new_callable=AsyncMock,
+        ) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_opencode_supports_compaction(self):
+        with patch(
+            "demetra.workflows.build.opencode_supports_compaction",
+            new_callable=AsyncMock,
+            return_value=True,
+        ) as m:
+            yield m
+
+    @pytest.fixture
+    def mock_threshold(self):
+        with patch("demetra.workflows.build.CONTEXT_COMPACTION_THRESHOLD", 100_000):
+            yield
+
+    @pytest.fixture
+    def mock_print_message(self):
+        with patch("demetra.workflows.build.print_message") as m:
+            yield m
+
+    def make_context(self, faker) -> Context:
+        return Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="TASK-1",
+                session_id="ses_test123",
+                build_plan="plan",
+                posted_to_linear=False,
+                step="build",
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+
+    @staticmethod
+    def messages_by_style(mock_print_message) -> dict[str, list[str]]:
+        result: dict[str, list[str]] = {}
+        for call in mock_print_message.call_args_list:
+            style = call.kwargs.get("style")
+            result.setdefault(style, []).append(call.args[0])
+        return result
+
+    @pytest.mark.asyncio
+    async def test_logs_shrunk_context_at_info(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_opencode_supports_compaction,
+        mock_threshold,
+        mock_print_message,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=20_000)
+
+        await check_and_compact_context(context, 150_000)
+
+        messages = self.messages_by_style(mock_print_message)
+        assert any("after compaction" in message for message in messages.get("info", []))
+        assert not messages.get("warning")
+
+    @pytest.mark.asyncio
+    async def test_warns_when_context_did_not_shrink(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_opencode_supports_compaction,
+        mock_threshold,
+        mock_print_message,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=160_000)
+
+        await check_and_compact_context(context, 150_000)
+
+        messages = self.messages_by_style(mock_print_message)
+        assert any("did not reduce context" in message for message in messages.get("warning", []))
+
+    @pytest.mark.asyncio
+    async def test_warns_when_context_is_unchanged(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_opencode_supports_compaction,
+        mock_threshold,
+        mock_print_message,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=150_000)
+
+        await check_and_compact_context(context, 150_000)
+
+        messages = self.messages_by_style(mock_print_message)
+        assert any("did not reduce context" in message for message in messages.get("warning", []))
+
+    @pytest.mark.asyncio
+    async def test_does_not_warn_when_context_is_unavailable(
+        self,
+        faker,
+        mock_get_opencode_session_tokens,
+        mock_opencode_compact_session,
+        mock_opencode_supports_compaction,
+        mock_threshold,
+        mock_print_message,
+    ):
+        context = self.make_context(faker)
+        mock_get_opencode_session_tokens.return_value = TokenUsage(input=100, output=50, context=None)
+
+        await check_and_compact_context(context, 150_000)
+
+        messages = self.messages_by_style(mock_print_message)
+        assert not any("did not reduce context" in message for message in messages.get("warning", []))
 
 
 class TestWorkflowReview:
@@ -2019,11 +2120,7 @@ class TestWorkflowCleanup:
         with (
             patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock) as mock_update_step,
             patch(
-                "demetra.workflows.cleanup.get_opencode_session_tokens",
-                new_callable=AsyncMock,
-            ),
-            patch(
-                "demetra.workflows.cleanup.record_session_step_history",
+                "demetra.workflows.cleanup.record_session_step",
                 new_callable=AsyncMock,
             ),
         ):
@@ -2120,6 +2217,7 @@ class TestMainBumpVersion:
             patch("main.setup_workflow", new_callable=AsyncMock, return_value=context),
             patch("main.update_ticket_status", new_callable=AsyncMock),
             patch("main.setup_session_logging", new_callable=AsyncMock),
+            patch("main.verify_opencode_cli", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock, return_value=True),
             patch("main.post_comment", new_callable=AsyncMock),
             patch("main.mark_session_posted", new_callable=AsyncMock),

@@ -153,6 +153,7 @@ export interface Session {
   pr_link: string | null;
   linear_link: string | null;
   research_report: string | null;
+  has_history?: boolean;
 }
 
 export async function getSessions(): Promise<Session[]> {
@@ -165,7 +166,10 @@ export async function getSessions(): Promise<Session[]> {
 
 export interface SessionHistoryEntry {
   id: string;
-  session_id: string;
+  session_id: string | null;
+  task_id: string | null;
+  agent_session_id: string | null;
+  kind: 'step' | 'invocation';
   step: string;
   created_at: string;
   length: number | null;
@@ -175,7 +179,9 @@ export interface SessionHistoryEntry {
   cache_read_tokens: number | null;
   cache_write_tokens: number | null;
   context_tokens: number | null;
+  cost: number | null;
   model: string | null;
+  agent: string | null;
 }
 
 export interface SessionTokenTotals {

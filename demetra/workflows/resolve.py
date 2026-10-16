@@ -1,5 +1,5 @@
 from demetra.library.models import Context
-from demetra.services.agents.opencode import opencode_resolve_agent
+from demetra.services.agents.opencode import capture_agent_session, opencode_resolve_agent
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.runtime.tui import print_message
 
@@ -27,11 +27,20 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
         numbered_questions=numbered_questions,
     )
 
+    task_title = f"{context.linear_task.full_title} - resolve"
     _, resolve_output, _ = await opencode_resolve_agent(
         target_path=context.worktree_path,
         task=task,
-        task_title=f"{context.linear_task.full_title} - resolve",
+        task_title=task_title,
         project_id=context.project.id,
+        environment=context.environment,
+    )
+
+    await capture_agent_session(
+        task_id=context.linear_task.id,
+        step="resolve",
+        target_path=context.worktree_path,
+        task_title=task_title,
         environment=context.environment,
     )
 

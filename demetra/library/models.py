@@ -102,9 +102,12 @@ class TokenUsage:
 @dataclass
 class SessionHistory:
     id: str
-    session_id: str
+    session_id: str | None
     step: str
     created_at: str
+    task_id: str | None = None
+    agent_session_id: str | None = None
+    kind: str = "step"
     length: int | None = None
     input_tokens: int | None = None
     output_tokens: int | None = None
@@ -112,7 +115,47 @@ class SessionHistory:
     cache_read_tokens: int | None = None
     cache_write_tokens: int | None = None
     context_tokens: int | None = None
+    cost: float | None = None
     model: str | None = None
+    agent: str | None = None
+
+
+@dataclass
+class AgentSession:
+    id: str
+    task_id: str
+    session_id: str
+    step: str
+    created_at: str
+    updated_at: str
+    agent: str | None = None
+    model: str | None = None
+    fork_of: str | None = None
+    outcome: str | None = None
+    is_primary: bool = False
+    cursor_input: int | None = None
+    cursor_output: int | None = None
+    cursor_reasoning: int | None = None
+    cursor_cache_read: int | None = None
+    cursor_cache_write: int | None = None
+    cursor_cost: float | None = None
+
+
+@dataclass
+class SessionExport:
+    """Cumulative session usage plus attribution read from an opencode export.
+
+    ``tokens`` is the session-level cumulative counter (``info.tokens``), not a
+    per-message sum; the delta model in the persistence layer turns it into
+    per-invocation deltas. ``context`` is a snapshot of the last assistant
+    turn's input + cache read, consumed as a gauge, never as a delta.
+    """
+
+    tokens: "TokenUsage"
+    agent: str | None = None
+    model: str | None = None
+    cost: float | None = None
+    outcome: str | None = None
 
 
 @dataclass

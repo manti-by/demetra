@@ -3,7 +3,7 @@ from pathlib import Path
 
 from demetra.library.exceptions import BuildError
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import opencode_validate_agent
+from demetra.services.agents.opencode import capture_agent_session, opencode_validate_agent
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 
@@ -15,6 +15,8 @@ async def run_validate_agent(
     target_path: Path,
     build_plan: str,
     *,
+    task_title: str | None = None,
+    task_id: str | None = None,
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
 ) -> str | None:
@@ -22,11 +24,15 @@ async def run_validate_agent(
 
     Invokes the read-only validate agent against the staged diff and the build
     plan, dropping no-issue lines and blank output. An empty result means every
-    plan step has a corresponding change in the diff.
+    plan step has a corresponding change in the diff. Each run's session is
+    attributed to the ``validate`` step.
 
     Args:
         target_path: Directory to run the validate agent in.
         build_plan: The finalized build plan to check coverage against.
+        task_title: Optional unique session title used to attribute the run.
+        task_id: Optional task id used to record the invocation.
+        project_id: Optional project id used for OS env opt-in tokens.
         environment: Optional resolved env layer overriding the model.
 
     Returns:
@@ -41,6 +47,7 @@ async def run_validate_agent(
     exit_code, stdout, stderr = await opencode_validate_agent(
         target_path=target_path,
         build_plan=build_plan,
+        task_title=task_title,
         project_id=project_id,
         environment=environment,
     )
@@ -48,6 +55,14 @@ async def run_validate_agent(
         raise BuildError(
             f"Validate agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
         )
+
+    await capture_agent_session(
+        task_id=task_id,
+        step="validate",
+        target_path=target_path,
+        task_title=task_title,
+        environment=environment,
+    )
 
     parts: list[str] = []
     for line in stdout.splitlines():

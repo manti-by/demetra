@@ -132,7 +132,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
   const hasBuildPlan = !!session.build_plan;
   const hasResearchReport = !!session.research_report;
   const hasLinearLink = !!session.linear_link;
-  const hasHistory = !!session.session_id;
+  const hasHistory = session.has_history ?? !!session.session_id;
 
   if (!hasPrLink && !hasBuildPlan && !hasResearchReport && !hasLinearLink && !hasHistory) {
     return <div className="session-artifacts" />;

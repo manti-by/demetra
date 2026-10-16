@@ -93,6 +93,7 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
             full_name=full_name,
             project_id=project.id,
             environment=environment,
+            task_id=task_id,
         )
         if rebase_succeeded:
             logger.info(f"Successfully rebased and resolved conflicts for PR #{pr_number}")

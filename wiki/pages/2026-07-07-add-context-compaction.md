@@ -8,7 +8,7 @@ services: [opencode, database, workflows, settings]
 branch: "-"
 tickets: [MNT-122]
 tags: [context, compaction, session-history, tokens]
-related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-history-modal.md]
+related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-history-modal.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
 ---
 
 # Add context compaction
@@ -39,6 +39,17 @@ Tests for history recording, length measurement, and compaction triggering.
 ## Known follow-up
 
 Compaction disabled in MNT-145 (cumulative `length`) — see [[2026-07-23-session-tokens-audit-revalidation]]; re-enabled as above.
+
+---
+
+## Update — 2026-10-16 15:08
+
+**Compaction never worked, and is now deliberately version-gated.** `opencode_compact_session` passed `/compact` as the *message positional*, which opencode delivers to the agent as a prompt rather than executing as a command — so every threshold crossing bought a full-context turn that returned a role-played acknowledgment, and the session kept growing. The Test Results above ("compaction triggering") only asserted the subprocess was called, never that the context shrank, which is why this survived three months.
+
+- **1.x:** `opencode_compact_session` now runs `run --session <id> --command compact` (the documented slash-command mechanism), and `check_and_compact_context` re-exports the session and warns when the measured context did **not** decrease.
+- **v2:** `run` has no `--command` flag, so there is no CLI compaction path; `opencode_supports_compaction` returns False and the workflow skips it with a warning naming the fork-once build session as the only context bound. A deliberate removal, not a third silent no-op.
+
+`check_and_compact_context` also now receives the `context_tokens` snapshot instead of re-deriving the gauge from the cumulative `length`. See [[2026-10-16-mnt-251-session-attribution-accounting]] and the v2 ground truth in [[2026-10-16-opencode-v2-session-token-accounting]].
 
 ---
 

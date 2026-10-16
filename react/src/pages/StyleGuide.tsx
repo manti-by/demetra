@@ -4,12 +4,16 @@ import { Loader } from "../components/Loader";
 import { GitHubLoginButton } from "../components/GitHubLoginButton";
 import { SessionHistory } from "../components/SessionHistory";
 import { SessionStateFlow } from "../components/SessionStateFlow";
+import type { SessionHistoryEntry } from "../services/api";
 import "./StyleGuide.css";
 
-const MOCK_HISTORY_ENTRIES = [
+const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
   {
     id: "1",
     session_id: "sess-abc",
+    task_id: "TASK-1",
+    agent_session_id: "agent-session-1",
+    kind: "invocation",
     step: "plan",
     created_at: new Date(Date.now() - 3600000).toISOString(),
     length: 1200,
@@ -19,11 +23,16 @@ const MOCK_HISTORY_ENTRIES = [
     cache_read_tokens: 40,
     cache_write_tokens: 40,
     context_tokens: 200,
+    cost: 0.0123,
     model: "openrouter/anthropic",
+    agent: "plan",
   },
   {
     id: "2",
     session_id: "sess-abc",
+    task_id: "TASK-1",
+    agent_session_id: "agent-session-1",
+    kind: "invocation",
     step: "build",
     created_at: new Date(Date.now() - 1800000).toISOString(),
     length: 2400,
@@ -33,7 +42,9 @@ const MOCK_HISTORY_ENTRIES = [
     cache_read_tokens: 80,
     cache_write_tokens: 80,
     context_tokens: 340,
+    cost: 0.0246,
     model: "openrouter/anthropic",
+    agent: "build",
   },
 ];
 

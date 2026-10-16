@@ -175,6 +175,9 @@ describe('SessionArtifacts', () => {
         {
           id: 'h1',
           session_id: 'session-abc',
+          task_id: 'TASK-123',
+          agent_session_id: 'agent-session-1',
+          kind: 'invocation',
           step: 'plan',
           created_at: new Date().toISOString(),
           length: 500,
@@ -184,7 +187,9 @@ describe('SessionArtifacts', () => {
           cache_read_tokens: 25,
           cache_write_tokens: 25,
           context_tokens: null,
+          cost: null,
           model: null,
+          agent: 'opencode',
         },
       ],
     });

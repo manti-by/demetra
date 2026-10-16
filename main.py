@@ -15,6 +15,7 @@ from demetra.library.exceptions import (
     UserCancelledError,
     WikiError,
 )
+from demetra.services.agents.opencode import verify_opencode_cli
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
@@ -103,6 +104,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     should_update_linear_status = True
     failure_step = "failed"
     try:
+        await verify_opencode_cli(target_path=context.worktree_path, environment=context.environment)
+
         if not context.session:
             context.session = await upsert_pending_session(
                 task_id=context.linear_task.id,

@@ -8,7 +8,7 @@ services: [api, sessions, react]
 branch: "-"
 tickets: []
 tags: [frontend, modal, session-history, react, api]
-related: [2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-22-react-frontend-template-warp.md, 2026-07-16-session-history-tokens-null.md]
+related: [2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-22-react-frontend-template-warp.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md]
 ---
 
 # Session History Modal
@@ -82,11 +82,23 @@ No new CSS variables.
 - Paginate timeline vs render all (~10 rows typical; future per-LLM-call granularity may matter).
 - Absolute time on hover (`title={created_at}`) — cheap, recommended yes.
 
+## Update — 2026-10-16 15:08
+
+**History now resolves by `task_id`, not by `sessions.session_id`.** MNT-251 ([[2026-10-16-mnt-251-session-attribution-accounting]]) re-keyed the endpoint because the `session_id` pointer is immutable (`COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`) and would 404 the history permanently after a worktree deletion:
+
+- `GET /{task_id}/history` uses `get_session_history(task_id)` ordered by `created_at, id`; the `session_id` pointer is display-only.
+- `SessionHistoryEntry` gains `task_id`, `kind`, `agent_session_id`, `cost`, `agent`; the frontend drives rendering from `kind` instead of null-sniffing token fields.
+- `hasHistory` is widened so a task with history still shows "View History" when its pointer is stale.
+
+The `SELECT DISTINCT step FROM session_history` follow-up below is **closed** by [[2026-10-16-mnt-245-empty-session-history]] — see that page for the empty-row root causes.
+
+---
+
 ## Follow-ups
 
 - Add Escape handler to history modal.
 - ~~Add `title={created_at}` on `<time>`~~ Done in MNT-181 — see [[2026-08-25-mnt-181-total-tokens-counter]].
-- Verify `record_session_history` coverage: `SELECT DISTINCT step FROM session_history`.
+- ~~Verify `record_session_history` coverage: `SELECT DISTINCT step FROM session_history`~~ Done in MNT-245 — see [[2026-10-16-mnt-245-empty-session-history]].
 
 > **Consistency note (2026-08-25):** MNT-181 (PR #101) changed endpoint to `{"total":{…},"history":[…]}`, added Total Tokens summary, `context_tokens`/`model` fields. DB helpers → `demetra/services/persistence/database.py`. See [[2026-08-25-mnt-181-total-tokens-counter]].
 
