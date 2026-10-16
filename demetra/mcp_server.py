@@ -14,6 +14,7 @@ from mcp.types import (
 
 from demetra.settings import LOGGING
 from demetra.tools import call_tool, list_tools
+from demetra.tools.database import close_db_pool
 
 
 logging.config.dictConfig(LOGGING)
@@ -68,14 +69,18 @@ mcp_server = Server(
 async def main():
     """Run the MCP server over stdio until the transport closes.
 
-    Serves the registered tool handlers over a stdio JSON-RPC transport.
+    Serves the registered tool handlers over a stdio JSON-RPC transport and
+    releases the shared database pool on shutdown.
     """
     async with stdio_server() as (read_stream, write_stream):
-        await mcp_server.run(
-            read_stream,
-            write_stream,
-            mcp_server.create_initialization_options(),
-        )
+        try:
+            await mcp_server.run(
+                read_stream,
+                write_stream,
+                mcp_server.create_initialization_options(),
+            )
+        finally:
+            await close_db_pool()
 
 
 if __name__ == "__main__":

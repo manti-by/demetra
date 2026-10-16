@@ -1,30 +1,21 @@
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": [],
+  "plugins": [],
   "mcp": {
-    "Demetra": {
-      "type": "local",
-      "command": ["uv", "run", "python", "-m", "demetra.mcp_server"],
-      "enabled": true
-    },
-    "Playwright": {
-      "type": "local",
-      "command": ["npx", "-y", "@tontoko/fast-playwright-mcp@0.1.3"],
-      "enabled": true
-    },
-    "Linear": {
-      "type": "remote",
-      "url": "https://mcp.linear.app/mcp",
-      "oauth": {}
-    }
-  },
-  "lsp": {
-    "pyright": {
-      "disabled": true
-    },
-    "ty": {
-      "command": ["uvx", "ty", "server"],
-      "extensions": [".py", ".pyi"]
+    "servers": {
+      "Demetra": {
+        "type": "local",
+        "command": ["uv", "run", "python", "-m", "demetra.mcp_server"]
+      },
+      "WI": {
+        "type": "local",
+        "command": ["wi"]
+      },
+      "Linear": {
+        "type": "remote",
+        "url": "https://mcp.linear.app/mcp",
+        "oauth": {}
+      }
     }
   }
 }

@@ -55,6 +55,14 @@ Follows `async list_tools() -> list[Tool]` / `async call_tool(name, arguments) -
 - `pytest tests/test_wiki_tools.py` — 28 passed (0.28s)
 - `ruff check` clean; no other gates affected.
 
+## Update — 2026-10-15 16:21
+
+The tool this page describes was **removed**. `demetra/tools/wiki.py` and
+`tests/test_wiki_tools.py` are deleted and the wiki is now served by the external
+**WI** MCP server instead (`opencode.json`); the `SEARCH` wiki weights and the
+`AGENTS_DRIFT_ANCHORS` path went with it. See
+[[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+
 ## Follow-ups
 
 - ~~Commit + PR against `master`~~ **Done** PR #68 (`ea754bc`).

@@ -1,53 +1,53 @@
-from demetra.tools.database import call_tool as _call_database_tool
-from demetra.tools.database import list_tools as _list_database_tools
-from demetra.tools.docstrings import call_tool as _call_docstrings_tool
-from demetra.tools.docstrings import list_tools as _list_docstrings_tools
-from demetra.tools.projects import call_tool as _call_projects_tool
-from demetra.tools.projects import list_tools as _list_projects_tools
-from demetra.tools.result import ToolResult
-from demetra.tools.wiki import call_tool as _call_wiki_tool
-from demetra.tools.wiki import list_tools as _list_wiki_tools
+from collections.abc import Awaitable, Callable
+
+from mcp.types import TextContent, Tool
+
+import demetra.tools.database as database
+import demetra.tools.docstrings as docstrings
+import demetra.tools.logs as logs
+from demetra.tools.models import ToolResult
 
 
-async def list_tools() -> list:
+ToolHandler = Callable[[str, dict | None], Awaitable[ToolResult]]
+ToolLister = Callable[[], Awaitable[list[Tool]]]
+
+# (tool list coroutine, dispatch coroutine, static tool definitions) per module.
+MODULES: tuple[tuple[ToolLister, ToolHandler, list[Tool]], ...] = (
+    (database.list_tools, database.call_tool, database.AVAILABLE_TOOLS),
+    (docstrings.list_tools, docstrings.call_tool, docstrings.AVAILABLE_TOOLS),
+    (logs.list_tools, logs.call_tool, logs.AVAILABLE_TOOLS),
+)
+
+HANDLERS: dict[str, ToolHandler] = {tool.name: handler for _, handler, tools in MODULES for tool in tools}
+
+
+async def list_tools() -> list[Tool]:
     """Return the aggregated tool definitions from all tool modules.
 
-    Combines the database, docstring, project and wiki MCP tool lists into a single
-    response for the MCP server.
-
     Returns:
-        list: The concatenated list of Tool definitions.
+        list[Tool]: The concatenated tool lists of every tool module.
     """
-    db = await _list_database_tools()
-    docstrings = await _list_docstrings_tools()
-    proj = await _list_projects_tools()
-    wiki = await _list_wiki_tools()
-    return db + docstrings + proj + wiki
+    tools: list[Tool] = []
+    for lister, _, _ in MODULES:
+        tools.extend(await lister())
+    return tools
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     """Dispatch a tool call to the module that owns the named tool.
-
-    Resolves the tool name against the database, docstring, and wiki tool sets
-    first and falls back to the projects module for any remaining names.
 
     Args:
         name: The name of the MCP tool to invoke.
         arguments: Optional tool arguments as a mapping.
 
     Returns:
-        ToolResult: The outcome of the underlying tool call.
+        ToolResult: The outcome of the underlying tool call, or an error result
+            when no module declares the name.
     """
-    db_tools = await _list_database_tools()
-    db_names = {t.name for t in db_tools}
-    if name in db_names:
-        return await _call_database_tool(name, arguments)
-    docstring_tools = await _list_docstrings_tools()
-    docstring_names = {t.name for t in docstring_tools}
-    if name in docstring_names:
-        return await _call_docstrings_tool(name, arguments)
-    wiki_tools = await _list_wiki_tools()
-    wiki_names = {t.name for t in wiki_tools}
-    if name in wiki_names:
-        return await _call_wiki_tool(name, arguments)
-    return await _call_projects_tool(name, arguments)
+    handler = HANDLERS.get(name)
+    if handler is None:
+        return ToolResult(
+            content=[TextContent(type="text", text=f"Error: Unknown tool {name}")],
+            is_error=True,
+        )
+    return await handler(name, arguments)

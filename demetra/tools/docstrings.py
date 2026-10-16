@@ -1,27 +1,23 @@
 import ast
 import logging
-from dataclasses import dataclass
 from pathlib import Path
 
 from mcp.types import TextContent, Tool
 
 from demetra.settings import SEARCH
-from demetra.tools.result import ToolResult
-from demetra.tools.search import (
-    CorpusStats,
-    Field,
-    FieldCounts,
-    build_stats,
-    count_field,
-    line_hits,
-    score_document,
-    tokenize,
-)
+from demetra.tools.config import SOURCE_ROOT
+from demetra.tools.corpus import CorpusCache, rank
+from demetra.tools.models import DocumentedFunction, Field, FieldCounts, ToolResult
+from demetra.tools.search import count_field, line_hits, tokenize
+from demetra.tools.utils import resolve_limit
 
 
 logger = logging.getLogger(__name__)
 
-DOCSTRING_ROOT = Path(__file__).resolve().parents[1]
+# Index the project's application package: the tool answers questions about the
+# host codebase, and ``SOURCE_ROOT.name`` prefixes every qualified name
+# (``demetra.tools...``).
+DOCSTRING_ROOT = SOURCE_ROOT
 
 DOCSTRING_FIELDS = (
     Field(weight=SEARCH["docstring_name_boost"], length_norm=SEARCH["docstring_name_length_norm"]),
@@ -30,24 +26,7 @@ DOCSTRING_FIELDS = (
 )
 
 
-@dataclass(frozen=True)
-class DocumentedFunction:
-    """Represent a function and its docstring extracted from source code."""
-
-    qualified_name: str
-    path: str
-    line: int
-    docstring: str
-
-
-_cached_fingerprint: tuple[tuple[str, int, int], ...] | None = None
-_cached_functions: list[DocumentedFunction] = []
-_cached_documents: list[tuple[FieldCounts, ...]] = []
-_cached_stats: CorpusStats | None = None
-_cached_source_root: Path | None = None
-
-
-def _source_files(source_root: Path) -> list[Path]:
+def list_source_files(source_root: Path) -> list[Path]:
     """Return Python source files in deterministic order.
 
     Args:
@@ -59,21 +38,7 @@ def _source_files(source_root: Path) -> list[Path]:
     return sorted(path for path in source_root.rglob("*.py") if "__pycache__" not in path.parts)
 
 
-def _fingerprint(files: list[Path], source_root: Path) -> tuple[tuple[str, int, int], ...]:
-    """Build a change fingerprint for source files.
-
-    Args:
-        files: Python source files to fingerprint.
-        source_root: Root directory used to create relative paths.
-
-    Returns:
-        tuple[tuple[str, int, int], ...]: Relative paths, modification times,
-            and sizes for cache invalidation.
-    """
-    return tuple((str(path.relative_to(source_root)), path.stat().st_mtime_ns, path.stat().st_size) for path in files)
-
-
-def _module_name(path: Path, source_root: Path) -> str:
+def resolve_module_name(path: Path, source_root: Path) -> str:
     """Convert a source path to its dotted module name.
 
     Args:
@@ -88,7 +53,7 @@ def _module_name(path: Path, source_root: Path) -> str:
     return ".".join((source_root.name, *parts))
 
 
-class _FunctionCollector(ast.NodeVisitor):
+class FunctionCollector(ast.NodeVisitor):
     """Collect documented functions while retaining their qualified names."""
 
     def __init__(self, module_name: str, path: str) -> None:
@@ -103,7 +68,7 @@ class _FunctionCollector(ast.NodeVisitor):
         self.scope: list[str] = []
         self.functions: list[DocumentedFunction] = []
 
-    def _visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
+    def visit_function(self, node: ast.FunctionDef | ast.AsyncFunctionDef) -> None:
         """Record a documented function and recursively inspect nested scopes.
 
         Args:
@@ -132,15 +97,20 @@ class _FunctionCollector(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         """Visit a synchronous function definition."""
-        self._visit_function(node)
+        self.visit_function(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
         """Visit an asynchronous function definition."""
-        self._visit_function(node)
+        self.visit_function(node)
 
 
-def _function_fields(function: DocumentedFunction) -> tuple[FieldCounts, ...]:
+def function_fields(function: DocumentedFunction) -> tuple[FieldCounts, ...]:
     """Count searchable tokens in a function's name, path and docstring zones.
+
+    The qualified name's dots are expanded to spaces so that a bare function or
+    method name ("queue_task") reaches the highest-weighted name field; left
+    joined, the whole dotted name would be a single token and searching for any
+    part of it would match nothing.
 
     Args:
         function: The documented function to tokenize.
@@ -149,13 +119,44 @@ def _function_fields(function: DocumentedFunction) -> tuple[FieldCounts, ...]:
         tuple[FieldCounts, ...]: Field counts aligned to ``DOCSTRING_FIELDS``.
     """
     return (
-        count_field(text=function.qualified_name),
+        count_field(text=function.qualified_name.replace(".", " ")),
         count_field(text=function.path),
         count_field(text=function.docstring),
     )
 
 
-def _load_functions(source_root: Path) -> list[DocumentedFunction]:
+def _parse_functions(source_root: Path) -> tuple[list[DocumentedFunction], list[tuple[FieldCounts, ...]]]:
+    """Parse every documented function under a source root.
+
+    Args:
+        source_root: Root directory containing project Python modules.
+
+    Returns:
+        tuple: The documented functions and their BM25 field counts, aligned by
+            position.
+    """
+    functions: list[DocumentedFunction] = []
+    for path in list_source_files(source_root):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except (OSError, SyntaxError, UnicodeDecodeError):
+            logger.warning(f"Unable to parse docstrings from {path}")
+            continue
+
+        collector = FunctionCollector(
+            module_name=resolve_module_name(path, source_root),
+            path=str(path.relative_to(source_root.parent)),
+        )
+        collector.visit(tree)
+        functions.extend(collector.functions)
+
+    return functions, [function_fields(function=function) for function in functions]
+
+
+FUNCTIONS = CorpusCache(DOCSTRING_FIELDS, _parse_functions)
+
+
+def load_functions(source_root: Path) -> tuple[DocumentedFunction, ...]:
     """Extract all function docstrings from the project source tree.
 
     The parsed index and its BM25 field counts are retained in memory and
@@ -166,44 +167,20 @@ def _load_functions(source_root: Path) -> list[DocumentedFunction]:
         source_root: Root directory containing project Python modules.
 
     Returns:
-        list[DocumentedFunction]: Documented functions in source-path order.
+        tuple[DocumentedFunction, ...]: Documented functions in source-path
+            order.
     """
-    global _cached_fingerprint, _cached_functions, _cached_documents, _cached_stats, _cached_source_root
-
-    files = _source_files(source_root)
-    fingerprint = _fingerprint(files, source_root)
-    if source_root == _cached_source_root and fingerprint == _cached_fingerprint:
-        return _cached_functions
-
-    functions: list[DocumentedFunction] = []
-    for path in files:
-        try:
-            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
-        except (OSError, SyntaxError, UnicodeDecodeError):
-            logger.warning(f"Unable to parse docstrings from {path}")
-            continue
-        collector = _FunctionCollector(
-            module_name=_module_name(path, source_root),
-            path=str(path.relative_to(source_root.parent)),
-        )
-        collector.visit(tree)
-        functions.extend(collector.functions)
-
-    documents = [_function_fields(function=function) for function in functions]
-    _cached_fingerprint = fingerprint
-    _cached_functions = functions
-    _cached_documents = documents
-    _cached_stats = build_stats(fields=DOCSTRING_FIELDS, documents=documents)
-    _cached_source_root = source_root
-    return functions
+    return FUNCTIONS.get(source_root).items
 
 
-def _search_functions(source_root: Path, query: str, limit: int) -> list[tuple[DocumentedFunction, float, list[str]]]:
+def search_functions(source_root: Path, query: str, limit: int) -> list[tuple[DocumentedFunction, float, list[str]]]:
     """Search the compiled function-docstring index.
 
     Functions are ranked with BM25F across the qualified name, source path and
     docstring fields, so a name match outweighs prose mentions and rare terms
-    outweigh ubiquitous ones.
+    outweigh ubiquitous ones. Dots in the query are expanded to spaces to match
+    how the name field is indexed, so both ``queue_task`` and
+    ``Scheduler.queue_task`` reach it.
 
     Args:
         source_root: Root directory containing project Python modules.
@@ -214,22 +191,16 @@ def _search_functions(source_root: Path, query: str, limit: int) -> list[tuple[D
         list[tuple[DocumentedFunction, float, list[str]]]: Ranked functions,
             their scores, and the normalized query terms.
     """
-    terms = tokenize(query=query)
+    terms = tokenize(query=query.replace(".", " "))
     if not terms:
         return []
-    functions = _load_functions(source_root)
-    stats = _cached_stats
-    if stats is None:
-        return []
-    results = []
-    for function, document in zip(functions, _cached_documents, strict=True):
-        score = score_document(fields=DOCSTRING_FIELDS, document=document, stats=stats, terms=terms)
-        if score > 0:
-            results.append((function, score, terms))
-    return sorted(results, key=lambda result: (-result[1], result[0].qualified_name))[:limit]
+
+    hits = rank(FUNCTIONS.get(source_root), fields=DOCSTRING_FIELDS, terms=terms)
+    hits.sort(key=lambda hit: (-hit.score, hit.item.qualified_name))
+    return [(hit.item, hit.score, list(hit.terms)) for hit in hits[:limit]]
 
 
-def _snippets(docstring: str, terms: list[str]) -> list[str]:
+def extract_snippets(docstring: str, terms: list[str]) -> list[str]:
     """Extract relevant docstring lines for a search result.
 
     Args:
@@ -247,6 +218,7 @@ def _snippets(docstring: str, terms: list[str]) -> list[str]:
         hits = line_hits(line=stripped, terms=terms)
         if hits:
             lines.append((-hits, line_number, stripped))
+
     lines.sort()
     selected = sorted(lines[: SEARCH["max_snippets"]], key=lambda line: line[1])
     return [f"L{line_number}: {line[: SEARCH['snippet_length']]}" for _, line_number, line in selected]
@@ -283,7 +255,7 @@ AVAILABLE_TOOLS = [
             "properties": {
                 "name": {
                     "type": "string",
-                    "description": "Qualified function name, e.g. demetra.tools.wiki.call_tool",
+                    "description": f"Qualified function name, e.g. {SOURCE_ROOT.name}.tools.docstrings.load_functions",
                 },
             },
             "required": ["name"],
@@ -298,7 +270,11 @@ AVAILABLE_TOOLS = [
 
 
 async def list_tools() -> list[Tool]:
-    """Return the docstring MCP tool definitions."""
+    """Return the docstring MCP tool definitions.
+
+    Returns:
+        list[Tool]: The static list of available docstring tools.
+    """
     return AVAILABLE_TOOLS
 
 
@@ -319,12 +295,14 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
                 content=[TextContent(type="text", text="Project source directory not found")],
                 is_error=True,
             )
-        functions = _load_functions(DOCSTRING_ROOT)
+        functions = load_functions(DOCSTRING_ROOT)
+
         if name == "docstring_list":
             if not functions:
                 return ToolResult(content=[TextContent(type="text", text="No documented functions found")])
             text = "\n".join(f"{function.qualified_name} — {function.path}:L{function.line}" for function in functions)
             return ToolResult(content=[TextContent(type="text", text=text)])
+
         if name == "docstring_search":
             query = args.get("query")
             if not query:
@@ -347,8 +325,8 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
                     ],
                     is_error=True,
                 )
-            limit = min(max(int(args.get("limit", SEARCH["default_limit"])), 1), SEARCH["max_results"])
-            results = _search_functions(DOCSTRING_ROOT, query, limit)
+            limit = resolve_limit(args)
+            results = search_functions(source_root=DOCSTRING_ROOT, query=query, limit=limit)
             if not results:
                 return ToolResult(
                     content=[
@@ -360,12 +338,13 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
                 )
             blocks = []
             for position, (function, score, terms) in enumerate(results, start=1):
-                snippets = "\n".join(f"   > {snippet}" for snippet in _snippets(function.docstring, terms))
+                snippets = "\n".join(f"   > {snippet}" for snippet in extract_snippets(function.docstring, terms))
                 blocks.append(
                     f"{position}. {function.qualified_name} (score {score:.3f})\n"
                     f"   {function.path}:L{function.line}\n{snippets}"
                 )
             return ToolResult(content=[TextContent(type="text", text="\n\n".join(blocks))])
+
         if name == "docstring_get":
             qualified_name = args.get("name")
             if not qualified_name:

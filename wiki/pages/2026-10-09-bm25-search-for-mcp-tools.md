@@ -198,6 +198,16 @@ Measured against the real 105-page wiki:
 
 ---
 
+## Update — 2026-10-15 16:21
+
+The wiki half of this change is now historical: `demetra/tools/wiki.py` and
+`tests/test_wiki_tools.py` were deleted (the wiki moved to the external **WI** MCP
+server), and the shared BM25 core was restructured — the three dataclasses moved
+to `demetra/tools/models.py` and both tools' cache globals became the frozen
+`Corpus` / `CorpusCache` in `demetra/tools/corpus.py` (the wiki copy is gone with
+the tool). `docstring_search` keeps BM25F. See
+[[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+
 ## Follow-ups
 
 - Two existing pages still describe the retired algorithm and now contradict the code:

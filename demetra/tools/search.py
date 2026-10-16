@@ -1,57 +1,14 @@
 import math
 import re
 from collections import Counter
-from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from collections.abc import Sequence
 
 from demetra.library.constants import SEARCH_STOP_WORDS
 from demetra.settings import SEARCH
+from demetra.tools.models import CorpusStats, Field, FieldCounts
 
 
 MIN_LENGTH_NORM_DIVISOR = 1e-6
-
-
-@dataclass(frozen=True)
-class Field:
-    """Describe one searchable zone of a document and how BM25 scores it.
-
-    Attributes:
-        weight: Boost applied to the field's term frequency before saturation.
-        length_norm: Strength of length normalization, from 0 (off) to 1 (full).
-    """
-
-    weight: float
-    length_norm: float
-
-
-@dataclass(frozen=True)
-class FieldCounts:
-    """Hold per-term token counts and the token length of one document field.
-
-    Attributes:
-        counts: Mapping of term to its occurrence count in the field.
-        length: Total token count, retained so scoring never re-walks the text.
-    """
-
-    counts: Mapping[str, int]
-    length: int
-
-
-@dataclass(frozen=True)
-class CorpusStats:
-    """Hold corpus-wide BM25 statistics shared by every document.
-
-    Attributes:
-        document_count: Number of documents in the corpus.
-        average_lengths: Mean token length per field, aligned with the field
-            order the caller scores in.
-        document_frequency: Mapping of term to the number of documents
-            containing it.
-    """
-
-    document_count: int
-    average_lengths: tuple[float, ...]
-    document_frequency: Mapping[str, int]
 
 
 def _terms(text: str) -> list[str]:

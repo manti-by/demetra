@@ -76,7 +76,6 @@ AGENTS_PATH = BASE_PATH / "AGENTS.md"
 
 AGENTS_DRIFT_ANCHORS = (
     "wiki/",
-    "demetra/tools/wiki.py",
     "uv.lock",
     "Linear",
     "GitHub",

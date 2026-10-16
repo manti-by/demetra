@@ -13,7 +13,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/queries/`: GraphQL queries
 - `demetra/workflows/`: Workflow orchestration steps (`plan`, `research`, `resolve`, `build`, `validate`, `review`, `lint`, `cleanup`, `merge`/`rebase`, `review_fixes`, `setup`, `failure`, `postprocess`, etc.)
 - `demetra/api/`: FastAPI REST endpoints (`auth`, `github`, `projects`, `sessions`, `users`, `watcher`, `webhooks` plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
-- `demetra/tools/`: MCP tool definitions (`database`, `docstrings`, `projects`, `wiki` plus `search`/`result`/`registry` helpers)
+- `demetra/tools/`: MCP tool definitions (`database`, `docstrings`, `logs` plus shared `config`/`corpus`/`models`/`search`/`registry`/`utils` helpers)
 - `demetra/prompts/`: LLM prompt templates (`research_agent`, `validate_agent`, `resolve_questions`, `merge_agent`, `rebase_agent`, etc.)
 - `demetra/templates/`: Linear failure-comment message templates (`build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
 - `demetra/app.py`: FastAPI application
@@ -22,13 +22,13 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (54 `test_*.py` files, 56 total with `__init__.py`/`conftest.py`)
+- `tests/`: Comprehensive test suite (56 `test_*.py` files, 58 total with `__init__.py`/`conftest.py`)
 - `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker
 - `wiki/audits/`: Workflow audit notes plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make deploy` / `make docker-up`)
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent (8 agents: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter) and skill definitions (`wiki-sync` — the other vendored skills were removed in `94fefa7`, 2026-09-23; `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` and the release skills now resolve as installed skills)
-- `opencode.json`: OpenCode agent toolchain configuration (MCP servers Demetra/Playwright/Linear; `plugin` list is empty — the `@langchain/langsmith-opencode` plugin was removed in `67d106c`, tracing now flows via env vars, see LangSmith below)
+- `opencode.json`: OpenCode agent toolchain configuration (MCP servers Demetra/WI/Linear; `plugins` list is empty — the `@langchain/langsmith-opencode` plugin was removed in `67d106c`, tracing now flows via env vars, see LangSmith below)
 - `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `.sessions.json` maps session ids to pages, machine-maintained; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
@@ -36,7 +36,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 The `wiki/` directory is a persistent, compounding knowledge base: one Markdown page per session (debug chase, investigation, code review, or set of changes), cross-linked into a knowledge graph. Conventions and the page template: [wiki/README.md](wiki/README.md); the catalog of all pages: [wiki/INDEX.md](wiki/INDEX.md) (`## Pages` newest-first + `## By topic` clusters auto-maintained by `wiki-consistency`); open discrepancies tracked in [wiki/QUESTIONS.md](wiki/QUESTIONS.md).
 
 - Before planning or building, skim `wiki/INDEX.md` for prior sessions on the same subsystem.
-- For questions about past incidents, design decisions, or prior investigations, search the wiki first via the `wiki_search` MCP tool (browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
+- For questions about past incidents, design decisions, or prior investigations, search the wiki first via the WI MCP tools (`wiki_search`, browse the catalog with `wiki_list_pages`, fetch a full page with `wiki_get_page`).
 - After a session, record it as a page using `wiki/TEMPLATE.md` and keep the index and cross-links current (see `.opencode/skills/wiki-sync/` and the installed `wiki-consistency`/`wiki-dedup`/`wiki-archive`/`wiki-agents-file` skills).
 
 ## Git Workflow
@@ -140,7 +140,7 @@ uv run bandit -c pyproject.toml .
 **Naming** (ruff N enforces most):
 - Modules: `snake_case.py`; tests mirror at `tests/test_<module>.py`
 - Classes: `PascalCase`; dataclasses in `library/models.py`, TypedDicts in `library/types.py`, env validation in `library/env.py`
-- Functions: `snake_case`; module-level private helpers use a leading `_` (e.g. `demetra/tools/wiki.py`, `demetra/tools/database.py`); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
+- Functions: `snake_case`; module-level private helpers use a leading `_` (e.g. `demetra/tools/database.py`, `demetra/tools/docstrings.py`); external-CLI wrappers prefix the system name (`opencode_*`, `git_*`, `cursor_*`)
 - Constants: `UPPER_SNAKE_CASE`; env-driven ones live in `demetra/settings.py`
 
 **Architecture** (strict layering, no skipping):
@@ -148,13 +148,13 @@ uv run bandit -c pyproject.toml .
 - `demetra/services/<system>/` — one external system or cross-cutting area per subpackage (`agents/`, `auth/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/`); `auth/`, `linear/`, `llm/`, `vcs/`, `wiki/` re-export through a facade `__init__.py`, while `agents/`, `daemons/`, `persistence/`, `quality/`, `runtime/` are plain packages imported by submodule path (e.g. `demetra.services.runtime.tui`). Subprocess wrappers return `tuple[int, str, str]` (`exit_code, stdout, stderr`).
 - `demetra/workflows/<step>.py` — orchestrators; receive `Context`, call services. Entry points typically `run_<step>_*` (includes `review_fixes.py` for the `@demetra-ai fix review findings` listener flow and `research.py` for the `Research` label loop — creates related Linear ticket, persists `research_report`, uses `research` → `researched` steps (source ticket moved to In Review; step stays `research` if the Linear move fails)). Workflows read env via `Context.environment` (`SessionEnvironment` in `demetra/library/models.py`: project → user-shared → settings fallback, `EnvironmentConfigError` on missing key; see `wiki/pages/2026-09-16-mnt-205-revise-merged-environment.md`).
 - `demetra/api/<resource>.py` — FastAPI `router = APIRouter(...)`; thin, delegates to services.
-- `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `docstrings.py`, `projects.py`, `wiki.py` plus shared `search.py` tokenization) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/result.py`) carrying `content` + `is_error`. `demetra/tools/registry.py` aggregates them (database + docstrings + projects + wiki), re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool`.
+- `demetra/tools/<system>.py` — MCP tool modules (`database.py`, `docstrings.py`, `logs.py`) exposing `async def list_tools()` and `async def call_tool(name, arguments)`; dispatchers return a shared `ToolResult` (`demetra/tools/models.py`) carrying `content` + `is_error`. Shared helpers: `demetra/tools/config.py` (filesystem roots), `demetra/tools/models.py` (dataclasses), `demetra/tools/corpus.py` (frozen `Corpus`/`Ranked` snapshot + `CorpusCache` mtime/size cache, replacing per-module globals), `demetra/tools/search.py` (BM25F tokenization and scoring), `demetra/tools/utils.py` (`resolve_limit`). `demetra/tools/registry.py` aggregates them via a `MODULES`/`HANDLERS` table, re-exported through `demetra/tools/__init__.py`; `mcp_server.py` calls the package-level `list_tools` / `call_tool` and closes the DB pool on shutdown. The project wiki is no longer an MCP tool — it is served by the external WI MCP server (see `opencode.json`).
 
 **Do NOT use**: `print()` (use `print_message` from `demetra.services.runtime.tui`; sole exception: `mcp_server.py` startup banner to stderr), PEP 585 typing (`Tuple[X]/Optional[X]/List[X]/Dict[X]` — use PEP 604 `X | None` / `list[X]`), mutable default arguments (use `field(default_factory=...)`), inline comments and emojis in code, bare `except Exception:` (catch specific `OSError`/`RuntimeError` instead; the accepted uses are MCP `call_tool` dispatchers that `logger.exception`, workflow cleanup paths carrying `# noqa: BLE001`, daemon poll-loop guards (`demetra/watcher.py:40`, `demetra/listener.py:85`), LLM-call boundary guards that `logger.exception` and raise a typed error (`demetra/services/llm/openrouter.py`), and best-effort copy/cleanup guards that `logger.exception` (`demetra/services/auth/copy.py`, `demetra/services/runtime/project.py:312,323`)) and `# noqa` suppressions — check `pyproject.toml` (`[tool.ruff]`, `[tool.ruff.lint]`, `[tool.ruff.lint.per-file-ignores]`, `[tool.bandit]`, `[tool.ty.src]`) for the canonical list of allowed ignores/exclusions for `ruff`, `ty` and `bandit`; do not add new suppressions without updating config.
 
 **Imports**: Always place imports at the top of the file (global scope). Local imports inside functions are permitted only in rare cases where they are necessary to resolve circular import dependencies.
 
-**Feature flags**: `demetra/settings.py` defines `FEATURES` (`is_ruff_enabled`, `is_pytest_enabled` from `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED`, both default `False` — `demetra/workflows/lint.py` only runs `ruff`/`pytest` when package installed *and* flag `True`), `SEARCH` (shared wiki/docstring weights, limits; stop words live as `SEARCH_STOP_WORDS` in `demetra/library/constants.py`, consumed by `demetra/tools/search.py`), and `WIKI` budgets (`WIKI_DIFF_HUNK_CAP` (max lines of unified diff passed to the page author as its only source of real code) /`_BUILD_PLAN_CAP`, `WIKI_REVALIDATION_ENABLED`; wiki pages are always LLM-authored via `compose_wiki_page`, there is no budget gate — a body missing any `WIKI_REQUIRED_SECTIONS` heading in `demetra/library/constants.py` raises `WikiError` and no page is written), and `MAX_ATTEMPTS` (per-step retry budgets keyed by workflow — `run`/`plan`/`build`/`review`/`merge`/`rebase`/`listener`/`research`, each read from its `MAX_*_ATTEMPTS` env var). Lint/tests are opt-in.
+**Feature flags**: `demetra/settings.py` defines `FEATURES` (`is_ruff_enabled`, `is_pytest_enabled` from `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED`, both default `False` — `demetra/workflows/lint.py` only runs `ruff`/`pytest` when package installed *and* flag `True`), `SEARCH` (docstring weights and limits; stop words live as `SEARCH_STOP_WORDS` in `demetra/library/constants.py`, consumed by `demetra/tools/search.py`), and `WIKI` budgets (`WIKI_DIFF_HUNK_CAP` (max lines of unified diff passed to the page author as its only source of real code) /`_BUILD_PLAN_CAP`, `WIKI_REVALIDATION_ENABLED`; wiki pages are always LLM-authored via `compose_wiki_page`, there is no budget gate — a body missing any `WIKI_REQUIRED_SECTIONS` heading in `demetra/library/constants.py` raises `WikiError` and no page is written), and `MAX_ATTEMPTS` (per-step retry budgets keyed by workflow — `run`/`plan`/`build`/`review`/`merge`/`rebase`/`listener`/`research`, each read from its `MAX_*_ATTEMPTS` env var). Lint/tests are opt-in.
 
 ## Testing Guidelines
 
@@ -190,8 +190,8 @@ Demetra coordinates the following external tools:
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
-- **Playwright**: browser automation via MCP (`opencode.json` `mcp.Playwright`; no React E2E suite — frontend tests are vitest component tests)
-- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugin: []` since `67d106c`): `docker-compose.yaml` forwards host `LANGSMITH_*` into containers and `SessionEnvironment.system_env` derives `TRACE_TO_LANGSMITH` etc. in-process (`demetra/library/models.py:499`)
+- **WI**: project wiki search/read/list via MCP (`opencode.json` `mcp.servers.WI`, `wi` command) — the in-repo `wiki_*` MCP tools were removed in favour of it
+- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`): `docker-compose.yaml` forwards host `LANGSMITH_*` into containers and `SessionEnvironment.system_env` derives `TRACE_TO_LANGSMITH` etc. in-process (`demetra/library/models.py:499`)
 
 ## Security Guidelines
 

@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md) — The in-repo wiki MCP tool (`wiki_search`/`wiki_get_page`/`wiki_list_pages`) is retired in favour of the external **WI** MCP server, and the rest of `demetra/tools` was restructured onto `manti-by/odin`'s `mcp_server` layout: new `models.py`/`config.py`/`corpus.py`/`utils.py`, a declarative `MODULES`/`HANDLERS` registry, `projects.py` → `logs.py`, and `close_db_pool()` wired into server shutdown. Nine tools remain (three docstring, four database, two logs); 980 tests pass. (2026-10-15)
 - [Session state flow: completed chain, feedback loops, research chain](pages/2026-10-12-session-state-flow-feedback-loops.md) — `completed` now completes every `SessionStateFlow` node via a new `finalSteps` flag so the GitHub node stops blinking; the free-floating curved feedback arrows became square SVG brackets measured from node centres (`review → build`, `test → build`) that read dashed / blinking / plain by loop state; the research chain was corrected to `initial → research → researched` (terminal **In Review**) because research tickets never take `awaiting_input`; the chain is centred via auto margins, the bar scaled and padded, and all variants catalogued in the style guide. (2026-10-12)
 - [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — `OPENCODE_REVIEW_MODELS` was the last agent setting read straight from `settings.py`: review is the only agent with an N-model fan-out, so both env-rework passes skipped it and the plural key never matched the generic `_MODEL` suffix rule. Fixed by adding a `settings_default()` case, a `SessionEnvironment.review_models` property, and iterating that in `run_review_agents`. (2026-10-12)
 - [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md) — Added a `SessionStateFlow` React component that animates the live session step above the log console, updated over the session websocket. Backend gains a `sessions.is_research` column (migration `b7c8d9e0f1a2`), a `SessionState` dataclass, `get_session_state` replacing `get_session_step_name`, and `update_session_is_research`, with `main.py` recording the flag and `upsert_pending_session` returning it. (2026-10-12)
@@ -178,8 +179,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Use task title for session listing](pages/2026-05-22-task-title-session-listing.md) — 2026-05-22
 - [Link user, tasks and sessions](pages/2026-04-02-link-user-tasks-sessions.md) — 2026-04-02
 
-### MCP & wiki tooling (12 pages)
+### MCP & wiki tooling (13 pages)
 
+- [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md) — 2026-10-15
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — 2026-10-09
 - [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — 2026-10-08
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — 2026-09-08
