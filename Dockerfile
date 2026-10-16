@@ -11,7 +11,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=ghcr.io/astral-sh/uv:0.7.21 /uv /uvx /bin/
 
-RUN curl -fsSL https://opencode.ai/install | bash
+RUN curl -fsSL https://opencode.ai/v2/install | bash
+
+ARG WI_VERSION=v0.2.1
+RUN curl -LsSf "https://raw.githubusercontent.com/manti-by/wi/${WI_VERSION}/install.sh" | sh -s -- --version "${WI_VERSION}" --dir /usr/local/bin
 
 WORKDIR /app/
 
@@ -32,6 +35,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
+COPY --from=builder /usr/local/bin/wi /usr/local/bin/wi
 COPY --from=builder /usr/bin/gh /usr/bin/gh
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /bin/uv /bin/uvx /bin/

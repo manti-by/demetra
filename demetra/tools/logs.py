@@ -3,14 +3,11 @@ from pathlib import Path
 
 from mcp.types import TextContent, Tool
 
-from demetra.settings import LOG_DIR
-from demetra.tools.result import ToolResult
+from demetra.tools.config import LOG_ROOT_DISPLAY, LOG_ROOT_RESOLVED
+from demetra.tools.models import ToolResult
 
 
 logger = logging.getLogger(__name__)
-
-
-LOG_ROOT = LOG_DIR.resolve()
 
 MAX_TAIL_LINES = 5000
 DEFAULT_TAIL_LINES = 100
@@ -26,9 +23,9 @@ def resolve_log_path(file_path: str) -> Path | None:
         Path | None: The resolved path if it is a file inside the log
             directory, otherwise None.
     """
-    target = (LOG_ROOT / file_path).resolve()
+    target = (LOG_ROOT_RESOLVED / file_path).resolve()
     try:
-        target.relative_to(LOG_ROOT)
+        target.relative_to(LOG_ROOT_RESOLVED)
     except ValueError:
         return None
     return target if target.is_file() else None
@@ -50,20 +47,37 @@ def tail_file(path: Path, lines: int) -> str:
     """
     lines = min(max(lines, 1), MAX_TAIL_LINES)
     BLOCK_SIZE = 8192
-    file_size = path.stat().st_size
-    if file_size == 0:
-        return ""
 
     with path.open("rb") as f:
+        # Size from the open handle, not a separate stat: the file may be
+        # truncated between the two calls.
+        f.seek(0, 2)
+        file_size = f.tell()
+        if file_size == 0:
+            return ""
+
         pos = file_size
         buffer = bytearray()
         newline_count = 0
 
-        while pos > 0 and newline_count < lines:
+        def complete() -> bool:
+            """Whether the buffer holds enough whole lines to answer the request."""
+            if newline_count < lines:
+                return False
+            # A trailing newline terminates the last line, so any line before it
+            # is complete. Without one we must also read back past the start of
+            # the first requested line, or return a fragment of it.
+            return not buffer or buffer[-1:] == b"\n" or b"\n" in buffer[1:-1]
+
+        while pos > 0 and not complete():
             read_size = min(BLOCK_SIZE, pos)
             pos -= read_size
             f.seek(pos)
             chunk = f.read(read_size)
+            if not chunk:
+                # Truncated after the size was read: stop rather than re-reading
+                # the same range once per block for the rest of the file.
+                break
             buffer[:0] = chunk
             newline_count += chunk.count(b"\n")
 
@@ -74,10 +88,10 @@ def tail_file(path: Path, lines: int) -> str:
         return b"\n".join(all_lines[-lines:]).decode("utf-8", errors="replace")
 
 
-AVALABLE_TOOLS = [
+AVAILABLE_TOOLS = [
     Tool(
         name="list_log_files",
-        description="List all log files in /var/log/demetra",
+        description=f"List all log files in {LOG_ROOT_DISPLAY}",
         input_schema={
             "type": "object",
             "properties": {},
@@ -85,7 +99,7 @@ AVALABLE_TOOLS = [
     ),
     Tool(
         name="tail_logs",
-        description="Tail log file from /var/log/demetra directory",
+        description=f"Tail a log file from the {LOG_ROOT_DISPLAY} directory",
         input_schema={
             "type": "object",
             "properties": {
@@ -111,7 +125,7 @@ async def list_tools() -> list[Tool]:
     Returns:
         list[Tool]: The static list of available log tools.
     """
-    return AVALABLE_TOOLS
+    return AVAILABLE_TOOLS
 
 
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
@@ -130,18 +144,25 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     args = arguments or {}
     try:
         if name == "list_log_files":
-            if not LOG_ROOT.is_dir():
+            if not LOG_ROOT_RESOLVED.is_dir():
                 return ToolResult(
-                    content=[TextContent(type="text", text="Log directory not found")],
+                    content=[TextContent(type="text", text=f"Log directory not found: {LOG_ROOT_DISPLAY}")],
                     is_error=True,
                 )
-            files = sorted(LOG_ROOT.rglob("*.log"))
+            files = sorted(LOG_ROOT_RESOLVED.rglob("*.log"))
             result = []
             for f in files:
-                rel = f.relative_to(LOG_ROOT)
-                size = f.stat().st_size
-                mtime = f.stat().st_mtime
-                result.append(f"{rel}  ({size:,} bytes, modified {mtime:.0f})")
+                # rglob follows symlinks, so a link inside the root can point
+                # outside it; confine before reading any metadata.
+                resolved = f.resolve()
+                try:
+                    rel = resolved.relative_to(LOG_ROOT_RESOLVED)
+                except ValueError:
+                    continue
+                if not resolved.is_file():
+                    continue
+                metadata = resolved.stat()
+                result.append(f"{rel}  ({metadata.st_size:,} bytes, modified {metadata.st_mtime:.0f})")
             if not result:
                 return ToolResult(content=[TextContent(type="text", text="No log files found")])
             return ToolResult(content=[TextContent(type="text", text="\n".join(result))])

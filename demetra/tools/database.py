@@ -1,10 +1,11 @@
+import asyncio
 import logging
 import re
 
 import asyncpg
 from mcp.types import TextContent, Tool
 
-from demetra.tools.result import ToolResult
+from demetra.tools.models import ToolResult
 
 
 logger = logging.getLogger(__name__)
@@ -34,13 +35,15 @@ SENSITIVE_COLUMNS = frozenset(
 )
 
 db_pool: asyncpg.Pool | None = None
+db_pool_lock: asyncio.Lock = asyncio.Lock()
 
 
 async def get_db_pool() -> asyncpg.Pool:
     """Return the lazily-initialized shared asyncpg connection pool.
 
     Creates the pool on first use from the settings-defined database
-    credentials and reuses it for the lifetime of the process.
+    credentials and reuses it for the lifetime of the process. Concurrent first
+    callers are serialized so a second pool is never created and leaked.
 
     Returns:
         asyncpg.Pool: The shared database connection pool.
@@ -48,21 +51,23 @@ async def get_db_pool() -> asyncpg.Pool:
     Raises:
         ValueError: If no DB_PASSWORD is configured.
     """
-    from demetra.settings import DATABASE
-
     global db_pool
     if db_pool is None:
-        if not DATABASE["password"]:
-            raise ValueError("DB_PASSWORD environment variable is required")
-        db_pool = await asyncpg.create_pool(
-            host=DATABASE["host"],
-            port=DATABASE["port"],
-            user=DATABASE["user"],
-            password=DATABASE["password"],
-            database=DATABASE["name"],
-            min_size=1,
-            max_size=5,
-        )
+        async with db_pool_lock:
+            if db_pool is None:
+                from demetra.settings import DATABASE
+
+                if not DATABASE["password"]:
+                    raise ValueError("DB_PASSWORD environment variable is required")
+                db_pool = await asyncpg.create_pool(
+                    host=DATABASE["host"],
+                    port=DATABASE["port"],
+                    user=DATABASE["user"],
+                    password=DATABASE["password"],
+                    database=DATABASE["name"],
+                    min_size=1,
+                    max_size=5,
+                )
     return db_pool
 
 
@@ -164,13 +169,12 @@ async def _load_allowed_tables(pool: asyncpg.Pool) -> set[str]:
     return allowed_tables
 
 
-def _validate_table_name(table_name: str, allowed_tables: set[str] | None = None) -> str:
+def _validate_table_name(table_name: str, allowed_tables: set[str]) -> str:
     """Validate a table name against identifier rules and the allow-list.
 
     Args:
         table_name: The table name to validate.
-        allowed_tables: Optional set of known tables; a name outside it is
-            rejected.
+        allowed_tables: Set of known tables; a name outside it is rejected.
 
     Returns:
         str: The validated table name.
@@ -181,7 +185,7 @@ def _validate_table_name(table_name: str, allowed_tables: set[str] | None = None
     """
     if not TABLE_NAME_RE.match(table_name):
         raise ValueError(f"Invalid table name: {table_name}")
-    if allowed_tables and table_name not in allowed_tables:
+    if table_name not in allowed_tables:
         raise ValueError(f"Table not found: {table_name}")
     return table_name
 
@@ -219,7 +223,7 @@ async def _get_table_columns(pool: asyncpg.Pool, table_name: str) -> set[str]:
     """
     async with pool.acquire() as conn:
         rows = await conn.fetch(
-            "SELECT column_name FROM information_schema.columns WHERE table_name = $1",
+            "SELECT column_name FROM information_schema.columns WHERE table_name = $1 AND table_schema = 'public'",
             table_name,
         )
     return {row["column_name"] for row in rows}
@@ -303,12 +307,7 @@ AVAILABLE_TOOLS = [
     Tool(
         name="list_tables",
         description="List all database tables",
-        input_schema={
-            "type": "object",
-            "properties": {
-                "auth_token": {"type": "string", "description": "Optional auth token"},
-            },
-        },
+        input_schema={"type": "object", "properties": {}},
     ),
     Tool(
         name="get_table_definition",
@@ -358,6 +357,9 @@ async def list_tools() -> list[Tool]:
     return AVAILABLE_TOOLS
 
 
+AVAILABLE_TOOLS_NAMES = frozenset(tool.name for tool in AVAILABLE_TOOLS)
+
+
 async def call_tool(name: str, arguments: dict | None) -> ToolResult:
     """Dispatch a database MCP tool call by name.
 
@@ -372,51 +374,43 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
         ToolResult: The tool output, or an error result on failure.
     """
     args = arguments or {}
-    try:
-        pool = await get_db_pool()
-        if name == "list_tables":
-            tables = await list_tables(pool)
-            return ToolResult(content=[TextContent(type="text", text=str(tables))])
-        if name == "get_table_definition":
-            table_name = args.get("table_name")
-            if not table_name:
-                return ToolResult(
-                    content=[TextContent(type="text", text="Error: table_name is required")],
-                    is_error=True,
-                )
-            definition = await get_table_definition(pool, table_name)
-            return ToolResult(content=[TextContent(type="text", text=str(definition))])
-        if name == "get_table_count":
-            table_name = args.get("table_name")
-            if not table_name:
-                return ToolResult(
-                    content=[TextContent(type="text", text="Error: table_name is required")],
-                    is_error=True,
-                )
-            count = await get_table_count(pool, table_name)
-            return ToolResult(content=[TextContent(type="text", text=str(count))])
-        if name == "query_table":
-            table_name = args.get("table_name")
-            if not table_name:
-                return ToolResult(
-                    content=[TextContent(type="text", text="Error: table_name is required")],
-                    is_error=True,
-                )
-            rows = await query_table(
-                pool,
-                table_name,
-                args.get("filters"),
-                args.get("limit", 100),
-                args.get("offset", 0),
-            )
-            return ToolResult(content=[TextContent(type="text", text=str(rows))])
+    if name not in AVAILABLE_TOOLS_NAMES:
         return ToolResult(
             content=[TextContent(type="text", text=f"Error: Unknown tool {name}")],
             is_error=True,
         )
+
+    try:
+        pool = await get_db_pool()
+        if name == "list_tables":
+            return ToolResult(content=[TextContent(type="text", text=str(await list_tables(pool)))])
+
+        table_name = args.get("table_name")
+        if not isinstance(table_name, str) or not table_name:
+            return ToolResult(
+                content=[TextContent(type="text", text="Error: table_name is required")],
+                is_error=True,
+            )
+
+        if name == "get_table_definition":
+            definition = await get_table_definition(pool, table_name)
+            return ToolResult(content=[TextContent(type="text", text=str(definition))])
+        if name == "get_table_count":
+            count = await get_table_count(pool, table_name)
+            return ToolResult(content=[TextContent(type="text", text=str(count))])
+
+        rows = await query_table(
+            pool,
+            table_name,
+            args.get("filters"),
+            args.get("limit", 100),
+            args.get("offset", 0),
+        )
+        return ToolResult(content=[TextContent(type="text", text=str(rows))])
     except Exception:
         logger.exception(f"Error executing tool {name}")
-        return ToolResult(
-            content=[TextContent(type="text", text="Error: Database operation failed")],
-            is_error=True,
-        )
+
+    return ToolResult(
+        content=[TextContent(type="text", text="Error: Database operation failed")],
+        is_error=True,
+    )

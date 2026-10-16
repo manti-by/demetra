@@ -1,5 +1,8 @@
 # Demetra
 
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/manti-by/demetra?utm_source=oss&utm_medium=github&utm_campaign=manti-by%2Fdemetra&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![Code style: ruff](https://img.shields.io/badge/ruff-enabled-informational?logo=ruff)](https://astral.sh/ruff)
+
 An autonomous coding platform that coordinates multiple AI agents to automate software development. Integrates Linear (issues), OpenCode (plan/build/resolve/review), with automatic linting (Ruff) and testing (pytest).
 
 ![DAG Diagram](/media/interface.jpg)

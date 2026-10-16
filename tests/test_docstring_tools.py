@@ -21,7 +21,7 @@ class TestDocstringIndex:
         source_root.mkdir()
         (source_root / "runtime.py").write_text(SOURCE)
 
-        functions = docstrings._load_functions(source_root)
+        functions = docstrings.load_functions(source_root)
 
         assert [function.qualified_name for function in functions] == [
             "demetra.runtime.deploy_worker",
@@ -34,10 +34,10 @@ class TestDocstringIndex:
         source_root.mkdir()
         source = source_root / "runtime.py"
         source.write_text(SOURCE)
-        first = docstrings._load_functions(source_root)
+        first = docstrings.load_functions(source_root)
         source.write_text(SOURCE.replace("Deploy a worker", "Start a worker"))
 
-        second = docstrings._load_functions(source_root)
+        second = docstrings.load_functions(source_root)
 
         assert first[0].docstring == "Deploy a worker to the configured runtime."
         assert second[0].docstring == "Start a worker to the configured runtime."
@@ -49,7 +49,7 @@ class TestDocstringRanking:
         source_root.mkdir()
         (source_root / "runtime.py").write_text(SOURCE)
 
-        results = docstrings._search_functions(source_root, "deploy", 10)
+        results = docstrings.search_functions(source_root, "deploy", 10)
 
         assert [function.qualified_name for function, _score, _terms in results] == ["demetra.runtime.deploy_worker"]
 
@@ -58,7 +58,7 @@ class TestDocstringRanking:
         source_root.mkdir()
         (source_root / "runtime.py").write_text(SOURCE)
 
-        results = docstrings._search_functions(source_root, "queue", 10)
+        results = docstrings.search_functions(source_root, "queue", 10)
 
         assert results[0][0].qualified_name == "demetra.runtime.Scheduler.queue_task"
 
@@ -67,7 +67,7 @@ class TestDocstringRanking:
         source_root.mkdir()
         (source_root / "runtime.py").write_text(SOURCE)
 
-        results = docstrings._search_functions(source_root, "task", 10)
+        results = docstrings.search_functions(source_root, "task", 10)
 
         assert isinstance(results[0][1], float)
 
