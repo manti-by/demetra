@@ -2,11 +2,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import PrDescriptionError, PullRequestError, WikiError
 from demetra.library.models import Context
-from demetra.services.agents.opencode import get_opencode_session_tokens
 from demetra.services.linear import linear_cleanup
 from demetra.services.llm.openrouter import generate_pr_description
 from demetra.services.persistence.database import (
-    record_session_step_history,
+    invalidate_agent_sessions,
+    record_session_step,
     update_session_pr_link,
     update_session_step,
 )
@@ -22,7 +22,7 @@ async def commit_and_push(context: Context) -> bool:
     Stages the build changes, generates the session wiki page into the
     worktree (so it is part of the same commit), stages the wiki files, commits
     with the task title, pushes the branch, generates a PR description, creates
-    the PR and records the PR link and final session history.
+    the PR and records the PR link and final session step.
 
     Args:
         context: The workflow context.
@@ -44,7 +44,7 @@ async def commit_and_push(context: Context) -> bool:
         return False
 
     print_message("Generating wiki page", style="heading")
-    await update_session_step(task_id=context.linear_task.id, step="wiki", session_id=context.session_id)
+    await update_session_step(task_id=context.linear_task.id, step="wiki")
     wiki_error: WikiError | None = None
     try:
         await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
@@ -65,7 +65,7 @@ async def commit_and_push(context: Context) -> bool:
             style="warning",
         )
 
-    await update_session_step(task_id=context.linear_task.id, step="push", session_id=context.session_id)
+    await update_session_step(task_id=context.linear_task.id, step="push")
     await git_commit(
         target_path=context.worktree_path,
         message=context.linear_task.full_title,
@@ -116,22 +116,7 @@ async def commit_and_push(context: Context) -> bool:
             print_message("Failed to persist PR link, continuing.", style="warning")
 
     await update_session_step(task_id=context.linear_task.id, step="completed")
-
-    if context.session_id:
-        try:
-            usage = await get_opencode_session_tokens(
-                target_path=context.worktree_path,
-                session_id=context.session_id,
-                environment=context.environment,
-            )
-            await record_session_step_history(
-                session_id=context.session_id,
-                step="completed",
-                usage=usage,
-                model=context.environment.opencode_build_model,
-            )
-        except Exception:  # noqa: BLE001
-            print_message("Failed to record session step history, continuing.", style="warning")
+    await record_session_step(task_id=context.linear_task.id, step="completed")
 
     if wiki_error is not None:
         print_message(
@@ -148,11 +133,13 @@ async def cleanup_workflow(
     should_update_linear_status: bool,
     failure_step: str = "failed",
 ) -> None:
-    """Finalize a workflow run: record history, clean up git and update Linear.
+    """Finalize a workflow run: record the terminal step, clean up git and update Linear.
 
-    On failure the session step and token history are recorded under
-    ``failure_step``. The worktree is always removed and, when requested, the
-    Linear ticket is moved according to the outcome.
+    On failure the session step is advanced and a ``kind='step'`` history row is
+    recorded under ``failure_step``. The worktree is always removed and, when
+    requested, the Linear ticket is moved according to the outcome. Removing the
+    worktree invalidates any primary agent session marker (history still
+    resolves by ``task_id``, so nothing is hidden).
 
     Args:
         context: The workflow context.
@@ -162,22 +149,10 @@ async def cleanup_workflow(
     """
     if not is_success:
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
-        if context.session_id:
-            try:
-                usage = await get_opencode_session_tokens(
-                    target_path=context.worktree_path,
-                    session_id=context.session_id,
-                    environment=context.environment,
-                )
-                await record_session_step_history(
-                    session_id=context.session_id,
-                    step=failure_step,
-                    usage=usage,
-                    model=context.environment.opencode_build_model,
-                )
-            except Exception:  # noqa: BLE001
-                print_message("Failed to record session step history, continuing.", style="warning")
+        await record_session_step(task_id=context.linear_task.id, step=failure_step)
 
     await git_cleanup(context=context, is_success=is_success)
+    if not context.is_research:
+        await invalidate_agent_sessions(task_id=context.linear_task.id)
     if should_update_linear_status:
         await linear_cleanup(context=context, is_success=is_success)

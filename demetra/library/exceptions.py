@@ -58,6 +58,14 @@ class WikiError(DemetraError):
     pass
 
 
+class OpenCodeError(DemetraError):
+    pass
+
+
+class OpenCodeCLIError(OpenCodeError):
+    pass
+
+
 class AuthError(DemetraError):
     pass
 

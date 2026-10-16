@@ -8,7 +8,7 @@ from demetra.services.auth import get_current_user_dep
 from demetra.services.persistence.database import (
     delete_session,
     get_session_history,
-    get_session_id_by_task_id,
+    get_session_state,
     get_sessions,
 )
 
@@ -54,7 +54,11 @@ async def get_session_history_endpoint(
     task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
     user: UserResponse = Depends(get_current_user_dep),
 ) -> dict:
-    """Return the history of recorded step runs for a session.
+    """Return the history of recorded step and invocation runs for a session.
+
+    History resolves by ``task_id`` rather than the display-only
+    ``sessions.session_id`` pointer, so a task whose worktree (and session) was
+    removed still exposes its full history.
 
     Args:
         task_id: Identifier of the session's task.
@@ -67,23 +71,22 @@ async def get_session_history_endpoint(
     Raises:
         HTTPException: 404 when no session exists for the task.
     """
-    session_id = await get_session_id_by_task_id(task_id=task_id, user_id=user.id)
-    if session_id is None:
+    state = await get_session_state(task_id=task_id, user_id=user.id)
+    if state is None:
         raise HTTPException(status_code=404, detail="Session not found")
 
-    rows = await get_session_history(session_id=session_id)
+    rows = await get_session_history(task_id=task_id)
     return {"total": _compute_total_tokens(rows=rows), "history": [_serialize_history_row(row=r) for r in rows]}
 
 
 def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
-    """Sum all counter fields across session history records.
+    """Sum all counter fields across invocation history records.
 
-    Treats ``None`` token counts as zero so rows recorded before a token
-    migration contribute nothing. ``context_tokens`` is a per-step snapshot of
-    the context window, not a usage counter, so it is excluded from the sum.
-    The grand ``length`` total is derived from the summed token fields to
-    keep it consistent with the breakdown; ``row.length`` is used only as a
-    fallback for legacy rows where every token field is ``None``.
+    Only ``kind='invocation'`` rows carry exact per-invocation deltas and are
+    summed; ``kind='step'`` rows are informational milestones with no tokens.
+    ``context_tokens`` is a per-invocation snapshot of the context window, not a
+    usage counter, so it is excluded from the sum. ``length`` is derived from
+    the summed token fields to keep it consistent with the breakdown.
 
     Args:
         rows: The session history records to sum.
@@ -100,29 +103,20 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         "cache_write_tokens": 0,
     }
     for row in rows:
-        token_fields = [
-            row.input_tokens,
-            row.output_tokens,
-            row.reasoning_tokens,
-            row.cache_read_tokens,
-            row.cache_write_tokens,
-        ]
-        has_tokens = any(v is not None for v in token_fields)
-        if has_tokens:
-            total["input_tokens"] += row.input_tokens or 0
-            total["output_tokens"] += row.output_tokens or 0
-            total["reasoning_tokens"] += row.reasoning_tokens or 0
-            total["cache_read_tokens"] += row.cache_read_tokens or 0
-            total["cache_write_tokens"] += row.cache_write_tokens or 0
-            total["length"] += (
-                (row.input_tokens or 0)
-                + (row.output_tokens or 0)
-                + (row.reasoning_tokens or 0)
-                + (row.cache_read_tokens or 0)
-                + (row.cache_write_tokens or 0)
-            )
-        else:
-            total["length"] += row.length or 0
+        if row.kind != "invocation":
+            continue
+        total["input_tokens"] += row.input_tokens or 0
+        total["output_tokens"] += row.output_tokens or 0
+        total["reasoning_tokens"] += row.reasoning_tokens or 0
+        total["cache_read_tokens"] += row.cache_read_tokens or 0
+        total["cache_write_tokens"] += row.cache_write_tokens or 0
+        total["length"] += (
+            (row.input_tokens or 0)
+            + (row.output_tokens or 0)
+            + (row.reasoning_tokens or 0)
+            + (row.cache_read_tokens or 0)
+            + (row.cache_write_tokens or 0)
+        )
     return total
 
 
@@ -138,6 +132,9 @@ def _serialize_history_row(row: SessionHistory) -> dict:
     return {
         "id": row.id,
         "session_id": row.session_id,
+        "task_id": row.task_id,
+        "agent_session_id": row.agent_session_id,
+        "kind": row.kind,
         "step": row.step,
         "length": row.length,
         "input_tokens": row.input_tokens,
@@ -146,6 +143,8 @@ def _serialize_history_row(row: SessionHistory) -> dict:
         "cache_read_tokens": row.cache_read_tokens,
         "cache_write_tokens": row.cache_write_tokens,
         "context_tokens": row.context_tokens,
+        "cost": row.cost,
         "model": row.model,
+        "agent": row.agent,
         "created_at": row.created_at,
     }

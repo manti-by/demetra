@@ -95,6 +95,7 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
             full_name=full_name,
             project_id=project.id,
             environment=environment,
+            task_id=task_id,
         )
         if merge_succeeded:
             logger.info(f"Successfully merged and resolved conflicts for PR #{pr_number}")

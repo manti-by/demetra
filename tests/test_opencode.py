@@ -4,9 +4,10 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.library.models import SessionEnvironment
+from demetra.library.models import SessionEnvironment, SessionExport, TokenUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
+    capture_agent_session,
     extract_research_report,
     get_opencode_session_id,
     get_opencode_session_length,
@@ -18,10 +19,19 @@ from demetra.services.agents.opencode import (
     opencode_rebase_agent,
     opencode_research_agent,
     opencode_resolve_agent,
+    opencode_supports_compaction,
     opencode_validate_agent,
+    reset_opencode_cli_state,
     run_opencode_agent,
 )
 from demetra.settings import OPENCODE
+
+
+@pytest.fixture(autouse=True)
+def _reset_opencode_cli_state():
+    reset_opencode_cli_state()
+    yield
+    reset_opencode_cli_state()
 
 
 class TestOpencodeService:
@@ -247,8 +257,10 @@ class TestOpencodeSessionLength:
     def mock_run_command_and_config(self):
         with (
             patch("demetra.services.agents.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_version,
             patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
+            mock_version.return_value = (0, "2.0.30", "")
             yield mock_run
 
     @pytest.mark.asyncio
@@ -288,9 +300,19 @@ class TestOpencodeSessionLength:
         assert result is None
 
     @pytest.mark.asyncio
-    async def test_uses_correct_export_command(self, mock_run_command_and_config):
+    async def test_uses_v2_session_export_command(self, mock_run_command_and_config):
         mock_run_command_and_config.return_value = (0, '{"info": {"tokens": {"input": 0}}}', "")
         await get_opencode_session_length(Path("/p"), "ses_abc123")
+        command = mock_run_command_and_config.call_args.kwargs["command"]
+        assert command == ["/bin/opencode", "session", "export", "ses_abc123"]
+
+    @pytest.mark.asyncio
+    async def test_uses_v1_export_command(self, mock_run_command_and_config):
+        with patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_version:
+            mock_version.return_value = (0, "1.18.30", "")
+            reset_opencode_cli_state()
+            mock_run_command_and_config.return_value = (0, '{"info": {"tokens": {"input": 0}}}', "")
+            await get_opencode_session_length(Path("/p"), "ses_abc123")
         command = mock_run_command_and_config.call_args.kwargs["command"]
         assert command == ["/bin/opencode", "export", "ses_abc123"]
 
@@ -309,8 +331,10 @@ class TestOpencodeSessionTokens:
     def mock_run_command_and_config(self):
         with (
             patch("demetra.services.agents.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_version,
             patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
         ):
+            mock_version.return_value = (0, "2.0.30", "")
             yield mock_run
 
     @pytest.mark.asyncio
@@ -433,7 +457,16 @@ class TestOpencodeCompactSession:
         assert exit_code == 0
         assert stdout == "ok"
         command = mock_run_command_and_config.call_args.kwargs["command"]
-        assert command == ["/bin/opencode", "run", "--session", "ses_abc123", "--dir", "/p", "/compact"]
+        assert command == ["/bin/opencode", "run", "--session", "ses_abc123", "--command", "compact"]
+
+    @pytest.mark.asyncio
+    async def test_returns_error_when_compaction_unsupported(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (0, "2.0.30", "")
+        exit_code, stdout, stderr = await opencode_compact_session(Path("/p"), "ses_abc123")
+        assert exit_code != 0
+        assert stdout == ""
+        assert "not supported" in stderr
+        assert mock_run_command_and_config.await_count == 1
 
     @pytest.mark.asyncio
     async def test_forwards_target_path_and_environment(self, mock_run_command_and_config):
@@ -451,6 +484,171 @@ class TestOpencodeCompactSession:
         call_kwargs = mock_run_command_and_config.call_args.kwargs
         # opencode_compact_session uses disable_stdio=False
         assert call_kwargs.get("disable_stdio") is False
+
+
+class TestOpencodeSupportsCompaction:
+    @pytest.fixture
+    def mock_major_version(self):
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_major_version",
+            new_callable=AsyncMock,
+        ) as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("major", "expected"),
+        [
+            (None, True),
+            (1, True),
+            (2, False),
+            (3, False),
+        ],
+    )
+    async def test_major_version_decides_support(self, mock_major_version, major, expected):
+        mock_major_version.return_value = major
+
+        assert await opencode_supports_compaction(Path("/p")) is expected
+
+
+class TestCaptureAgentSession:
+    @pytest.fixture
+    def mock_get_session_id(self):
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_session_id",
+            new_callable=AsyncMock,
+        ) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_get_export(self):
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_session_export",
+            new_callable=AsyncMock,
+        ) as mock:
+            yield mock
+
+    @pytest.fixture
+    def mock_record_invocation(self):
+        with patch(
+            "demetra.services.agents.opencode.record_agent_invocation",
+            new_callable=AsyncMock,
+        ) as mock:
+            yield mock
+
+    @pytest.mark.asyncio
+    async def test_records_invocation_from_export(self, mock_get_session_id, mock_get_export, mock_record_invocation):
+        mock_get_export.return_value = SessionExport(
+            tokens=TokenUsage(input=1000, output=500),
+            agent="build",
+            model="provider/model",
+            cost=0.5,
+            outcome="completed",
+        )
+        mock_record_invocation.return_value = "history"
+
+        result = await capture_agent_session(task_id="TASK-1", step="build", target_path=Path("/p"), session_id="ses_1")
+
+        assert result == "history"
+        mock_get_session_id.assert_not_called()
+        mock_record_invocation.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="build",
+            session_id="ses_1",
+            usage=TokenUsage(input=1000, output=500),
+            agent="build",
+            model="provider/model",
+            cost=0.5,
+            outcome="completed",
+            fork_of=None,
+            is_primary=False,
+        )
+
+    @pytest.mark.asyncio
+    async def test_resolves_session_by_title_when_absent(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_session_id.return_value = "ses_resolved"
+        mock_get_export.return_value = None
+        mock_record_invocation.return_value = "history"
+
+        await capture_agent_session(task_id="TASK-1", step="plan", target_path=Path("/p"), task_title="TASK-1 plan")
+
+        mock_get_session_id.assert_awaited_once_with(
+            target_path=Path("/p"),
+            task_title="TASK-1 plan",
+            environment=None,
+            include_forks=False,
+        )
+        assert mock_record_invocation.call_args.kwargs["session_id"] == "ses_resolved"
+        assert mock_record_invocation.call_args.kwargs["usage"] is None
+
+    @pytest.mark.asyncio
+    async def test_resolves_fork_by_title_including_forks(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_session_id.return_value = "ses_fork"
+        mock_get_export.return_value = SessionExport(tokens=TokenUsage(input=100))
+        mock_record_invocation.return_value = "history"
+
+        await capture_agent_session(
+            task_id="TASK-1",
+            step="build",
+            target_path=Path("/p"),
+            task_title="TASK-1 build",
+            session_id="ses_parent",
+            forked=True,
+            is_primary=True,
+        )
+
+        assert mock_get_session_id.call_args.kwargs["include_forks"] is True
+        assert mock_record_invocation.call_args.kwargs["fork_of"] == "ses_parent"
+        assert mock_record_invocation.call_args.kwargs["is_primary"] is True
+
+    @pytest.mark.asyncio
+    async def test_skips_without_task_id(self, mock_get_session_id, mock_get_export, mock_record_invocation):
+        result = await capture_agent_session(task_id=None, step="build", target_path=Path("/p"), session_id="ses_1")
+
+        assert result is None
+        mock_get_session_id.assert_not_called()
+        mock_get_export.assert_not_called()
+        mock_record_invocation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_without_title_when_unresolved(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        result = await capture_agent_session(task_id="TASK-1", step="build", target_path=Path("/p"))
+
+        assert result is None
+        mock_get_session_id.assert_not_called()
+        mock_get_export.assert_not_called()
+        mock_record_invocation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_skips_when_session_cannot_be_resolved(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_session_id.return_value = None
+
+        result = await capture_agent_session(
+            task_id="TASK-1", step="build", target_path=Path("/p"), task_title="TASK-1 build"
+        )
+
+        assert result is None
+        mock_get_export.assert_not_called()
+        mock_record_invocation.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_swallows_persistence_errors(self, mock_get_session_id, mock_get_export, mock_record_invocation):
+        from sqlalchemy.exc import SQLAlchemyError
+
+        mock_get_export.return_value = SessionExport(tokens=TokenUsage(input=100))
+        mock_record_invocation.side_effect = SQLAlchemyError("boom")
+
+        result = await capture_agent_session(task_id="TASK-1", step="build", target_path=Path("/p"), session_id="ses_1")
+
+        assert result is None
 
 
 class TestOpencodeEnvLayers:

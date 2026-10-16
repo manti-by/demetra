@@ -103,6 +103,7 @@ class TestMainReplanning:
             patch("main.init_db", new_callable=AsyncMock),
             patch("main.setup_workflow", new_callable=AsyncMock) as mock_setup_workflow,
             patch("main.setup_session_logging", new_callable=AsyncMock),
+            patch("main.verify_opencode_cli", new_callable=AsyncMock),
             patch("main.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
             patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}),
             patch("main.post_comment", new_callable=AsyncMock) as mock_post_comment,

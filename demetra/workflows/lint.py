@@ -24,8 +24,7 @@ async def run_lint_and_test(
 
     Args:
         target_path: Directory to lint and test.
-        session_id: Optional opencode session id used to record step-only
-            history rows alongside the session step updates.
+        session_id: Optional opencode session id forwarded to the pytest runner.
         task_id: Optional task id used to update the session step.
         environment: The resolved session environment forwarded to the subprocess.
 
@@ -39,7 +38,7 @@ async def run_lint_and_test(
     ):
         print_message("Running RUFF linter", style="heading")
         if task_id:
-            await update_session_step(task_id=task_id, step="lint", session_id=session_id)
+            await update_session_step(task_id=task_id, step="lint")
 
         await run_ruff_format(target_path=target_path, environment=environment)
         ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, environment=environment)
@@ -47,7 +46,7 @@ async def run_lint_and_test(
             print_message("Processing RUFF comments", style="result")
             print_message(ruff_result, style="info")
             if task_id:
-                await update_session_step(task_id=task_id, step="lint", session_id=session_id)
+                await update_session_step(task_id=task_id, step="lint")
             return True, ruff_result
 
     if (
@@ -56,7 +55,7 @@ async def run_lint_and_test(
     ):
         print_message("Running PYTESTs", style="heading")
         if task_id:
-            await update_session_step(task_id=task_id, step="test", session_id=session_id)
+            await update_session_step(task_id=task_id, step="test")
 
         pytest_exit_code, pytest_result, _ = await run_pytests(
             target_path=target_path, session_id=session_id, environment=environment
@@ -65,9 +64,9 @@ async def run_lint_and_test(
             print_message("Processing PYTEST errors", style="result")
             print_message(pytest_result, style="info")
             if task_id:
-                await update_session_step(task_id=task_id, step="lint", session_id=session_id)
+                await update_session_step(task_id=task_id, step="lint")
             return True, pytest_result
 
     if task_id:
-        await update_session_step(task_id=task_id, step="lint", session_id=session_id)
+        await update_session_step(task_id=task_id, step="lint")
     return False, None

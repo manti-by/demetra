@@ -87,14 +87,14 @@ class TestCrossUserIsolation:
 
     def test_cannot_get_others_session_history(self, cross_user_client: TestClient):
         with patch(
-            "demetra.api.sessions.get_session_id_by_task_id",
+            "demetra.api.sessions.get_session_state",
             new_callable=AsyncMock,
             return_value=None,
-        ) as mock_get_session_id:
+        ) as mock_get_session_state:
             response = cross_user_client.get("/api/v1/sessions/OWNER-123/history")
 
             assert response.status_code == 404
-            mock_get_session_id.assert_called_once_with(task_id="OWNER-123", user_id="other_user_id")
+            mock_get_session_state.assert_called_once_with(task_id="OWNER-123", user_id="other_user_id")
 
     def test_cannot_delete_others_session(self, cross_user_client: TestClient):
         with patch(

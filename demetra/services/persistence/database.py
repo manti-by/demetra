@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
 
 from demetra.library.models import Session, SessionHistory, SessionState, TokenUsage, WaitlistEntryUpdate
 from demetra.library.tables import (
+    agent_sessions,
     allowlist_entries,
     jwt_tokens,
     oauth_tokens,
@@ -636,16 +637,25 @@ async def update_session_research_report(task_id: str, research_report: str) -> 
 async def get_sessions(user_id: str, step: str | None = None) -> list[dict]:
     """List sessions for a user, optionally filtered by current step.
 
-    Sessions are returned newest first.
+    Sessions are returned newest first. Each row carries a ``has_history`` flag
+    derived from ``session_history`` (resolved by ``task_id``) so the UI can
+    offer the history view without depending on the display-only
+    ``sessions.session_id`` pointer.
 
     Args:
         user_id: The user id to scope the query to.
         step: Optional step name to filter on.
 
     Returns:
-        list[dict]: The matching session rows.
+        list[dict]: The matching session rows, each with a ``has_history`` flag.
     """
-    query = select(sessions).where(sessions.c.user_id == user_id)
+    has_history = (
+        select(session_history.c.id)
+        .where(session_history.c.task_id == sessions.c.task_id)
+        .exists()
+        .label("has_history")
+    )
+    query = select(sessions, has_history).where(sessions.c.user_id == user_id)
     if step is not None:
         query = query.where(sessions.c.step == step)
 
@@ -730,35 +740,319 @@ async def get_oauth_token(service: str) -> tuple[str, str] | None:
         return row.access_token, str(expires_at)
 
 
-async def update_session_step(task_id: str, step: str, session_id: str | None = None) -> None:
+async def update_session_step(*, task_id: str, step: str) -> None:
     """Update the current workflow step of a session.
 
-    When ``session_id`` is given, also inserts a step-only ``session_history``
-    row (timestamp only, token columns and ``model`` left NULL) in the same
-    transaction, so intermediate steps (e.g. ``build``, ``validate``,
-    ``review``, ``lint``) show up in the session history timeline even when
-    no token usage is recorded for them.
+    This only advances the step; history rows are recorded separately, either
+    through :func:`record_session_step` for non-agent steps or through
+    :func:`record_agent_invocation` for agent steps. Keeping the two apart is
+    what avoids the empty step rows that used to shadow the invocation rows.
 
     Args:
         task_id: The Linear task identifier.
         step: The new step value.
-        session_id: Optional opencode session id to record a step-only
-            history row for; omit to skip recording.
     """
     now = datetime.now(UTC)
     async with get_connection() as connection:
         await connection.execute(
             sessions.update().where(sessions.c.task_id == task_id).values(step=step, updated_at=now)
         )
-        if session_id:
+        await connection.commit()
+
+
+async def record_session_step(task_id: str, step: str) -> SessionHistory:
+    """Record a non-agent workflow step as a ``kind='step'`` history row.
+
+    The row is upserted per ``(task_id, step)`` so a step recorded from two
+    paths (e.g. ``awaiting_input`` is set both when the plan moves the ticket
+    and again by the cleanup path) produces exactly one row instead of the
+    empty/populated duplicates that used to shadow agent rows.
+
+    Args:
+        task_id: The Linear task identifier.
+        step: The workflow step name.
+
+    Returns:
+        SessionHistory: The persisted history record.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        existing = await connection.execute(
+            select(session_history.c.id).where(
+                (session_history.c.task_id == task_id)
+                & (session_history.c.step == step)
+                & (session_history.c.kind == "step")
+            )
+        )
+        row = existing.fetchone()
+        if row is not None:
+            return SessionHistory(
+                id=row.id, session_id=None, task_id=task_id, kind="step", step=step, created_at=now.isoformat()
+            )
+
+        history_id = str(uuid4())
+        await connection.execute(
+            insert(session_history).values(
+                id=history_id,
+                task_id=task_id,
+                kind="step",
+                step=step,
+                created_at=now,
+            )
+        )
+        await connection.commit()
+
+    return SessionHistory(
+        id=history_id, session_id=None, task_id=task_id, kind="step", step=step, created_at=now.isoformat()
+    )
+
+
+async def record_agent_invocation(
+    *,
+    task_id: str,
+    step: str,
+    session_id: str,
+    usage: TokenUsage | None = None,
+    agent: str | None = None,
+    model: str | None = None,
+    cost: float | None = None,
+    outcome: str | None = None,
+    fork_of: str | None = None,
+    is_primary: bool = False,
+) -> SessionHistory:
+    """Record one agent invocation, attributing an exact token delta to it.
+
+    ``agent_sessions`` keeps one row per ``(task_id, session_id)`` and holds the
+    cumulative cursor last observed from ``info.tokens``; the delta
+    ``max(0, cumulative - cursor)`` is stored on a ``kind='invocation'``
+    ``session_history`` row that is upserted per ``(task_id, session_id, step)``
+    so a resumed session never produces duplicate rows. A ``None`` ``usage``
+    (a failed export) records attribution without advancing the cursor or
+    clearing previously recorded tokens. The cursor is never seeded from a fork
+    parent: a fork's ``info.tokens`` restarts, so its first delta is its own
+    cumulative total.
+
+    Args:
+        task_id: The Linear task identifier.
+        step: The workflow step name.
+        session_id: The opencode session id.
+        usage: The cumulative token usage from the export, or None.
+        agent: The agent reported by ``info.agent``.
+        model: The serialized model reported by ``info.model``.
+        cost: The cumulative session cost reported by ``info.cost``.
+        outcome: The session outcome reported by ``info.outcome``.
+        fork_of: The parent session id when this session was forked, for
+            lineage only — it never feeds the delta.
+        is_primary: Whether this session becomes the task's primary session.
+
+    Returns:
+        SessionHistory: The persisted invocation history record.
+    """
+    now = datetime.now(UTC)
+    history_id = str(uuid4())
+    async with get_transaction() as connection:
+        existing = await connection.execute(
+            text(
+                """
+                SELECT id, cursor_input, cursor_output, cursor_reasoning, cursor_cache_read, cursor_cache_write, cursor_cost
+                  FROM agent_sessions
+                 WHERE task_id = :task_id AND session_id = :session_id
+                """
+            ),
+            {"task_id": task_id, "session_id": session_id},
+        )
+        cursor = existing.fetchone()
+
+        agent_session_id = cursor.id if cursor is not None else None
+        delta: dict[str, int | None] = {
+            "input_tokens": None,
+            "output_tokens": None,
+            "reasoning_tokens": None,
+            "cache_read_tokens": None,
+            "cache_write_tokens": None,
+        }
+        context_tokens: int | None = None
+        delta_cost: float | None = None
+        new_cursor: dict[str, int | float | None] = {
+            "cursor_input": None,
+            "cursor_output": None,
+            "cursor_reasoning": None,
+            "cursor_cache_read": None,
+            "cursor_cache_write": None,
+            "cursor_cost": None,
+        }
+
+        if usage is not None:
+            previous = {
+                "input_tokens": cursor.cursor_input if cursor is not None else None,
+                "output_tokens": cursor.cursor_output if cursor is not None else None,
+                "reasoning_tokens": cursor.cursor_reasoning if cursor is not None else None,
+                "cache_read_tokens": cursor.cursor_cache_read if cursor is not None else None,
+                "cache_write_tokens": cursor.cursor_cache_write if cursor is not None else None,
+            }
+            current = {
+                "input_tokens": usage.input,
+                "output_tokens": usage.output,
+                "reasoning_tokens": usage.reasoning,
+                "cache_read_tokens": usage.cache_read,
+                "cache_write_tokens": usage.cache_write,
+            }
+            for field in delta:
+                delta[field] = max(0, current[field] - (previous[field] or 0))
+            context_tokens = usage.context
+            new_cursor = {
+                "cursor_input": usage.input,
+                "cursor_output": usage.output,
+                "cursor_reasoning": usage.reasoning,
+                "cursor_cache_read": usage.cache_read,
+                "cursor_cache_write": usage.cache_write,
+                "cursor_cost": None,
+            }
+            if cost is not None:
+                previous_cost = cursor.cursor_cost if cursor is not None else None
+                delta_cost = max(0.0, cost - (previous_cost or 0.0))
+                new_cursor["cursor_cost"] = cost
+
+        is_new = agent_session_id is None
+        if agent_session_id is None:
+            agent_session_id = str(uuid4())
+
+        # Clear the previous primary before writing this one: the partial unique
+        # index on (task_id) WHERE is_primary rejects a second primary row, so
+        # the insert/update must come after the demotion.
+        if is_primary:
             await connection.execute(
-                insert(session_history).values(
-                    id=str(uuid4()),
+                update(agent_sessions)
+                .where((agent_sessions.c.task_id == task_id) & (agent_sessions.c.id != agent_session_id))
+                .values(is_primary=False)
+            )
+            await connection.execute(
+                update(sessions).where(sessions.c.task_id == task_id).values(session_id=session_id, updated_at=now)
+            )
+
+        if is_new:
+            await connection.execute(
+                insert(agent_sessions).values(
+                    id=agent_session_id,
+                    task_id=task_id,
                     session_id=session_id,
                     step=step,
+                    agent=agent,
+                    model=model,
+                    fork_of=fork_of,
+                    outcome=outcome,
+                    is_primary=is_primary,
                     created_at=now,
+                    updated_at=now,
+                    **new_cursor,
                 )
             )
+        else:
+            await connection.execute(
+                update(agent_sessions)
+                .where(agent_sessions.c.id == agent_session_id)
+                .values(
+                    step=step,
+                    agent=agent if agent is not None else agent_sessions.c.agent,
+                    model=model if model is not None else agent_sessions.c.model,
+                    fork_of=fork_of if fork_of is not None else agent_sessions.c.fork_of,
+                    outcome=outcome if outcome is not None else agent_sessions.c.outcome,
+                    is_primary=is_primary if is_primary else agent_sessions.c.is_primary,
+                    updated_at=now,
+                    **{
+                        field: (value if value is not None else getattr(agent_sessions.c, field))
+                        for field, value in new_cursor.items()
+                    },
+                )
+            )
+
+        length = None
+        if usage is not None:
+            length = sum(value or 0 for value in delta.values())
+
+        existing_row = await connection.execute(
+            text(
+                """
+                SELECT id FROM session_history
+                 WHERE task_id = :task_id AND session_id = :session_id AND step = :step AND kind = 'invocation'
+                 LIMIT 1
+                """
+            ),
+            {"task_id": task_id, "session_id": session_id, "step": step},
+        )
+        row = existing_row.fetchone()
+
+        if row is not None:
+            history_id = row.id
+            values: dict[str, object] = {
+                "agent": agent if agent is not None else session_history.c.agent,
+                "model": model if model is not None else session_history.c.model,
+                "cost": delta_cost if delta_cost is not None else session_history.c.cost,
+            }
+            for field, value in delta.items():
+                values[field] = value if value is not None else getattr(session_history.c, field)
+            if context_tokens is not None:
+                values["context_tokens"] = context_tokens
+            if length is not None:
+                values["length"] = length
+            await connection.execute(update(session_history).where(session_history.c.id == history_id).values(**values))
+        else:
+            await connection.execute(
+                insert(session_history).values(
+                    id=history_id,
+                    task_id=task_id,
+                    agent_session_id=agent_session_id,
+                    session_id=session_id,
+                    kind="invocation",
+                    step=step,
+                    length=length,
+                    context_tokens=context_tokens,
+                    cost=delta_cost,
+                    agent=agent,
+                    model=model,
+                    created_at=now,
+                    **delta,
+                )
+            )
+
+    return SessionHistory(
+        id=history_id,
+        session_id=session_id,
+        task_id=task_id,
+        agent_session_id=agent_session_id,
+        kind="invocation",
+        step=step,
+        length=length,
+        input_tokens=delta["input_tokens"],
+        output_tokens=delta["output_tokens"],
+        reasoning_tokens=delta["reasoning_tokens"],
+        cache_read_tokens=delta["cache_read_tokens"],
+        cache_write_tokens=delta["cache_write_tokens"],
+        context_tokens=context_tokens,
+        cost=delta_cost,
+        model=model,
+        agent=agent,
+        created_at=now.isoformat(),
+    )
+
+
+async def invalidate_agent_sessions(task_id: str) -> None:
+    """Clear the primary marker for a task's agent sessions.
+
+    Called after a worktree is removed so a superseded session is never resolved
+    as the task's live primary. History still resolves by ``task_id``, so this
+    never hides the session's history.
+
+    Args:
+        task_id: The Linear task identifier.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            update(agent_sessions)
+            .where((agent_sessions.c.task_id == task_id) & (agent_sessions.c.is_primary))
+            .values(is_primary=False, updated_at=now)
+        )
         await connection.commit()
 
 
@@ -800,72 +1094,6 @@ async def update_session_is_research(task_id: str, is_research: bool) -> None:
         await connection.commit()
 
 
-async def record_session_history(
-    session_id: str,
-    step: str,
-    length: int | None = None,
-    input_tokens: int | None = None,
-    output_tokens: int | None = None,
-    reasoning_tokens: int | None = None,
-    cache_read_tokens: int | None = None,
-    cache_write_tokens: int | None = None,
-    context_tokens: int | None = None,
-    model: str | None = None,
-) -> SessionHistory:
-    """Record an opencode session's token usage at a workflow step.
-
-    Args:
-        session_id: The opencode session id.
-        step: The workflow step name.
-        length: Optional message length in characters.
-        input_tokens: Optional input token count.
-        output_tokens: Optional output token count.
-        reasoning_tokens: Optional reasoning token count.
-        cache_read_tokens: Optional cache read token count.
-        cache_write_tokens: Optional cache write token count.
-        context_tokens: Optional context window token count.
-        model: Optional model identifier.
-
-    Returns:
-        SessionHistory: The persisted history record.
-    """
-    history_id = str(uuid4())
-    now = datetime.now(UTC)
-    async with get_connection() as connection:
-        await connection.execute(
-            insert(session_history).values(
-                id=history_id,
-                session_id=session_id,
-                step=step,
-                length=length,
-                input_tokens=input_tokens,
-                output_tokens=output_tokens,
-                reasoning_tokens=reasoning_tokens,
-                cache_read_tokens=cache_read_tokens,
-                cache_write_tokens=cache_write_tokens,
-                context_tokens=context_tokens,
-                model=model,
-                created_at=now,
-            )
-        )
-        await connection.commit()
-
-    return SessionHistory(
-        id=history_id,
-        session_id=session_id,
-        step=step,
-        length=length,
-        input_tokens=input_tokens,
-        output_tokens=output_tokens,
-        reasoning_tokens=reasoning_tokens,
-        cache_read_tokens=cache_read_tokens,
-        cache_write_tokens=cache_write_tokens,
-        context_tokens=context_tokens,
-        model=model,
-        created_at=now.isoformat(),
-    )
-
-
 async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) -> str | None:
     """Return the opencode session id for a task, optionally user-scoped.
 
@@ -887,20 +1115,26 @@ async def get_session_id_by_task_id(task_id: str, user_id: str | None = None) ->
     return row.session_id
 
 
-async def get_session_history(session_id: str) -> list[SessionHistory]:
-    """Return all history rows for an opencode session in creation order.
+async def get_session_history(task_id: str) -> list[SessionHistory]:
+    """Return all history rows for a task in recording order.
+
+    History resolves by ``task_id`` rather than the opencode session id: a task
+    can span several sessions (forks, restarts), and the display-only
+    ``sessions.session_id`` pointer can be stale or absent. Ordering is by
+    ``created_at`` then ``id`` so a step row and its invocation row keep a
+    stable, insertion-consistent order.
 
     Args:
-        session_id: The opencode session id.
+        task_id: The Linear task identifier.
 
     Returns:
-        list[SessionHistory]: The history records for the session.
+        list[SessionHistory]: The history records for the task.
     """
     async with get_connection() as connection:
         result = await connection.execute(
             select(session_history)
-            .where(session_history.c.session_id == session_id)
-            .order_by(session_history.c.created_at)
+            .where(session_history.c.task_id == task_id)
+            .order_by(session_history.c.created_at, session_history.c.id)
         )
         rows = result.fetchall()
 
@@ -908,6 +1142,9 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
         SessionHistory(
             id=row.id,
             session_id=row.session_id,
+            task_id=row.task_id,
+            agent_session_id=row.agent_session_id,
+            kind=row.kind,
             step=row.step,
             length=row.length,
             input_tokens=row.input_tokens,
@@ -916,7 +1153,9 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
             cache_read_tokens=row.cache_read_tokens,
             cache_write_tokens=row.cache_write_tokens,
             context_tokens=row.context_tokens,
+            cost=row.cost,
             model=row.model,
+            agent=row.agent,
             created_at=row.created_at.isoformat(),
         )
         for row in rows
@@ -924,13 +1163,18 @@ async def get_session_history(session_id: str) -> list[SessionHistory]:
 
 
 async def get_pending_session_task_ids() -> set[str]:
-    """Return task ids of sessions that still lack an opencode session id.
+    """Return task ids of sessions that still lack an attributed agent session.
+
+    A session is pending until an ``agent_sessions`` row exists for its
+    ``task_id``; the display-only ``sessions.session_id`` pointer is no longer
+    the source of truth for attribution.
 
     Returns:
         set[str]: The task ids of pending sessions.
     """
+    has_agent_session = select(agent_sessions.c.id).where(agent_sessions.c.task_id == sessions.c.task_id).exists()
     async with get_connection() as connection:
-        result = await connection.execute(select(sessions.c.task_id).where(sessions.c.session_id == ""))
+        result = await connection.execute(select(sessions.c.task_id).where(~has_agent_session))
         rows = result.fetchall()
     return {row.task_id for row in rows}
 
@@ -2150,9 +2394,12 @@ async def delete_session(task_id: str, user_id: str) -> bool:
             .returning(sessions.c.task_id)
         )
         row = result.fetchone()
-        await connection.commit()
         if not row:
+            await connection.commit()
             return False
+        await connection.execute(delete(session_history).where(session_history.c.task_id == task_id))
+        await connection.execute(delete(agent_sessions).where(agent_sessions.c.task_id == task_id))
+        await connection.commit()
 
     sessions_log_dir = (LOG_DIR / "sessions").resolve()
     log_path = (sessions_log_dir / f"{task_id}.log").resolve()
@@ -2168,38 +2415,3 @@ async def delete_session(task_id: str, user_id: str) -> bool:
             pass
 
     return True
-
-
-async def record_session_step_history(
-    session_id: str | None,
-    step: str,
-    usage: TokenUsage | None = None,
-    model: str | None = None,
-) -> SessionHistory | None:
-    """Record a workflow step's token usage for a session, when a session exists.
-
-    Args:
-        session_id: The opencode session id, or None to skip recording.
-        step: The workflow step name.
-        usage: Optional token usage summary to persist.
-        model: Optional model identifier.
-
-    Returns:
-        SessionHistory | None: The persisted history record, or None when no
-            session id is given.
-    """
-    if not session_id:
-        return None
-
-    return await record_session_history(
-        session_id=session_id,
-        step=step,
-        length=usage.total if usage is not None else None,
-        input_tokens=usage.input if usage is not None else None,
-        output_tokens=usage.output if usage is not None else None,
-        reasoning_tokens=usage.reasoning if usage is not None else None,
-        cache_read_tokens=usage.cache_read if usage is not None else None,
-        cache_write_tokens=usage.cache_write if usage is not None else None,
-        context_tokens=usage.context if usage is not None else None,
-        model=model,
-    )

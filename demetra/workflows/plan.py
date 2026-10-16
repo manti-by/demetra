@@ -1,5 +1,3 @@
-from sqlalchemy.exc import SQLAlchemyError
-
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
@@ -11,13 +9,12 @@ from demetra.library.exceptions import (
 from demetra.library.models import Context
 from demetra.services.agents.opencode import (
     PLAN_HEADER_STRING,
-    get_opencode_session_id,
-    get_opencode_session_tokens,
+    capture_agent_session,
     opencode_plan_agent,
 )
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
-from demetra.services.persistence.database import record_session_step_history, save_session, update_session_step
+from demetra.services.persistence.database import save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
@@ -44,7 +41,7 @@ async def move_to_awaiting_input(context: Context) -> None:
     except EnvironmentConfigError as e:
         raise LinearError("Linear state 'awaiting_input' is not configured") from e
     await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
-    await update_session_step(task_id=context.linear_task.id, step="awaiting_input", session_id=context.session_id)
+    await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError
 
@@ -74,7 +71,7 @@ async def run_plan_step(context: Context) -> str | None:
     plan_attempts = MAX_ATTEMPTS["plan"] if context.plan_loop else 1
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="plan", session_id=context.session_id)
+        await update_session_step(task_id=context.linear_task.id, step="plan")
 
         exit_code, stdout, stderr = await opencode_plan_agent(
             target_path=context.worktree_path,
@@ -87,6 +84,20 @@ async def run_plan_step(context: Context) -> str | None:
             raise PlanError(
                 f"Plan agent failed (exit {exit_code}): {(stderr or '').strip() or (stdout or '').strip() or 'unknown error'}"
             )
+
+        # Each plan run is its own session; capture it (resolving the id from the
+        # unique title, which also fixes the plan-loop stale-id bug) and mark it
+        # primary so sessions.session_id always points at the live plan session.
+        history = await capture_agent_session(
+            task_id=context.linear_task.id,
+            step="plan",
+            target_path=context.worktree_path,
+            task_title=context.linear_task.full_title,
+            is_primary=True,
+            environment=context.environment,
+        )
+        if history is not None and history.session_id and context.session is not None:
+            context.session.session_id = history.session_id
 
         plan_output = stdout.strip()
         print_message(f"Plain plan agent output:\n{plan_output}", style="info")
@@ -110,50 +121,19 @@ async def run_plan_step(context: Context) -> str | None:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None
 
-        print_message(
-            f"Searching session for {context.linear_task.full_title} / {context.worktree_path}", style="heading"
+        context.session = await save_session(
+            task_id=context.linear_task.id,
+            build_plan=build_plan,
+            name=context.linear_task.full_title,
+            linear_link=context.linear_task.url,
         )
-
-        session_id = None
-        if not context.session_id:
-            session_id = await get_opencode_session_id(
-                target_path=context.worktree_path,
-                task_title=context.linear_task.full_title,
-                environment=context.environment,
-            )
-        if session_id:
-            context.session = await save_session(
-                task_id=context.linear_task.id,
-                session_id=session_id,
-                build_plan=build_plan,
-                name=context.linear_task.full_title,
-                linear_link=context.linear_task.url,
-            )
-            print_message(f"Saved session {session_id}.", style="result")
+        if context.session_id:
+            print_message(f"Saved session {context.session_id}.", style="result")
         else:
-            context.session = await save_session(
-                task_id=context.linear_task.id, build_plan=build_plan, linear_link=context.linear_task.url
-            )
             print_message("No opencode session found, saved build plan without session_id.", style="warning")
 
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
-
-        if context.session_id:
-            try:
-                usage = await get_opencode_session_tokens(
-                    target_path=context.worktree_path,
-                    session_id=context.session_id,
-                    environment=context.environment,
-                )
-                await record_session_step_history(
-                    session_id=context.session_id,
-                    step="plan",
-                    usage=usage,
-                    model=context.environment.opencode_plan_model,
-                )
-            except (SQLAlchemyError, OSError):
-                print_message("Failed to record session step history.", style="warning")
 
         questions = await extract_questions(plan_output=plan_output, environment=context.environment)
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]

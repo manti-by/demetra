@@ -55,6 +55,35 @@ def isolate_wiki(tmp_path, monkeypatch):
     monkeypatch.setattr(wiki_service, "AGENTS_PATH", wiki_root / "AGENTS.md")
 
 
+@pytest.fixture(autouse=True)
+def patch_agent_session_capture():
+    """Stub the opencode invocation-capture glue in every workflow module.
+
+    ``capture_agent_session`` resolves a session through the opencode CLI and
+    reads a file-backed export before persisting a delta. Workflow tests exercise
+    control flow with the agent wrappers mocked, so this glue is stubbed here and
+    covered directly by the opencode/DB tests.
+    """
+    targets = [
+        "demetra.workflows.build.capture_agent_session",
+        "demetra.workflows.plan.capture_agent_session",
+        "demetra.workflows.validate.capture_agent_session",
+        "demetra.workflows.review.capture_agent_session",
+        "demetra.workflows.research.capture_agent_session",
+        "demetra.workflows.resolve.capture_agent_session",
+        "demetra.workflows.review_fixes.capture_agent_session",
+        "demetra.services.vcs.merge.capture_agent_session",
+        "demetra.services.vcs.rebase.capture_agent_session",
+        "demetra.workflows.build.opencode_supports_compaction",
+    ]
+    with ExitStack() as stack:
+        mocks = [stack.enter_context(patch(target, new_callable=AsyncMock)) for target in targets]
+        for mock in mocks:
+            mock.return_value = None
+        mocks[-1].return_value = True
+        yield
+
+
 @pytest.fixture(scope="session", autouse=True)
 def fast_bcrypt():
     original_gensalt = bcrypt.gensalt

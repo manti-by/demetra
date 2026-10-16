@@ -3,11 +3,15 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { SessionHistory } from './SessionHistory';
+import type { SessionHistoryEntry } from '../services/api';
 
-const mockEntries = [
+const mockEntries: SessionHistoryEntry[] = [
   {
     id: '1',
     session_id: 'session-abc',
+    task_id: 'TASK-1',
+    agent_session_id: 'agent-session-1',
+    kind: 'invocation',
     step: 'plan',
     created_at: new Date(Date.now() - 3600000).toISOString(),
     length: 1000,
@@ -17,11 +21,16 @@ const mockEntries = [
     cache_read_tokens: 50,
     cache_write_tokens: 50,
     context_tokens: null,
+    cost: null,
     model: null,
+    agent: 'opencode',
   },
   {
     id: '2',
     session_id: 'session-abc',
+    task_id: 'TASK-1',
+    agent_session_id: 'agent-session-1',
+    kind: 'invocation',
     step: 'build',
     created_at: new Date(Date.now() - 1800000).toISOString(),
     length: 2500,
@@ -31,11 +40,16 @@ const mockEntries = [
     cache_read_tokens: 100,
     cache_write_tokens: 100,
     context_tokens: null,
+    cost: null,
     model: null,
+    agent: 'opencode',
   },
   {
     id: '3',
-    session_id: 'session-abc',
+    session_id: null,
+    task_id: 'TASK-1',
+    agent_session_id: null,
+    kind: 'step',
     step: 'review',
     created_at: '2026-01-01T00:00:00Z',
     length: null,
@@ -45,7 +59,9 @@ const mockEntries = [
     cache_read_tokens: null,
     cache_write_tokens: null,
     context_tokens: null,
+    cost: null,
     model: null,
+    agent: null,
   },
 ];
 
@@ -135,9 +151,12 @@ describe('SessionHistory', () => {
   });
 
   it('hides token dl when all token fields are null', () => {
-    const nullEntry = {
+    const nullEntry: SessionHistoryEntry = {
       id: '4',
-      session_id: 'session-abc',
+      session_id: null,
+      task_id: 'TASK-1',
+      agent_session_id: null,
+      kind: 'step',
       step: 'initial',
       created_at: new Date().toISOString(),
       length: null,
@@ -147,7 +166,9 @@ describe('SessionHistory', () => {
       cache_read_tokens: null,
       cache_write_tokens: null,
       context_tokens: null,
+      cost: null,
       model: null,
+      agent: null,
     };
 
     render(
@@ -155,6 +176,30 @@ describe('SessionHistory', () => {
     );
 
     expect(screen.getByText('initial')).toBeInTheDocument();
+    expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
+  });
+
+  it('renders agent and cost for an invocation entry', () => {
+    const entry = { ...mockEntries[0], agent: 'build', cost: 0.1234, model: 'provider/model' };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(screen.getByText('Agent')).toBeInTheDocument();
+    expect(screen.getByText('build')).toBeInTheDocument();
+    expect(screen.getByText('Cost')).toBeInTheDocument();
+    expect(screen.getByText('$0.1234')).toBeInTheDocument();
+    expect(screen.getByText('provider/model')).toBeInTheDocument();
+  });
+
+  it('does not render tokens for a step entry even with a length', () => {
+    const stepEntry = { ...mockEntries[2], length: 999 };
+
+    render(
+      <SessionHistory entries={[stepEntry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
     expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
   });
 

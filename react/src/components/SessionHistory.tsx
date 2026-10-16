@@ -29,18 +29,10 @@ interface SessionHistoryCardProps {
 }
 
 function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
-  const hasTokens =
-    entry.input_tokens != null ||
-    entry.output_tokens != null ||
-    entry.reasoning_tokens != null ||
-    entry.cache_read_tokens != null ||
-    entry.cache_write_tokens != null ||
-    entry.context_tokens != null ||
-    entry.model != null ||
-    entry.length != null;
+  const hasTokens = entry.kind === 'invocation';
 
   return (
-    <li className="session-history-card" data-step={entry.step}>
+    <li className="session-history-card" data-step={entry.step} data-kind={entry.kind}>
       <div className="session-history-card-header">
         <span className="session-history-step">{entry.step}</span>
         <time
@@ -93,6 +85,18 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
             <div>
               <dt>Model</dt>
               <dd>{entry.model}</dd>
+            </div>
+          )}
+          {entry.agent != null && (
+            <div>
+              <dt>Agent</dt>
+              <dd>{entry.agent}</dd>
+            </div>
+          )}
+          {entry.cost != null && (
+            <div>
+              <dt>Cost</dt>
+              <dd>${entry.cost.toFixed(4)}</dd>
             </div>
           )}
           {entry.length != null && (
