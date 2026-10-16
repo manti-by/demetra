@@ -8,7 +8,7 @@ services: [persistence, workflows, api, react]
 branch: mnt-228-intermediate-history-states
 tickets: [MNT-228]
 tags: [wiki, feature, backend, frontend]
-related: [2026-07-23-session-history-modal.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-tokens-audit-revalidation.md]
+related: [2026-07-23-session-history-modal.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
 ---
 # MNT-228: Intermediate history states
 
@@ -36,6 +36,18 @@ Here is the summary of the implementation plan:
 
 - Session status: `resolved`
 - OpenCode session id: `8a73875f-33bb-4c95-807d-570bbb05540b`
+
+---
+
+## Update — 2026-10-16 15:08
+
+**Superseded by MNT-251.** The design here — pass `session_id` into `update_session_step` so it inserts a step-only history row in the same transaction — was replaced in [[2026-10-16-mnt-251-session-attribution-accounting]] because keying step rows off `sessions.session_id` left research (which never sets that column) with zero rows and produced an `awaiting_input` double-write.
+
+- `update_session_step(task_id, step)` now only advances `sessions.step`; it no longer writes history.
+- Step rows come from `record_session_step(task_id, step)`, keyed by `task_id` and written with `kind='step'` — so a research-only task gets history without a session id.
+- `kind` is now explicit on every row (`'step'` vs `'invocation'`), and the UI drives tokens/attribution from it instead of null-sniffing.
+
+The localized-clock-time frontend change from this page remains in effect.
 
 ---
 

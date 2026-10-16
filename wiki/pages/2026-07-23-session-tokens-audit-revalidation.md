@@ -8,7 +8,7 @@ services: [opencode, database, workflows, settings, groq]
 branch: "-"
 tickets: [MNT-145]
 tags: [session-history, compaction, tokens, opencode-export, audit, cost]
-related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md]
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
 ---
 
 # Session History & Token Consumption Audit (Revalidated)
@@ -81,6 +81,19 @@ Claim that recording after `git_cleanup` caused NULLs is false — `failed` at `
 
 - Does `opencode export` expose per-message tokens (needed for current-context metric)?
 - Is `cache.write` ever non-zero for these models?
+
+## Update — 2026-10-16 15:08
+
+The delta model recommended here shipped in [[2026-10-16-mnt-251-session-attribution-accounting]] (MNT-251 Phase 2). The cumulative-counter blind spot this page identified is fixed by storing exact per-invocation deltas rather than re-inserting the running total:
+
+- `agent_sessions` holds one row per `(task_id, session_id)` with the cumulative cursor; `session_history` `kind='invocation'` rows store `delta = max(0, info.tokens - cursor)`.
+- `_compute_total_tokens` sums only `kind='invocation'` rows and drops the legacy `row.length` fallback, so a resumed session no longer counts the same tokens many times.
+- `context_tokens` stays a per-step snapshot (`input + cache.read`), excluded from the total — rec #2 here remains the deliberate design.
+- `info.tokens` was measured **monotonic across a `/compact`**, so no cursor reset or compaction special-casing is needed.
+
+Recommendation status: **#1 done** (non-cumulative metric + delta model); **#2 open/deliberate** (`usage.context = input + cache.read`); **#3 deliberate** (best-effort cleanup guards); **#4 open** (TTL cache, limited benefit — one file-backed export per invocation by design).
+
+---
 
 ## Follow-ups
 

@@ -8,7 +8,7 @@ services: [database, alembic, opencode]
 branch: "-"
 tickets: []
 tags: [session-history, pipe-truncation, opencode-export, debugging]
-related: [2026-07-23-session-tokens-audit-revalidation.md]
+related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
 ---
 
 # Session history tokens always NULL — pipe truncation in opencode export
@@ -45,6 +45,14 @@ Verified on odin after patching: `TokenUsage(input=262843, output=21617, reasoni
 ## Test Results
 
 489 tests pass, `ruff`/`ty` clean. New `TestSubprocessToFile` (6 tests: file content, not-a-pipe, cleanup, env/cwd, timeout, missing-stderr). `test_opencode.py` updated to patch `run_command_to_file`.
+
+---
+
+## Update — 2026-10-16 15:08
+
+**The 64 KB story is subcommand-specific, not a uniform cap.** Re-probed on opencode v2.0.30: `session list --format json -n 500` piped **140,107 bytes byte-identical** to the file redirect and parsed cleanly, while `session export <id>` piped **393,216 bytes** (exactly 6 × 65,536) vs **437,195** to a file, with the piped bytes invalid JSON. So the fix here is still correct and still mandatory for export, but the failure class is not "every opencode command truncates at 64 KB".
+
+**The export command itself changed on v2.** `opencode export <id>` moved to `opencode session export <id>`; `get_opencode_session_export` is now version-aware (cached `opencode --version` major) and falls back to trying both forms when the probe fails, while staying **file-backed** (`run_command_to_file`). See [[2026-10-16-mnt-251-session-attribution-accounting]] and the v2 ground truth in [[2026-10-16-opencode-v2-session-token-accounting]].
 
 ---
 
