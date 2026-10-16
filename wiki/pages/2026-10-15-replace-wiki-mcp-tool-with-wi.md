@@ -173,6 +173,25 @@ Follow-up pass on the same session, closing the doc and bookkeeping loose ends:
   pre-commit and CI). Verified with `opencode mcp list` (v2.0.29): Demetra, WI
   and Linear all connect. Agent frontmatter (`permission`, `temperature`) is left
   as V1 — V2 translates it automatically and the rewrite is optional.
+- **`wi` baked into the image.** The review on `opencode.json:12` flagged that the
+  image configured `"command": ["wi"]` but never installed `wi`, so the server
+  could not start in-container. The `Dockerfile` now runs the official `wi`
+  installer in the builder stage into `/usr/local/bin` (pinned through a
+  `WI_VERSION` build arg, default `v0.2.1`, with the installer itself fetched
+  from that tag) and copies the binary into the final image next to `opencode`.
+  `/usr/local/bin` is on the default `PATH`, so the stdio MCP transport starts as
+  configured. Verified by installing the same way on the base image and driving a
+  full stdio session (`initialize`, `tools/list`, all three tools, clean exit)
+  with the `wi` repo's `mcp_smoke_stdio.py`.
+- **OpenCode V2 in the image.** The `Dockerfile` installed the V1 client via
+  `https://opencode.ai/install`; it now uses the V2 installer,
+  `https://opencode.ai/v2/install`. Both write the same
+  `$HOME/.opencode/bin/opencode`, so the existing `COPY … /usr/local/bin/opencode`
+  (the path `OPENCODE_PATH` points at in `.env.docker.example`) is unchanged;
+  verified in-image as `opencode v2.0.30`. Note the V2 client drops the V1
+  `opencode export <id>` command (`session export` now) and the `run --dir` flag —
+  `demetra/services/agents/opencode.py` still calls the V1 spellings, so those
+  call sites need a follow-up pass.
 
 ## Follow-ups
 
