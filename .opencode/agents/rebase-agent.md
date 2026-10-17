@@ -1,6 +1,6 @@
 ---
 description: Resolves git rebase conflicts and stages the resolved files.
-mode: subagent
+mode: primary
 temperature: 0.1
 permission:
   edit: allow

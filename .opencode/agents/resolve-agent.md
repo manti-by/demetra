@@ -1,6 +1,6 @@
 ---
 description: Answers open plan questions by inspecting the codebase as ground truth.
-mode: subagent
+mode: primary
 temperature: 0.2
 permission:
   edit: deny

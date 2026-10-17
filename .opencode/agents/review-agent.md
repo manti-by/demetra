@@ -1,6 +1,6 @@
 ---
 description: Reviews staged code changes and flags high-severity correctness, security, and data-safety issues.
-mode: subagent
+mode: primary
 temperature: 0.1
 permission:
   edit: deny

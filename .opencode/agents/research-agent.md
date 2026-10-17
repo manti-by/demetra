@@ -1,6 +1,6 @@
 ---
 description: Validates Linear tickets against wiki and web sources and produces a research report.
-mode: subagent
+mode: primary
 temperature: 0.5
 permission:
   edit: deny

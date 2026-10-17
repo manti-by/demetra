@@ -1,6 +1,6 @@
 ---
 description: Validates that every build-plan step is present in the staged diff.
-mode: subagent
+mode: primary
 temperature: 0.1
 permission:
   edit: deny
