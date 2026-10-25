@@ -131,10 +131,9 @@ def _compute_tool_usage(rows: list[SessionHistory]) -> list[dict]:
     """Merge the per-tool call counts across invocation history records.
 
     Only ``kind='invocation'`` rows carry tool usage; every invocation row is a
-    distinct ``(session, step)`` slice whose counts were already filtered by its
-    invocation watermark, so merging them cannot double count. The result is
-    ordered by call count and then tool name so the frontend renders a stable
-    breakdown.
+    distinct slice whose counts were already filtered by its invocation
+    watermark, so merging them cannot double count. The result is ordered by
+    call count and then tool name so the frontend renders a stable breakdown.
 
     Args:
         rows: The session history records to merge.

@@ -203,6 +203,7 @@ session_tool_usage = Table(
     Column(name="id", type_=String(), primary_key=True),
     Column(name="task_id", type_=String(), nullable=False, index=True),
     Column("agent_session_id", String(), ForeignKey("agent_sessions.id", ondelete="CASCADE"), nullable=False),
+    Column("history_id", String(), ForeignKey("session_history.id", ondelete="CASCADE"), nullable=True),
     Column(name="step", type_=String(), nullable=False),
     Column(name="tool_name", type_=String(), nullable=False),
     Column(name="calls", type_=Integer(), nullable=False, server_default="0"),
@@ -211,5 +212,5 @@ session_tool_usage = Table(
     Column(name="duration_ms", type_=Integer(), nullable=False, server_default="0"),
     Column(name="created_at", type_=DateTime(timezone=True), server_default=text("now()"), nullable=False),
     Column(name="updated_at", type_=DateTime(timezone=True), nullable=False),
-    UniqueConstraint("agent_session_id", "step", "tool_name", name="uq_session_tool_usage_row"),
+    UniqueConstraint("history_id", "tool_name", name="uq_session_tool_usage_history"),
 )
