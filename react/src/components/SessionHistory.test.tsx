@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
 import { SessionHistory } from './SessionHistory';
-import type { SessionHistoryEntry } from '../services/api';
+import type { SessionHistoryEntry, SessionToolUsage } from '../services/api';
 
 const mockEntries: SessionHistoryEntry[] = [
   {
@@ -24,6 +24,10 @@ const mockEntries: SessionHistoryEntry[] = [
     cost: null,
     model: null,
     agent: 'opencode',
+    tool_usage: [
+      { name: 'bash', calls: 3, succeeded: 3, failed: 0, duration_ms: 90 },
+      { name: 'read', calls: 1, succeeded: 1, failed: 0, duration_ms: 5 },
+    ],
   },
   {
     id: '2',
@@ -43,6 +47,7 @@ const mockEntries: SessionHistoryEntry[] = [
     cost: null,
     model: null,
     agent: 'opencode',
+    tool_usage: [{ name: 'bash', calls: 2, succeeded: 2, failed: 0, duration_ms: 30 }],
   },
   {
     id: '3',
@@ -83,38 +88,45 @@ const zeroTotal = {
   cache_write_tokens: 0,
 };
 
+const emptyToolUsage: SessionToolUsage[] = [];
+
+const mockToolUsage: SessionToolUsage[] = [
+  { name: 'bash', calls: 5, succeeded: 5, failed: 0, duration_ms: 120 },
+  { name: 'read', calls: 3, succeeded: 3, failed: 0, duration_ms: 45 },
+];
+
 describe('SessionHistory', () => {
   it('renders nothing when isOpen is false', () => {
     const { container } = render(
-      <SessionHistory entries={[]} total={zeroTotal} isOpen={false} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[]} total={zeroTotal} toolUsage={emptyToolUsage} isOpen={false} onClose={vi.fn()} isLoading={false} error={null} />
     );
     expect(container.firstChild).toBeNull();
   });
 
   it('renders loading spinner when isLoading is true', () => {
     render(
-      <SessionHistory entries={[]} total={zeroTotal} isOpen={true} onClose={vi.fn()} isLoading={true} error={null} />
+      <SessionHistory entries={[]} total={zeroTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={true} error={null} />
     );
     expect(screen.getByAltText('Loading...')).toBeInTheDocument();
   });
 
   it('renders empty state when entries is empty', () => {
     render(
-      <SessionHistory entries={[]} total={zeroTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[]} total={zeroTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
     expect(screen.getByText('No history yet')).toBeInTheDocument();
   });
 
   it('renders error state when error is set', () => {
     render(
-      <SessionHistory entries={[]} total={zeroTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error="Failed to load" />
+      <SessionHistory entries={[]} total={zeroTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error="Failed to load" />
     );
     expect(screen.getByText('Failed to load')).toBeInTheDocument();
   });
 
   it('renders one card per entry with step names', () => {
     render(
-      <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
     expect(screen.getByText('plan')).toBeInTheDocument();
     expect(screen.getByText('build')).toBeInTheDocument();
@@ -126,7 +138,7 @@ describe('SessionHistory', () => {
     const entry = { ...mockEntries[2], created_at: iso };
 
     render(
-      <SessionHistory entries={[entry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     const expectedTime = new Date(iso).toLocaleTimeString(undefined, {
@@ -142,7 +154,7 @@ describe('SessionHistory', () => {
 
   it('renders token dl only for entries with token data', () => {
     render(
-      <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
     const tokenDls = document.querySelectorAll('.session-history-tokens');
     expect(tokenDls.length).toBe(2);
@@ -172,7 +184,7 @@ describe('SessionHistory', () => {
     };
 
     render(
-      <SessionHistory entries={[nullEntry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[nullEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     expect(screen.getByText('initial')).toBeInTheDocument();
@@ -183,7 +195,7 @@ describe('SessionHistory', () => {
     const entry = { ...mockEntries[0], agent: 'build', cost: 0.1234, model: 'provider/model' };
 
     render(
-      <SessionHistory entries={[entry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     expect(screen.getByText('Agent')).toBeInTheDocument();
@@ -197,7 +209,7 @@ describe('SessionHistory', () => {
     const stepEntry = { ...mockEntries[2], length: 999 };
 
     render(
-      <SessionHistory entries={[stepEntry]} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[stepEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
@@ -205,7 +217,7 @@ describe('SessionHistory', () => {
 
   it('renders total tokens block with breakdown and grand total', () => {
     render(
-      <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     expect(screen.getByText('Total Tokens')).toBeInTheDocument();
@@ -217,9 +229,48 @@ describe('SessionHistory', () => {
     expect(screen.getByText('3,500')).toBeInTheDocument();
   });
 
+  it('renders the tool usage block beside the token totals', () => {
+    render(
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(screen.getByText('Tool Usage')).toBeInTheDocument();
+    expect(document.querySelector('.session-history-tool-grid')).toBeInTheDocument();
+    expect(document.querySelectorAll('.session-history-totals')).toHaveLength(2);
+  });
+
+  it('does not render the tool usage block without tool totals', () => {
+    render(
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(screen.queryByText('Tool Usage')).not.toBeInTheDocument();
+  });
+
+  it('renders per-card tools for invocation entries only', () => {
+    render(
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const toolLists = document.querySelectorAll('.session-history-tools-list');
+    expect(toolLists).toHaveLength(2);
+    expect(toolLists[0].textContent).toContain('×3');
+    expect(toolLists[1].textContent).toContain('×2');
+  });
+
+  it('shows failed call counts in the tool usage block', () => {
+    const usage: SessionToolUsage[] = [{ name: 'bash', calls: 4, succeeded: 3, failed: 1, duration_ms: 10 }];
+
+    render(
+      <SessionHistory entries={[mockEntries[0]]} total={mockTotal} toolUsage={usage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(screen.getByText('(1 failed)')).toBeInTheDocument();
+  });
+
   it('does not render total tokens block when history is empty', () => {
     render(
-      <SessionHistory entries={[]} total={zeroTotal} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+      <SessionHistory entries={[]} total={zeroTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
 
     expect(screen.getByText('No history yet')).toBeInTheDocument();
@@ -231,7 +282,7 @@ describe('SessionHistory', () => {
     const onClose = vi.fn();
 
     render(
-      <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={onClose} isLoading={false} error={null} />
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={onClose} isLoading={false} error={null} />
     );
 
     const closeButton = screen.getByLabelText('Close');
@@ -244,7 +295,7 @@ describe('SessionHistory', () => {
     const onClose = vi.fn();
 
     render(
-      <SessionHistory entries={mockEntries} total={mockTotal} isOpen={true} onClose={onClose} isLoading={false} error={null} />
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={onClose} isLoading={false} error={null} />
     );
 
     const overlay = document.querySelector('.modal-overlay')!;

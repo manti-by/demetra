@@ -253,6 +253,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
       <SessionHistory
         entries={historyData?.history ?? []}
         total={historyData?.total ?? EMPTY_TOKEN_TOTALS}
+        toolUsage={historyData?.tool_usage ?? []}
         isOpen={historyOpen}
         onClose={closeHistory}
         isLoading={historyLoading}

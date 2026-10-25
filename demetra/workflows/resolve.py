@@ -1,3 +1,5 @@
+import time
+
 from demetra.library.models import Context
 from demetra.services.agents.opencode import capture_agent_session, opencode_resolve_agent
 from demetra.services.llm.prompt import get_prompt
@@ -28,6 +30,7 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
     )
 
     task_title = f"{context.linear_task.full_title} - resolve"
+    invoked_at = int(time.time() * 1000)
     _, resolve_output, _ = await opencode_resolve_agent(
         target_path=context.worktree_path,
         task=task,
@@ -42,6 +45,7 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
         target_path=context.worktree_path,
         task_title=task_title,
         environment=context.environment,
+        invoked_at=invoked_at,
     )
 
     print_message(f"Resolve agent output:\n{resolve_output}", style="info")

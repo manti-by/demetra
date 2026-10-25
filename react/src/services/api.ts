@@ -182,6 +182,15 @@ export interface SessionHistoryEntry {
   cost: number | null;
   model: string | null;
   agent: string | null;
+  tool_usage?: SessionToolUsage[];
+}
+
+export interface SessionToolUsage {
+  name: string;
+  calls: number;
+  succeeded: number;
+  failed: number;
+  duration_ms: number;
 }
 
 export interface SessionTokenTotals {
@@ -195,6 +204,7 @@ export interface SessionTokenTotals {
 
 export interface SessionHistoryResponse {
   total: SessionTokenTotals;
+  tool_usage: SessionToolUsage[];
   history: SessionHistoryEntry[];
 }
 
@@ -207,11 +217,13 @@ export const EMPTY_TOKEN_TOTALS: SessionTokenTotals = {
   cache_write_tokens: 0,
 };
 
+export const EMPTY_TOOL_USAGE: SessionToolUsage[] = [];
+
 export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryResponse> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
     signal,
   });
-  if (response.status === 404) return { total: EMPTY_TOKEN_TOTALS, history: [] };
+  if (response.status === 404) return { total: EMPTY_TOKEN_TOTALS, tool_usage: [], history: [] };
   if (!response.ok) throw new Error('Failed to fetch session history');
   return response.json();
 }

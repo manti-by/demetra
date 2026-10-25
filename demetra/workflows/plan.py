@@ -1,3 +1,5 @@
+import time
+
 from demetra.library.exceptions import (
     AutoCancelledError,
     EnvironmentConfigError,
@@ -73,6 +75,7 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Running PLAN agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="plan")
 
+        invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_plan_agent(
             target_path=context.worktree_path,
             task=current_task,
@@ -95,6 +98,7 @@ async def run_plan_step(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
             is_primary=True,
             environment=context.environment,
+            invoked_at=invoked_at,
         )
         if history is not None and history.session_id and context.session is not None:
             context.session.session_id = history.session_id

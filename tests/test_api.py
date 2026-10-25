@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 
 from demetra.app import app
 from demetra.library.exceptions import LinearError
-from demetra.library.models import SessionHistory, SessionState, UserResponse
+from demetra.library.models import SessionHistory, SessionState, ToolUsage, UserResponse
 from demetra.services.linear import create_linear_ticket
 
 
@@ -1087,6 +1087,10 @@ class TestSessionHistoryEndpoint:
                 reasoning_tokens=100,
                 cache_read_tokens=50,
                 cache_write_tokens=50,
+                tool_usage=[
+                    ToolUsage(name="bash", calls=3, succeeded=2, failed=1, duration_ms=70),
+                    ToolUsage(name="read", calls=1, succeeded=1, duration_ms=5),
+                ],
             ),
             SessionHistory(
                 id="h2",
@@ -1100,6 +1104,7 @@ class TestSessionHistoryEndpoint:
                 reasoning_tokens=300,
                 cache_read_tokens=100,
                 cache_write_tokens=100,
+                tool_usage=[ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=30)],
             ),
         ]
 
@@ -1119,7 +1124,7 @@ class TestSessionHistoryEndpoint:
 
             assert response.status_code == 200
             data = response.json()
-            assert set(data.keys()) == {"total", "history"}
+            assert set(data.keys()) == {"total", "tool_usage", "history"}
             assert data["total"] == {
                 "length": 3500,
                 "input_tokens": 1700,
@@ -1128,12 +1133,54 @@ class TestSessionHistoryEndpoint:
                 "cache_read_tokens": 150,
                 "cache_write_tokens": 150,
             }
+            assert data["tool_usage"] == [
+                {"name": "bash", "calls": 5, "succeeded": 4, "failed": 1, "duration_ms": 100},
+                {"name": "read", "calls": 1, "succeeded": 1, "failed": 0, "duration_ms": 5},
+            ]
             assert len(data["history"]) == 2
             assert data["history"][0]["step"] == "plan"
             assert data["history"][0]["input_tokens"] == 500
             assert data["history"][0]["output_tokens"] == 300
+            assert data["history"][0]["tool_usage"] == [
+                {"name": "bash", "calls": 3, "succeeded": 2, "failed": 1, "duration_ms": 70},
+                {"name": "read", "calls": 1, "succeeded": 1, "failed": 0, "duration_ms": 5},
+            ]
             assert data["history"][1]["step"] == "build"
             assert data["history"][1]["input_tokens"] == 1200
+
+    @pytest.mark.asyncio
+    async def test_tool_usage_ignores_step_rows(self, authenticated_client: TestClient):
+        mock_rows = [
+            SessionHistory(
+                id="h1",
+                session_id="session-abc",
+                kind="step",
+                step="plan",
+                created_at="2026-01-01T00:00:00Z",
+                tool_usage=[ToolUsage(name="bash", calls=9, succeeded=9)],
+            )
+        ]
+
+        with (
+            patch(
+                "demetra.api.sessions.get_session_state",
+                new_callable=AsyncMock,
+                return_value={"task_id": "TASK-123"},
+            ),
+            patch(
+                "demetra.api.sessions.get_session_history",
+                new_callable=AsyncMock,
+                return_value=mock_rows,
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/sessions/TASK-123/history")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["tool_usage"] == []
+            assert data["history"][0]["tool_usage"] == [
+                {"name": "bash", "calls": 9, "succeeded": 9, "failed": 0, "duration_ms": 0}
+            ]
 
     @pytest.mark.asyncio
     async def test_total_treats_null_tokens_as_zero(self, authenticated_client: TestClient):

@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from demetra.library.models import TokenUsage
+from demetra.library.models import TokenUsage, ToolUsage
 from demetra.services.persistence.database import (
     create_session,
     delete_session,
@@ -45,6 +45,22 @@ async def _fetch_agent_sessions(task_id: str) -> dict[str, dict]:
             {"task_id": task_id},
         )
         return {row.session_id: dict(row._mapping) for row in result.fetchall()}
+
+
+async def _fetch_tool_usage(task_id: str) -> dict[str, dict]:
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                SELECT step, tool_name, calls, succeeded, failed, duration_ms
+                  FROM session_tool_usage
+                 WHERE task_id = :task_id
+                 ORDER BY tool_name
+                """
+            ),
+            {"task_id": task_id},
+        )
+        return {row.tool_name: dict(row._mapping) for row in result.fetchall()}
 
 
 class TestUpdateSessionStep:
@@ -447,6 +463,125 @@ class TestSessionHistoryKind:
         assert [row.kind for row in history] == ["invocation", "step"]
         assert history[0].task_id == task_id
         assert history[1].agent_session_id is None
+
+
+class TestRecordToolUsage:
+    @pytest.mark.asyncio
+    async def test_first_invocation_inserts_per_tool_rows(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+
+        entry = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            tool_usage={
+                "bash": ToolUsage(name="bash", calls=3, succeeded=2, failed=1, duration_ms=70),
+                "read": ToolUsage(name="read", calls=1, succeeded=1, duration_ms=5),
+            },
+        )
+
+        rows = await _fetch_tool_usage(task_id)
+        assert rows["bash"]["step"] == "build"
+        assert rows["bash"]["calls"] == 3
+        assert rows["bash"]["succeeded"] == 2
+        assert rows["bash"]["failed"] == 1
+        assert rows["bash"]["duration_ms"] == 70
+        assert rows["read"]["calls"] == 1
+        assert {usage.name: usage.calls for usage in entry.tool_usage} == {"bash": 3, "read": 1}
+
+    @pytest.mark.asyncio
+    async def test_second_invocation_accumulates_counts(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            tool_usage={"bash": ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=20)},
+        )
+
+        entry = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=200),
+            tool_usage={"bash": ToolUsage(name="bash", calls=3, succeeded=1, failed=2, duration_ms=45)},
+        )
+
+        row = (await _fetch_tool_usage(task_id))["bash"]
+        assert row["calls"] == 5
+        assert row["succeeded"] == 3
+        assert row["failed"] == 2
+        assert row["duration_ms"] == 65
+        assert entry.tool_usage == [ToolUsage(name="bash", calls=5, succeeded=3, failed=2, duration_ms=65)]
+
+    @pytest.mark.asyncio
+    async def test_failed_export_leaves_tool_rows_untouched(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            tool_usage={"bash": ToolUsage(name="bash", calls=2)},
+        )
+
+        entry = await record_agent_invocation(
+            task_id=task_id, step="build", session_id=session_id, usage=None, tool_usage=None
+        )
+
+        assert (await _fetch_tool_usage(task_id))["bash"]["calls"] == 2
+        assert entry.tool_usage == []
+
+    @pytest.mark.asyncio
+    async def test_history_attaches_tool_usage_per_step(self):
+        task_id = _unique_task_id()
+        build_session = _unique_session_id()
+        validate_session = _unique_session_id()
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=build_session,
+            usage=TokenUsage(input=100),
+            tool_usage={"bash": ToolUsage(name="bash", calls=2)},
+        )
+        await record_agent_invocation(
+            task_id=task_id,
+            step="validate",
+            session_id=validate_session,
+            usage=TokenUsage(input=100),
+            tool_usage={"read": ToolUsage(name="read", calls=1)},
+        )
+        await record_session_step(task_id=task_id, step="completed")
+
+        history = await get_session_history(task_id=task_id)
+
+        by_step = {row.step: row for row in history}
+        assert [usage.name for usage in by_step["build"].tool_usage] == ["bash"]
+        assert [usage.name for usage in by_step["validate"].tool_usage] == ["read"]
+        assert by_step["completed"].tool_usage == []
+
+    @pytest.mark.asyncio
+    async def test_delete_session_removes_tool_usage(self):
+        user_id = str(uuid4())
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id, user_id=user_id)
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            tool_usage={"bash": ToolUsage(name="bash", calls=2)},
+        )
+
+        assert await delete_session(task_id=task_id, user_id=user_id) is True
+
+        assert await _fetch_tool_usage(task_id) == {}
 
 
 class TestGetSessionsHasHistory:

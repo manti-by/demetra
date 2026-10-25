@@ -10,7 +10,7 @@ from uuid import uuid4
 from sqlalchemy import Column, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
-from demetra.library.models import Session, SessionHistory, SessionState, TokenUsage, WaitlistEntryUpdate
+from demetra.library.models import Session, SessionHistory, SessionState, TokenUsage, ToolUsage, WaitlistEntryUpdate
 from demetra.library.tables import (
     agent_sessions,
     allowlist_entries,
@@ -19,6 +19,7 @@ from demetra.library.tables import (
     project_environments,
     projects,
     session_history,
+    session_tool_usage,
     sessions,
     users,
     waitlist_entries,
@@ -819,6 +820,7 @@ async def record_agent_invocation(
     outcome: str | None = None,
     fork_of: str | None = None,
     is_primary: bool = False,
+    tool_usage: dict[str, ToolUsage] | None = None,
 ) -> SessionHistory:
     """Record one agent invocation, attributing an exact token delta to it.
 
@@ -834,6 +836,12 @@ async def record_agent_invocation(
     never seeded from a fork parent: a fork's ``info.tokens`` restarts, so its
     first delta is its own cumulative total.
 
+    ``tool_usage`` carries the per-tool counts the caller already filtered by its
+    invocation watermark; they are accumulated onto
+    ``session_tool_usage`` rows keyed by ``(agent_session_id, step, tool_name)``
+    so build iterations add up the same way. A ``None`` ``tool_usage`` (a failed
+    export) leaves the recorded tool rows untouched.
+
     Args:
         task_id: The Linear task identifier.
         step: The workflow step name.
@@ -846,6 +854,8 @@ async def record_agent_invocation(
         fork_of: The parent session id when this session was forked, for
             lineage only — it never feeds the delta.
         is_primary: Whether this session becomes the task's primary session.
+        tool_usage: Per-tool counts for this invocation, keyed by tool name, or
+            None when the export failed.
 
     Returns:
         SessionHistory: The persisted invocation history record.
@@ -1044,6 +1054,68 @@ async def record_agent_invocation(
             row_cost = delta_cost
             row_context = context_tokens
 
+        recorded_tools: list[ToolUsage] = []
+        if tool_usage:
+            for tool_name in sorted(tool_usage):
+                tool_counts = tool_usage[tool_name]
+                existing_tool = await connection.execute(
+                    select(
+                        session_tool_usage.c.id,
+                        session_tool_usage.c.calls,
+                        session_tool_usage.c.succeeded,
+                        session_tool_usage.c.failed,
+                        session_tool_usage.c.duration_ms,
+                    ).where(
+                        (session_tool_usage.c.agent_session_id == agent_session_id)
+                        & (session_tool_usage.c.step == step)
+                        & (session_tool_usage.c.tool_name == tool_name)
+                    )
+                )
+                tool_row = existing_tool.fetchone()
+                if tool_row is None:
+                    recorded = ToolUsage(
+                        name=tool_name,
+                        calls=tool_counts.calls,
+                        succeeded=tool_counts.succeeded,
+                        failed=tool_counts.failed,
+                        duration_ms=tool_counts.duration_ms,
+                    )
+                    await connection.execute(
+                        insert(session_tool_usage).values(
+                            id=str(uuid4()),
+                            task_id=task_id,
+                            agent_session_id=agent_session_id,
+                            step=step,
+                            tool_name=tool_name,
+                            calls=recorded.calls,
+                            succeeded=recorded.succeeded,
+                            failed=recorded.failed,
+                            duration_ms=recorded.duration_ms,
+                            created_at=now,
+                            updated_at=now,
+                        )
+                    )
+                else:
+                    recorded = ToolUsage(
+                        name=tool_name,
+                        calls=tool_row.calls + tool_counts.calls,
+                        succeeded=tool_row.succeeded + tool_counts.succeeded,
+                        failed=tool_row.failed + tool_counts.failed,
+                        duration_ms=tool_row.duration_ms + tool_counts.duration_ms,
+                    )
+                    await connection.execute(
+                        update(session_tool_usage)
+                        .where(session_tool_usage.c.id == tool_row.id)
+                        .values(
+                            calls=recorded.calls,
+                            succeeded=recorded.succeeded,
+                            failed=recorded.failed,
+                            duration_ms=recorded.duration_ms,
+                            updated_at=now,
+                        )
+                    )
+                recorded_tools.append(recorded)
+
     return SessionHistory(
         id=history_id,
         session_id=session_id,
@@ -1062,6 +1134,7 @@ async def record_agent_invocation(
         model=model,
         agent=agent,
         created_at=now.isoformat(),
+        tool_usage=recorded_tools,
     )
 
 
@@ -1166,6 +1239,25 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             .order_by(session_history.c.created_at, session_history.c.id)
         )
         rows = result.fetchall()
+        tool_result = await connection.execute(
+            select(session_tool_usage)
+            .where(session_tool_usage.c.task_id == task_id)
+            .order_by(session_tool_usage.c.tool_name)
+        )
+        tool_rows = tool_result.fetchall()
+
+    tools_by_invocation: dict[tuple[str, str], list[ToolUsage]] = {}
+    for tool_row in tool_rows:
+        key = (tool_row.agent_session_id, tool_row.step)
+        tools_by_invocation.setdefault(key, []).append(
+            ToolUsage(
+                name=tool_row.tool_name,
+                calls=tool_row.calls,
+                succeeded=tool_row.succeeded,
+                failed=tool_row.failed,
+                duration_ms=tool_row.duration_ms,
+            )
+        )
 
     return [
         SessionHistory(
@@ -1186,6 +1278,9 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             model=row.model,
             agent=row.agent,
             created_at=row.created_at.isoformat(),
+            tool_usage=(
+                tools_by_invocation.get((row.agent_session_id, row.step), []) if row.kind == "invocation" else []
+            ),
         )
         for row in rows
     ]

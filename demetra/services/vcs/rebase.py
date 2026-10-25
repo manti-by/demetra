@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
@@ -78,6 +79,7 @@ async def perform_git_rebase(
             rebase_error=stderr.strip()[:2000],
         )
 
+        invoked_at = int(time.time() * 1000)
         agent_exit, agent_out, agent_err = await opencode_rebase_agent(
             target_path=worktree_path,
             task=task,
@@ -92,6 +94,7 @@ async def perform_git_rebase(
             target_path=worktree_path,
             task_title=f"{full_name or 'rebase'} #{pr_number} - rebase",
             environment=environment,
+            invoked_at=invoked_at,
         )
 
         if agent_exit != 0:

@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-258: Tool usage stats](pages/2026-10-25-mnt-258-tool-usage-stats.md) — Implementation of MNT-258: Tool usage stats (2026-10-25)
 - [MNT-251 — Rebuild agent session attribution and token accounting for opencode v2](pages/2026-10-16-mnt-251-session-attribution-accounting.md) — Implemented the full two-phase MNT-251 build in one branch. **Phase 1:** opencode is now version-aware (no `--dir`; `session export` on v2 / `export` on 1.x, still file-backed; both forms tried when the version probe fails), compaction is fixed (`run --command compact` on 1.x; deliberately unsupported on v2 where the flag is gone, with the fork-once session documented as the only context bound and a test that asserts the measured context actually shrank), `info.agent`/serialized `info.model`/`info.cost`/`info.outcome` are persisted, `format_agent_error` surfaces readable errors from default and NDJSON streams, and `verify_opencode_cli` runs a one-per-process startup smoke test. **Phase 2:** new `agent_sessions` cursor table + `session_history.task_id`/`agent_session_id`/`kind`/`cost`/`agent` (migrations `c8d9e0f1a2b3`/`d9e0f1a2b3c4`; legacy rows backfilled to `kind='invocation'` where any token column is non-NULL), one exact-delta invocation row per `(session, step)`, build forks exactly once, review one row per `(round, model)`, research/resolve/merge/rebase/review_fixes each record a row, history resolves by `task_id` after worktree deletion, `delete_session` leaves no orphans, and API totals sum only `kind='invocation'`. 1020 Python + 107 frontend tests pass; `ruff`/`ty`/`bandit` clean. (2026-10-16)
 - [MNT-234: Isolate session context](pages/2026-10-16-mnt-234-isolate-session-context.md) — Research into per-agent session isolation: only build resumes plan's session, and the plan→build pair should stay connected via `--fork` (the literature-backed middle ground). Surfaces the plan-loop stale session id and the stale-pointer-after-worktree-deletion defect — both now fixed by MNT-251 — and corrects the report's misattribution of the stale-session follow-up to the unrelated MNT-151, plus its reliance on `opencode agent list` (gone in v2). (2026-10-16)
 - [MNT-245: Empty session history](pages/2026-10-16-mnt-245-empty-session-history.md) — Why `validate`/`review`/`research` rendered as empty cards: two independent writers (every step transition wrote a guaranteed-empty row; token rows came from a path only plan/build/completed/failed called) plus throwaway sessions that were never persisted. Fixed by MNT-251's explicit `kind='step'`/`kind='invocation'` split and per-step invocation recording; corrects the report's "three call sites" (four) and its stale "totals inflated" claim (NULL on v2, not inflated). (2026-10-16)
@@ -168,8 +169,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Add Plan loop to resolve questions](pages/2026-06-02-plan-loop-resolve-questions.md) — 2026-06-02
 - [Async review](pages/2026-05-25-async-review.md) — 2026-05-25
 
-### Sessions, status & resume (12 pages)
+### Sessions, status & resume (13 pages)
 
+- [MNT-258 — Tool usage stats in session history](pages/2026-10-25-mnt-258-tool-usage-stats.md) — 2026-10-25
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — 2026-09-08
 - [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
 - [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
@@ -198,6 +200,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [Add MCP server for the project](pages/2026-06-01-add-mcp-server.md) — 2026-06-01
+- [MNT-258: Tool usage stats](pages/2026-10-25-mnt-258-tool-usage-stats.md) — 2026-10-25
 
 ### Authentication & API security (10 pages)
 

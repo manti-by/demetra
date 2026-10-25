@@ -1,4 +1,5 @@
 import logging
+import time
 from pathlib import Path
 
 from demetra.library.models import Context, Project, Session, SessionEnvironment
@@ -251,6 +252,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             f"Address every thread. Stage your changes when done."
         )
 
+        invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_review_fixes_agent(
             target_path=worktree_path,
             task=task,
@@ -268,6 +270,7 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             target_path=worktree_path,
             task_title=f"{task_id} - review fixes #{pr_number}",
             environment=environment,
+            invoked_at=invoked_at,
         )
 
         has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project.id)

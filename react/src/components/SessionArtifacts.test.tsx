@@ -171,6 +171,7 @@ describe('SessionArtifacts', () => {
         cache_read_tokens: 25,
         cache_write_tokens: 25,
       },
+      tool_usage: [{ name: 'bash', calls: 2, succeeded: 2, failed: 0, duration_ms: 20 }],
       history: [
         {
           id: 'h1',
@@ -204,6 +205,7 @@ describe('SessionArtifacts', () => {
     expect(screen.getByText('Session History [BETA]')).toBeInTheDocument();
     expect(screen.getByText('plan')).toBeInTheDocument();
     expect(screen.getByText('Total Tokens')).toBeInTheDocument();
+    expect(screen.getByText('Tool Usage')).toBeInTheDocument();
   });
 
   it('does not render history link when session_id is empty', () => {

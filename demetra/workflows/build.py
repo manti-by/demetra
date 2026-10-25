@@ -1,3 +1,5 @@
+import time
+
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.agents.opencode import (
@@ -105,6 +107,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await update_session_step(task_id=context.linear_task.id, step="build")
 
         fork = is_first_build and context.session_id is not None
+        invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_build_agent(
             target_path=context.worktree_path,
             task=current_task,
@@ -128,6 +131,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             forked=fork,
             is_primary=is_first_build,
             environment=context.environment,
+            invoked_at=invoked_at,
         )
         if forked_session_id := (history.session_id if history is not None else None):
             if context.session is not None:
