@@ -578,6 +578,103 @@ class TestExtractToolUsage:
         assert export.tool_usage == {}
 
     @pytest.mark.asyncio
+    async def test_counts_tools_invoked_by_code_mode_execute(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {
+                                "type": "tool",
+                                "name": "execute",
+                                "state": {
+                                    "status": "completed",
+                                    "metadata": {
+                                        "toolCalls": [
+                                            {"tool": "WI.wiki_search", "status": "completed"},
+                                            {"tool": "Demetra.list_tables", "status": "error"},
+                                        ]
+                                    },
+                                },
+                                "time": {"created": 1000, "completed": 1100},
+                            }
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1")
+
+        assert export is not None
+        assert export.tool_usage["execute"].calls == 1
+        wiki = export.tool_usage["WI.wiki_search"]
+        assert (wiki.calls, wiki.succeeded, wiki.failed, wiki.duration_ms) == (1, 1, 0, 0)
+        tables = export.tool_usage["Demetra.list_tables"]
+        assert (tables.calls, tables.succeeded, tables.failed) == (1, 0, 1)
+
+    @pytest.mark.asyncio
+    async def test_counts_nested_tool_calls_from_event_stream_metadata(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {
+                                "type": "tool",
+                                "name": "execute",
+                                "state": {
+                                    "status": "completed",
+                                    "metadata": {
+                                        "metadata": {"toolCalls": [{"tool": "WI.wiki_get_page", "status": "completed"}]}
+                                    },
+                                },
+                            }
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1")
+
+        assert export is not None
+        assert export.tool_usage["WI.wiki_get_page"].calls == 1
+
+    @pytest.mark.asyncio
+    async def test_code_mode_calls_follow_their_part_watermark(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {
+                                "type": "tool",
+                                "name": "execute",
+                                "state": {
+                                    "status": "completed",
+                                    "metadata": {"toolCalls": [{"tool": "WI.wiki_search", "status": "completed"}]},
+                                },
+                                "time": {"created": 1000, "completed": 1100},
+                            }
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1", invoked_at=2000)
+
+        assert export is not None
+        assert export.tool_usage == {}
+
+    @pytest.mark.asyncio
     async def test_uses_ran_key_when_created_is_absent(self, mock_run_command_and_config):
         mock_run_command_and_config.return_value = (
             0,

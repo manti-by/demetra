@@ -524,6 +524,32 @@ class TestRecordToolUsage:
         assert {usage.name: usage.calls for usage in entry.tool_usage} == {"bash": 3, "read": 1}
 
     @pytest.mark.asyncio
+    async def test_mcp_tool_names_round_trip(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+
+        entry = await record_agent_invocation(
+            task_id=task_id,
+            step="plan",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            tool_usage={
+                "execute": ToolUsage(name="execute", calls=1, succeeded=1, duration_ms=20),
+                "WI.wiki_search": ToolUsage(name="WI.wiki_search", calls=2, succeeded=2),
+                "WI.wiki_list_pages": ToolUsage(name="WI.wiki_list_pages", calls=1, succeeded=1),
+            },
+        )
+
+        rows = await _fetch_tool_usage(task_id)
+        assert rows["WI.wiki_search"]["calls"] == 2
+        assert rows["WI.wiki_list_pages"]["succeeded"] == 1
+        assert {usage.name: usage.calls for usage in entry.tool_usage} == {
+            "execute": 1,
+            "WI.wiki_search": 2,
+            "WI.wiki_list_pages": 1,
+        }
+
+    @pytest.mark.asyncio
     async def test_second_invocation_accumulates_counts(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()

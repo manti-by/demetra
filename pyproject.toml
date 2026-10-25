@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.19.5"
+version = "1.19.6"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.13.9,<3.14.0"
@@ -39,14 +39,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "bandit>=1.9.4",
-    "debugpy>=1.8.21",
-    "faker>=40.37.0",
+    "debugpy>=1.8.22",
+    "faker>=40.43.0",
     "ipython>=9.17.1",
     "pytest>=9.1.1",
     "pytest-asyncio>=1.4.0",
     "pytest-cov>=7.1.0",
-    "ty>=0.0.77",
-    "pre-commit>=4.6.2",
+    "ty>=0.0.91",
+    "pre-commit>=4.7.0",
     "uv-bump>=0.6.0",
     "pdoc>=16.0.0",
 ]
@@ -72,7 +72,11 @@ exclude_dirs = [
     "tests/",
     "wiki/"
 ]
-skips = ["B101", "B308", "B703"]
+# B608 (SQL built from strings) is skipped because the MCP database tools
+# interpolate table names, which PostgreSQL cannot take as bind parameters;
+# those names are validated against a regex and the information_schema
+# allow-list, then quoted (demetra/tools/database.py).
+skips = ["B101", "B308", "B608", "B703"]
 
 [tool.curlylint.rules]
 indent = 2
@@ -152,11 +156,14 @@ lines-after-imports = 2
 # Ignore "E402", "F403", "F405" (import violations) in __init__.py files.
 # Ignore "S" (flake8-bandit) and "N802" (function name should be lowercase) in tests and docs.
 # Ignore "RUF" (Ruff-specific rules) and "I" (isort) in migrations.
+# Ignore "S608" in the MCP database tools: table names cannot be bind
+# parameters, so validated identifiers are quoted and interpolated inline.
 "__init__.py" = ["E402", "F403", "F405"]
 "**/{tests,docs}/*" = ["E402", "F403", "F405", "S", "N802", "N815"]
 "**/*test*.py" = ["E402", "F403", "F405", "S", "N802"]
 "**/{settings}/*" = ["E402", "F403", "F405"]
 "**/migrations/*" = ["RUF", "I"]
+"demetra/tools/database.py" = ["S608"]
 
 [tool.ty.src]
 exclude = [

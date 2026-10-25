@@ -271,6 +271,23 @@ describe('SessionHistory', () => {
     expect(document.querySelectorAll('.session-history-totals')).toHaveLength(2);
   });
 
+  it('renders MCP tools invoked through the code-mode execute tool', () => {
+    const usage: SessionToolUsage[] = [
+      { name: 'execute', calls: 1, succeeded: 1, failed: 0, duration_ms: 20 },
+      { name: 'WI.wiki_search', calls: 2, succeeded: 2, failed: 0, duration_ms: 0 },
+      { name: 'WI.wiki_list_pages', calls: 1, succeeded: 1, failed: 0, duration_ms: 0 },
+    ];
+
+    render(
+      <SessionHistory entries={[mockEntries[0]]} total={mockTotal} toolUsage={usage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const grid = document.querySelector('.session-history-tool-grid');
+    expect(grid?.textContent).toContain('WI.wiki_search');
+    expect(grid?.textContent).toContain('WI.wiki_list_pages');
+    expect(grid?.textContent).toContain('execute');
+  });
+
   it('does not render the tool usage block without tool totals', () => {
     render(
       <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />

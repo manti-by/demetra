@@ -136,6 +136,53 @@ def _extract_context(messages: object) -> int | None:
     return latest_input + latest_cache_read
 
 
+def _nested_tool_calls(state: object) -> list[dict]:
+    """Return the tools a code-mode ``execute`` part invoked, if any.
+
+    opencode does not expose MCP tools as top-level tools: the model calls the
+    ``execute`` code-mode tool, which records each tool it ran under
+    ``state.metadata.toolCalls`` in an export (the CLI event stream nests them
+    one level deeper, under ``state.metadata.metadata.toolCalls``). Both shapes
+    are read so a code-mode session still reports its MCP calls.
+
+    Args:
+        state: The ``state`` mapping of a tool part.
+
+    Returns:
+        list[dict]: The nested tool call records, empty when none are present.
+    """
+    if not isinstance(state, dict):
+        return []
+    metadata = state.get("metadata")
+    if not isinstance(metadata, dict):
+        return []
+    calls = metadata.get("toolCalls")
+    if not isinstance(calls, list):
+        nested = metadata.get("metadata")
+        calls = nested.get("toolCalls") if isinstance(nested, dict) else None
+    if not isinstance(calls, list):
+        return []
+    return [call for call in calls if isinstance(call, dict)]
+
+
+def _count_tool_call(
+    usage: dict[str, ToolUsage],
+    name: str,
+    status: object,
+    created: object = None,
+    completed: object = None,
+) -> None:
+    """Add one call to the per-tool counters, with duration when timed."""
+    tool = usage.setdefault(name, ToolUsage(name=name))
+    tool.calls += 1
+    if status == "completed":
+        tool.succeeded += 1
+    elif status == "error":
+        tool.failed += 1
+    if isinstance(created, int) and isinstance(completed, int):
+        tool.duration_ms += max(0, completed - created)
+
+
 def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict[str, ToolUsage]:
     """Count tool calls per tool name, optionally restricted to one invocation.
 
@@ -147,6 +194,12 @@ def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict
     watermark is what keeps the inherited tool calls out of the build step's
     counts. ``invoked_at=None`` counts every part, which is correct for a
     session created by the run being captured.
+
+    Tools invoked through the code-mode ``execute`` tool are counted under their
+    own names in addition to ``execute`` itself: one ``execute`` part can run
+    several tools (``WI.wiki_search``, ``Demetra.list_tables``, ...) and the
+    part alone would hide them. Nested calls carry no timing of their own, so
+    their duration is left at zero, and they follow their part's watermark.
 
     Args:
         messages: The ``messages`` list from an opencode session export.
@@ -194,14 +247,11 @@ def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict
             if invoked_at is not None and (not isinstance(created, int) or created < invoked_at):
                 continue
 
-            tool = usage.setdefault(name, ToolUsage(name=name))
-            tool.calls += 1
-            if status == "completed":
-                tool.succeeded += 1
-            elif status == "error":
-                tool.failed += 1
-            if isinstance(created, int) and isinstance(completed, int):
-                tool.duration_ms += max(0, completed - created)
+            _count_tool_call(usage=usage, name=name, status=status, created=created, completed=completed)
+            for call in _nested_tool_calls(state):
+                nested_name = call.get("tool")
+                if isinstance(nested_name, str) and nested_name:
+                    _count_tool_call(usage=usage, name=nested_name, status=call.get("status"))
 
     return usage
 

@@ -1,7 +1,7 @@
 import asyncio
 import fcntl
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -41,7 +41,7 @@ def _release_flock(fd: int) -> None:
 
 
 @asynccontextmanager
-async def _index_lock(target: Path) -> AsyncIterator[None]:
+async def _index_lock(target: Path) -> AsyncGenerator[None]:
     """Serialize a full index read-modify-write across processes and tasks.
 
     ``_INDEX_LOCK`` only guards coroutines in this process; RQ workers run in

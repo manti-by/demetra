@@ -229,6 +229,21 @@ async def _get_table_columns(pool: asyncpg.Pool, table_name: str) -> set[str]:
     return {row["column_name"] for row in rows}
 
 
+def _quote_identifier(identifier: str) -> str:
+    """Quote a validated identifier for inline use in a SQL statement.
+
+    PostgreSQL has no bind parameters for identifiers, so validated names are
+    quoted inline: wrapped in double quotes with embedded quotes escaped.
+
+    Args:
+        identifier: A table or column name that has already passed validation.
+
+    Returns:
+        str: The double-quoted identifier with internal quotes escaped.
+    """
+    return '"' + identifier.replace('"', '""') + '"'
+
+
 def _filter_sensitive_columns(row: dict) -> dict:
     """Drop sensitive columns (tokens, passwords, etc.) from a result row.
 
@@ -254,7 +269,7 @@ async def get_table_count(pool: asyncpg.Pool, table_name: str) -> dict:
     allowed_tables = await _load_allowed_tables(pool)
     validated_name = _validate_table_name(table_name, allowed_tables)
     async with pool.acquire() as conn:
-        count = await conn.fetchval("SELECT COUNT(*) FROM quote_ident($1)", validated_name)
+        count = await conn.fetchval(f"SELECT COUNT(*) FROM {_quote_identifier(validated_name)}")
     return {"table_name": table_name, "count": count}
 
 
@@ -284,14 +299,14 @@ async def query_table(
     allowed_tables = await _load_allowed_tables(pool)
     validated_name = _validate_table_name(table_name, allowed_tables)
     allowed_columns = await _get_table_columns(pool, validated_name)
-    query = "SELECT * FROM quote_ident($1)"
-    params = [validated_name]
+    query = f"SELECT * FROM {_quote_identifier(validated_name)}"
+    params: list = []
     if filters:
         where_clauses = []
-        for i, (key, value) in enumerate(filters.items()):
+        for key, value in filters.items():
             validated_key = _validate_column_name(key, allowed_columns)
             params.append(value)
-            where_clauses.append(f'"{validated_key}" = ${i + 2}')
+            where_clauses.append(f'"{validated_key}" = ${len(params)}')
         query += " WHERE " + " AND ".join(where_clauses)
     params.append(limit)
     query += f" LIMIT ${len(params)}"
@@ -407,8 +422,12 @@ async def call_tool(name: str, arguments: dict | None) -> ToolResult:
             args.get("offset", 0),
         )
         return ToolResult(content=[TextContent(type="text", text=str(rows))])
-    except Exception:
+    except Exception as exc:
         logger.exception(f"Error executing tool {name}")
+        return ToolResult(
+            content=[TextContent(type="text", text=f"Error: Database operation failed: {exc}")],
+            is_error=True,
+        )
 
     return ToolResult(
         content=[TextContent(type="text", text="Error: Database operation failed")],
