@@ -1,7 +1,7 @@
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
-from demetra.services.persistence.database import update_session_step
+from demetra.services.persistence.database import record_session_step, update_session_step
 from demetra.services.quality.lint import run_ruff_checks, run_ruff_format
 from demetra.services.quality.test import run_pytests
 from demetra.services.runtime.tui import print_message
@@ -25,7 +25,8 @@ async def run_lint_and_test(
     Args:
         target_path: Directory to lint and test.
         session_id: Optional opencode session id forwarded to the pytest runner.
-        task_id: Optional task id used to update the session step.
+        task_id: Optional task id used to advance the session step and record
+            the lint/test history rows.
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
@@ -39,6 +40,7 @@ async def run_lint_and_test(
         print_message("Running RUFF linter", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="lint")
+            await record_session_step(task_id=task_id, step="lint")
 
         await run_ruff_format(target_path=target_path, environment=environment)
         ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, environment=environment)
@@ -56,6 +58,7 @@ async def run_lint_and_test(
         print_message("Running PYTESTs", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="test")
+            await record_session_step(task_id=task_id, step="test")
 
         pytest_exit_code, pytest_result, _ = await run_pytests(
             target_path=target_path, session_id=session_id, environment=environment

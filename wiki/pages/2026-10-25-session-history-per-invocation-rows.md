@@ -125,6 +125,25 @@ assert [(row.step, row.input_tokens) for row in history] == [
 
 ---
 
+## Follow-up — non-agent step rows (lint, test, wiki, push)
+
+Second report on the same session: `lint` / `test` cards missing from the timeline. The frontend and API were
+fine — the rows were never written.
+
+**Root cause:** `update_session_step` stopped writing history in MNT-251, but only `cleanup.py`'s
+`completed` / failure paths were migrated to `record_session_step`. `run_lint_and_test`
+(`demetra/workflows/lint.py:41,58`) still called `update_session_step` alone, so `lint` / `test` advanced
+`sessions.step` (visible in the live flow bar) but never reached `session_history`; `wiki` / `push` in
+`commit_and_push` (`demetra/workflows/cleanup.py:47,68`) had the same gap. Evidence: `session_history` has
+`lint` / `wiki` / `push` step rows only up to 2026-10-12 (before `82ad9d0`); no `test` row was ever written.
+
+**Fix:** `run_lint_and_test` records `lint` / `test` when the tool actually starts (not on the final step
+reset, so a disabled feature cannot create a phantom row); `commit_and_push` records `wiki` and `push`. Tests
+assert the recorded step sequence and that disabled features record nothing.
+
+Note: this deployment has `IS_RUFF_ENABLED` / `IS_PYTEST_ENABLED` unset, so lint/tests are skipped entirely —
+enabling them is required for those rows to appear in the latest sessions.
+
 ## Follow-ups
 
 - Legacy rows written before this change keep their accumulated build row (nothing to split retroactively).

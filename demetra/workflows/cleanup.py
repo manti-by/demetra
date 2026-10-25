@@ -45,6 +45,7 @@ async def commit_and_push(context: Context) -> bool:
 
     print_message("Generating wiki page", style="heading")
     await update_session_step(task_id=context.linear_task.id, step="wiki")
+    await record_session_step(task_id=context.linear_task.id, step="wiki")
     wiki_error: WikiError | None = None
     try:
         await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
@@ -66,6 +67,7 @@ async def commit_and_push(context: Context) -> bool:
         )
 
     await update_session_step(task_id=context.linear_task.id, step="push")
+    await record_session_step(task_id=context.linear_task.id, step="push")
     await git_commit(
         target_path=context.worktree_path,
         message=context.linear_task.full_title,
