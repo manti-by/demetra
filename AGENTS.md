@@ -162,6 +162,7 @@ uv run bandit -c pyproject.toml .
 - Tests live in `tests/` directory
 - Run with `make test` or `uv run pytest tests/`
 - Group test cases in classes named `Test<Feature>` (e.g. `TestWaitlistCliList`); do not use module-level `def test_*` functions for new tests (legacy module-level tests remain in `tests/test_allowlist_cli.py` and `tests/test_migrations.py`)
+- When testing OpenCode invocations (validating output format, extracting token usage, checking `--help`, smoke runs, etc.), use free models whenever possible instead of paid ones — pick a free-tier model for throwaway verification runs and reserve paid models for the real pipeline
 
 ## Database Migrations
 
