@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { getCurrentUser, signup, WaitlistedError } from "./api";
+import { getCurrentUser, getSessionHistory, signup, WaitlistedError } from "./api";
 
 describe("getCurrentUser", () => {
   beforeEach(() => {
@@ -56,5 +56,30 @@ describe("signup", () => {
     );
 
     await expect(signup("blocked@example.com", "hunter2hunter2")).rejects.toThrow(WaitlistedError);
+  });
+});
+
+describe("getSessionHistory", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns empty history and tool usage on 404", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "Session not found" }), { status: 404 })
+    );
+
+    await expect(getSessionHistory("TASK-1")).resolves.toEqual({
+      total: {
+        length: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        reasoning_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+      },
+      tool_usage: [],
+      history: [],
+    });
   });
 });

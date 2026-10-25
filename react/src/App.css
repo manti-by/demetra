@@ -1759,6 +1759,39 @@ th {
   font-family: var(--font-mono);
 }
 
+.session-history-tools {
+  margin-top: 0.5rem;
+  font-size: 0.72rem;
+}
+
+.session-history-tools-label {
+  display: block;
+  color: var(--color-text-tertiary);
+  margin-bottom: 0.25rem;
+}
+
+.session-history-tools-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session-history-tools-list li {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+}
+
+.session-history-tool-name {
+  color: var(--color-text-tertiary);
+}
+
+.session-history-tool-failed {
+  color: var(--color-error);
+}
+
 .session-history-empty,
 .session-history-error {
   text-align: center;
@@ -1797,6 +1830,25 @@ th {
 }
 
 .session-history-totals-grid dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.session-history-tool-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.session-history-tool-grid dt {
+  color: var(--color-text-tertiary);
+  font-family: var(--font-mono);
+}
+
+.session-history-tool-grid dd {
   margin: 0;
   color: var(--color-text-secondary);
   font-family: var(--font-mono);

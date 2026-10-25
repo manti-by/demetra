@@ -6,7 +6,7 @@ from pathlib import Path
 from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import OpenCodeCLIError
-from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage
+from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.persistence.database import record_agent_invocation
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
@@ -134,6 +134,76 @@ def _extract_context(messages: object) -> int | None:
     if latest_input is None:
         return None
     return latest_input + latest_cache_read
+
+
+def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict[str, ToolUsage]:
+    """Count tool calls per tool name, optionally restricted to one invocation.
+
+    Reads both opencode export shapes: 2.x messages carry their parts under
+    ``content`` with the tool name in ``name`` and timing in ``time``; 1.x
+    messages carry them under ``parts`` with the name in ``tool`` and timing in
+    ``state.time``. A part created before ``invoked_at`` (epoch ms) belongs to an
+    earlier invocation: a build fork copies the plan session's messages, so this
+    watermark is what keeps the inherited tool calls out of the build step's
+    counts. ``invoked_at=None`` counts every part, which is correct for a
+    session created by the run being captured.
+
+    Args:
+        messages: The ``messages`` list from an opencode session export.
+        invoked_at: Epoch milliseconds captured before the agent invocation, or
+            None to count every tool part in the export.
+
+    Returns:
+        dict[str, ToolUsage]: Per-tool call counts, keyed by tool name.
+    """
+    if not isinstance(messages, list):
+        return {}
+
+    usage: dict[str, ToolUsage] = {}
+    for message in messages:
+        if not isinstance(message, dict):
+            continue
+        parts = message.get("content")
+        if not isinstance(parts, list):
+            parts = message.get("parts")
+        if not isinstance(parts, list):
+            continue
+
+        for part in parts:
+            if not isinstance(part, dict) or part.get("type") != "tool":
+                continue
+            name = part.get("name") or part.get("tool")
+            if not isinstance(name, str) or not name:
+                continue
+            state = part.get("state")
+            status = state.get("status") if isinstance(state, dict) else None
+            timing = part.get("time")
+            if not isinstance(timing, dict) and isinstance(state, dict):
+                timing = state.get("time")
+            if not isinstance(timing, dict):
+                timing = {}
+            created = timing.get("created")
+            if not isinstance(created, int):
+                created = timing.get("ran")
+            if not isinstance(created, int):
+                created = timing.get("start")
+            completed = timing.get("completed")
+            if not isinstance(completed, int):
+                completed = timing.get("end")
+
+            if invoked_at is not None and (not isinstance(created, int) or created < invoked_at):
+                continue
+
+            tool = usage.setdefault(name, ToolUsage(name=name))
+            tool.calls += 1
+            if status == "completed":
+                tool.succeeded += 1
+            elif status == "error":
+                tool.failed += 1
+            if isinstance(created, int) and isinstance(completed, int):
+                tool.duration_ms += max(0, completed - created)
+
+    return usage
 
 
 def _extract_ndjson_error(stdout: str) -> str | None:
@@ -619,14 +689,16 @@ async def capture_agent_session(
     forked: bool = False,
     is_primary: bool = False,
     environment: SessionEnvironment | None = None,
+    invoked_at: int | None = None,
 ) -> SessionHistory | None:
-    """Attribute one agent invocation's exact token delta to a workflow step.
+    """Attribute one agent invocation's exact token and tool deltas to a step.
 
     Resolves the session id the run used or created (a continued session keeps
     its id; a fresh or forked run is located by its unique title), reads the
     session's cumulative usage through a file-backed export, and records the
-    invocation delta. Failures are logged and swallowed so token accounting can
-    never fail a workflow.
+    invocation delta plus per-tool call counts created since ``invoked_at``.
+    Failures are logged and swallowed so usage accounting can never fail a
+    workflow.
 
     Args:
         task_id: The Linear task identifier, or None to skip recording.
@@ -637,6 +709,9 @@ async def capture_agent_session(
         forked: Whether the run forked ``session_id`` (so the session id changed).
         is_primary: Whether the resolved session becomes the task's primary.
         environment: The resolved session environment forwarded to the subprocess.
+        invoked_at: Epoch milliseconds captured immediately before the agent
+            invocation. Tool calls older than it (a fork's copied parent
+            messages, or an earlier build iteration) are not attributed here.
 
     Returns:
         SessionHistory | None: The persisted invocation record, or None when
@@ -660,9 +735,9 @@ async def capture_agent_session(
             return None
 
         export = await get_opencode_session_export(
-            target_path=target_path, session_id=resolved, environment=environment
+            target_path=target_path, session_id=resolved, environment=environment, invoked_at=invoked_at
         )
-        return await record_agent_invocation(
+        history = await record_agent_invocation(
             task_id=task_id,
             step=step,
             session_id=resolved,
@@ -673,7 +748,15 @@ async def capture_agent_session(
             outcome=export.outcome if export is not None else None,
             fork_of=session_id if forked else None,
             is_primary=is_primary,
+            tool_usage=export.tool_usage if export is not None else None,
         )
+        if history is not None and history.tool_usage:
+            summary = ", ".join(
+                f"{usage.name}: {usage.calls}"
+                for usage in sorted(history.tool_usage, key=lambda usage: (-usage.calls, usage.name))
+            )
+            print_message(f"{step} tool usage: {summary}", style="info")
+        return history
     except (SQLAlchemyError, OSError, ValueError, KeyError):
         logger.exception("Failed to capture agent session for %s (%s)", task_id, step)
         return None
@@ -713,7 +796,10 @@ def _export_command(major: int, session_id: str) -> list[str]:
 
 
 async def get_opencode_session_export(
-    target_path: Path, session_id: str, environment: SessionEnvironment | None = None
+    target_path: Path,
+    session_id: str,
+    environment: SessionEnvironment | None = None,
+    invoked_at: int | None = None,
 ) -> SessionExport | None:
     """Read a session's cumulative usage and attribution via a file-backed export.
 
@@ -728,6 +814,8 @@ async def get_opencode_session_export(
         target_path: Directory to run the opencode CLI in.
         session_id: The opencode session id.
         environment: The resolved session environment forwarded to the subprocess.
+        invoked_at: Epoch milliseconds captured before the agent invocation, used
+            to exclude tool calls inherited from an earlier invocation.
 
     Returns:
         SessionExport | None: The cumulative usage, or None when the export
@@ -763,7 +851,7 @@ async def get_opencode_session_export(
             logger.error("opencode export returned malformed JSON for session %s", session_id)
             continue
 
-        export = _build_session_export(data)
+        export = _build_session_export(data, invoked_at=invoked_at)
         if export is not None:
             return export
         logger.error("opencode export returned an unusable shape for session %s", session_id)
@@ -771,7 +859,7 @@ async def get_opencode_session_export(
     return None
 
 
-def _build_session_export(data: object) -> SessionExport | None:
+def _build_session_export(data: object, invoked_at: int | None = None) -> SessionExport | None:
     """Build a :class:`SessionExport` from a parsed opencode export payload."""
     if not isinstance(data, dict):
         return None
@@ -795,6 +883,7 @@ def _build_session_export(data: object) -> SessionExport | None:
         model=_serialize_model(info.get("model")),
         cost=float(cost) if isinstance(cost, (int, float)) and not isinstance(cost, bool) else None,
         outcome=str(outcome) if isinstance(outcome, str) and outcome else None,
+        tool_usage=_extract_tool_usage(data.get("messages"), invoked_at=invoked_at),
     )
 
 

@@ -1,4 +1,5 @@
 import re
+import time
 from pathlib import Path
 
 from demetra.library.exceptions import BuildError
@@ -44,6 +45,7 @@ async def run_validate_agent(
     """
     print_message(message="Running VALIDATE agent", style="heading")
 
+    invoked_at = int(time.time() * 1000)
     exit_code, stdout, stderr = await opencode_validate_agent(
         target_path=target_path,
         build_plan=build_plan,
@@ -62,6 +64,7 @@ async def run_validate_agent(
         target_path=target_path,
         task_title=task_title,
         environment=environment,
+        invoked_at=invoked_at,
     )
 
     parts: list[str] = []

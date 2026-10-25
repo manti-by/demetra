@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Loader } from "./Loader";
-import type { SessionHistoryEntry, SessionTokenTotals } from "../services/api";
+import type { SessionHistoryEntry, SessionTokenTotals, SessionToolUsage } from "../services/api";
 
 const CloseIcon = () => (
   <svg
@@ -30,6 +30,7 @@ interface SessionHistoryCardProps {
 
 function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
   const hasTokens = entry.kind === 'invocation';
+  const toolUsage = entry.tool_usage ?? [];
 
   return (
     <li className="session-history-card" data-step={entry.step} data-kind={entry.kind}>
@@ -107,6 +108,25 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
           )}
         </dl>
       )}
+      {hasTokens && toolUsage.length > 0 && (
+        <div className="session-history-tools">
+          <span className="session-history-tools-label">Tools</span>
+          <ul className="session-history-tools-list">
+            {toolUsage.map((tool) => (
+              <li
+                key={tool.name}
+                title={`${tool.succeeded} succeeded, ${tool.failed} failed, ${tool.duration_ms.toLocaleString()} ms`}
+              >
+                <span className="session-history-tool-name">{tool.name}</span>
+                <span className="session-history-tool-calls">×{tool.calls.toLocaleString()}</span>
+                {tool.failed > 0 && (
+                  <span className="session-history-tool-failed"> ({tool.failed} failed)</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </li>
   );
 }
@@ -114,6 +134,7 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
 interface SessionHistoryProps {
   entries: SessionHistoryEntry[];
   total: SessionTokenTotals;
+  toolUsage: SessionToolUsage[];
   isOpen: boolean;
   onClose: () => void;
   isLoading: boolean;
@@ -154,9 +175,35 @@ function TotalTokensBlock({ total }: { total: SessionTokenTotals }) {
   );
 }
 
+function ToolUsageBlock({ usage }: { usage: SessionToolUsage[] }) {
+  if (usage.length === 0) return null;
+
+  return (
+    <div className="session-history-totals">
+      <h3 className="session-history-totals-header">Tool Usage</h3>
+      <dl className="session-history-tool-grid">
+        {usage.map((tool) => (
+          <div key={tool.name}>
+            <dt>{tool.name}</dt>
+            <dd
+              title={`${tool.succeeded} succeeded, ${tool.failed} failed, ${tool.duration_ms.toLocaleString()} ms`}
+            >
+              {tool.calls.toLocaleString()}
+              {tool.failed > 0 && (
+                <span className="session-history-tool-failed"> ({tool.failed} failed)</span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
 function SessionHistoryInner({
   entries,
   total,
+  toolUsage,
   isOpen,
   onClose,
   isLoading,
@@ -192,6 +239,7 @@ function SessionHistoryInner({
                 ))}
               </ol>
               <TotalTokensBlock total={total} />
+              <ToolUsageBlock usage={toolUsage} />
             </>
           )}
         </div>

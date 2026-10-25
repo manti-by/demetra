@@ -4,11 +4,12 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.library.models import SessionEnvironment, SessionExport, TokenUsage
+from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
     capture_agent_session,
     extract_research_report,
+    get_opencode_session_export,
     get_opencode_session_id,
     get_opencode_session_length,
     get_opencode_session_tokens,
@@ -441,6 +442,182 @@ class TestOpencodeSessionTokens:
         assert result.context == 220  # 20 + 200
 
 
+class TestExtractToolUsage:
+    @pytest.fixture
+    def mock_run_command_and_config(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command_to_file", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_version,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode")}),
+        ):
+            mock_version.return_value = (0, "2.0.30", "")
+            yield mock_run
+
+    @staticmethod
+    def _payload(messages: object) -> str:
+        return json.dumps({"info": {"tokens": {"input": 1, "output": 1, "reasoning": 0}}, "messages": messages})
+
+    @pytest.mark.asyncio
+    async def test_counts_v2_content_parts(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {"type": "text", "text": "working"},
+                            {
+                                "type": "tool",
+                                "name": "bash",
+                                "state": {"status": "completed"},
+                                "time": {"created": 1000, "completed": 1100},
+                            },
+                            {
+                                "type": "tool",
+                                "name": "bash",
+                                "state": {"status": "error"},
+                                "time": {"created": 2000, "completed": 2050},
+                            },
+                            {
+                                "type": "tool",
+                                "name": "read",
+                                "state": {"status": "running"},
+                                "time": {"created": 3000},
+                            },
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1")
+
+        assert export is not None
+        bash = export.tool_usage["bash"]
+        assert (bash.calls, bash.succeeded, bash.failed, bash.duration_ms) == (2, 1, 1, 150)
+        read = export.tool_usage["read"]
+        assert (read.calls, read.succeeded, read.failed, read.duration_ms) == (1, 0, 0, 0)
+
+    @pytest.mark.asyncio
+    async def test_counts_v1_parts_and_state_timing(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "info": {"role": "assistant"},
+                        "parts": [
+                            {
+                                "type": "tool",
+                                "tool": "grep",
+                                "state": {"status": "completed", "time": {"start": 100, "end": 130}},
+                            },
+                            {
+                                "type": "tool",
+                                "tool": "grep",
+                                "state": {"status": "error", "time": {"start": 200, "end": 210}},
+                            },
+                        ],
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1")
+
+        assert export is not None
+        grep = export.tool_usage["grep"]
+        assert (grep.calls, grep.succeeded, grep.failed, grep.duration_ms) == (2, 1, 1, 40)
+
+    @pytest.mark.asyncio
+    async def test_watermark_excludes_inherited_parts(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {
+                                "type": "tool",
+                                "name": "shell",
+                                "state": {"status": "completed"},
+                                "time": {"created": 1792922515390, "completed": 1792922515400},
+                            },
+                            {
+                                "type": "tool",
+                                "name": "shell",
+                                "state": {"status": "completed"},
+                                "time": {"created": 1792922527297, "completed": 1792922527307},
+                            },
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-fork", invoked_at=1792922520000)
+
+        assert export is not None
+        assert export.tool_usage["shell"].calls == 1
+        assert export.tool_usage["shell"].duration_ms == 10
+
+    @pytest.mark.asyncio
+    async def test_watermark_skips_parts_without_timing(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload([{"content": [{"type": "tool", "name": "bash", "state": {"status": "completed"}}]}]),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1", invoked_at=1)
+
+        assert export is not None
+        assert export.tool_usage == {}
+
+    @pytest.mark.asyncio
+    async def test_uses_ran_key_when_created_is_absent(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload(
+                [
+                    {
+                        "content": [
+                            {
+                                "type": "tool",
+                                "name": "edit",
+                                "state": {"status": "completed"},
+                                "time": {"ran": 100, "completed": 130},
+                            }
+                        ]
+                    }
+                ]
+            ),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1", invoked_at=50)
+
+        assert export is not None
+        assert export.tool_usage["edit"].calls == 1
+        assert export.tool_usage["edit"].duration_ms == 30
+
+    @pytest.mark.asyncio
+    async def test_no_messages_yields_no_tool_usage(self, mock_run_command_and_config):
+        mock_run_command_and_config.return_value = (
+            0,
+            self._payload([]),
+            "",
+        )
+
+        export = await get_opencode_session_export(Path("/p"), "session-1")
+
+        assert export is not None
+        assert export.tool_usage == {}
+
+
 class TestOpencodeCompactSession:
     @pytest.fixture
     def mock_run_command_and_config(self):
@@ -545,11 +722,18 @@ class TestCaptureAgentSession:
             cost=0.5,
             outcome="completed",
         )
-        mock_record_invocation.return_value = "history"
+        history = SessionHistory(
+            id="history",
+            session_id="ses_1",
+            step="build",
+            created_at="2026-01-01T00:00:00Z",
+            kind="invocation",
+        )
+        mock_record_invocation.return_value = history
 
         result = await capture_agent_session(task_id="TASK-1", step="build", target_path=Path("/p"), session_id="ses_1")
 
-        assert result == "history"
+        assert result is history
         mock_get_session_id.assert_not_called()
         mock_record_invocation.assert_awaited_once_with(
             task_id="TASK-1",
@@ -562,7 +746,38 @@ class TestCaptureAgentSession:
             outcome="completed",
             fork_of=None,
             is_primary=False,
+            tool_usage={},
         )
+
+    @pytest.mark.asyncio
+    async def test_forwards_invocation_watermark_and_tool_usage(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_export.return_value = SessionExport(
+            tokens=TokenUsage(input=100),
+            tool_usage={"bash": ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=15)},
+        )
+        mock_record_invocation.return_value = SessionHistory(
+            id="history",
+            session_id="ses_1",
+            step="build",
+            created_at="2026-01-01T00:00:00Z",
+            kind="invocation",
+            tool_usage=[ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=15)],
+        )
+
+        await capture_agent_session(
+            task_id="TASK-1",
+            step="build",
+            target_path=Path("/p"),
+            session_id="ses_1",
+            invoked_at=4000,
+        )
+
+        assert mock_get_export.call_args.kwargs["invoked_at"] == 4000
+        assert mock_record_invocation.call_args.kwargs["tool_usage"] == {
+            "bash": ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=15)
+        }
 
     @pytest.mark.asyncio
     async def test_resolves_session_by_title_when_absent(
@@ -570,7 +785,7 @@ class TestCaptureAgentSession:
     ):
         mock_get_session_id.return_value = "ses_resolved"
         mock_get_export.return_value = None
-        mock_record_invocation.return_value = "history"
+        mock_record_invocation.return_value = None
 
         await capture_agent_session(task_id="TASK-1", step="plan", target_path=Path("/p"), task_title="TASK-1 plan")
 
@@ -589,7 +804,7 @@ class TestCaptureAgentSession:
     ):
         mock_get_session_id.return_value = "ses_fork"
         mock_get_export.return_value = SessionExport(tokens=TokenUsage(input=100))
-        mock_record_invocation.return_value = "history"
+        mock_record_invocation.return_value = None
 
         await capture_agent_session(
             task_id="TASK-1",

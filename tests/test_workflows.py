@@ -1010,10 +1010,13 @@ class TestWorkflowBuild:
         mock_run_lint_and_test.return_value = (False, None)
         mock_user_input.return_value = ("1", None)
 
-        result = await run_build_step("test build plan", context)
+        with patch("demetra.workflows.build.capture_agent_session", new_callable=AsyncMock) as mock_capture:
+            mock_capture.return_value = None
+            result = await run_build_step("test build plan", context)
 
         assert result is None
         mock_bump_version.assert_called_once()
+        assert isinstance(mock_capture.call_args.kwargs["invoked_at"], int)
 
     @pytest.mark.asyncio
     async def test_run_build_step_feeds_missing_items_back_to_build_agent(

@@ -65,8 +65,9 @@ async def get_session_history_endpoint(
         user: The authenticated user.
 
     Returns:
-        dict: A mapping with the session-wide token totals under ``total``
-            and the serialized session history rows under ``history``.
+        dict: A mapping with the session-wide token totals under ``total``,
+            the session-wide per-tool call counts under ``tool_usage``, and the
+            serialized session history rows under ``history``.
 
     Raises:
         HTTPException: 404 when no session exists for the task.
@@ -76,7 +77,11 @@ async def get_session_history_endpoint(
         raise HTTPException(status_code=404, detail="Session not found")
 
     rows = await get_session_history(task_id=task_id)
-    return {"total": _compute_total_tokens(rows=rows), "history": [_serialize_history_row(row=r) for r in rows]}
+    return {
+        "total": _compute_total_tokens(rows=rows),
+        "tool_usage": _compute_tool_usage(rows=rows),
+        "history": [_serialize_history_row(row=r) for r in rows],
+    }
 
 
 def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
@@ -120,6 +125,37 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
     return total
 
 
+def _compute_tool_usage(rows: list[SessionHistory]) -> list[dict]:
+    """Merge the per-tool call counts across invocation history records.
+
+    Only ``kind='invocation'`` rows carry tool usage; every invocation row is a
+    distinct ``(session, step)`` slice whose counts were already filtered by its
+    invocation watermark, so merging them cannot double count. The result is
+    ordered by call count and then tool name so the frontend renders a stable
+    breakdown.
+
+    Args:
+        rows: The session history records to merge.
+
+    Returns:
+        list[dict]: One entry per tool name, with its merged counters.
+    """
+    merged: dict[str, dict] = {}
+    for row in rows:
+        if row.kind != "invocation":
+            continue
+        for usage in row.tool_usage:
+            entry = merged.setdefault(
+                usage.name,
+                {"name": usage.name, "calls": 0, "succeeded": 0, "failed": 0, "duration_ms": 0},
+            )
+            entry["calls"] += usage.calls
+            entry["succeeded"] += usage.succeeded
+            entry["failed"] += usage.failed
+            entry["duration_ms"] += usage.duration_ms
+    return sorted(merged.values(), key=lambda entry: (-entry["calls"], entry["name"]))
+
+
 def _serialize_history_row(row: SessionHistory) -> dict:
     """Convert a session history record into its JSON representation.
 
@@ -146,5 +182,15 @@ def _serialize_history_row(row: SessionHistory) -> dict:
         "cost": row.cost,
         "model": row.model,
         "agent": row.agent,
+        "tool_usage": [
+            {
+                "name": usage.name,
+                "calls": usage.calls,
+                "succeeded": usage.succeeded,
+                "failed": usage.failed,
+                "duration_ms": usage.duration_ms,
+            }
+            for usage in row.tool_usage
+        ],
         "created_at": row.created_at,
     }

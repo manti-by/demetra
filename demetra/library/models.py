@@ -100,6 +100,15 @@ class TokenUsage:
 
 
 @dataclass
+class ToolUsage:
+    name: str
+    calls: int = 0
+    succeeded: int = 0
+    failed: int = 0
+    duration_ms: int = 0
+
+
+@dataclass
 class SessionHistory:
     id: str
     session_id: str | None
@@ -118,6 +127,7 @@ class SessionHistory:
     cost: float | None = None
     model: str | None = None
     agent: str | None = None
+    tool_usage: list[ToolUsage] = field(default_factory=list)
 
 
 @dataclass
@@ -149,6 +159,8 @@ class SessionExport:
     per-message sum; the delta model in the persistence layer turns it into
     per-invocation deltas. ``context`` is a snapshot of the last assistant
     turn's input + cache read, consumed as a gauge, never as a delta.
+    ``tool_usage`` maps each tool name to its invocation counts, already
+    filtered by the caller's ``invoked_at`` watermark.
     """
 
     tokens: "TokenUsage"
@@ -156,6 +168,7 @@ class SessionExport:
     model: str | None = None
     cost: float | None = None
     outcome: str | None = None
+    tool_usage: dict[str, ToolUsage] = field(default_factory=dict)
 
 
 @dataclass

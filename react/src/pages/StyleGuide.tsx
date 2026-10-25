@@ -4,7 +4,7 @@ import { Loader } from "../components/Loader";
 import { GitHubLoginButton } from "../components/GitHubLoginButton";
 import { SessionHistory } from "../components/SessionHistory";
 import { SessionStateFlow } from "../components/SessionStateFlow";
-import type { SessionHistoryEntry } from "../services/api";
+import type { SessionHistoryEntry, SessionToolUsage } from "../services/api";
 import "./StyleGuide.css";
 
 const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
@@ -26,6 +26,10 @@ const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
     cost: 0.0123,
     model: "openrouter/anthropic",
     agent: "plan",
+    tool_usage: [
+      { name: "bash", calls: 4, succeeded: 4, failed: 0, duration_ms: 120 },
+      { name: "read", calls: 2, succeeded: 2, failed: 0, duration_ms: 30 },
+    ],
   },
   {
     id: "2",
@@ -45,6 +49,10 @@ const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
     cost: 0.0246,
     model: "openrouter/anthropic",
     agent: "build",
+    tool_usage: [
+      { name: "bash", calls: 6, succeeded: 5, failed: 1, duration_ms: 240 },
+      { name: "edit", calls: 3, succeeded: 3, failed: 0, duration_ms: 90 },
+    ],
   },
 ];
 
@@ -56,6 +64,12 @@ const MOCK_TOTAL = {
   cache_read_tokens: 120,
   cache_write_tokens: 120,
 };
+
+const MOCK_TOOL_USAGE: SessionToolUsage[] = [
+  { name: "bash", calls: 10, succeeded: 9, failed: 1, duration_ms: 360 },
+  { name: "read", calls: 2, succeeded: 2, failed: 0, duration_ms: 30 },
+  { name: "edit", calls: 3, succeeded: 3, failed: 0, duration_ms: 90 },
+];
 
 const BUILD_STEP_VARIANTS: { label: string; step: string | null }[] = [
   { label: "No step yet", step: null },
@@ -409,13 +423,17 @@ const hello = "world";`}</pre>
               <h3 className="session-history-totals-header">Total Tokens</h3>
               <dl className="session-history-totals-grid"><div><dt>Input</dt><dd>1,700</dd></div><div><dt>Output</dt><dd>1,300</dd></div><div><dt>Total</dt><dd>3,600</dd></div></dl>
             </div>
+            <div className="session-history-totals">
+              <h3 className="session-history-totals-header">Tool Usage</h3>
+              <dl className="session-history-tool-grid"><div><dt>bash</dt><dd>10</dd></div><div><dt>read</dt><dd>2</dd></div><div><dt>edit</dt><dd>3</dd></div></dl>
+            </div>
           </div>
           <div className="session-history-empty">No history yet</div>
           <div className="session-history-error">Failed to load session history</div>
           <div style={{ display: "flex", justifyContent: "center", padding: 12 }}><Loader size={32} /></div>
         </div>
 
-        <SessionHistory entries={MOCK_HISTORY_ENTRIES} total={MOCK_TOTAL} isOpen={showHistory} onClose={() => setShowHistory(false)} isLoading={historyLoading} error={null} />
+        <SessionHistory entries={MOCK_HISTORY_ENTRIES} total={MOCK_TOTAL} toolUsage={MOCK_TOOL_USAGE} isOpen={showHistory} onClose={() => setShowHistory(false)} isLoading={historyLoading} error={null} />
       </section>
 
       {/* ── Modals ── */}

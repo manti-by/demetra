@@ -1,3 +1,4 @@
+import time
 from typing import Any
 
 from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
@@ -92,6 +93,7 @@ async def _run_research_agent(context: Context) -> str | None:
         print_message("Running RESEARCH agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="research")
 
+        invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_research_agent(
             target_path=context.worktree_path,
             task=context.linear_task.text,
@@ -109,6 +111,7 @@ async def _run_research_agent(context: Context) -> str | None:
             task_title=context.linear_task.full_title,
             is_primary=True,
             environment=context.environment,
+            invoked_at=invoked_at,
         )
 
         if exit_code != 0:

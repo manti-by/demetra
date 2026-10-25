@@ -1,4 +1,5 @@
 import asyncio
+import time
 from pathlib import Path
 
 from demetra.library.models import SessionEnvironment
@@ -60,6 +61,7 @@ async def run_review_agents(
     models = environment.review_models if environment is not None else OPENCODE["review_models"]
     base_title = task_title or "review"
     titles = [f"{base_title} - review r{round_index} {model}" for model in models]
+    invoked_at = int(time.time() * 1000)
     review_agents = [
         opencode_review_agent(
             target_path=target_path,
@@ -79,6 +81,7 @@ async def run_review_agents(
             target_path=target_path,
             task_title=title,
             environment=environment,
+            invoked_at=invoked_at,
         )
 
     parts = []
