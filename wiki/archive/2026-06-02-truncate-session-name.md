@@ -12,11 +12,9 @@ related: [2026-09-02-mobile-template-react-frontend.md]
 ---
 
 # Truncate session name
-> **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-09-02-mobile-template-react-frontend]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-09-02-mobile-template-react-frontend]]. See wiki/archive/ for the original.
 
 ## TL;DR
 

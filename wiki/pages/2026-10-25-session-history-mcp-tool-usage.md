@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_e8b5aa148ffeyIlCo1dEIlSawZ
 services: [api, agents/opencode, persistence/database, react, tests]
-branch: -
+branch: "-"
 tickets: []
 tags: [session-history, tool-usage, mcp, opencode, code-mode, frontend, cost]
 related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]

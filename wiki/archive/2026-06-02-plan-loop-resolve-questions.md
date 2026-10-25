@@ -12,11 +12,9 @@ related: [2026-08-04-fix-resolve-agent-truncated-context.md]
 ---
 
 # Add Plan loop to resolve questions
-> **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-08-04-fix-resolve-agent-truncated-context]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-04-fix-resolve-agent-truncated-context]]. See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -32,6 +30,11 @@ Previously, questions from the plan step were posted to Linear for a human. With
 - `--plan-loop` argument to `main.py` — loops plan and resolve agents
 - Questions sent to the resolve agent instead of Linear
 - Max attempts read from settings (default 30)
+
+> **Open discrepancy (2026-10-26, Consistency Agent):** current code defaults to **10**
+> — `MAX_ATTEMPTS["plan"] = env_get_int("MAX_PLAN_ATTEMPTS", 10)`
+> (`demetra/settings.py:48`); the settings refactor `10ea543` (2026-09-28) reset it from
+> `30` with no recorded intent. Tracked as **Q-002** in `wiki/QUESTIONS.md`.
 
 ## Step 1 — Resolve agent
 

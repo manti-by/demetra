@@ -68,6 +68,8 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 
 > **Consistency note (2026-09-15, Consistency Agent):** Re-verified `main.py:127` (`if not context.session or not context.session.build_plan`) and `demetra/services/daemons/watcher.py:165` — replan guard on `awaiting_input` and watcher enqueue dedupe still not implemented on this branch; awaiting product decision. Diagnosis in this page remains current.
 
+> **Consistency note (2026-10-26, Consistency Agent):** still open at HEAD `be55753`; line refs moved. The gate is `main.py:138` (`if not context.session or not context.session.build_plan:`), the research early return above it (`main.py:129-135`) does not apply to normal tickets, and `process_tasks` still calls `delay_run_workflow` unconditionally for every accepted TODO task (`demetra/services/daemons/watcher.py:196`; `pending_ids` only guards the session upsert at `:172`). No `session.step` branch exists anywhere in `main.py`.
+
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References

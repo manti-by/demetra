@@ -13,6 +13,9 @@ related: []
 
 # Add delete button for a session
 
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-03-check-api-auth-and-credentials]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Sessions can now be deleted entirely. A delete button sits near the clear button in the session log header; on click it sends a delete request to the API, which removes the session and all related objects (database records, log files). The session list auto-refreshes after deletion, and the button is styled with hover effects. Precursor attempts (#35 MNT-85, #33 MNT-82) were superseded by this PR (#38).

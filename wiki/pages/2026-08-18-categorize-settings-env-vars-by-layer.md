@@ -47,6 +47,12 @@ Via `get_user_environments_decrypted` (`persistence/database.py:1565`), merged b
 | `GROQ_API_KEY` | `settings.py:186` | `llm/groq.py:37…` (legacy, parity treatment) |
 | `GROQ_MODEL` | `settings.py:187` | Same legacy |
 
+> **Correction (2026-10-26, Consistency Agent):** both Groq entries are gone —
+> `demetra/settings.py` has no `GROQ` block (only `OPENROUTER` at `:214`),
+> `demetra/services/llm/groq.py` was deleted in `10ea543` (2026-09-28), and
+> `langchain-groq` is no longer a dependency. See
+> [[2026-08-18-migrate-llm-groq-to-openrouter]].
+
 ## Section 3 — System (stay in `settings.py`, overridable by user-shared env)
 
 Ship as defaults; user-shared env may override at `build_subprocess_env:57`.

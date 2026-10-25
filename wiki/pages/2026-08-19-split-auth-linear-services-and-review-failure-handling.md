@@ -4,11 +4,11 @@ date: 2026-08-19
 type: implementation
 status: resolved
 session_id: "-"
-services: [auth, linear, tools, llm, workflows]
+services: [auth, linear, tools, llm, workflows, graphql]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
-tickets: [MNT-170]
-tags: [refactor, subpackage, facade, exceptions, review, pr-description, openrouter]
-related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-16-mnt-205-revise-merged-environment.md]
+tickets: [MNT-170, MNT-103, MNT-34, MNT-60]
+tags: [refactor, subpackage, facade, exceptions, review, pr-description, openrouter, linear, comments, research, oauth, tokens, graphql]
+related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-08-llm-authored-wiki-pages.md, 2026-06-09-check-linear-ticket-text.md]
 ---
 
 # Split auth/linear services into subpackages + review-failure handling
@@ -73,10 +73,16 @@ New coverage: `test_openrouter` (ReviewError/PrDescriptionError on LLM failure),
 
 Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render.py:57` still present. Allowlist now at `demetra/services/auth/allowlist.py` (see [[2026-08-06-allowlist-review-fixes]]).
 
+> **Correction (2026-10-26, Consistency Agent):** the `render.py` TODO was removed with the deterministic wiki scaffold in `8ef18b1` (`Drop deterministic wiki creation`, 2026-10-09) — no `TODO` remains under `demetra/services/wiki/`. See [[2026-10-08-llm-authored-wiki-pages]].
+
+## Source — [[2026-06-09-check-linear-ticket-text]]
+
+MNT-103 (2026-06-09): validated the GraphQL shape behind `LinearTask.text` and shipped the renderer it supported (state filter, branch/labels on the issue list, richer comment rendering). The durable contract is narrower than that rendering: `LinearTask.comments` is a `list[str]` of comment **bodies** — `extract_comments` (`demetra/services/linear/tasks.py:30-45`) uses `resolvedAt` only to skip resolved threads and drops timestamps/authors, while the query still selects them (`demetra/queries/get_all_issues.gql:29,32-34`). Plan questions are still posted one comment per question.
+
 ## Follow-ups
 
 - ~~Complete MNT-170 review gates before commit~~ **Done** — merged via PR #80.
-- Confirm whether `demetra/services/wiki/render.py` `# TODO: Add template and render` is deliberate or leftover.
+- Confirm whether `demetra/services/wiki/render.py` `# TODO: Add template and render` is deliberate or leftover. *(Resolved 2026-10-26: removed with the deterministic scaffold in `8ef18b1`; see the note above.)*
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

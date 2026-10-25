@@ -27,6 +27,8 @@ The ticket's premise ("almost all agents share the same session") was wrong in c
 
 - **plan-agent** — fresh session per run (`--title` set, no `--session`); discovered afterwards by title match and persisted to `sessions.session_id`.
 - **build-agent** — resumes the plan session (`--session context.session_id`); all build-loop iterations accumulate in it.
+
+> **Correction (2026-10-26, Consistency Agent):** as implemented by MNT-251 this is *fork-once*: the first build invocation passes the plan session id **with `--fork`** (`demetra/workflows/build.py:109`, `demetra/services/agents/opencode.py:646-648`) and every later iteration resumes that fork, so build spend and context stay in its own session id. The pre-implementation snapshot in this section ("resumes the plan session") describes the defect MNT-251 fixed; see [[2026-10-16-mnt-251-session-attribution-accounting]].
 - **validate-agent** — fresh session per run.
 - **review-agents** — fresh session per model per round.
 - **resolve / research / merge / review-fixes** — fresh session per run (no `session_id` parameter at all).

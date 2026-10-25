@@ -34,7 +34,16 @@ The plan involves updating the `LogConsole.tsx` file to scroll to the bottom of 
 ```tsx
 useEffect(() => {
   if (logsEndRef.current && typeof logsEndRef.current.scrollIntoView === 'function') {
-…
+    logsEndRef.current.scrollIntoView({ behavior: "instant" as ScrollBehavior });
+  }
+}, [taskId, logs]);
+```
+
+> **Correction (2026-10-26, Consistency Agent):** the plan's `{ block: "end" }` shipping as
+> `{ behavior: "instant" }` (`react/src/components/LogConsole.tsx:135-139`) is what
+> avoids the browser's smooth-scroll fight alongside `scroll-behavior: auto` on
+> `.log-content` (`react/src/App.css:442`). The snippet above was also truncated
+> and unclosed in the generated page (it broke every following section's rendering).
 
 ## Test Results
 

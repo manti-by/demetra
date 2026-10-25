@@ -196,8 +196,10 @@ Replaced tests:
 - `PAGE_TYPE` is hardcoded to `implementation`, so the LLM only ever writes the
   implementation preset even when a session was a debug chase or an investigation. Classifying
   the type would let the prompt pick the right preset.
-- `compose_wiki_page` still takes nine keyword-only params mirrored by an `input={}` literal.
-  A `WikiPageFacts` dataclass would remove both the clump and the string-keyed dict plumbing.
+- `compose_wiki_page` still takes eleven keyword-only params (plus `environment`) mirrored by a
+  `template_input` literal (`demetra/services/llm/openrouter.py:197-244`; `diff_excerpt` and
+  `related` were added after this note was written). A `WikiPageFacts` dataclass would remove
+  both the clump and the string-keyed dict plumbing.
 
 ## References
 

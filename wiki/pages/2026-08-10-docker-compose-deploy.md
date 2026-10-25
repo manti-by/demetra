@@ -28,7 +28,7 @@ MNT-106 shipped `Dockerfile`; MNT-119 added systemd deploy. This mirrors the app
 **File:** `docker-compose.yaml` — project `demetra`, volumes `demetra_db_data`, `demetra_redis_data`, `demetra_react_dist`, `demetra_app_data`:
 
 - `db` — `postgres:18-alpine`, `pg_isready` healthcheck, volume on `/var/lib/postgresql` (not `…/data` — 18+ uses pg_ctlcluster subdirs, docker-library/postgres PR 1259).
-- `redis` — `redis:7-alpine`, ping healthcheck.
+- `redis` — `redis:7`, ping healthcheck.
 - `migrate` — one-shot `alembic upgrade head` (`${DEMETRA_IMAGE:-mantiby/demetra:latest}`), gated on `db` healthy, `restart: "no"`.
 - `api` — `uvicorn --port 8001 --workers 4`, gated on `migrate: service_completed_successfully` + `db`/`redis` healthy, `127.0.0.1:8001` loopback (host nginx sole ingress).
 - `worker` — `python -m demetra.worker` with `deploy.replicas: 4` (mirrors `worker@{1..4}.service`), same gates. `docker-up`/`docker-deploy` also pass `--scale worker=4` for Compose <2.20 compat.
@@ -86,6 +86,15 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 > (`Makefile:31`) runs `--scale worker=2`, and only `make docker-up`
 > (`Makefile:101`) keeps `--scale worker=4`. The "4 workers" wording above is
 > stale for the deploy path.
+>
+> **Correction (2026-10-26, Consistency Agent):** two more details drifted.
+> (1) Redis is `redis:7` (`docker-compose.yaml:58`), not `redis:7-alpine`.
+> (2) `docker-deploy` is only a `.PHONY` name (`Makefile:2`) with no recipe —
+> the working target is `deploy` (`Makefile:26-35`), which runs `git pull`,
+> builds the image, pulls `postgres redis react-build`, runs `migrate
+> react-build` fail-fast, then brings the long-running services up with
+> `--scale worker=2`; `docker-up` (`Makefile:100-101`) is the 4-worker
+> no-rebuild path.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

@@ -5,7 +5,7 @@ type: implementation
 status: resolved
 session_id: ses_e8cb0a5a3fferHYaEAjpMs6ONG
 services: [main, api, library, persistence, workflows, migrations, react, tests]
-branch: -
+branch: "-"
 tickets: []
 tags: [session-history, token-accounting, frontend, cost, failure-reasons]
 related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-08-05-pr-creation-failure-handler.md]

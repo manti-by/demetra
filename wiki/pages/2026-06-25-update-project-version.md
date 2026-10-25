@@ -17,6 +17,8 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-08-21-mnt-176-bump
 
 Every feature/bugfix workflow now auto-bumps `pyproject.toml`; major bumps are manual. The bump is integrated into the workflow with rollback on failure. Tests added.
 
+> **Correction (2026-10-26, Consistency Agent):** there is no rollback. `bump_project_version` is called inside the build loop (`demetra/workflows/build.py:209`) and only writes atomically; the `original_pyproject` revert block was removed from `main.py` in `8f42bd6`, and `tests/test_project.py` has no rollback test. A failed run can leave the bumped version in the worktree. The default axis is now patch (`is_patch=True`) — see Q-001 in `wiki/QUESTIONS.md`.
+
 ---
 
 ## Overview

@@ -13,11 +13,8 @@ related: [2026-07-16-fix-step-status-review-findings.md, 2026-08-03-check-api-au
 
 # Refactor API
 
-> **Consolidated 2026-09-02.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-08-03-check-api-auth-and-credentials]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-03-check-api-auth-and-credentials]]. See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -42,6 +39,8 @@ Reorganized the single API module into a package with a router per route prefix:
 ## Step 2 — Decorator pattern
 
 Each router file keeps the `@app.get`/`@app.post` style by importing `app` from the parent package, so route registration and error handling stay consistent across files.
+
+> **Correction (2026-10-26, Consistency Agent):** routers no longer import `app`. Every resource file defines `router = APIRouter(prefix=...)` (e.g. `demetra/api/sessions.py:16`) and `demetra/app.py:23-30` registers them with `include_router`; `demetra/api/__init__.py` is empty. The `@app.*`-decorator description is the 2026-06-01 snapshot only.
 
 ## Step 3 — Capabilities landed in the bundle
 

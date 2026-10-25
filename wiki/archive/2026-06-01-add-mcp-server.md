@@ -13,11 +13,8 @@ related: [2026-08-03-fix-mcp-server-2.0-api.md]
 
 # Add MCP server for the project
 
-> **Consolidated 2026-09-02.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-08-03-fix-mcp-server-2.0-api]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-03-fix-mcp-server-2.0-api]]. See wiki/archive/ for the original.
 
 ## TL;DR
 

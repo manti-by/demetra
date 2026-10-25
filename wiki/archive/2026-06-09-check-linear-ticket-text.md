@@ -13,6 +13,9 @@ related: [2026-02-23-linear-oauth-2.0.md, 2026-03-11-separate-linear-comments.md
 
 # Check Linear ticket text
 
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Investigated what `LinearTicket.text` actually returns for resolved/unresolved comment threads, then used the findings to improve the Linear ticket renderer. Issues are now filterable by state, the issue list exposes branch name and labels, comments carry resolved status / timestamps / author names, nested replies are returned and organized, and tasks include label metadata. Researched against the Linear GraphQL explorer and implemented the renderer improvements.
@@ -22,6 +25,8 @@ Investigated what `LinearTicket.text` actually returns for resolved/unresolved c
 ## Net effect
 
 Validated the GraphQL shape for ticket text and comments, then shipped an improved renderer that surfaces the newly-confirmed fields. The ticket view now shows branch name and labels on the issue list, and comment threads include resolved status, timestamps, author names, and nested replies.
+
+> **Correction (2026-10-26, Consistency Agent):** the shipped model kept only comment *bodies* — `LinearTask.comments: list[str]` (`demetra/library/models.py:44`) is filled by `extract_comments` (`demetra/services/linear/tasks.py:35-48`), which uses `resolvedAt` only to skip resolved threads and drops timestamps/authors. The GraphQL query still selects those fields (`demetra/queries/get_all_issues.gql:29,32-34`), but they never reach the task text. Branch name/labels on the issue list are not in the current task model either.
 
 ## Step 1 — Validate `LinearTicket.text` output
 

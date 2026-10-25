@@ -31,7 +31,7 @@ The implementation plan involves standardizing the methods for resolving agent m
 - Introduce a `SessionEnvironment` resolver in `demetra/library/models.py` that looks up workflow environment keys through three layers: project environment, user-shared environment, and settings defaults.
 - Raise an `EnvironmentConfigError` when a key is not found in any of the layers.
 - Expose the `SessionEnvironment` resolver as the `environment` property on the `Context` object.
-- Delete duplicate resolvers (`…
+- Delete duplicate resolvers (line truncated in the generated plan).
 
 ## Test Results
 

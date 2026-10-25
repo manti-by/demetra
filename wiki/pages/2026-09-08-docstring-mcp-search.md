@@ -8,20 +8,20 @@ services: [mcp, settings, tools, runtime]
 branch: delta/feature/docstring-mcp-search
 tickets: [MNT-171]
 tags: [docstrings, search, mcp, settings, version-bump]
-related: [2026-08-21-mnt-176-bump-version-error.md, 2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md, 2026-10-09-bm25-search-for-mcp-tools.md]
+related: [2026-08-21-mnt-176-bump-version-error.md, 2026-08-03-wiki-mcp-tools.md, 2026-06-25-update-project-version.md, 2026-10-09-bm25-search-for-mcp-tools.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # MNT-171: Docstring MCP search
 
 ## TL;DR
 
-MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — ranked qualified names + snippets, full docstring by name, and catalog dump. Index built in-memory from `ast` (`_FunctionCollector` at `demetra/tools/docstrings.py:74`) without importing modules, cached via `(path, mtime_ns, size)` fingerprint. Same branch centralizes search config in `SEARCH` dict, hardens dispatcher, and reworks `bump_project_version` to explicit major/minor/patch. PR #120.
+MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — ranked qualified names + snippets, full docstring by name, and catalog dump. Index built in-memory from `ast` (`FunctionCollector` at `demetra/tools/docstrings.py:56`, `_FunctionCollector` before the 2026-10-15 refactor) without importing modules, cached via `(path, mtime_ns, size)` fingerprint. Same branch centralizes search config in `SEARCH` dict, hardens dispatcher, and reworks `bump_project_version` to explicit major/minor/patch. PR #120.
 
 ---
 
 ## Overview
 
-**File:** `demetra/tools/docstrings.py:1` — `docstring_search` returns ranked `qualified_name` + source location + snippet; `docstring_get` returns full docstring; `docstring_list` dumps catalog. Names fully qualified (`module.Class.method`) from module path + scope. Definitions in `AVAILABLE_TOOLS` (`docstrings.py:228`), registered in `demetra/tools/registry.py:3` (`list_tools` concatenates database/docstring/project/wiki; `call_tool` routes by name).
+**File:** `demetra/tools/docstrings.py:1` — `docstring_search` returns ranked `qualified_name` + source location + snippet; `docstring_get` returns full docstring; `docstring_list` dumps catalog. Names fully qualified (`module.Class.method`) from module path + scope. Definitions in `AVAILABLE_TOOLS`, registered in `demetra/tools/registry.py` (`list_tools` concatenates database/docstrings/logs; `call_tool` routes by name).
 
 ## Cache invalidation — `demetra/tools/docstrings.py:45,125`
 
@@ -30,6 +30,8 @@ MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — r
 ## Search config — `demetra/settings.py:59`
 
 Shared `SEARCH` dict: query/result limits, snippet limits, tokenization rules, stop words, wiki + docstring ranking weights (`docstring_name_weight`, `docstring_path_weight`). Both tools tokenize via `demetra/tools/search.py:6` (`tokenize` extracted from wiki tool), so they cannot drift. Wiki scoring in `demetra/tools/wiki.py` reads same dict.
+
+> **Correction (2026-10-26, Consistency Agent):** `demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor — the wiki tool is now the external WI MCP server and `SEARCH` holds only the `docstring_*` boosts (`demetra/settings.py:65-80`). `FunctionCollector` is public; the registry aggregates `database`+`docstrings`+`logs`. See [[2026-10-15-replace-wiki-mcp-tool-with-wi]].
 
 > **Superseded (2026-10-09, Consistency Agent):** the `*_weight` keys named above are
 > gone. `SEARCH` now carries `bm25_k1` plus per-field `*_boost` / `*_length_norm`

@@ -8,15 +8,13 @@ services: [database, sessions, workflows, opencode]
 branch: "-"
 tickets: [MNT-83, MNT-22]
 tags: [step, sessions, migration, resume, isolation, research]
-related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md]
+related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md]
 ---
 
 # Plan step completion attribute
-> **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-07-16-fix-step-status-review-findings]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -89,6 +87,15 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 > `initial, plan, research, build, validate, review, lint, test, wiki, push,
 > completed, failed, awaiting_input`. The 2026-08-27 update above is superseded on this
 > one count.
+
+> **Correction (2026-10-26, Consistency Agent):** two claims above no longer hold.
+> (1) `StepType` has **14** values — `researched` closes the list
+> (`demetra/library/models.py:27`, written by `demetra/workflows/research.py:246`).
+> (2) The resume path never checks `step`: `main.py:138` gates only on
+> `if not context.session or not context.session.build_plan:`, so an interrupted
+> questions run resumes with its stale plan. That defect is tracked in
+> [[2026-08-28-awaiting-input-workflow-continues-to-review]]; the "checks `step`
+> instead of `build_plan`" lines in the TL;DR and Step section are wrong.
 
 ## References
 

@@ -16,10 +16,12 @@ related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-histo
 > Merges original audit (192-row DB analysis, 8 recommendations) with revalidation that corrected two causal claims. Original at `2026-07-23-session-tokens-audit.md` (deleted).
 >
 > **Status (2026-08-03):** Compaction live (`workflows/build.py:79`) via non-cumulative `context_tokens` (`services/opencode.py:225`), `context_tokens`/`model` columns exist (`library/tables.py:114-115`), Groq input capped (`PLAN_OUTPUT_MAX_CHARS`, `services/groq.py:106`) — commit `47d428d`. Still open: rec 2 (cached reads in compaction), rec 3 (broad `except Exception` in `cleanup.py`), rec 4 (no TTL cache).
+>
+> **Correction (2026-10-16, see the 2026-10-16 note below):** "Compaction live" was never true — the compact command was passed as the *message positional*, so it cost a full-context turn without shrinking context. Fixed under MNT-251. Rec 3 is no longer a finding: the broad cleanup guard is the accepted, `# noqa: BLE001` workflow-cleanup pattern documented in `AGENTS.md`.
 
 ## TL;DR
 
-One row per workflow step is recorded from `opencode export` token totals. Odin DB (192 rows / 18 sessions) shows median `build` row ~15 M tokens (p99 40 M) vs `CONTEXT_COMPACTION_THRESHOLD` 100 k, and 25% NULL rows — but two claims were refuted: NULLs were already-fixed pipe truncation (not cleanup ordering), and "compaction never fires" is wrong — it was live and firing constantly because `length` is cumulative compared against a context-size threshold. Fix is a non-cumulative metric from the last assistant message.
+One row per workflow step is recorded from `opencode export` token totals. Odin DB (192 rows / 18 sessions) shows median `build` row ~15 M tokens (p99 40 M) vs `CONTEXT_COMPACTION_THRESHOLD` 100 k, and 25% NULL rows — but two claims were refuted: NULLs were already-fixed pipe truncation (not cleanup ordering), and "compaction never fires" is wrong — it was live and firing constantly because `length` is cumulative compared against a context-size threshold. Fix is a non-cumulative metric from the last assistant message. **Superseded 2026-10-16:** the threshold was crossed and the call attempted, but no compaction ever happened (command passed as the message positional); see the 2026-10-16 note below.
 
 ## Net effect
 
@@ -105,10 +107,11 @@ Recommendation status: **#1 done** (non-cumulative metric + delta model); **#2 o
 - **2026-08-19:** Plan extraction moved Groq → OpenRouter (`services/llm/openrouter.py`), legacy `groq.py` retained. See [[2026-08-18-migrate-llm-groq-to-openrouter]].
 - **2026-08-23/27 / 2026-09-03:** Module moves — `services/opencode.py` → `services/agents/opencode.py`, compaction caller `workflows/build.py:100`→`:102`, `usage.context` at `:428`→`:524`, `context_tokens`/`model` at `tables.py:142`→`:162-163`, `cleanup.py` catches `:110,149`→`:134,179`.
 - **2026-08-28:** Added `branch: "-"` frontmatter.
+- **2026-10-16:** Compaction was never functional — `opencode_compact_session` passed `/compact` as the *message positional*, so opencode ran a normal full-context turn instead of compacting. The "firing constantly" reading above is the cost symptom of that no-op, not a working compact; `47d428d` made the counter non-cumulative but did not make compaction work. Fixed under MNT-251 ([[2026-10-16-mnt-251-session-attribution-accounting]]): `run --session <id> --command compact` on opencode 1.x, deliberately unsupported on v2, with a test that asserts the context actually shrank. See [[2026-10-16-opencode-v2-session-token-accounting]].
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-16-opencode-v2-session-token-accounting]]
 - `wiki/audits/2026-07-23-session-tokens/RESULT.md`, `BUILD_PLAN.md`

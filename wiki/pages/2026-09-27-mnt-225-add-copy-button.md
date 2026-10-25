@@ -36,7 +36,7 @@ The plan is to add a "Copy" button to the existing build-plan modal footer in `S
 ### Implementation Steps
 1. **Update `SessionArtifacts.tsx`**:
    - Add a `copied` state and a `copyResetRef` to track the feedback-reset timeout.
-   - Implement the `handleCo…
+   - Implement the `handleCopy` clipboard handler (line truncated in the generated plan).
 
 ## Test Results
 

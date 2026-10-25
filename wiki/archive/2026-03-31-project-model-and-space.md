@@ -13,15 +13,14 @@ related: [2026-04-02-link-user-tasks-sessions.md, 2026-06-08-project-environment
 
 # Project model and space
 
-> **Consolidated 2026-08-18.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-06-08-project-environment]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-06-08-project-environment]]. See wiki/archive/ for the original.
 
 ## TL;DR
 
 Replaced the dict-mapped projects in settings with a `Project` database model linked to the logged-in user (`user_id`, `linear_project_id`, `name`, `repository_url`), including a migration that moved existing projects out of `LINEAR["projects"]` and CRUD APIs scoped to the authenticated user. On add, the API provisions a workspace: `~/.demetra/projects/<owner>/<repo>/`, `git clone`, and a Postgres role + database named after the project (sanitized via slugify). A React project component lists projects in the settings section.
+
+> **Correction (2026-10-26, Consistency Agent):** the checkout path also carries a project-id suffix — `WORKTREE_PATH / repository_owner / slugify(f"{repository_name}-{project['id'][:8]}")` (`demetra/services/runtime/project.py:65,123`, `WORKTREE_PATH` at `demetra/settings.py:36`), i.e. `~/.demetra/projects/<owner>/<repo>_<8-char-id>/`, not `<owner>/<repo>/`.
 
 ---
 
@@ -49,7 +48,7 @@ Added project CRUD endpoints, all scoped to the authenticated user. Default auth
 
 Adding a project creates its workspace:
 
-- `~/.demetra/projects/<owner>/<repo>/` directory
+- `~/.demetra/projects/<owner>/<repo>_<8-char-project-id>/` directory (project-id suffix per `demetra/services/runtime/project.py:65,123`)
 - `git clone` of the repository
 - A Postgres role + database named after the project, sanitized via slugify
 

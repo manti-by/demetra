@@ -12,11 +12,9 @@ related: [2026-07-21-rich-markuperror-and-run-attempts.md]
 ---
 
 # Max run attempts for a ticket
-> **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-07-21-rich-markuperror-and-run-attempts]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-07-21-rich-markuperror-and-run-attempts]]. See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -28,6 +26,8 @@ Added a `run_attempts` counter to the `sessions` table and a `MAX_RUN_ATTEMPTS` 
 > actual failures — see [[2026-07-21-rich-markuperror-and-run-attempts]].
 
 > **Consistency note (2026-09-03, Consistency Agent):** Corrected Step 2 default to `5` (originally `3`) to match current `demetra/settings.py:48`; TL;DR updated to current default.
+>
+> **Open discrepancy (2026-10-26, Consistency Agent):** the current default is **3** again — `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)` (`demetra/settings.py:47`) after the `10ea543` settings refactor reset it from `5` with no recorded intent. The `5` values above describe the code between `8ffc53b` and `10ea543`; whether the reset was intentional is tracked as **Q-002** in `wiki/QUESTIONS.md`.
 
 ---
 

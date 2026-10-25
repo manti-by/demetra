@@ -85,6 +85,10 @@ const consoleInert = sidebarOpen ? { inert: "" } : {};
 
 React 18 has no boolean `inert` prop (React 19) and `@types/react@18` doesn't type it — passed via JSX spread `inert=""` (presence matters). `Header` got `inert?: boolean` prop to avoid wrapper div breaking `position:sticky`.
 
+## Source — [[2026-06-02-truncate-session-name]]
+
+MNT-92 (2026-06-02): long task titles in the session list stretched the sidebar and pushed `LogConsole` below it. The fix bounds the title and truncates it with an ellipsis, reusing the fixed-width meta pattern; today `.session-plan` and `.session-name` share `max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap` (`react/src/App.css:1264-1271`). Keep that pairing when touching the sidebar.
+
 ## Follow-ups
 
 - PR #117 merged to `master` (`302b278`/`832d912`/`111fdd8` on master 2026-09-03); Linear MNT-193 → Done.

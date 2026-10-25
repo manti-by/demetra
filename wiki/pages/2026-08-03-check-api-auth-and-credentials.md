@@ -4,11 +4,11 @@ date: 2026-08-03
 type: implementation
 status: resolved
 session_id: mnt-156-check-api-auth
-services: [auth, api, watcher, react]
+services: [auth, api, watcher, react, database]
 branch: mnt-156-check-api-auth
-tickets: [MNT-156, MNT-81]
-tags: [auth, cookies, csrf, origin-validation, websockets, ownership, api, refactor, routers]
-related: [2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md, 2026-07-24-plain-auth-review-followups.md, 2026-07-23-linear-ticket-email-password-auth.md, 2026-08-06-allowlist-review-fixes.md]
+tickets: [MNT-156, MNT-81, MNT-86]
+tags: [auth, cookies, csrf, origin-validation, websockets, ownership, api, refactor, routers, sessions, delete, react]
+related: [2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md, 2026-07-24-plain-auth-review-followups.md, 2026-07-23-linear-ticket-email-password-auth.md, 2026-08-06-allowlist-review-fixes.md, 2026-06-02-delete-session-button.md]
 ---
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
@@ -73,6 +73,10 @@ All credentialed reads/mutations go through `authenticatedFetch`. `AuthContext.t
 ## Source — [[2026-06-01-refactor-api]]
 
 Thin `demetra/api/` routers by prefix (auth/github, projects, sessions, users, watcher, webhooks) — MNT-81, 2026-06-01. This page's `Depends` consolidation threads that layout; `api/tickets.py` removed by MNT-88.
+
+## Source — [[2026-06-02-delete-session-button]]
+
+MNT-86 (2026-06-02): sessions became deletable end to end. `DELETE /api/v1/sessions/{task_id}` (`demetra/api/sessions.py:39`) calls the user-scoped `delete_session(task_id, user_id)` (`demetra/services/persistence/database.py:2521`), which removes the `sessions` row plus its `session_history` and `agent_sessions` rows and the `LOG_DIR/sessions/<task_id>.log` file; the React log header gained a delete button next to Clear (`react/src/components/LogConsole.tsx:167-175`) and the list refreshes afterwards. The ownership check this endpoint depends on is the subject of this page.
 
 ## Follow-ups
 

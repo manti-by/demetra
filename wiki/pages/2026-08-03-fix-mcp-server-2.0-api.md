@@ -8,7 +8,7 @@ services: [mcp, database]
 branch: master
 tickets: [MNT-90]
 tags: [mcp, dependencies, upgrade, streamable-http, filesystem, database]
-related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.md]
+related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # Fix MCP Server for the mcp 2.0 API
@@ -56,7 +56,7 @@ async def handle_call_tool(ctx, params) -> CallToolResult:
 mcp_server = Server(APP_NAME, version=VERSION, on_list_tools=handle_list_tools, on_call_tool=handle_call_tool)
 ```
 
-Per-system dispatchers (`tools/database.py`, `tools/projects.py`) now return shared `ToolResult` (`tools/result.py`: `content` + `is_error`) — validation/unknown/backend errors set `is_error=True` forwarded to `CallToolResult.is_error`. Tool logic untouched; `main()`/`stdio_server()` unaffected.
+Per-system dispatchers (`tools/database.py`, `tools/logs.py` after the 2026-10-15 refactor; originally `tools/projects.py`) now return shared `ToolResult` (`tools/models.py`: `content` + `is_error`) — validation/unknown/backend errors set `is_error=True` forwarded to `CallToolResult.is_error`. Tool logic untouched; `main()`/`stdio_server()` unaffected.
 
 ## Follow-ups
 
@@ -64,7 +64,7 @@ None. High-level `MCPServer` with `@server.tool()` exists in 2.0 but no migratio
 
 ## Source — [[2026-06-01-add-mcp-server]]
 
-First MCP server as repo-root `mcp_server.py` over streamable-http with filesystem+Postgres tools (MNT-90, 2026-06-01). Durable decisions: DB creds from env only, tool surface is DB/project introspection (filesystem tools deleted `e173d7f` 2026-06-02). Now at `demetra/mcp_server.py` over stdio, registry `tools/registry.py` aggregates `database`+`projects`+`wiki` via `ToolResult`.
+First MCP server as repo-root `mcp_server.py` over streamable-http with filesystem+Postgres tools (MNT-90, 2026-06-01). Durable decisions: DB creds from env only, tool surface is DB/project introspection (filesystem tools deleted `e173d7f` 2026-06-02). Now at `demetra/mcp_server.py` over stdio, registry `tools/registry.py` aggregates `database`+`docstrings`+`logs` via `ToolResult` (the `wiki` module and `projects.py` are gone — see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

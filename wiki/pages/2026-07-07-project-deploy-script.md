@@ -40,6 +40,8 @@ Bootstrap verified on fresh host; `deploy` target exercised end-to-end.
 
 None.
 
+> **Status (2026-10-26, Consistency Agent):** Superseded. The systemd path described above (`configs/bootstrap.sh`, `configs/services/*.service`, `systemctl restart demetra-*`) was removed in `f5904d5` (2026-09-11); `make deploy` now runs the Docker Compose stack (Postgres, Redis, API, workers, watcher, listener, RQ dashboard and a one-shot React build). See [[2026-08-10-docker-compose-deploy]].
+
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References

@@ -83,6 +83,8 @@ Not applied this session (diagnosis only). Proposed fix, matching the existing p
 
 - ~~Fix applied, listener restarted~~ **Fix NOT yet applied** (re-confirmed 2026-10-08: still `run_command` at `demetra/services/daemons/listener.py:36,121`, `stream.readline()` at `demetra/services/runtime/utils.py:96,117`) — apply the `run_command_to_file` switch above, restart the listener, then watch `/var/log/demetra/listener.log` for a first `Processing notification` / `Enqueuing` line.
 
+> **Consistency note (2026-10-26, Consistency Agent):** re-verified on HEAD `be55753` — `get_notifications` and `fetch_subject_body` still use `run_command` (`demetra/services/daemons/listener.py:36,121`) and `live_stream`/`log_stream` still call `stream.readline()` (`demetra/services/runtime/utils.py:96,117`). No fix has landed; status stays `open`.
+
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References

@@ -1,14 +1,14 @@
 ---
-title:              'Session state flow: completed chain, feedback loops, research chain'
+title: 'Session state flow: completed chain, feedback loops, research chain'
 date: 2026-10-12
-type:               implementation
-status:             resolved
-session_id:         ses_ecf670f97ffe0sa9KB2TJeV1Hd
-services:           [react, SessionStateFlow, App.css, StyleGuide]
-branch:             master
-tickets:            []
-tags:               [frontend, react, session-state-flow, svg, feedback-loops, styleguide, websocket]
-related:            [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md]
+type: implementation
+status: resolved
+session_id: ses_ecf670f97ffe0sa9KB2TJeV1Hd
+services: [react, SessionStateFlow, App.css, StyleGuide]
+branch: master
+tickets: []
+tags: [frontend, react, session-state-flow, svg, feedback-loops, styleguide, websocket]
+related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md]
 ---
 
 # Session state flow: completed chain, feedback loops, research chain

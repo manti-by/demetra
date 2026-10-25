@@ -1,14 +1,14 @@
 ---
-title:              Review agent models bypass the environment layers
+title: Review agent models bypass the environment layers
 date: 2026-10-12
-type:               debug
-status:             resolved
-session_id:         ses_ed007e060ffetVuRkLGHUFJgwl
-services:           [workflows, library]
-branch:             master
-tickets:            []
-tags:               [environment, session-environment, review, opencode, settings]
-related:            [2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-08-18-categorize-settings-env-vars-by-layer.md]
+type: debug
+status: resolved
+session_id: ses_ed007e060ffetVuRkLGHUFJgwl
+services: [workflows, library]
+branch: master
+tickets: []
+tags: [environment, session-environment, review, opencode, settings]
+related: [2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-08-18-categorize-settings-env-vars-by-layer.md]
 ---
 
 # Review agent models bypass the environment layers

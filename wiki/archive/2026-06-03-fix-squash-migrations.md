@@ -13,6 +13,9 @@ related: [2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]
 
 # Fix and squash migrations
 
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-10-16-mnt-251-session-attribution-accounting]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Dropped the accumulated migration chain and replaced it with a single consolidated migration, updating the existing local database so `alembic upgrade` no longer errors. DB connection initialization was updated to modern config patterns, and `projects.repository_url` became a required column.

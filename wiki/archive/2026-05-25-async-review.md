@@ -13,11 +13,8 @@ related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-bu
 
 # Async review
 
-> **Consolidated 2026-08-28.** Still live in `wiki/pages/` — this is the session
-> record, not an archived page. Its reusable content was merged into
-> [[2026-08-18-migrate-llm-groq-to-openrouter]], the page to read for the current state of that subsystem.
-> The `wiki/archive/` copy this banner used to point at was removed in
-> `70144cb` (2026-09-18), so there is no separate original.
+> **Archived on 2026-10-26.** Useful info merged into
+> [[2026-08-18-migrate-llm-groq-to-openrouter]]. See wiki/archive/ for the original.
 
 ## TL;DR
 

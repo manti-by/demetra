@@ -8,13 +8,13 @@ services: [opencode, workflows, subprocess, settings]
 branch: mnt-146-post-build-validation
 tickets: [MNT-146]
 tags: [validate-agent, build-plan, coverage, review-loop, stdin]
-related: [2026-02-23-add-multiagent-code-review.md, 2026-06-04-review-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-fix-empty-build-plan-loop.md]
+related: [2026-02-23-add-multiagent-code-review.md, 2026-06-04-review-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 # Post-build validation — plan-coverage validate-agent between build and review
 
 ## TL;DR
 
-Added a read-only `validate-agent` between build and review that compares the staged diff against the build plan and reports only uncovered plan steps. Missing items feed back into the build loop within `MAX_REVIEW_ATTEMPTS`; empty output means full coverage. Also fixed the 4095-char CLI truncation by piping task prompts via stdin.
+Added a read-only `validate-agent` between build and review that compares the staged diff against the build plan and reports only uncovered plan steps. Missing items feed back into the build loop within the build/validate attempt budget (`MAX_ATTEMPTS["build"]`; there is no `MAX_REVIEW_ATTEMPTS` setting); empty output means full coverage. Also fixed the 4095-char CLI truncation by piping task prompts via stdin.
 
 Branch: 2 commits ahead of master, merged as **PR #72** (`99b5880`, 2026-08-05, `1.16.0`).
 
@@ -30,7 +30,7 @@ build agent ──► validate-agent (plan coverage) ──► review agents ─
 ```
 
 - Full coverage → empty output → proceed to review.
-- Missing items → `Plan step N: <title> — not implemented (no corresponding change in diff)` → build loop continues until `MAX_REVIEW_ATTEMPTS`.
+- Missing items → `Plan step N: <title> — not implemented (no corresponding change in diff)` → build loop continues until the build/validate budget (`MAX_ATTEMPTS["build"]`) is exhausted.
 - Read-only: inspects `git diff --staged`, never edits. No Groq re-summarization.
 
 ## Step 1 — Validate agent and prompt
@@ -68,7 +68,7 @@ await update_session_step(task_id=context.linear_task.id, step="validate")
 missing_items = await run_validate_agent(target_path=context.worktree_path, build_plan=build_plan, env=context.project.environment)
 if missing_items:
     if context.auto_mode:
-        current_task = missing_items; rerun_attempts -= 1; review_attempts -= 1; continue
+        current_task = missing_items; rerun_attempts -= 1; validate_attempts -= 1; continue
     result, _ = await user_input([("1", "apply missing plan items"), ("2", "skip")])
 ```
 
@@ -106,6 +106,8 @@ Covered: full coverage → `None`, partial → missing items, empty diff → all
 - Out of scope: correctness/quality/security review, lint/tests, plan/build/review agent changes.
 
 > **Consistency note (2026-08-27):** `demetra/services/opencode.py` → `demetra/services/agents/opencode.py`; `demetra/services/subprocess.py` → `demetra/services/runtime/subprocess.py` (`04436c6`). Stdin-piping behavior unchanged.
+
+> **Correction (2026-10-26, Consistency Agent):** the budget in current code is `MAX_ATTEMPTS["build"]` for both `rerun_attempts` and `validate_attempts` (`demetra/workflows/build.py:98-99`), not `MAX_REVIEW_ATTEMPTS`; the auto-mode branch decrements `rerun_attempts`/`validate_attempts` (`build.py:157-158`) and requires both `review_attempts > 0 and validate_attempts > 0` (`build.py:144`). The snippet's `env=context.project.environment` was also replaced by `environment=context.environment` in the 2026-10-06 `SessionEnvironment` unification ([[2026-10-06-unify-subprocess-env-on-session-environment]]).
 
 ## References
 

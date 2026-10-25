@@ -4,16 +4,11 @@ date: '2026-10-25'
 type: implementation
 status: resolved
 session_id: ses_e8d0ccb3dffeMDtvKrTwEWduUG
-services: [api, library, agents/opencode, persistence/database, vcs/merge, vcs/rebase,
-  workflows, f0a1b2c3d4e5_create_session_tool_usage_table, pyproject, App, SessionArtifacts.test,
-  SessionArtifacts, SessionHistory.test, SessionHistory, StyleGuide, api.test, test_api,
-  test_database, test_opencode, test_workflows, uv, INDEX, 2026-10-25-mnt-258-tool-usage-stats]
+services: [api, library, agents, persistence, vcs, workflows, database, migrations, react]
 branch: mnt-258-tool-usage-stats
 tickets: [MNT-258]
 tags: [wiki, feature, backend, frontend]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md,
-  2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md,
-  2026-09-30-mnt-228-intermediate-history-states.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-09-30-mnt-228-intermediate-history-states.md]
 ---
 
 # MNT-258: Tool usage stats

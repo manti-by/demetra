@@ -5,7 +5,7 @@ type: debug
 status: resolved
 session_id: ses_e8b4cf16affeyLVQTq6NG6fUqQ
 services: [mcp, tools, database, deploy, tests]
-branch: -
+branch: "-"
 tickets: []
 tags: [mcp, database, asyncpg, environment, docker, uv-env-file, sql-injection, bandit, tooling]
 related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-06-01-add-mcp-server.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md]

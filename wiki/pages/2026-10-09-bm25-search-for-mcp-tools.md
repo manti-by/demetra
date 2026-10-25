@@ -8,7 +8,7 @@ services: [wiki, mcp, tools]
 branch: "-"
 tickets: []
 tags: [bm25, search, mcp, wiki, ranking, tools, caching]
-related: [2026-08-03-wiki-mcp-tools.md, 2026-09-08-docstring-mcp-search.md]
+related: [2026-08-03-wiki-mcp-tools.md, 2026-09-08-docstring-mcp-search.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # BM25 ranking for the wiki and docstring MCP tools

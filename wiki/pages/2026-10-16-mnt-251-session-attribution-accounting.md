@@ -4,11 +4,11 @@ date: 2026-10-16
 type: implementation
 status: resolved
 session_id: ses_ebb87d8cfffePjoAvLThMh0EBJ
-services: [agents, persistence, workflows, api, library, vcs, react]
+services: [agents, persistence, workflows, api, library, vcs, react, database, alembic, settings, sqlalchemy]
 branch: opencode/feature/mnt-251-agent-session-attribution
-tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234, MNT-228, MNT-181, MNT-122, MNT-151]
-tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history, migrations, agent-attribution]
-related: [2026-10-16-opencode-v2-session-token-accounting.md, 2026-07-07-add-context-compaction.md, 2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md]
+tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234, MNT-228, MNT-181, MNT-122, MNT-151, MNT-99, MNT-51, MNT-62]
+tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history, migrations, agent-attribution, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
+related: [2026-10-16-opencode-v2-session-token-accounting.md, 2026-07-07-add-context-compaction.md, 2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-06-03-fix-squash-migrations.md]
 ---
 
 # MNT-251 — Rebuild agent session attribution and token accounting for opencode v2
@@ -134,6 +134,10 @@ CodeRabbit flagged four issues on PR #143; all four are fixed on the branch:
 - The invocation upsert **accumulates** the delta onto the shared `(session, step)` row instead of replacing it (see Step 4), so multi-iteration builds no longer under-report earlier iterations' tokens and cost.
 - `verify_opencode_cli` moved inside the `try` in `main.py` so `OpenCodeCLIError` is caught by the `DemetraError` handler and `cleanup_workflow` still removes the worktree and resets the ticket.
 - The migration downgrade deletes `session_id IS NULL` step rows before restoring `NOT NULL`, so rollback no longer fails partway through.
+
+## Source — [[2026-06-03-fix-squash-migrations]]
+
+MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consolidated baseline so `alembic upgrade` stopped erroring; the existing local database was migrated onto it, DB connection init moved to env-driven settings, and `projects.repository_url` became required. The durable choices behind it: PostgreSQL via `psycopg` (not SQLite) and **SQLAlchemy Core** `Table`/`Column` metadata rather than the declarative ORM — originally adopted in [[2026-03-05-postgres-support]] and [[2026-03-13-sqlalchemy-core-support]] (both archived). New revisions still follow the `add_`/`alter_`/`drop_` naming rule in `AGENTS.md`, and the tests run against `test_demetra`.
 
 ## Follow-ups
 

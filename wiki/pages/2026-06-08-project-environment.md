@@ -66,7 +66,9 @@ Originally added in [[2026-03-31-project-model-and-space]] on 2026-03-31 (MNT-75
 introduced here, with user-scoped CRUD, replacing the earlier `LINEAR["projects"]`
 config-driven approach. A project's workspace is provisioned at
 `~/.demetra/projects/<owner>/<repo>/` with a git clone and a dedicated Postgres
-role/database (names slugified). This is the model this page's `Project` dataclass and
+role/database (names slugified). The directory name actually includes the 8-char
+project-id suffix (`project.py:65,123`); see the correction on
+[[2026-03-31-project-model-and-space]]. This is the model this page's `Project` dataclass and
 `Environment` records hang off, and the origin of the per-project workspace the
 MNT-161 UV venv lives in.
 

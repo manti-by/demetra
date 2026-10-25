@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-142-warp-theme-for-react
 tickets: [MNT-142, MNT-49, MNT-57, MNT-77]
 tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings, refactor, rename]
-related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-06-01-refactor-frontend-app.md]
+related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-06-01-refactor-frontend-app.md, 2026-09-02-mobile-template-react-frontend.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
@@ -41,6 +41,8 @@ Key layout in `AppContent()` (`App.tsx`):
   </div>
 </main>
 ```
+
+> **Correction (2026-10-26, Consistency Agent):** the sidebar is no longer a direct child — MNT-193 wrapped it in `<div className="sidebar-slot">` for the mobile drawer (`react/src/App.tsx:179-187`), and the console now has `.console-tabs`/`.console-toolbar` (`App.tsx:188-220`). See [[2026-09-02-mobile-template-react-frontend]].
 
 ## 2. Layout / CSS
 

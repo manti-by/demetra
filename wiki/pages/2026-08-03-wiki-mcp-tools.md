@@ -8,7 +8,7 @@ services: [wiki, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
-related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-10-09-bm25-search-for-mcp-tools.md]
+related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-10-09-bm25-search-for-mcp-tools.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # Wiki MCP Tools — Search, Read, and List Pages

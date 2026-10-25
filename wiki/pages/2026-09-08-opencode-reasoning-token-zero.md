@@ -23,7 +23,9 @@ Demetra persists `reasoning` from `opencode export` unchanged — zeros originat
 
 **File:** `demetra/services/agents/opencode.py:432` — `get_opencode_session_tokens` reads `info.tokens.reasoning` → `TokenUsage(reasoning=non_negative_int(tokens.get("reasoning")))`.
 
-**File:** `demetra/services/persistence/database.py:2094` — `record_session_step_history` persists `usage.reasoning` to `session_history.reasoning_tokens`; API only serializes/sums stored column. No Demetra layer converts nonzero to zero.
+**File:** `demetra/services/persistence/database.py:832` — `record_agent_invocation` persists `usage.reasoning` to `session_history.reasoning_tokens` (agent rows); `record_session_step` at `:764` writes non-agent step rows. The API only serializes/sums the stored column. No Demetra layer converts nonzero to zero.
+
+> **Correction (2026-10-26, Consistency Agent):** `record_session_step_history` was removed in `82ad9d0` (MNT-251, 2026-10-16); the reasoning column is now written by `record_agent_invocation` (`demetra/services/persistence/database.py:832`, called from `capture_agent_session` in `demetra/services/agents/opencode.py:790`). The root cause and resolution below are unchanged.
 
 ## Root cause
 

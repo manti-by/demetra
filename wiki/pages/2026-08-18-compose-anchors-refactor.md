@@ -46,7 +46,7 @@ x-demetra-app: &demetra-app
     - .keys/.gnupg:/home/demetra/.gnupg
     - .keys/.gitconfig:/home/demetra/.gitconfig
     - .keys/.git-credentials:/home/demetra/.git-credentials
-    - /mnt/data/www/demetra/log/:/var/log/demetra/
+    - /var/log/demetra/:/var/log/demetra/
   depends_on:
     migrate: { condition: service_completed_successfully }
     postgres: { condition: service_healthy }

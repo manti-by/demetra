@@ -55,13 +55,15 @@ MNT-63 (2026-04-02): tasks/sessions user-scoped; `task_status` merged into `sess
 
 ## Source — [[2026-06-08-session-step-attribute]]
 
-Session step attribute for durable resume; now 13-value `StepType` including validate/awaiting_input/wiki/research.
+Session step attribute for durable resume; 14-value `StepType` at HEAD (adds `researched`).
 
 ## Follow-ups
 
 None.
 
-> **Updates (2026-08-18 – 2026-09-01):** `StepType` grew: `validate` (Q-001), `wiki` ([[2026-08-25-mnt-187-wiki-pages-not-generated]]), `research` ([[2026-09-01-mnt-177-research-loop]]), `awaiting_input` ([[2026-08-05-pr-creation-failure-handler]]). Current: `initial | plan | research | build | validate | review | lint | test | wiki | push | completed | failed | awaiting_input`. `demetra/services/database.py` → `demetra/services/persistence/database.py`.
+> **Updates (2026-08-18 – 2026-09-01):** `StepType` grew: `validate` (Q-001), `wiki` ([[2026-08-25-mnt-187-wiki-pages-not-generated]]), `research` ([[2026-09-01-mnt-177-research-loop]]), `awaiting_input` ([[2026-08-05-pr-creation-failure-handler]]). `demetra/services/database.py` → `demetra/services/persistence/database.py`.
+
+> **Correction (2026-10-26, Consistency Agent):** `StepType` now has **14** values — `researched` is appended (`demetra/library/models.py:27`) and written by `demetra/workflows/research.py:246`. `VALID_STEPS = set(get_args(StepType))` (`demetra/api/sessions.py:20`) therefore accepts it too.
 
 > **Consistency fix (2026-09-02):** added `2026-09-01-mnt-177-research-loop.md` to `related`.
 

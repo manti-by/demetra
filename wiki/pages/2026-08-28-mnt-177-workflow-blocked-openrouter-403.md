@@ -60,6 +60,12 @@ MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 
 - Whether empty `extract_plan` should raise `PlanError` at `plan.py:101` remains valid hardening independent of these blockers.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Correction (2026-10-26, Consistency Agent):** `demetra/services/llm/config.py`
+> no longer exists — `build_llm` now takes the resolver from
+> `SessionEnvironment.openrouter_config` (`demetra/library/models.py:542`,
+> consumed at `demetra/services/llm/factory.py:31`). The user-shared-over-default
+> precedence described above is unchanged.
 
 ## References
 

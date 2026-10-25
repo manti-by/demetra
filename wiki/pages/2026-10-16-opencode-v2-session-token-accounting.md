@@ -5,7 +5,7 @@ type: investigation
 status: reference
 session_id: ses_ebbe29029ffeah3TJhfQdO7HzB
 services: [agents, persistence, workflows, api]
-branch: -
+branch: "-"
 tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234]
 tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history]
 related: [2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-07-07-add-context-compaction.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]

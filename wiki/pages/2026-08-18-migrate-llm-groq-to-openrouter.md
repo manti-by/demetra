@@ -46,6 +46,8 @@ Replaces 6 `ChatGroq(...)` instantiations.
 
 **File:** `demetra/services/llm/openrouter.py` (new) — six functions via `build_llm()`: `extract_questions`, `summarize_review`, `process_text_with_openrouter`, `extract_plan` (keeps `PLAN_OUTPUT_MAX_CHARS = 32_000`), `summarize_session`, `generate_pr_description`. Prompts/parsers/`PLAN_HAS_QUESTIONS` gating unchanged.
 
+> **Correction (2026-10-26, Consistency Agent):** `summarize_session` no longer exists — it was replaced by `compose_wiki_page` (`demetra/services/llm/openrouter.py:197`) when wiki pages became LLM-authored. The other five functions are still there.
+
 ## Step 5 — Repoint consumers
 
 **Files:** `demetra/services/__init__.py`, `workflows/plan,review,cleanup.py`, `services/wiki/__init__.py`, `.env.docker.example`, `AGENTS.md`, `services/wiki/facts,render.py`

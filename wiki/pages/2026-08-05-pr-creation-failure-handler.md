@@ -71,6 +71,8 @@ None.
 
 Handler extracted to `demetra/workflows/failure.py:process_pr_failure()`. Comment bodies now via `get_template()` (`pr_creation_failed`/`review_failed`); state lookup via `get_linear_config_value(name="awaiting_input")`. `ReviewError` follows identical path — see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]].
 
+> **Correction (2026-10-26, Consistency Agent):** `get_linear_config_value` no longer exists — MNT-205 replaced it with `context.environment.linear_state("awaiting_input")` (`demetra/workflows/failure.py:28`). The Linear read itself is unchanged; only the resolver moved.
+
 ## References
 
 - Related: [[2026-02-16-update-ticket-status]], [[2026-02-21-create-github-pr]], [[2026-07-16-fix-empty-build-plan-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]

@@ -89,6 +89,8 @@ In `manti-by/odin` repo, not `demetra`:
 
 > **Status update (2026-08-27):** `demetra/services/watcher.py` → `demetra/services/daemons/watcher.py` (commit `04436c6`). Behavior unchanged: `increment_run_attempts` only after failure, pre-check on `session.run_attempts`, cap is `5` (see [[2026-06-08-max-run-attempts-for-a-ticket]]).
 
+> **Open discrepancy (2026-10-26, Consistency Agent):** the cap is **3** again in current code — `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)` (`demetra/settings.py:47`), reset from `5` by the `10ea543` settings refactor. Tracked as **Q-002** in `wiki/QUESTIONS.md`; everything else in this page still holds.
+
 ## Source — [[2026-06-08-max-run-attempts-for-a-ticket]]
 
 `run_attempts` + `MAX_RUN_ATTEMPTS` (5) guards infinite runs; incremented only on failure → Awaiting Input. Originally decided 2026-06-08.

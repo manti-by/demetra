@@ -8,7 +8,7 @@ services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
-related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-wiki-mcp-tools.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md]
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-wiki-mcp-tools.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-10-16-opencode-v2-session-token-accounting.md]
 ---
 
 # AGENTS.md Revalidation and Wiki Consistency Audit
@@ -130,6 +130,16 @@ Verified the working tree and git history to correct outdated page statements:
 > f-string exceptions (`demetra/services/llm/prompt.py`,
 > `demetra/services/runtime/template.py`) and module-level `_`-prefixed private
 > helpers are now the convention (e.g. `demetra/tools/wiki.py`).
+
+> **Correction (2026-10-26, Consistency Agent):** three anchors on this page have
+> moved since. (1) `demetra/tools/wiki.py` no longer exists — the in-repo wiki
+> MCP tools were retired in favour of the external WI server
+> ([[2026-10-15-replace-wiki-mcp-tool-with-wi]]); use `demetra/tools/database.py`
+> for the private-helper example. (2) `demetra/services/llm/groq.py` was deleted
+> in `10ea543`; `AGENTS.md` no longer lists Groq at all. (3) Compaction was never
+> live before MNT-251 — the `/compact` text was passed as the message
+> positional, so the 2026-08-24 line numbers describe a call that did not
+> compact ([[2026-10-16-opencode-v2-session-token-accounting]]).
 
 ## References
 
