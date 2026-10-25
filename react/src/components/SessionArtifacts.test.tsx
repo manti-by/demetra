@@ -170,6 +170,7 @@ describe('SessionArtifacts', () => {
         reasoning_tokens: 50,
         cache_read_tokens: 25,
         cache_write_tokens: 25,
+        cost: 0.0125,
       },
       tool_usage: [{ name: 'bash', calls: 2, succeeded: 2, failed: 0, duration_ms: 20 }],
       history: [
@@ -191,6 +192,7 @@ describe('SessionArtifacts', () => {
           cost: null,
           model: null,
           agent: 'opencode',
+          message: null,
         },
       ],
     });

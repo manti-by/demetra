@@ -103,6 +103,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
     is_success = False
     should_update_linear_status = True
     failure_step = "failed"
+    failure_message: str | None = None
     try:
         await verify_opencode_cli(target_path=context.worktree_path, environment=context.environment)
 
@@ -169,43 +170,54 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
         is_success = True
 
-    except InfiniteLoopError:
+    except InfiniteLoopError as e:
         print_message("Infinite loop detected, exiting.", style="error")
+        failure_message = str(e) or None
 
-    except UserCancelledError:
+    except UserCancelledError as e:
         print_message("User cancelled, exiting the workflow.", style="error")
+        failure_message = str(e) or None
 
-    except AutoCancelledError:
+    except AutoCancelledError as e:
         print_message("User cancelled, exiting the workflow.", style="error")
         failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
 
     except PullRequestError as e:
         await process_pr_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
 
     except ReviewError as e:
         await process_pr_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
 
     except WikiError as e:
         await process_wiki_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
 
     except BuildError as e:
         await process_build_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")
+        failure_message = str(e) or None
 
     except ValueError as e:
         print_message(f"Configuration error: {e}", style="error")
+        failure_message = str(e) or None
 
     except OSError as e:
         print_message(f"OS Error: {e}", style="error")
+        failure_message = str(e) or None
 
     except RuntimeError as e:
         print_message(f"Runtime Error: {e}", style="error")
+        failure_message = str(e) or None
 
     finally:
         # Only run cleanup if we successfully created a context (which means worktree was created)
@@ -215,6 +227,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 is_success=is_success,
                 should_update_linear_status=should_update_linear_status,
                 failure_step=failure_step,
+                failure_message=failure_message,
             )
 
 

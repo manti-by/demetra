@@ -193,6 +193,7 @@ session_history = Table(
     Column(name="cost", type_=Float(), nullable=True),
     Column(name="model", type_=String(), nullable=True),
     Column(name="agent", type_=String(), nullable=True),
+    Column(name="message", type_=Text(), nullable=True),
     Column(name="created_at", type_=DateTime(timezone=True), server_default=text("now()"), nullable=False),
 )
 

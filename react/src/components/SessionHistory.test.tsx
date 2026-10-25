@@ -28,6 +28,7 @@ const mockEntries: SessionHistoryEntry[] = [
       { name: 'bash', calls: 3, succeeded: 3, failed: 0, duration_ms: 90 },
       { name: 'read', calls: 1, succeeded: 1, failed: 0, duration_ms: 5 },
     ],
+    message: null,
   },
   {
     id: '2',
@@ -48,6 +49,7 @@ const mockEntries: SessionHistoryEntry[] = [
     model: null,
     agent: 'opencode',
     tool_usage: [{ name: 'bash', calls: 2, succeeded: 2, failed: 0, duration_ms: 30 }],
+    message: null,
   },
   {
     id: '3',
@@ -67,6 +69,7 @@ const mockEntries: SessionHistoryEntry[] = [
     cost: null,
     model: null,
     agent: null,
+    message: null,
   },
 ];
 
@@ -77,6 +80,7 @@ const mockTotal = {
   reasoning_tokens: 400,
   cache_read_tokens: 150,
   cache_write_tokens: 150,
+  cost: 0.15,
 };
 
 const zeroTotal = {
@@ -86,6 +90,7 @@ const zeroTotal = {
   reasoning_tokens: 0,
   cache_read_tokens: 0,
   cache_write_tokens: 0,
+  cost: 0,
 };
 
 const emptyToolUsage: SessionToolUsage[] = [];
@@ -181,6 +186,7 @@ describe('SessionHistory', () => {
       cost: null,
       model: null,
       agent: null,
+      message: null,
     };
 
     render(
@@ -205,6 +211,30 @@ describe('SessionHistory', () => {
     expect(screen.getByText('provider/model')).toBeInTheDocument();
   });
 
+  it('renders failure reason context for a failed step entry', () => {
+    const failedEntry: SessionHistoryEntry = {
+      ...mockEntries[2],
+      step: 'failed',
+      message: 'Plan agent failed (exit 1): quota exceeded',
+    };
+
+    render(
+      <SessionHistory entries={[failedEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const failure = document.querySelector('.session-history-failure');
+    expect(failure).not.toBeNull();
+    expect(failure!.textContent).toBe('Plan agent failed (exit 1): quota exceeded');
+  });
+
+  it('does not render failure context without a message', () => {
+    render(
+      <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(document.querySelector('.session-history-failure')).not.toBeInTheDocument();
+  });
+
   it('does not render tokens for a step entry even with a length', () => {
     const stepEntry = { ...mockEntries[2], length: 999 };
 
@@ -227,6 +257,8 @@ describe('SessionHistory', () => {
     expect(screen.getByText('400')).toBeInTheDocument();
     expect(screen.getAllByText('150')).toHaveLength(2);
     expect(screen.getByText('3,500')).toBeInTheDocument();
+    expect(screen.getByText('Total Cost')).toBeInTheDocument();
+    expect(screen.getByText('$0.1500')).toBeInTheDocument();
   });
 
   it('renders the tool usage block beside the token totals', () => {

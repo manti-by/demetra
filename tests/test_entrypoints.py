@@ -193,6 +193,7 @@ class TestMainReplanning:
             is_success=False,
             should_update_linear_status=False,
             failure_step="awaiting_input",
+            failure_message=None,
         )
 
     @pytest.mark.asyncio
@@ -215,6 +216,7 @@ class TestMainReplanning:
             is_success=False,
             should_update_linear_status=False,
             failure_step="awaiting_input",
+            failure_message="gh: could not create PR",
         )
 
     @pytest.mark.asyncio
@@ -239,6 +241,7 @@ class TestMainReplanning:
             is_success=False,
             should_update_linear_status=False,
             failure_step="awaiting_input",
+            failure_message="Failed to summarize the review",
         )
 
     @pytest.mark.asyncio
@@ -263,6 +266,7 @@ class TestMainReplanning:
             is_success=False,
             should_update_linear_status=False,
             failure_step="awaiting_input",
+            failure_message="Unexpected server error",
         )
 
     @pytest.mark.asyncio
@@ -361,6 +365,7 @@ class TestMainReplanning:
             is_success=True,
             should_update_linear_status=True,
             failure_step="failed",
+            failure_message=None,
         )
 
     @pytest.mark.asyncio
@@ -384,4 +389,5 @@ class TestMainReplanning:
             is_success=False,
             should_update_linear_status=False,
             failure_step="awaiting_input",
+            failure_message="Failed to write wiki page",
         )

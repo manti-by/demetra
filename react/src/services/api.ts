@@ -183,6 +183,7 @@ export interface SessionHistoryEntry {
   model: string | null;
   agent: string | null;
   tool_usage?: SessionToolUsage[];
+  message: string | null;
 }
 
 export interface SessionToolUsage {
@@ -200,6 +201,7 @@ export interface SessionTokenTotals {
   reasoning_tokens: number;
   cache_read_tokens: number;
   cache_write_tokens: number;
+  cost: number;
 }
 
 export interface SessionHistoryResponse {
@@ -215,6 +217,7 @@ export const EMPTY_TOKEN_TOTALS: SessionTokenTotals = {
   reasoning_tokens: 0,
   cache_read_tokens: 0,
   cache_write_tokens: 0,
+  cost: 0,
 };
 
 export const EMPTY_TOOL_USAGE: SessionToolUsage[] = [];

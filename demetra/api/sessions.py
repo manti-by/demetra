@@ -97,7 +97,7 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         rows: The session history records to sum.
 
     Returns:
-        dict: The session-wide totals for every counter field.
+        dict: The session-wide totals for every counter field, plus the summed ``cost``.
     """
     total = {
         "length": 0,
@@ -106,6 +106,7 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         "reasoning_tokens": 0,
         "cache_read_tokens": 0,
         "cache_write_tokens": 0,
+        "cost": 0.0,
     }
     for row in rows:
         if row.kind != "invocation":
@@ -115,6 +116,7 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         total["reasoning_tokens"] += row.reasoning_tokens or 0
         total["cache_read_tokens"] += row.cache_read_tokens or 0
         total["cache_write_tokens"] += row.cache_write_tokens or 0
+        total["cost"] += row.cost or 0.0
         total["length"] += (
             (row.input_tokens or 0)
             + (row.output_tokens or 0)
@@ -192,5 +194,6 @@ def _serialize_history_row(row: SessionHistory) -> dict:
             }
             for usage in row.tool_usage
         ],
+        "message": row.message,
         "created_at": row.created_at,
     }

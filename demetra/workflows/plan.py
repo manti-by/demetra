@@ -24,15 +24,17 @@ from demetra.settings import MAX_ATTEMPTS
 from demetra.workflows.resolve import run_resolve_step
 
 
-async def move_to_awaiting_input(context: Context) -> None:
+async def move_to_awaiting_input(context: Context, reason: str | None = None) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
     Updates the Linear ticket status and the session step, then raises
-    AutoCancelledError so the caller's cleanup rolls back the worktree and
-    branch without moving the Linear status again.
+    AutoCancelledError (carrying ``reason`` for the session history) so the
+    caller's cleanup rolls back the worktree and branch without moving the
+    Linear status again.
 
     Args:
         context: The workflow context.
+        reason: Optional explanation recorded with the awaiting-input step.
 
     Raises:
         LinearError: When the awaiting_input state is not configured.
@@ -45,7 +47,7 @@ async def move_to_awaiting_input(context: Context) -> None:
     await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
     await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
     print_message("Task moved to Awaiting Input state.", style="result")
-    raise AutoCancelledError
+    raise AutoCancelledError(reason)
 
 
 async def run_plan_step(context: Context) -> str | None:
@@ -120,7 +122,7 @@ async def run_plan_step(context: Context) -> str | None:
         except PlanError as e:
             print_message(f"Plan step failed: {e}", style="error")
             await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan step failed: {e}")
-            await move_to_awaiting_input(context=context)
+            await move_to_awaiting_input(context=context, reason=f"Plan step failed: {e}")
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
             return None
@@ -174,7 +176,7 @@ async def run_plan_step(context: Context) -> str | None:
                 if not await post_comment(task_id=context.linear_task.id, body=f"## Question:\n{question}"):
                     print_message("Failed to post question to Linear", style="error")
 
-            await move_to_awaiting_input(context=context)
+            await move_to_awaiting_input(context=context, reason="Plan questions posted to Linear, waiting for answers")
 
         print_message("Waiting for user input.", style="heading")
 

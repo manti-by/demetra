@@ -112,6 +112,38 @@ class TestRecordSessionStep:
         steps = [row.step for row in await get_session_history(task_id=task_id)]
         assert steps == ["plan", "completed"]
 
+    @pytest.mark.asyncio
+    async def test_records_failure_message_on_insert(self):
+        task_id = _unique_task_id()
+
+        await record_session_step(task_id=task_id, step="failed", message="Plan agent failed (exit 1): quota exceeded")
+
+        history = await get_session_history(task_id=task_id)
+        assert len(history) == 1
+        assert history[0].message == "Plan agent failed (exit 1): quota exceeded"
+
+    @pytest.mark.asyncio
+    async def test_failure_message_overwrites_existing_row(self):
+        task_id = _unique_task_id()
+
+        first = await record_session_step(task_id=task_id, step="failed")
+        second = await record_session_step(task_id=task_id, step="failed", message="Build failed: tests did not pass")
+
+        assert first.id == second.id
+        history = await get_session_history(task_id=task_id)
+        assert len(history) == 1
+        assert history[0].message == "Build failed: tests did not pass"
+
+    @pytest.mark.asyncio
+    async def test_none_message_keeps_existing_failure_message(self):
+        task_id = _unique_task_id()
+
+        await record_session_step(task_id=task_id, step="failed", message="Build failed: tests did not pass")
+        await record_session_step(task_id=task_id, step="failed")
+
+        history = await get_session_history(task_id=task_id)
+        assert history[0].message == "Build failed: tests did not pass"
+
 
 class TestRecordAgentInvocation:
     @pytest.mark.asyncio

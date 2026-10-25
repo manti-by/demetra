@@ -4,7 +4,7 @@ import DOMPurify from 'dompurify';
 import { getSessionHistory, type Session, type SessionHistoryResponse } from '../services/api';
 import { SessionHistory } from './SessionHistory';
 
-const EMPTY_TOKEN_TOTALS = { length: 0, input_tokens: 0, output_tokens: 0, reasoning_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0 };
+const EMPTY_TOKEN_TOTALS = { length: 0, input_tokens: 0, output_tokens: 0, reasoning_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost: 0 };
 interface SessionArtifactsProps {
   taskId: string | null;
   sessions: Session[];

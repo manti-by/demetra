@@ -2125,7 +2125,7 @@ class TestWorkflowCleanup:
             patch(
                 "demetra.workflows.cleanup.record_session_step",
                 new_callable=AsyncMock,
-            ),
+            ) as mock_record_step,
         ):
             context = Context(
                 project=Project(
@@ -2168,9 +2168,15 @@ class TestWorkflowCleanup:
                 is_success=False,
                 should_update_linear_status=True,
                 failure_step="awaiting_input",
+                failure_message="Plan questions posted to Linear, waiting for answers",
             )
 
             mock_update_step.assert_awaited_once_with(task_id=context.linear_task.id, step="awaiting_input")
+            mock_record_step.assert_awaited_once_with(
+                task_id=context.linear_task.id,
+                step="awaiting_input",
+                message="Plan questions posted to Linear, waiting for answers",
+            )
 
 
 class TestMainBumpVersion:

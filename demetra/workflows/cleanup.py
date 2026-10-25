@@ -132,11 +132,13 @@ async def cleanup_workflow(
     is_success: bool,
     should_update_linear_status: bool,
     failure_step: str = "failed",
+    failure_message: str | None = None,
 ) -> None:
     """Finalize a workflow run: record the terminal step, clean up git and update Linear.
 
     On failure the session step is advanced and a ``kind='step'`` history row is
-    recorded under ``failure_step``. The worktree is always removed and, when
+    recorded under ``failure_step``, carrying ``failure_message`` as the reason
+    context shown in session history. The worktree is always removed and, when
     requested, the Linear ticket is moved according to the outcome. Removing the
     worktree invalidates any primary agent session marker (history still
     resolves by ``task_id``, so nothing is hidden).
@@ -146,10 +148,11 @@ async def cleanup_workflow(
         is_success: Whether the workflow completed successfully.
         should_update_linear_status: Whether to move the Linear ticket.
         failure_step: Step name to record on failure.
+        failure_message: Failure reason to record with the failure step row.
     """
     if not is_success:
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
-        await record_session_step(task_id=context.linear_task.id, step=failure_step)
+        await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)
 
     await git_cleanup(context=context, is_success=is_success)
     if not context.is_research:

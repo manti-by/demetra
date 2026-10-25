@@ -128,6 +128,7 @@ class SessionHistory:
     model: str | None = None
     agent: str | None = None
     tool_usage: list[ToolUsage] = field(default_factory=list)
+    message: str | None = None
 
 
 @dataclass

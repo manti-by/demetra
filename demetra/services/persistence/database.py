@@ -761,17 +761,20 @@ async def update_session_step(*, task_id: str, step: str) -> None:
         await connection.commit()
 
 
-async def record_session_step(task_id: str, step: str) -> SessionHistory:
+async def record_session_step(task_id: str, step: str, message: str | None = None) -> SessionHistory:
     """Record a non-agent workflow step as a ``kind='step'`` history row.
 
     The row is upserted per ``(task_id, step)`` so a step recorded from two
     paths (e.g. ``awaiting_input`` is set both when the plan moves the ticket
     and again by the cleanup path) produces exactly one row instead of the
-    empty/populated duplicates that used to shadow agent rows.
+    empty/populated duplicates that used to shadow agent rows. ``message``
+    carries the failure reason for terminal failure rows; on an existing row
+    a new message overwrites the old one, while ``None`` keeps it.
 
     Args:
         task_id: The Linear task identifier.
         step: The workflow step name.
+        message: Optional failure reason recorded with the step row.
 
     Returns:
         SessionHistory: The persisted history record.
@@ -787,8 +790,19 @@ async def record_session_step(task_id: str, step: str) -> SessionHistory:
         )
         row = existing.fetchone()
         if row is not None:
+            if message is not None:
+                await connection.execute(
+                    session_history.update().where(session_history.c.id == row.id).values(message=message)
+                )
+                await connection.commit()
             return SessionHistory(
-                id=row.id, session_id=None, task_id=task_id, kind="step", step=step, created_at=now.isoformat()
+                id=row.id,
+                session_id=None,
+                task_id=task_id,
+                kind="step",
+                step=step,
+                message=message,
+                created_at=now.isoformat(),
             )
 
         history_id = str(uuid4())
@@ -798,13 +812,20 @@ async def record_session_step(task_id: str, step: str) -> SessionHistory:
                 task_id=task_id,
                 kind="step",
                 step=step,
+                message=message,
                 created_at=now,
             )
         )
         await connection.commit()
 
     return SessionHistory(
-        id=history_id, session_id=None, task_id=task_id, kind="step", step=step, created_at=now.isoformat()
+        id=history_id,
+        session_id=None,
+        task_id=task_id,
+        kind="step",
+        step=step,
+        message=message,
+        created_at=now.isoformat(),
     )
 
 
@@ -1277,6 +1298,7 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             cost=row.cost,
             model=row.model,
             agent=row.agent,
+            message=row.message,
             created_at=row.created_at.isoformat(),
             tool_usage=(
                 tools_by_invocation.get((row.agent_session_id, row.step), []) if row.kind == "invocation" else []

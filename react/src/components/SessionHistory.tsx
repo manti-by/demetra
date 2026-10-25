@@ -44,6 +44,11 @@ function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
           {formatTime(entry.created_at)}
         </time>
       </div>
+      {entry.message != null && (
+        <p className="session-history-failure" title="Failure reason">
+          {entry.message}
+        </p>
+      )}
       {hasTokens && (
         <dl className="session-history-tokens">
           {entry.input_tokens != null && (
@@ -169,6 +174,10 @@ function TotalTokensBlock({ total }: { total: SessionTokenTotals }) {
         <div className="session-history-totals-grand">
           <dt>Total</dt>
           <dd>{total.length.toLocaleString()}</dd>
+        </div>
+        <div className="session-history-totals-grand">
+          <dt>Total Cost</dt>
+          <dd>${total.cost.toFixed(4)}</dd>
         </div>
       </dl>
     </div>

@@ -30,6 +30,7 @@ const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
       { name: "bash", calls: 4, succeeded: 4, failed: 0, duration_ms: 120 },
       { name: "read", calls: 2, succeeded: 2, failed: 0, duration_ms: 30 },
     ],
+    message: null,
   },
   {
     id: "2",
@@ -53,6 +54,27 @@ const MOCK_HISTORY_ENTRIES: SessionHistoryEntry[] = [
       { name: "bash", calls: 6, succeeded: 5, failed: 1, duration_ms: 240 },
       { name: "edit", calls: 3, succeeded: 3, failed: 0, duration_ms: 90 },
     ],
+    message: null,
+  },
+  {
+    id: "3",
+    session_id: "sess-abc",
+    task_id: "TASK-1",
+    agent_session_id: null,
+    kind: "step",
+    step: "failed",
+    created_at: new Date(Date.now() - 600000).toISOString(),
+    length: null,
+    input_tokens: null,
+    output_tokens: null,
+    reasoning_tokens: null,
+    cache_read_tokens: null,
+    cache_write_tokens: null,
+    context_tokens: null,
+    cost: null,
+    model: null,
+    agent: null,
+    message: "Plan agent failed (exit 1): quota exceeded",
   },
 ];
 
@@ -63,6 +85,7 @@ const MOCK_TOTAL = {
   reasoning_tokens: 420,
   cache_read_tokens: 120,
   cache_write_tokens: 120,
+  cost: 0.2846,
 };
 
 const MOCK_TOOL_USAGE: SessionToolUsage[] = [

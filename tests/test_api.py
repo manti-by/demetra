@@ -1091,6 +1091,7 @@ class TestSessionHistoryEndpoint:
                     ToolUsage(name="bash", calls=3, succeeded=2, failed=1, duration_ms=70),
                     ToolUsage(name="read", calls=1, succeeded=1, duration_ms=5),
                 ],
+                cost=0.05,
             ),
             SessionHistory(
                 id="h2",
@@ -1105,6 +1106,8 @@ class TestSessionHistoryEndpoint:
                 cache_read_tokens=100,
                 cache_write_tokens=100,
                 tool_usage=[ToolUsage(name="bash", calls=2, succeeded=2, duration_ms=30)],
+                cost=0.10,
+                message="Plan agent failed (exit 1): quota exceeded",
             ),
         ]
 
@@ -1132,6 +1135,7 @@ class TestSessionHistoryEndpoint:
                 "reasoning_tokens": 400,
                 "cache_read_tokens": 150,
                 "cache_write_tokens": 150,
+                "cost": pytest.approx(0.15),
             }
             assert data["tool_usage"] == [
                 {"name": "bash", "calls": 5, "succeeded": 4, "failed": 1, "duration_ms": 100},
@@ -1145,8 +1149,10 @@ class TestSessionHistoryEndpoint:
                 {"name": "bash", "calls": 3, "succeeded": 2, "failed": 1, "duration_ms": 70},
                 {"name": "read", "calls": 1, "succeeded": 1, "failed": 0, "duration_ms": 5},
             ]
+            assert data["history"][0]["message"] is None
             assert data["history"][1]["step"] == "build"
             assert data["history"][1]["input_tokens"] == 1200
+            assert data["history"][1]["message"] == "Plan agent failed (exit 1): quota exceeded"
 
     @pytest.mark.asyncio
     async def test_tool_usage_ignores_step_rows(self, authenticated_client: TestClient):
@@ -1236,6 +1242,7 @@ class TestSessionHistoryEndpoint:
                 "reasoning_tokens": 0,
                 "cache_read_tokens": 50,
                 "cache_write_tokens": 100,
+                "cost": 0.0,
             }
 
     @pytest.mark.asyncio
@@ -1264,6 +1271,7 @@ class TestSessionHistoryEndpoint:
                 "reasoning_tokens": 0,
                 "cache_read_tokens": 0,
                 "cache_write_tokens": 0,
+                "cost": 0.0,
             }
 
     @pytest.mark.asyncio
