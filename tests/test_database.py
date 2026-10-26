@@ -47,12 +47,12 @@ async def _fetch_agent_sessions(task_id: str) -> dict[str, dict]:
         return {row.session_id: dict(row._mapping) for row in result.fetchall()}
 
 
-async def _fetch_tool_usage(task_id: str) -> dict[str, dict]:
+async def _fetch_tool_usage(task_id: str) -> list[dict]:
     async with get_connection() as connection:
         result = await connection.execute(
             text(
                 """
-                SELECT step, tool_name, calls, succeeded, failed, duration_ms
+                SELECT history_id, step, tool_name, calls, succeeded, failed, duration_ms
                   FROM session_tool_usage
                  WHERE task_id = :task_id
                  ORDER BY tool_name
@@ -60,7 +60,7 @@ async def _fetch_tool_usage(task_id: str) -> dict[str, dict]:
             ),
             {"task_id": task_id},
         )
-        return {row.tool_name: dict(row._mapping) for row in result.fetchall()}
+        return [dict(row._mapping) for row in result.fetchall()]
 
 
 class TestUpdateSessionStep:
@@ -170,7 +170,7 @@ class TestRecordAgentInvocation:
         assert entry.model == "provider/model"
 
     @pytest.mark.asyncio
-    async def test_second_invocation_accumulates_its_delta_and_upserts(self):
+    async def test_second_invocation_gets_its_own_delta_row(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
         await record_agent_invocation(
@@ -181,10 +181,9 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1500)
         )
 
-        assert entry.input_tokens == 1500
+        assert entry.input_tokens == 500
         history = await get_session_history(task_id=task_id)
-        assert len(history) == 1
-        assert history[0].input_tokens == 1500
+        assert [(row.step, row.input_tokens) for row in history] == [("build", 1000), ("build", 500)]
 
     @pytest.mark.asyncio
     async def test_delta_is_never_negative_when_cumulative_shrinks(self):
@@ -198,7 +197,7 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=500)
         )
 
-        assert entry.input_tokens == 2000
+        assert entry.input_tokens == 0
 
     @pytest.mark.asyncio
     async def test_cursor_stays_monotonic_across_a_compaction_bump(self):
@@ -215,27 +214,27 @@ class TestRecordAgentInvocation:
         )
 
         assert first.input_tokens == 25_343
-        assert second.input_tokens == 61_610
-        assert third.input_tokens == 79_942
+        assert second.input_tokens == 36_267
+        assert third.input_tokens == 18_332
         assert (await _fetch_agent_sessions(task_id))[session_id]["cursor_input"] == 79_942
 
     @pytest.mark.asyncio
-    async def test_failed_export_keeps_prior_tokens_and_cursor(self):
+    async def test_failed_export_keeps_cursor_and_records_empty_row(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
         await record_agent_invocation(
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1000)
         )
 
-        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id, usage=None)
-
-        history = await get_session_history(task_id=task_id)
-        assert history[0].input_tokens == 1000
+        failed = await record_agent_invocation(task_id=task_id, step="build", session_id=session_id, usage=None)
+        assert failed.input_tokens is None
 
         entry = await record_agent_invocation(
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1200)
         )
-        assert entry.input_tokens == 1200
+        assert entry.input_tokens == 200
+        history = await get_session_history(task_id=task_id)
+        assert [row.input_tokens for row in history] == [1000, None, 200]
 
     @pytest.mark.asyncio
     async def test_fork_restarts_cursor_from_parent_session(self):
@@ -268,6 +267,29 @@ class TestRecordAgentInvocation:
         assert [(row.step, row.input_tokens) for row in history] == [("plan", 100), ("build", 50)]
 
     @pytest.mark.asyncio
+    async def test_resumed_session_iterations_keep_their_timeline_slots(self):
+        task_id = _unique_task_id()
+        build_session = _unique_session_id()
+        validate_session = _unique_session_id()
+        await record_agent_invocation(
+            task_id=task_id, step="build", session_id=build_session, usage=TokenUsage(input=1000)
+        )
+        await record_agent_invocation(
+            task_id=task_id, step="validate", session_id=validate_session, usage=TokenUsage(input=100)
+        )
+        await record_agent_invocation(
+            task_id=task_id, step="build", session_id=build_session, usage=TokenUsage(input=1500)
+        )
+
+        history = await get_session_history(task_id=task_id)
+
+        assert [(row.step, row.input_tokens) for row in history] == [
+            ("build", 1000),
+            ("validate", 100),
+            ("build", 500),
+        ]
+
+    @pytest.mark.asyncio
     async def test_cost_delta_is_recorded(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
@@ -279,7 +301,7 @@ class TestRecordAgentInvocation:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=200), cost=0.40
         )
 
-        assert entry.cost == pytest.approx(0.40)
+        assert entry.cost == pytest.approx(0.15)
 
     @pytest.mark.asyncio
     async def test_primary_records_session_pointer_and_clears_previous(self):
@@ -336,8 +358,8 @@ class TestAgentSessions:
             task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=1500, output=300)
         )
 
-        assert entry.input_tokens == 1500
-        assert entry.output_tokens == 300
+        assert entry.input_tokens == 500
+        assert entry.output_tokens == 100
         sessions = await _fetch_agent_sessions(task_id)
         assert sessions[session_id]["cursor_input"] == 1500
         assert sessions[session_id]["cursor_output"] == 300
@@ -515,12 +537,13 @@ class TestRecordToolUsage:
         )
 
         rows = await _fetch_tool_usage(task_id)
-        assert rows["bash"]["step"] == "build"
-        assert rows["bash"]["calls"] == 3
-        assert rows["bash"]["succeeded"] == 2
-        assert rows["bash"]["failed"] == 1
-        assert rows["bash"]["duration_ms"] == 70
-        assert rows["read"]["calls"] == 1
+        by_name = {row["tool_name"]: row for row in rows}
+        assert by_name["bash"]["step"] == "build"
+        assert by_name["bash"]["calls"] == 3
+        assert by_name["bash"]["succeeded"] == 2
+        assert by_name["bash"]["failed"] == 1
+        assert by_name["bash"]["duration_ms"] == 70
+        assert by_name["read"]["calls"] == 1
         assert {usage.name: usage.calls for usage in entry.tool_usage} == {"bash": 3, "read": 1}
 
     @pytest.mark.asyncio
@@ -540,9 +563,9 @@ class TestRecordToolUsage:
             },
         )
 
-        rows = await _fetch_tool_usage(task_id)
-        assert rows["WI.wiki_search"]["calls"] == 2
-        assert rows["WI.wiki_list_pages"]["succeeded"] == 1
+        by_name = {row["tool_name"]: row for row in await _fetch_tool_usage(task_id)}
+        assert by_name["WI.wiki_search"]["calls"] == 2
+        assert by_name["WI.wiki_list_pages"]["succeeded"] == 1
         assert {usage.name: usage.calls for usage in entry.tool_usage} == {
             "execute": 1,
             "WI.wiki_search": 2,
@@ -550,10 +573,10 @@ class TestRecordToolUsage:
         }
 
     @pytest.mark.asyncio
-    async def test_second_invocation_accumulates_counts(self):
+    async def test_second_invocation_gets_its_own_tool_rows(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
-        await record_agent_invocation(
+        first = await record_agent_invocation(
             task_id=task_id,
             step="build",
             session_id=session_id,
@@ -569,12 +592,9 @@ class TestRecordToolUsage:
             tool_usage={"bash": ToolUsage(name="bash", calls=3, succeeded=1, failed=2, duration_ms=45)},
         )
 
-        row = (await _fetch_tool_usage(task_id))["bash"]
-        assert row["calls"] == 5
-        assert row["succeeded"] == 3
-        assert row["failed"] == 2
-        assert row["duration_ms"] == 65
-        assert entry.tool_usage == [ToolUsage(name="bash", calls=5, succeeded=3, failed=2, duration_ms=65)]
+        rows = await _fetch_tool_usage(task_id)
+        assert {(row["history_id"], row["calls"]) for row in rows} == {(first.id, 2), (entry.id, 3)}
+        assert entry.tool_usage == [ToolUsage(name="bash", calls=3, succeeded=1, failed=2, duration_ms=45)]
 
     @pytest.mark.asyncio
     async def test_failed_export_leaves_tool_rows_untouched(self):
@@ -592,7 +612,7 @@ class TestRecordToolUsage:
             task_id=task_id, step="build", session_id=session_id, usage=None, tool_usage=None
         )
 
-        assert (await _fetch_tool_usage(task_id))["bash"]["calls"] == 2
+        assert sum(row["calls"] for row in await _fetch_tool_usage(task_id)) == 2
         assert entry.tool_usage == []
 
     @pytest.mark.asyncio
@@ -639,7 +659,7 @@ class TestRecordToolUsage:
 
         assert await delete_session(task_id=task_id, user_id=user_id) is True
 
-        assert await _fetch_tool_usage(task_id) == {}
+        assert await _fetch_tool_usage(task_id) == []
 
 
 class TestGetSessionsHasHistory:

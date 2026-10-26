@@ -1765,6 +1765,49 @@ class TestWorkflowLint:
         mock_run_ruff_checks.assert_not_called()
         mock_run_pytests.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_records_lint_and_test_history_rows(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        task_id = str(uuid4())
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (0, "", None)
+
+        with (
+            patch("demetra.workflows.lint.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.workflows.lint.record_session_step", new_callable=AsyncMock) as mock_record_step,
+        ):
+            result = await run_lint_and_test(target_path, task_id=task_id)
+
+        assert result == (False, None)
+        assert [call.kwargs["step"] for call in mock_update_step.await_args_list] == ["lint", "test", "lint"]
+        assert [call.kwargs["step"] for call in mock_record_step.await_args_list] == ["lint", "test"]
+
+    @pytest.mark.asyncio
+    async def test_records_no_history_when_features_disabled(self, faker, mock_is_package_installed):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        task_id = str(uuid4())
+        mock_is_package_installed.return_value = True
+
+        with (
+            patch.dict(
+                "demetra.workflows.lint.FEATURES",
+                {"is_ruff_enabled": False, "is_pytest_enabled": False},
+            ),
+            patch("demetra.workflows.lint.record_session_step", new_callable=AsyncMock) as mock_record_step,
+        ):
+            result = await run_lint_and_test(target_path, task_id=task_id)
+
+        assert result == (False, None)
+        mock_record_step.assert_not_awaited()
+
 
 class TestWorkflowCleanup:
     @pytest.fixture
@@ -1866,10 +1909,13 @@ class TestWorkflowCleanup:
         _mock_add_all.return_value = True
         mock_pr.return_value = (0, "https://github.com/test/demetra/pull/1", "")
 
-        result = await commit_and_push(context)
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock) as mock_record_step:
+            result = await commit_and_push(context)
+
         assert result is True
         mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
         assert _mock_add_all.await_count == 2
+        assert [call.kwargs["step"] for call in mock_record_step.await_args_list] == ["wiki", "push", "completed"]
 
     @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):

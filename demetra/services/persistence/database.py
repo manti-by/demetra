@@ -847,21 +847,20 @@ async def record_agent_invocation(
 
     ``agent_sessions`` keeps one row per ``(task_id, session_id)`` and holds the
     cumulative cursor last observed from ``info.tokens``; the delta
-    ``max(0, cumulative - cursor)`` is added to a ``kind='invocation'``
-    ``session_history`` row upserted per ``(task_id, session_id, step)``. The
-    delta is *accumulated* onto the row, not replaced, because build iterations
-    share one ``(session, step)`` row and each contributes only its own
-    increment; re-capturing the same invocation is a no-op since its delta is
-    then 0. A ``None`` ``usage`` (a failed export) records attribution without
-    advancing the cursor or clearing previously recorded tokens. The cursor is
-    never seeded from a fork parent: a fork's ``info.tokens`` restarts, so its
-    first delta is its own cumulative total.
+    ``max(0, cumulative - cursor)`` is written to its own ``kind='invocation'``
+    ``session_history`` row. Every invocation gets a distinct row, so a resumed
+    session's iterations (the build loop, which reuses one opencode session)
+    stay visible in the timeline in their real order instead of collapsing into
+    the first iteration's row. A ``None`` ``usage`` (a failed export) records
+    attribution with no counters and does not advance the cursor or clear
+    previously recorded tokens. The cursor is never seeded from a fork parent: a
+    fork's ``info.tokens`` restarts, so its first delta is its own cumulative
+    total.
 
     ``tool_usage`` carries the per-tool counts the caller already filtered by its
-    invocation watermark; they are accumulated onto
-    ``session_tool_usage`` rows keyed by ``(agent_session_id, step, tool_name)``
-    so build iterations add up the same way. A ``None`` ``tool_usage`` (a failed
-    export) leaves the recorded tool rows untouched.
+    invocation watermark; they are written to ``session_tool_usage`` rows keyed
+    by ``(history_id, tool_name)``, one set per invocation. A ``None``
+    ``tool_usage`` (a failed export) writes no tool rows.
 
     Args:
         task_id: The Linear task identifier.
@@ -1003,138 +1002,56 @@ async def record_agent_invocation(
         if usage is not None:
             length = sum(value or 0 for value in delta.values())
 
-        existing_row = await connection.execute(
-            text(
-                """
-                SELECT id, input_tokens, output_tokens, reasoning_tokens,
-                       cache_read_tokens, cache_write_tokens, context_tokens, cost, length
-                  FROM session_history
-                 WHERE task_id = :task_id AND session_id = :session_id AND step = :step AND kind = 'invocation'
-                 LIMIT 1
-                """
-            ),
-            {"task_id": task_id, "session_id": session_id, "step": step},
+        # Every invocation gets its own history row: the delta is already the
+        # exact per-invocation increment, so there is nothing to accumulate.
+        # Keeping the rows distinct is what preserves the real workflow order
+        # (build, validate, build, ...) in the timeline, including the
+        # iterations of a resumed session such as the build loop.
+        await connection.execute(
+            insert(session_history).values(
+                id=history_id,
+                task_id=task_id,
+                agent_session_id=agent_session_id,
+                session_id=session_id,
+                kind="invocation",
+                step=step,
+                length=length,
+                context_tokens=context_tokens,
+                cost=delta_cost,
+                agent=agent,
+                model=model,
+                created_at=now,
+                **delta,
+            )
         )
-        row = existing_row.fetchone()
-
-        if row is not None:
-            history_id = row.id
-            # Accumulate onto the existing row: build iterations share one
-            # (session, step) row and the cursor has already advanced, so each
-            # invocation contributes only its own delta. Re-capturing the same
-            # invocation is a no-op because its delta is then 0. context_tokens
-            # is a snapshot, so it is overwritten rather than summed.
-            accumulated: dict[str, int | None] = {
-                "input_tokens": row.input_tokens,
-                "output_tokens": row.output_tokens,
-                "reasoning_tokens": row.reasoning_tokens,
-                "cache_read_tokens": row.cache_read_tokens,
-                "cache_write_tokens": row.cache_write_tokens,
-            }
-            row_length = row.length
-            row_cost = row.cost
-            if usage is not None:
-                for field in accumulated:
-                    accumulated[field] = (accumulated[field] or 0) + (delta[field] or 0)
-                row_length = (row_length or 0) + (length or 0)
-            if delta_cost is not None:
-                row_cost = (row_cost or 0.0) + delta_cost
-            row_context = context_tokens if context_tokens is not None else row.context_tokens
-            await connection.execute(
-                update(session_history)
-                .where(session_history.c.id == history_id)
-                .values(
-                    agent=agent if agent is not None else session_history.c.agent,
-                    model=model if model is not None else session_history.c.model,
-                    length=row_length,
-                    context_tokens=row_context,
-                    cost=row_cost,
-                    **accumulated,
-                )
-            )
-        else:
-            await connection.execute(
-                insert(session_history).values(
-                    id=history_id,
-                    task_id=task_id,
-                    agent_session_id=agent_session_id,
-                    session_id=session_id,
-                    kind="invocation",
-                    step=step,
-                    length=length,
-                    context_tokens=context_tokens,
-                    cost=delta_cost,
-                    agent=agent,
-                    model=model,
-                    created_at=now,
-                    **delta,
-                )
-            )
-            accumulated = dict(delta)
-            row_length = length
-            row_cost = delta_cost
-            row_context = context_tokens
 
         recorded_tools: list[ToolUsage] = []
         if tool_usage:
             for tool_name in sorted(tool_usage):
                 tool_counts = tool_usage[tool_name]
-                existing_tool = await connection.execute(
-                    select(
-                        session_tool_usage.c.id,
-                        session_tool_usage.c.calls,
-                        session_tool_usage.c.succeeded,
-                        session_tool_usage.c.failed,
-                        session_tool_usage.c.duration_ms,
-                    ).where(
-                        (session_tool_usage.c.agent_session_id == agent_session_id)
-                        & (session_tool_usage.c.step == step)
-                        & (session_tool_usage.c.tool_name == tool_name)
+                recorded = ToolUsage(
+                    name=tool_name,
+                    calls=tool_counts.calls,
+                    succeeded=tool_counts.succeeded,
+                    failed=tool_counts.failed,
+                    duration_ms=tool_counts.duration_ms,
+                )
+                await connection.execute(
+                    insert(session_tool_usage).values(
+                        id=str(uuid4()),
+                        task_id=task_id,
+                        agent_session_id=agent_session_id,
+                        history_id=history_id,
+                        step=step,
+                        tool_name=tool_name,
+                        calls=recorded.calls,
+                        succeeded=recorded.succeeded,
+                        failed=recorded.failed,
+                        duration_ms=recorded.duration_ms,
+                        created_at=now,
+                        updated_at=now,
                     )
                 )
-                tool_row = existing_tool.fetchone()
-                if tool_row is None:
-                    recorded = ToolUsage(
-                        name=tool_name,
-                        calls=tool_counts.calls,
-                        succeeded=tool_counts.succeeded,
-                        failed=tool_counts.failed,
-                        duration_ms=tool_counts.duration_ms,
-                    )
-                    await connection.execute(
-                        insert(session_tool_usage).values(
-                            id=str(uuid4()),
-                            task_id=task_id,
-                            agent_session_id=agent_session_id,
-                            step=step,
-                            tool_name=tool_name,
-                            calls=recorded.calls,
-                            succeeded=recorded.succeeded,
-                            failed=recorded.failed,
-                            duration_ms=recorded.duration_ms,
-                            created_at=now,
-                            updated_at=now,
-                        )
-                    )
-                else:
-                    recorded = ToolUsage(
-                        name=tool_name,
-                        calls=tool_row.calls + tool_counts.calls,
-                        succeeded=tool_row.succeeded + tool_counts.succeeded,
-                        failed=tool_row.failed + tool_counts.failed,
-                        duration_ms=tool_row.duration_ms + tool_counts.duration_ms,
-                    )
-                    await connection.execute(
-                        update(session_tool_usage)
-                        .where(session_tool_usage.c.id == tool_row.id)
-                        .values(
-                            calls=recorded.calls,
-                            succeeded=recorded.succeeded,
-                            failed=recorded.failed,
-                            duration_ms=recorded.duration_ms,
-                            updated_at=now,
-                        )
-                    )
                 recorded_tools.append(recorded)
 
     return SessionHistory(
@@ -1144,14 +1061,14 @@ async def record_agent_invocation(
         agent_session_id=agent_session_id,
         kind="invocation",
         step=step,
-        length=row_length,
-        input_tokens=accumulated["input_tokens"],
-        output_tokens=accumulated["output_tokens"],
-        reasoning_tokens=accumulated["reasoning_tokens"],
-        cache_read_tokens=accumulated["cache_read_tokens"],
-        cache_write_tokens=accumulated["cache_write_tokens"],
-        context_tokens=row_context,
-        cost=row_cost,
+        length=length,
+        input_tokens=delta["input_tokens"],
+        output_tokens=delta["output_tokens"],
+        reasoning_tokens=delta["reasoning_tokens"],
+        cache_read_tokens=delta["cache_read_tokens"],
+        cache_write_tokens=delta["cache_write_tokens"],
+        context_tokens=context_tokens,
+        cost=delta_cost,
         model=model,
         agent=agent,
         created_at=now.isoformat(),
@@ -1245,7 +1162,8 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
     can span several sessions (forks, restarts), and the display-only
     ``sessions.session_id`` pointer can be stale or absent. Ordering is by
     ``created_at`` then ``id`` so a step row and its invocation row keep a
-    stable, insertion-consistent order.
+    stable, insertion-consistent order. Every invocation has its own row, and
+    its tool counts are attached by ``history_id``.
 
     Args:
         task_id: The Linear task identifier.
@@ -1267,10 +1185,11 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
         )
         tool_rows = tool_result.fetchall()
 
-    tools_by_invocation: dict[tuple[str, str], list[ToolUsage]] = {}
+    tools_by_history: dict[str, list[ToolUsage]] = {}
     for tool_row in tool_rows:
-        key = (tool_row.agent_session_id, tool_row.step)
-        tools_by_invocation.setdefault(key, []).append(
+        if tool_row.history_id is None:
+            continue
+        tools_by_history.setdefault(tool_row.history_id, []).append(
             ToolUsage(
                 name=tool_row.tool_name,
                 calls=tool_row.calls,
@@ -1300,9 +1219,7 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             agent=row.agent,
             message=row.message,
             created_at=row.created_at.isoformat(),
-            tool_usage=(
-                tools_by_invocation.get((row.agent_session_id, row.step), []) if row.kind == "invocation" else []
-            ),
+            tool_usage=tools_by_history.get(row.id, []) if row.kind == "invocation" else [],
         )
         for row in rows
     ]
