@@ -1354,3 +1354,56 @@ class TestSessionHistoryEndpoint:
             assert data["total"]["length"] == 700
             assert data["total"]["input_tokens"] == 500
             assert data["total"]["output_tokens"] == 200
+
+    @pytest.mark.asyncio
+    async def test_total_includes_llm_call_rows(self, authenticated_client: TestClient):
+        mock_rows = [
+            SessionHistory(
+                id="h1",
+                session_id="session-abc",
+                kind="invocation",
+                step="build",
+                created_at="2026-01-01T00:00:00Z",
+                input_tokens=500,
+                output_tokens=200,
+            ),
+            SessionHistory(
+                id="h2",
+                session_id=None,
+                task_id="TASK-123",
+                kind="llm_call",
+                step="summarize_plan",
+                created_at="2026-01-01T00:30:00Z",
+                length=400,
+                input_tokens=300,
+                output_tokens=100,
+                model="openai/gpt-oss-120b",
+                agent="openrouter",
+            ),
+        ]
+
+        with (
+            patch(
+                "demetra.api.sessions.get_session_state",
+                new_callable=AsyncMock,
+                return_value={"task_id": "TASK-123"},
+            ),
+            patch(
+                "demetra.api.sessions.get_session_history",
+                new_callable=AsyncMock,
+                return_value=mock_rows,
+            ),
+        ):
+            response = authenticated_client.get("/api/v1/sessions/TASK-123/history")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["total"]["length"] == 1100
+            assert data["total"]["input_tokens"] == 800
+            assert data["total"]["output_tokens"] == 300
+            assert data["history"][1]["kind"] == "llm_call"
+            assert data["history"][1]["step"] == "summarize_plan"
+            assert data["history"][1]["model"] == "openai/gpt-oss-120b"
+            assert data["history"][1]["agent"] == "openrouter"
+            assert data["history"][1]["tool_usage"] == []
+            assert data["tool_usage"] == []

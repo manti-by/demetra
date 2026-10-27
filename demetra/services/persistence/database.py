@@ -829,6 +829,77 @@ async def record_session_step(task_id: str, step: str, message: str | None = Non
     )
 
 
+async def record_llm_call(
+    *,
+    task_id: str,
+    step: str,
+    model: str | None = None,
+    usage: TokenUsage | None = None,
+    message: str | None = None,
+) -> SessionHistory:
+    """Record one OpenRouter LLM call as a ``kind='llm_call'`` history row.
+
+    Unlike ``kind='invocation'`` rows, a direct LLM call reports its own exact
+    token usage, so there is no cumulative cursor to diff against and no
+    ``agent_sessions`` row to attribute it to. ``step`` carries the prompt name
+    (e.g. ``summarize_plan``) so the call keeps its timeline position, and
+    ``message`` carries the failure reason for a failed call.
+
+    Args:
+        task_id: The Linear task identifier.
+        step: The prompt name the call ran for.
+        model: The OpenRouter model serving the call, or None when unresolved.
+        usage: The token usage reported by the response, or None.
+        message: Optional failure reason recorded with the row.
+
+    Returns:
+        SessionHistory: The persisted LLM call record.
+    """
+    now = datetime.now(UTC)
+    history_id = str(uuid4())
+    length = usage.total if usage is not None else None
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(session_history).values(
+                id=history_id,
+                task_id=task_id,
+                kind="llm_call",
+                step=step,
+                length=length,
+                input_tokens=usage.input if usage is not None else None,
+                output_tokens=usage.output if usage is not None else None,
+                reasoning_tokens=usage.reasoning if usage is not None else None,
+                cache_read_tokens=usage.cache_read if usage is not None else None,
+                cache_write_tokens=usage.cache_write if usage is not None else None,
+                context_tokens=usage.context if usage is not None else None,
+                model=model,
+                agent="openrouter",
+                message=message,
+                created_at=now,
+            )
+        )
+        await connection.commit()
+
+    return SessionHistory(
+        id=history_id,
+        session_id=None,
+        task_id=task_id,
+        kind="llm_call",
+        step=step,
+        length=length,
+        input_tokens=usage.input if usage is not None else None,
+        output_tokens=usage.output if usage is not None else None,
+        reasoning_tokens=usage.reasoning if usage is not None else None,
+        cache_read_tokens=usage.cache_read if usage is not None else None,
+        cache_write_tokens=usage.cache_write if usage is not None else None,
+        context_tokens=usage.context if usage is not None else None,
+        model=model,
+        agent="openrouter",
+        message=message,
+        created_at=now.isoformat(),
+    )
+
+
 async def record_agent_invocation(
     *,
     task_id: str,

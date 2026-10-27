@@ -83,4 +83,51 @@ describe("getSessionHistory", () => {
       history: [],
     });
   });
+
+  it("returns llm call rows alongside invocation rows", async () => {
+    const payload = {
+      total: {
+        length: 700,
+        input_tokens: 500,
+        output_tokens: 200,
+        reasoning_tokens: 0,
+        cache_read_tokens: 0,
+        cache_write_tokens: 0,
+        cost: 0,
+      },
+      tool_usage: [],
+      history: [
+        {
+          id: "h1",
+          session_id: null,
+          task_id: "TASK-1",
+          agent_session_id: null,
+          kind: "llm_call",
+          step: "summarize_plan",
+          created_at: "2026-01-01T00:00:00Z",
+          length: 400,
+          input_tokens: 300,
+          output_tokens: 100,
+          reasoning_tokens: null,
+          cache_read_tokens: null,
+          cache_write_tokens: null,
+          context_tokens: null,
+          cost: null,
+          model: "openai/gpt-oss-120b",
+          agent: "openrouter",
+          message: null,
+        },
+      ],
+    };
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(payload), { status: 200 })
+    );
+
+    const result = await getSessionHistory("TASK-1");
+
+    expect(result.history).toHaveLength(1);
+    expect(result.history[0].kind).toBe("llm_call");
+    expect(result.history[0].agent).toBe("openrouter");
+    expect(result.history[0].model).toBe("openai/gpt-oss-120b");
+  });
 });

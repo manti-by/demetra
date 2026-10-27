@@ -29,7 +29,7 @@ interface SessionHistoryCardProps {
 }
 
 function SessionHistoryCard({ entry }: SessionHistoryCardProps) {
-  const hasTokens = entry.kind === 'invocation';
+  const hasTokens = entry.kind === 'invocation' || entry.kind === 'llm_call';
   const toolUsage = entry.tool_usage ?? [];
 
   return (

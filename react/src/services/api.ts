@@ -169,7 +169,7 @@ export interface SessionHistoryEntry {
   session_id: string | null;
   task_id: string | null;
   agent_session_id: string | null;
-  kind: 'step' | 'invocation';
+  kind: 'step' | 'invocation' | 'llm_call';
   step: string;
   created_at: string;
   length: number | null;

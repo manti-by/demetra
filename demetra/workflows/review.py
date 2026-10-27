@@ -97,7 +97,7 @@ async def run_review_agents(
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
-    findings = await summarize_review(review_output=review_output, environment=environment)
+    findings = await summarize_review(review_output=review_output, task_id=task_id, environment=environment)
     if findings:
         meaningful = filter_meaningful_reviews(findings)
         if meaningful:
