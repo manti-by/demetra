@@ -793,3 +793,140 @@ class TestOpenRouterSessionCalls:
             usage=None,
             message=None,
         )
+
+    @pytest.mark.asyncio
+    async def test_process_text_records_the_failure_alongside_the_received_message(self):
+        message = self._message('{"title": "task"}', usage={"prompt_tokens": 20, "completion_tokens": 5})
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.JsonOutputParser") as mock_parser,
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = message
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+            mock_parser.return_value.parse.side_effect = ValueError("bad json")
+
+            result = await process_text_with_openrouter(text="task", task_id="TASK-1")
+
+        assert result["title"] == "task"
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="analyze_ticket",
+            model="openai/gpt-oss-120b",
+            usage=TokenUsage(input=20, output=5),
+            message="bad json",
+        )
+
+    @pytest.mark.asyncio
+    async def test_extract_questions_records_a_failure_before_any_response(self):
+        from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm", side_effect=RuntimeError("LLM unavailable")),
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            with pytest.raises(PlanError):
+                await extract_questions(plan_output=f"Plan output\n{PLAN_HAS_QUESTIONS}", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="extract_questions",
+            model="openai/gpt-oss-120b",
+            usage=None,
+            message="LLM unavailable",
+        )
+
+    @pytest.mark.asyncio
+    async def test_extract_questions_records_the_failure_alongside_the_received_message(self):
+        from demetra.services.agents.opencode import PLAN_HAS_QUESTIONS
+
+        message = self._message("1. What is X?", usage={"prompt_tokens": 40, "completion_tokens": 10})
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.NumberedListOutputParser") as mock_parser,
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = message
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+            mock_parser.return_value.parse.side_effect = ValueError("unparsable list")
+
+            with pytest.raises(PlanError):
+                await extract_questions(plan_output=f"Plan output\n{PLAN_HAS_QUESTIONS}", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="extract_questions",
+            model="openai/gpt-oss-120b",
+            usage=TokenUsage(input=40, output=10),
+            message="unparsable list",
+        )
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_records_a_failure_before_any_response(self):
+        from demetra.library.exceptions import ReviewError
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm", side_effect=RuntimeError("LLM unavailable")),
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            with pytest.raises(ReviewError):
+                await summarize_review(review_output="review output", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="summarize_review",
+            model="openai/gpt-oss-120b",
+            usage=None,
+            message="LLM unavailable",
+        )
+
+    @pytest.mark.asyncio
+    async def test_summarize_review_records_the_failure_alongside_the_received_message(self):
+        from demetra.library.exceptions import ReviewError
+
+        message = self._message("1. real finding", usage={"prompt_tokens": 60, "completion_tokens": 15})
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.NumberedListOutputParser") as mock_parser,
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = message
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+            mock_parser.return_value.parse.side_effect = ValueError("unparsable list")
+
+            with pytest.raises(ReviewError):
+                await summarize_review(review_output="review output", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="summarize_review",
+            model="openai/gpt-oss-120b",
+            usage=TokenUsage(input=60, output=15),
+            message="unparsable list",
+        )

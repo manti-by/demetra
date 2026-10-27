@@ -149,6 +149,7 @@ async def extract_questions(
         return []
 
     result = []
+    message = None
     try:
         llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
         prompt = ChatPromptTemplate.from_messages(
@@ -168,7 +169,13 @@ async def extract_questions(
                 result.append(question)
     except Exception as e:
         logger.exception("LLM call failed in extract_questions")
-        await _record_llm_call(task_id=task_id, step="extract_questions", environment=environment, error=str(e))
+        await _record_llm_call(
+            task_id=task_id,
+            step="extract_questions",
+            environment=environment,
+            message=message,
+            error=str(e),
+        )
         raise PlanError("Failed to extract plan questions") from None
 
     await _record_llm_call(task_id=task_id, step="extract_questions", environment=environment, message=message)
@@ -198,6 +205,7 @@ async def summarize_review(
 
     seen: set[str] = set()
     result: list[str] = []
+    message = None
     try:
         llm = await build_llm(temperature=0.1, max_tokens=1024, environment=environment)
         prompt = ChatPromptTemplate.from_messages(
@@ -220,7 +228,13 @@ async def summarize_review(
                     result.append(finding)
     except Exception as e:
         logger.exception("LLM call failed in summarize_review")
-        await _record_llm_call(task_id=task_id, step="summarize_review", environment=environment, error=str(e))
+        await _record_llm_call(
+            task_id=task_id,
+            step="summarize_review",
+            environment=environment,
+            message=message,
+            error=str(e),
+        )
         raise ReviewError("Failed to summarize the review") from None
 
     await _record_llm_call(task_id=task_id, step="summarize_review", environment=environment, message=message)
@@ -262,7 +276,13 @@ async def process_text_with_openrouter(
         result = output_parser.parse(text=str(message.content))
     except Exception as e:
         logger.exception("LLM call failed in process_text_with_openrouter")
-        await _record_llm_call(task_id=task_id, step="analyze_ticket", environment=environment, error=str(e))
+        await _record_llm_call(
+            task_id=task_id,
+            step="analyze_ticket",
+            environment=environment,
+            message=message,
+            error=str(e),
+        )
         result = None
     else:
         await _record_llm_call(task_id=task_id, step="analyze_ticket", environment=environment, message=message)
