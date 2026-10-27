@@ -156,6 +156,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             log_tail=facts["log_tail"],
             linear_url=facts["url"] or "-",
             related=related,
+            task_id=context.linear_task.id,
             environment=context.environment,
         )
 

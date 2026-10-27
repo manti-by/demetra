@@ -117,6 +117,7 @@ async def run_plan_step(context: Context) -> str | None:
                 plan_output=plan_output,
                 task_description=context.linear_task.description,
                 comments=context.linear_task.comments,
+                task_id=context.linear_task.id,
                 environment=context.environment,
             )
         except PlanError as e:
@@ -141,7 +142,11 @@ async def run_plan_step(context: Context) -> str | None:
         print_message("Plan step is completed", style="heading")
         print_message(f"Plan output:\n{build_plan}")
 
-        questions = await extract_questions(plan_output=plan_output, environment=context.environment)
+        questions = await extract_questions(
+            plan_output=plan_output,
+            task_id=context.linear_task.id,
+            environment=context.environment,
+        )
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
         if not questions:
             print_message("Plan is ready, proceeding to build automatically.", style="heading")

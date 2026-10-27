@@ -89,6 +89,7 @@ async def commit_and_push(context: Context) -> bool:
         pr_body = await generate_pr_description(
             task_details=task_details,
             build_plan=context.build_plan,
+            task_id=context.linear_task.id,
             environment=context.environment,
         )
     except PrDescriptionError as e:

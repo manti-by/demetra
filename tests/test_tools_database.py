@@ -4,6 +4,8 @@ import asyncpg
 import pytest
 import pytest_asyncio
 
+from demetra import settings
+from demetra.services.persistence import database as persistence_database
 from demetra.tools import database
 
 
@@ -26,9 +28,26 @@ async def _insert_project(pool: asyncpg.Pool, *, project_id: str, name: str = "p
 
 
 @pytest_asyncio.fixture
-async def pool():
+async def pool(monkeypatch):
+    """Provide the shared MCP pool pointed at the suite's test database.
+
+    ``get_db_pool`` reads ``demetra.settings.DATABASE`` at call time and refuses
+    to build a pool without a password, which CI supplies as ``demetra``. The
+    session fixture points the persistence module at ``test_demetra`` and tests
+    that reload ``demetra.settings`` replace its ``DATABASE`` object, so the
+    resolved credentials are re-applied from the persistence module here.
+
+    Args:
+        monkeypatch: The pytest fixture used to patch the resolved settings.
+    """
     await database.close_db_pool()
     database.allowed_tables = None
+    credentials = persistence_database.DATABASE
+    monkeypatch.setattr(
+        settings,
+        "DATABASE",
+        {**credentials, "password": credentials["password"] or "demetra"},
+    )
     created = await database.get_db_pool()
     yield created
     await created.execute("DELETE FROM projects WHERE id LIKE $1", f"{TEST_PREFIX}%")

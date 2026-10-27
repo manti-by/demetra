@@ -3,6 +3,23 @@ from langchain_openai import ChatOpenAI
 from demetra.library.models import SessionEnvironment
 
 
+def resolve_llm_model(environment: SessionEnvironment | None = None) -> str:
+    """Return the model name the chat model is built with.
+
+    Callers recording an LLM call in the session history need the model name
+    without instantiating a chat model.
+
+    Args:
+        environment: Optional resolved env layer configuring the model; falls
+            back to the settings-only layers when omitted.
+
+    Returns:
+        str: The resolved OpenRouter model name.
+    """
+    resolver = environment or SessionEnvironment(project_environment={}, user_environment={})
+    return resolver.openrouter_config["model"]
+
+
 async def build_llm(
     *,
     temperature: float,

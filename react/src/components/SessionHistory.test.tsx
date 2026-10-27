@@ -197,6 +197,31 @@ describe('SessionHistory', () => {
     expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
   });
 
+  it('renders tokens and attribution for an llm call entry', () => {
+    const entry: SessionHistoryEntry = {
+      ...mockEntries[2],
+      id: 'llm-1',
+      kind: 'llm_call',
+      step: 'summarize_plan',
+      length: 400,
+      input_tokens: 300,
+      output_tokens: 100,
+      model: 'openai/gpt-oss-120b',
+      agent: 'openrouter',
+    };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    expect(document.querySelector('.session-history-tokens')).toBeInTheDocument();
+    expect(screen.getByText('summarize_plan')).toBeInTheDocument();
+    expect(screen.getByText('openai/gpt-oss-120b')).toBeInTheDocument();
+    expect(screen.getByText('openrouter')).toBeInTheDocument();
+    expect(screen.getByText('300')).toBeInTheDocument();
+    expect(screen.getByText('100')).toBeInTheDocument();
+  });
+
   it('renders agent and cost for an invocation entry', () => {
     const entry = { ...mockEntries[0], agent: 'build', cost: 0.1234, model: 'provider/model' };
 

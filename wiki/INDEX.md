@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md) — Implementation of MNT-260: Session calls to openrouter (2026-10-27)
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md) — The history modal read `build → validate → validate → validate → review`: `record_agent_invocation` upserted `kind='invocation'` rows per `(task, session, step)` and accumulated the delta, so the build loop's resumed iterations (one opencode session, `fork` only on the first build) collapsed into the first iteration's row while validate/review — a fresh session per round — got a row each. Every invocation now inserts its own history row and its tool counts are keyed by `(history_id, tool_name)` (migration `f2a3b4c5d6e7`, backfilled then proven with an upgrade/downgrade round-trip on a scratch DB); totals are unchanged. 1054 tests pass, `ruff`/`ty`/`bandit` clean. (2026-10-25)
 - [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md) — Every Demetra MCP database tool returned `Error: Database operation failed`: the MCP child of `opencode serve --service` had no `DB_*` in its environment while `settings.DATABASE` reads only `os.environ` (no dotenv loader), and behind that sat `FROM quote_ident($1)` (a one-row scalar-function scan, so count was always 1 and queries returned `{'quote_ident': 'projects'}`) plus `query_table` placeholder numbering that still started at `$2`. Now launched via `uv run --env-file .env.docker` with `DB_HOST=postgres`, identifiers validated then quoted inline, placeholders renumbered, and `call_tool` surfaces the exception; 12 new tests, 1054 pass. (2026-10-25)
 - [Session history — cached bundle and MCP tool usage](pages/2026-10-25-session-history-mcp-tool-usage.md) — "Total Cost missing" was a stale browser bundle (API returned `total.cost`, served JS already had the cell); the real gap was MCP tool usage: opencode v2 code mode runs MCP tools inside the `execute` tool, so `WI.wiki_search`/`WI.wiki_list_pages` were persisted as `execute`. `_extract_tool_usage` now counts `state.metadata.toolCalls` (export and event-stream nestings, inheriting the `invoked_at` watermark), surfacing dotted MCP names through the existing DB/API/React pipeline; no migration, `overflow-wrap` added for long names. 1041 backend + 21 component tests pass; `ruff`/`ty`/`tsc` clean. (2026-10-25)
@@ -149,8 +150,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 2026-08-04
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — 2026-07-16
 
-### Sessions, status & resume (14 pages)
+### Sessions, status & resume (15 pages)
 
+- [MNT-260: OpenRouter calls in the session history](pages/2026-10-27-mnt-260-openrouter-call-history.md) — 2026-10-27
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md) — 2026-10-25
 - [Session history — session cost total and failure reasons](pages/2026-10-25-session-history-cost-and-failure-reasons.md) — 2026-10-25
 - [Session history — cached bundle and MCP tool usage](pages/2026-10-25-session-history-mcp-tool-usage.md) — 2026-10-25
@@ -181,6 +183,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
+- [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md) — 2026-10-27
 
 ### Authentication & API security (9 pages)
 
@@ -252,4 +255,3 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 ### TUI & CLI (1 page)
 
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — 2026-07-21
-

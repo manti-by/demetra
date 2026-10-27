@@ -16,6 +16,7 @@ from demetra.services.persistence.database import (
     get_sessions,
     invalidate_agent_sessions,
     record_agent_invocation,
+    record_llm_call,
     record_session_step,
     update_session_is_research,
     update_session_step,
@@ -143,6 +144,65 @@ class TestRecordSessionStep:
 
         history = await get_session_history(task_id=task_id)
         assert history[0].message == "Build failed: tests did not pass"
+
+
+class TestRecordLLMCall:
+    @pytest.mark.asyncio
+    async def test_records_an_llm_call_row_with_usage(self):
+        task_id = _unique_task_id()
+
+        entry = await record_llm_call(
+            task_id=task_id,
+            step="summarize_plan",
+            model="openai/gpt-oss-120b",
+            usage=TokenUsage(input=300, output=100, reasoning=20, cache_read=50),
+        )
+
+        assert entry.kind == "llm_call"
+        assert entry.session_id is None
+        assert entry.agent_session_id is None
+        assert entry.agent == "openrouter"
+        assert entry.step == "summarize_plan"
+        assert entry.model == "openai/gpt-oss-120b"
+        assert entry.length == 470
+        history = await get_session_history(task_id=task_id)
+        assert [row.kind for row in history] == ["llm_call"]
+        assert history[0].input_tokens == 300
+        assert history[0].output_tokens == 100
+        assert history[0].reasoning_tokens == 20
+        assert history[0].cache_read_tokens == 50
+        assert history[0].cache_write_tokens == 0
+
+    @pytest.mark.asyncio
+    async def test_records_a_call_without_usage_or_message(self):
+        task_id = _unique_task_id()
+
+        entry = await record_llm_call(task_id=task_id, step="summarize_review")
+
+        assert entry.length is None
+        history = await get_session_history(task_id=task_id)
+        assert history[0].input_tokens is None
+        assert history[0].message is None
+
+    @pytest.mark.asyncio
+    async def test_records_the_failure_reason(self):
+        task_id = _unique_task_id()
+
+        await record_llm_call(task_id=task_id, step="generate_pr_description", message="timed out")
+
+        history = await get_session_history(task_id=task_id)
+        assert history[0].message == "timed out"
+
+    @pytest.mark.asyncio
+    async def test_every_call_gets_its_own_row(self):
+        task_id = _unique_task_id()
+
+        await record_llm_call(task_id=task_id, step="compose_wiki_page", usage=TokenUsage(input=10))
+        await record_llm_call(task_id=task_id, step="compose_wiki_page", usage=TokenUsage(input=20))
+
+        history = await get_session_history(task_id=task_id)
+        assert len(history) == 2
+        assert [row.input_tokens for row in history] == [10, 20]
 
 
 class TestRecordAgentInvocation:

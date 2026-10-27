@@ -85,13 +85,14 @@ async def get_session_history_endpoint(
 
 
 def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
-    """Sum all counter fields across invocation history records.
+    """Sum all counter fields across invocation and LLM call history records.
 
-    Only ``kind='invocation'`` rows carry exact per-invocation deltas and are
-    summed; ``kind='step'`` rows are informational milestones with no tokens.
-    ``context_tokens`` is a per-invocation snapshot of the context window, not a
-    usage counter, so it is excluded from the sum. ``length`` is derived from
-    the summed token fields to keep it consistent with the breakdown.
+    Only ``kind='invocation'`` and ``kind='llm_call'`` rows carry exact
+    per-call deltas and are summed; ``kind='step'`` rows are informational
+    milestones with no tokens. ``context_tokens`` is a per-invocation snapshot
+    of the context window, not a usage counter, so it is excluded from the sum.
+    ``length`` is derived from the summed token fields to keep it consistent
+    with the breakdown.
 
     Args:
         rows: The session history records to sum.
@@ -109,7 +110,7 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         "cost": 0.0,
     }
     for row in rows:
-        if row.kind != "invocation":
+        if row.kind not in ("invocation", "llm_call"):
             continue
         total["input_tokens"] += row.input_tokens or 0
         total["output_tokens"] += row.output_tokens or 0
