@@ -10,19 +10,28 @@ from demetra.library.models import Context
 from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.runtime.template import get_template
 from demetra.services.runtime.tui import print_message
+from demetra.workflows.notifications import notify_message, notify_status
 
 
 async def notify_linear_failure(context: Context, body: str, comment_label: str) -> None:
-    """Post a failure comment to Linear and move the ticket to ``Awaiting Input``.
+    """Post a failure comment and move the task to ``Awaiting Input``.
 
-    Linear API failures and failed status updates surface a manual-recovery
-    message instead of failing silently, since cleanup will not move the ticket.
+    Chat-mode tasks append the failure to their thread instead of a Linear
+    ticket; Linear API failures and failed status updates surface a
+    manual-recovery message instead of failing silently, since cleanup will not
+    move the ticket.
 
     Args:
         context: The workflow context.
         body: The comment body to post to the ticket.
         comment_label: Short label for the comment, used in error messages.
     """
+    if context.is_chat:
+        if not await notify_message(context=context, body=body, kind="failure"):
+            print_message(f"Failed to post {comment_label} message to the chat thread", style="error")
+        await notify_status(context=context, state="awaiting_input")
+        return
+
     try:
         comment_posted = await post_comment(task_id=context.linear_task.id, body=body)
         state_id = context.environment.linear_state("awaiting_input")

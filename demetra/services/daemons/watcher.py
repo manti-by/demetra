@@ -7,6 +7,7 @@ from rq.job import Job
 
 from demetra.library.exceptions import EnvironmentConfigError
 from demetra.library.models import LinearTask, SessionEnvironment
+from demetra.services.chat import is_chat_task, record_chat_message, record_chat_status
 from demetra.services.linear import get_user_environments_decrypted, post_comment, update_ticket_status
 from demetra.services.persistence.database import (
     get_pending_session_task_ids,
@@ -15,7 +16,7 @@ from demetra.services.persistence.database import (
     increment_run_attempts,
     upsert_pending_session,
 )
-from demetra.services.persistence.queue import queue
+from demetra.services.persistence.queue import enqueue_workflow
 from demetra.services.runtime.utils import log_stream
 from demetra.settings import BASE_PATH, DEFAULT_USER_ID, LOG_DIR, LOGGING, MAX_ATTEMPTS
 
@@ -46,6 +47,34 @@ async def resolve_linear_state(name: str, user_id: str | None, project_id: str |
         return None
 
 
+async def handle_exhausted_attempts(
+    task_id: str, user_id: str | None, project_id: str | None, max_run_attempts: int
+) -> None:
+    """Notify that a task exhausted its run-attempt budget.
+
+    Chat-mode tasks record the message and the ``awaiting_input`` step on their
+    own thread; Linear tasks post a comment and move the ticket.
+
+    Args:
+        task_id: The task identifier.
+        user_id: The user id whose environment resolves the Linear state.
+        project_id: The project id whose environment is consulted first.
+        max_run_attempts: The configured run-attempt budget.
+    """
+    logger.warning(f"Max run attempts ({max_run_attempts}) reached for task {task_id}, moving to Awaiting Input")
+    if await is_chat_task(task_id=task_id):
+        await record_chat_message(task_id=task_id, body="Max run attempts reached", kind="failure")
+        await record_chat_status(task_id=task_id, state="awaiting_input")
+        return
+
+    await post_comment(task_id=task_id, body="Max run attempts reached")
+    state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
+    if state_id:
+        await update_ticket_status(task_id=task_id, state_id=state_id)
+    else:
+        logger.error("Linear state 'awaiting_input' is not configured")
+
+
 async def run_workflow(project_name: str, task_id: str) -> bool:
     """Run the main workflow for a task as a subprocess.
 
@@ -69,13 +98,12 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     user_id = session.user_id if session else DEFAULT_USER_ID
     project_id = session.project_id if session else None
     if session and session.run_attempts > max_run_attempts:
-        logger.warning(f"Max run attempts ({max_run_attempts}) reached for task {task_id}, moving to Awaiting Input")
-        await post_comment(task_id=task_id, body="Max run attempts reached")
-        state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
-        if state_id:
-            await update_ticket_status(task_id=task_id, state_id=state_id)
-        else:
-            logger.error("Linear state 'awaiting_input' is not configured")
+        await handle_exhausted_attempts(
+            task_id=task_id,
+            user_id=user_id,
+            project_id=project_id,
+            max_run_attempts=max_run_attempts,
+        )
         return False
 
     process = None
@@ -122,13 +150,12 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
 
     attempts = await increment_run_attempts(task_id)
     if attempts > max_run_attempts:
-        logger.warning(f"Max run attempts ({max_run_attempts}) reached for task {task_id}, moving to Awaiting Input")
-        await post_comment(task_id=task_id, body="Max run attempts reached")
-        state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
-        if state_id:
-            await update_ticket_status(task_id=task_id, state_id=state_id)
-        else:
-            logger.error("Linear state 'awaiting_input' is not configured")
+        await handle_exhausted_attempts(
+            task_id=task_id,
+            user_id=user_id,
+            project_id=project_id,
+            max_run_attempts=max_run_attempts,
+        )
         return False
 
     return False
@@ -144,7 +171,7 @@ async def delay_run_workflow(project_name: str, task_id: str) -> Job:
     Returns:
         Job: The enqueued RQ job.
     """
-    return queue.enqueue(run_workflow, project_name=project_name, task_id=task_id)
+    return enqueue_workflow(project_name=project_name, task_id=task_id)
 
 
 async def process_tasks(tasks: list[LinearTask]) -> None:

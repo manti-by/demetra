@@ -19,7 +19,7 @@ from demetra.services.agents.opencode import verify_opencode_cli
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.linear import update_ticket_status
 from demetra.services.persistence.database import (
     init_db,
     mark_session_posted,
@@ -36,6 +36,7 @@ from demetra.settings import (
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
 from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
+from demetra.workflows.notifications import notify_message
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.research import is_research_ticket, run_research_step
 from demetra.workflows.setup import setup_workflow
@@ -119,11 +120,12 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
         await update_session_is_research(task_id=context.linear_task.id, is_research=context.is_research)
 
-        try:
-            state_id = context.environment.linear_state("in_progress")
-        except EnvironmentConfigError as e:
-            raise LinearError("Linear state 'in_progress' is not configured") from e
-        await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        if not context.is_chat:
+            try:
+                state_id = context.environment.linear_state("in_progress")
+            except EnvironmentConfigError as e:
+                raise LinearError("Linear state 'in_progress' is not configured") from e
+            await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
 
         if is_research_ticket(context=context):
             report = await run_research_step(context=context)
@@ -148,7 +150,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
             return
 
         if not context.session.posted_to_linear:
-            if await post_comment(task_id=context.linear_task.id, body=context.session.build_plan):
+            if await notify_message(context=context, body=context.session.build_plan, kind="plan"):
                 await mark_session_posted(task_id=context.linear_task.id)
 
         build_plan = context.session.build_plan

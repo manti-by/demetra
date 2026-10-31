@@ -300,8 +300,10 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
-            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch(
+                "demetra.workflows.notifications.update_ticket_status", new_callable=AsyncMock
+            ) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
@@ -360,8 +362,10 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
-            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch(
+                "demetra.workflows.notifications.update_ticket_status", new_callable=AsyncMock
+            ) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
@@ -420,8 +424,10 @@ class TestWorkflowPlan:
         mock_extract_plan,
     ):
         with (
-            patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as mock_post_comment,
-            patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as mock_update_ticket_status,
+            patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock) as mock_post_comment,
+            patch(
+                "demetra.workflows.notifications.update_ticket_status", new_callable=AsyncMock
+            ) as mock_update_ticket_status,
             patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock) as mock_update_session_step,
             patch.object(
                 SessionEnvironment,
@@ -617,12 +623,12 @@ class TestWorkflowPlanLoop:
 
     @pytest.fixture
     def mock_post_comment(self):
-        with patch("demetra.workflows.plan.post_comment", new_callable=AsyncMock) as m:
+        with patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
     def mock_update_ticket_status(self):
-        with patch("demetra.workflows.plan.update_ticket_status", new_callable=AsyncMock) as m:
+        with patch("demetra.workflows.notifications.update_ticket_status", new_callable=AsyncMock) as m:
             yield m
 
     @pytest.fixture
@@ -2274,7 +2280,7 @@ class TestMainBumpVersion:
             patch("main.setup_session_logging", new_callable=AsyncMock),
             patch("main.verify_opencode_cli", new_callable=AsyncMock),
             patch("main.run_plan_step", new_callable=AsyncMock, return_value=True),
-            patch("main.post_comment", new_callable=AsyncMock),
+            patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock),
             patch("main.mark_session_posted", new_callable=AsyncMock),
             patch("main.run_build_step", new_callable=AsyncMock) as mock_build,
             patch("main.commit_and_push", new_callable=AsyncMock, return_value=True),

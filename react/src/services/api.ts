@@ -154,12 +154,111 @@ export interface Session {
   linear_link: string | null;
   research_report: string | null;
   has_history?: boolean;
+  chat_id?: number | null;
+  tags?: string[] | null;
 }
 
-export async function getSessions(): Promise<Session[]> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions`);
+export async function getSessions(params: { tag?: string } = {}): Promise<Session[]> {
+  const query = params.tag ? `?${new URLSearchParams({ tag: params.tag })}` : '';
+  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions${query}`);
   if (!response.ok) {
     throw new Error('Failed to fetch sessions');
+  }
+  return response.json();
+}
+
+export interface Chat {
+  id: number;
+  session_task_id: string;
+  title: string;
+  description: string;
+  user_id: string;
+  project_id: string;
+  tags: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export type ChatMessageKind = 'message' | 'question' | 'plan' | 'failure' | 'research' | 'status';
+
+export interface ChatMessage {
+  id: string;
+  chat_id: number;
+  session_task_id: string;
+  body: string;
+  created_at: string;
+  author_id: string | null;
+  is_system: boolean;
+  kind: ChatMessageKind;
+}
+
+export interface ChatSessionState {
+  step: string;
+  name: string;
+  is_research: boolean;
+  is_chat: boolean;
+}
+
+export interface ChatDetail {
+  chat: Chat;
+  messages: ChatMessage[];
+  session: ChatSessionState | null;
+}
+
+export async function getChat(taskId: string, signal?: AbortSignal): Promise<ChatDetail> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}`, { signal });
+  if (!response.ok) {
+    throw new Error('Failed to fetch chat');
+  }
+  return response.json();
+}
+
+export async function createChat(data: {
+  title: string;
+  description: string;
+  project_id: string;
+  tags: string[];
+}): Promise<Chat> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/chats`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to create chat');
+  }
+  return response.json();
+}
+
+export async function updateChat(
+  taskId: string,
+  data: { description?: string; status?: string },
+): Promise<{ chat: Chat }> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to update chat');
+  }
+  return response.json();
+}
+
+export async function postChatMessage(
+  taskId: string,
+  body: string,
+): Promise<{ message: ChatMessage; resumed: boolean }> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}/messages`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ body }),
+  });
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || 'Failed to send message');
   }
   return response.json();
 }
@@ -251,6 +350,7 @@ export interface Project {
   user_id: string | null;
   linear_project_id: string | null;
   name: string;
+  state: string;
   repository_url: string;
   local_path: string | null;
   created_at: string;
