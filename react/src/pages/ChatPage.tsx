@@ -55,6 +55,11 @@ export function ChatPage() {
   const [sending, setSending] = useState(false);
   const [showLogs, setShowLogs] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const serverDescriptionRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    serverDescriptionRef.current = null;
+  }, [taskId]);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
@@ -62,7 +67,11 @@ export function ChatPage() {
       try {
         const data = await getChat(taskId, signal);
         setDetail(data);
-        setDescription(data.chat.description);
+        const previous = serverDescriptionRef.current;
+        serverDescriptionRef.current = data.chat.description;
+        setDescription((current) =>
+          previous === null || current === previous ? data.chat.description : current,
+        );
         setError(null);
       } catch (e) {
         if (signal?.aborted) return;

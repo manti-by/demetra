@@ -2833,20 +2833,31 @@ async def list_chat_messages(task_id: str) -> list[ChatMessage]:
     return [_chat_message_from_row(row) for row in rows]
 
 
-async def reset_session_for_resume(task_id: str) -> None:
-    """Reset a session so a resumed run re-plans from the updated thread.
+RESUMABLE_CHAT_STEPS = ("awaiting_input", "failed", "completed", "researched")
 
-    Clears the build plan (so the plan step runs again with the new chat
-    messages as task context), the posted flag and the run-attempt counter, and
-    moves the session back to ``initial``.
+
+async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] = RESUMABLE_CHAT_STEPS) -> bool:
+    """Atomically claim a stopped session for a new run.
+
+    The reset and the step check happen in one conditional ``UPDATE`` so two
+    concurrent resume requests cannot both start a workflow: the loser sees an
+    affected-row count of zero. Only stopped steps are accepted, which keeps a
+    run from overlapping an active one. Clears the build plan (so the plan step
+    re-runs with the updated thread as task context), the posted flag and the
+    run-attempt counter, then moves the session back to ``initial``.
 
     Args:
         task_id: The task id.
+        allowed_steps: Session steps that may be resumed.
+
+    Returns:
+        bool: True when this call claimed the session, False when it was not in
+            a resumable step (or another request claimed it first).
     """
     async with get_connection() as connection:
-        await connection.execute(
-            sessions.update()
-            .where(sessions.c.task_id == task_id)
+        result = await connection.execute(
+            update(sessions)
+            .where(sessions.c.task_id == task_id, sessions.c.step.in_(allowed_steps))
             .values(
                 build_plan="",
                 posted_to_linear=False,
@@ -2856,6 +2867,7 @@ async def reset_session_for_resume(task_id: str) -> None:
             )
         )
         await connection.commit()
+    return getattr(result, "rowcount", 0) > 0
 
 
 async def delete_session(task_id: str, user_id: str) -> bool:

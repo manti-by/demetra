@@ -8,21 +8,19 @@ from demetra.library.models import (
     Chat,
     CreateChat,
     CreateChatMessage,
-    Session,
     UpdateChat,
     UserResponse,
 )
 from demetra.services.auth import get_current_user_dep
 from demetra.services.persistence.database import (
+    claim_session_for_resume,
     create_chat,
     get_chat,
     get_project_by_id,
-    get_session,
     get_session_state,
     list_chat_messages,
     list_chats,
     post_chat_message,
-    reset_session_for_resume,
     update_chat,
     update_session_step,
 )
@@ -64,8 +62,12 @@ def _normalize_tags(tags: list[str]) -> list[str]:
     return normalized
 
 
-def _enqueue(project_name: str, task_id: str) -> None:
+async def _enqueue(project_name: str, task_id: str) -> None:
     """Enqueue a workflow run, surfacing broker failures as HTTP errors.
+
+    A failed enqueue leaves the session at ``failed`` so the UI offers a
+    re-run; otherwise the chat would sit at ``initial`` with no recovery
+    action.
 
     Args:
         project_name: The name of the project the task belongs to.
@@ -77,6 +79,7 @@ def _enqueue(project_name: str, task_id: str) -> None:
     try:
         enqueue_workflow(project_name=project_name, task_id=task_id)
     except (RedisError, OSError, RuntimeError) as e:
+        await update_session_step(task_id=task_id, step="failed")
         raise HTTPException(status_code=503, detail="Failed to enqueue workflow") from e
 
 
@@ -135,7 +138,7 @@ async def create_chat_endpoint(
         description=request.description.strip(),
         tags=_normalize_tags(request.tags),
     )
-    _enqueue(project_name=project["name"], task_id=chat.session_task_id)
+    await _enqueue(project_name=project["name"], task_id=chat.session_task_id)
     return chat
 
 
@@ -176,9 +179,10 @@ async def update_chat_endpoint(
     """Update a chat description or session status.
 
     Only the description is editable content. Setting ``status`` to
-    ``initial`` resumes the workflow: the build plan, posted flag and run
-    attempts are reset and the task is re-enqueued. Other statuses are
-    applied to the session step as-is.
+    ``initial`` resumes the workflow: the session is atomically claimed (only
+    stopped steps may resume, so an active run is never overlapped), its build
+    plan, posted flag and run attempts are reset, and the task is re-enqueued.
+    Other statuses are applied to the session step as-is.
 
     Args:
         task_id: The chat task id.
@@ -190,7 +194,8 @@ async def update_chat_endpoint(
 
     Raises:
         HTTPException: 400 for an unsupported status or an empty update, 404
-            when the chat is absent or not owned, 503 when enqueueing fails.
+            when the chat is absent or not owned, 409 when the chat is still
+            running, 503 when enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -210,13 +215,13 @@ async def update_chat_endpoint(
         updated = candidate
 
     if request.status is not None:
-        session = await _require_session(task_id=task_id)
         if request.status == "initial":
-            await reset_session_for_resume(task_id=task_id)
-            project = await get_project_by_id(project_id=session.project_id or chat.project_id, user_id=user.id)
+            project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
             if project is None:
                 raise HTTPException(status_code=404, detail="Project not found")
-            _enqueue(project_name=project["name"], task_id=task_id)
+            if not await claim_session_for_resume(task_id=task_id):
+                raise HTTPException(status_code=409, detail="Chat is already running")
+            await _enqueue(project_name=project["name"], task_id=task_id)
         else:
             await update_session_step(task_id=task_id, step=request.status)
 
@@ -259,32 +264,12 @@ async def create_chat_message_endpoint(
     if message is None:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    session = await get_session(task_id=task_id)
-    resumed = False
-    if session is not None and session.step == "awaiting_input":
-        project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
-        if project is None:
-            raise HTTPException(status_code=404, detail="Project not found")
-        await reset_session_for_resume(task_id=task_id)
-        _enqueue(project_name=project["name"], task_id=task_id)
-        resumed = True
+    project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
+    if resumed:
+        await _enqueue(project_name=project["name"], task_id=task_id)
 
     return {"message": message, "resumed": resumed}
-
-
-async def _require_session(task_id: str) -> Session:
-    """Load a session or raise a 404.
-
-    Args:
-        task_id: The chat task id.
-
-    Returns:
-        Session: The session record.
-
-    Raises:
-        HTTPException: 404 when the session does not exist.
-    """
-    session = await get_session(task_id=task_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="Session not found")
-    return session

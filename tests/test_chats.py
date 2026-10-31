@@ -20,6 +20,7 @@ from demetra.services.chat import (
 )
 from demetra.services.persistence.database import (
     chat_task_id,
+    claim_session_for_resume,
     create_chat,
     create_project,
     delete_project,
@@ -32,11 +33,11 @@ from demetra.services.persistence.database import (
     list_chat_messages,
     list_chats,
     post_chat_message,
-    reset_session_for_resume,
     update_chat,
     update_session_step,
 )
 from demetra.settings import DATABASE
+from demetra.workflows.cleanup import cleanup_workflow
 from demetra.workflows.notifications import notify_message, notify_status
 from demetra.workflows.research import is_research_task, run_research_step
 
@@ -283,16 +284,36 @@ class TestChatQueries:
         assert await post_chat_message(task_id="CH-999999", body="hello") is None
 
     @pytest.mark.asyncio
-    async def test_reset_session_for_resume_clears_plan_and_attempts(self, chat: Chat):
+    async def test_claim_session_for_resume_clears_plan_and_attempts(self, chat: Chat):
         await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
 
-        await reset_session_for_resume(task_id=chat.session_task_id)
+        assert await claim_session_for_resume(task_id=chat.session_task_id) is True
 
         session = await _session_for(task_id=chat.session_task_id)
         assert session.step == "initial"
         assert session.build_plan == ""
         assert session.posted_to_linear is False
         assert session.run_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_resume_rejects_running_step(self, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+
+        assert await claim_session_for_resume(task_id=chat.session_task_id) is False
+        assert (await _session_for(task_id=chat.session_task_id)).step == "build"
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_resume_is_exclusive(self, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="completed")
+
+        assert await claim_session_for_resume(task_id=chat.session_task_id) is True
+        assert await claim_session_for_resume(task_id=chat.session_task_id) is False
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_resume_limits_allowed_steps(self, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="completed")
+
+        assert await claim_session_for_resume(task_id=chat.session_task_id, allowed_steps=("awaiting_input",)) is False
 
 
 class TestChatSessionsListing:
@@ -598,6 +619,48 @@ class TestChatAPI:
         mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
 
     @pytest.mark.asyncio
+    async def test_patch_status_initial_rejects_running_chat(self, authenticated_client: TestClient, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.patch(
+                f"/api/v1/chats/{chat.session_task_id}",
+                json={"status": "initial"},
+            )
+
+        assert response.status_code == 409
+        assert (await _session_for(task_id=chat.session_task_id)).step == "build"
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_enqueue_failure_marks_session_failed(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        with patch("demetra.api.chats.enqueue_workflow", side_effect=RuntimeError("broker down")):
+            response = authenticated_client.patch(
+                f"/api/v1/chats/{chat.session_task_id}",
+                json={"status": "initial"},
+            )
+
+        assert response.status_code == 503
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_create_enqueue_failure_marks_session_failed(self, authenticated_client: TestClient, project: dict):
+        with patch("demetra.api.chats.enqueue_workflow", side_effect=RuntimeError("broker down")):
+            response = authenticated_client.post(
+                "/api/v1/chats",
+                json={"title": "Title", "description": "desc", "project_id": project["id"], "tags": []},
+            )
+
+        assert response.status_code == 503
+        created = await list_chats(user_id=TEST_USER_ID)
+        assert len(created) == 1
+        assert (await _session_for(task_id=created[0].session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
     async def test_patch_status_applies_terminal_step(self, authenticated_client: TestClient, chat: Chat):
         response = authenticated_client.patch(
             f"/api/v1/chats/{chat.session_task_id}",
@@ -734,6 +797,48 @@ class TestChatResearch:
 
         assert report is None
         assert await list_chat_messages(task_id=chat.session_task_id) == []
+
+
+class TestChatCleanup:
+    @pytest.mark.asyncio
+    async def test_success_publishes_completed_only_after_cleanup(self, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+        context = _chat_context(chat=chat, project=project)
+        steps_during_cleanup: list[str] = []
+
+        async def _record_step(context, is_success):
+            steps_during_cleanup.append((await _session_for(task_id=chat.session_task_id)).step)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", side_effect=_record_step) as mock_cleanup,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as mock_linear,
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        assert steps_during_cleanup == ["build"]
+        mock_cleanup.assert_awaited_once()
+        mock_linear.assert_not_awaited()
+        assert (await _session_for(task_id=chat.session_task_id)).step == "completed"
+
+    @pytest.mark.asyncio
+    async def test_failure_publishes_recovery_step_after_cleanup(self, chat: Chat, project: dict):
+        context = _chat_context(chat=chat, project=project)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as mock_linear,
+        ):
+            await cleanup_workflow(
+                context=context,
+                is_success=False,
+                should_update_linear_status=False,
+                failure_step="awaiting_input",
+            )
+
+        mock_linear.assert_not_awaited()
+        assert (await _session_for(task_id=chat.session_task_id)).step == "awaiting_input"
 
 
 def _message(*, kind: ChatMessageKind, body: str) -> ChatMessage:
