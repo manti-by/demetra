@@ -160,5 +160,5 @@ async def cleanup_workflow(
     await git_cleanup(context=context, is_success=is_success)
     if not context.is_research:
         await invalidate_agent_sessions(task_id=context.linear_task.id)
-    if should_update_linear_status:
+    if should_update_linear_status and not context.is_chat:
         await linear_cleanup(context=context, is_success=is_success)

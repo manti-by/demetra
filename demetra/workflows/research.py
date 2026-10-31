@@ -16,6 +16,7 @@ from demetra.services.persistence.database import (
 )
 from demetra.services.runtime.tui import print_message
 from demetra.settings import LINEAR, MAX_ATTEMPTS
+from demetra.workflows.notifications import notify_message
 
 
 def is_research_task(linear_task: LinearTask) -> bool:
@@ -273,6 +274,16 @@ async def run_research_step(context: Context) -> str | None:
             relation to the originating ticket could not be created, after all
             attempts.
     """
+    if context.is_chat:
+        report = await _run_research_agent(context=context)
+        if report is None:
+            print_message("Research agent produced no report after all attempts.", style="error")
+            return None
+        await notify_message(context=context, body=report, kind="research")
+        await update_session_step(task_id=context.linear_task.id, step="researched")
+        print_message("Research report posted to the chat thread.", style="result")
+        return report
+
     await _validate_research_ticket_prerequisites(context=context)
 
     report = await _run_research_agent(context=context)

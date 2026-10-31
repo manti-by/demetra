@@ -14,23 +14,23 @@ from demetra.services.agents.opencode import (
     capture_agent_session,
     opencode_plan_agent,
 )
-from demetra.services.linear import post_comment, update_ticket_status
 from demetra.services.llm.openrouter import extract_plan, extract_questions
 from demetra.services.persistence.database import save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
 from demetra.settings import MAX_ATTEMPTS
+from demetra.workflows.notifications import notify_message, notify_status
 from demetra.workflows.resolve import run_resolve_step
 
 
 async def move_to_awaiting_input(context: Context, reason: str | None = None) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
-    Updates the Linear ticket status and the session step, then raises
-    AutoCancelledError (carrying ``reason`` for the session history) so the
-    caller's cleanup rolls back the worktree and branch without moving the
-    Linear status again.
+    Updates the ticket status (or, for chat mode, only the session step) and
+    then raises AutoCancelledError (carrying ``reason`` for the session history)
+    so the caller's cleanup rolls back the worktree and branch without moving
+    the status again.
 
     Args:
         context: The workflow context.
@@ -41,10 +41,9 @@ async def move_to_awaiting_input(context: Context, reason: str | None = None) ->
         AutoCancelledError: Always, to halt the workflow.
     """
     try:
-        state_id = context.environment.linear_state("awaiting_input")
+        await notify_status(context=context, state="awaiting_input")
     except EnvironmentConfigError as e:
         raise LinearError("Linear state 'awaiting_input' is not configured") from e
-    await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
     await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError(reason)
@@ -122,7 +121,7 @@ async def run_plan_step(context: Context) -> str | None:
             )
         except PlanError as e:
             print_message(f"Plan step failed: {e}", style="error")
-            await post_comment(task_id=context.linear_task.id, body=f"## Error\nPlan step failed: {e}")
+            await notify_message(context=context, body=f"## Error\nPlan step failed: {e}", kind="failure")
             await move_to_awaiting_input(context=context, reason=f"Plan step failed: {e}")
         if not build_plan:
             print_message("Plan is empty, exiting the workflow.", style="error")
@@ -176,12 +175,15 @@ async def run_plan_step(context: Context) -> str | None:
             continue
 
         if context.auto_mode:
-            print_message("Auto mode: posting questions to Linear and exiting.", style="heading")
+            destination = "the chat thread" if context.is_chat else "Linear"
+            print_message(f"Auto mode: posting questions to {destination} and exiting.", style="heading")
             for question in questions:
-                if not await post_comment(task_id=context.linear_task.id, body=f"## Question:\n{question}"):
-                    print_message("Failed to post question to Linear", style="error")
+                if not await notify_message(context=context, body=f"## Question:\n{question}", kind="question"):
+                    print_message(f"Failed to post question to {destination}", style="error")
 
-            await move_to_awaiting_input(context=context, reason="Plan questions posted to Linear, waiting for answers")
+            await move_to_awaiting_input(
+                context=context, reason=f"Plan questions posted to {destination}, waiting for answers"
+            )
 
         print_message("Waiting for user input.", style="heading")
 

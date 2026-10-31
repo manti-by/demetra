@@ -75,7 +75,7 @@ class TestSessionListingAPI:
             mock_get_sessions.return_value = []
             response = authenticated_client.get("/api/v1/sessions?step=build")
             assert response.status_code == 200
-            mock_get_sessions.assert_called_once_with(user_id="test_user_id", step="build")
+            mock_get_sessions.assert_called_once_with(user_id="test_user_id", step="build", tag=None)
 
     @pytest.mark.asyncio
     async def test_list_sessions_filter_by_validate_step(self, authenticated_client: TestClient):
@@ -83,7 +83,7 @@ class TestSessionListingAPI:
             mock_get_sessions.return_value = []
             response = authenticated_client.get("/api/v1/sessions?step=validate")
             assert response.status_code == 200
-            mock_get_sessions.assert_called_once_with(user_id="test_user_id", step="validate")
+            mock_get_sessions.assert_called_once_with(user_id="test_user_id", step="validate", tag=None)
 
     @pytest.mark.asyncio
     async def test_list_sessions_invalid_step(self, authenticated_client: TestClient):

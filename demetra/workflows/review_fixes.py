@@ -4,7 +4,7 @@ from pathlib import Path
 
 from demetra.library.models import Context, Project, Session, SessionEnvironment
 from demetra.services.agents.opencode import capture_agent_session, opencode_review_fixes_agent
-from demetra.services.linear import get_linear_task_by_id
+from demetra.services.chat import resolve_task_by_id
 from demetra.services.persistence.database import (
     get_project_by_id_system,
     get_project_environments,
@@ -135,7 +135,7 @@ async def _record_review_fixes_wiki(
         worktree_path: The worktree the fixes were made in.
     """
     try:
-        linear_task = await get_linear_task_by_id(task_id=task_id)
+        linear_task = await resolve_task_by_id(task_id=task_id)
         if linear_task is not None:
             context = Context(
                 project=project,
