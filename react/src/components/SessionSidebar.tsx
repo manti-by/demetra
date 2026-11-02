@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import type { Session } from "../services/api";
 import { SessionList } from "./SessionList";
 
@@ -16,10 +17,15 @@ export function SessionSidebar({
   sessions,
   setSessions,
 }: SessionSidebarProps) {
+  const navigate = useNavigate();
+
   return (
     <aside className="session-sidebar">
       <div className="sidebar-header">
         <span className="sidebar-title">Sessions</span>
+        <button className="btn-secondary sidebar-new-chat" onClick={() => navigate("/chats/new")}>
+          New chat
+        </button>
       </div>
       <SessionList
         onSelectSession={onSelectSession}

@@ -12,7 +12,7 @@ from demetra.services.persistence.database import get_session_state
 from demetra.settings import DEBUG, LOG_DIR
 
 
-UUID_PATTERN = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$", re.IGNORECASE)
+UUID_PATTERN = re.compile(r"^(?:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}|CH-\d+)$", re.IGNORECASE)
 
 router = APIRouter(prefix="/ws/v1/watcher")
 
@@ -27,7 +27,9 @@ async def send_log(websocket: WebSocket, line: str) -> None:
     await websocket.send_json({"type": "log", "data": {"text": line}})
 
 
-async def send_status(websocket: WebSocket, step: str, name: str = "", is_research: bool = False) -> None:
+async def send_status(
+    websocket: WebSocket, step: str, name: str = "", is_research: bool = False, is_chat: bool = False
+) -> None:
     """Send a session status update over the websocket as a "status" envelope.
 
     Args:
@@ -35,8 +37,11 @@ async def send_status(websocket: WebSocket, step: str, name: str = "", is_resear
         step: The current session step.
         name: Optional session or task name.
         is_research: Whether the session runs the read-only research flow.
+        is_chat: Whether the session is a chat-mode task.
     """
-    await websocket.send_json({"type": "status", "data": {"step": step, "name": name, "is_research": is_research}})
+    await websocket.send_json(
+        {"type": "status", "data": {"step": step, "name": name, "is_research": is_research, "is_chat": is_chat}}
+    )
 
 
 async def send_deleted(websocket: WebSocket) -> None:
@@ -45,7 +50,9 @@ async def send_deleted(websocket: WebSocket) -> None:
     Args:
         websocket: The connected websocket.
     """
-    await websocket.send_json({"type": "status", "data": {"step": "deleted", "name": "", "is_research": False}})
+    await websocket.send_json(
+        {"type": "status", "data": {"step": "deleted", "name": "", "is_research": False, "is_chat": False}}
+    )
 
 
 async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> None:
@@ -70,7 +77,8 @@ async def watcher_logs(
 ) -> None:
     """Stream log files and session status via WebSocket in real-time.
 
-    Authenticates the user and validates the task_id as a UUID. Logs are
+    Authenticates the user and validates the task_id as a UUID or a chat
+    ``CH-<id>``. Logs are
     streamed from the task-keyed session log file, so a task can be watched
     before its session row exists. A session that already exists must belong
     to the authenticated user. Sends JSON envelopes with type "log"
@@ -121,16 +129,19 @@ async def watcher_logs(
     last_seen_step: str | None = None
     last_seen_name: str = ""
     last_seen_is_research: bool = False
+    last_seen_is_chat: bool = False
     seen_session = status_info is not None
     if seen_session:
         last_seen_step = status_info.step
         last_seen_name = status_info.name
         last_seen_is_research = status_info.is_research
+        last_seen_is_chat = status_info.is_chat
         await send_status(
             websocket=websocket,
             step=last_seen_step,
             name=last_seen_name,
             is_research=last_seen_is_research,
+            is_chat=last_seen_is_chat,
         )
 
     try:
@@ -181,15 +192,23 @@ async def watcher_logs(
                         seen_session = True
                         step, name = status_info.step, status_info.name
                         is_research = status_info.is_research
-                        if step != last_seen_step or name != last_seen_name or is_research != last_seen_is_research:
+                        is_chat = status_info.is_chat
+                        if (
+                            step != last_seen_step
+                            or name != last_seen_name
+                            or is_research != last_seen_is_research
+                            or is_chat != last_seen_is_chat
+                        ):
                             last_seen_step = step
                             last_seen_name = name
                             last_seen_is_research = is_research
+                            last_seen_is_chat = is_chat
                             await send_status(
                                 websocket=websocket,
                                 step=step,
                                 name=name,
                                 is_research=is_research,
+                                is_chat=is_chat,
                             )
 
     except WebSocketDisconnect:

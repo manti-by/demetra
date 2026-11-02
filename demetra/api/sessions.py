@@ -24,15 +24,18 @@ VALID_STEPS = set(get_args(StepType))
 async def list_sessions(
     user: UserResponse = Depends(get_current_user_dep),
     step: str | None = Query(default=None),
+    tag: str | None = Query(default=None),
 ) -> list[dict]:
     """List processing sessions for the authenticated user.
 
     Returns a list of session records with their current step and metadata.
+    Chat-mode sessions also carry ``chat_id`` and ``tags``; ``tag`` filters the
+    list to chat sessions carrying that tag.
     """
     if step is not None and step not in VALID_STEPS:
         raise HTTPException(status_code=400, detail=f"Invalid step. Must be one of: {', '.join(VALID_STEPS)}")
 
-    sessions = await get_sessions(user_id=user.id, step=step)
+    sessions = await get_sessions(user_id=user.id, step=step, tag=tag)
     return sessions
 
 

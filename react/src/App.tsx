@@ -20,6 +20,12 @@ const GitHubCallback = lazy(() =>
 const StyleGuide = lazy(() =>
   import("./pages/StyleGuide").then((m) => ({ default: m.StyleGuide })),
 );
+const ChatPage = lazy(() =>
+  import("./pages/ChatPage").then((m) => ({ default: m.ChatPage })),
+);
+const NewChatPage = lazy(() =>
+  import("./pages/NewChatPage").then((m) => ({ default: m.NewChatPage })),
+);
 const LogConsole = lazy(() =>
   import("./components/LogConsole").then((m) => ({ default: m.LogConsole })),
 );
@@ -262,6 +268,22 @@ function App() {
             <Route path="/" element={<AppContent />} />
             <Route path="/styleguide" element={<StyleGuideLayout />} />
             <Route path="/github/callback" element={<GitHubCallback />} />
+            <Route
+              path="/chats/new"
+              element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <NewChatPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/chats/:taskId"
+              element={
+                <Suspense fallback={<LoadingSpinner />}>
+                  <ChatPage />
+                </Suspense>
+              }
+            />
           </Routes>
         </AuthProvider>
       </ThemeProvider>

@@ -7,6 +7,10 @@ vi.mock('../services/api', () => ({
   getSessions: vi.fn().mockResolvedValue([]),
 }));
 
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}));
+
 describe('SessionSidebar', () => {
   it('renders without crashing', () => {
     render(

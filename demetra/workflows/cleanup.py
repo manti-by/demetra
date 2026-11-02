@@ -118,7 +118,8 @@ async def commit_and_push(context: Context) -> bool:
         except SQLAlchemyError:
             print_message("Failed to persist PR link, continuing.", style="warning")
 
-    await update_session_step(task_id=context.linear_task.id, step="completed")
+    if not context.is_chat:
+        await update_session_step(task_id=context.linear_task.id, step="completed")
     await record_session_step(task_id=context.linear_task.id, step="completed")
 
     if wiki_error is not None:
@@ -146,6 +147,13 @@ async def cleanup_workflow(
     worktree invalidates any primary agent session marker (history still
     resolves by ``task_id``, so nothing is hidden).
 
+    Chat-mode terminal steps are published only after the worktree cleanup, so a
+    resume request can never start a new run while the previous one is still
+    removing its worktree. A cleanup failure publishes the failure step (in a
+    ``finally`` block) instead of leaving the session at an active step or
+    reporting success; a worktree that could not be removed keeps the run from
+    being published as ``completed``.
+
     Args:
         context: The workflow context.
         is_success: Whether the workflow completed successfully.
@@ -153,12 +161,24 @@ async def cleanup_workflow(
         failure_step: Step name to record on failure.
         failure_message: Failure reason to record with the failure step row.
     """
-    if not is_success:
+    if not is_success and not context.is_chat:
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
         await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)
 
-    await git_cleanup(context=context, is_success=is_success)
-    if not context.is_research:
-        await invalidate_agent_sessions(task_id=context.linear_task.id)
-    if should_update_linear_status:
-        await linear_cleanup(context=context, is_success=is_success)
+    worktree_cleaned = False
+    cleanup_succeeded = False
+    try:
+        worktree_cleaned = await git_cleanup(context=context, is_success=is_success)
+        if not context.is_research:
+            await invalidate_agent_sessions(task_id=context.linear_task.id)
+        if should_update_linear_status and not context.is_chat:
+            await linear_cleanup(context=context, is_success=is_success)
+        cleanup_succeeded = worktree_cleaned
+    finally:
+        if context.is_chat:
+            if is_success and cleanup_succeeded:
+                if not context.is_research:
+                    await update_session_step(task_id=context.linear_task.id, step="completed")
+            else:
+                await update_session_step(task_id=context.linear_task.id, step=failure_step)
+                await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)

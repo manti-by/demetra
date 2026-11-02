@@ -210,7 +210,11 @@ async def delete_project_endpoint(
     Removes the project from the database and cleans up any
     associated local resources. Requires authentication and ownership.
     """
-    if not await delete_project(project_id=project_id, user_id=user.id):
+    try:
+        deleted = await delete_project(project_id=project_id, user_id=user.id)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail="Project still has chat sessions") from e
+    if not deleted:
         raise HTTPException(status_code=404, detail="Project not found")
     return {"message": "Project deleted successfully"}
 

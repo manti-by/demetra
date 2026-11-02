@@ -1,5 +1,6 @@
-from demetra.library.models import Context, Project, SessionEnvironment
+from demetra.library.models import Chat, Context, Project, SessionEnvironment
 from demetra.services.auth.copy import copy_auth_from_parent
+from demetra.services.chat import get_chat_task
 from demetra.services.linear import get_linear_task, get_linear_task_by_id
 from demetra.services.persistence.database import (
     get_project_environments,
@@ -60,9 +61,13 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     print_message("Copying auth from parent OS", style="heading")
     await copy_auth_from_parent(parent_home=PARENT_HOME)
 
-    print_message("Retrieving linear task", style="heading")
+    print_message("Retrieving task", style="heading")
+    chat: Chat | None = None
     if task_id:
-        linear_task = await get_linear_task_by_id(task_id)
+        if (chat_task := await get_chat_task(task_id=task_id)) is not None:
+            linear_task, chat = chat_task
+        else:
+            linear_task = await get_linear_task_by_id(task_id=task_id)
     else:
         linear_task = await get_linear_task(project_name=project.name, user_id=project.user_id)
 
@@ -92,6 +97,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
             worktree_path=project.local_path,
             session=session,
             is_research=True,
+            chat=chat,
         )
 
     print_message("Creating feature worktree", style="heading")
@@ -107,4 +113,5 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
         branch_name=branch_name,
         worktree_path=worktree_path,
         session=session,
+        chat=chat,
     )

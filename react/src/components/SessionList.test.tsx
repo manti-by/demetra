@@ -9,6 +9,10 @@ vi.mock('../services/api', () => ({
   deleteSession: vi.fn(),
 }));
 
+vi.mock('react-router-dom', () => ({
+  useNavigate: () => vi.fn(),
+}));
+
 describe('SessionList', () => {
   it('renders without crashing', () => {
     render(

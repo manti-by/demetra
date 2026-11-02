@@ -14,6 +14,7 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 
 
 metadata = MetaData()
@@ -37,6 +38,41 @@ sessions = Table(
     Column("research_report", Text(), nullable=True),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Column("updated_at", DateTime(timezone=True), nullable=False),
+)
+
+chats = Table(
+    "chats",
+    metadata,
+    Column("id", Integer(), primary_key=True, autoincrement=True),
+    Column("session_task_id", String(), ForeignKey("sessions.task_id", ondelete="CASCADE"), nullable=False),
+    Column("title", String(), nullable=False),
+    Column("description", Text(), nullable=False, server_default=""),
+    Column("tags", JSONB(), nullable=False, server_default="[]"),
+    Column("user_id", String(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
+    Column("project_id", String(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    UniqueConstraint("session_task_id", name="uq_chats_session_task_id"),
+    Index("ix_chats_user_id", "user_id"),
+    Index("ix_chats_project_id", "project_id"),
+)
+
+chat_messages = Table(
+    "chat_messages",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("chat_id", Integer(), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False),
+    Column("session_task_id", String(), nullable=False),
+    Column("author_id", String(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("is_system", Boolean(), nullable=False, server_default="false"),
+    Column("kind", String(), nullable=False, server_default="message"),
+    Column("body", Text(), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Index("ix_chat_messages_session_task_id", "session_task_id"),
+    CheckConstraint(
+        "kind IN ('message', 'question', 'plan', 'failure', 'research', 'status')",
+        name="ck_chat_messages_kind",
+    ),
 )
 
 oauth_tokens = Table(

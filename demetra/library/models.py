@@ -79,6 +79,53 @@ class LinearTask:
         return slugify(f"{self.identifier.strip()}-{self.title.strip()}")
 
 
+ChatMessageKind = Literal["message", "question", "plan", "failure", "research", "status"]
+
+
+@dataclass
+class Chat:
+    id: int
+    session_task_id: str
+    title: str
+    description: str
+    user_id: str
+    project_id: str
+    created_at: str
+    updated_at: str
+    tags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class ChatMessage:
+    id: str
+    chat_id: int
+    session_task_id: str
+    body: str
+    created_at: str
+    author_id: str | None = None
+    is_system: bool = False
+    kind: ChatMessageKind = "message"
+
+
+@dataclass
+class CreateChat:
+    title: str
+    description: str
+    project_id: str
+    tags: list[str] = field(default_factory=list)
+
+
+@dataclass
+class UpdateChat:
+    description: str | None = None
+    status: str | None = None
+
+
+@dataclass
+class CreateChatMessage:
+    body: str
+
+
 @dataclass
 class TokenUsage:
     input: int = 0
@@ -197,6 +244,7 @@ class SessionState:
     step: str
     name: str
     is_research: bool = False
+    is_chat: bool = False
 
 
 EnvironmentType = Literal["text", "encrypted"]
@@ -617,7 +665,21 @@ class Context:
     session: Session | None
     plan_loop: bool = False
     is_research: bool = False
+    chat: Chat | None = None
     _environment: SessionEnvironment | None = None
+
+    @property
+    def is_chat(self) -> bool:
+        """Return whether the context belongs to a chat-mode session.
+
+        A chat-mode task is backed by a ``chats`` row instead of a Linear
+        ticket; every Linear comment/status call site is replaced by a chat
+        message or a session step transition.
+
+        Returns:
+            bool: True when the context carries a chat record.
+        """
+        return self.chat is not None
 
     @property
     def environment(self) -> SessionEnvironment:
