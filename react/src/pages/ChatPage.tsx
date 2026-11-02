@@ -56,16 +56,20 @@ export function ChatPage() {
   const [showLogs, setShowLogs] = useState(false);
   const threadEndRef = useRef<HTMLDivElement>(null);
   const serverDescriptionRef = useRef<string | null>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     serverDescriptionRef.current = null;
+    requestIdRef.current += 1;
   }, [taskId]);
 
   const load = useCallback(
     async (signal?: AbortSignal) => {
       if (!taskId) return;
+      const requestId = ++requestIdRef.current;
       try {
         const data = await getChat(taskId, signal);
+        if (requestId !== requestIdRef.current) return;
         setDetail(data);
         const previous = serverDescriptionRef.current;
         serverDescriptionRef.current = data.chat.description;
@@ -74,7 +78,7 @@ export function ChatPage() {
         );
         setError(null);
       } catch (e) {
-        if (signal?.aborted) return;
+        if (signal?.aborted || requestId !== requestIdRef.current) return;
         setError(e instanceof Error ? e.message : "Failed to load chat");
       }
     },

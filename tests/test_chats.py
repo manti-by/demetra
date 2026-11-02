@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.library.models import Chat, ChatMessage, ChatMessageKind, Context, LinearTask, Project, Session
 from demetra.services.chat import (
@@ -662,6 +662,8 @@ class TestChatAPI:
 
     @pytest.mark.asyncio
     async def test_patch_status_applies_terminal_step(self, authenticated_client: TestClient, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
         response = authenticated_client.patch(
             f"/api/v1/chats/{chat.session_task_id}",
             json={"status": "completed"},
@@ -669,6 +671,18 @@ class TestChatAPI:
 
         assert response.status_code == 200
         assert (await _session_for(task_id=chat.session_task_id)).step == "completed"
+
+    @pytest.mark.asyncio
+    async def test_patch_status_rejects_active_session(self, authenticated_client: TestClient, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+
+        response = authenticated_client.patch(
+            f"/api/v1/chats/{chat.session_task_id}",
+            json={"status": "completed"},
+        )
+
+        assert response.status_code == 409
+        assert (await _session_for(task_id=chat.session_task_id)).step == "build"
 
     @pytest.mark.asyncio
     async def test_message_resumes_awaiting_input_session(
@@ -839,6 +853,24 @@ class TestChatCleanup:
 
         mock_linear.assert_not_awaited()
         assert (await _session_for(task_id=chat.session_task_id)).step == "awaiting_input"
+
+    @pytest.mark.asyncio
+    async def test_cleanup_failure_publishes_failed_step(self, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+        context = _chat_context(chat=chat, project=project)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock),
+            patch(
+                "demetra.workflows.cleanup.invalidate_agent_sessions",
+                new_callable=AsyncMock,
+                side_effect=SQLAlchemyError("database unavailable"),
+            ),
+        ):
+            with pytest.raises(SQLAlchemyError):
+                await cleanup_workflow(context=context, is_success=True, should_update_linear_status=False)
+
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
 
 
 def _message(*, kind: ChatMessageKind, body: str) -> ChatMessage:

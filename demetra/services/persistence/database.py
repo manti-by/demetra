@@ -2836,6 +2836,34 @@ async def list_chat_messages(task_id: str) -> list[ChatMessage]:
 RESUMABLE_CHAT_STEPS = ("awaiting_input", "failed", "completed", "researched")
 
 
+async def update_session_step_if_stopped(
+    task_id: str, step: str, allowed_steps: tuple[str, ...] = RESUMABLE_CHAT_STEPS
+) -> bool:
+    """Apply a step only while the session is stopped.
+
+    The conditional ``UPDATE`` makes the check and the write atomic, so a
+    status PATCH cannot overwrite the step of an active run and let a later
+    resume overlap the workflow that is still running.
+
+    Args:
+        task_id: The task id.
+        step: The new step value.
+        allowed_steps: Session steps that count as stopped.
+
+    Returns:
+        bool: True when the step was applied, False when the session was
+            active or absent.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            update(sessions)
+            .where(sessions.c.task_id == task_id, sessions.c.step.in_(allowed_steps))
+            .values(step=step, updated_at=datetime.now(UTC))
+        )
+        await connection.commit()
+    return getattr(result, "rowcount", 0) > 0
+
+
 async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] = RESUMABLE_CHAT_STEPS) -> bool:
     """Atomically claim a stopped session for a new run.
 

@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -23,6 +24,7 @@ from demetra.services.persistence.database import (
     post_chat_message,
     update_chat,
     update_session_step,
+    update_session_step_if_stopped,
 )
 from demetra.services.persistence.queue import enqueue_workflow
 
@@ -77,7 +79,11 @@ async def _enqueue(project_name: str, task_id: str) -> None:
         HTTPException: 503 when the queue broker is unreachable.
     """
     try:
-        enqueue_workflow(project_name=project_name, task_id=task_id)
+        await asyncio.to_thread(
+            enqueue_workflow,
+            project_name=project_name,
+            task_id=task_id,
+        )
     except (RedisError, OSError, RuntimeError) as e:
         await update_session_step(task_id=task_id, step="failed")
         raise HTTPException(status_code=503, detail="Failed to enqueue workflow") from e
@@ -182,7 +188,8 @@ async def update_chat_endpoint(
     ``initial`` resumes the workflow: the session is atomically claimed (only
     stopped steps may resume, so an active run is never overlapped), its build
     plan, posted flag and run attempts are reset, and the task is re-enqueued.
-    Other statuses are applied to the session step as-is.
+    Other statuses only apply while the session is stopped; an active run
+    returns ``409`` instead of having its step overwritten.
 
     Args:
         task_id: The chat task id.
@@ -223,7 +230,8 @@ async def update_chat_endpoint(
                 raise HTTPException(status_code=409, detail="Chat is already running")
             await _enqueue(project_name=project["name"], task_id=task_id)
         else:
-            await update_session_step(task_id=task_id, step=request.status)
+            if not await update_session_step_if_stopped(task_id=task_id, step=request.status):
+                raise HTTPException(status_code=409, detail="Chat is still running")
 
     return {"chat": updated}
 
