@@ -29,8 +29,21 @@ function formatTime(dateStr: string): string {
   return date.toLocaleString();
 }
 
-const MessageBubble = ({ message }: { message: ChatMessage }) => {
+const FAILURE_TITLE_FALLBACK = "Failure";
+
+export function splitFailureBody(body: string): { title: string; detail: string } {
+  const trimmed = body.trim();
+  const breakIndex = trimmed.indexOf("\n");
+  const firstLine = breakIndex === -1 ? trimmed : trimmed.slice(0, breakIndex);
+  const title = firstLine.replace(/^#+\s*/, "").trim();
+  const detail = breakIndex === -1 ? "" : trimmed.slice(breakIndex + 1).trim();
+  return { title: title || FAILURE_TITLE_FALLBACK, detail };
+}
+
+export const MessageBubble = ({ message }: { message: ChatMessage }) => {
   const label = MESSAGE_LABELS[message.kind];
+  const failure = message.kind === "failure" ? splitFailureBody(message.body) : null;
+  const collapsible = failure !== null && failure.detail.length > 0;
   return (
     <div className={`chat-message ${message.is_system ? "system" : "user"} kind-${message.kind}`}>
       <div className="chat-message-meta">
@@ -38,7 +51,14 @@ const MessageBubble = ({ message }: { message: ChatMessage }) => {
         {label && <span className="chat-message-kind">{label}</span>}
         <span className="chat-message-time">{formatTime(message.created_at)}</span>
       </div>
-      <div className="chat-message-body">{message.body}</div>
+      {collapsible ? (
+        <details className="chat-message-details">
+          <summary className="chat-message-summary">{failure.title}</summary>
+          <div className="chat-message-body">{failure.detail}</div>
+        </details>
+      ) : (
+        <div className="chat-message-body">{failure ? failure.title : message.body}</div>
+      )}
     </div>
   );
 };
