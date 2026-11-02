@@ -822,6 +822,7 @@ class TestChatCleanup:
 
         async def _record_step(context, is_success):
             steps_during_cleanup.append((await _session_for(task_id=chat.session_task_id)).step)
+            return True
 
         with (
             patch("demetra.workflows.cleanup.git_cleanup", side_effect=_record_step) as mock_cleanup,
@@ -869,6 +870,19 @@ class TestChatCleanup:
         ):
             with pytest.raises(SQLAlchemyError):
                 await cleanup_workflow(context=context, is_success=True, should_update_linear_status=False)
+
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_failed_worktree_removal_publishes_failed_step(self, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+        context = _chat_context(chat=chat, project=project)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, return_value=False),
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=False)
 
         assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
 

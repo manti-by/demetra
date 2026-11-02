@@ -151,7 +151,8 @@ async def cleanup_workflow(
     resume request can never start a new run while the previous one is still
     removing its worktree. A cleanup failure publishes the failure step (in a
     ``finally`` block) instead of leaving the session at an active step or
-    reporting success.
+    reporting success; a worktree that could not be removed keeps the run from
+    being published as ``completed``.
 
     Args:
         context: The workflow context.
@@ -164,14 +165,15 @@ async def cleanup_workflow(
         await update_session_step(task_id=context.linear_task.id, step=failure_step)
         await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)
 
+    worktree_cleaned = False
     cleanup_succeeded = False
     try:
-        await git_cleanup(context=context, is_success=is_success)
+        worktree_cleaned = await git_cleanup(context=context, is_success=is_success)
         if not context.is_research:
             await invalidate_agent_sessions(task_id=context.linear_task.id)
         if should_update_linear_status and not context.is_chat:
             await linear_cleanup(context=context, is_success=is_success)
-        cleanup_succeeded = True
+        cleanup_succeeded = worktree_cleaned
     finally:
         if context.is_chat:
             if is_success and cleanup_succeeded:

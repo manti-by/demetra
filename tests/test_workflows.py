@@ -22,6 +22,7 @@ from demetra.library.models import (
     TokenUsage,
 )
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
+from demetra.services.vcs.git import git_cleanup
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import (
     PullRequestError,
@@ -2229,6 +2230,43 @@ class TestWorkflowCleanup:
                 step="awaiting_input",
                 message="Plan questions posted to Linear, waiting for answers",
             )
+
+    @pytest.mark.asyncio
+    async def test_git_cleanup_reports_failed_worktree_removal(self, faker):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        with patch(
+            "demetra.services.vcs.git.git_worktree_remove",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("worktree busy"),
+        ):
+            assert await git_cleanup(context=context, is_success=True) is False
 
 
 class TestMainBumpVersion:

@@ -474,7 +474,7 @@ async def git_force_push(
     return True
 
 
-async def git_cleanup(context: Context, is_success: bool):
+async def git_cleanup(context: Context, is_success: bool) -> bool:
     """Clean up a workflow's worktree and branch after a run finishes.
 
     Always removes the worktree, forcing it on failure. On failure the branch
@@ -484,12 +484,17 @@ async def git_cleanup(context: Context, is_success: bool):
     Args:
         context: The workflow context describing the worktree and branch.
         is_success: Whether the workflow completed successfully.
+
+    Returns:
+        bool: True when every cleanup step succeeded, False when the worktree
+            removal (or the failure-path branch deletion) failed.
     """
     if context.is_research:
-        return
+        return True
 
     environment = context.environment
     project_id = context.project.id
+    worktree_removed = True
     try:
         print_message("Removing worktree", style="heading")
         await git_worktree_remove(
@@ -501,9 +506,10 @@ async def git_cleanup(context: Context, is_success: bool):
         )
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to remove worktree", style="error")
+        worktree_removed = False
 
     if is_success:
-        return
+        return worktree_removed
 
     try:
         print_message("Deleting branch", style="heading")
@@ -515,3 +521,5 @@ async def git_cleanup(context: Context, is_success: bool):
         )
     except (OSError, RuntimeError, AttributeError):
         print_message("Failed to delete branch", style="error")
+        return False
+    return worktree_removed
