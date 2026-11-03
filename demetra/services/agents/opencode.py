@@ -680,7 +680,9 @@ async def run_opencode_agent(
             resume the fork instead of re-forking the plan session.
         retry_on_network_error: Whether to retry a run whose output shows a
             transient network failure, backing off exponentially between
-            attempts.
+            attempts. A retry resumes the session the failed attempt created
+            (or forked), so partial work continues instead of being repeated
+            in a fresh session.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -688,17 +690,18 @@ async def run_opencode_agent(
     Raises:
         AgentNetworkError: When the retry budget is exhausted by network errors.
     """
-    command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
-
-    if session_id is not None:
-        command.extend(["--session", session_id])
-        if fork:
-            command.append("--fork")
-    if task_title is not None:
-        command.extend(["--title", task_title])
-
     attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
+    resumed_session_id: str | None = None
     for attempt in range(attempts):
+        continued_session_id = resumed_session_id if resumed_session_id is not None else session_id
+        command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+        if continued_session_id is not None:
+            command.extend(["--session", continued_session_id])
+            if fork and attempt == 0:
+                command.append("--fork")
+        if task_title is not None and (attempt == 0 or continued_session_id is None):
+            command.extend(["--title", task_title])
+
         exit_code, stdout, stderr = await run_command(
             command=command,
             target_path=target_path,
@@ -712,6 +715,17 @@ async def run_opencode_agent(
             return exit_code, stdout, stderr
         if attempt == attempts - 1:
             break
+
+        if resumed_session_id is None and task_title is not None and (fork or session_id is None):
+            try:
+                resumed_session_id = await get_opencode_session_id(
+                    target_path=target_path,
+                    task_title=task_title,
+                    environment=environment,
+                    include_forks=fork,
+                )
+            except (OSError, ValueError, KeyError):
+                logger.exception("Failed to resolve the session to resume for %s", task_title)
 
         delay = AGENT_NETWORK_BACKOFF_BASE * 2**attempt
         print_message(

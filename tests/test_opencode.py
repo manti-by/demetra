@@ -279,6 +279,121 @@ class TestAgentNetworkRetry:
         assert "unknown error" not in str(exc_info.value)
 
     @pytest.mark.asyncio
+    async def test_retry_resumes_the_forked_session_without_reforking(self, network_retry_env):
+        mock_run_command, _ = network_retry_env
+        mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
+
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_session_id", new_callable=AsyncMock
+        ) as mock_session_id:
+            mock_session_id.return_value = "sess-fork"
+            await run_opencode_agent(
+                Path("/test"),
+                "task",
+                model="m",
+                agent="build-agent",
+                session_id="sess-plan",
+                task_title="Title",
+                fork=True,
+                retry_on_network_error=True,
+            )
+
+        first_command = mock_run_command.await_args_list[0].kwargs["command"]
+        second_command = mock_run_command.await_args_list[1].kwargs["command"]
+        assert first_command == [
+            "/bin/opencode",
+            "run",
+            "--model",
+            "m",
+            "--agent",
+            "build-agent",
+            "--session",
+            "sess-plan",
+            "--fork",
+            "--title",
+            "Title",
+        ]
+        assert second_command == [
+            "/bin/opencode",
+            "run",
+            "--model",
+            "m",
+            "--agent",
+            "build-agent",
+            "--session",
+            "sess-fork",
+        ]
+        mock_session_id.assert_awaited_once_with(
+            target_path=Path("/test"), task_title="Title", environment=None, include_forks=True
+        )
+
+    @pytest.mark.asyncio
+    async def test_retry_does_not_refork_when_no_fork_session_is_found(self, network_retry_env):
+        mock_run_command, _ = network_retry_env
+        mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
+
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_session_id", new_callable=AsyncMock
+        ) as mock_session_id:
+            mock_session_id.return_value = None
+            await run_opencode_agent(
+                Path("/test"),
+                "task",
+                model="m",
+                agent="build-agent",
+                session_id="sess-plan",
+                task_title="Title",
+                fork=True,
+                retry_on_network_error=True,
+            )
+
+        second_command = mock_run_command.await_args_list[1].kwargs["command"]
+        assert "--fork" not in second_command
+        assert second_command == [
+            "/bin/opencode",
+            "run",
+            "--model",
+            "m",
+            "--agent",
+            "build-agent",
+            "--session",
+            "sess-plan",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_retry_resumes_the_session_created_by_the_failed_attempt(self, network_retry_env):
+        mock_run_command, _ = network_retry_env
+        mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
+
+        with patch(
+            "demetra.services.agents.opencode.get_opencode_session_id", new_callable=AsyncMock
+        ) as mock_session_id:
+            mock_session_id.return_value = "sess-first"
+            await run_opencode_agent(
+                Path("/test"),
+                "task",
+                model="m",
+                agent="plan-agent",
+                task_title="Title",
+                retry_on_network_error=True,
+            )
+
+        second_command = mock_run_command.await_args_list[1].kwargs["command"]
+        assert second_command == [
+            "/bin/opencode",
+            "run",
+            "--model",
+            "m",
+            "--agent",
+            "plan-agent",
+            "--session",
+            "sess-first",
+        ]
+        mock_session_id.assert_awaited_once_with(
+            target_path=Path("/test"), task_title="Title", environment=None, include_forks=False
+        )
+
+    @pytest.mark.asyncio
     async def test_does_not_retry_without_opt_in(self, network_retry_env):
         mock_run_command, mock_sleep = network_retry_env
         mock_run_command.return_value = (1, "", "read ECONNRESET")

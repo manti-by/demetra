@@ -1,6 +1,7 @@
 import asyncio
 import ipaddress
 import logging
+import math
 import os
 import re
 import sys
@@ -256,7 +257,7 @@ def env_get_float(name: str, default: float) -> float:
     Args:
         name: The environment variable name.
         default: The fallback value when the variable is unset, not a float,
-            or negative.
+            negative, or non-finite.
 
     Returns:
         float: The parsed value, or the default.
@@ -270,7 +271,7 @@ def env_get_float(name: str, default: float) -> float:
         value = float(os.environ.get(name, default))
     except ValueError:
         return default
-    return value if value >= 0 else default
+    return value if math.isfinite(value) and value >= 0 else default
 
 
 def env_get_bool_from(getter: EnvGetter, name: str, default: bool) -> bool:

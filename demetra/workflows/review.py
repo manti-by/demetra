@@ -72,7 +72,13 @@ async def run_review_agents(
         )
         for model, title in zip(models, titles, strict=True)
     ]
-    results = await asyncio.gather(*review_agents)
+    gathered = await asyncio.gather(*review_agents, return_exceptions=True)
+
+    results: list[tuple[int, str, str]] = []
+    for result in gathered:
+        if isinstance(result, BaseException):
+            raise result
+        results.append(result)
 
     for title in titles:
         await capture_agent_session(

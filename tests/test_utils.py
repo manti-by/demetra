@@ -190,6 +190,11 @@ class TestEnvHelpers:
         monkeypatch.setenv("TEST_FLOAT", "-0.5")
         assert env_get_float("TEST_FLOAT", 1.0) == 1.0
 
+    @pytest.mark.parametrize("raw", ["inf", "Infinity", "-inf", "nan"])
+    def test_env_get_float_returns_default_when_not_finite(self, monkeypatch, raw):
+        monkeypatch.setenv("TEST_FLOAT", raw)
+        assert env_get_float("TEST_FLOAT", 1.0) == 1.0
+
     def test_env_get_float_rejects_negative_default(self, monkeypatch):
         monkeypatch.delenv("TEST_FLOAT", raising=False)
         with pytest.raises(ValueError, match="default must be nonnegative"):

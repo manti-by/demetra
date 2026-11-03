@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -1637,6 +1638,34 @@ class TestWorkflowReview:
 
         with pytest.raises(ReviewError, match="Failed to summarize the review"):
             await run_review_agents(target_path)
+
+    @pytest.mark.asyncio
+    async def test_run_review_agents_waits_for_siblings_before_raising(self, faker, mock_review_agent):
+        from demetra.library.exceptions import AgentNetworkError
+
+        target_path = Path(f"/tmp/{faker.slug()}")
+        sibling_finished = asyncio.Event()
+        invocations = 0
+
+        async def review(**kwargs):
+            nonlocal invocations
+            invocations += 1
+            if invocations == 1:
+                raise AgentNetworkError(agent="review-agent", stderr="read ECONNRESET")
+            await asyncio.sleep(0)
+            sibling_finished.set()
+            return (0, "Some review output", "")
+
+        mock_review_agent.side_effect = review
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,project/b"},
+            user_environment={},
+        )
+
+        with pytest.raises(AgentNetworkError):
+            await run_review_agents(target_path, environment=environment)
+
+        assert sibling_finished.is_set()
 
 
 class TestWorkflowLint:
