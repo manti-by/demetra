@@ -10,20 +10,20 @@ repos:
       - id: requirements-txt-fixer
 
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.21.2
+    rev: v3.22.0
     hooks:
       - id: pyupgrade
         args: [--py313-plus]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.5
+    rev: v0.17.3
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: '0.26'
+    rev: 'v0.27'
     hooks:
       - id: validate-pyproject
 

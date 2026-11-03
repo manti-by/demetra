@@ -367,6 +367,21 @@ class TestSessionEnvironmentLookup:
         assert environment.lookup(key="KEY") is None
         assert environment.lookup(key="OTHER") is None
 
+    def test_treats_a_whitespace_only_layer_value_as_unset(self):
+        environment = SessionEnvironment(project_environment={"KEY": "  "}, user_environment={"OTHER": " "})
+
+        assert environment.lookup(key="KEY") is None
+        assert environment.lookup(key="OTHER") is None
+
+    def test_strips_a_stored_value_with_stray_whitespace(self):
+        environment = SessionEnvironment(
+            project_environment={},
+            user_environment={"OPENCODE_VALIDATE_MODEL": " deepseek/deepseek-flash "},
+        )
+
+        assert environment.lookup(key="OPENCODE_VALIDATE_MODEL") == "deepseek/deepseek-flash"
+        assert environment.opencode_validate_model == "deepseek/deepseek-flash"
+
     def test_get_still_raises_where_lookup_returns_none(self):
         environment = SessionEnvironment(project_environment={}, user_environment={})
 

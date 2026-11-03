@@ -477,11 +477,11 @@ class SessionEnvironment:
     def lookup(self, key: str) -> str | None:
         """Return the first non-empty value for a key across the layers.
 
-        The non-raising sibling of :meth:`get`, and the getter the
-        ``env_get_*_from`` helpers in ``services/runtime/utils.py`` resolve
-        optional keys through. A layer holding an empty string counts as absent,
-        so a variable exported as ``LANGSMITH_ENDPOINT=`` resolves to None rather
-        than to an empty value.
+        A layer holding an empty or whitespace-only string counts as absent, so a
+        variable exported as ``LANGSMITH_ENDPOINT=`` or ``"  "`` resolves to None
+        rather than to an empty value. Non-empty values are returned stripped, so a
+        stray leading/trailing space in a stored value (e.g. a model id) never
+        reaches an agent invocation.
 
         Args:
             key: The environment variable name.
@@ -490,11 +490,9 @@ class SessionEnvironment:
             str | None: The resolved non-empty value, or None when no layer
                 provides one.
         """
-        if value := self.project_environment.get(key):
-            return value
-
-        if value := self.user_environment.get(key):
-            return value
+        for layer in (self.project_environment, self.user_environment):
+            if value := layer.get(key, "").strip():
+                return value
 
         return settings_default(key)
 
