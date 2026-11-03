@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, memo } from "react";
 import { SessionStateFlow } from "./SessionStateFlow";
+import type { FeedbackLoops } from "../services/api";
 
 const API_URL = import.meta.env.VITE_API_URL || "";
 const MAX_LOGS = 200;
@@ -34,6 +35,7 @@ export interface SessionStatusData {
   step: string;
   name?: string;
   is_research?: boolean;
+  feedback_loops?: FeedbackLoops;
 }
 
 interface LogConsoleProps {
@@ -41,6 +43,7 @@ interface LogConsoleProps {
   sessionName?: string | null;
   step?: string | null;
   isResearch?: boolean;
+  feedbackLoops?: FeedbackLoops | null;
   onDeleteSession?: (taskId: string) => void;
   onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
   showFlow?: boolean;
@@ -51,6 +54,7 @@ export function LogConsole({
   sessionName,
   step,
   isResearch,
+  feedbackLoops,
   onDeleteSession,
   onSessionStatus,
   showFlow = true,
@@ -113,6 +117,7 @@ export function LogConsole({
                 step: data?.step ?? "",
                 name: data?.name,
                 is_research: data?.is_research,
+                feedback_loops: data?.feedback_loops,
               });
             }
             break;
@@ -180,7 +185,7 @@ export function LogConsole({
         </div>
       </div>
       {taskId && showFlow && (
-        <SessionStateFlow key={taskId} step={step} isResearch={isResearch} />
+        <SessionStateFlow key={taskId} step={step} isResearch={isResearch} feedbackLoops={feedbackLoops} />
       )}
       <div className="log-content">
         {!taskId ? (

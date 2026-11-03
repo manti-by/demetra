@@ -12,7 +12,7 @@ vi.mock('./services/api', () => ({
   deleteSession: vi.fn(),
   getSessions: vi.fn().mockResolvedValue([]),
   getChat: vi.fn(),
-  updateChat: vi.fn(),
+  rerunChat: vi.fn(),
   postChatMessage: vi.fn(),
 }));
 

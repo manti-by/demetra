@@ -76,6 +76,7 @@ function AppContent() {
                 step: data.step,
                 ...(data.name !== undefined ? { name: data.name } : {}),
                 ...(data.is_research !== undefined ? { is_research: data.is_research } : {}),
+                ...(data.feedback_loops !== undefined ? { feedback_loops: data.feedback_loops } : {}),
               }
             : s,
         ),
@@ -233,6 +234,7 @@ function AppContent() {
                     sessionName={selectedSession?.name ?? null}
                     step={selectedSession?.step ?? null}
                     isResearch={selectedSession?.is_research ?? false}
+                    feedbackLoops={selectedSession?.feedback_loops ?? null}
                     onDeleteSession={handleDeleteSession}
                     onSessionStatus={updateSessionStatus}
                   />

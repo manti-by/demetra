@@ -15,6 +15,7 @@ from demetra.library.exceptions import (
     PlanError,
 )
 from demetra.library.models import (
+    Chat,
     Context,
     LinearTask,
     Project,
@@ -23,7 +24,7 @@ from demetra.library.models import (
     TokenUsage,
 )
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
-from demetra.services.vcs.git import git_cleanup
+from demetra.services.vcs.git import git_cleanup, git_worktree_create
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import (
     PullRequestError,
@@ -2290,6 +2291,85 @@ class TestWorkflowCleanup:
                 step="awaiting_input",
                 message="Plan questions posted to Linear, waiting for answers",
             )
+
+    @pytest.mark.asyncio
+    async def test_git_cleanup_keeps_chat_worktree_on_failure(self, faker):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        context = Context(
+            project=project,
+            auto_mode=True,
+            linear_task=LinearTask(
+                id="CH-1",
+                identifier="CH-1",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=0,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+            chat=Chat(
+                id=1,
+                session_task_id="CH-1",
+                title=faker.sentence(),
+                description=faker.text(),
+                user_id=str(uuid4()),
+                project_id=project.id,
+                project_name=project.name,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+
+        with (
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+        ):
+            assert await git_cleanup(context=context, is_success=False) is True
+
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_create_reuses_existing_worktree(self, faker, tmp_path):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        worktree_path = tmp_path / project.repository_owner / project.repository_name / "feature"
+        worktree_path.mkdir(parents=True)
+        (worktree_path / ".git").write_text("gitdir: /tmp/worktree-git")
+
+        with (
+            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock) as mock_run,
+        ):
+            result = await git_worktree_create(project=project, branch_name="feature", reuse_existing=True)
+
+        assert result == worktree_path
+        mock_run.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_git_cleanup_reports_failed_worktree_removal(self, faker):

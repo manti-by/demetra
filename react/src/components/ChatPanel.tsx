@@ -5,7 +5,7 @@ import { SessionStateFlow } from "./SessionStateFlow";
 import {
   getChat,
   postChatMessage,
-  updateChat,
+  rerunChat,
   type ChatDetail,
   type ChatMessage,
 } from "../services/api";
@@ -28,7 +28,10 @@ function formatTime(dateStr: string): string {
 
 const FAILURE_TITLE_FALLBACK = "Failure";
 
-export function splitFailureBody(body: string): { title: string; detail: string } {
+export function splitFailureBody(body: string): {
+  title: string;
+  detail: string;
+} {
   const trimmed = body.trim();
   const breakIndex = trimmed.indexOf("\n");
   const firstLine = breakIndex === -1 ? trimmed : trimmed.slice(0, breakIndex);
@@ -39,14 +42,21 @@ export function splitFailureBody(body: string): { title: string; detail: string 
 
 export const MessageBubble = ({ message }: { message: ChatMessage }) => {
   const label = MESSAGE_LABELS[message.kind];
-  const failure = message.kind === "failure" ? splitFailureBody(message.body) : null;
+  const failure =
+    message.kind === "failure" ? splitFailureBody(message.body) : null;
   const collapsible = failure !== null && failure.detail.length > 0;
   return (
-    <div className={`chat-message ${message.is_system ? "system" : "user"} kind-${message.kind}`}>
+    <div
+      className={`chat-message ${message.is_system ? "system" : "user"} kind-${message.kind}`}
+    >
       <div className="chat-message-meta">
-        <span className="chat-message-author">{message.is_system ? "Demetra" : "You"}</span>
+        <span className="chat-message-author">
+          {message.is_system ? "Demetra" : "You"}
+        </span>
         {label && <span className="chat-message-kind">{label}</span>}
-        <span className="chat-message-time">{formatTime(message.created_at)}</span>
+        <span className="chat-message-time">
+          {formatTime(message.created_at)}
+        </span>
       </div>
       {collapsible ? (
         <details className="chat-message-details">
@@ -54,13 +64,15 @@ export const MessageBubble = ({ message }: { message: ChatMessage }) => {
           <div className="chat-message-body">{failure.detail}</div>
         </details>
       ) : (
-        <div className="chat-message-body">{failure ? failure.title : message.body}</div>
+        <div className="chat-message-body">
+          {failure ? failure.title : message.body}
+        </div>
       )}
     </div>
   );
 };
 
-const RERUN_STEPS = ["awaiting_input", "failed", "completed", "researched"];
+const RERUN_STEPS = ["awaiting_input", "failed"];
 
 interface ChatPanelProps {
   taskId: string;
@@ -80,16 +92,11 @@ export function ChatPanel({
   const [detail, setDetail] = useState<ChatDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [description, setDescription] = useState("");
-  const [savingDescription, setSavingDescription] = useState(false);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
-  const threadEndRef = useRef<HTMLDivElement>(null);
-  const serverDescriptionRef = useRef<string | null>(null);
   const requestIdRef = useRef(0);
 
   useEffect(() => {
-    serverDescriptionRef.current = null;
     requestIdRef.current += 1;
     setDraft("");
     setLoadError(null);
@@ -103,11 +110,6 @@ export function ChatPanel({
         const data = await getChat(taskId, signal);
         if (requestId !== requestIdRef.current) return;
         setDetail(data);
-        const previous = serverDescriptionRef.current;
-        serverDescriptionRef.current = data.chat.description;
-        setDescription((current) =>
-          previous === null || current === previous ? data.chat.description : current,
-        );
         setLoadError(null);
       } catch (e) {
         if (signal?.aborted || requestId !== requestIdRef.current) return;
@@ -123,25 +125,6 @@ export function ChatPanel({
     const interval = setInterval(load, POLL_INTERVAL);
     return () => clearInterval(interval);
   }, [load]);
-
-  useEffect(() => {
-    if (threadEndRef.current && typeof threadEndRef.current.scrollIntoView === "function") {
-      threadEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [detail?.messages.length]);
-
-  const handleSaveDescription = useCallback(async () => {
-    setActionError(null);
-    setSavingDescription(true);
-    try {
-      await updateChat(taskId, { description });
-      await load();
-    } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to save description");
-    } finally {
-      setSavingDescription(false);
-    }
-  }, [taskId, description, load]);
 
   const handleSend = useCallback(async () => {
     if (!draft.trim()) return;
@@ -161,15 +144,16 @@ export function ChatPanel({
   const handleRerun = useCallback(async () => {
     setActionError(null);
     try {
-      await updateChat(taskId, { status: "initial" });
+      await rerunChat(taskId);
       await load();
     } catch (e) {
-      setActionError(e instanceof Error ? e.message : "Failed to re-run chat");
+      setActionError(e instanceof Error ? e.message : "Failed to rerun chat");
     }
   }, [taskId, load]);
 
   const step = detail?.session?.step ?? "initial";
   const isResearch = detail?.session?.is_research ?? false;
+  const feedbackLoops = detail?.session?.feedback_loops ?? null;
   const canRerun = RERUN_STEPS.includes(step);
 
   return (
@@ -198,48 +182,44 @@ export function ChatPanel({
         ) : (
           <>
             <div className="chat-header">
-              <h1 className="chat-title">{detail.chat.title}</h1>
+              <h1 className="chat-title">
+                {detail.chat.session_task_id}: {detail.chat.title}
+              </h1>
               <div className="chat-meta">
                 <span className={`session-step ${step}`}>{step}</span>
-                <span className="chat-task-id">{detail.chat.session_task_id}</span>
+                {detail.chat.project_name && (
+                  <span className="session-project">
+                    {detail.chat.project_name}
+                  </span>
+                )}
                 {detail.chat.tags.map((tag) => (
                   <span key={tag} className="chat-tag">
                     {tag}
                   </span>
                 ))}
               </div>
-              <SessionStateFlow step={step} isResearch={isResearch} />
+              <SessionStateFlow
+                step={step}
+                isResearch={isResearch}
+                feedbackLoops={feedbackLoops}
+              />
             </div>
 
             <div className="chat-description">
-              <label className="chat-description-label" htmlFor="chat-description">
-                Description
-              </label>
-              <textarea
-                id="chat-description"
-                className="form-input chat-description-input"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-              />
-              <div className="form-actions">
-                <button
-                  className="btn-secondary"
-                  onClick={handleSaveDescription}
-                  disabled={savingDescription || description === detail.chat.description}
-                >
-                  {savingDescription ? "Saving..." : "Save description"}
-                </button>
-              </div>
+              <span className="chat-description-label">Description</span>
+              <p className="chat-description-text">
+                {detail.chat.description}
+              </p>
             </div>
 
             <div className="chat-thread">
               {detail.messages.length === 0 ? (
                 <div className="chat-empty">No messages yet.</div>
               ) : (
-                detail.messages.map((message) => <MessageBubble key={message.id} message={message} />)
+                detail.messages.map((message) => (
+                  <MessageBubble key={message.id} message={message} />
+                ))
               )}
-              <div ref={threadEndRef} />
             </div>
 
             <div className="chat-composer">
@@ -250,7 +230,11 @@ export function ChatPanel({
                 onChange={(e) => setDraft(e.target.value)}
                 rows={3}
               />
-              <button className="btn-primary" onClick={handleSend} disabled={sending || !draft.trim()}>
+              <button
+                className="btn-primary"
+                onClick={handleSend}
+                disabled={sending || !draft.trim()}
+              >
                 {sending ? "Sending..." : "Send"}
               </button>
             </div>
@@ -265,6 +249,7 @@ export function ChatPanel({
             sessionName={detail?.chat.title ?? null}
             step={detail?.session?.step ?? null}
             isResearch={isResearch}
+            feedbackLoops={feedbackLoops}
             onDeleteSession={onDeleteSession}
             onSessionStatus={onSessionStatus}
             showFlow={false}

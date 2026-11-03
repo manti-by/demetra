@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, create_engine, delete, func, insert, select, text, update
+from sqlalchemy import Column, and_, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import (
@@ -647,6 +647,61 @@ async def update_session_research_report(task_id: str, research_report: str) -> 
         return getattr(result, "rowcount", 0) > 0
 
 
+FEEDBACK_LOOP_STEPS = ("build", "review", "lint", "test")
+
+
+async def get_feedback_loops(*, task_ids: list[str]) -> dict[str, dict[str, int]]:
+    """Count the review and test feedback loops recorded in a task's history.
+
+    Loops are read from the recorded step order: a ``build`` row that directly
+    follows a ``review`` row is one review loop, and a ``build`` row that
+    follows a ``lint`` or ``test`` row is one test loop. Only ``kind='step'``
+    and ``kind='invocation'`` rows carry workflow steps; ``kind='llm_call'``
+    rows use prompt names and are ignored. Filtering to the loop steps means
+    repeated review invocations or build retries in one round still collapse
+    to a single transition.
+
+    Args:
+        task_ids: The task ids to count loops for.
+
+    Returns:
+        dict[str, dict[str, int]]: Per-task ``{"review": n, "test": n}`` counts;
+            tasks without a recorded loop are absent.
+    """
+    if not task_ids:
+        return {}
+    previous_step = func.lag(session_history.c.step).over(
+        partition_by=session_history.c.task_id,
+        order_by=[session_history.c.created_at, session_history.c.id],
+    )
+    step_rows = (
+        select(
+            session_history.c.task_id,
+            session_history.c.step,
+            previous_step.label("previous_step"),
+        )
+        .where(
+            session_history.c.task_id.in_(task_ids),
+            session_history.c.kind.in_(("invocation", "step")),
+            session_history.c.step.in_(FEEDBACK_LOOP_STEPS),
+        )
+        .subquery()
+    )
+    query = select(
+        step_rows.c.task_id,
+        func.count()
+        .filter(and_(step_rows.c.step == "build", step_rows.c.previous_step == "review"))
+        .label("review_loops"),
+        func.count()
+        .filter(and_(step_rows.c.step == "build", step_rows.c.previous_step.in_(("lint", "test"))))
+        .label("test_loops"),
+    ).group_by(step_rows.c.task_id)
+    async with get_connection() as connection:
+        result = await connection.execute(query)
+        rows = result.fetchall()
+    return {row.task_id: {"review": row.review_loops, "test": row.test_loops} for row in rows}
+
+
 async def get_sessions(user_id: str, step: str | None = None, tag: str | None = None) -> list[dict]:
     """List sessions for a user, optionally filtered by step or chat tag.
 
@@ -655,6 +710,8 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
     offer the history view without depending on the display-only
     ``sessions.session_id`` pointer. Chat-mode sessions expose their chat id
     under ``chat_id`` (None for Linear sessions) and their tags under ``tags``.
+    The owning project's name is returned under ``project_name``, and the
+    feedback loops taken during the run are returned under ``feedback_loops``.
 
     Args:
         user_id: The user id to scope the query to.
@@ -671,8 +728,15 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
         .label("has_history")
     )
     query = (
-        select(sessions, has_history, chats.c.id.label("chat_id"), chats.c.tags.label("tags"))
+        select(
+            sessions,
+            has_history,
+            chats.c.id.label("chat_id"),
+            chats.c.tags.label("tags"),
+            projects.c.name.label("project_name"),
+        )
         .outerjoin(chats, chats.c.session_task_id == sessions.c.task_id)
+        .outerjoin(projects, projects.c.id == sessions.c.project_id)
         .where(sessions.c.user_id == user_id)
     )
     if step is not None:
@@ -686,7 +750,11 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
         result = await connection.execute(query)
         rows = result.fetchall()
 
-    return [dict(row._mapping) for row in rows]
+    session_rows = [dict(row._mapping) for row in rows]
+    loops = await get_feedback_loops(task_ids=[row["task_id"] for row in session_rows])
+    for row in session_rows:
+        row["feedback_loops"] = loops.get(row["task_id"], {"review": 0, "test": 0})
+    return session_rows
 
 
 async def save_oauth_token(service: str, access_token: str, refresh_token: str | None, expires_in: int) -> None:
@@ -781,34 +849,41 @@ async def update_session_step(*, task_id: str, step: str) -> None:
         await connection.commit()
 
 
-async def record_session_step(task_id: str, step: str, message: str | None = None) -> SessionHistory:
+async def record_session_step(
+    task_id: str, step: str, message: str | None = None, *, repeat: bool = False
+) -> SessionHistory:
     """Record a non-agent workflow step as a ``kind='step'`` history row.
 
-    The row is upserted per ``(task_id, step)`` so a step recorded from two
-    paths (e.g. ``awaiting_input`` is set both when the plan moves the ticket
-    and again by the cleanup path) produces exactly one row instead of the
-    empty/populated duplicates that used to shadow agent rows. ``message``
-    carries the failure reason for terminal failure rows; on an existing row
-    a new message overwrites the old one, while ``None`` keeps it.
+    By default the row is upserted per ``(task_id, step)`` so a step recorded
+    from two paths (e.g. ``awaiting_input`` is set both when the plan moves the
+    ticket and again by the cleanup path) produces exactly one row instead of
+    the empty/populated duplicates that used to shadow agent rows. ``repeat``
+    records a fresh row per call instead, which the lint and test steps use so
+    every feedback-loop attempt stays in the timeline. ``message`` carries the
+    failure reason for terminal failure rows; on an existing row a new message
+    overwrites the old one, while ``None`` keeps it.
 
     Args:
         task_id: The Linear task identifier.
         step: The workflow step name.
         message: Optional failure reason recorded with the step row.
+        repeat: Whether to insert a new row instead of upserting the step.
 
     Returns:
         SessionHistory: The persisted history record.
     """
     now = datetime.now(UTC)
     async with get_connection() as connection:
-        existing = await connection.execute(
-            select(session_history.c.id).where(
-                (session_history.c.task_id == task_id)
-                & (session_history.c.step == step)
-                & (session_history.c.kind == "step")
+        row = None
+        if not repeat:
+            existing = await connection.execute(
+                select(session_history.c.id).where(
+                    (session_history.c.task_id == task_id)
+                    & (session_history.c.step == step)
+                    & (session_history.c.kind == "step")
+                )
             )
-        )
-        row = existing.fetchone()
+            row = existing.fetchone()
         if row is not None:
             if message is not None:
                 await connection.execute(
@@ -1195,8 +1270,8 @@ async def get_session_state(task_id: str, user_id: str | None = None) -> Session
         user_id: Optional user id to scope the query to.
 
     Returns:
-        SessionState | None: The step, name, research and chat flags, or None
-            when the session does not exist.
+        SessionState | None: The step, name, research, chat and feedback-loop
+            state, or None when the session does not exist.
     """
     query = (
         select(sessions.c.step, sessions.c.name, sessions.c.is_research, chats.c.id.label("chat_id"))
@@ -1210,11 +1285,13 @@ async def get_session_state(task_id: str, user_id: str | None = None) -> Session
         row = result.fetchone()
     if not row:
         return None
+    loops = await get_feedback_loops(task_ids=[task_id])
     return SessionState(
         step=row.step or "initial",
         name=row.name or "",
         is_research=bool(row.is_research),
         is_chat=row.chat_id is not None,
+        feedback_loops=loops.get(task_id, {"review": 0, "test": 0}),
     )
 
 
@@ -2557,6 +2634,16 @@ def chat_task_id(chat_id: int) -> str:
     return f"{CHAT_TASK_ID_PREFIX}{chat_id}"
 
 
+def _chat_select():
+    """Return a chat select statement with the owning project's name joined in.
+
+    Returns:
+        Select: A select of ``chats`` plus the ``project_name`` label read by
+            :func:`_chat_from_row`.
+    """
+    return select(chats, projects.c.name.label("project_name")).join(projects, projects.c.id == chats.c.project_id)
+
+
 def _chat_from_row(row) -> Chat:
     """Convert a ``chats`` row into a Chat dataclass.
 
@@ -2573,6 +2660,7 @@ def _chat_from_row(row) -> Chat:
         description=row.description or "",
         user_id=row.user_id,
         project_id=row.project_id,
+        project_name=row.project_name,
         tags=list(row.tags or []),
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
@@ -2659,6 +2747,8 @@ async def create_chat(
                 updated_at=now,
             )
         )
+        project_row = await connection.execute(select(projects.c.name).where(projects.c.id == project_id))
+        project_name = project_row.scalar_one()
 
     return Chat(
         id=chat_id,
@@ -2667,6 +2757,7 @@ async def create_chat(
         description=description,
         user_id=user_id,
         project_id=project_id,
+        project_name=project_name,
         tags=list(tags or []),
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
@@ -2683,7 +2774,7 @@ async def get_chat_by_task_id(task_id: str) -> Chat | None:
         Chat | None: The chat record, or None when the task is a Linear task.
     """
     async with get_connection() as connection:
-        result = await connection.execute(select(chats).where(chats.c.session_task_id == task_id))
+        result = await connection.execute(_chat_select().where(chats.c.session_task_id == task_id))
         row = result.fetchone()
     return _chat_from_row(row) if row else None
 
@@ -2700,7 +2791,7 @@ async def get_chat(task_id: str, user_id: str) -> Chat | None:
     """
     async with get_connection() as connection:
         result = await connection.execute(
-            select(chats).where((chats.c.session_task_id == task_id) & (chats.c.user_id == user_id))
+            _chat_select().where((chats.c.session_task_id == task_id) & (chats.c.user_id == user_id))
         )
         row = result.fetchone()
     return _chat_from_row(row) if row else None
@@ -2716,48 +2807,13 @@ async def list_chats(user_id: str, tag: str | None = None) -> list[Chat]:
     Returns:
         list[Chat]: The matching chat records.
     """
-    query = select(chats).where(chats.c.user_id == user_id)
+    query = _chat_select().where(chats.c.user_id == user_id)
     if tag is not None:
         query = query.where(chats.c.tags.contains([tag]))
     async with get_connection() as connection:
         result = await connection.execute(query.order_by(chats.c.created_at.desc()))
         rows = result.fetchall()
     return [_chat_from_row(row) for row in rows]
-
-
-async def update_chat(
-    *,
-    task_id: str,
-    user_id: str,
-    description: str | None = None,
-    title: str | None = None,
-) -> Chat | None:
-    """Update the editable chat fields.
-
-    Args:
-        task_id: The ``CH-<id>`` task id.
-        user_id: The owning user id.
-        description: New description, when provided.
-        title: New title, when provided.
-
-    Returns:
-        Chat | None: The updated chat, or None when absent or not owned.
-    """
-    values: dict = {"updated_at": datetime.now(UTC)}
-    if description is not None:
-        values["description"] = description
-    if title is not None:
-        values["title"] = title
-    async with get_connection() as connection:
-        result = await connection.execute(
-            update(chats)
-            .where((chats.c.session_task_id == task_id) & (chats.c.user_id == user_id))
-            .values(**values)
-            .returning(chats)
-        )
-        row = result.fetchone()
-        await connection.commit()
-    return _chat_from_row(row) if row else None
 
 
 async def post_chat_message(
@@ -2835,30 +2891,31 @@ async def list_chat_messages(task_id: str) -> list[ChatMessage]:
 
 RESUMABLE_CHAT_STEPS = ("awaiting_input", "failed", "completed", "researched")
 
+RERUNNABLE_CHAT_STEPS = ("failed", "awaiting_input")
 
-async def update_session_step_if_stopped(
-    task_id: str, step: str, allowed_steps: tuple[str, ...] = RESUMABLE_CHAT_STEPS
-) -> bool:
-    """Apply a step only while the session is stopped.
 
-    The conditional ``UPDATE`` makes the check and the write atomic, so a
-    status PATCH cannot overwrite the step of an active run and let a later
-    resume overlap the workflow that is still running.
+async def claim_session_for_rerun(task_id: str, allowed_steps: tuple[str, ...] = RERUNNABLE_CHAT_STEPS) -> bool:
+    """Atomically claim a stopped chat session for a rerun.
+
+    Unlike :func:`claim_session_for_resume`, this keeps the recorded build plan,
+    the posted flag and the run-attempt counter intact, so the workflow resumes
+    the previous run instead of re-planning from scratch. The session step moves
+    to ``build`` (where ``main.py`` resumes when a plan exists), which also makes
+    the claim exclusive: a second rerun sees a non-rerunnable step.
 
     Args:
         task_id: The task id.
-        step: The new step value.
-        allowed_steps: Session steps that count as stopped.
+        allowed_steps: Session steps that may be rerun.
 
     Returns:
-        bool: True when the step was applied, False when the session was
-            active or absent.
+        bool: True when this call claimed the session, False when it was not in
+            a rerunnable step (or another request claimed it first).
     """
     async with get_connection() as connection:
         result = await connection.execute(
             update(sessions)
             .where(sessions.c.task_id == task_id, sessions.c.step.in_(allowed_steps))
-            .values(step=step, updated_at=datetime.now(UTC))
+            .values(step="build", updated_at=datetime.now(UTC))
         )
         await connection.commit()
     return getattr(result, "rowcount", 0) > 0

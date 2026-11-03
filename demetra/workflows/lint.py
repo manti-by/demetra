@@ -40,7 +40,7 @@ async def run_lint_and_test(
         print_message("Running RUFF linter", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="lint")
-            await record_session_step(task_id=task_id, step="lint")
+            await record_session_step(task_id=task_id, step="lint", repeat=True)
 
         await run_ruff_format(target_path=target_path, environment=environment)
         ruff_exit_code, ruff_result, _ = await run_ruff_checks(target_path=target_path, environment=environment)
@@ -58,7 +58,7 @@ async def run_lint_and_test(
         print_message("Running PYTESTs", style="heading")
         if task_id:
             await update_session_step(task_id=task_id, step="test")
-            await record_session_step(task_id=task_id, step="test")
+            await record_session_step(task_id=task_id, step="test", repeat=True)
 
         pytest_exit_code, pytest_result, _ = await run_pytests(
             target_path=target_path, session_id=session_id, environment=environment

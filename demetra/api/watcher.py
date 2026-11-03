@@ -28,7 +28,12 @@ async def send_log(websocket: WebSocket, line: str) -> None:
 
 
 async def send_status(
-    websocket: WebSocket, step: str, name: str = "", is_research: bool = False, is_chat: bool = False
+    websocket: WebSocket,
+    step: str,
+    name: str = "",
+    is_research: bool = False,
+    is_chat: bool = False,
+    feedback_loops: dict[str, int] | None = None,
 ) -> None:
     """Send a session status update over the websocket as a "status" envelope.
 
@@ -38,9 +43,19 @@ async def send_status(
         name: Optional session or task name.
         is_research: Whether the session runs the read-only research flow.
         is_chat: Whether the session is a chat-mode task.
+        feedback_loops: Feedback-loop attempt counts recorded in the history.
     """
     await websocket.send_json(
-        {"type": "status", "data": {"step": step, "name": name, "is_research": is_research, "is_chat": is_chat}}
+        {
+            "type": "status",
+            "data": {
+                "step": step,
+                "name": name,
+                "is_research": is_research,
+                "is_chat": is_chat,
+                "feedback_loops": feedback_loops or {"review": 0, "test": 0},
+            },
+        }
     )
 
 
@@ -51,7 +66,16 @@ async def send_deleted(websocket: WebSocket) -> None:
         websocket: The connected websocket.
     """
     await websocket.send_json(
-        {"type": "status", "data": {"step": "deleted", "name": "", "is_research": False, "is_chat": False}}
+        {
+            "type": "status",
+            "data": {
+                "step": "deleted",
+                "name": "",
+                "is_research": False,
+                "is_chat": False,
+                "feedback_loops": {"review": 0, "test": 0},
+            },
+        }
     )
 
 
@@ -130,18 +154,21 @@ async def watcher_logs(
     last_seen_name: str = ""
     last_seen_is_research: bool = False
     last_seen_is_chat: bool = False
+    last_seen_feedback_loops: dict[str, int] = {"review": 0, "test": 0}
     seen_session = status_info is not None
     if seen_session:
         last_seen_step = status_info.step
         last_seen_name = status_info.name
         last_seen_is_research = status_info.is_research
         last_seen_is_chat = status_info.is_chat
+        last_seen_feedback_loops = status_info.feedback_loops
         await send_status(
             websocket=websocket,
             step=last_seen_step,
             name=last_seen_name,
             is_research=last_seen_is_research,
             is_chat=last_seen_is_chat,
+            feedback_loops=last_seen_feedback_loops,
         )
 
     try:
@@ -193,22 +220,26 @@ async def watcher_logs(
                         step, name = status_info.step, status_info.name
                         is_research = status_info.is_research
                         is_chat = status_info.is_chat
+                        feedback_loops = status_info.feedback_loops
                         if (
                             step != last_seen_step
                             or name != last_seen_name
                             or is_research != last_seen_is_research
                             or is_chat != last_seen_is_chat
+                            or feedback_loops != last_seen_feedback_loops
                         ):
                             last_seen_step = step
                             last_seen_name = name
                             last_seen_is_research = is_research
                             last_seen_is_chat = is_chat
+                            last_seen_feedback_loops = feedback_loops
                             await send_status(
                                 websocket=websocket,
                                 step=step,
                                 name=name,
                                 is_research=is_research,
                                 is_chat=is_chat,
+                                feedback_loops=feedback_loops,
                             )
 
     except WebSocketDisconnect:

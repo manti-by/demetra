@@ -119,9 +119,9 @@ const RESEARCH_STEP_VARIANTS: { label: string; step: string | null }[] = [
 
 const FEEDBACK_SEQUENCES: { label: string; steps: string[] }[] = [
   { label: "No loop yet — both dashed", steps: ["plan", "build", "validate", "review"] },
-  { label: "Review loop active — blinking", steps: ["plan", "build", "validate", "review", "build"] },
-  { label: "Lint loop active — review passed", steps: ["plan", "build", "validate", "review", "build", "validate", "lint", "test", "build", "lint"] },
-  { label: "Both loops passed", steps: ["plan", "build", "validate", "review", "build", "validate", "review", "lint", "test", "build", "lint", "test", "wiki"] },
+  { label: "Review loop taken — blinking", steps: ["plan", "build", "validate", "review", "build"] },
+  { label: "Lint loop taken — review still blinking", steps: ["plan", "build", "validate", "review", "build", "validate", "lint", "test", "build", "lint"] },
+  { label: "Both loops taken — blinking while running", steps: ["plan", "build", "validate", "review", "build", "validate", "review", "lint", "test", "build", "lint", "test", "wiki"] },
 ];
 
 const STEP_DELAY = 1400;
@@ -309,20 +309,22 @@ const hello = "world";`}</pre>
         <div className="sg-card">
           <div className="sg-stack">
             <div className="session-item selected">
-              <div className="session-item-header"><span className="session-title">my-feature-branch</span><span className="session-step build">build</span></div>
-              <div className="session-item-meta"><span className="session-time">2h ago</span><span className="session-plan">Build plan available</span></div>
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type chat">C</span><span className="session-step build">build</span></div><span className="session-time">2h ago</span></div>
+              <div className="session-title">my-feature-branch</div>
+              <div className="session-item-meta"><span className="session-project">demetra</span><span className="session-tag">Backend</span></div>
             </div>
             <div className="session-item">
-              <div className="session-item-header"><span className="session-title">fix/auth-flow</span><span className="session-step completed">completed</span></div>
-              <div className="session-item-meta"><span className="session-time">1d ago</span><span className="session-plan">PR #42</span></div>
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step completed">completed</span></div><span className="session-time">1d ago</span></div>
+              <div className="session-title">fix/auth-flow</div>
+              <div className="session-item-meta"><span className="session-project">demetra</span></div>
             </div>
             <div className="session-item">
-              <div className="session-item-header"><span className="session-title">init</span><span className="session-step failed">failed</span></div>
-              <div className="session-item-meta"><span className="session-time">Just now</span></div>
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step failed">failed</span></div><span className="session-time">Just now</span></div>
+              <div className="session-title">init</div>
             </div>
             <div className="session-item">
-              <div className="session-item-header"><span className="session-title">initial session</span><span className="session-step initial">initial</span></div>
-              <div className="session-item-meta"><span className="session-time">5m ago</span></div>
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step initial">initial</span></div><span className="session-time">5m ago</span></div>
+              <div className="session-title">initial session</div>
             </div>
           </div>
           <div className="sg-row sg-wrap" style={{ marginTop: 12 }}>
@@ -360,9 +362,10 @@ const hello = "world";`}</pre>
         <p className="sg-section-desc">
           Live <code>SessionStateFlow</code> above the log console. Node states are <code>done</code> /
           <code> active</code> / <code> upcoming</code>; a step that ends the flow completes every node so
-          nothing blinks on <code>completed</code>. Feedback brackets return to <code>build</code> and read
-          dashed while no loop happened, blinking while the loop is in flight, and plain once the flow moved
-          past its source.
+          nothing blinks on <code>completed</code>. Feedback brackets return to <code>build</code>, read
+          dashed while no loop happened, blink while the workflow is running, and stay bright without
+          blinking once it finishes — the counts are restored from session history, so a finished or
+          reloaded session keeps its loops.
         </p>
 
         <h3 className="sg-h3">Build chain steps</h3>
@@ -401,6 +404,10 @@ const hello = "world";`}</pre>
               <SessionStateFlowReplay steps={sequence.steps} />
             </div>
           ))}
+          <div className="sg-flow-cell">
+            <span className="sg-flow-caption">Completed — loops restored from history</span>
+            <SessionStateFlow step="completed" feedbackLoops={{ review: 2, test: 1 }} />
+          </div>
         </div>
       </section>
 

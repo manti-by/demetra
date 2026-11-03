@@ -104,23 +104,17 @@ describe('loopTrigger', () => {
 });
 
 describe('resolveLoopState', () => {
-  const lintLoop = BUILD_FEEDBACK.find((feedback) => feedback.key === 'lint')!;
-  const reviewLoop = BUILD_FEEDBACK.find((feedback) => feedback.key === 'review')!;
-
   it('stays pending until the loop has been taken', () => {
-    expect(resolveLoopState(BUILD_FLOW, reviewLoop, false, 'build')).toBe('pending');
-    expect(resolveLoopState(BUILD_FLOW, lintLoop, false, 'test')).toBe('pending');
+    expect(resolveLoopState(false, false)).toBe('pending');
+    expect(resolveLoopState(false, true)).toBe('pending');
   });
 
-  it('is active while the flow sits between the loop target and its source', () => {
-    expect(resolveLoopState(BUILD_FLOW, reviewLoop, true, 'build')).toBe('active');
-    expect(resolveLoopState(BUILD_FLOW, reviewLoop, true, 'review')).toBe('active');
-    expect(resolveLoopState(BUILD_FLOW, lintLoop, true, 'lint')).toBe('active');
+  it('blinks while the workflow is still running', () => {
+    expect(resolveLoopState(true, false)).toBe('active');
   });
 
-  it('is passed once the flow moved past the loop source', () => {
-    expect(resolveLoopState(BUILD_FLOW, reviewLoop, true, 'lint')).toBe('passed');
-    expect(resolveLoopState(BUILD_FLOW, lintLoop, true, 'github')).toBe('passed');
+  it('is bright and still once the workflow finished', () => {
+    expect(resolveLoopState(true, true)).toBe('passed');
   });
 });
 
@@ -143,8 +137,8 @@ describe('loopPath', () => {
   it('draws a square bracket dropping from the source and rising into the target with an arrowhead', () => {
     const { bracket, head } = loopPath(240, 80, 1);
 
-    expect(bracket).toBe('M 240 4 V 17 Q 240 24 233 24 H 87 Q 80 24 80 17 V 8');
-    expect(head).toBe('M 74.5 8 L 80 0 L 85.5 8');
+    expect(bracket).toBe('M 240 2 V 17 Q 240 24 233 24 H 87 Q 80 24 80 17 V 10');
+    expect(head).toBe('M 74.5 10 L 80 3 L 85.5 10');
   });
 
   it('deepens the bracket for nested lanes', () => {
@@ -152,7 +146,7 @@ describe('loopPath', () => {
   });
 
   it('never turns corners wider than the span between the nodes', () => {
-    expect(loopPath(10, 9, 1).bracket).toBe('M 10 4 V 23.5 Q 10 24 9.5 24 H 9.5 Q 9 24 9 23.5 V 8');
+    expect(loopPath(10, 9, 1).bracket).toBe('M 10 2 V 23.5 Q 10 24 9.5 24 H 9.5 Q 9 24 9 23.5 V 10');
   });
 });
 
@@ -298,7 +292,7 @@ describe('SessionStateFlow', () => {
     expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'active');
   });
 
-  it('passes both brackets once the session is completed', () => {
+  it('shows both brackets bright and still once the session is completed', () => {
     const { rerender } = render(<SessionStateFlow step="review" />);
     rerender(<SessionStateFlow step="build" />);
     rerender(<SessionStateFlow step="test" />);
@@ -306,6 +300,27 @@ describe('SessionStateFlow', () => {
     rerender(<SessionStateFlow step="completed" />);
 
     expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'passed');
+    expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'passed');
+  });
+
+  it('restores taken loops from history counts after a reload', () => {
+    render(<SessionStateFlow step="completed" feedbackLoops={{ review: 2, test: 1 }} />);
+
+    expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'passed');
+    expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'passed');
+  });
+
+  it('blinks a persisted loop while the workflow is still running', () => {
+    render(<SessionStateFlow step="validate" feedbackLoops={{ review: 1, test: 0 }} />);
+
+    expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'active');
+    expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'pending');
+  });
+
+  it('keeps only the loops with a non-zero count marked', () => {
+    render(<SessionStateFlow step="completed" feedbackLoops={{ review: 0, test: 1 }} />);
+
+    expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'pending');
     expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'passed');
   });
 

@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from "react";
+import type { FeedbackLoops } from "../services/api";
 
 export type FlowNodeState = "done" | "active" | "upcoming";
 
@@ -10,8 +11,8 @@ export type LoopState = "pending" | "active" | "passed";
 
 const LOOP_LANE_HEIGHT = 24;
 const LOOP_AREA_HEIGHT = 54;
-const LOOP_DROP = 4;
-const LOOP_HEAD = 8;
+const LOOP_DROP = 2;
+const LOOP_HEAD = 10;
 const LOOP_HEAD_HALF = 5.5;
 const LOOP_RADIUS = 7;
 const LOOP_ENTRY_OFFSET = 12;
@@ -36,31 +37,65 @@ export interface FlowFeedback {
 export const RESEARCH_FLOW: FlowNode[] = [
   { key: "linear", label: "Linear", steps: ["initial"], tone: "warning" },
   { key: "research", label: "Research", steps: ["research"], tone: "warning" },
-  { key: "in-review", label: "In Review", steps: ["researched"], tone: "success", terminal: true },
+  {
+    key: "in-review",
+    label: "In Review",
+    steps: ["researched"],
+    tone: "success",
+    terminal: true,
+  },
 ];
 
 export const BUILD_FLOW: FlowNode[] = [
   { key: "linear", label: "Linear", steps: ["initial"], tone: "warning" },
-  { key: "plan", label: "Plan", steps: ["plan", "awaiting_input"], tone: "warning" },
+  {
+    key: "plan",
+    label: "Plan",
+    steps: ["plan", "awaiting_input"],
+    tone: "warning",
+  },
   { key: "build", label: "Build", steps: ["build"], tone: "accent" },
   { key: "validate", label: "Validate", steps: ["validate"], tone: "accent" },
   { key: "review", label: "Review", steps: ["review"], tone: "accent" },
   { key: "lint", label: "Lint", steps: ["lint"], tone: "accent" },
   { key: "test", label: "Test", steps: ["test"], tone: "accent" },
-  { key: "github", label: "GitHub", steps: ["wiki", "push", "completed"], tone: "success", finalSteps: ["completed"] },
+  {
+    key: "github",
+    label: "GitHub",
+    steps: ["wiki", "push", "completed"],
+    tone: "success",
+    finalSteps: ["completed"],
+  },
 ];
 
 export const BUILD_FEEDBACK: FlowFeedback[] = [
-  { key: "review", label: "Feedback from review", from: "review", to: "build", lane: 1 },
-  { key: "lint", label: "Feedback from lint and test", from: "test", to: "build", lane: 2 },
+  {
+    key: "review",
+    label: "Feedback from review",
+    from: "review",
+    to: "build",
+    lane: 1,
+  },
+  {
+    key: "lint",
+    label: "Feedback from lint and test",
+    from: "test",
+    to: "build",
+    lane: 2,
+  },
 ];
 
 export function endsFlow(node: FlowNode, step: string): boolean {
   return node.terminal === true || (node.finalSteps?.includes(step) ?? false);
 }
 
-export function resolveNodeStates(flow: FlowNode[], step?: string | null): FlowNodeState[] {
-  const activeIndex = step ? flow.findIndex((node) => node.steps.includes(step)) : -1;
+export function resolveNodeStates(
+  flow: FlowNode[],
+  step?: string | null,
+): FlowNodeState[] {
+  const activeIndex = step
+    ? flow.findIndex((node) => node.steps.includes(step))
+    : -1;
   if (activeIndex === -1) return flow.map(() => "upcoming");
   // A step that ends the flow completes it, so it and everything before it read as done.
   if (step && endsFlow(flow[activeIndex], step)) return flow.map(() => "done");
@@ -70,29 +105,29 @@ export function resolveNodeStates(flow: FlowNode[], step?: string | null): FlowN
   });
 }
 
-export function loopTrigger(previous: string | null, step: string | null): LoopSource {
+export function loopTrigger(
+  previous: string | null,
+  step: string | null,
+): LoopSource {
   if (step !== "build") return null;
   if (previous === "review") return "review";
   if (previous === "lint" || previous === "test") return "lint";
   return null;
 }
 
-export function resolveLoopState(
-  flow: FlowNode[],
-  feedback: FlowFeedback,
-  taken: boolean,
-  step?: string | null,
-): LoopState {
+export function resolveLoopState(taken: boolean, finished: boolean): LoopState {
   // Without a loop back there is nothing to report, so the arrow stays dashed.
   if (!taken) return "pending";
-  const sourceIndex = flow.findIndex((node) => node.key === feedback.from);
-  const currentIndex = step ? flow.findIndex((node) => node.steps.includes(step)) : -1;
-  if (currentIndex === -1 || sourceIndex === -1) return "passed";
-  // The loop is behind us once the flow moved past the node that produced it.
-  return currentIndex > sourceIndex ? "passed" : "active";
+  // A finished workflow keeps the loop visible but stops the animation, so a
+  // reloaded or completed session reads as history instead of live activity.
+  return finished ? "passed" : "active";
 }
 
-export function loopPath(fromX: number, toX: number, lane: number): { bracket: string; head: string } {
+export function loopPath(
+  fromX: number,
+  toX: number,
+  lane: number,
+): { bracket: string; head: string } {
   const depth = lane * LOOP_LANE_HEIGHT;
   const direction = toX >= fromX ? 1 : -1;
   const radius = Math.min(LOOP_RADIUS, Math.abs(toX - fromX) / 2);
@@ -104,7 +139,7 @@ export function loopPath(fromX: number, toX: number, lane: number): { bracket: s
     `Q ${toX} ${depth} ${toX} ${depth - radius}`,
     `V ${LOOP_HEAD}`,
   ].join(" ");
-  const head = `M ${toX - LOOP_HEAD_HALF} ${LOOP_HEAD} L ${toX} 0 L ${toX + LOOP_HEAD_HALF} ${LOOP_HEAD}`;
+  const head = `M ${toX - LOOP_HEAD_HALF} ${LOOP_HEAD} L ${toX} 3 L ${toX + LOOP_HEAD_HALF} ${LOOP_HEAD}`;
   return { bracket, head };
 }
 
@@ -145,14 +180,26 @@ function LoopBracket({ feedback, fromX, toX, width, state }: LoopBracketProps) {
 interface SessionStateFlowProps {
   step?: string | null;
   isResearch?: boolean;
+  feedbackLoops?: FeedbackLoops | null;
 }
 
-export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowProps) {
+const LOOP_COUNT_KEY: Record<Exclude<LoopSource, null>, keyof FeedbackLoops> = {
+  review: "review",
+  lint: "test",
+};
+
+export function SessionStateFlow({
+  step,
+  isResearch = false,
+  feedbackLoops,
+}: SessionStateFlowProps) {
   const flow = isResearch ? RESEARCH_FLOW : BUILD_FLOW;
   const states = resolveNodeStates(flow, step);
   const trackRef = useRef<HTMLDivElement>(null);
   const previousStepRef = useRef<string | null>(null);
-  const [takenLoops, setTakenLoops] = useState<Record<Exclude<LoopSource, null>, boolean>>({
+  const [takenLoops, setTakenLoops] = useState<
+    Record<Exclude<LoopSource, null>, boolean>
+  >({
     review: false,
     lint: false,
   });
@@ -163,7 +210,9 @@ export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowP
     const trigger = loopTrigger(previousStepRef.current, step ?? null);
     previousStepRef.current = step ?? null;
     if (!trigger) return;
-    setTakenLoops((previous) => (previous[trigger] ? previous : { ...previous, [trigger]: true }));
+    setTakenLoops((previous) =>
+      previous[trigger] ? previous : { ...previous, [trigger]: true },
+    );
   }, [step]);
 
   useLayoutEffect(() => {
@@ -174,13 +223,17 @@ export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowP
       const centers: Record<string, number> = {};
       track.querySelectorAll<HTMLElement>("[data-node]").forEach((node) => {
         const rect = node.getBoundingClientRect();
-        centers[node.dataset.node ?? ""] = rect.left - box.left + rect.width / 2;
+        centers[node.dataset.node ?? ""] =
+          rect.left - box.left + rect.width / 2;
       });
       setAnchors(centers);
       setTrackWidth(box.width);
     };
     measure();
-    const observer = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(measure);
+    const observer =
+      typeof ResizeObserver === "undefined"
+        ? null
+        : new ResizeObserver(measure);
     if (observer) {
       observer.observe(track);
     } else {
@@ -192,18 +245,26 @@ export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowP
     };
   }, [flow]);
 
-  const currentNode = step ? flow.find((node) => node.steps.includes(step)) : undefined;
+  const currentNode = step
+    ? flow.find((node) => node.steps.includes(step))
+    : undefined;
+  const finished = step === "completed" || step === "failed";
 
   return (
     <div className="session-flow">
       <span className="session-flow-status" role="status" aria-live="polite">
         {currentNode ? `Current step: ${currentNode.label}` : ""}
       </span>
-      <div className={`session-flow-track-wrap${isResearch ? " no-loops" : ""}`} ref={trackRef}>
+      <div
+        className={`session-flow-track-wrap${isResearch ? " no-loops" : ""}`}
+        ref={trackRef}
+      >
         <div className="session-flow-track">
           {flow.map((node, index) => (
             <Fragment key={node.key}>
-              {index > 0 && <span className="session-flow-separator" aria-hidden="true" />}
+              {index > 0 && (
+                <span className="session-flow-separator" aria-hidden="true" />
+              )}
               <span
                 className={`session-flow-node tone-${node.tone} ${states[index]}`}
                 data-state={states[index]}
@@ -227,7 +288,11 @@ export function SessionStateFlow({ step, isResearch = false }: SessionStateFlowP
                   fromX={fromX}
                   toX={toX}
                   width={trackWidth}
-                  state={resolveLoopState(flow, feedback, takenLoops[feedback.key], step)}
+                  state={resolveLoopState(
+                    takenLoops[feedback.key] ||
+                      (feedbackLoops?.[LOOP_COUNT_KEY[feedback.key]] ?? 0) > 0,
+                    finished,
+                  )}
                 />
               );
             })}

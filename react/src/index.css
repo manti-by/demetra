@@ -33,6 +33,7 @@
   --color-warning-subtle: rgba(255, 203, 107, 0.12);
   --color-blue: #89CFF0;
   --color-blue-subtle: rgba(137, 207, 240, 0.12);
+  --color-highlighted: #a5854c;
 
   /* Overlay */
   --color-overlay: rgba(12, 13, 14, 0.7);

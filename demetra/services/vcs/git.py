@@ -152,7 +152,11 @@ async def git_delete_branch_preserving_unique(
 
 
 async def git_worktree_create(
-    project: Project, branch_name: str, environment: SessionEnvironment | None = None, create_branch: bool = True
+    project: Project,
+    branch_name: str,
+    environment: SessionEnvironment | None = None,
+    create_branch: bool = True,
+    reuse_existing: bool = False,
 ) -> Path:
     """Create a git worktree for a branch, cleaning up any stale worktree first.
 
@@ -161,11 +165,16 @@ async def git_worktree_create(
     existing local branch (e.g. a preserved orphan from a previous run) is
     checked out instead of re-created, so its commits survive.
 
+    ``reuse_existing`` returns a live worktree for the branch as-is. Chat
+    sessions use it so a rerun continues the files a failed run left behind
+    instead of recreating the worktree from the branch.
+
     Args:
         project: The project to operate on.
         branch_name: The branch to check out in the worktree.
         environment: The resolved session environment forwarded to the subprocess.
         create_branch: Whether to create the branch with the worktree.
+        reuse_existing: Whether an existing worktree may be reused.
 
     Returns:
         Path: The path of the created worktree.
@@ -174,6 +183,8 @@ async def git_worktree_create(
         RuntimeError: When branch or worktree creation fails.
     """
     worktree_path = get_worktree_path(project=project, branch_name=branch_name)
+    if reuse_existing and worktree_path.exists() and (worktree_path / ".git").exists():
+        return worktree_path
     if worktree_path.exists():
         git_file = worktree_path / ".git"
         if git_file.exists() and git_file.is_file():
@@ -477,9 +488,11 @@ async def git_force_push(
 async def git_cleanup(context: Context, is_success: bool) -> bool:
     """Clean up a workflow's worktree and branch after a run finishes.
 
-    Always removes the worktree, forcing it on failure. On failure the branch
-    is also force-deleted. Research contexts run read-only in the main
-    checkout with no branch or worktree, so they are skipped entirely.
+    Chat-mode failures keep both the worktree and the branch, so a rerun can
+    continue the files the failed run left behind. Every other run removes the
+    worktree and, on failure, force-deletes the branch. Research contexts run
+    read-only in the main checkout with no branch or worktree, so they are
+    skipped entirely.
 
     Args:
         context: The workflow context describing the worktree and branch.
@@ -490,6 +503,10 @@ async def git_cleanup(context: Context, is_success: bool) -> bool:
             removal (or the failure-path branch deletion) failed.
     """
     if context.is_research:
+        return True
+
+    if context.is_chat and not is_success:
+        print_message("Keeping worktree and branch for the chat rerun", style="info")
         return True
 
     environment = context.environment

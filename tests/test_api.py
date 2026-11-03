@@ -236,6 +236,7 @@ class TestWatcherLogsWebSocket:
                     msg1 = ws.receive_json()
                     assert msg1["type"] == "status"
                     assert msg1["data"]["step"] == "initial"
+                    assert msg1["data"]["feedback_loops"] == {"review": 0, "test": 0}
 
                     # After polling, should see the step change
                     msg2 = ws.receive_json()

@@ -90,6 +90,7 @@ class Chat:
     description: str
     user_id: str
     project_id: str
+    project_name: str
     created_at: str
     updated_at: str
     tags: list[str] = field(default_factory=list)
@@ -113,12 +114,6 @@ class CreateChat:
     description: str
     project_id: str
     tags: list[str] = field(default_factory=list)
-
-
-@dataclass
-class UpdateChat:
-    description: str | None = None
-    status: str | None = None
 
 
 @dataclass
@@ -245,6 +240,7 @@ class SessionState:
     name: str
     is_research: bool = False
     is_chat: bool = False
+    feedback_loops: dict[str, int] = field(default_factory=dict)
 
 
 EnvironmentType = Literal["text", "encrypted"]
