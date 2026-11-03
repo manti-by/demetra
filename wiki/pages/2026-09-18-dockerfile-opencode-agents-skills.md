@@ -93,6 +93,15 @@ Why this shape:
 > (`code-review`, `wiki-agents-file`, `wiki-archive`, `wiki-consistency`,
 > `wiki-dedup`, `wiki-sync`). The Dockerfile `COPY` covers whatever is present,
 > so no action needed beyond this note.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** that 2026-10-08 tail is
+> itself wrong. `.opencode/skills/` is **gitignored** (`.gitignore:23`) and no
+> skill files are tracked — `git ls-files .opencode/skills` is empty; the last
+> tracked ones were deleted in `141ce45` (2026-10-12). The six skill dirs exist
+> only in a developer's working copy, so `Dockerfile:52`'s
+> `COPY .opencode/skills/` succeeds only when that local directory is present
+> in the build context; a clean checkout has nothing to copy and skills resolve
+> as installed skills. The `.opencode/agents/` half of this page is unaffected.
 
 ## References
 

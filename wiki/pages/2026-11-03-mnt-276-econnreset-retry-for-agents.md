@@ -4,32 +4,34 @@ date: '2026-11-03'
 type: implementation
 status: resolved
 session_id: ses_e5ed4a18cffeuswBCPXVvJ69Jx
-services: [library, agents/opencode, runtime/utils, settings, templates, workflows,
-  main, pyproject, test_entrypoints, test_failure, test_opencode, test_utils, uv]
+services: [agents, workflows, runtime, templates, settings, library, main]
 branch: mnt-276-econnreset-retry-for-agents
 tickets: [MNT-276]
 tags: [wiki, feature, backend]
-related: []
+related: [2026-07-21-rich-markuperror-and-run-attempts.md, 2026-08-19-build-agent-server-error-handler.md]
 ---
 
 # MNT-276: ECONNRESET retry for agents
 
 ## TL;DR
-This session implemented a retry mechanism for agents to handle ECONNRESET errors, which occur when the network connection is closed unexpectedly. The implementation includes a retry loop with exponential backoff, a retry budget of 5 attempts, and error handling to move the ticket to Awaiting Input when the retry budget is exhausted.
+
+`opencode` runs that die on a transient network error (`ECONNRESET`, `socket hang up`,
+`ETIMEDOUT`, …) previously failed the whole workflow on the first attempt. `run_opencode_agent` now
+retries those runs with exponential backoff up to `MAX_AGENT_NETWORK_ATTEMPTS` (default 5) and, when
+the budget is exhausted, raises `AgentNetworkError`; `main.py` catches it, posts the new
+`agent_network_failed` Linear comment with the last stderr, and moves the ticket to `Awaiting Input`
+without marking it failed.
 
 ## Overview
-The implementation plan consisted of 8 steps:
-1. Introduce a new `AgentNetworkError` exception to handle network errors.
-2. Add a retry loop with exponential backoff to `run_opencode_agent` to handle transient network errors.
-3. Set up a retry budget of 5 attempts per invocation.
-4. Detect network errors using the `is_network_error` function.
-5. Propagate `AgentNetworkError` to `main.py` to handle the error and move the ticket to Awaiting Input.
-6. Create a new failure template `agent_network_failed.md` to render the failure comment.
-7. Update `main.py` to handle `AgentNetworkError` and set `failure_step` to "awaiting_input".
-8. Add tests to cover the new functionality, including retry detection and error handling.
 
-## Step 1 — Introduce `AgentNetworkError` exception
-**File:** demetra/library/exceptions.py:69
+The change is a retry budget around the single shared runner plus a typed terminal error, so the six
+agent wrappers that opt in get identical behaviour and the failure handler can render a specific
+comment instead of the generic `DemetraError` path.
+
+## Step 1 — Typed error
+
+**File:** `demetra/library/exceptions.py:69`
+
 ```python
 class AgentNetworkError(DemetraError):
     def __init__(self, agent: str, stderr: str) -> None:
@@ -38,72 +40,100 @@ class AgentNetworkError(DemetraError):
         self.stderr = stderr
 ```
 
-## Step 2 — Add retry loop with exponential backoff
-**File:** demetra/services/agents/opencode.py:655
+It carries the agent name and the last captured stderr so the failure template has real context.
+
+## Step 2 — Transient-error detection
+
+**File:** `demetra/services/agents/opencode.py:31` (markers) and `:313` (`is_network_error`)
+
+```python
+NETWORK_ERROR_MARKERS = (
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "socket hang up",
+)
+```
+
+Only stderr and the structured `--format json` error event on stdout are scanned — stdout also
+carries the agent's own answer, so scanning it raw would treat a mention of an error code as a
+dropped connection.
+
+## Step 3 — Retry loop in `run_opencode_agent`
+
+**File:** `demetra/services/agents/opencode.py:644` (`run_opencode_agent`), loop at `:693`
+
 ```python
 attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
+resumed_session_id: str | None = None
 for attempt in range(attempts):
-    exit_code, stdout, stderr = await run_command(
-        command=command,
-        target_path=target_path,
-        disable_stdio=disable_stdio,
-        environment=environment,
-        input_text=task,
-        project_id=project_id,
-    )
+    ...
+    retryable = retry_on_network_error and exit_code != 0 and is_network_error(stdout=stdout, stderr=stderr)
+    if not retryable:
+        return exit_code, stdout, stderr
+    ...
+    delay = AGENT_NETWORK_BACKOFF_BASE * 2**attempt
 ```
 
-## Step 3 — Set up retry budget
-**File:** demetra/settings.py:4
-```python
-MAX_AGENT_NETWORK_ATTEMPTS = 5
-```
+`MAX_AGENT_NETWORK_ATTEMPTS` defaults to 5 and `AGENT_NETWORK_BACKOFF_BASE` to 1.0s
+(`demetra/settings.py:61-62`), so delays double per attempt. After the first failed attempt the
+runner resolves the session id it just created (or forked) and resumes **that** session instead of
+re-sending the prompt to the parent; if a `--fork`ed session cannot be located it stops retrying
+rather than falling back to the parent session.
 
-## Step 4 — Detect network errors
-**File:** demetra/services/agents/opencode.py:313
-```python
-def is_network_error(stdout: str, stderr: str) -> bool:
-    candidates = (stderr or "", _extract_ndjson_error(stdout) or "")
-    return any(marker in text for text in candidates for marker in NETWORK_ERROR_MARKERS)
-```
+The six wrappers that pass `retry_on_network_error=True` are plan, build, review, validate, resolve
+and research (`:371`, `:409`, `:443`, `:479`, `:605`, `:640`). Merge, rebase and review-fixes keep
+the default `False`, so those runs fail fast.
 
-## Step 5 — Propagate `AgentNetworkError`
-**File:** main.py:13
-```python
-except AgentNetworkError as e:
-    # Handle error and move ticket to Awaiting Input
-    pass
-```
+## Step 4 — Terminal error
 
-## Step 6 — Create failure template
-**File:** demetra/templates/agent_network_failed.md:20
-```markdown
-# Agent Network Failed
-The agent failed with a network error.
-```
+**File:** `demetra/services/agents/opencode.py:745`
 
-## Step 7 — Update `main.py` to handle `AgentNetworkError`
-**File:** main.py:13
+When every attempt is retryable the runner raises
+`AgentNetworkError(agent=agent, stderr=stderr.strip() or _extract_ndjson_error(stdout) or "")`.
+
+## Step 5 — Failure handler
+
+**File:** `main.py:214`
+
 ```python
 except AgentNetworkError as e:
-    # Set failure_step to "awaiting_input"
-    pass
+    await process_agent_network_failure(context=context, error=e)
+    failure_step, should_update_linear_status = "awaiting_input", False
+    failure_message = str(e) or None
 ```
 
-## Step 8 — Add tests
-**File:** tests/test_opencode.py:140
-```python
-def test_retry_detection():
-    # Test retry detection and error handling
-    pass
-```
+`process_agent_network_failure` (`demetra/workflows/failure.py:100`) renders
+`demetra/templates/agent_network_failed.md` with `{agent_name}`/`{error}`, posts it as an
+`agent-network-failure` comment and moves the ticket to `Awaiting Input`. Setting
+`should_update_linear_status = False` keeps the generic failure path from overwriting that state:
+the run stops for recovery, it does not mark the ticket failed.
+
+## Step 6 — Tests
+
+- `tests/test_opencode.py:180` `TestAgentNetworkRetry` — marker detection (stdout mentions ignored,
+  stderr and NDJSON error events matched), success without retry, retry-then-succeed, exhausted
+  budget raising `AgentNetworkError`, backoff sleeps.
+- `tests/test_failure.py:130` — `process_agent_network_failure` renders the template with the agent
+  name and stderr and moves the ticket to `Awaiting Input`.
+- `tests/test_entrypoints.py:278` — `main()` routes `AgentNetworkError` to
+  `process_agent_network_failure` and records `awaiting_input`.
 
 ## Test Results
-All tests passed.
+
+Full suite green: `273 passed` across the affected workflow/agent/subprocess/entrypoint test
+modules after the merge; `ruff`, `ty` and `bandit` clean.
 
 ## Follow-ups
+
 - None
 
 ## References
+
+- Related: [[2026-07-21-rich-markuperror-and-run-attempts]] — earlier agent-failure handling where a
+  crash consumed the run budget and the workflow died with empty stderr
+- Related: [[2026-08-19-build-agent-server-error-handler]] — the generic `UnknownError` →
+  `Awaiting Input` handler this specialised path complements
 - External: https://linear.app/mnt/issue/MNT-276/econnreset-retry-for-agents
-- Related: None

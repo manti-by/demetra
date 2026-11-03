@@ -11,6 +11,9 @@ vi.mock('./services/api', () => ({
   logout: vi.fn(),
   deleteSession: vi.fn(),
   getSessions: vi.fn().mockResolvedValue([]),
+  getChat: vi.fn(),
+  updateChat: vi.fn(),
+  postChatMessage: vi.fn(),
 }));
 
 describe('App', () => {

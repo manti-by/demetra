@@ -11,6 +11,7 @@ import { UserSettings } from "./components/UserSettings";
 import { SharedEnvSettings } from "./components/SharedEnvSettings";
 import { SessionSidebar } from "./components/SessionSidebar";
 import { CommandPalette, type CommandPaletteHandle } from "./components/CommandPalette";
+import type { SessionStatusData } from "./components/LogConsole";
 import { deleteSession, type Session } from "./services/api";
 import "./App.css";
 
@@ -28,6 +29,9 @@ const NewChatPage = lazy(() =>
 );
 const LogConsole = lazy(() =>
   import("./components/LogConsole").then((m) => ({ default: m.LogConsole })),
+);
+const ChatPanel = lazy(() =>
+  import("./components/ChatPanel").then((m) => ({ default: m.ChatPanel })),
 );
 
 const LOGIN_TITLE = "Demetra";
@@ -56,13 +60,14 @@ function AppContent() {
   const [sharedEnvOpen, setSharedEnvOpen] = useState(false);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const paletteRef = useRef<CommandPaletteHandle>(null);
   const handleOpenPalette = useCallback(() => paletteRef.current?.open(), []);
 
   const updateSessionStatus = useCallback(
-    (taskId: string, data: { step: string; name?: string; is_research?: boolean }) => {
+    (taskId: string, data: SessionStatusData) => {
       setSessions((prev) =>
         prev.map((s) =>
           s.task_id === taskId
@@ -112,6 +117,14 @@ function AppContent() {
   const handleCloseSidebar = useCallback(() => {
     setSidebarOpen(false);
   }, []);
+
+  const handleToggleLogs = useCallback(() => {
+    setShowLogs((value) => !value);
+  }, []);
+
+  useEffect(() => {
+    setShowLogs(false);
+  }, [selectedTaskId]);
 
   useEffect(() => {
     if (!sidebarOpen) return;
@@ -206,15 +219,24 @@ function AppContent() {
                 </div>
               )}
               <Suspense fallback={<Loader size={48} />}>
-
-                <LogConsole
-                  taskId={selectedTaskId}
-                  sessionName={selectedSession?.name ?? null}
-                  step={selectedSession?.step ?? null}
-                  isResearch={selectedSession?.is_research ?? false}
-                  onDeleteSession={handleDeleteSession}
-                  onSessionStatus={updateSessionStatus}
-                />
+                {selectedTaskId && selectedSession?.chat_id ? (
+                  <ChatPanel
+                    taskId={selectedTaskId}
+                    showLogs={showLogs}
+                    onShowLogsToggle={handleToggleLogs}
+                    onDeleteSession={handleDeleteSession}
+                    onSessionStatus={updateSessionStatus}
+                  />
+                ) : (
+                  <LogConsole
+                    taskId={selectedTaskId}
+                    sessionName={selectedSession?.name ?? null}
+                    step={selectedSession?.step ?? null}
+                    isResearch={selectedSession?.is_research ?? false}
+                    onDeleteSession={handleDeleteSession}
+                    onSessionStatus={updateSessionStatus}
+                  />
+                )}
               </Suspense>
               <SessionArtifacts taskId={selectedTaskId} sessions={sessions} />
               <div className="console-toolbar">

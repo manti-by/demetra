@@ -63,6 +63,34 @@ describe('LogConsole', () => {
     HTMLElement.prototype.scrollIntoView = originalScrollIntoView;
   });
 
+  it('renders the session state flow by default', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    const { container } = render(
+      <LogConsole taskId="task-123" onSessionStatus={vi.fn()} />,
+    );
+
+    expect(container.querySelector('.session-flow')).not.toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
+  it('omits the session state flow when showFlow is false', () => {
+    const wsMock = createMockWebSocket();
+
+    vi.stubGlobal('WebSocket', vi.fn(() => wsMock.mockWebSocket));
+
+    const { container } = render(
+      <LogConsole taskId="task-123" onSessionStatus={vi.fn()} showFlow={false} />,
+    );
+
+    expect(container.querySelector('.session-flow')).toBeNull();
+
+    vi.unstubAllGlobals();
+  });
+
   it('renders select session prompt when no taskId', () => {
     render(
       <LogConsole

@@ -37,7 +37,7 @@ Via `get_user_environments_decrypted` (`persistence/database.py:1565`), merged b
 | `LINEAR_TEAM_ID` | `settings.py:119` | `linear/__init__.py:283,97` |
 | `LINEAR_STATE_PRD_ID` | `settings.py:124` | `linear/__init__.py:131` |
 | `LINEAR_STATE_TODO_ID` | `settings.py:125` | `linear/__init__.py:83,240` |
-| `LINEAR_STATE_IN_PROGRESS_ID` | `settings.py:126` | Reserved (todo↔in_review loop) |
+| `LINEAR_STATE_IN_PROGRESS_ID` | `settings.py:157` | `daemons/watcher.py:216` — moves accepted TODO tasks to In Progress |
 | `LINEAR_STATE_IN_REVIEW_ID` | `settings.py:127` | `linear/__init__.py:236` |
 | `LINEAR_STATE_AWAITING_INPUT_ID` | `settings.py:128` | `daemons/watcher.py:49,98` |
 | `LINEAR_STATE_DONE_ID` | `settings.py:129` | Reserved |
@@ -108,6 +108,12 @@ App/DB/auth/logging only, stay in `settings.py`:
 > channel is removed (order is now OS → user → project → derived → PWD), and
 > `settings.py` line numbers shifted. `llm/config.py` no longer exists;
 > `linear/` is a subpackage. Preserved as the MNT-170 design record.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** the
+> `LINEAR_STATE_IN_PROGRESS_ID` row above originally said "Reserved (todo↔in_review loop)";
+> it is in fact read on every accepted TODO task by `daemons/watcher.py:216` (MNT-191,
+> `process_tasks` moves the ticket to In Progress). Row corrected, and its settings line updated
+> to the current `settings.py:157`.
 
 ## Follow-ups
 
