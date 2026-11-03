@@ -555,6 +555,17 @@ class TestRenderPage:
         body = service.render_page(meta=self._meta(), body=f"\n\n{self.BODY}\n\n\n")
         assert body.endswith("- None\n")
 
+    def test_long_list_fields_stay_on_one_line(self):
+        meta = self._meta()
+        meta["services"] = [f"service-{index}" for index in range(20)]
+        meta["related"] = [f"2026-01-{index:02d}-long-related-page-name" for index in range(1, 15)]
+        body = service.render_page(meta=meta, body=self.BODY)
+        for field in ("services", "related"):
+            values = [line for line in body.splitlines() if line.startswith(f"{field}:")]
+            assert len(values) == 1
+            assert values[0].startswith(f"{field}: [")
+            assert values[0].endswith("]")
+
 
 class TestWriteSessionWikiPage:
     @pytest.fixture(autouse=True)

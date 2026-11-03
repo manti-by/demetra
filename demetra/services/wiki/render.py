@@ -47,7 +47,13 @@ def dump_frontmatter(meta: dict) -> str:
         "tags": meta.get("tags") or [],
         "related": meta.get("related") or [],
     }
-    block = yaml.safe_dump(data=ordered, default_flow_style=None, sort_keys=False, allow_unicode=True).strip()
+    block = yaml.safe_dump(
+        data=ordered,
+        default_flow_style=None,
+        sort_keys=False,
+        allow_unicode=True,
+        width=float("inf"),
+    ).strip()
     return f"---\n{block}\n---"
 
 
