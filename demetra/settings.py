@@ -14,6 +14,7 @@ from demetra.library.types import (
 )
 from demetra.services.runtime.utils import (
     env_get_bool,
+    env_get_float,
     env_get_int,
     env_get_list,
     env_get_path,
@@ -56,6 +57,9 @@ MAX_ATTEMPTS: dict = {
 
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
+
+MAX_AGENT_NETWORK_ATTEMPTS = env_get_int("MAX_AGENT_NETWORK_ATTEMPTS", 5)
+AGENT_NETWORK_BACKOFF_BASE = env_get_float("AGENT_NETWORK_BACKOFF_BASE", 1.0)
 
 FEATURES: dict = {
     "is_ruff_enabled": env_get_bool("IS_RUFF_ENABLED", False),
