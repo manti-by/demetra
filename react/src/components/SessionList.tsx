@@ -1,5 +1,4 @@
 import { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { getSessions, type Session } from '../services/api';
 import { Loader } from './Loader';
 
@@ -50,7 +49,6 @@ const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; 
 ));
 
 export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions }: SessionListProps) {
-  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -84,12 +82,8 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
 
   const handleSelectSession = useCallback((e: React.MouseEvent, session: Session) => {
     e.preventDefault();
-    if (session.chat_id) {
-      navigate(`/chats/${session.task_id}`);
-      return;
-    }
     onSelectSession(session.task_id);
-  }, [navigate, onSelectSession]);
+  }, [onSelectSession]);
 
   const tags = useMemo(() => {
     const found = new Set<string>();

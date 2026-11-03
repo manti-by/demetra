@@ -30,7 +30,7 @@ const EmptyLog = () => (
 
 const SelectSession = () => <div className="log-empty">Select a session</div>;
 
-interface SessionStatusData {
+export interface SessionStatusData {
   step: string;
   name?: string;
   is_research?: boolean;
@@ -43,6 +43,7 @@ interface LogConsoleProps {
   isResearch?: boolean;
   onDeleteSession?: (taskId: string) => void;
   onSessionStatus?: (taskId: string, data: SessionStatusData) => void;
+  showFlow?: boolean;
 }
 
 export function LogConsole({
@@ -52,6 +53,7 @@ export function LogConsole({
   isResearch,
   onDeleteSession,
   onSessionStatus,
+  showFlow = true,
 }: LogConsoleProps) {
   const [logs, setLogs] = useState<LogMessage[]>([]);
   const [connected, setConnected] = useState(false);
@@ -177,7 +179,7 @@ export function LogConsole({
           </button>
         </div>
       </div>
-      {taskId && (
+      {taskId && showFlow && (
         <SessionStateFlow key={taskId} step={step} isResearch={isResearch} />
       )}
       <div className="log-content">
