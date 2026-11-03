@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from demetra.library.exceptions import AgentNetworkError
 from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
@@ -13,6 +14,7 @@ from demetra.services.agents.opencode import (
     get_opencode_session_id,
     get_opencode_session_length,
     get_opencode_session_tokens,
+    is_network_error,
     opencode_build_agent,
     opencode_compact_session,
     opencode_merge_agent,
@@ -70,6 +72,7 @@ class TestOpencodeService:
             agent="plan-agent",
             project_id=None,
             environment=None,
+            retry_on_network_error=True,
         )
         assert result == "plan result"
 
@@ -89,7 +92,7 @@ class TestOpencodeService:
     @pytest.mark.asyncio
     async def test_run_opencode_agent_uses_correct_command(self, mock_run_command_and_opencode_config):
 
-        mock_run_command_and_opencode_config.return_value = "output"
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
         await run_opencode_agent(
             Path("/test"), "task", model="opencode/minimax-m2.5-free", agent="plan", session_id="session-123"
         )
@@ -109,7 +112,7 @@ class TestOpencodeService:
 
     @pytest.mark.asyncio
     async def test_run_opencode_agent_passes_full_task_without_truncation(self, mock_run_command_and_opencode_config):
-        mock_run_command_and_opencode_config.return_value = "output"
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
         long_task = "line with 'quotes' and\nnewlines\n" + "x" * 20000
         await run_opencode_agent(Path("/test"), long_task, model="m", agent="resolve-agent")
 
@@ -133,6 +136,7 @@ class TestOpencodeService:
             agent="resolve-agent",
             project_id=None,
             environment=None,
+            retry_on_network_error=True,
         )
         assert result == "resolve result"
 
@@ -148,7 +152,7 @@ class TestRunOpencodeAgentLangSmithEnv:
 
     @pytest.mark.asyncio
     async def test_environment_is_the_only_env_argument(self, mock_run_command_and_opencode_config):
-        mock_run_command_and_opencode_config.return_value = "output"
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
         await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent")
 
         call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
@@ -162,7 +166,7 @@ class TestRunOpencodeAgentLangSmithEnv:
             project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
             user_environment={},
         )
-        mock_run_command_and_opencode_config.return_value = "output"
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
         await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", environment=environment)
 
         call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
@@ -171,6 +175,132 @@ class TestRunOpencodeAgentLangSmithEnv:
         assert subprocess_env["LANGSMITH_TRACING"] == "true"
         assert subprocess_env["TRACE_TO_LANGSMITH"] == "true"
         assert subprocess_env["LANGSMITH_API_KEY"] == "key-1"
+
+
+class TestAgentNetworkRetry:
+    """``run_opencode_agent`` retries a run whose output shows a transient
+    network failure, backs off between attempts, and raises
+    :class:`AgentNetworkError` once the budget is spent."""
+
+    @pytest.fixture
+    def network_retry_env(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run_command,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+            patch("demetra.services.agents.opencode.MAX_AGENT_NETWORK_ATTEMPTS", 3),
+            patch("demetra.services.agents.opencode.AGENT_NETWORK_BACKOFF_BASE", 1.0),
+            patch("demetra.services.agents.opencode.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            yield mock_run_command, mock_sleep
+
+    @pytest.mark.parametrize(
+        "stdout, stderr",
+        [
+            ("", "Error: read ECONNRESET"),
+            ('{"type": "error", "error": {"message": "fetch failed: socket hang up"}}', ""),
+            ("", "connect ETIMEDOUT 1.2.3.4:443"),
+            ("", "getaddrinfo EAI_AGAIN api.openai.com"),
+        ],
+    )
+    def test_is_network_error_detects_transient_failures(self, stdout, stderr):
+        assert is_network_error(stdout=stdout, stderr=stderr) is True
+
+    @pytest.mark.parametrize(
+        "stdout, stderr",
+        [
+            ("", ""),
+            ("all tests passed", ""),
+            ("", "error: econnreset while rendering a code sample"),
+            ("", "Build agent failed (exit 1): Unexpected server error"),
+            ("The ticket asks to handle read ECONNRESET from the provider", ""),
+            ('{"type": "text", "text": "read ECONNRESET is handled in opencode.py"}', ""),
+        ],
+    )
+    def test_is_network_error_ignores_other_output(self, stdout, stderr):
+        assert is_network_error(stdout=stdout, stderr=stderr) is False
+
+    @pytest.mark.asyncio
+    async def test_returns_success_when_no_network_error(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.return_value = (0, "built", "")
+
+        result = await run_opencode_agent(
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+        )
+
+        assert result == (0, "built", "")
+        mock_run_command.assert_awaited_once()
+        mock_sleep.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_retries_network_error_then_returns_success(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
+
+        result = await run_opencode_agent(
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+        )
+
+        assert result == (0, "built", "")
+        assert mock_run_command.await_count == 2
+        mock_sleep.assert_awaited_once_with(1.0)
+
+    @pytest.mark.asyncio
+    async def test_raises_after_budget_with_backoff(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.return_value = (1, "", "read ECONNRESET")
+
+        with pytest.raises(AgentNetworkError) as exc_info:
+            await run_opencode_agent(Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True)
+
+        assert mock_run_command.await_count == 3
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1.0, 2.0]
+        assert exc_info.value.agent == "build-agent"
+        assert exc_info.value.stderr == "read ECONNRESET"
+        assert "ECONNRESET" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_raises_with_stdout_error_event_when_stderr_is_empty(self, network_retry_env):
+        """opencode can report the failure as an NDJSON error event on stdout with
+        empty stderr; the carried text must come from that event, not fall back to
+        'unknown error'."""
+        mock_run_command, _ = network_retry_env
+        mock_run_command.return_value = (
+            1,
+            '{"type": "error", "error": {"message": "read ECONNRESET"}}',
+            "",
+        )
+
+        with pytest.raises(AgentNetworkError) as exc_info:
+            await run_opencode_agent(Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True)
+
+        assert exc_info.value.stderr == "read ECONNRESET"
+        assert "ECONNRESET" in str(exc_info.value)
+        assert "unknown error" not in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_without_opt_in(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.return_value = (1, "", "read ECONNRESET")
+
+        result = await run_opencode_agent(Path("/test"), "task", model="m", agent="merge-agent")
+
+        assert result == (1, "", "read ECONNRESET")
+        mock_run_command.assert_awaited_once()
+        mock_sleep.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_does_not_retry_non_network_failure(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.return_value = (1, "", "Unexpected server error")
+
+        result = await run_opencode_agent(
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+        )
+
+        assert result == (1, "", "Unexpected server error")
+        mock_run_command.assert_awaited_once()
+        mock_sleep.assert_not_awaited()
 
 
 class TestOpencodeValidateAgent:
@@ -200,6 +330,7 @@ class TestOpencodeValidateAgent:
             agent="validate-agent",
             project_id=None,
             environment=None,
+            retry_on_network_error=True,
         )
         assert result == "validate result"
 
@@ -1095,6 +1226,7 @@ class TestOpencodeResearchAgent:
             agent="research-agent",
             project_id=None,
             environment=None,
+            retry_on_network_error=True,
         )
         assert result == (0, "output", "")
 

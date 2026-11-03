@@ -5,10 +5,22 @@ from uuid import uuid4
 
 import pytest
 
-from demetra.library.exceptions import BuildError, LinearError, PullRequestError, ReviewError, WikiError
+from demetra.library.exceptions import (
+    AgentNetworkError,
+    BuildError,
+    LinearError,
+    PullRequestError,
+    ReviewError,
+    WikiError,
+)
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import LINEAR
-from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
+from demetra.workflows.failure import (
+    process_agent_network_failure,
+    process_build_failure,
+    process_pr_failure,
+    process_wiki_failure,
+)
 
 
 def build_context() -> Context:
@@ -107,6 +119,23 @@ class TestRunFailureStep:
         body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
         assert "Build agent failed" in body
         assert "Unexpected server error" in body
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.linear_task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_posts_agent_network_failure_comment(self, mock_linear_deps):
+        context = build_context()
+        error = AgentNetworkError(agent="build-agent", stderr="read ECONNRESET")
+
+        await process_agent_network_failure(context=context, error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Agent network failure" in body
+        assert "build-agent" in body
+        assert "read ECONNRESET" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.linear_task.id,

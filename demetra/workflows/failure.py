@@ -1,4 +1,5 @@
 from demetra.library.exceptions import (
+    AgentNetworkError,
     BuildError,
     DemetraError,
     EnvironmentConfigError,
@@ -94,6 +95,22 @@ async def process_build_failure(context: Context, error: BuildError) -> None:
     print_message(f"Build agent failed: {error}", style="error")
     body = await get_template("build_failed", error=error)
     await notify_linear_failure(context=context, body=body, comment_label="build-failure")
+
+
+async def process_agent_network_failure(context: Context, error: AgentNetworkError) -> None:
+    """Handle an agent network failure: notify Linear and set recovery state.
+
+    The retry budget inside ``run_opencode_agent`` was exhausted by transient
+    network errors, so the run is stopped before the ticket is marked failed and
+    the comment carries the agent name with its last captured stderr.
+
+    Args:
+        context: The workflow context.
+        error: The agent network error.
+    """
+    print_message(f"Agent network failure: {error}", style="error")
+    body = await get_template("agent_network_failed", agent_name=error.agent, error=error.stderr)
+    await notify_linear_failure(context=context, body=body, comment_label="agent-network-failure")
 
 
 async def process_wiki_failure(context: Context, error: WikiError) -> None:

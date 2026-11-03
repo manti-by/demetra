@@ -4,6 +4,7 @@ import logging.config
 import sys
 
 from demetra.library.exceptions import (
+    AgentNetworkError,
     AutoCancelledError,
     BuildError,
     DemetraError,
@@ -35,7 +36,12 @@ from demetra.settings import (
 )
 from demetra.workflows.build import run_build_step
 from demetra.workflows.cleanup import cleanup_workflow, commit_and_push
-from demetra.workflows.failure import process_build_failure, process_pr_failure, process_wiki_failure
+from demetra.workflows.failure import (
+    process_agent_network_failure,
+    process_build_failure,
+    process_pr_failure,
+    process_wiki_failure,
+)
 from demetra.workflows.notifications import notify_message
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.research import is_research_ticket, run_research_step
@@ -202,6 +208,11 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     except BuildError as e:
         await process_build_failure(context=context, error=e)
+        failure_step, should_update_linear_status = "awaiting_input", False
+        failure_message = str(e) or None
+
+    except AgentNetworkError as e:
+        await process_agent_network_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
         failure_message = str(e) or None
 

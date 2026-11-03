@@ -250,6 +250,29 @@ def env_get_int(name: str, default: int) -> int:
     return value if value >= 0 else default
 
 
+def env_get_float(name: str, default: float) -> float:
+    """Read a nonnegative float from the environment, falling back on invalid values.
+
+    Args:
+        name: The environment variable name.
+        default: The fallback value when the variable is unset, not a float,
+            or negative.
+
+    Returns:
+        float: The parsed value, or the default.
+
+    Raises:
+        ValueError: When the default is negative.
+    """
+    if default < 0:
+        raise ValueError(f"{name} default must be nonnegative")
+    try:
+        value = float(os.environ.get(name, default))
+    except ValueError:
+        return default
+    return value if value >= 0 else default
+
+
 def env_get_bool_from(getter: EnvGetter, name: str, default: bool) -> bool:
     """Read a boolean through an arbitrary getter, falling back on invalid values.
 
