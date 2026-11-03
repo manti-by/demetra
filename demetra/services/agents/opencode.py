@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 import re
@@ -5,14 +6,14 @@ from pathlib import Path
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import OpenCodeCLIError
+from demetra.library.exceptions import AgentNetworkError, OpenCodeCLIError
 from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.persistence.database import record_agent_invocation
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import non_negative_int
-from demetra.settings import OPENCODE
+from demetra.settings import AGENT_NETWORK_BACKOFF_BASE, MAX_AGENT_NETWORK_ATTEMPTS, OPENCODE
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +23,19 @@ PLAN_IS_READY_STRING = "Ready to proceed to build."
 PLAN_HAS_QUESTIONS = "Please check my questions above."
 
 RESEARCH_HEADER_STRING = "## Research Report"
+
+# Node/undici failures that mean the network dropped the request (``ECONNRESET``
+# on a reset connection, ``EAI_AGAIN`` on DNS) rather than the agent failing to
+# do its work. Matched case-sensitively so a lowercase mention inside a code
+# sample never marks a successful run as transient.
+NETWORK_ERROR_MARKERS = (
+    "ECONNRESET",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ENOTFOUND",
+    "EAI_AGAIN",
+    "socket hang up",
+)
 
 # opencode 2.x moved `export <id>` under `session export <id>` and removed
 # `run --dir`; both are handled by version-aware command construction.
@@ -296,6 +310,27 @@ def format_agent_error(exit_code: int, stdout: str, stderr: str) -> str:
     return f"opencode exited with code {exit_code} without output"
 
 
+def is_network_error(stdout: str, stderr: str) -> bool:
+    """Return whether a run's captured output shows a transient network failure.
+
+    Only stderr and the structured ``--format json`` error event on stdout are
+    scanned: stdout also carries the agent's own answer (echoed prompts, code
+    snippets, test output), so scanning it raw would treat a mere mention of an
+    error code as a dropped connection. The markers are the Node/undici error
+    codes and messages opencode surfaces verbatim when the connection drops
+    mid-request, matched case-sensitively.
+
+    Args:
+        stdout: The captured stdout of the run.
+        stderr: The captured stderr of the run.
+
+    Returns:
+        bool: True when stderr or the stdout error event carries a marker.
+    """
+    candidates = (stderr or "", _extract_ndjson_error(stdout) or "")
+    return any(marker in text for text in candidates for marker in NETWORK_ERROR_MARKERS)
+
+
 async def opencode_plan_agent(
     target_path: Path,
     task: str,
@@ -333,6 +368,7 @@ async def opencode_plan_agent(
         agent="plan-agent",
         project_id=project_id,
         environment=environment,
+        retry_on_network_error=True,
     )
 
 
@@ -370,6 +406,7 @@ async def opencode_build_agent(
         project_id=project_id,
         environment=environment,
         fork=fork,
+        retry_on_network_error=True,
     )
 
 
@@ -403,6 +440,7 @@ async def opencode_review_agent(
         agent="review-agent",
         project_id=project_id,
         environment=environment,
+        retry_on_network_error=True,
     )
 
 
@@ -438,6 +476,7 @@ async def opencode_validate_agent(
         agent="validate-agent",
         project_id=project_id,
         environment=environment,
+        retry_on_network_error=True,
     )
 
 
@@ -563,6 +602,7 @@ async def opencode_resolve_agent(
         agent="resolve-agent",
         project_id=project_id,
         environment=environment,
+        retry_on_network_error=True,
     )
 
 
@@ -597,6 +637,7 @@ async def opencode_research_agent(
         agent="research-agent",
         project_id=project_id,
         environment=environment,
+        retry_on_network_error=True,
     )
 
 
@@ -611,6 +652,7 @@ async def run_opencode_agent(
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
     fork: bool = False,
+    retry_on_network_error: bool = False,
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
@@ -636,27 +678,71 @@ async def run_opencode_agent(
         fork: Whether to fork the continued session before running. Requires
             ``session_id``; used once for the build phase so later iterations
             resume the fork instead of re-forking the plan session.
+        retry_on_network_error: Whether to retry a run whose output shows a
+            transient network failure, backing off exponentially between
+            attempts. A retry resumes the session the failed attempt created
+            (or forked), so partial work continues instead of being repeated
+            in a fresh session.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
+
+    Raises:
+        AgentNetworkError: When the retry budget is exhausted by network errors.
     """
-    command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+    attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
+    resumed_session_id: str | None = None
+    for attempt in range(attempts):
+        continued_session_id = resumed_session_id if resumed_session_id is not None else session_id
+        command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+        if continued_session_id is not None:
+            command.extend(["--session", continued_session_id])
+            if fork and attempt == 0:
+                command.append("--fork")
+        if task_title is not None and (attempt == 0 or continued_session_id is None):
+            command.extend(["--title", task_title])
 
-    if session_id is not None:
-        command.extend(["--session", session_id])
-        if fork:
-            command.append("--fork")
-    if task_title is not None:
-        command.extend(["--title", task_title])
+        exit_code, stdout, stderr = await run_command(
+            command=command,
+            target_path=target_path,
+            disable_stdio=disable_stdio,
+            environment=environment,
+            input_text=task,
+            project_id=project_id,
+        )
+        retryable = retry_on_network_error and exit_code != 0 and is_network_error(stdout=stdout, stderr=stderr)
+        if not retryable:
+            return exit_code, stdout, stderr
+        if attempt == attempts - 1:
+            break
 
-    return await run_command(
-        command=command,
-        target_path=target_path,
-        disable_stdio=disable_stdio,
-        environment=environment,
-        input_text=task,
-        project_id=project_id,
-    )
+        if resumed_session_id is None and task_title is not None and (fork or session_id is None):
+            try:
+                resumed_session_id = await get_opencode_session_id(
+                    target_path=target_path,
+                    task_title=task_title,
+                    environment=environment,
+                    include_forks=fork,
+                    forks_only=fork,
+                )
+            except (OSError, ValueError, KeyError):
+                logger.exception("Failed to resolve the session to resume for %s", task_title)
+
+        if fork and resumed_session_id is None:
+            print_message(
+                f"Agent {agent} could not locate its forked session; not retrying against the parent session",
+                style="warning",
+            )
+            break
+
+        delay = AGENT_NETWORK_BACKOFF_BASE * 2**attempt
+        print_message(
+            f"Agent {agent} hit a network error (attempt {attempt + 1}/{attempts}); retrying in {delay:g}s",
+            style="warning",
+        )
+        await asyncio.sleep(delay)
+
+    raise AgentNetworkError(agent=agent, stderr=stderr.strip() or _extract_ndjson_error(stdout) or "")
 
 
 async def get_opencode_sessions(
@@ -684,6 +770,7 @@ async def get_opencode_session_id(
     environment: SessionEnvironment | None = None,
     *,
     include_forks: bool = False,
+    forks_only: bool = False,
 ) -> str | None:
     """Find the opencode session id for a task title, preferring matching directory.
 
@@ -691,13 +778,16 @@ async def get_opencode_session_id(
     working directory wins, with the newest overall session as a fallback. When
     ``include_forks`` is set, sessions whose title carries the ``(fork #N)``
     suffix opencode appends on ``--fork`` also match the base title, which is the
-    only way to locate a fork in default output format.
+    only way to locate a fork in default output format. When ``forks_only`` is
+    set, the base session that was forked is never matched, so a retry can never
+    resume the parent session it was meant to leave untouched.
 
     Args:
         target_path: Directory to run the opencode CLI in.
         task_title: The task title to match sessions on.
         environment: The resolved session environment forwarded to the subprocess.
         include_forks: Whether ``"<title> (fork #N)"`` sessions match too.
+        forks_only: Whether only ``"<title> (fork #N)"`` sessions match.
 
     Returns:
         str | None: The session id, or None when no matching session exists.
@@ -706,9 +796,12 @@ async def get_opencode_session_id(
 
     def matches_title(session: dict[str, str]) -> bool:
         title = session.get("title", "")
+        is_fork = title.startswith(f"{task_title} (fork")
+        if forks_only:
+            return is_fork
         if title == task_title:
             return True
-        return include_forks and title.startswith(f"{task_title} (fork")
+        return include_forks and is_fork
 
     filtered_sessions = [session for session in sessions if matches_title(session)]
     if not filtered_sessions:

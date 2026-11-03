@@ -7,6 +7,7 @@ from demetra.library.exceptions import SettingsError
 from demetra.services.runtime.utils import (
     env_get_bool,
     env_get_bool_from,
+    env_get_float,
     env_get_int,
     env_get_list,
     env_get_path,
@@ -172,6 +173,32 @@ class TestEnvHelpers:
         monkeypatch.delenv("TEST_INT", raising=False)
         with pytest.raises(ValueError, match="default must be nonnegative"):
             env_get_int("TEST_INT", -1)
+
+    def test_env_get_float_returns_value(self, monkeypatch):
+        monkeypatch.setenv("TEST_FLOAT", "0.5")
+        assert env_get_float("TEST_FLOAT", 1.0) == 0.5
+
+    def test_env_get_float_returns_default_when_unset(self, monkeypatch):
+        monkeypatch.delenv("TEST_FLOAT", raising=False)
+        assert env_get_float("TEST_FLOAT", 1.0) == 1.0
+
+    def test_env_get_float_returns_default_when_invalid(self, monkeypatch):
+        monkeypatch.setenv("TEST_FLOAT", "abc")
+        assert env_get_float("TEST_FLOAT", 1.0) == 1.0
+
+    def test_env_get_float_returns_default_when_negative(self, monkeypatch):
+        monkeypatch.setenv("TEST_FLOAT", "-0.5")
+        assert env_get_float("TEST_FLOAT", 1.0) == 1.0
+
+    @pytest.mark.parametrize("raw", ["inf", "Infinity", "-inf", "nan"])
+    def test_env_get_float_returns_default_when_not_finite(self, monkeypatch, raw):
+        monkeypatch.setenv("TEST_FLOAT", raw)
+        assert env_get_float("TEST_FLOAT", 1.0) == 1.0
+
+    def test_env_get_float_rejects_negative_default(self, monkeypatch):
+        monkeypatch.delenv("TEST_FLOAT", raising=False)
+        with pytest.raises(ValueError, match="default must be nonnegative"):
+            env_get_float("TEST_FLOAT", -1.0)
 
 
 class TestValidateLlmBaseUrl:

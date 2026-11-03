@@ -66,6 +66,13 @@ class OpenCodeCLIError(OpenCodeError):
     pass
 
 
+class AgentNetworkError(DemetraError):
+    def __init__(self, agent: str, stderr: str) -> None:
+        super().__init__(f"Agent '{agent}' failed with a network error: {stderr.strip() or 'unknown error'}")
+        self.agent = agent
+        self.stderr = stderr
+
+
 class AuthError(DemetraError):
     pass
 

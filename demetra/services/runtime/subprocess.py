@@ -160,6 +160,10 @@ async def run_command(
         await process.wait()
         exit_code = -1
         error.append("Command timed out\n")
+    except asyncio.CancelledError:
+        process.kill()
+        await process.wait()
+        raise
 
     return exit_code, "\n".join(result) if result else "", "\n".join(error) if error else ""
 

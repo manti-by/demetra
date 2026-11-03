@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
@@ -1637,6 +1638,65 @@ class TestWorkflowReview:
 
         with pytest.raises(ReviewError, match="Failed to summarize the review"):
             await run_review_agents(target_path)
+
+    @pytest.mark.asyncio
+    async def test_run_review_agents_cancels_siblings_before_raising(self, faker, mock_review_agent):
+        from demetra.library.exceptions import AgentNetworkError
+
+        target_path = Path(f"/tmp/{faker.slug()}")
+        sibling_started = asyncio.Event()
+        sibling_cancelled = asyncio.Event()
+        invocations = 0
+
+        async def review(**kwargs):
+            nonlocal invocations
+            invocations += 1
+            if invocations == 1:
+                await sibling_started.wait()
+                raise AgentNetworkError(agent="review-agent", stderr="read ECONNRESET")
+            sibling_started.set()
+            try:
+                await asyncio.Event().wait()
+            finally:
+                sibling_cancelled.set()
+
+        mock_review_agent.side_effect = review
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,project/b"},
+            user_environment={},
+        )
+
+        async with asyncio.timeout(5):
+            with pytest.raises(AgentNetworkError):
+                await run_review_agents(target_path, environment=environment)
+
+        assert sibling_cancelled.is_set()
+
+    @pytest.mark.asyncio
+    async def test_run_review_agents_captures_sessions_before_raising(self, faker, mock_review_agent):
+        from demetra.library.exceptions import AgentNetworkError
+
+        target_path = Path(f"/tmp/{faker.slug()}")
+        invocations = 0
+
+        async def review(**kwargs):
+            nonlocal invocations
+            invocations += 1
+            if invocations == 1:
+                raise AgentNetworkError(agent="review-agent", stderr="read ECONNRESET")
+            return (0, "Some review output", "")
+
+        mock_review_agent.side_effect = review
+        environment = SessionEnvironment(
+            project_environment={"OPENCODE_REVIEW_MODELS": "project/a,project/b"},
+            user_environment={},
+        )
+
+        with patch("demetra.workflows.review.capture_agent_session", new_callable=AsyncMock) as mock_capture:
+            with pytest.raises(AgentNetworkError):
+                await run_review_agents(target_path, environment=environment)
+
+        assert mock_capture.await_count == 2
 
 
 class TestWorkflowLint:
