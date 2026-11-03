@@ -138,6 +138,8 @@ export function SessionList({
         session.session_id,
         session.step,
         session.build_plan,
+        session.project_name,
+        ...(session.tags ?? []),
       ].some((value) => (value ?? "").toLowerCase().includes(q));
     });
   }, [sessions, query, activeTag]);

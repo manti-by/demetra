@@ -364,8 +364,8 @@ const hello = "world";`}</pre>
           <code> active</code> / <code> upcoming</code>; a step that ends the flow completes every node so
           nothing blinks on <code>completed</code>. Feedback brackets return to <code>build</code>, read
           dashed while no loop happened, blink while the workflow is running, and stay bright without
-          blinking once it finishes — the counts are restored from session history, so a finished or
-          reloaded session keeps its loops.
+          blinking once it finishes or waits for input — the counts are restored from session history,
+          so a finished or reloaded session keeps its loops.
         </p>
 
         <h3 className="sg-h3">Build chain steps</h3>

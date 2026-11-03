@@ -317,6 +317,13 @@ describe('SessionStateFlow', () => {
     expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'pending');
   });
 
+  it('stops the loop animation while awaiting input', () => {
+    render(<SessionStateFlow step="awaiting_input" feedbackLoops={{ review: 1, test: 0 }} />);
+
+    expect(screen.getByLabelText('Feedback from review')).toHaveAttribute('data-state', 'passed');
+    expect(screen.getByLabelText('Feedback from lint and test')).toHaveAttribute('data-state', 'pending');
+  });
+
   it('keeps only the loops with a non-zero count marked', () => {
     render(<SessionStateFlow step="completed" feedbackLoops={{ review: 0, test: 1 }} />);
 

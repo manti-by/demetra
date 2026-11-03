@@ -320,6 +320,21 @@ class TestChatQueries:
         assert session.session_id == "ses-1"
 
     @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_clears_an_unposted_plan(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await increment_run_attempts(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        assert session.posted_to_linear is False
+        assert session.run_attempts == 1
+        assert session.session_id == "ses-1"
+
+    @pytest.mark.asyncio
     async def test_claim_session_for_rerun_is_exclusive(self, chat: Chat):
         await update_session_step(task_id=chat.session_task_id, step="failed")
 
@@ -658,6 +673,40 @@ class TestChatAPI:
 
         assert response.status_code == 503
         assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_rerun_replans_when_the_saved_plan_was_never_posted(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 200
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
+
+    @pytest.mark.asyncio
+    async def test_rerun_rejects_unready_project(self, authenticated_client: TestClient, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        with (
+            patch(
+                "demetra.api.chats.get_project_by_id",
+                new_callable=AsyncMock,
+                return_value={**project, "state": "provisioning"},
+            ),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 400
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+        mock_enqueue.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_create_enqueue_failure_marks_session_failed(self, authenticated_client: TestClient, project: dict):

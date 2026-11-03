@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, and_, create_engine, delete, func, insert, select, text, update
+from sqlalchemy import Column, and_, case, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import (
@@ -2899,9 +2899,12 @@ async def claim_session_for_rerun(task_id: str, allowed_steps: tuple[str, ...] =
 
     Unlike :func:`claim_session_for_resume`, this keeps the recorded build plan,
     the posted flag and the run-attempt counter intact, so the workflow resumes
-    the previous run instead of re-planning from scratch. The session step moves
-    to ``build`` (where ``main.py`` resumes when a plan exists), which also makes
-    the claim exclusive: a second rerun sees a non-rerunnable step.
+    the previous run instead of re-planning from scratch. The exception is a
+    plan that was never posted: the plan agent stopped with open questions
+    before the plan reached the thread, so keeping it would let the rerun build
+    without the requested answers. Those sessions restart at ``initial`` with
+    the saved plan cleared, which also makes the claim exclusive because a
+    second rerun sees a non-rerunnable step.
 
     Args:
         task_id: The task id.
@@ -2911,11 +2914,16 @@ async def claim_session_for_rerun(task_id: str, allowed_steps: tuple[str, ...] =
         bool: True when this call claimed the session, False when it was not in
             a rerunnable step (or another request claimed it first).
     """
+    posted = sessions.c.posted_to_linear.is_(True)
     async with get_connection() as connection:
         result = await connection.execute(
             update(sessions)
             .where(sessions.c.task_id == task_id, sessions.c.step.in_(allowed_steps))
-            .values(step="build", updated_at=datetime.now(UTC))
+            .values(
+                step=case((posted, "build"), else_="initial"),
+                build_plan=case((posted, sessions.c.build_plan), else_=""),
+                updated_at=datetime.now(UTC),
+            )
         )
         await connection.commit()
     return getattr(result, "rowcount", 0) > 0

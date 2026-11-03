@@ -248,7 +248,8 @@ export function SessionStateFlow({
   const currentNode = step
     ? flow.find((node) => node.steps.includes(step))
     : undefined;
-  const finished = step === "completed" || step === "failed";
+  const finished =
+    step === "completed" || step === "failed" || step === "awaiting_input";
 
   return (
     <div className="session-flow">

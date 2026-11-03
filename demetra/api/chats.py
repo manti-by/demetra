@@ -181,9 +181,11 @@ async def rerun_chat_endpoint(
 
     The recorded build plan, posted flag and run-attempt counter are kept, so
     the workflow resumes the previous run (`main.py` skips the plan step when a
-    plan exists) instead of re-planning from scratch. Only ``failed`` and
-    ``awaiting_input`` sessions are rerunnable; the claim moves the step to
-    ``build`` atomically, so a second request cannot start an overlapping run.
+    plan exists) instead of re-planning from scratch. A plan that was never
+    posted is not approved — the plan agent stopped with open questions — so
+    that session restarts at plan instead. Only ``failed`` and
+    ``awaiting_input`` sessions are rerunnable; the claim moves the step
+    atomically, so a second request cannot start an overlapping run.
 
     Args:
         task_id: The chat task id.
@@ -193,9 +195,9 @@ async def rerun_chat_endpoint(
         dict: ``resumed`` is True once the run was enqueued.
 
     Raises:
-        HTTPException: 404 when the chat or its project is absent or not owned,
-            409 when the chat is still running or already completed, 503 when
-            enqueueing fails.
+        HTTPException: 400 when the project is not ready, 404 when the chat or
+            its project is absent or not owned, 409 when the chat is still
+            running or already completed, 503 when enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -203,6 +205,8 @@ async def rerun_chat_endpoint(
     project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
+    if project.get("state") != "active" or not project.get("local_path"):
+        raise HTTPException(status_code=400, detail="Project is not ready")
     if not await claim_session_for_rerun(task_id=task_id):
         raise HTTPException(status_code=409, detail="Chat cannot be rerun")
     await _enqueue(project_name=project["name"], task_id=task_id)

@@ -228,6 +228,62 @@ describe('SessionList', () => {
     expect(screen.queryByText('odin')).not.toBeInTheDocument();
   });
 
+  it('matches project names and tags in the search query', () => {
+    const sessions = [
+      {
+        task_id: 'task-1',
+        session_id: 'sess-1',
+        name: 'odin',
+        build_plan: null,
+        posted_to_linear: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        step: 'build',
+        pr_link: null,
+        linear_link: null,
+        research_report: null,
+        project_name: 'demetra',
+        tags: ['Backend'],
+      },
+      {
+        task_id: 'task-2',
+        session_id: 'sess-2',
+        name: 'amon-ra',
+        build_plan: null,
+        posted_to_linear: false,
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+        step: 'completed',
+        pr_link: null,
+        linear_link: null,
+        research_report: null,
+        project_name: 'ODIN',
+        tags: ['Feature'],
+      },
+    ];
+
+    render(
+      <SessionList
+        onSelectSession={vi.fn()}
+        selectedTaskId={null}
+        sessions={sessions}
+        setSessions={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
+      target: { value: 'demetra' },
+    });
+    expect(screen.getByText('odin')).toBeInTheDocument();
+    expect(screen.queryByText('amon-ra')).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
+      target: { value: 'feature' },
+    });
+    expect(screen.getByText('amon-ra')).toBeInTheDocument();
+    expect(screen.queryByText('odin')).not.toBeInTheDocument();
+  });
+
   it('shows empty state when no sessions match the search query', () => {
     const sessions = [
       {
