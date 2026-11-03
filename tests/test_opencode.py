@@ -324,41 +324,35 @@ class TestAgentNetworkRetry:
             "sess-fork",
         ]
         mock_session_id.assert_awaited_once_with(
-            target_path=Path("/test"), task_title="Title", environment=None, include_forks=True
+            target_path=Path("/test"), task_title="Title", environment=None, include_forks=True, forks_only=True
         )
 
     @pytest.mark.asyncio
-    async def test_retry_does_not_refork_when_no_fork_session_is_found(self, network_retry_env):
-        mock_run_command, _ = network_retry_env
-        mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
+    async def test_retry_stops_when_no_verified_fork_session_is_found(self, network_retry_env):
+        mock_run_command, mock_sleep = network_retry_env
+        mock_run_command.return_value = (1, "", "read ECONNRESET")
 
         with patch(
             "demetra.services.agents.opencode.get_opencode_session_id", new_callable=AsyncMock
         ) as mock_session_id:
             mock_session_id.return_value = None
-            await run_opencode_agent(
-                Path("/test"),
-                "task",
-                model="m",
-                agent="build-agent",
-                session_id="sess-plan",
-                task_title="Title",
-                fork=True,
-                retry_on_network_error=True,
-            )
+            with pytest.raises(AgentNetworkError):
+                await run_opencode_agent(
+                    Path("/test"),
+                    "task",
+                    model="m",
+                    agent="build-agent",
+                    session_id="sess-plan",
+                    task_title="Title",
+                    fork=True,
+                    retry_on_network_error=True,
+                )
 
-        second_command = mock_run_command.await_args_list[1].kwargs["command"]
-        assert "--fork" not in second_command
-        assert second_command == [
-            "/bin/opencode",
-            "run",
-            "--model",
-            "m",
-            "--agent",
-            "build-agent",
-            "--session",
-            "sess-plan",
-        ]
+        mock_run_command.assert_awaited_once()
+        mock_sleep.assert_not_awaited()
+        command = mock_run_command.await_args.kwargs["command"]
+        assert command.count("--fork") == 1
+        assert "sess-plan" in command
 
     @pytest.mark.asyncio
     async def test_retry_resumes_the_session_created_by_the_failed_attempt(self, network_retry_env):
@@ -390,7 +384,7 @@ class TestAgentNetworkRetry:
             "sess-first",
         ]
         mock_session_id.assert_awaited_once_with(
-            target_path=Path("/test"), task_title="Title", environment=None, include_forks=False
+            target_path=Path("/test"), task_title="Title", environment=None, include_forks=False, forks_only=False
         )
 
     @pytest.mark.asyncio
@@ -497,6 +491,27 @@ class TestOpencodeSessionId:
         result = await get_opencode_session_id(Path("/test/path"), "MNT-128")
 
         assert result == "ses-newer"
+
+    @pytest.mark.asyncio
+    async def test_forks_only_never_matches_the_parent_session(self, mock_get_opencode_sessions):
+        mock_get_opencode_sessions.return_value = [
+            {"id": "ses-parent", "title": "MNT-128", "directory": "/test/path", "updated": 2},
+            {"id": "ses-fork", "title": "MNT-128 (fork #1)", "directory": "/test/path", "updated": 1},
+        ]
+
+        result = await get_opencode_session_id(Path("/test/path"), "MNT-128", forks_only=True)
+
+        assert result == "ses-fork"
+
+    @pytest.mark.asyncio
+    async def test_forks_only_returns_none_without_a_fork(self, mock_get_opencode_sessions):
+        mock_get_opencode_sessions.return_value = [
+            {"id": "ses-parent", "title": "MNT-128", "directory": "/test/path", "updated": 2},
+        ]
+
+        result = await get_opencode_session_id(Path("/test/path"), "MNT-128", forks_only=True)
+
+        assert result is None
 
 
 class TestOpencodeSessionLength:

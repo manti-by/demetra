@@ -78,6 +78,27 @@ class TestSubprocessService:
         assert call_kwargs["cwd"] == Path("/custom/path")
 
     @pytest.mark.asyncio
+    async def test_run_command_kills_the_process_when_cancelled(self, mock_subprocess_exec):
+        started = asyncio.Event()
+
+        async def block_forever(stream, result=None, disable_stdio=False):
+            started.set()
+            await asyncio.Event().wait()
+
+        mock_process = _make_mock_process()
+        mock_subprocess_exec.return_value = mock_process
+
+        with patch("demetra.services.runtime.subprocess.live_stream", side_effect=block_forever):
+            task = asyncio.ensure_future(run_command(["cmd"], Path("/test")))
+            await started.wait()
+            task.cancel()
+            with pytest.raises(asyncio.CancelledError):
+                await task
+
+        mock_process.kill.assert_called_once()
+        mock_process.wait.assert_awaited()
+
+    @pytest.mark.asyncio
     async def test_run_command_pipes_stdout_stderr(self, mock_subprocess_exec, mock_live_stream):
 
         mock_process = _make_mock_process()

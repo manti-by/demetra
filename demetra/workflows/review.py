@@ -72,13 +72,24 @@ async def run_review_agents(
         )
         for model, title in zip(models, titles, strict=True)
     ]
-    gathered = await asyncio.gather(*review_agents, return_exceptions=True)
-
+    tasks = [asyncio.ensure_future(agent) for agent in review_agents]
     results: list[tuple[int, str, str]] = []
-    for result in gathered:
-        if isinstance(result, BaseException):
-            raise result
-        results.append(result)
+    failure: BaseException | None = None
+    if tasks:
+        _, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_EXCEPTION)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+
+        for task in tasks:
+            if task.cancelled():
+                continue
+            exception = task.exception()
+            if exception is not None:
+                if failure is None:
+                    failure = exception
+                continue
+            results.append(task.result())
 
     for title in titles:
         await capture_agent_session(
@@ -89,6 +100,9 @@ async def run_review_agents(
             environment=environment,
             invoked_at=invoked_at,
         )
+
+    if failure is not None:
+        raise failure
 
     parts = []
     for _, stdout, _ in results:

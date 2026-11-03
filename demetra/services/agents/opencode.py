@@ -723,9 +723,17 @@ async def run_opencode_agent(
                     task_title=task_title,
                     environment=environment,
                     include_forks=fork,
+                    forks_only=fork,
                 )
             except (OSError, ValueError, KeyError):
                 logger.exception("Failed to resolve the session to resume for %s", task_title)
+
+        if fork and resumed_session_id is None:
+            print_message(
+                f"Agent {agent} could not locate its forked session; not retrying against the parent session",
+                style="warning",
+            )
+            break
 
         delay = AGENT_NETWORK_BACKOFF_BASE * 2**attempt
         print_message(
@@ -762,6 +770,7 @@ async def get_opencode_session_id(
     environment: SessionEnvironment | None = None,
     *,
     include_forks: bool = False,
+    forks_only: bool = False,
 ) -> str | None:
     """Find the opencode session id for a task title, preferring matching directory.
 
@@ -769,13 +778,16 @@ async def get_opencode_session_id(
     working directory wins, with the newest overall session as a fallback. When
     ``include_forks`` is set, sessions whose title carries the ``(fork #N)``
     suffix opencode appends on ``--fork`` also match the base title, which is the
-    only way to locate a fork in default output format.
+    only way to locate a fork in default output format. When ``forks_only`` is
+    set, the base session that was forked is never matched, so a retry can never
+    resume the parent session it was meant to leave untouched.
 
     Args:
         target_path: Directory to run the opencode CLI in.
         task_title: The task title to match sessions on.
         environment: The resolved session environment forwarded to the subprocess.
         include_forks: Whether ``"<title> (fork #N)"`` sessions match too.
+        forks_only: Whether only ``"<title> (fork #N)"`` sessions match.
 
     Returns:
         str | None: The session id, or None when no matching session exists.
@@ -784,9 +796,12 @@ async def get_opencode_session_id(
 
     def matches_title(session: dict[str, str]) -> bool:
         title = session.get("title", "")
+        is_fork = title.startswith(f"{task_title} (fork")
+        if forks_only:
+            return is_fork
         if title == task_title:
             return True
-        return include_forks and title.startswith(f"{task_title} (fork")
+        return include_forks and is_fork
 
     filtered_sessions = [session for session in sessions if matches_title(session)]
     if not filtered_sessions:
