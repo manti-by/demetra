@@ -112,8 +112,8 @@ Dead code that only existed to feed the scaffold or the gate went with it:
 - `should_use_llm` and `summarize_session` from both service facades' `__all__`.
 
 The `related` sibling list was already computed at the call site for the frontmatter, but the
-prompt's output contract demands a `- Related: [[…]]` line per sibling page — so the LLM was
-being asked to name pages it was never given, and could only invent them. `compose_wiki_page`
+prompt's output contract demanded a `- Related:` line naming a sibling page for each one — so the
+LLM was being asked to name pages it was never given, and could only invent them. `compose_wiki_page`
 now takes `related: list[str]` and renders it into the prompt as an authoritative block:
 
 ```python

@@ -8,7 +8,7 @@ services: [agents, persistence, workflows, api, library, vcs, react, database, a
 branch: opencode/feature/mnt-251-agent-session-attribution
 tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234, MNT-228, MNT-181, MNT-122, MNT-151, MNT-99, MNT-51, MNT-62]
 tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history, migrations, agent-attribution, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
-related: [2026-10-16-opencode-v2-session-token-accounting.md, 2026-07-07-add-context-compaction.md, 2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-06-03-fix-squash-migrations.md]
+related: [2026-10-25-session-history-per-invocation-rows.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-07-07-add-context-compaction.md, 2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-06-03-fix-squash-migrations.md, 2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]
 ---
 
 # MNT-251 — Rebuild agent session attribution and token accounting for opencode v2
@@ -138,6 +138,19 @@ CodeRabbit flagged four issues on PR #143; all four are fixed on the branch:
 ## Source — [[2026-06-03-fix-squash-migrations]]
 
 MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consolidated baseline so `alembic upgrade` stopped erroring; the existing local database was migrated onto it, DB connection init moved to env-driven settings, and `projects.repository_url` became required. The durable choices behind it: PostgreSQL via `psycopg` (not SQLite) and **SQLAlchemy Core** `Table`/`Column` metadata rather than the declarative ORM — originally adopted in [[2026-03-05-postgres-support]] and [[2026-03-13-sqlalchemy-core-support]] (both archived). New revisions still follow the `add_`/`alter_`/`drop_` naming rule in `AGENTS.md`, and the tests run against `test_demetra`.
+
+> **Consistency note (2026-11-03, Consistency Agent):** two claims in this plan
+> were superseded after the build shipped. (1) Step 4 (line 91) and the
+> "accumulates onto the shared row" review fix describe the original upsert
+> design; since [[2026-10-25-session-history-per-invocation-rows]],
+> `record_agent_invocation` inserts a **distinct** `kind='invocation'` row per
+> invocation and `agent_sessions` holds only the cumulative cursor, so resumed
+> build iterations no longer collapse into the first row (see the docstring at
+> `demetra/services/persistence/database.py:942`). (2)
+> `_compute_total_tokens` now sums both `kind='invocation'` and `kind='llm_call'`
+> rows (`demetra/api/sessions.py:116`), not invocation rows alone — added by
+> [[2026-10-27-mnt-260-openrouter-call-history]]. The `row.length` fallback is
+> still gone.
 
 ## Follow-ups
 

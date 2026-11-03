@@ -4,14 +4,11 @@ date: '2026-10-27'
 type: implementation
 status: resolved
 session_id: ses_e82e0cbecffe1EX3fx64tzEyxJ
-services: [api, llm/factory, llm/openrouter, persistence/database, wiki/render, workflows,
-  pyproject, SessionHistory.test, SessionHistory, api.test, test_api, test_database,
-  test_openrouter, test_tools_database, test_workflows, uv, INDEX, 2026-10-27-mnt-260-openrouter-call-history]
+services: [api, llm, persistence, wiki, workflows]
 branch: mnt-260-session-calls-to-openrouter
 tickets: [MNT-260]
 tags: [wiki, feature, backend]
-related: [2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-cost-and-failure-reasons.md,
-  2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-cost-and-failure-reasons.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
 ---
 
 # MNT-260: Session calls to openrouter

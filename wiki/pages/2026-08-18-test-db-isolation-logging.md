@@ -61,7 +61,7 @@ Opt-in isolation: DB redirect and console-vs-file distinction weren't guaranteed
 
 **Step 2 — No FE logs during plan step.** `/ws/v1/watcher/logs` required `get_session_id_by_task_id` (empty during `initial`/`plan` until opencode session persisted) → 4004.
 
-- `demetra/api/watcher.py` — gate now `get_session_step_name(task_id, user_id)` (reject only if row belongs to another user); task with no session row still streams `sessions/{task_id}.log`. Status envelope adapts.
+- `demetra/api/watcher.py` — gate now `get_session_state(task_id, user_id)` (reject only if row belongs to another user); task with no session row still streams `sessions/{task_id}.log`. Status envelope adapts.
 
 **Tests:** new in `tests/test_api.py` (websocket before-session), `tests/test_api_auth.py` (ownership reject), `tests/test_entrypoints.py` (pending session guards), `tests/test_openrouter.py`, `tests/test_workflows.py`. **869 passed**; `ruff`/`ty`/`bandit` clean.
 
@@ -72,6 +72,10 @@ Opt-in isolation: DB redirect and console-vs-file distinction weren't guaranteed
 None.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** the watcher gate was renamed
+> `get_session_step_name` → `get_session_state` in `1be4bfd` (MNT-244, 2026-10-12); the body now uses the
+> current name (`demetra/services/persistence/database.py:1190`, `demetra/api/watcher.py:11`).
 
 ## References
 

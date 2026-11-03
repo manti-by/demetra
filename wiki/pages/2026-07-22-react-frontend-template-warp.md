@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-142-warp-theme-for-react
 tickets: [MNT-142, MNT-49, MNT-57, MNT-77]
 tags: [react, css, warptheme, frontend, components, layout, template, vite, vitest, user-settings, refactor, rename]
-related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-06-01-refactor-frontend-app.md, 2026-09-02-mobile-template-react-frontend.md]
+related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-03-04-basic-react-app.md, 2026-03-09-user-settings-frontend.md, 2026-06-01-refactor-frontend-app.md, 2026-09-02-mobile-template-react-frontend.md]
 ---
 
 # React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
@@ -112,6 +112,11 @@ Frontend dir renamed `hera` → `react/` (MNT-77, 2026-06-01). All paths in this
 - Consider making `.modal-btn` a shared component.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** the Playwright MCP listed above
+> (`@tontoko/fast-playwright-mcp`) is no longer configured — `opencode.json` defines only
+> `Demetra`, `WI` and `Linear`, and the server was removed in `e9c9702`. See
+> [[2026-10-15-replace-wiki-mcp-tool-with-wi]].
 
 ## References
 

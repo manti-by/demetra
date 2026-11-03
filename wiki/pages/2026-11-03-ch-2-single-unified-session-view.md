@@ -4,8 +4,7 @@ date: '2026-11-03'
 type: implementation
 status: resolved
 session_id: ses_e5eb22d6dffehbKOl21RoW8Mkp
-services: [pyproject, App, App.test, ChatPanel.test, ChatPanel, LogConsole.test, LogConsole,
-  SessionList, ChatPage, uv, INDEX, 2026-11-03-ch-2-single-unified-session-view]
+services: [react]
 branch: ch-2-single-unified-session-view
 tickets: [CH-2]
 tags: [wiki, frontend, feature]

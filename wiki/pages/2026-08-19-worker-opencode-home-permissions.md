@@ -64,6 +64,12 @@ Prunes bind-mounted secrets (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`,
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
 > **Consistency note (2026-10-08, Dedup Agent):** follow-up incident on the same entrypoint-ownership theme — [[2026-08-24-gh-config-dir-permission-entrypoint]] (un-gated repair for root-created bind-mount parents). This page's `.home-ready` gate is the prior art it builds on.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** "Removed `USER demetra`" above is
+> historical. `USER demetra` was re-added — `Dockerfile:71`, after `ENTRYPOINT` — and
+> `configs/docker-entrypoint.sh:6` now runs the ownership repair only when `id -u` is 0,
+> falling through to `exec "$@"` for the normal user; the `setpriv` branch is reachable only
+> with an explicit `--user 0`. See [[2026-08-24-gh-config-dir-permission-entrypoint]].
 
 ## References
 

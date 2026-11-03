@@ -84,6 +84,12 @@ MNT-86 (2026-06-02): sessions became deletable end to end. `DELETE /api/v1/sessi
 - Two anchors now stale (commit `04436c6`, 2026-08-07): `auth.py:241` → `auth/sessions.py:201` (re-exported), `database.py:482` → `persistence/database.py:701`. Further auth reorg: `2026-08-19-split-auth-linear-services-and-review-failure-handling.md`.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+>
+> **Consistency note (2026-11-03, Consistency Agent):** `get_session_step_name` was
+> renamed `get_session_state` in `1be4bfd` (MNT-244, 2026-10-12) — current definition at
+> `demetra/services/persistence/database.py:1190`, watcher call sites at
+> `demetra/api/watcher.py:104,186`. The body above keeps the historical name except for this note;
+> the user-scoping behaviour it describes is unchanged.
 
 ## References
 

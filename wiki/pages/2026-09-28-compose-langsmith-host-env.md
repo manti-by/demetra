@@ -209,6 +209,17 @@ change plus a matching test default.
 > not turn on yet" above is stale; the remaining concern is the follow-up on
 > that page (unconditional `LANGSMITH_API_KEY` emission widening the credential
 > surface).
+>
+> **Consistency note (2026-11-03, Consistency Agent):** the same rework removed
+> the component this page analyses. `67d106c` (2026-10-06) dropped
+> `@langchain/langsmith-opencode` from `opencode.json` (`"plugins": []` today),
+> so no OpenCode plugin loads and neither "Gap 1" nor "Gap 2" above is reachable
+> any more: tracing is env-var-only through `SessionEnvironment.system_env`
+> (`demetra/library/models.py:610`). `TRACE_TO_LANGSMITH` is still emitted next
+> to `LANGSMITH_TRACING`, but only as compatibility for an older plugin install
+> — nothing in the repo consumes it. The compose forwarding added here is what
+> remains useful: the agent subprocesses still need `LANGSMITH_*` in their
+> environment.
 
 ## Follow-ups
 
