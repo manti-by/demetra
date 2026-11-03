@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { ChatPanel } from './ChatPanel';
-import { getChat, type ChatDetail } from '../services/api';
+import { getChat, postChatMessage, type ChatDetail } from '../services/api';
 
 vi.mock('../services/api', () => ({
   getChat: vi.fn(),
@@ -108,6 +108,83 @@ describe('ChatPanel', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Re-run')).toBeInTheDocument();
+    });
+  });
+
+  it('renders load errors from polling', async () => {
+    vi.mocked(getChat).mockRejectedValue(new Error('getChat boom'));
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    expect(await screen.findByText('getChat boom')).toBeInTheDocument();
+  });
+
+  it('keeps an action error when a later poll succeeds', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+    render(<ChatPanel taskId="CH-1" />);
+    await screen.findByText('Add authentication');
+    const poll = intervalSpy.mock.calls.find(([, delay]) => delay === 5000)?.[0] as () => Promise<void>;
+
+    vi.mocked(postChatMessage).mockRejectedValue(new Error('send failed'));
+    fireEvent.change(screen.getByPlaceholderText('Reply to the workflow...'), {
+      target: { value: 'hello' },
+    });
+    fireEvent.click(screen.getByText('Send'));
+    expect(await screen.findByText('send failed')).toBeInTheDocument();
+
+    await act(async () => {
+      await poll();
+    });
+
+    expect(screen.getByText('send failed')).toBeInTheDocument();
+    expect(screen.queryByText('Failed to load chat')).not.toBeInTheDocument();
+    intervalSpy.mockRestore();
+  });
+
+  it('clears the action error when a new action starts', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+
+    render(<ChatPanel taskId="CH-1" />);
+    await screen.findByText('Add authentication');
+
+    vi.mocked(postChatMessage).mockRejectedValueOnce(new Error('send failed'));
+    fireEvent.change(screen.getByPlaceholderText('Reply to the workflow...'), {
+      target: { value: 'hello' },
+    });
+    fireEvent.click(screen.getByText('Send'));
+    expect(await screen.findByText('send failed')).toBeInTheDocument();
+
+    vi.mocked(postChatMessage).mockImplementationOnce(() => new Promise<never>(() => {}));
+    fireEvent.click(screen.getByText('Send'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('send failed')).not.toBeInTheDocument();
+    });
+  });
+
+  it('clears the action error when the task changes', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+
+    const { rerender } = render(<ChatPanel taskId="CH-1" />);
+    await screen.findByText('Add authentication');
+
+    vi.mocked(postChatMessage).mockRejectedValue(new Error('send failed'));
+    fireEvent.change(screen.getByPlaceholderText('Reply to the workflow...'), {
+      target: { value: 'hello' },
+    });
+    fireEvent.click(screen.getByText('Send'));
+    expect(await screen.findByText('send failed')).toBeInTheDocument();
+
+    const next = makeDetail();
+    next.chat = { ...next.chat, session_task_id: 'CH-2', title: 'Second chat' };
+    vi.mocked(getChat).mockResolvedValue(next);
+
+    rerender(<ChatPanel taskId="CH-2" />);
+
+    await waitFor(() => {
+      expect(screen.queryByText('send failed')).not.toBeInTheDocument();
     });
   });
 });

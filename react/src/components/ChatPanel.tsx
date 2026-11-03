@@ -78,7 +78,8 @@ export function ChatPanel({
   onSessionStatus,
 }: ChatPanelProps) {
   const [detail, setDetail] = useState<ChatDetail | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [savingDescription, setSavingDescription] = useState(false);
   const [draft, setDraft] = useState("");
@@ -91,7 +92,8 @@ export function ChatPanel({
     serverDescriptionRef.current = null;
     requestIdRef.current += 1;
     setDraft("");
-    setError(null);
+    setLoadError(null);
+    setActionError(null);
   }, [taskId]);
 
   const load = useCallback(
@@ -106,10 +108,10 @@ export function ChatPanel({
         setDescription((current) =>
           previous === null || current === previous ? data.chat.description : current,
         );
-        setError(null);
+        setLoadError(null);
       } catch (e) {
         if (signal?.aborted || requestId !== requestIdRef.current) return;
-        setError(e instanceof Error ? e.message : "Failed to load chat");
+        setLoadError(e instanceof Error ? e.message : "Failed to load chat");
       }
     },
     [taskId],
@@ -129,12 +131,13 @@ export function ChatPanel({
   }, [detail?.messages.length]);
 
   const handleSaveDescription = useCallback(async () => {
+    setActionError(null);
     setSavingDescription(true);
     try {
       await updateChat(taskId, { description });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save description");
+      setActionError(e instanceof Error ? e.message : "Failed to save description");
     } finally {
       setSavingDescription(false);
     }
@@ -142,24 +145,26 @@ export function ChatPanel({
 
   const handleSend = useCallback(async () => {
     if (!draft.trim()) return;
+    setActionError(null);
     setSending(true);
     try {
       await postChatMessage(taskId, draft);
       setDraft("");
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to send message");
+      setActionError(e instanceof Error ? e.message : "Failed to send message");
     } finally {
       setSending(false);
     }
   }, [taskId, draft, load]);
 
   const handleRerun = useCallback(async () => {
+    setActionError(null);
     try {
       await updateChat(taskId, { status: "initial" });
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to re-run chat");
+      setActionError(e instanceof Error ? e.message : "Failed to re-run chat");
     }
   }, [taskId, load]);
 
@@ -169,7 +174,8 @@ export function ChatPanel({
 
   return (
     <div className="chat-panel">
-      {error && <div className="chat-error">{error}</div>}
+      {actionError && <div className="chat-error">{actionError}</div>}
+      {loadError && <div className="chat-error">{loadError}</div>}
 
       <div className="chat-panel-body">
         {(onShowLogsToggle || canRerun) && (
