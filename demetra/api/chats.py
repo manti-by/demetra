@@ -23,6 +23,7 @@ from demetra.services.persistence.database import (
     list_chat_messages,
     list_chats,
     post_chat_message,
+    search_projects_by_name,
     update_session_step,
 )
 from demetra.services.persistence.queue import enqueue_workflow
@@ -59,6 +60,25 @@ def _normalize_tags(tags: list[str]) -> list[str]:
         if len(normalized) >= MAX_TAGS:
             break
     return normalized
+
+
+async def _assert_unique_project_name(project_name: str) -> None:
+    """Reject an enqueue whose project name does not resolve to one project.
+
+    The workflow resolves a project by name and exits without a context when
+    two projects share the name, and a claimed session would be stranded at
+    ``initial`` or ``build`` with no rerunnable step. The check runs before
+    any claim, so a rejected enqueue leaves the session claimable.
+
+    Args:
+        project_name: The name the workflow would be enqueued with.
+
+    Raises:
+        HTTPException: 409 when more than one project carries the name.
+    """
+    matches = await search_projects_by_name(name=project_name)
+    if len(matches) > 1:
+        raise HTTPException(status_code=409, detail="Project name is ambiguous")
 
 
 async def _enqueue(project_name: str, task_id: str) -> None:
@@ -133,6 +153,7 @@ async def create_chat_endpoint(
         raise HTTPException(status_code=404, detail="Project not found")
     if not is_project_ready(project=project):
         raise HTTPException(status_code=400, detail="Project is not ready")
+    await _assert_unique_project_name(project_name=project["name"])
 
     chat = await create_chat(
         user_id=user.id,
@@ -199,7 +220,8 @@ async def rerun_chat_endpoint(
     Raises:
         HTTPException: 400 when the project is not ready, 404 when the chat or
             its project is absent or not owned, 409 when the chat is still
-            running or already completed, 503 when enqueueing fails.
+            running, already completed or the project name is ambiguous,
+            503 when enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -209,6 +231,7 @@ async def rerun_chat_endpoint(
         raise HTTPException(status_code=404, detail="Project not found")
     if not is_project_ready(project=project):
         raise HTTPException(status_code=400, detail="Project is not ready")
+    await _assert_unique_project_name(project_name=project["name"])
     if not await claim_session_for_rerun(task_id=task_id):
         raise HTTPException(status_code=409, detail="Chat cannot be rerun")
     await _enqueue(project_name=project["name"], task_id=task_id)
@@ -255,6 +278,7 @@ async def create_chat_message_endpoint(
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
+    await _assert_unique_project_name(project_name=project["name"])
     resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
     if resumed:
         await _enqueue(project_name=project["name"], task_id=task_id)

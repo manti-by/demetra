@@ -9,7 +9,7 @@ from demetra.services.agents.opencode import (
     opencode_compact_session,
     opencode_supports_compaction,
 )
-from demetra.services.persistence.database import update_session_step
+from demetra.services.persistence.database import record_session_step, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
@@ -82,7 +82,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     lint/test failures as the next task until the pipeline is clean or the
     attempt budget is exhausted. The first invocation forks the plan session
     once; every later iteration resumes the fork so the context is bounded
-    exactly once. The validate agent checks the staged diff for plan coverage
+    exactly once. A ``kind='step'`` history row is recorded every time the
+    build starts, so the feedback-loop transitions the step-count query reads
+    stay visible even when the agent fails before capturing an invocation row.
+    The validate agent checks the staged diff for plan coverage
     before the review agents run; the project version is bumped once after the
     first clean pass.
 
@@ -105,6 +108,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
         await update_session_step(task_id=context.linear_task.id, step="build")
+        await record_session_step(task_id=context.linear_task.id, step="build", repeat=True)
 
         fork = is_first_build and context.session_id is not None
         invoked_at = int(time.time() * 1000)

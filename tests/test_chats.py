@@ -744,6 +744,34 @@ class TestChatAPI:
         mock_enqueue.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_rerun_rejects_ambiguous_project_name(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_ambiguous_project_name(self, authenticated_client: TestClient, project: dict):
+        await _create_project(name=project["name"])
+
+        response = authenticated_client.post(
+            "/api/v1/chats",
+            json={"title": "Title", "description": "desc", "project_id": project["id"], "tags": []},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert await list_chats(user_id=TEST_USER_ID) == []
+
+    @pytest.mark.asyncio
     async def test_create_enqueue_failure_marks_session_failed(self, authenticated_client: TestClient, project: dict):
         with patch("demetra.api.chats.enqueue_workflow", side_effect=RuntimeError("broker down")):
             response = authenticated_client.post(
@@ -775,6 +803,22 @@ class TestChatAPI:
         assert payload["message"]["is_system"] is False
         assert (await _session_for(task_id=chat.session_task_id)).step == "initial"
         mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
+
+    @pytest.mark.asyncio
+    async def test_message_resume_rejects_ambiguous_project_name(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        response = authenticated_client.post(
+            f"/api/v1/chats/{chat.session_task_id}/messages",
+            json={"body": "use postgres"},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert (await _session_for(task_id=chat.session_task_id)).step == "awaiting_input"
 
     @pytest.mark.asyncio
     async def test_message_does_not_resume_running_session(self, authenticated_client: TestClient, chat: Chat):

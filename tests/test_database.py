@@ -784,6 +784,19 @@ class TestGetFeedbackLoops:
         assert loops[task_id] == {"review": 0, "test": 2}
 
     @pytest.mark.asyncio
+    async def test_counts_the_transition_recorded_when_the_build_starts(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        # The build-step row is recorded at build start, before the agent can fail.
+        await record_session_step(task_id=task_id, step="build", repeat=True)
+
+        loops = await _get_feedback_loops(task_ids=[task_id])
+
+        assert loops[task_id] == {"review": 1, "test": 0}
+
+    @pytest.mark.asyncio
     async def test_returns_no_entry_for_tasks_without_history(self):
         assert await _get_feedback_loops(task_ids=[]) == {}
         assert await _get_feedback_loops(task_ids=[_unique_task_id()]) == {}

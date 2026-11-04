@@ -352,10 +352,8 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-            )
+            # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
+            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
 
     @pytest.mark.asyncio
     async def test_run_plan_step_empty_agent_output_moves_to_awaiting_input(
@@ -414,10 +412,8 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-            )
+            # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
+            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
 
     @pytest.mark.asyncio
     async def test_run_plan_step_output_missing_plan_header_moves_to_awaiting_input(
@@ -476,10 +472,8 @@ class TestWorkflowPlan:
             mock_update_ticket_status.assert_awaited_once_with(
                 task_id=context.linear_task.id, state_id="awaiting-input-state-id"
             )
-            mock_update_session_step.assert_any_await(
-                task_id=context.linear_task.id,
-                step="awaiting_input",
-            )
+            # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
+            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
 
 
 class TestWorkflowResolve:
@@ -932,10 +926,8 @@ class TestWorkflowPlanLoop:
         with pytest.raises(AutoCancelledError):
             await run_plan_step(context)
 
-        mock_update_session_step.assert_any_await(
-            task_id=context.linear_task.id,
-            step="awaiting_input",
-        )
+        # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
+        mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
 
 
 class TestWorkflowBuild:
