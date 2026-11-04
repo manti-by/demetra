@@ -1,11 +1,15 @@
+import asyncio
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from typing import cast
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from fastapi import WebSocket
 from fastapi.testclient import TestClient
 
+from demetra.api.watcher import watcher_logs
 from demetra.app import app
 from demetra.library.exceptions import LinearError
 from demetra.library.models import SessionHistory, SessionState, ToolUsage, UserResponse
@@ -284,6 +288,53 @@ class TestWatcherLogsWebSocket:
                     msg2 = ws.receive_json()
                     assert msg2["type"] == "status"
                     assert msg2["data"]["step"] == "deleted"
+
+    @pytest.mark.asyncio
+    async def test_websocket_stops_streaming_when_client_disconnects(self):
+        class DisconnectingWebSocket:
+            def __init__(self) -> None:
+                self.sent: list[dict] = []
+
+            async def accept(self) -> None:
+                return None
+
+            async def receive(self) -> dict:
+                return {"type": "websocket.disconnect", "code": 1000}
+
+            async def send_json(self, data: dict) -> None:
+                self.sent.append(data)
+
+            async def close(self, code: int = 1000, reason: str | None = None) -> None:
+                return None
+
+        websocket = DisconnectingWebSocket()
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_dir = Path(tmpdir)
+            session_dir = log_dir / "sessions"
+            session_dir.mkdir(parents=True, exist_ok=True)
+            log_file = session_dir / f"{self.TASK_ID}.log"
+            log_file.write_text("test log line\n")
+
+            with (
+                patch("demetra.api.watcher.LOG_DIR", log_dir),
+                patch("demetra.api.watcher.get_current_user", new_callable=AsyncMock) as mock_get_user,
+                patch("demetra.api.watcher.get_session_state", new_callable=AsyncMock) as mock_step,
+            ):
+                mock_get_user.return_value = UserResponse(id="user-123", github_username="testuser", role="admin")
+                mock_step.return_value = SessionState(step="initial", name="Test Session")
+
+                await asyncio.wait_for(
+                    watcher_logs(
+                        websocket=cast(WebSocket, websocket),
+                        auth_token="valid_token",
+                        task_id=self.TASK_ID,
+                        token=None,
+                    ),
+                    timeout=5,
+                )
+
+        assert [message["type"] for message in websocket.sent] == ["status", "log"]
 
 
 class TestUserKeysEndpoint:

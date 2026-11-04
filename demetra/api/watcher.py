@@ -61,6 +61,18 @@ async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> 
         pass
 
 
+async def _wait_for_disconnect(websocket: WebSocket) -> None:
+    """Return once the client closes the websocket connection.
+
+    Args:
+        websocket: The connected websocket.
+    """
+    while True:
+        message = await websocket.receive()
+        if message["type"] == "websocket.disconnect":
+            return
+
+
 @router.websocket("/logs")
 async def watcher_logs(
     websocket: WebSocket,
@@ -124,6 +136,8 @@ async def watcher_logs(
         last_seen = status_info
         await send_status(websocket=websocket, state=status_info)
 
+    disconnect_task = asyncio.create_task(_wait_for_disconnect(websocket=websocket))
+
     try:
         try:
             async with aiofiles.open(resolved_path) as f:
@@ -140,7 +154,7 @@ async def watcher_logs(
             current_position = await f.tell()
 
             status_ticks = 0
-            while True:
+            while not disconnect_task.done():
                 await asyncio.sleep(0.5)
                 status_ticks += 1
 
@@ -179,3 +193,7 @@ async def watcher_logs(
         logging.exception("Error streaming logs: %s", e)
         await websocket.close(code=4002, reason="Stream error")
         return
+
+    finally:
+        disconnect_task.cancel()
+        await asyncio.gather(disconnect_task, return_exceptions=True)
