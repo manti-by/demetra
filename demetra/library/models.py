@@ -7,7 +7,7 @@ from typing import Literal
 from slugify import slugify
 
 from demetra.library.exceptions import EnvironmentConfigError
-from demetra.library.types import OpenRouterConfig, WaitlistStatus
+from demetra.library.types import FeedbackLoops, OpenRouterConfig, WaitlistStatus
 
 
 StepType = Literal[
@@ -234,13 +234,22 @@ class Session:
     research_report: str | None = None
 
 
+def empty_feedback_loops() -> FeedbackLoops:
+    """Return the zero-valued feedback-loop counts shared by fresh sessions.
+
+    Returns:
+        FeedbackLoops: ``{"review": 0, "test": 0}``.
+    """
+    return FeedbackLoops(review=0, test=0)
+
+
 @dataclass
 class SessionState:
     step: str
     name: str
     is_research: bool = False
     is_chat: bool = False
-    feedback_loops: dict[str, int] = field(default_factory=dict)
+    feedback_loops: FeedbackLoops = field(default_factory=empty_feedback_loops)
 
 
 EnvironmentType = Literal["text", "encrypted"]

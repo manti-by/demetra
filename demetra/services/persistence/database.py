@@ -20,6 +20,7 @@ from demetra.library.models import (
     TokenUsage,
     ToolUsage,
     WaitlistEntryUpdate,
+    empty_feedback_loops,
 )
 from demetra.library.tables import (
     agent_sessions,
@@ -36,6 +37,7 @@ from demetra.library.tables import (
     users,
     waitlist_entries,
 )
+from demetra.library.types import FeedbackLoops
 from demetra.settings import DATABASE
 
 
@@ -647,10 +649,10 @@ async def update_session_research_report(task_id: str, research_report: str) -> 
         return getattr(result, "rowcount", 0) > 0
 
 
-FEEDBACK_LOOP_STEPS = ("build", "review", "lint", "test")
+_FEEDBACK_LOOP_STEPS = ("build", "review", "lint", "test")
 
 
-async def get_feedback_loops(*, task_ids: list[str]) -> dict[str, dict[str, int]]:
+async def _get_feedback_loops(*, task_ids: list[str]) -> dict[str, FeedbackLoops]:
     """Count the review and test feedback loops recorded in a task's history.
 
     Loops are read from the recorded step order: a ``build`` row that directly
@@ -665,7 +667,7 @@ async def get_feedback_loops(*, task_ids: list[str]) -> dict[str, dict[str, int]
         task_ids: The task ids to count loops for.
 
     Returns:
-        dict[str, dict[str, int]]: Per-task ``{"review": n, "test": n}`` counts;
+        dict[str, FeedbackLoops]: Per-task ``{"review": n, "test": n}`` counts;
             tasks without a recorded loop are absent.
     """
     if not task_ids:
@@ -683,7 +685,7 @@ async def get_feedback_loops(*, task_ids: list[str]) -> dict[str, dict[str, int]
         .where(
             session_history.c.task_id.in_(task_ids),
             session_history.c.kind.in_(("invocation", "step")),
-            session_history.c.step.in_(FEEDBACK_LOOP_STEPS),
+            session_history.c.step.in_(_FEEDBACK_LOOP_STEPS),
         )
         .subquery()
     )
@@ -751,9 +753,9 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
         rows = result.fetchall()
 
     session_rows = [dict(row._mapping) for row in rows]
-    loops = await get_feedback_loops(task_ids=[row["task_id"] for row in session_rows])
+    loops = await _get_feedback_loops(task_ids=[row["task_id"] for row in session_rows])
     for row in session_rows:
-        row["feedback_loops"] = loops.get(row["task_id"], {"review": 0, "test": 0})
+        row["feedback_loops"] = loops.get(row["task_id"], empty_feedback_loops())
     return session_rows
 
 
@@ -1285,13 +1287,13 @@ async def get_session_state(task_id: str, user_id: str | None = None) -> Session
         row = result.fetchone()
     if not row:
         return None
-    loops = await get_feedback_loops(task_ids=[task_id])
+    loops = await _get_feedback_loops(task_ids=[task_id])
     return SessionState(
         step=row.step or "initial",
         name=row.name or "",
         is_research=bool(row.is_research),
         is_chat=row.chat_id is not None,
-        feedback_loops=loops.get(task_id, {"review": 0, "test": 0}),
+        feedback_loops=loops.get(task_id, empty_feedback_loops()),
     )
 
 
@@ -2040,6 +2042,18 @@ async def get_project_by_id(project_id: str, user_id: str) -> dict | None:
         )
         row = result.fetchone()
     return dict(row._mapping) if row else None
+
+
+def is_project_ready(project: dict) -> bool:
+    """Whether a project row is cloned and usable for new runs.
+
+    Args:
+        project: The project row as returned by :func:`get_project_by_id`.
+
+    Returns:
+        bool: True when the project is active and has a local checkout path.
+    """
+    return project.get("state") == "active" and bool(project.get("local_path"))
 
 
 async def update_project(
@@ -2900,11 +2914,14 @@ async def claim_session_for_rerun(task_id: str, allowed_steps: tuple[str, ...] =
     Unlike :func:`claim_session_for_resume`, this keeps the recorded build plan,
     the posted flag and the run-attempt counter intact, so the workflow resumes
     the previous run instead of re-planning from scratch. The exception is a
-    plan that was never posted: the plan agent stopped with open questions
-    before the plan reached the thread, so keeping it would let the rerun build
-    without the requested answers. Those sessions restart at ``initial`` with
-    the saved plan cleared, which also makes the claim exclusive because a
-    second rerun sees a non-rerunnable step.
+    plan that is not actually approved — either it was never posted (the plan
+    agent stopped with open questions before the plan reached the thread) or
+    the posted flag carries no plan content. Keeping either would start a
+    rerun with an unusable plan, so those sessions restart at ``initial`` with
+    the saved plan cleared and the posted flag reset, which also makes the
+    claim exclusive because a second rerun sees a non-rerunnable step. A
+    restart records an ``initial`` step row so the timeline shows the
+    discarded run.
 
     Args:
         task_id: The task id.
@@ -2914,19 +2931,27 @@ async def claim_session_for_rerun(task_id: str, allowed_steps: tuple[str, ...] =
         bool: True when this call claimed the session, False when it was not in
             a rerunnable step (or another request claimed it first).
     """
-    posted = sessions.c.posted_to_linear.is_(True)
+    approved = sessions.c.posted_to_linear.is_(True) & (sessions.c.build_plan != "")
     async with get_connection() as connection:
         result = await connection.execute(
             update(sessions)
             .where(sessions.c.task_id == task_id, sessions.c.step.in_(allowed_steps))
             .values(
-                step=case((posted, "build"), else_="initial"),
-                build_plan=case((posted, sessions.c.build_plan), else_=""),
+                step=case((approved, "build"), else_="initial"),
+                build_plan=case((approved, sessions.c.build_plan), else_=""),
+                posted_to_linear=case((approved, sessions.c.posted_to_linear), else_=False),
                 updated_at=datetime.now(UTC),
             )
         )
         await connection.commit()
-    return getattr(result, "rowcount", 0) > 0
+    if getattr(result, "rowcount", 0) == 0:
+        return False
+    async with get_connection() as connection:
+        row = await connection.execute(select(sessions.c.step).where(sessions.c.task_id == task_id))
+        step = row.scalar()
+    if step == "initial":
+        await record_session_step(task_id=task_id, step="initial", repeat=True)
+    return True
 
 
 async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] = RESUMABLE_CHAT_STEPS) -> bool:

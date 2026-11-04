@@ -63,13 +63,13 @@ The live `previousStepRef` detection stays for instant feedback between polls.
 ## Step 4 — Read-only description and resuming Re-run
 **Description.** Removed `PATCH /api/v1/chats/{task_id}`, the `UpdateChat` model, `update_chat`, `update_session_step_if_stopped` and the FE `updateChat` client. `ChatPanel` renders `chat.description` as pre-wrapped text (`.chat-description-text`); it is set only at creation now.
 
-**Re-run.** New `POST /api/v1/chats/{task_id}/rerun` (FE `rerunChat`); the endpoint checks the project is still ready before claiming. `claim_session_for_rerun` is an atomic conditional update from `failed`/`awaiting_input`: a posted plan keeps `build_plan`, `posted_to_linear`, `run_attempts` and `session_id` and resumes at `step='build'`; an unposted plan (the plan agent stopped with open questions before the plan reached the thread) instead clears the plan and restarts at `initial`, so the rerun cannot build without the requested answers. With the plan kept, `main.py` skips `run_plan_step` and goes straight to build (the first build invocation forks the previous opencode session once). The step change also makes the claim exclusive, and the Re-run button is now limited to `failed`/`awaiting_input`.
+**Re-run.** New `POST /api/v1/chats/{task_id}/rerun` (FE `rerunChat`); the endpoint checks the project is still ready via `is_project_ready` before claiming. `claim_session_for_rerun` is an atomic conditional update from `failed`/`awaiting_input`: a posted plan with content keeps `build_plan`, `posted_to_linear`, `run_attempts` and `session_id` and resumes at `step='build'`; a plan without approval (never posted, or a posted flag without plan content — the plan agent stopped with open questions before the plan reached the thread) instead clears the plan, resets the posted flag and restarts at `initial` with an `initial` step row in the timeline, so the rerun cannot build without the requested answers. With the plan kept, `main.py` skips `run_plan_step` and goes straight to build (the first build invocation forks the previous opencode session once). The step change also makes the claim exclusive, and the Re-run button is now limited to `failed`/`awaiting_input`.
 
 **Failed-run workspace.** `git_cleanup` returns early for chat failures, keeping the worktree and branch; `git_worktree_create` gained `reuse_existing`, and `setup_workflow` passes it for chat tasks, so a rerun continues the files (including uncommitted build changes) instead of recreating the worktree from the branch. Completed runs still remove the worktree and keep the branch.
 
 ## Test Results
-- Python: 1181 passed; `ruff`, `ty`, `bandit` and pre-commit clean.
-- React: 142 passed; `tsc` + Vite build clean.
+- Python: 1190 passed; `ruff`, `ty`, `bandit` and pre-commit clean.
+- React: 144 passed; `tsc` + Vite build clean.
 - New coverage: feedback-loop counting (including repeated lint/test rows), `claim_session_for_rerun` state preservation/exclusivity, rerun API (state, 409s, user scoping, enqueue failure), chat-failure cleanup retention, worktree reuse, and the read-only description/Re-run visibility in `ChatPanel`.
 
 ## Follow-ups

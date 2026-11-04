@@ -91,8 +91,8 @@ describe('loopTrigger', () => {
   });
 
   it('detects the lint loop when build follows lint or test', () => {
-    expect(loopTrigger('lint', 'build')).toBe('lint');
-    expect(loopTrigger('test', 'build')).toBe('lint');
+    expect(loopTrigger('lint', 'build')).toBe('test');
+    expect(loopTrigger('test', 'build')).toBe('test');
   });
 
   it('stays inactive outside a build step and for any other previous step', () => {
@@ -129,7 +129,7 @@ describe('BUILD_FEEDBACK', () => {
   it('nests the review bracket on the shallower lane', () => {
     const lanes = Object.fromEntries(BUILD_FEEDBACK.map((feedback) => [feedback.key, feedback.lane]));
 
-    expect(lanes.review).toBeLessThan(lanes.lint);
+    expect(lanes.review).toBeLessThan(lanes.test);
   });
 });
 

@@ -5,7 +5,7 @@ export type FlowNodeState = "done" | "active" | "upcoming";
 
 export type FlowTone = "warning" | "accent" | "success";
 
-export type LoopSource = "review" | "lint" | null;
+export type LoopSource = "review" | "test" | null;
 
 export type LoopState = "pending" | "active" | "passed";
 
@@ -77,7 +77,7 @@ export const BUILD_FEEDBACK: FlowFeedback[] = [
     lane: 1,
   },
   {
-    key: "lint",
+    key: "test",
     label: "Feedback from lint and test",
     from: "test",
     to: "build",
@@ -105,13 +105,15 @@ export function resolveNodeStates(
   });
 }
 
+// The loop source doubles as the FeedbackLoops count key: a "review" loop is
+// one review→build transition, a "test" loop one lint/test→build transition.
 export function loopTrigger(
   previous: string | null,
   step: string | null,
 ): LoopSource {
   if (step !== "build") return null;
   if (previous === "review") return "review";
-  if (previous === "lint" || previous === "test") return "lint";
+  if (previous === "lint" || previous === "test") return "test";
   return null;
 }
 
@@ -183,11 +185,6 @@ interface SessionStateFlowProps {
   feedbackLoops?: FeedbackLoops | null;
 }
 
-const LOOP_COUNT_KEY: Record<Exclude<LoopSource, null>, keyof FeedbackLoops> = {
-  review: "review",
-  lint: "test",
-};
-
 export function SessionStateFlow({
   step,
   isResearch = false,
@@ -201,7 +198,7 @@ export function SessionStateFlow({
     Record<Exclude<LoopSource, null>, boolean>
   >({
     review: false,
-    lint: false,
+    test: false,
   });
   const [anchors, setAnchors] = useState<Record<string, number>>({});
   const [trackWidth, setTrackWidth] = useState(0);
@@ -291,7 +288,7 @@ export function SessionStateFlow({
                   width={trackWidth}
                   state={resolveLoopState(
                     takenLoops[feedback.key] ||
-                      (feedbackLoops?.[LOOP_COUNT_KEY[feedback.key]] ?? 0) > 0,
+                      (feedbackLoops?.[feedback.key] ?? 0) > 0,
                     finished,
                   )}
                 />

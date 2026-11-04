@@ -5,10 +5,10 @@ from sqlalchemy import text
 
 from demetra.library.models import TokenUsage, ToolUsage
 from demetra.services.persistence.database import (
+    _get_feedback_loops,
     create_session,
     delete_session,
     get_connection,
-    get_feedback_loops,
     get_pending_session_task_ids,
     get_session,
     get_session_history,
@@ -16,6 +16,7 @@ from demetra.services.persistence.database import (
     get_session_state,
     get_sessions,
     invalidate_agent_sessions,
+    is_project_ready,
     record_agent_invocation,
     record_llm_call,
     record_session_step,
@@ -747,7 +748,7 @@ class TestGetFeedbackLoops:
         await record_session_step(task_id=task_id, step="test")
         await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
 
-        loops = await get_feedback_loops(task_ids=[task_id])
+        loops = await _get_feedback_loops(task_ids=[task_id])
 
         assert loops[task_id] == {"review": 1, "test": 1}
 
@@ -761,7 +762,7 @@ class TestGetFeedbackLoops:
         await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
         await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
 
-        loops = await get_feedback_loops(task_ids=[task_id])
+        loops = await _get_feedback_loops(task_ids=[task_id])
 
         assert loops[task_id] == {"review": 1, "test": 0}
 
@@ -778,14 +779,14 @@ class TestGetFeedbackLoops:
         await record_session_step(task_id=task_id, step="test", repeat=True)
         await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
 
-        loops = await get_feedback_loops(task_ids=[task_id])
+        loops = await _get_feedback_loops(task_ids=[task_id])
 
         assert loops[task_id] == {"review": 0, "test": 2}
 
     @pytest.mark.asyncio
     async def test_returns_no_entry_for_tasks_without_history(self):
-        assert await get_feedback_loops(task_ids=[]) == {}
-        assert await get_feedback_loops(task_ids=[_unique_task_id()]) == {}
+        assert await _get_feedback_loops(task_ids=[]) == {}
+        assert await _get_feedback_loops(task_ids=[_unique_task_id()]) == {}
 
     @pytest.mark.asyncio
     async def test_session_state_and_listing_carry_the_counts(self):
@@ -802,6 +803,18 @@ class TestGetFeedbackLoops:
         assert state is not None
         assert state.feedback_loops == {"review": 1, "test": 0}
         assert rows[task_id]["feedback_loops"] == {"review": 1, "test": 0}
+
+
+class TestIsProjectReady:
+    def test_accepts_an_active_project_with_a_checkout(self):
+        assert is_project_ready(project={"state": "active", "local_path": "/tmp/demo"}) is True
+
+    def test_rejects_a_project_without_a_checkout(self):
+        assert is_project_ready(project={"state": "active", "local_path": ""}) is False
+        assert is_project_ready(project={"state": "active", "local_path": None}) is False
+
+    def test_rejects_an_inactive_project(self):
+        assert is_project_ready(project={"state": "error", "local_path": "/tmp/demo"}) is False
 
 
 class TestGetSessionsHasHistory:

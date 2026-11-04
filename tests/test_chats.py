@@ -29,6 +29,7 @@ from demetra.services.persistence.database import (
     get_chat_by_task_id,
     get_connection,
     get_session,
+    get_session_history,
     get_session_state,
     get_sessions,
     increment_run_attempts,
@@ -333,6 +334,40 @@ class TestChatQueries:
         assert session.posted_to_linear is False
         assert session.run_attempts == 1
         assert session.session_id == "ses-1"
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_records_the_restart_in_history(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        history = await get_session_history(task_id=chat.session_task_id)
+        assert [row.step for row in history if row.kind == "step"] == ["initial"]
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_restarts_a_posted_plan_without_content(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        assert session.posted_to_linear is False
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_does_not_record_history_for_a_resumed_build(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="plan body", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        history = await get_session_history(task_id=chat.session_task_id)
+        assert [row for row in history if row.kind == "step"] == []
 
     @pytest.mark.asyncio
     async def test_claim_session_for_rerun_is_exclusive(self, chat: Chat):
