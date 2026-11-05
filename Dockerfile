@@ -1,3 +1,5 @@
+ARG OPENCODE_VERSION=2.2.5
+
 FROM python:3.13.9-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -11,7 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY --from=ghcr.io/astral-sh/uv:0.7.21 /uv /uvx /bin/
 
-RUN curl -fsSL https://opencode.ai/v2/install | bash
+ARG OPENCODE_VERSION
+RUN curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "${OPENCODE_VERSION}"
 
 ARG WI_VERSION=v0.2.1
 RUN curl -LsSf "https://raw.githubusercontent.com/manti-by/wi/${WI_VERSION}/install.sh" | sh -s -- --version "${WI_VERSION}" --dir /usr/local/bin
@@ -30,11 +33,14 @@ FROM rust:1-slim AS rust
 
 FROM python:3.13.9-slim
 
+ARG OPENCODE_VERSION
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git gnupg openssh-client build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
+RUN opencode --version | grep -qF "${OPENCODE_VERSION}"
 COPY --from=builder /usr/local/bin/wi /usr/local/bin/wi
 COPY --from=builder /usr/bin/gh /usr/bin/gh
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
