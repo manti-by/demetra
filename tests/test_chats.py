@@ -819,6 +819,7 @@ class TestChatAPI:
         assert response.status_code == 409
         assert response.json()["detail"] == "Project name is ambiguous"
         assert (await _session_for(task_id=chat.session_task_id)).step == "awaiting_input"
+        assert await list_chat_messages(task_id=chat.session_task_id) == []
 
     @pytest.mark.asyncio
     async def test_message_does_not_resume_running_session(self, authenticated_client: TestClient, chat: Chat):

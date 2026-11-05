@@ -260,7 +260,8 @@ async def create_chat_message_endpoint(
 
     Raises:
         HTTPException: 400 for an empty body, 404 when the chat is absent or
-            not owned, 503 when enqueueing fails.
+            not owned, 409 when resuming is required and the project name is
+            ambiguous, 503 when enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -270,16 +271,23 @@ async def create_chat_message_endpoint(
     if not body:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    message = await post_chat_message(task_id=task_id, body=body, author_id=user.id, is_system=False, kind="message")
-    if message is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
-
     project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    await _assert_unique_project_name(project_name=project["name"])
-    resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
+    # The uniqueness check must precede the save: once the message is stored,
+    # an ambiguous name can no longer fail the request, so it is validated
+    # only when the session state says a resume will follow the save.
+    session = await get_session_state(task_id=task_id, user_id=user.id)
+    will_resume = session is not None and session.step == "awaiting_input"
+    if will_resume:
+        await _assert_unique_project_name(project_name=project["name"])
+
+    message = await post_chat_message(task_id=task_id, body=body, author_id=user.id, is_system=False, kind="message")
+    if message is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",)) if will_resume else False
     if resumed:
         await _enqueue(project_name=project["name"], task_id=task_id)
 
