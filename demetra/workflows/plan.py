@@ -27,10 +27,13 @@ from demetra.workflows.resolve import run_resolve_step
 async def move_to_awaiting_input(context: Context, reason: str | None = None) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
-    Updates the ticket status (or, for chat mode, only the session step) and
-    then raises AutoCancelledError (carrying ``reason`` for the session history)
-    so the caller's cleanup rolls back the worktree and branch without moving
-    the status again.
+    Updates the Linear ticket status (Linear tasks only) and then raises
+    AutoCancelledError (carrying ``reason`` for the session history) so the
+    caller's cleanup rolls back the worktree and branch without moving the
+    status again. The session step is not published here: chat-mode cleanup
+    publishes the terminal step after the worktree is cleaned, so a rerun or
+    resume request cannot claim the session while this worker still owns the
+    worktree.
 
     Args:
         context: The workflow context.
@@ -40,11 +43,11 @@ async def move_to_awaiting_input(context: Context, reason: str | None = None) ->
         LinearError: When the awaiting_input state is not configured.
         AutoCancelledError: Always, to halt the workflow.
     """
-    try:
-        await notify_status(context=context, state="awaiting_input")
-    except EnvironmentConfigError as e:
-        raise LinearError("Linear state 'awaiting_input' is not configured") from e
-    await update_session_step(task_id=context.linear_task.id, step="awaiting_input")
+    if not context.is_chat:
+        try:
+            await notify_status(context=context, state="awaiting_input")
+        except EnvironmentConfigError as e:
+            raise LinearError("Linear state 'awaiting_input' is not configured") from e
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError(reason)
 

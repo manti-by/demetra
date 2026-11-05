@@ -5,6 +5,7 @@ from sqlalchemy import text
 
 from demetra.library.models import TokenUsage, ToolUsage
 from demetra.services.persistence.database import (
+    _get_feedback_loops,
     create_session,
     delete_session,
     get_connection,
@@ -15,6 +16,7 @@ from demetra.services.persistence.database import (
     get_session_state,
     get_sessions,
     invalidate_agent_sessions,
+    is_project_ready,
     record_agent_invocation,
     record_llm_call,
     record_session_step,
@@ -112,6 +114,17 @@ class TestRecordSessionStep:
 
         steps = [row.step for row in await get_session_history(task_id=task_id)]
         assert steps == ["plan", "completed"]
+
+    @pytest.mark.asyncio
+    async def test_repeat_records_each_attempt(self):
+        task_id = _unique_task_id()
+
+        first = await record_session_step(task_id=task_id, step="lint", repeat=True)
+        second = await record_session_step(task_id=task_id, step="lint", repeat=True)
+
+        assert first.id != second.id
+        steps = [row.step for row in await get_session_history(task_id=task_id)]
+        assert steps == ["lint", "lint"]
 
     @pytest.mark.asyncio
     async def test_records_failure_message_on_insert(self):
@@ -720,6 +733,101 @@ class TestRecordToolUsage:
         assert await delete_session(task_id=task_id, user_id=user_id) is True
 
         assert await _fetch_tool_usage(task_id) == []
+
+
+class TestGetFeedbackLoops:
+    @pytest.mark.asyncio
+    async def test_counts_review_and_test_loops_in_order(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+        await record_session_step(task_id=task_id, step="lint")
+        await record_session_step(task_id=task_id, step="test")
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+
+        loops = await _get_feedback_loops(task_ids=[task_id])
+
+        assert loops[task_id] == {"review": 1, "test": 1}
+
+    @pytest.mark.asyncio
+    async def test_collapses_repeated_review_and_build_rows(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+
+        loops = await _get_feedback_loops(task_ids=[task_id])
+
+        assert loops[task_id] == {"review": 1, "test": 0}
+
+    @pytest.mark.asyncio
+    async def test_counts_each_repeated_test_loop(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+        await record_session_step(task_id=task_id, step="lint", repeat=True)
+        await record_session_step(task_id=task_id, step="test", repeat=True)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+        await record_session_step(task_id=task_id, step="lint", repeat=True)
+        await record_session_step(task_id=task_id, step="test", repeat=True)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+
+        loops = await _get_feedback_loops(task_ids=[task_id])
+
+        assert loops[task_id] == {"review": 0, "test": 2}
+
+    @pytest.mark.asyncio
+    async def test_counts_the_transition_recorded_when_the_build_starts(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        await upsert_pending_session(task_id=task_id, session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        # The build-step row is recorded at build start, before the agent can fail.
+        await record_session_step(task_id=task_id, step="build", repeat=True)
+
+        loops = await _get_feedback_loops(task_ids=[task_id])
+
+        assert loops[task_id] == {"review": 1, "test": 0}
+
+    @pytest.mark.asyncio
+    async def test_returns_no_entry_for_tasks_without_history(self):
+        assert await _get_feedback_loops(task_ids=[]) == {}
+        assert await _get_feedback_loops(task_ids=[_unique_task_id()]) == {}
+
+    @pytest.mark.asyncio
+    async def test_session_state_and_listing_carry_the_counts(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        user_id = str(uuid4())
+        await upsert_pending_session(task_id=task_id, session_id=session_id, user_id=user_id)
+        await record_agent_invocation(task_id=task_id, step="review", session_id=session_id)
+        await record_agent_invocation(task_id=task_id, step="build", session_id=session_id)
+
+        state = await get_session_state(task_id)
+        rows = {row["task_id"]: row for row in await get_sessions(user_id=user_id)}
+
+        assert state is not None
+        assert state.feedback_loops == {"review": 1, "test": 0}
+        assert rows[task_id]["feedback_loops"] == {"review": 1, "test": 0}
+
+
+class TestIsProjectReady:
+    def test_accepts_an_active_project_with_a_checkout(self):
+        assert is_project_ready(project={"state": "active", "local_path": "/tmp/demo"}) is True
+
+    def test_rejects_a_project_without_a_checkout(self):
+        assert is_project_ready(project={"state": "active", "local_path": ""}) is False
+        assert is_project_ready(project={"state": "active", "local_path": None}) is False
+
+    def test_rejects_an_inactive_project(self):
+        assert is_project_ready(project={"state": "error", "local_path": "/tmp/demo"}) is False
 
 
 class TestGetSessionsHasHistory:

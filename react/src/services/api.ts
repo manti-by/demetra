@@ -1,9 +1,9 @@
-const API_URL = import.meta.env.VITE_API_URL || '';
+const API_URL = import.meta.env.VITE_API_URL || "";
 
 const API_ORIGIN = resolveApiOrigin();
 
 function resolveApiOrigin(): string {
-  if (typeof window === 'undefined') return '';
+  if (typeof window === "undefined") return "";
   if (API_URL) {
     try {
       return new URL(API_URL).origin;
@@ -15,10 +15,12 @@ function resolveApiOrigin(): string {
 }
 
 function assertTrustedOrigin(input: RequestInfo | URL | string): void {
-  if (typeof window === 'undefined' || !API_ORIGIN) return;
+  if (typeof window === "undefined" || !API_ORIGIN) return;
   const target = new URL(input.toString(), window.location.origin);
   if (target.origin !== API_ORIGIN) {
-    throw new Error(`Blocked credentialed request to untrusted origin: ${target.origin}`);
+    throw new Error(
+      `Blocked credentialed request to untrusted origin: ${target.origin}`,
+    );
   }
 }
 
@@ -36,14 +38,14 @@ export interface AuthResponse {
 }
 
 export interface WaitlistedResponse {
-  status: 'waitlisted';
+  status: "waitlisted";
   message: string;
 }
 
 export class WaitlistedError extends Error {
   constructor(message: string) {
     super(message);
-    this.name = 'WaitlistedError';
+    this.name = "WaitlistedError";
   }
 }
 
@@ -51,9 +53,12 @@ export function isWaitlistedError(error: unknown): error is WaitlistedError {
   return error instanceof WaitlistedError;
 }
 
-async function parseAuthResponse(response: Response, fallbackMessage: string): Promise<AuthResponse> {
+async function parseAuthResponse(
+  response: Response,
+  fallbackMessage: string,
+): Promise<AuthResponse> {
   const data = await response.json();
-  if (response.status === 202 && data.status === 'waitlisted') {
+  if (response.status === 202 && data.status === "waitlisted") {
     throw new WaitlistedError(data.message);
   }
   if (!response.ok) {
@@ -62,74 +67,91 @@ async function parseAuthResponse(response: Response, fallbackMessage: string): P
   return data;
 }
 
-async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+async function authFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
   const request = input instanceof Request ? input : undefined;
-  const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+  const method = (init.method ?? request?.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     assertTrustedOrigin(request?.url ?? input);
   }
-  return fetch(input, { ...init, credentials: 'include' });
+  return fetch(input, { ...init, credentials: "include" });
 }
 
-async function authenticatedFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+async function authenticatedFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {},
+): Promise<Response> {
   const request = input instanceof Request ? input : undefined;
-  const method = (init.method ?? request?.method ?? 'GET').toUpperCase();
-  if (method !== 'GET' && method !== 'HEAD' && method !== 'OPTIONS') {
+  const method = (init.method ?? request?.method ?? "GET").toUpperCase();
+  if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
     assertTrustedOrigin(request?.url ?? input);
   }
-  return fetch(input, { ...init, credentials: 'include' });
+  return fetch(input, { ...init, credentials: "include" });
 }
 
-export async function getCurrentUser(): Promise<User | null | 'transient'> {
+export async function getCurrentUser(): Promise<User | null | "transient"> {
   try {
     const response = await authenticatedFetch(`${API_URL}/api/v1/github/me`);
     if (response.status === 401) {
       return null;
     }
     if (!response.ok) {
-      return 'transient';
+      return "transient";
     }
     const data = await response.json();
     return data;
   } catch {
-    return 'transient';
+    return "transient";
   }
 }
 
-export async function exchangeCodeForToken(code: string, state: string): Promise<AuthResponse> {
+export async function exchangeCodeForToken(
+  code: string,
+  state: string,
+): Promise<AuthResponse> {
   const params = new URLSearchParams({ code, state });
-  const response = await authFetch(`${API_URL}/api/v1/github/callback?${params}`);
-  return parseAuthResponse(response, 'Failed to exchange code');
+  const response = await authFetch(
+    `${API_URL}/api/v1/github/callback?${params}`,
+  );
+  return parseAuthResponse(response, "Failed to exchange code");
 }
 
-export async function signup(email: string, password: string): Promise<AuthResponse> {
+export async function signup(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
   const response = await authFetch(`${API_URL}/api/v1/auth/signup`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  return parseAuthResponse(response, 'Signup failed');
+  return parseAuthResponse(response, "Signup failed");
 }
 
-export async function loginWithPassword(email: string, password: string): Promise<AuthResponse> {
+export async function loginWithPassword(
+  email: string,
+  password: string,
+): Promise<AuthResponse> {
   const response = await authFetch(`${API_URL}/api/v1/auth/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Login failed');
+    throw new Error(error.detail || "Login failed");
   }
   return response.json();
 }
 
 export async function logout(): Promise<void> {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
+  localStorage.removeItem("auth_token");
+  localStorage.removeItem("user");
   try {
     await authFetch(`${API_URL}/api/v1/auth/logout`, {
-      method: 'POST',
+      method: "POST",
     });
   } catch {
     // Ignore errors
@@ -138,6 +160,11 @@ export async function logout(): Promise<void> {
 
 export function login(): void {
   window.location.href = `${API_URL}/api/v1/github/login`;
+}
+
+export interface FeedbackLoops {
+  review: number;
+  test: number;
 }
 
 export interface Session {
@@ -156,13 +183,22 @@ export interface Session {
   has_history?: boolean;
   chat_id?: number | null;
   tags?: string[] | null;
+  project_id?: string | null;
+  project_name?: string | null;
+  feedback_loops?: FeedbackLoops | null;
 }
 
-export async function getSessions(params: { tag?: string } = {}): Promise<Session[]> {
-  const query = params.tag ? `?${new URLSearchParams({ tag: params.tag })}` : '';
-  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions${query}`);
+export async function getSessions(
+  params: { tag?: string } = {},
+): Promise<Session[]> {
+  const query = params.tag
+    ? `?${new URLSearchParams({ tag: params.tag })}`
+    : "";
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/sessions${query}`,
+  );
   if (!response.ok) {
-    throw new Error('Failed to fetch sessions');
+    throw new Error("Failed to fetch sessions");
   }
   return response.json();
 }
@@ -174,12 +210,14 @@ export interface Chat {
   description: string;
   user_id: string;
   project_id: string;
+  project_name: string;
   tags: string[];
   created_at: string;
   updated_at: string;
 }
 
-export type ChatMessageKind = 'message' | 'question' | 'plan' | 'failure' | 'research' | 'status';
+export type ChatMessageKind =
+  "message" | "question" | "plan" | "failure" | "research" | "status";
 
 export interface ChatMessage {
   id: string;
@@ -197,6 +235,7 @@ export interface ChatSessionState {
   name: string;
   is_research: boolean;
   is_chat: boolean;
+  feedback_loops?: FeedbackLoops | null;
 }
 
 export interface ChatDetail {
@@ -205,10 +244,16 @@ export interface ChatDetail {
   session: ChatSessionState | null;
 }
 
-export async function getChat(taskId: string, signal?: AbortSignal): Promise<ChatDetail> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}`, { signal });
+export async function getChat(
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<ChatDetail> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/chats/${taskId}`,
+    { signal },
+  );
   if (!response.ok) {
-    throw new Error('Failed to fetch chat');
+    throw new Error("Failed to fetch chat");
   }
   return response.json();
 }
@@ -220,29 +265,27 @@ export async function createChat(data: {
   tags: string[];
 }): Promise<Chat> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/chats`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to create chat');
+    throw new Error(error.detail || "Failed to create chat");
   }
   return response.json();
 }
 
-export async function updateChat(
-  taskId: string,
-  data: { description?: string; status?: string },
-): Promise<{ chat: Chat }> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+export async function rerunChat(taskId: string): Promise<{ resumed: boolean }> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/chats/${taskId}/rerun`,
+    {
+      method: "POST",
+    },
+  );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to update chat');
+    throw new Error(error.detail || "Failed to rerun chat");
   }
   return response.json();
 }
@@ -251,14 +294,17 @@ export async function postChatMessage(
   taskId: string,
   body: string,
 ): Promise<{ message: ChatMessage; resumed: boolean }> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/chats/${taskId}/messages`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ body }),
-  });
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/chats/${taskId}/messages`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+  );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to send message');
+    throw new Error(error.detail || "Failed to send message");
   }
   return response.json();
 }
@@ -268,7 +314,7 @@ export interface SessionHistoryEntry {
   session_id: string | null;
   task_id: string | null;
   agent_session_id: string | null;
-  kind: 'step' | 'invocation' | 'llm_call';
+  kind: "step" | "invocation" | "llm_call";
   step: string;
   created_at: string;
   length: number | null;
@@ -321,26 +367,37 @@ export const EMPTY_TOKEN_TOTALS: SessionTokenTotals = {
 
 export const EMPTY_TOOL_USAGE: SessionToolUsage[] = [];
 
-export async function getSessionHistory(taskId: string, signal?: AbortSignal): Promise<SessionHistoryResponse> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}/history`, {
-    signal,
-  });
-  if (response.status === 404) return { total: EMPTY_TOKEN_TOTALS, tool_usage: [], history: [] };
-  if (!response.ok) throw new Error('Failed to fetch session history');
+export async function getSessionHistory(
+  taskId: string,
+  signal?: AbortSignal,
+): Promise<SessionHistoryResponse> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/sessions/${taskId}/history`,
+    {
+      signal,
+    },
+  );
+  if (response.status === 404)
+    return { total: EMPTY_TOKEN_TOTALS, tool_usage: [], history: [] };
+  if (!response.ok) throw new Error("Failed to fetch session history");
   return response.json();
 }
 
 export async function deleteSession(taskId: string): Promise<void> {
   try {
-    const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/${taskId}`, {
-      method: 'DELETE',
-    });
+    const response = await authenticatedFetch(
+      `${API_URL}/api/v1/sessions/${taskId}`,
+      {
+        method: "DELETE",
+      },
+    );
     if (!response.ok) {
       const error = await response.json();
-      throw new Error(error.detail || 'Failed to delete session');
+      throw new Error(error.detail || "Failed to delete session");
     }
   } catch (e) {
-    const message = e instanceof Error ? e.message : 'Network error deleting session';
+    const message =
+      e instanceof Error ? e.message : "Network error deleting session";
     throw new Error(message);
   }
 }
@@ -360,7 +417,7 @@ export interface Project {
 export async function getProjects(): Promise<Project[]> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/projects`);
   if (!response.ok) {
-    throw new Error('Failed to fetch projects');
+    throw new Error("Failed to fetch projects");
   }
   return response.json();
 }
@@ -371,13 +428,13 @@ export async function createProject(data: {
   linear_project_id?: string;
 }): Promise<Project> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/projects`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify(data),
   });
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to create project');
+    throw new Error(error.detail || "Failed to create project");
   }
   return response.json();
 }
@@ -388,27 +445,33 @@ export async function updateProject(
     name?: string;
     repository_url?: string;
     linear_project_id?: string;
-  }
+  },
 ): Promise<Project> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/projects/${projectId}`,
+    {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    },
+  );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to update project');
+    throw new Error(error.detail || "Failed to update project");
   }
   return response.json();
 }
 
 export async function deleteProject(projectId: string): Promise<void> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}`, {
-    method: 'DELETE',
-  });
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/projects/${projectId}`,
+    {
+      method: "DELETE",
+    },
+  );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to delete project');
+    throw new Error(error.detail || "Failed to delete project");
   }
 }
 
@@ -417,14 +480,18 @@ export interface ProjectEnvironmentEntry {
   project_id: string;
   key: string;
   value: string;
-  type: 'text' | 'encrypted';
+  type: "text" | "encrypted";
 }
 
-export async function getProjectEnvironment(projectId: string): Promise<ProjectEnvironmentEntry[]> {
-  const response = await authenticatedFetch(`${API_URL}/api/v1/projects/${projectId}/environment`);
+export async function getProjectEnvironment(
+  projectId: string,
+): Promise<ProjectEnvironmentEntry[]> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/projects/${projectId}/environment`,
+  );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to fetch project environment');
+    throw new Error(error.detail || "Failed to fetch project environment");
   }
   return response.json();
 }
@@ -433,37 +500,41 @@ export async function upsertProjectEnvironment(
   projectId: string,
   key: string,
   value: string,
-  type: 'text' | 'encrypted' = 'text',
-  previousKey?: string
+  type: "text" | "encrypted" = "text",
+  previousKey?: string,
 ): Promise<ProjectEnvironmentEntry> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
     {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, type, ...(previousKey ? { previous_key: previousKey } : {}) }),
-    }
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value,
+        type,
+        ...(previousKey ? { previous_key: previousKey } : {}),
+      }),
+    },
   );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to save environment variable');
+    throw new Error(error.detail || "Failed to save environment variable");
   }
   return response.json();
 }
 
 export async function deleteProjectEnvironment(
   projectId: string,
-  key: string
+  key: string,
 ): Promise<void> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/projects/${projectId}/environment/${encodeURIComponent(key)}`,
     {
-      method: 'DELETE',
-    }
+      method: "DELETE",
+    },
   );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to delete environment variable');
+    throw new Error(error.detail || "Failed to delete environment variable");
   }
 }
 
@@ -472,14 +543,14 @@ export interface UserEnvironmentEntry {
   user_id: string | null;
   key: string;
   value: string;
-  type: 'text' | 'encrypted';
+  type: "text" | "encrypted";
 }
 
 export async function getUserEnvironment(): Promise<UserEnvironmentEntry[]> {
   const response = await authenticatedFetch(`${API_URL}/api/v1/users/me/env`);
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to fetch shared environment');
+    throw new Error(error.detail || "Failed to fetch shared environment");
   }
   return response.json();
 }
@@ -487,20 +558,26 @@ export async function getUserEnvironment(): Promise<UserEnvironmentEntry[]> {
 export async function upsertUserEnvironment(
   key: string,
   value: string,
-  type: 'text' | 'encrypted' = 'text',
-  previousKey?: string
+  type: "text" | "encrypted" = "text",
+  previousKey?: string,
 ): Promise<UserEnvironmentEntry> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/users/me/env/${encodeURIComponent(key)}`,
     {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value, type, ...(previousKey ? { previous_key: previousKey } : {}) }),
-    }
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        value,
+        type,
+        ...(previousKey ? { previous_key: previousKey } : {}),
+      }),
+    },
   );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to save shared environment variable');
+    throw new Error(
+      error.detail || "Failed to save shared environment variable",
+    );
   }
   return response.json();
 }
@@ -509,11 +586,13 @@ export async function deleteUserEnvironment(key: string): Promise<void> {
   const response = await authenticatedFetch(
     `${API_URL}/api/v1/users/me/env/${encodeURIComponent(key)}`,
     {
-      method: 'DELETE',
-    }
+      method: "DELETE",
+    },
   );
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.detail || 'Failed to delete shared environment variable');
+    throw new Error(
+      error.detail || "Failed to delete shared environment variable",
+    );
   }
 }

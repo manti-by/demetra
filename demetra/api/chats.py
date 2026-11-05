@@ -9,22 +9,22 @@ from demetra.library.models import (
     Chat,
     CreateChat,
     CreateChatMessage,
-    UpdateChat,
     UserResponse,
 )
 from demetra.services.auth import get_current_user_dep
 from demetra.services.persistence.database import (
+    claim_session_for_rerun,
     claim_session_for_resume,
     create_chat,
     get_chat,
     get_project_by_id,
     get_session_state,
+    is_project_ready,
     list_chat_messages,
     list_chats,
     post_chat_message,
-    update_chat,
+    search_projects_by_name,
     update_session_step,
-    update_session_step_if_stopped,
 )
 from demetra.services.persistence.queue import enqueue_workflow
 
@@ -32,8 +32,6 @@ from demetra.services.persistence.queue import enqueue_workflow
 router = APIRouter(prefix="/api/v1/chats")
 
 TASK_ID_PATTERN = r"^CH-\d+$"
-
-VALID_CHAT_STATUSES = {"initial", "awaiting_input", "completed", "failed"}
 
 MAX_TAGS = 20
 
@@ -62,6 +60,25 @@ def _normalize_tags(tags: list[str]) -> list[str]:
         if len(normalized) >= MAX_TAGS:
             break
     return normalized
+
+
+async def _assert_unique_project_name(project_name: str) -> None:
+    """Reject an enqueue whose project name does not resolve to one project.
+
+    The workflow resolves a project by name and exits without a context when
+    two projects share the name, and a claimed session would be stranded at
+    ``initial`` or ``build`` with no rerunnable step. The check runs before
+    any claim, so a rejected enqueue leaves the session claimable.
+
+    Args:
+        project_name: The name the workflow would be enqueued with.
+
+    Raises:
+        HTTPException: 409 when more than one project carries the name.
+    """
+    matches = await search_projects_by_name(name=project_name)
+    if len(matches) > 1:
+        raise HTTPException(status_code=409, detail="Project name is ambiguous")
 
 
 async def _enqueue(project_name: str, task_id: str) -> None:
@@ -134,8 +151,9 @@ async def create_chat_endpoint(
     project = await get_project_by_id(project_id=request.project_id, user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
-    if project.get("state") != "active" or not project.get("local_path"):
+    if not is_project_ready(project=project):
         raise HTTPException(status_code=400, detail="Project is not ready")
+    await _assert_unique_project_name(project_name=project["name"])
 
     chat = await create_chat(
         user_id=user.id,
@@ -176,64 +194,48 @@ async def get_chat_endpoint(
     }
 
 
-@router.patch("/{task_id}", response_model=dict)
-async def update_chat_endpoint(
+@router.post("/{task_id}/rerun", response_model=dict)
+async def rerun_chat_endpoint(
     task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
-    request: UpdateChat,
     user: UserResponse = Depends(get_current_user_dep),
 ) -> dict:
-    """Update a chat description or session status.
+    """Re-enqueue a stopped chat-mode session without resetting its run state.
 
-    Only the description is editable content. Setting ``status`` to
-    ``initial`` resumes the workflow: the session is atomically claimed (only
-    stopped steps may resume, so an active run is never overlapped), its build
-    plan, posted flag and run attempts are reset, and the task is re-enqueued.
-    Other statuses only apply while the session is stopped; an active run
-    returns ``409`` instead of having its step overwritten.
+    The recorded build plan, posted flag and run-attempt counter are kept, so
+    the workflow resumes the previous run (`main.py` skips the plan step when a
+    plan exists) instead of re-planning from scratch. A plan that was never
+    posted — or a posted flag without plan content — is not approved: the plan
+    agent stopped with open questions before the plan reached the thread, so
+    that session restarts at ``initial`` with the plan cleared instead. Only
+    ``failed`` and ``awaiting_input`` sessions are rerunnable; the claim moves
+    the step atomically, so a second request cannot start an overlapping run.
 
     Args:
         task_id: The chat task id.
-        request: The description and/or status to apply.
         user: The authenticated user.
 
     Returns:
-        dict: The updated chat under ``chat``.
+        dict: ``resumed`` is True once the run was enqueued.
 
     Raises:
-        HTTPException: 400 for an unsupported status or an empty update, 404
-            when the chat is absent or not owned, 409 when the chat is still
-            running, 503 when enqueueing fails.
+        HTTPException: 400 when the project is not ready, 404 when the chat or
+            its project is absent or not owned, 409 when the chat is still
+            running, already completed or the project name is ambiguous,
+            503 when enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
         raise HTTPException(status_code=404, detail="Chat not found")
-    if request.description is None and request.status is None:
-        raise HTTPException(status_code=400, detail="Nothing to update")
-    if request.status is not None and request.status not in VALID_CHAT_STATUSES:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid status. Must be one of: {', '.join(sorted(VALID_CHAT_STATUSES))}",
-        )
-
-    updated = chat
-    if request.description is not None:
-        if (candidate := await update_chat(task_id=task_id, user_id=user.id, description=request.description)) is None:
-            raise HTTPException(status_code=404, detail="Chat not found")
-        updated = candidate
-
-    if request.status is not None:
-        if request.status == "initial":
-            project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
-            if project is None:
-                raise HTTPException(status_code=404, detail="Project not found")
-            if not await claim_session_for_resume(task_id=task_id):
-                raise HTTPException(status_code=409, detail="Chat is already running")
-            await _enqueue(project_name=project["name"], task_id=task_id)
-        else:
-            if not await update_session_step_if_stopped(task_id=task_id, step=request.status):
-                raise HTTPException(status_code=409, detail="Chat is still running")
-
-    return {"chat": updated}
+    project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
+    if project is None:
+        raise HTTPException(status_code=404, detail="Project not found")
+    if not is_project_ready(project=project):
+        raise HTTPException(status_code=400, detail="Project is not ready")
+    await _assert_unique_project_name(project_name=project["name"])
+    if not await claim_session_for_rerun(task_id=task_id):
+        raise HTTPException(status_code=409, detail="Chat cannot be rerun")
+    await _enqueue(project_name=project["name"], task_id=task_id)
+    return {"resumed": True}
 
 
 @router.post("/{task_id}/messages", response_model=dict, status_code=201)
@@ -258,7 +260,10 @@ async def create_chat_message_endpoint(
 
     Raises:
         HTTPException: 400 for an empty body, 404 when the chat is absent or
-            not owned, 503 when enqueueing fails.
+            not owned, 409 when the project name is ambiguous only before the
+            message is saved — a name that turns ambiguous after the save
+            keeps the reply with ``resumed`` set to false, 503 when
+            enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -268,15 +273,36 @@ async def create_chat_message_endpoint(
     if not body:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    message = await post_chat_message(task_id=task_id, body=body, author_id=user.id, is_system=False, kind="message")
-    if message is None:
-        raise HTTPException(status_code=404, detail="Chat not found")
-
     project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
+    # The uniqueness check must precede the save: once the message is stored,
+    # an ambiguous name can no longer fail the request, so it is validated
+    # only when the session state says a resume will follow the save. Sessions
+    # outside that window skip the check here and re-read their step after the
+    # save below.
+    session = await get_session_state(task_id=task_id, user_id=user.id)
+    will_resume = session is not None and session.step == "awaiting_input"
+    if will_resume:
+        await _assert_unique_project_name(project_name=project["name"])
+
+    message = await post_chat_message(task_id=task_id, body=body, author_id=user.id, is_system=False, kind="message")
+    if message is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    resumed = False
+    if will_resume:
+        resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
+    else:
+        # The session may have entered the awaiting step between the pre-save
+        # read and now. A saved reply is never rejected, so a late resume that
+        # finds an ambiguous name stays a success with resumed set to false.
+        latest = await get_session_state(task_id=task_id, user_id=user.id)
+        if latest is not None and latest.step == "awaiting_input":
+            matches = await search_projects_by_name(name=project["name"])
+            if len(matches) <= 1:
+                resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
     if resumed:
         await _enqueue(project_name=project["name"], task_id=task_id)
 

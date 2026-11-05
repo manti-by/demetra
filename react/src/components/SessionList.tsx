@@ -1,6 +1,6 @@
-import { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { getSessions, type Session } from '../services/api';
-import { Loader } from './Loader';
+import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { getSessions, type Session } from "../services/api";
+import { Loader } from "./Loader";
 
 const POLL_INTERVAL = 60000;
 
@@ -20,38 +20,69 @@ const formatDate = (dateStr: string): string => {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return 'Just now';
+  if (minutes < 1) return "Just now";
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
 };
 
-const SessionItem = memo(({ session, isSelected, onClick }: { session: Session; isSelected: boolean; onClick: (e: React.MouseEvent) => void }) => (
-  <div className={`session-item ${isSelected ? 'selected' : ''}`} onClick={onClick}>
-    <div className="session-item-header">
-      <span className={`session-dot step-${session.step || 'initial'}`} />
-      <span className="session-title">
-        {session.name || session.session_id?.slice(0, 8)}
-      </span>
-      {Boolean(session.chat_id) && <span className="session-chat-badge">chat</span>}
-      <span className={`session-step ${session.step || 'initial'}`}>
-        {session.step || 'initial'}
-      </span>
-    </div>
-    <div className="session-item-meta">
-      <span className="session-time">{formatDate(session.created_at)}</span>
-      {(session.tags ?? []).map((tag) => (
-        <span key={tag} className="session-tag">{tag}</span>
-      ))}
-      {session.build_plan && <span className="session-plan">{session.build_plan}</span>}
-    </div>
-  </div>
-));
+const SessionItem = memo(
+  ({
+    session,
+    isSelected,
+    onClick,
+  }: {
+    session: Session;
+    isSelected: boolean;
+    onClick: (e: React.MouseEvent) => void;
+  }) => {
+    const step = session.step || "initial";
 
-export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, sessions, setSessions }: SessionListProps) {
+    return (
+      <div
+        className={`session-item ${isSelected ? "selected" : ""}`}
+        onClick={onClick}
+      >
+        <div className="session-item-header">
+          <div className="session-item-badges">
+            <span
+              className={`session-type ${session.chat_id ? "chat" : "linear"}`}
+              title={session.chat_id ? "Chat" : "Linear"}
+            >
+              {session.chat_id ? "C" : "L"}
+            </span>
+            <span className={`session-step ${step}`}>{step}</span>
+          </div>
+          <span className="session-time">{formatDate(session.created_at)}</span>
+        </div>
+        <div className="session-title">
+          {session.name || session.session_id?.slice(0, 8)}
+        </div>
+        <div className="session-item-meta">
+          {session.project_name && (
+            <span className="session-project">{session.project_name}</span>
+          )}
+          {(session.tags ?? []).map((tag) => (
+            <span key={tag} className="session-tag">
+              {tag}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  },
+);
+
+export function SessionList({
+  onSelectSession,
+  selectedTaskId,
+  refreshTrigger,
+  sessions,
+  setSessions,
+}: SessionListProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
+  const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
 
   const fetchSessions = useCallback(async () => {
@@ -60,7 +91,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
       setSessions(data);
       setError(null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to fetch sessions');
+      setError(err instanceof Error ? err.message : "Failed to fetch sessions");
     } finally {
       setLoading(false);
     }
@@ -80,10 +111,13 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
     }
   }, [sessions, selectedTaskId, onSelectSession]);
 
-  const handleSelectSession = useCallback((e: React.MouseEvent, session: Session) => {
-    e.preventDefault();
-    onSelectSession(session.task_id);
-  }, [onSelectSession]);
+  const handleSelectSession = useCallback(
+    (e: React.MouseEvent, session: Session) => {
+      e.preventDefault();
+      onSelectSession(session.task_id);
+    },
+    [onSelectSession],
+  );
 
   const tags = useMemo(() => {
     const found = new Set<string>();
@@ -98,9 +132,15 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
     return sessions.filter((session) => {
       if (activeTag && !(session.tags ?? []).includes(activeTag)) return false;
       if (!q) return true;
-      return [session.name, session.task_id, session.session_id, session.step, session.build_plan].some(
-        (value) => (value ?? '').toLowerCase().includes(q),
-      );
+      return [
+        session.name,
+        session.task_id,
+        session.session_id,
+        session.step,
+        session.build_plan,
+        session.project_name,
+        ...(session.tags ?? []),
+      ].some((value) => (value ?? "").toLowerCase().includes(q));
     });
   }, [sessions, query, activeTag]);
 
@@ -118,7 +158,7 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
       {tags.length > 0 && (
         <div className="session-tag-filter">
           <button
-            className={`session-tag-filter-btn${activeTag === null ? ' active' : ''}`}
+            className={`session-tag-filter-btn${activeTag === null ? " active" : ""}`}
             onClick={() => setActiveTag(null)}
           >
             All
@@ -126,8 +166,10 @@ export function SessionList({ onSelectSession, selectedTaskId, refreshTrigger, s
           {tags.map((tag) => (
             <button
               key={tag}
-              className={`session-tag-filter-btn${activeTag === tag ? ' active' : ''}`}
-              onClick={() => setActiveTag((current) => (current === tag ? null : tag))}
+              className={`session-tag-filter-btn${activeTag === tag ? " active" : ""}`}
+              onClick={() =>
+                setActiveTag((current) => (current === tag ? null : tag))
+              }
             >
               {tag}
             </button>

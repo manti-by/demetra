@@ -30,7 +30,9 @@ async def list_sessions(
 
     Returns a list of session records with their current step and metadata.
     Chat-mode sessions also carry ``chat_id`` and ``tags``; ``tag`` filters the
-    list to chat sessions carrying that tag.
+    list to chat sessions carrying that tag. Every session whose project still
+    exists exposes the project's display name under ``project_name``, and the
+    review/test feedback loops taken during the run under ``feedback_loops``.
     """
     if step is not None and step not in VALID_STEPS:
         raise HTTPException(status_code=400, detail=f"Invalid step. Must be one of: {', '.join(VALID_STEPS)}")

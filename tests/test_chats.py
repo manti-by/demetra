@@ -9,7 +9,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from demetra.library.models import Chat, ChatMessage, ChatMessageKind, Context, LinearTask, Project, Session
+from demetra.library.models import (
+    Chat,
+    ChatMessage,
+    ChatMessageKind,
+    Context,
+    LinearTask,
+    Project,
+    Session,
+    SessionState,
+)
 from demetra.services.chat import (
     build_chat_task,
     get_chat_task,
@@ -20,6 +29,7 @@ from demetra.services.chat import (
 )
 from demetra.services.persistence.database import (
     chat_task_id,
+    claim_session_for_rerun,
     claim_session_for_resume,
     create_chat,
     create_project,
@@ -28,12 +38,15 @@ from demetra.services.persistence.database import (
     get_chat_by_task_id,
     get_connection,
     get_session,
+    get_session_history,
     get_session_state,
     get_sessions,
+    increment_run_attempts,
     list_chat_messages,
     list_chats,
+    mark_session_posted,
     post_chat_message,
-    update_chat,
+    save_session,
     update_session_step,
 )
 from demetra.settings import DATABASE
@@ -210,11 +223,12 @@ class TestCreateChat:
 
 class TestChatQueries:
     @pytest.mark.asyncio
-    async def test_get_chat_by_task_id_and_user_scoping(self, chat: Chat):
+    async def test_get_chat_by_task_id_and_user_scoping(self, chat: Chat, project: dict):
         assert (await _chat_by_task_id(task_id=chat.session_task_id)).id == chat.id
         scoped = await get_chat(task_id=chat.session_task_id, user_id=TEST_USER_ID)
         assert scoped is not None
         assert scoped.id == chat.id
+        assert scoped.project_name == project["name"]
         assert await get_chat(task_id=chat.session_task_id, user_id="someone_else") is None
         assert await get_chat_by_task_id(task_id="CH-999999") is None
 
@@ -240,23 +254,7 @@ class TestChatQueries:
 
         assert len(all_chats) == 2
         assert [chat.title for chat in research_chats] == ["Research one"]
-
-    @pytest.mark.asyncio
-    async def test_update_chat_only_edits_description(self, chat: Chat):
-        updated = await update_chat(
-            task_id=chat.session_task_id,
-            user_id=TEST_USER_ID,
-            description="Updated description",
-        )
-
-        assert updated is not None
-        assert updated.description == "Updated description"
-        assert updated.title == chat.title
-        assert updated.tags == chat.tags
-
-    @pytest.mark.asyncio
-    async def test_update_chat_is_user_scoped(self, chat: Chat):
-        assert await update_chat(task_id=chat.session_task_id, user_id="other", description="x") is None
+        assert {chat.project_name for chat in all_chats} == {project["name"]}
 
     @pytest.mark.asyncio
     async def test_post_and_list_messages_in_order(self, chat: Chat):
@@ -315,15 +313,97 @@ class TestChatQueries:
 
         assert await claim_session_for_resume(task_id=chat.session_task_id, allowed_steps=("awaiting_input",)) is False
 
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_keeps_plan_and_attempts(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="plan body", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await increment_run_attempts(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "build"
+        assert session.build_plan == "plan body"
+        assert session.posted_to_linear is True
+        assert session.run_attempts == 1
+        assert session.session_id == "ses-1"
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_clears_an_unposted_plan(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await increment_run_attempts(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        assert session.posted_to_linear is False
+        assert session.run_attempts == 1
+        assert session.session_id == "ses-1"
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_records_the_restart_in_history(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        history = await get_session_history(task_id=chat.session_task_id)
+        assert [row.step for row in history if row.kind == "step"] == ["initial"]
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_restarts_a_posted_plan_without_content(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        assert session.posted_to_linear is False
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_does_not_record_history_for_a_resumed_build(self, chat: Chat):
+        await save_session(task_id=chat.session_task_id, build_plan="plan body", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+
+        history = await get_session_history(task_id=chat.session_task_id)
+        assert [row for row in history if row.kind == "step"] == []
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_is_exclusive(self, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is True
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is False
+
+    @pytest.mark.asyncio
+    async def test_claim_session_for_rerun_rejects_completed_and_running(self, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="completed")
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is False
+
+        await update_session_step(task_id=chat.session_task_id, step="build")
+        assert await claim_session_for_rerun(task_id=chat.session_task_id) is False
+
 
 class TestChatSessionsListing:
     @pytest.mark.asyncio
-    async def test_sessions_expose_chat_id_and_tags(self, chat: Chat):
+    async def test_sessions_expose_chat_metadata_and_project_name(self, chat: Chat, project: dict):
         sessions = await get_sessions(user_id=TEST_USER_ID)
 
         row = next(session for session in sessions if session["task_id"] == chat.session_task_id)
         assert row["chat_id"] == chat.id
         assert row["tags"] == ["Backend"]
+        assert row["project_name"] == project["name"]
+        assert row["feedback_loops"] == {"review": 0, "test": 0}
 
     @pytest.mark.asyncio
     async def test_sessions_tag_filter_excludes_linear_sessions(self, chat: Chat):
@@ -364,6 +444,7 @@ class TestBuildChatTask:
             description="Implement password login",
             user_id=TEST_USER_ID,
             project_id="project-1",
+            project_name="demetra",
             tags=["Backend"],
             created_at=datetime.now().isoformat(),
             updated_at=datetime.now().isoformat(),
@@ -524,6 +605,7 @@ class TestChatAPI:
         assert response.status_code == 201
         payload = response.json()
         assert payload["session_task_id"] == f"CH-{payload['id']}"
+        assert payload["project_name"] == project["name"]
         assert payload["tags"] == ["Backend"]
         mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=payload["session_task_id"])
         assert await get_session(task_id=payload["session_task_id"]) is not None
@@ -557,7 +639,9 @@ class TestChatAPI:
         assert response.status_code == 400
 
     @pytest.mark.asyncio
-    async def test_detail_returns_thread_and_session_state(self, authenticated_client: TestClient, chat: Chat):
+    async def test_detail_returns_thread_and_session_state(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
         await post_chat_message(task_id=chat.session_task_id, body="hello", author_id=TEST_USER_ID)
 
         response = authenticated_client.get(f"/api/v1/chats/{chat.session_task_id}")
@@ -565,9 +649,11 @@ class TestChatAPI:
         assert response.status_code == 200
         payload = response.json()
         assert payload["chat"]["id"] == chat.id
+        assert payload["chat"]["project_name"] == project["name"]
         assert [message["body"] for message in payload["messages"]] == ["hello"]
         assert payload["session"]["is_chat"] is True
         assert payload["session"]["step"] == "initial"
+        assert payload["session"]["feedback_loops"] == {"review": 0, "test": 0}
 
     @pytest.mark.asyncio
     async def test_detail_is_user_scoped(self, cross_user_client: TestClient, chat: Chat):
@@ -582,70 +668,117 @@ class TestChatAPI:
         assert response.status_code == 422
 
     @pytest.mark.asyncio
-    async def test_patch_updates_description(self, authenticated_client: TestClient, chat: Chat):
-        response = authenticated_client.patch(
-            f"/api/v1/chats/{chat.session_task_id}",
-            json={"description": "Updated description"},
-        )
-
-        assert response.status_code == 200
-        assert response.json()["chat"]["description"] == "Updated description"
-
-    @pytest.mark.asyncio
-    async def test_patch_rejects_empty_and_invalid_updates(self, authenticated_client: TestClient, chat: Chat):
-        empty = authenticated_client.patch(f"/api/v1/chats/{chat.session_task_id}", json={})
-        invalid = authenticated_client.patch(
-            f"/api/v1/chats/{chat.session_task_id}",
-            json={"status": "not-a-status"},
-        )
-
-        assert empty.status_code == 400
-        assert invalid.status_code == 400
-
-    @pytest.mark.asyncio
-    async def test_patch_status_initial_resets_and_requeues(
+    async def test_rerun_resumes_failed_chat_without_resetting_state(
         self, authenticated_client: TestClient, chat: Chat, project: dict
     ):
+        await save_session(task_id=chat.session_task_id, build_plan="plan body", session_id="ses-1")
+        await mark_session_posted(task_id=chat.session_task_id)
+        await increment_run_attempts(task_id=chat.session_task_id)
         await update_session_step(task_id=chat.session_task_id, step="failed")
 
         with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
-            response = authenticated_client.patch(
-                f"/api/v1/chats/{chat.session_task_id}",
-                json={"status": "initial"},
-            )
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
 
         assert response.status_code == 200
-        assert (await _session_for(task_id=chat.session_task_id)).step == "initial"
+        assert response.json() == {"resumed": True}
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "build"
+        assert session.build_plan == "plan body"
+        assert session.posted_to_linear is True
+        assert session.run_attempts == 1
         mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
 
     @pytest.mark.asyncio
-    async def test_patch_status_initial_rejects_running_chat(self, authenticated_client: TestClient, chat: Chat):
+    async def test_rerun_rejects_completed_and_running_chats(self, authenticated_client: TestClient, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="completed")
+        completed = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
         await update_session_step(task_id=chat.session_task_id, step="build")
+        running = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
 
-        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
-            response = authenticated_client.patch(
-                f"/api/v1/chats/{chat.session_task_id}",
-                json={"status": "initial"},
-            )
-
-        assert response.status_code == 409
-        assert (await _session_for(task_id=chat.session_task_id)).step == "build"
-        mock_enqueue.assert_not_called()
+        assert completed.status_code == 409
+        assert running.status_code == 409
 
     @pytest.mark.asyncio
-    async def test_enqueue_failure_marks_session_failed(
-        self, authenticated_client: TestClient, chat: Chat, project: dict
-    ):
+    async def test_rerun_is_user_scoped(self, cross_user_client: TestClient, chat: Chat):
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        response = cross_user_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 404
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_rerun_enqueue_failure_marks_session_failed(self, authenticated_client: TestClient, chat: Chat):
         await update_session_step(task_id=chat.session_task_id, step="failed")
 
         with patch("demetra.api.chats.enqueue_workflow", side_effect=RuntimeError("broker down")):
-            response = authenticated_client.patch(
-                f"/api/v1/chats/{chat.session_task_id}",
-                json={"status": "initial"},
-            )
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
 
         assert response.status_code == 503
         assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_rerun_replans_when_the_saved_plan_was_never_posted(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await save_session(task_id=chat.session_task_id, build_plan="draft plan", session_id="ses-1")
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 200
+        session = await _session_for(task_id=chat.session_task_id)
+        assert session.step == "initial"
+        assert session.build_plan == ""
+        mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
+
+    @pytest.mark.asyncio
+    async def test_rerun_rejects_unready_project(self, authenticated_client: TestClient, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        with (
+            patch(
+                "demetra.api.chats.get_project_by_id",
+                new_callable=AsyncMock,
+                return_value={**project, "state": "provisioning"},
+            ),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 400
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rerun_rejects_ambiguous_project_name(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        await update_session_step(task_id=chat.session_task_id, step="failed")
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.post(f"/api/v1/chats/{chat.session_task_id}/rerun")
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_create_rejects_ambiguous_project_name(self, authenticated_client: TestClient, project: dict):
+        await _create_project(name=project["name"])
+
+        response = authenticated_client.post(
+            "/api/v1/chats",
+            json={"title": "Title", "description": "desc", "project_id": project["id"], "tags": []},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert await list_chats(user_id=TEST_USER_ID) == []
 
     @pytest.mark.asyncio
     async def test_create_enqueue_failure_marks_session_failed(self, authenticated_client: TestClient, project: dict):
@@ -659,30 +792,6 @@ class TestChatAPI:
         created = await list_chats(user_id=TEST_USER_ID)
         assert len(created) == 1
         assert (await _session_for(task_id=created[0].session_task_id)).step == "failed"
-
-    @pytest.mark.asyncio
-    async def test_patch_status_applies_terminal_step(self, authenticated_client: TestClient, chat: Chat):
-        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
-
-        response = authenticated_client.patch(
-            f"/api/v1/chats/{chat.session_task_id}",
-            json={"status": "completed"},
-        )
-
-        assert response.status_code == 200
-        assert (await _session_for(task_id=chat.session_task_id)).step == "completed"
-
-    @pytest.mark.asyncio
-    async def test_patch_status_rejects_active_session(self, authenticated_client: TestClient, chat: Chat):
-        await update_session_step(task_id=chat.session_task_id, step="build")
-
-        response = authenticated_client.patch(
-            f"/api/v1/chats/{chat.session_task_id}",
-            json={"status": "completed"},
-        )
-
-        assert response.status_code == 409
-        assert (await _session_for(task_id=chat.session_task_id)).step == "build"
 
     @pytest.mark.asyncio
     async def test_message_resumes_awaiting_input_session(
@@ -705,6 +814,23 @@ class TestChatAPI:
         mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
 
     @pytest.mark.asyncio
+    async def test_message_resume_rejects_ambiguous_project_name(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        response = authenticated_client.post(
+            f"/api/v1/chats/{chat.session_task_id}/messages",
+            json={"body": "use postgres"},
+        )
+
+        assert response.status_code == 409
+        assert response.json()["detail"] == "Project name is ambiguous"
+        assert (await _session_for(task_id=chat.session_task_id)).step == "awaiting_input"
+        assert await list_chat_messages(task_id=chat.session_task_id) == []
+
+    @pytest.mark.asyncio
     async def test_message_does_not_resume_running_session(self, authenticated_client: TestClient, chat: Chat):
         await update_session_step(task_id=chat.session_task_id, step="build")
 
@@ -716,6 +842,49 @@ class TestChatAPI:
 
         assert response.status_code == 201
         assert response.json()["resumed"] is False
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_message_resumes_step_reached_after_save(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        pre_save = SessionState(step="build", name=chat.session_task_id, is_chat=True)
+        post_save = SessionState(step="awaiting_input", name=chat.session_task_id, is_chat=True)
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        with (
+            patch("demetra.api.chats.get_session_state", side_effect=[pre_save, post_save]),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(
+                f"/api/v1/chats/{chat.session_task_id}/messages",
+                json={"body": "use postgres"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["resumed"] is True
+        mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
+
+    @pytest.mark.asyncio
+    async def test_message_keeps_reply_when_step_reached_after_save_is_ambiguous(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        pre_save = SessionState(step="build", name=chat.session_task_id, is_chat=True)
+        post_save = SessionState(step="awaiting_input", name=chat.session_task_id, is_chat=True)
+
+        with (
+            patch("demetra.api.chats.get_session_state", side_effect=[pre_save, post_save]),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(
+                f"/api/v1/chats/{chat.session_task_id}/messages",
+                json={"body": "use postgres"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["resumed"] is False
+        assert response.json()["message"]["body"] == "use postgres"
         mock_enqueue.assert_not_called()
 
     @pytest.mark.asyncio
@@ -769,6 +938,7 @@ class TestChatResearch:
             description="desc",
             user_id=TEST_USER_ID,
             project_id="project-1",
+            project_name="demetra",
             tags=["Research"],
             created_at=datetime.now().isoformat(),
             updated_at=datetime.now().isoformat(),

@@ -17,6 +17,11 @@ class DBConfig(TypedDict):
     password: str | None
 
 
+class FeedbackLoops(TypedDict):
+    review: int
+    test: int
+
+
 class LinearStates(TypedDict):
     prd: str
     todo: str

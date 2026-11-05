@@ -2,11 +2,13 @@ import asyncio
 import logging
 import os
 import re
+from dataclasses import asdict
 from typing import Annotated
 
 import aiofiles
 from fastapi import APIRouter, Cookie, Query, WebSocket, WebSocketDisconnect
 
+from demetra.library.models import SessionState
 from demetra.services.auth import get_current_user
 from demetra.services.persistence.database import get_session_state
 from demetra.settings import DEBUG, LOG_DIR
@@ -27,21 +29,14 @@ async def send_log(websocket: WebSocket, line: str) -> None:
     await websocket.send_json({"type": "log", "data": {"text": line}})
 
 
-async def send_status(
-    websocket: WebSocket, step: str, name: str = "", is_research: bool = False, is_chat: bool = False
-) -> None:
+async def send_status(websocket: WebSocket, state: SessionState) -> None:
     """Send a session status update over the websocket as a "status" envelope.
 
     Args:
         websocket: The connected websocket.
-        step: The current session step.
-        name: Optional session or task name.
-        is_research: Whether the session runs the read-only research flow.
-        is_chat: Whether the session is a chat-mode task.
+        state: The session state to send.
     """
-    await websocket.send_json(
-        {"type": "status", "data": {"step": step, "name": name, "is_research": is_research, "is_chat": is_chat}}
-    )
+    await websocket.send_json({"type": "status", "data": asdict(state)})
 
 
 async def send_deleted(websocket: WebSocket) -> None:
@@ -50,9 +45,7 @@ async def send_deleted(websocket: WebSocket) -> None:
     Args:
         websocket: The connected websocket.
     """
-    await websocket.send_json(
-        {"type": "status", "data": {"step": "deleted", "name": "", "is_research": False, "is_chat": False}}
-    )
+    await send_status(websocket=websocket, state=SessionState(step="deleted", name=""))
 
 
 async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> None:
@@ -66,6 +59,18 @@ async def reject_connection(websocket: WebSocket, *, code: int, reason: str) -> 
         await websocket.close(code=code, reason=reason)
     except RuntimeError:
         pass
+
+
+async def _wait_for_disconnect(websocket: WebSocket) -> None:
+    """Return once the client closes the websocket connection.
+
+    Args:
+        websocket: The connected websocket.
+    """
+    while True:
+        message = await websocket.receive()
+        if message["type"] == "websocket.disconnect":
+            return
 
 
 @router.websocket("/logs")
@@ -126,23 +131,12 @@ async def watcher_logs(
 
     await websocket.accept()
 
-    last_seen_step: str | None = None
-    last_seen_name: str = ""
-    last_seen_is_research: bool = False
-    last_seen_is_chat: bool = False
-    seen_session = status_info is not None
-    if seen_session:
-        last_seen_step = status_info.step
-        last_seen_name = status_info.name
-        last_seen_is_research = status_info.is_research
-        last_seen_is_chat = status_info.is_chat
-        await send_status(
-            websocket=websocket,
-            step=last_seen_step,
-            name=last_seen_name,
-            is_research=last_seen_is_research,
-            is_chat=last_seen_is_chat,
-        )
+    last_seen: SessionState | None = None
+    if status_info is not None:
+        last_seen = status_info
+        await send_status(websocket=websocket, state=status_info)
+
+    disconnect_task = asyncio.create_task(_wait_for_disconnect(websocket=websocket))
 
     try:
         try:
@@ -160,7 +154,7 @@ async def watcher_logs(
             current_position = await f.tell()
 
             status_ticks = 0
-            while True:
+            while not disconnect_task.done():
                 await asyncio.sleep(0.5)
                 status_ticks += 1
 
@@ -185,31 +179,12 @@ async def watcher_logs(
                     status_ticks = 0
                     status_info = await get_session_state(task_id=task_id, user_id=user.id)
                     if status_info is None:
-                        if seen_session:
+                        if last_seen is not None:
                             await send_deleted(websocket=websocket)
                             break
-                    else:
-                        seen_session = True
-                        step, name = status_info.step, status_info.name
-                        is_research = status_info.is_research
-                        is_chat = status_info.is_chat
-                        if (
-                            step != last_seen_step
-                            or name != last_seen_name
-                            or is_research != last_seen_is_research
-                            or is_chat != last_seen_is_chat
-                        ):
-                            last_seen_step = step
-                            last_seen_name = name
-                            last_seen_is_research = is_research
-                            last_seen_is_chat = is_chat
-                            await send_status(
-                                websocket=websocket,
-                                step=step,
-                                name=name,
-                                is_research=is_research,
-                                is_chat=is_chat,
-                            )
+                    elif status_info != last_seen:
+                        last_seen = status_info
+                        await send_status(websocket=websocket, state=status_info)
 
     except WebSocketDisconnect:
         pass
@@ -218,3 +193,7 @@ async def watcher_logs(
         logging.exception("Error streaming logs: %s", e)
         await websocket.close(code=4002, reason="Stream error")
         return
+
+    finally:
+        disconnect_task.cancel()
+        await asyncio.gather(disconnect_task, return_exceptions=True)

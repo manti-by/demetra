@@ -142,10 +142,11 @@ async def cleanup_workflow(
 
     On failure the session step is advanced and a ``kind='step'`` history row is
     recorded under ``failure_step``, carrying ``failure_message`` as the reason
-    context shown in session history. The worktree is always removed and, when
-    requested, the Linear ticket is moved according to the outcome. Removing the
-    worktree invalidates any primary agent session marker (history still
-    resolves by ``task_id``, so nothing is hidden).
+    context shown in session history. The worktree is removed (chat-mode
+    failures keep it for a rerun) and, when requested, the Linear ticket is
+    moved according to the outcome. Removing the worktree invalidates any
+    primary agent session marker (history still resolves by ``task_id``, so
+    nothing is hidden).
 
     Chat-mode terminal steps are published only after the worktree cleanup, so a
     resume request can never start a new run while the previous one is still

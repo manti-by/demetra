@@ -2,12 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { ChatPanel } from './ChatPanel';
-import { getChat, postChatMessage, type ChatDetail } from '../services/api';
+import { getChat, postChatMessage, rerunChat, type ChatDetail } from '../services/api';
 
 vi.mock('../services/api', () => ({
   getChat: vi.fn(),
   postChatMessage: vi.fn(),
-  updateChat: vi.fn(),
+  rerunChat: vi.fn(),
 }));
 
 function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
@@ -19,6 +19,7 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
       description: 'Wire up login',
       user_id: 'u1',
       project_id: 'p1',
+      project_name: 'demetra',
       tags: ['Backend'],
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
@@ -41,15 +42,14 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
 }
 
 describe('ChatPanel', () => {
-  it('renders the chat title, task id and messages', async () => {
+  it('renders the chat title with its task id and messages', async () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 
     render(<ChatPanel taskId="CH-1" />);
 
     await waitFor(() => {
-      expect(screen.getByText('Add authentication')).toBeInTheDocument();
+      expect(screen.getByText('CH-1: Add authentication')).toBeInTheDocument();
     });
-    expect(screen.getByText('CH-1')).toBeInTheDocument();
     expect(screen.getByText('Started working on it')).toBeInTheDocument();
   });
 
@@ -69,7 +69,7 @@ describe('ChatPanel', () => {
 
     const { rerender } = render(<ChatPanel taskId="CH-1" />);
     await waitFor(() => {
-      expect(screen.getByText('Add authentication')).toBeInTheDocument();
+      expect(screen.getByText('CH-1: Add authentication')).toBeInTheDocument();
     });
     expect(screen.queryByText('Show logs')).not.toBeInTheDocument();
 
@@ -97,7 +97,30 @@ describe('ChatPanel', () => {
     });
   });
 
-  it('offers re-run once the workflow has settled', async () => {
+  it('shows the description as read-only text', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    expect(await screen.findByText('Wire up login')).toBeInTheDocument();
+    expect(screen.queryByDisplayValue('Wire up login')).not.toBeInTheDocument();
+  });
+
+  it('offers re-run for a failed session', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        session: { step: 'failed', name: 'Add authentication', is_research: false, is_chat: true },
+      }),
+    );
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Re-run')).toBeInTheDocument();
+    });
+  });
+
+  it('does not offer re-run for a completed session', async () => {
     vi.mocked(getChat).mockResolvedValue(
       makeDetail({
         session: { step: 'completed', name: 'Add authentication', is_research: false, is_chat: true },
@@ -106,8 +129,23 @@ describe('ChatPanel', () => {
 
     render(<ChatPanel taskId="CH-1" />);
 
+    await screen.findByText('CH-1: Add authentication');
+    expect(screen.queryByText('Re-run')).not.toBeInTheDocument();
+  });
+
+  it('requests a rerun without touching the session status', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        session: { step: 'awaiting_input', name: 'Add authentication', is_research: false, is_chat: true },
+      }),
+    );
+    vi.mocked(rerunChat).mockResolvedValue({ resumed: true });
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    fireEvent.click(await screen.findByText('Re-run'));
     await waitFor(() => {
-      expect(screen.getByText('Re-run')).toBeInTheDocument();
+      expect(rerunChat).toHaveBeenCalledWith('CH-1');
     });
   });
 
@@ -124,7 +162,7 @@ describe('ChatPanel', () => {
     const intervalSpy = vi.spyOn(globalThis, 'setInterval');
 
     render(<ChatPanel taskId="CH-1" />);
-    await screen.findByText('Add authentication');
+    await screen.findByText('CH-1: Add authentication');
     const poll = intervalSpy.mock.calls.find(([, delay]) => delay === 5000)?.[0] as () => Promise<void>;
 
     vi.mocked(postChatMessage).mockRejectedValue(new Error('send failed'));
@@ -147,7 +185,7 @@ describe('ChatPanel', () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 
     render(<ChatPanel taskId="CH-1" />);
-    await screen.findByText('Add authentication');
+    await screen.findByText('CH-1: Add authentication');
 
     vi.mocked(postChatMessage).mockRejectedValueOnce(new Error('send failed'));
     fireEvent.change(screen.getByPlaceholderText('Reply to the workflow...'), {
@@ -168,7 +206,7 @@ describe('ChatPanel', () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 
     const { rerender } = render(<ChatPanel taskId="CH-1" />);
-    await screen.findByText('Add authentication');
+    await screen.findByText('CH-1: Add authentication');
 
     vi.mocked(postChatMessage).mockRejectedValue(new Error('send failed'));
     fireEvent.change(screen.getByPlaceholderText('Reply to the workflow...'), {
