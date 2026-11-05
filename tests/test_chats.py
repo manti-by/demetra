@@ -9,7 +9,16 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
-from demetra.library.models import Chat, ChatMessage, ChatMessageKind, Context, LinearTask, Project, Session
+from demetra.library.models import (
+    Chat,
+    ChatMessage,
+    ChatMessageKind,
+    Context,
+    LinearTask,
+    Project,
+    Session,
+    SessionState,
+)
 from demetra.services.chat import (
     build_chat_task,
     get_chat_task,
@@ -833,6 +842,47 @@ class TestChatAPI:
 
         assert response.status_code == 201
         assert response.json()["resumed"] is False
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_message_resumes_step_reached_after_save(self, authenticated_client: TestClient, chat: Chat, project: dict):
+        pre_save = SessionState(step="build", name=chat.session_task_id, is_chat=True)
+        post_save = SessionState(step="awaiting_input", name=chat.session_task_id, is_chat=True)
+        await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
+
+        with (
+            patch("demetra.api.chats.get_session_state", side_effect=[pre_save, post_save]),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(
+                f"/api/v1/chats/{chat.session_task_id}/messages",
+                json={"body": "use postgres"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["resumed"] is True
+        mock_enqueue.assert_called_once_with(project_name=project["name"], task_id=chat.session_task_id)
+
+    @pytest.mark.asyncio
+    async def test_message_keeps_reply_when_step_reached_after_save_is_ambiguous(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await _create_project(name=project["name"])
+        pre_save = SessionState(step="build", name=chat.session_task_id, is_chat=True)
+        post_save = SessionState(step="awaiting_input", name=chat.session_task_id, is_chat=True)
+
+        with (
+            patch("demetra.api.chats.get_session_state", side_effect=[pre_save, post_save]),
+            patch("demetra.api.chats.enqueue_workflow") as mock_enqueue,
+        ):
+            response = authenticated_client.post(
+                f"/api/v1/chats/{chat.session_task_id}/messages",
+                json={"body": "use postgres"},
+            )
+
+        assert response.status_code == 201
+        assert response.json()["resumed"] is False
+        assert response.json()["message"]["body"] == "use postgres"
         mock_enqueue.assert_not_called()
 
     @pytest.mark.asyncio

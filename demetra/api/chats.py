@@ -260,8 +260,10 @@ async def create_chat_message_endpoint(
 
     Raises:
         HTTPException: 400 for an empty body, 404 when the chat is absent or
-            not owned, 409 when resuming is required and the project name is
-            ambiguous, 503 when enqueueing fails.
+            not owned, 409 when the project name is ambiguous only before the
+            message is saved — a name that turns ambiguous after the save
+            keeps the reply with ``resumed`` set to false, 503 when
+            enqueueing fails.
     """
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
@@ -277,7 +279,9 @@ async def create_chat_message_endpoint(
 
     # The uniqueness check must precede the save: once the message is stored,
     # an ambiguous name can no longer fail the request, so it is validated
-    # only when the session state says a resume will follow the save.
+    # only when the session state says a resume will follow the save. Sessions
+    # outside that window skip the check here and re-read their step after the
+    # save below.
     session = await get_session_state(task_id=task_id, user_id=user.id)
     will_resume = session is not None and session.step == "awaiting_input"
     if will_resume:
@@ -287,7 +291,18 @@ async def create_chat_message_endpoint(
     if message is None:
         raise HTTPException(status_code=404, detail="Chat not found")
 
-    resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",)) if will_resume else False
+    resumed = False
+    if will_resume:
+        resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
+    else:
+        # The session may have entered the awaiting step between the pre-save
+        # read and now. A saved reply is never rejected, so a late resume that
+        # finds an ambiguous name stays a success with resumed set to false.
+        latest = await get_session_state(task_id=task_id, user_id=user.id)
+        if latest is not None and latest.step == "awaiting_input":
+            matches = await search_projects_by_name(name=project["name"])
+            if len(matches) <= 1:
+                resumed = await claim_session_for_resume(task_id=task_id, allowed_steps=("awaiting_input",))
     if resumed:
         await _enqueue(project_name=project["name"], task_id=task_id)
 
