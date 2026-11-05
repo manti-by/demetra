@@ -1,0 +1,1286 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-11-05T10:16:48.480Z",
+  "scope": "manti-by-demetra-agent-findings",
+  "total": 18,
+  "metadata": {
+    "ai_generated": {
+      "version": 1,
+      "generator": "CodeRabbit"
+    }
+  },
+  "findings": [
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "ed8d33cf-b34d-4caf-8275-cf9975cd7d04",
+      "category": "authorization_bypass",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/app.py:29 — the watcher router is registered.",
+        "demetra/api/watcher.py:65 — watcher_logs accepts the selected task_id.",
+        "demetra/api/watcher.py:87 — the attacker's valid session is authenticated.",
+        "demetra/api/watcher.py:96 — absent ownership records admit the subscription.",
+        "demetra/api/watcher.py:156 — the task log is repeatedly read.",
+        "demetra/api/watcher.py:171 — send_log forwards victim content.",
+        "demetra/api/watcher.py:27 — websocket.send_json discloses the text.",
+        "configs/nginx.conf:46 — forwards /ws/ to the application.",
+        "demetra/app.py:29 — registers the watcher router.",
+        "demetra/api/watcher.py:64 — watcher_logs() accepts request-derived task_id.",
+        "demetra/api/watcher.py:87 — validates the attacker's authentication cookie.",
+        "demetra/services/persistence/database.py:1110 — get_session_state() returns no row before session creation.",
+        "demetra/api/watcher.py:96 — the absent session passes the ownership decision.",
+        "demetra/api/watcher.py:119 — accepts the subscription.",
+        "demetra/services/daemons/watcher.py:176 — a later watcher pass creates the victim-owned session.",
+        "demetra/services/runtime/utils.py:176 — the victim workflow writes its task-keyed log.",
+        "demetra/api/watcher.py:171 — sends newly written log content to the existing attacker subscription [sink]."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/api/watcher.py",
+      "startLine": 96,
+      "endLine": 100,
+      "description": "The stream reads task logs when no ownership record exists. If another user's session later appears, the connection keeps streaming because the owner-scoped lookup returns no row and the connection has never recorded an owned session.\n\nThe log subscription treats an absent session as permission to read a task's log without establishing task ownership. If another user's session subsequently appears, polling checks only the subscriber's sessions and does not revoke the subscription.\n\n**Evidence**\n- Source/control: The task_id query parameter supplied by an authenticated WebSocket client.\n- Sink/decision: Historical log reads and sends at lines 138-143, followed by repeated reads and sends at lines 156-171 without established ownership.\n- Missing mitigation: The endpoint does not require affirmative ownership before disclosing logs. Its later checks cannot distinguish an absent task from a newly foreign-owned task for a subscription admitted before session creation.",
+      "recommendation": "Require an ownership record before accepting or reading from a subscription, creating that record earlier if pre-start viewing is required. Revalidate ownership before disclosure and close the stream whenever ownership cannot be established.\n\nReject subscriptions until the session belongs to the subscriber, or authorize pre-session subscriptions against the task's owning project. Revalidate authorization before delivering logs when ownership state changes.",
+      "cwe": "CWE-863",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "2f4128da88500933a89bef0c073c8787c1dc4c7743a41526b20df32c40c4bd5e",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 1
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "dc600af9-0196-43b6-aa23-1c7bca116dc8",
+      "category": "broken_auth",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/auth.py:109 — login invokes login_with_password.",
+        "demetra/services/auth/sessions.py:158 — the user snapshot is fetched.",
+        "demetra/services/auth/sessions.py:161 — the old password is verified.",
+        "demetra/services/auth/sessions.py:172 — the login yields during its admission check.",
+        "demetra/services/auth/sessions.py:277 — a concurrent reset commits revocation and the password update.",
+        "demetra/services/auth/sessions.py:176 — login resumes session persistence.",
+        "demetra/services/persistence/database.py:1626 — save_jwt_token reads the new password version.",
+        "demetra/services/auth/jwt.py:57 — matching versions allow the resulting session."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/persistence/database.py",
+      "startLine": 1625,
+      "endLine": 1647,
+      "description": "Session issuance reads the current password version separately from the password hash that was verified. An old-password login paused across a password reset can therefore receive the new version and remain authenticated after revocation.\n\n**Evidence**\n- Source/control: An unauthenticated password-login request containing the victim's formerly valid password.\n- Sink/decision: save_jwt_token selects the current password_version and assigns it to the newly inserted session.\n- Missing mitigation: Session issuance does not retain the password version associated with successful password verification or coordinate that verification with password changes.",
+      "recommendation": "Carry the verified user's password version into session issuance rather than rereading it as the authorized version. Reject issuance if it changed, and coordinate issuance and reset so concurrent issuance cannot survive with credentials invalidated by the reset.",
+      "cwe": "CWE-367",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "49c619d3dfc5194b08e2ddc1ed7225957ced937b9dfa11ee55adbc78d1b24c70",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 2
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "b839f136-385f-4cf5-8c5c-8f1d1da91018",
+      "category": "sensitive_data_exposure",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:82 — the attacker-selected repository is registered.",
+        "demetra/services/linear/tasks.py:103 — a TODO task resolves to that project.",
+        "demetra/watcher.py:29 — tasks enter process_tasks.",
+        "demetra/services/daemons/watcher.py:196 — the workflow is queued.",
+        "demetra/services/daemons/watcher.py:88 — run_workflow launches main.py.",
+        "main.py:92 — setup_workflow loads the project context.",
+        "main.py:157 — run_build_step executes.",
+        "demetra/workflows/build.py:213 — run_lint_and_test receives the context environment.",
+        "demetra/workflows/lint.py:63 — run_pytests executes.",
+        "demetra/services/quality/test.py:21 — run_command starts pytest.",
+        "demetra/library/models.py:580 — system_env supplies the platform key.",
+        "demetra/services/runtime/subprocess.py:138 — repository-controlled code receives the credential."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/library/models.py",
+      "startLine": 575,
+      "endLine": 580,
+      "description": "SessionEnvironment adds the resolved LangSmith API key to every general workflow subprocess environment, including repository-controlled tests. When project and user keys are absent, resolution selects the operator's private platform credential, independently of whether tracing is enabled.\n\n**Evidence**\n- Source/control: Repository test code controlled by an admitted application user, combined with an operator-configured fallback LANGSMITH_API_KEY.\n- Sink/decision: The LANGSMITH_API_KEY environment entry is forwarded through build_subprocess_env to asyncio.create_subprocess_exec running the repository's pytest code.\n- Missing mitigation: General repository subprocesses receive credentials intended for platform tracing. Their environment needs to exclude platform fallback secrets even when trusted tracing components require those secrets.",
+      "recommendation": "Separate trusted tracing credentials from the environment supplied to repository commands and tests. Remove the platform LangSmith key from general subprocess_env and provide it only to the trusted tracing component, or use explicitly scoped project credentials.",
+      "cwe": "CWE-200",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "b466b5a7b08b9c9514c75df4a44020400e54c954312a228d57c0406b8fd64765",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 3
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "b4f14e31-a89c-4c16-97db-9dd2326af5b7",
+      "category": "path_traversal",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:94 — create_project_endpoint() registers and provisions the attacker repository.",
+        "demetra/services/runtime/project.py:273 — setup_project() calls setup_project_directory().",
+        "demetra/services/runtime/project.py:141 — setup_project_directory() invokes the repository clone.",
+        "demetra/watcher.py:26 — a later poll retrieves linked project tasks.",
+        "demetra/services/daemons/watcher.py:196 — process_tasks() calls delay_run_workflow().",
+        "demetra/services/daemons/watcher.py:147 — delay_run_workflow() enqueues run_workflow().",
+        "demetra/worker.py:12 — Worker consumes the default queue.",
+        "demetra/services/daemons/watcher.py:88 — run_workflow() launches main.py.",
+        "main.py:92 — setup_workflow() selects the registered checkout and worktree.",
+        "main.py:157 — main() calls run_build_step().",
+        "demetra/workflows/build.py:213 — run_build_step() calls run_lint_and_test().",
+        "demetra/workflows/lint.py:63 — run_lint_and_test() calls run_pytests().",
+        "demetra/services/quality/test.py:21 — run_pytests() calls run_command() with the project directory.",
+        "demetra/services/runtime/subprocess.py:138 — project test code runs as demetra and plants filesystem links.",
+        "configs/docker-entrypoint.sh:19 — a later root startup follows the credential-directory link during chown [sink]."
+      ],
+      "reachabilityZone": "configs",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "configs",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml publishes 9181:9181 without a host address, and configs/nginx.conf proxies /rq/ to 127.0.0.1:9181.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "configs/docker-entrypoint.sh",
+      "startLine": 19,
+      "endLine": 19,
+      "description": "Root startup changes ownership through paths inside an application-writable home without rejecting symlinks. Project test code can redirect a repaired directory to a root-owned directory, causing startup to give the application account authority to replace privileged configuration.\n\n**Evidence**\n- Source/control: Attacker-controlled repository tests running as demetra and modifying the persistent home.\n- Sink/decision: The dereferencing chown of .config/gh and .local/share/opencode before privilege dropping.\n- Missing mitigation: Privileged ownership repair trusts path resolution inside a tree writable by the application. It does not ensure that the selected directory remains the intended directory before changing ownership.",
+      "recommendation": "Avoid root ownership repair through application-controlled paths. Where repair is necessary, securely resolve directory components without following symlinks, retain directory handles, and change ownership through those handles while preventing concurrent replacement.",
+      "cwe": "CWE-59",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "7199f1e879de09775f4195090d685b206d9d0ab70e5821167ea2fb5b7ae61d95",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "Container entrypoint and reverse proxy",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 4
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "a9069a4a-25e8-4f54-9532-d1c22e1f0cb7",
+      "category": "injection",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:245 — upsert_project_environment_endpoint() persists attacker configuration",
+        "demetra/services/persistence/database.py:2147 — upsert_project_environment()",
+        "demetra/watcher.py:26 — tracked Linear tasks enter process_tasks()",
+        "demetra/services/daemons/watcher.py:196 — delay_run_workflow()",
+        "demetra/services/daemons/watcher.py:88 — run_workflow() launches main.py",
+        "main.py:92 — setup_workflow()",
+        "demetra/workflows/setup.py:80 — git_pull() receives the project environment",
+        "demetra/services/vcs/git.py:315 — git pull origin master",
+        "demetra/services/runtime/subprocess.py:138 — child receives GIT_SSH_COMMAND; Git interprets its shell commands [sink]"
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/runtime/subprocess.py",
+      "startLine": 138,
+      "endLine": 138,
+      "description": "Service-managed Git operations receive arbitrary project environment values, including GIT_SSH_COMMAND. For an SSH remote, Git executes that value as a shell command with the worker's identity, giving an ordinary project owner access beyond their project.\n\n**Evidence**\n- Source/control: Owner-controlled key and value supplied through PUT /api/v1/projects/{project_id}/environment/GIT_SSH_COMMAND.\n- Sink/decision: git pull runs with an attacker-controlled SSH command interpreter setting.\n- Missing mitigation: Tenant configuration can replace the interpreter command used by service-managed Git, and the resulting child retains access to shared service files and credentials.",
+      "recommendation": "Construct a controlled environment for service-managed Git and prevent project values from overriding executable Git configuration. Run project execution with a separate identity and only project-scoped files and credentials.",
+      "cwe": "CWE-78",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "c5c21548ebd2d7d489cc507a63d2ecc49f7e32ef14e4b08089a25073a91be9ea",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 5
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "a0fd9942-2f46-40f2-a783-9608ba2b13da",
+      "category": "authorization_bypass",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/listener.py:44 — main processes a GitHub notification.",
+        "demetra/services/daemons/listener.py:121 — fetch_subject_body obtains the comment text.",
+        "demetra/listener.py:62 — a rebase command selects process_rebase_notification.",
+        "demetra/services/daemons/listener.py:272 — process_rebase_notification calls process_notification.",
+        "demetra/services/daemons/listener.py:240 — process_notification enqueues run_rebase_workflow.",
+        "demetra/worker.py:13 — Worker.work consumes the queued callable.",
+        "demetra/workflows/rebase.py:90 — run_rebase_workflow calls perform_git_rebase.",
+        "demetra/services/vcs/rebase.py:37 — perform_git_rebase calls git_force_push.",
+        "demetra/services/vcs/git.py:465 — git_force_push constructs the privileged push command.",
+        "demetra/services/runtime/subprocess.py:138 — run_command executes the command."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/daemons/listener.py",
+      "startLine": 240,
+      "endLine": 246,
+      "description": "The notification listener dispatches repository-changing commands using comment text without checking the author's repository permissions. A user who can comment but cannot write to the repository can trigger merge or rebase work that updates a tracked PR head using project credentials.\n\n**Evidence**\n- Source/control: A GitHub PR comment containing a recognized merge or rebase command, fetched through a mention or subscription notification.\n- Sink/decision: process_notification queues a privileged workflow without an authorized initiating identity; successful merge or rebase execution reaches git_force_push.\n- Missing mitigation: The polling path discards comment author identity and never checks that the initiator may request repository changes.",
+      "recommendation": "Fetch the comment author together with its body and require current owner/write/admin permission on the affected repository before enqueueing. Share this authorization check with the webhook path and reject commands when author identity cannot be established.",
+      "cwe": "CWE-862",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "b7ef2b72eb4d2bcc3acf2b7f3294fa3a10fbca4bff131113b3a75cb7f982fb41",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 6
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "866e7582-6019-443d-8f82-34dab3aabe0e",
+      "category": "broken_auth",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/auth.py:83 — signup forwards the supplied address and password.",
+        "demetra/services/auth/sessions.py:109 — signup_with_password checks the asserted address.",
+        "demetra/services/auth/allowlist.py:86 — is_email_allowed matches the email allowlist row.",
+        "demetra/services/auth/sessions.py:116 — create_user registers the caller's chosen password.",
+        "demetra/services/auth/sessions.py:124 — save_jwt_token activates the session.",
+        "demetra/api/auth.py:89 — the route returns the authentication cookie."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/auth/sessions.py",
+      "startLine": 109,
+      "endLine": 124,
+      "description": "Password signup creates an active account using a caller-supplied allowlisted email without proving that the caller owns that address. Someone who knows an approved, unregistered address can choose its password and obtain the access intended for that identity.\n\n**Evidence**\n- Source/control: Unauthenticated email and password fields supplied to POST /api/v1/auth/signup.\n- Sink/decision: Account creation with the supplied email and password hash, immediately followed by JWT creation and persistence at lines 123-124.\n- Missing mitigation: The signup flow does not bind the caller to the approved email address before activating the account and issuing a session.",
+      "recommendation": "Require a single-use mailbox verification or invitation token bound to the approved address. Create an active account and issue its first session only after validating that token.",
+      "cwe": "CWE-287",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "2292adee3f1fdefe3f0e1bbcb859ff712bf70cbada88de7eb79f738f97d5b0ca",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 7
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "83ab3334-b4e7-4e28-91fe-3ef6eb8a7967",
+      "category": "other",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/auth.py:83 — signup_with_password() receives the email",
+        "demetra/services/auth/sessions.py:110 — join_waitlist() stores the value",
+        "main.py:254 — later operator invocation enters waitlist_cli()",
+        "demetra/services/auth/waitlist.py:367 — waitlist_approve()",
+        "demetra/services/auth/waitlist.py:316 — approve_waitlist_entry()",
+        "demetra/services/auth/waitlist.py:233 — send_approval_email()",
+        "demetra/services/auth/waitlist.py:80 — stored recipient enters the log message",
+        "demetra/services/runtime/tui.py:47 — logger.info(message) [sink]"
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/auth/waitlist.py",
+      "startLine": 80,
+      "endLine": 80,
+      "description": "A stored signup email can contain embedded line breaks, and approval interpolates it into a log message without encoding them. If an operator approves the entry, attacker-controlled text can appear as additional application log records and undermine log integrity.\n\n**Evidence**\n- Source/control: The email field of an unauthenticated signup request, stored as the waitlist entry value.\n- Sink/decision: logger.info(message) receives the approval message containing the unescaped stored recipient.\n- Missing mitigation: The input validation permits control characters in email addresses, and the logging path does not encode line breaks in untrusted fields.",
+      "recommendation": "Reject control characters and invalid email syntax before storing signup addresses. Encode untrusted log fields, including CR/LF, so one event cannot create apparent additional records.",
+      "cwe": "CWE-117",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "629526d58c1f28fd0a8bd208b1fdfa3fb29ff9728cc3cb67f40d1bfe3ce8ff13",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 8
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "7f91eb29-e3dd-4ba0-bfd8-89dd5cd39e41",
+      "category": "other",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:94 — create_project_endpoint() provisions the attacker repository.",
+        "demetra/services/runtime/project.py:273 — setup_project() calls setup_project_directory().",
+        "demetra/services/runtime/project.py:141 — repository contents are cloned.",
+        "demetra/watcher.py:26 — a later watcher poll retrieves the registered project's task.",
+        "demetra/services/daemons/watcher.py:196 — process_tasks() schedules its workflow.",
+        "demetra/services/daemons/watcher.py:147 — delay_run_workflow() enqueues run_workflow().",
+        "demetra/worker.py:12 — Worker consumes the queued workflow.",
+        "demetra/services/daemons/watcher.py:88 — run_workflow() launches main.py.",
+        "main.py:157 — main() invokes run_build_step().",
+        "demetra/workflows/build.py:213 — run_build_step() invokes run_lint_and_test().",
+        "demetra/workflows/lint.py:63 — run_lint_and_test() invokes run_pytests().",
+        "demetra/services/quality/test.py:21 — run_pytests() invokes run_command().",
+        "demetra/services/runtime/subprocess.py:138 — repository code executes and plants the replacement utility.",
+        "configs/docker-entrypoint.sh:6 — a subsequent root-mode restart resolves and executes the planted id [sink]."
+      ],
+      "reachabilityZone": "configs",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "configs",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml publishes 9181:9181 without a host address, and configs/nginx.conf proxies /rq/ to 127.0.0.1:9181.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "configs/docker-entrypoint.sh",
+      "startLine": 6,
+      "endLine": 6,
+      "description": "The entrypoint executes id through PATH before establishing whether it is running as root. Earlier PATH directories are writable by the application account, allowing repository test code to plant an executable that a later root startup runs with container-root privileges.\n\n**Evidence**\n- Source/control: Code in a caller-controlled registered repository, executed by the supported pytest workflow as demetra.\n- Sink/decision: The command substitution executing id at entrypoint line 6; bare setpriv at line 21 provides another privileged lookup through the same PATH.\n- Missing mitigation: Privileged startup does not establish a trusted executable search path before its first command. Application-owned executable directories remain eligible for root command resolution.",
+      "recommendation": "Set a fixed PATH containing only root-owned directories before executing any command, and use trusted absolute paths for privileged utilities. Keep application-writable executable directories out of privileged startup lookup.",
+      "cwe": "CWE-426",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "96177872c344109e1d3598c392e332f5377f9183f4bc60fe65c9fbf0e87e1422",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "Container entrypoint and reverse proxy",
+      "fixStatus": "failed",
+      "fixTaskId": "f44b920a-287f-4a4b-bb8f-4c256c90e184",
+      "fixError": "The agent couldn't complete this request. Please try again.",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 9
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "79d461b1-214d-426d-a30b-0cddc0911de3",
+      "category": "authorization_bypass",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/watcher.py:26 — main() fetches Linear TODO issues",
+        "demetra/services/linear/tasks.py:103 — get_todo_issues() resolves the local project identity",
+        "demetra/services/daemons/watcher.py:196 — process_tasks() dispatches using the external name",
+        "demetra/services/daemons/watcher.py:147 — delay_run_workflow() enqueues the job",
+        "demetra/services/daemons/watcher.py:88 — run_workflow() starts main.py with the name",
+        "main.py:92 — main() invokes setup_workflow()",
+        "demetra/workflows/setup.py:34 — setup_workflow() selects a project globally by name",
+        "demetra/workflows/setup.py:49 — the selected project's decrypted environment is loaded",
+        "demetra/workflows/setup.py:80 — repository operations use the selected project",
+        "demetra/workflows/plan.py:81 — attacker task executes against that project's checkout and environment",
+        "demetra/watcher.py:26 — poll get_todo_issues()",
+        "demetra/services/linear/tasks.py:103 — resolve IDs while retaining the external project name",
+        "demetra/services/daemons/watcher.py:196 — process_tasks schedules the name and task ID",
+        "demetra/services/daemons/watcher.py:147 — enqueue run_workflow",
+        "demetra/services/daemons/watcher.py:88 — launch main.py with the selected name",
+        "main.py:92 — call setup_workflow",
+        "demetra/workflows/setup.py:34 — globally select the named project",
+        "demetra/workflows/setup.py:49 — load the selected project's environment",
+        "demetra/workflows/setup.py:65 — independently fetch the attacker's task",
+        "demetra/workflows/setup.py:80 — invoke git_pull with victim context",
+        "demetra/services/vcs/git.py:316 — forward victim context to run_command",
+        "demetra/services/runtime/subprocess.py:138 — create_subprocess_exec [sink]"
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/daemons/watcher.py",
+      "startLine": 196,
+      "endLine": 196,
+      "description": "The watcher discards the resolved local project identity when dispatching a task and passes an independently controlled Linear display name instead. Workflow setup uses that name to select a project globally and loads its credentials without binding it to the task or persisted session, allowing work to run with another tenant's repository authority.\n\nThe watcher passes a mutable Linear project name into workflow setup instead of preserving the project identity it already resolved. Setup searches all owners by that name and loads the selected project's credentials without checking that the task and session belong to it, allowing one project's task to run in another owner's context.\n\n**Evidence**\n- Source/control: The display name and issue content of a Linear project editable by the attacker and visible to the configured integration.\n- Sink/decision: setup_workflow loads the globally selected project's decrypted environment and its owner's shared environment, then uses that project for repository operations and task agents.\n- Missing mitigation: The dispatched job does not preserve and enforce the resolved project ID and owner. Setup loads credentials before verifying that the selected project matches the task and session.",
+      "recommendation": "Queue the resolved local project ID and owner and load that exact project. Before reading environments or touching its checkout, verify that the persisted session and task association authorize the same project and owner.\n\nQueue the immutable project ID and owner ID, then load that exact project. Verify that the fetched task and existing session match those identities before loading environments or performing repository operations.",
+      "cwe": "CWE-863",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "e54f322a85408998645b5977dd91544e9d6dafb71b7a584b988b5c0ec4124379",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 10
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "62cac97c-468b-44c9-a104-b0dd25881c50",
+      "category": "path_traversal",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/webhooks.py:42 — github_webhook() queues an authenticated GitHub event.",
+        "demetra/services/vcs/github.py:411 — webhook_rebase_handler() permits the legitimate repository owner.",
+        "demetra/services/vcs/github.py:443 — the rebase workflow is queued for the tracked PR.",
+        "demetra/workflows/rebase.py:67 — run_rebase_workflow() retrieves the current PR head.",
+        "demetra/workflows/rebase.py:79 — git_fetch() applies the project’s pruning configuration.",
+        "demetra/workflows/rebase.py:81 — validate_ref() accepts the nested branch.",
+        "demetra/workflows/rebase.py:84 — git_worktree_create() receives that branch.",
+        "demetra/services/vcs/git.py:176 — get_worktree_path() constructs a path through the existing symlink.",
+        "demetra/services/vcs/git.py:188 — shutil.rmtree() deletes outside the intended worktree [sink]."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/vcs/git.py",
+      "startLine": 188,
+      "endLine": 188,
+      "description": "Branch names become filesystem path components used for recursive cleanup. A repository-controlled symlink in an intermediate component can redirect that cleanup outside the intended worktree and delete other worker-owned data.\n\n**Evidence**\n- Source/control: Repository-controlled tracked symlinks and GitHub PR head branch names.\n- Sink/decision: shutil.rmtree(worktree_path), before local branch creation or conflict checking.\n- Missing mitigation: Cleanup does not verify that every path component belongs to a trusted worktree directory before deleting it. Valid Git ref syntax does not prevent filesystem redirection through tracked symlinks.\n\n**Assumptions**\nBased on these assumptions: A3 (Deployment configuration): The supplied Linux deployment uses the shared worktree storage and concurrent worker arrangement shown in Compose; the actual production deployment was not established.\nFindings that rely on assumptions are published at medium severity at most. If an assumption does not hold for your deployment, dismiss this finding.\n",
+      "recommendation": "Use flat worktree directory names derived from project and branch identifiers rather than branch path components. Perform cleanup through trusted directory handles that reject symlink ancestors before any deletion.",
+      "cwe": "CWE-59",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "fdccd3f53f06fc7d6fb4ce5e48629a5546f3cb8c2969dc5211bf025073ee7c91",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 11
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "5d987c95-dcbe-42bd-ace8-15cbf1be8f90",
+      "category": "sensitive_data_exposure",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/mcp_server.py:57 — handle_call_tool() forwards client arguments.",
+        "demetra/tools/registry.py:53 — call_tool() invokes the registered database handler.",
+        "demetra/tools/database.py:417 — database.call_tool() invokes query_table().",
+        "demetra/tools/database.py:302 — query_table() selects complete rows.",
+        "demetra/tools/database.py:318 — each row passes through _filter_sensitive_columns().",
+        "demetra/tools/database.py:256 — sensitive hash and key/value fields survive filtering [sink].",
+        "demetra/tools/database.py:424 — surviving credentials enter response text.",
+        "demetra/mcp_server.py:58 — the text is returned to the MCP client."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/tools/database.py",
+      "startLine": 256,
+      "endLine": 256,
+      "description": "The database inspection tool promises to remove sensitive fields but filters only an incomplete list of exact column names. Authentication password hashes and plaintext credentials stored in environment value columns consequently survive and enter MCP responses.\n\n**Evidence**\n- Source/control: Client-selected query_table requests for users or project_environment, backed by stored password hashes or sensitive plaintext environment entries.\n- Sink/decision: _filter_sensitive_columns retains credential-bearing fields, which call_tool serializes into TextContent at line 424.\n- Missing mitigation: The response policy does not cover the actual authentication schema or credentials represented as key/value records. It needs to exclude password verifiers and apply sensitive-key masking before serializing environment rows.",
+      "recommendation": "Use table-specific safe output projections that exclude password_hash. For environment rows, mask encrypted values and values whose keys match the existing is_sensitive_key policy before constructing MCP responses.",
+      "cwe": "CWE-200",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "66017f324d08935f1c02964a7741eac8adb2004d1ddbf2fcac4bff7e358c830b",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 12
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "3cc689e3-4ed4-44cd-9a81-c50d672e9e63",
+      "category": "csrf",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/auth.py:120 — do_logout receives the ambient session cookie.",
+        "demetra/api/auth.py:131 — do_logout calls logout without CSRF validation.",
+        "demetra/services/auth/sessions.py:196 — logout calls delete_jwt_token.",
+        "demetra/services/persistence/database.py:1694 — the session row is deleted."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/api/auth.py",
+      "startLine": 130,
+      "endLine": 131,
+      "description": "The logout handler revokes the session presented by an ambient browser cookie without verifying that the request came from the application. With supported cross-site cookies enabled, an attacker page can submit a form that signs the victim out.\n\n**Evidence**\n- Source/control: A cross-site form POST carrying the victim's auth_token cookie.\n- Sink/decision: do_logout calls logout, which deletes and commits removal of the corresponding server-side session.\n- Missing mitigation: No origin validation or anti-CSRF token protects the session mutation when cross-site authentication cookies are enabled.",
+      "recommendation": "Validate the request origin against trusted application origins or require an anti-CSRF token before revoking a browser session. Apply the check when SameSite=None is configured.",
+      "cwe": "CWE-352",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "c730d6f23fe3f9ff868a9bf71ce1057c48f13dcf913f72fc5671ae1c3d8c16ba",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 13
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "3482822c-0ff9-42c0-b8ce-d659f00e6dc0",
+      "category": "broken_auth",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "configs/nginx.conf:34 — /rq/ accepts the incoming request.",
+        "configs/nginx.conf:36 — proxy_pass forwards it to port 9181.",
+        "docker-compose.yaml:127 — rq-dashboard starts with the /rq prefix and application Redis URL.",
+        "rq-dashboard 0.9.0, rq_dashboard/cli.py:35-53 — make_flask_app() registers the blueprint without Basic Auth when username is unset; archive pinned at uv.lock:1994.",
+        "rq-dashboard 0.9.0, rq_dashboard/web.py:469-475 — empty_queue() invokes Queue.empty() without caller authorization [sink].",
+        "demetra/services/persistence/queue.py:7 — the affected Redis default queue carries application workflows.",
+        "Makefile:31 — deployment starts rq-dashboard",
+        "docker-compose.yaml:125 — dashboard connects to redis://redis:6379/1 with /rq prefix",
+        "docker-compose.yaml:141 — dashboard listener is published",
+        "configs/nginx.conf:36 — alternate public /rq/ entrypoint",
+        "rq-dashboard 0.9.0 — make_flask_app() registers routes without authentication when username is unset",
+        "rq-dashboard 0.9.0 — empty_queue(\"default\", \"queued\") calls Queue.empty() [sink]"
+      ],
+      "reachabilityZone": "configs",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "configs",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml publishes 9181:9181 without a host address, and configs/nginx.conf proxies /rq/ to 127.0.0.1:9181.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "configs/nginx.conf",
+      "startLine": 36,
+      "endLine": 36,
+      "description": "The deployment launches the administrative RQ dashboard without enabling authentication and exposes it through a published port and Nginx. Unauthenticated callers can exercise the dashboard's authority over application jobs, including inspecting, deleting, and requeuing them.\n\nThe deployment publishes the workflow administration dashboard without requiring authentication. Its default HTTP handlers let network callers delete queued work or requeue retained jobs in the same Redis database used by application workflows.\n\n**Evidence**\n- Source/control: Unauthenticated HTTP requests to the published dashboard listener or the proxied /rq/ path.\n- Sink/decision: RQ Dashboard handlers operating on redis://redis:6379/1, including empty_queue, delete_job_view, and requeue_job_view.\n- Missing mitigation: The dashboard exposes administrative queue authority without requiring an authenticated, authorized operator. The directly published port also permits bypassing controls added only at the proxy.\n\n**Assumptions**\nBased on these assumptions: A3 (Deployment configuration): The deployment uses the shipped dashboard launch and proxy configuration without additional dashboard credentials, custom authentication, or external access restrictions.\nFindings that rely on assumptions are published at medium severity at most. If an assumption does not hold for your deployment, dismiss this finding.\n",
+      "recommendation": "Require operator authentication for the dashboard and restrict access to its listener. Remove unrestricted port publication or bind it to a protected interface so proxy authentication cannot be bypassed.\n\nRequire dashboard authentication and restrict network access to operators. Remove the unrestricted direct port publication or protect it as well as the proxy route, so callers cannot bypass the authenticated entry point.",
+      "cwe": "CWE-306",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "ce9a1afef4a8306380273255f9a0c2ec55c9bdcc5649a06366d9fc8d2e6d0acd",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "Container entrypoint and reverse proxy",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 14
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "2ff09833-6598-43f3-aa0d-786a357744fe",
+      "category": "authorization_bypass",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:82 — create_project_endpoint persists the supplied Linear link.",
+        "demetra/services/linear/tasks.py:24 — get_linked_projects associates that UUID with the attacker.",
+        "demetra/services/linear/tasks.py:103 — get_todo_issues resolves the victim issue through the forged binding.",
+        "demetra/watcher.py:29 — the watcher passes fetched tasks to process_tasks.",
+        "demetra/services/daemons/watcher.py:176 — process_tasks upserts the resolved owner.",
+        "demetra/services/persistence/database.py:219 — existing session ownership is replaced.",
+        "demetra/api/sessions.py:75 — history access now accepts the attacker as owner.",
+        "demetra/api/sessions.py:45 — deletion also accepts the reassigned owner."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/linear/tasks.py",
+      "startLine": 103,
+      "endLine": 121,
+      "description": "The watcher derives session ownership from globally collected, user-editable Linear project links. Its task upsert replaces an existing session's project and user with that derived identity, allowing another project owner to acquire private session data and deletion authority.\n\n**Evidence**\n- Source/control: An authenticated ordinary user's linear_project_id on their own project.\n- Sink/decision: The ON CONFLICT update replaces sessions.project_id and sessions.user_id for an existing task.\n- Missing mitigation: External project identifiers are accepted as ownership bindings without validation, and a routine task refresh can transfer an existing session to the resulting identity.",
+      "recommendation": "Validate and reserve Linear project bindings before using them to assign ownership. Reject conflicting session ownership during task upserts and require an explicitly authorized transfer to change an existing owner.",
+      "cwe": "CWE-863",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "c6724da9379f1fad9e49bb7fcada244a62c48a71393e6ec6ba5c514c547ab07d",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 15
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "280de93e-d07e-4e42-b319-41a2068d7f41",
+      "category": "sensitive_data_exposure",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:78 — create_project_endpoint validates the supplied URL.",
+        "demetra/services/runtime/project.py:99 — parse_github_url accepts the file URL's hostname.",
+        "demetra/api/projects.py:85 — the original URL is persisted.",
+        "demetra/api/projects.py:94 — setup_project provisions the project.",
+        "demetra/services/runtime/project.py:273 — setup_project_directory is called.",
+        "demetra/services/runtime/project.py:142 — git clone receives the local-source URL.",
+        "demetra/services/runtime/subprocess.py:138 — Git reads the local repository.",
+        "demetra/services/daemons/watcher.py:196 — a linked task queues the normal workflow.",
+        "demetra/services/daemons/watcher.py:88 — run_workflow launches main.py.",
+        "demetra/workflows/setup.py:49 — the attacker's project environment is loaded.",
+        "main.py:159 — the normal completion path calls commit_and_push.",
+        "demetra/workflows/cleanup.py:79 — git_push receives that environment.",
+        "demetra/services/vcs/git.py:333 — Git pushes the copied history using the configured destination."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/runtime/project.py",
+      "startLine": 98,
+      "endLine": 107,
+      "description": "The GitHub URL validator accepts file URLs based on their hostname, then provisioning passes the original URL to Git. Git interprets the path as a local repository, allowing a project creator to copy private repository contents and history outside the intended GitHub source boundary.\n\n**Evidence**\n- Source/control: The repository_url supplied by an authenticated project creator.\n- Sink/decision: git clone receives the accepted raw file URL; a later workflow push can publish history copied from that repository.\n- Missing mitigation: The source validator does not enforce the supported GitHub transport forms, and cloning uses the caller's original URL after validation.\n\n**Assumptions**\nBased on these assumptions: A3 (Deployment configuration): The shipped shared-volume deployment runs, allowing API provisioning and workflow workers to access the shared project checkout storage.\nFindings that rely on assumptions are published at medium severity at most. If an assumption does not hold for your deployment, dismiss this finding.\n",
+      "recommendation": "Accept only explicitly supported GitHub HTTPS and SSH forms and construct the clone URL from validated components. Disable local and unsupported Git transports for service-managed cloning.",
+      "cwe": "CWE-200",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "b22b1ed86db8c5860b873a47020cab0977e146e4065bdbc9960f4dd65f7676bd",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 16
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "157cfe51-177c-4f09-b8d2-be64146862b8",
+      "category": "csrf",
+      "severity": "low",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/watcher.py:64 — attacker-origin WebSocket request",
+        "demetra/api/watcher.py:67 — receive victim's ambient cookie",
+        "demetra/api/watcher.py:87 — authenticate victim",
+        "demetra/api/watcher.py:96 — victim-owned task passes authorization",
+        "demetra/api/watcher.py:119 — accept without validating Origin",
+        "demetra/api/watcher.py:143 — send_log",
+        "demetra/api/watcher.py:27 — return private data to attacker JavaScript"
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/api/watcher.py",
+      "startLine": 119,
+      "endLine": 119,
+      "description": "The log WebSocket authenticates an ambient browser cookie but accepts the connection without validating the initiating Origin. When cross-site cookie attachment is enabled, an attacker website can receive logs using the victim's authenticated identity.\n\n**Evidence**\n- Source/control: Attacker-origin browser JavaScript opening the log WebSocket with a known victim task UUID and an automatically attached victim authentication cookie.\n- Sink/decision: Connection acceptance at line 119 followed by status and log JSON delivery at lines 129-143 and 167-193.\n- Missing mitigation: The handshake lacks a trusted-origin check or an independent credential that an attacker website cannot obtain through ambient cookies.",
+      "recommendation": "Validate Origin against explicitly trusted frontend origins before accepting cookie-authenticated WebSockets, including a deliberate policy for missing origins. If cross-site access is required, bind the connection to a short-lived token obtained through a protected application flow.",
+      "cwe": "CWE-1385",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "23b12eb18d6abb25d9d35b6a31f620b87070c965023d34bf30ab9b5f551b28f2",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 17
+    },
+    {
+      "scanProvenance": {
+        "contextCitations": [],
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "scope": {
+          "primary": {
+            "repositoryId": "1157743653",
+            "provider": null,
+            "host": null,
+            "revision": "a5376e977741289e42d2a2b5971e87e8357baa81"
+          },
+          "selectedContext": [],
+          "limitations": []
+        },
+        "coverageScope": {
+          "kind": "repository"
+        },
+        "evidenceStatus": "not_loaded",
+        "supportingContext": null,
+        "sourceFrames": []
+      },
+      "findingKind": "vulnerability",
+      "id": "135414d0-82bd-4caf-99e2-bc3058a34b3a",
+      "category": "security_misconfiguration",
+      "severity": "medium",
+      "source": "LLM",
+      "reachability": "external",
+      "reachabilityCallStack": [
+        "demetra/api/projects.py:245 — upsert_project_environment_endpoint() accepts owner-controlled executable configuration.",
+        "demetra/services/persistence/database.py:2147 — upsert_project_environment() verifies ownership and stores the configuration.",
+        "demetra/services/daemons/watcher.py:88 — run_workflow() launches the credential-bearing workflow driver.",
+        "main.py:92 — main() calls setup_workflow().",
+        "demetra/workflows/setup.py:49 — setup_workflow() loads project environment values.",
+        "demetra/workflows/setup.py:80 — setup_workflow() calls git_pull() with the resolved environment.",
+        "demetra/services/vcs/git.py:316 — git_pull() calls run_command().",
+        "demetra/services/runtime/subprocess.py:138 — project-controlled execution starts with worker authority [sink]."
+      ],
+      "reachabilityZone": "demetra",
+      "reachabilityZoneContext": {
+        "schemaVersion": 1,
+        "scanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "artifactScanId": "155dece5-a063-49f4-a57b-581897f3f0b5",
+        "capturedAt": "2026-10-27T07:41:52.763Z",
+        "headRevision": "a5376e977741289e42d2a2b5971e87e8357baa81",
+        "zone": "demetra",
+        "label": "unknown",
+        "source": "detected",
+        "evidence": "docker-compose.yaml defines the listener without published ports, host networking, or an Nginx forwarding route.",
+        "reconSha256": "2a045b2338f1050f970a0e747c3fed5d4eb482046c2955c0573cf582178a8749"
+      },
+      "exploitability": "difficult",
+      "filePath": "demetra/services/runtime/subprocess.py",
+      "startLine": 138,
+      "endLine": 138,
+      "description": "When pytest is enabled, the workflow executes project repository code with the orchestration worker's identity and filesystem access. A project owner can place executable test or conftest code in their repository and thereby access shared operator credentials or other projects that their application account cannot access.\n\n**Evidence**\n- Source/control: Test modules or conftest.py committed to an attacker-controlled project repository.\n- Sink/decision: uv run --active pytest executes repository code through run_command without a separate identity or filesystem boundary.\n- Missing mitigation: Project test execution is not separated from orchestration credentials and other users' storage. The test process receives the worker's filesystem authority instead of access limited to its project.",
+      "recommendation": "Execute project tests in an isolated container or identity containing only that project's checkout and required credentials. Keep operator credentials, orchestration files, and other projects outside the test execution boundary.",
+      "state": "open",
+      "detectedAt": "2026-10-27T08:10:27.916Z",
+      "fingerprint": "b38269d12f3a7c4ebb295cb33658a31560853b134ea9aec738958733e1c94dd1",
+      "firstSeenAt": "2026-10-27T08:10:25.761Z",
+      "lastSeenAt": "2026-10-27T08:10:25.761Z",
+      "subsystemName": "API and identity boundary",
+      "tickets": [],
+      "repoId": "1157743653",
+      "repoName": "demetra",
+      "row": 18
+    }
+  ]
+}
