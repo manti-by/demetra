@@ -845,7 +845,9 @@ class TestChatAPI:
         mock_enqueue.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_message_resumes_step_reached_after_save(self, authenticated_client: TestClient, chat: Chat, project: dict):
+    async def test_message_resumes_step_reached_after_save(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
         pre_save = SessionState(step="build", name=chat.session_task_id, is_chat=True)
         post_save = SessionState(step="awaiting_input", name=chat.session_task_id, is_chat=True)
         await update_session_step(task_id=chat.session_task_id, step="awaiting_input")
