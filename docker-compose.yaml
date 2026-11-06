@@ -32,6 +32,8 @@ x-demetra-app: &demetra-app
     - net.ipv4.tcp_keepalive_time=60    # Check if connection is alive after 60s of silence
     - net.ipv4.tcp_keepalive_intvl=10   # Retry every 10 seconds if no response
     - net.ipv4.tcp_keepalive_probes=6
+    - net.ipv6.conf.all.disable_ipv6=1
+    - net.ipv6.conf.default.disable_ipv6=1
   depends_on:
     migrate:
       condition: service_completed_successfully

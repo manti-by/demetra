@@ -7,7 +7,11 @@ by the plugin.
 
 ## Pages
 _Newest first._
+<<<<<<< Updated upstream
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — Implementation of CH-5: Delete chat button (2026-11-06)
+=======
+- [Agent ECONNRESET network errors — root cause](pages/2026-11-06-agent-econnreset-network-investigation.md) — Traced the CH-1–CH-4 agent `ECONNRESET` failures: idle-hold tests (Google stays alive 80s; DeepSeek closes at 30s, Cloudflare at 15s) plus streaming and a 10 MB download proved the mid-stream resets are server-side LLM-provider connection timeouts, not the ISP, Docker, or MTU (host NIC is actually 1500, no mismatch); disabled IPv6 in containers via compose sysctls and flagged raising the MNT-276 retry budget. (2026-11-06)
+>>>>>>> Stashed changes
 - [Chat session list and rerun semantics](pages/2026-11-04-chat-session-list-and-rerun.md) — Three-row session items (`C`/`L` type + step + time, title, project chip + labels) with `project_name` joined into the sessions and chats APIs; feedback loops are now counted from `session_history` (`review → build`, `lint/test → build`) and restored after a reload (blinking while running, bright when finished); chat descriptions are read-only and Re-run (`POST /chats/{id}/rerun`) resumes the kept plan/session, with failed chat runs preserving their worktree and branch. (2026-11-04)
 - [CH-2: Single (unified) session view](pages/2026-11-03-ch-2-single-unified-session-view.md) — Chat sessions open in the session log instead of a separate `/chats/:taskId` window: `ChatPanel` was extracted out of `ChatPage` (which is now a thin wrapper) and rendered above `LogConsole` in `App.tsx`, logs collapse by default, `LogConsole` gained a `showFlow` prop to avoid duplicating the state flow, and `SessionList` selects the session in place rather than navigating. (2026-11-03)
 - [MNT-276: ECONNRESET retry for agents](pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md) — `run_opencode_agent` retries transient network failures (`ECONNRESET`, `socket hang up`, `ETIMEDOUT`, …) with exponential backoff up to `MAX_AGENT_NETWORK_ATTEMPTS` (5), resuming the failed attempt's session; the six wrappers plan/build/review/validate/resolve/research opt in, and exhaustion raises `AgentNetworkError` → new `agent_network_failed` Linear comment + `Awaiting Input`. (2026-11-03)
