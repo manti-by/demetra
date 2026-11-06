@@ -272,7 +272,7 @@ export function ChatPanel({
             step={detail?.session?.step ?? null}
             isResearch={isResearch}
             feedbackLoops={feedbackLoops}
-            onDeleteSession={handleDeleteSession}
+            onDeleteSession={onDeleteSession ? handleDeleteSession : undefined}
             onSessionStatus={onSessionStatus}
             showFlow={false}
           />
