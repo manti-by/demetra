@@ -77,6 +77,30 @@ describe('ChatPanel', () => {
     expect(screen.getByText('Show logs')).toBeInTheDocument();
   });
 
+  it('shows the delete button only when a handler is provided', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+
+    const { rerender } = render(<ChatPanel taskId="CH-1" />);
+    await waitFor(() => {
+      expect(screen.getByText('CH-1: Add authentication')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+
+    rerender(<ChatPanel taskId="CH-1" onDeleteSession={vi.fn()} />);
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('deletes the session with its task id', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    const onDeleteSession = vi.fn();
+
+    render(<ChatPanel taskId="CH-1" onDeleteSession={onDeleteSession} />);
+
+    fireEvent.click(await screen.findByText('Delete'));
+
+    expect(onDeleteSession).toHaveBeenCalledWith('CH-1');
+  });
+
   it('clears the composer draft when the session changes', async () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 

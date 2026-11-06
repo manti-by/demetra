@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
+from demetra.app import app
 from demetra.library.models import (
     Chat,
     ChatMessage,
@@ -34,6 +35,7 @@ from demetra.services.persistence.database import (
     create_chat,
     create_project,
     delete_project,
+    delete_session,
     get_chat,
     get_chat_by_task_id,
     get_connection,
@@ -911,6 +913,52 @@ class TestChatAPI:
 
         assert response.status_code == 200
         assert [row["task_id"] for row in response.json()] == [chat.session_task_id]
+
+
+class TestChatSessionDeletion:
+    @pytest.mark.asyncio
+    async def test_delete_removes_chat_messages_and_session(
+        self, authenticated_client: TestClient, chat: Chat, project: dict
+    ):
+        await post_chat_message(task_id=chat.session_task_id, body="hello", author_id=TEST_USER_ID)
+
+        response = authenticated_client.delete(f"/api/v1/sessions/{chat.session_task_id}")
+
+        assert response.status_code == 200
+        assert response.json() == {"success": True}
+        assert await get_session(task_id=chat.session_task_id) is None
+        assert await get_chat(task_id=chat.session_task_id, user_id=TEST_USER_ID) is None
+        assert await list_chat_messages(task_id=chat.session_task_id) == []
+
+    @pytest.mark.asyncio
+    async def test_delete_unknown_chat_returns_404(self, authenticated_client: TestClient):
+        response = authenticated_client.delete("/api/v1/sessions/CH-999999")
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_is_user_scoped(self, cross_user_client: TestClient, chat: Chat):
+        response = cross_user_client.delete(f"/api/v1/sessions/{chat.session_task_id}")
+
+        assert response.status_code == 404
+        assert await get_chat(task_id=chat.session_task_id, user_id=TEST_USER_ID) is not None
+
+    @pytest.mark.asyncio
+    async def test_delete_requires_auth(self, chat: Chat):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.delete(f"/api/v1/sessions/{chat.session_task_id}")
+
+        assert response.status_code == 401
+        assert await get_chat(task_id=chat.session_task_id, user_id=TEST_USER_ID) is not None
+
+    @pytest.mark.asyncio
+    async def test_database_delete_removes_chat_rows(self, chat: Chat):
+        await post_chat_message(task_id=chat.session_task_id, body="hello", author_id=TEST_USER_ID)
+
+        assert await delete_session(task_id=chat.session_task_id, user_id=TEST_USER_ID) is True
+
+        assert await get_chat_by_task_id(task_id=chat.session_task_id) is None
+        assert await list_chat_messages(task_id=chat.session_task_id) == []
 
 
 class TestDeleteProjectWithChats:

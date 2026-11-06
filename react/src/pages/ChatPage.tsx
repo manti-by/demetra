@@ -4,6 +4,7 @@ import { ChatPanel } from "../components/ChatPanel";
 import { Header } from "../components/Header";
 import { Loader } from "../components/Loader";
 import { useAuth } from "../contexts/AuthContext";
+import { deleteSession } from "../services/api";
 
 export { MessageBubble, splitFailureBody } from "../components/ChatPanel";
 
@@ -12,6 +13,7 @@ export function ChatPage() {
   const navigate = useNavigate();
   const { user, loading, logout } = useAuth();
   const [showLogs, setShowLogs] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -21,6 +23,21 @@ export function ChatPage() {
   const handleToggleLogs = useCallback(() => {
     setShowLogs((value) => !value);
   }, []);
+
+  const handleDeleteSession = useCallback(
+    async (sessionTaskId: string) => {
+      setDeleteError(null);
+      try {
+        await deleteSession(sessionTaskId);
+        navigate("/");
+      } catch (err) {
+        setDeleteError(
+          err instanceof Error ? err.message : "Failed to delete chat",
+        );
+      }
+    },
+    [navigate],
+  );
 
   if (loading) {
     return <Loader fullScreen size={56} />;
@@ -46,12 +63,13 @@ export function ChatPage() {
             Back to sessions
           </button>
         </div>
+        {deleteError && <div className="chat-error">{deleteError}</div>}
         {taskId ? (
           <ChatPanel
             taskId={taskId}
             showLogs={showLogs}
             onShowLogsToggle={handleToggleLogs}
-            onDeleteSession={() => navigate("/")}
+            onDeleteSession={handleDeleteSession}
           />
         ) : (
           <Loader size={48} />
