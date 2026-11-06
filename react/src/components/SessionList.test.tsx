@@ -4,7 +4,7 @@ import '@testing-library/jest-dom/vitest';
 import { SessionList } from './SessionList';
 import { getSessions } from '../services/api';
 
-vi.mock('../services/api', () => ({
+vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getSessions: vi.fn().mockResolvedValue([]),
   deleteSession: vi.fn(),
 }));

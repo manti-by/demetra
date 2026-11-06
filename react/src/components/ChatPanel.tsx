@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Loader } from "./Loader";
 import { LogConsole, type SessionStatusData } from "./LogConsole";
+import { MarkdownContent } from "./MarkdownContent";
 import { SessionStateFlow } from "./SessionStateFlow";
 import {
   getChat,
@@ -8,6 +9,7 @@ import {
   rerunChat,
   type ChatDetail,
   type ChatMessage,
+  type ChatMessageKind,
 } from "../services/api";
 
 const POLL_INTERVAL = 5000;
@@ -19,6 +21,17 @@ const MESSAGE_LABELS: Record<string, string> = {
   research: "Research report",
   status: "Status",
 };
+
+const MARKDOWN_MESSAGE_KINDS: ChatMessageKind[] = [
+  "message",
+  "plan",
+  "question",
+  "research",
+];
+
+function shouldRenderMarkdown(message: ChatMessage): boolean {
+  return MARKDOWN_MESSAGE_KINDS.includes(message.kind);
+}
 
 function formatTime(dateStr: string): string {
   const date = new Date(dateStr);
@@ -45,6 +58,7 @@ export const MessageBubble = ({ message }: { message: ChatMessage }) => {
   const failure =
     message.kind === "failure" ? splitFailureBody(message.body) : null;
   const collapsible = failure !== null && failure.detail.length > 0;
+  const markdown = shouldRenderMarkdown(message);
   return (
     <div
       className={`chat-message ${message.is_system ? "system" : "user"} kind-${message.kind}`}
@@ -63,6 +77,11 @@ export const MessageBubble = ({ message }: { message: ChatMessage }) => {
           <summary className="chat-message-summary">{failure.title}</summary>
           <div className="chat-message-body">{failure.detail}</div>
         </details>
+      ) : markdown ? (
+        <MarkdownContent
+          content={message.body}
+          className="chat-message-body chat-markdown"
+        />
       ) : (
         <div className="chat-message-body">
           {failure ? failure.title : message.body}
@@ -229,9 +248,10 @@ export function ChatPanel({
 
             <div className="chat-description">
               <span className="chat-description-label">Description</span>
-              <p className="chat-description-text">
-                {detail.chat.description}
-              </p>
+              <MarkdownContent
+                content={detail.chat.description}
+                className="chat-description-text chat-markdown"
+              />
             </div>
 
             <div className="chat-thread">

@@ -55,7 +55,7 @@ const mockSessionWithHistoryOnly = {
   session_id: 'session-abc',
 };
 
-vi.mock('../services/api', () => ({
+vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getSessionHistory: vi.fn(),
 }));
 

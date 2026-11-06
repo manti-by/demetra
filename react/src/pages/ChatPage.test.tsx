@@ -90,6 +90,26 @@ describe('TestMessageBubbleFailure', () => {
   });
 });
 
+describe('TestMessageBubbleMarkdown', () => {
+  it('renders question messages as markdown', () => {
+    render(
+      <MessageBubble message={makeMessage({ kind: 'question', body: '## Question\n\nWhich **database**?' })} />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Question' })).toBeInTheDocument();
+    expect(screen.getByText('database').tagName).toBe('STRONG');
+  });
+
+  it('keeps failure messages as plain text', () => {
+    render(
+      <MessageBubble message={makeMessage({ kind: 'failure', body: '## Build failed\n\nSome **bold** detail' })} />,
+    );
+
+    expect(screen.getByText('Some **bold** detail')).toBeInTheDocument();
+    expect(document.querySelector('strong')).toBeNull();
+  });
+});
+
 function makeDetail(): ChatDetail {
   return {
     chat: {

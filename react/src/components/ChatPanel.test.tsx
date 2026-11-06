@@ -2,9 +2,16 @@ import { describe, it, expect, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { ChatPanel } from './ChatPanel';
-import { getChat, postChatMessage, rerunChat, type ChatDetail } from '../services/api';
+import {
+  getChat,
+  postChatMessage,
+  rerunChat,
+  type ChatDetail,
+  type ChatMessage,
+  type ChatMessageKind,
+} from '../services/api';
 
-vi.mock('../services/api', () => ({
+vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getChat: vi.fn(),
   postChatMessage: vi.fn(),
   rerunChat: vi.fn(),
@@ -37,6 +44,20 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
       },
     ],
     session: { step: 'build', name: 'Add authentication', is_research: false, is_chat: true },
+    ...overrides,
+  };
+}
+
+function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
+  return {
+    id: 'm-md',
+    chat_id: 1,
+    session_task_id: 'CH-1',
+    body: '## Heading\n\nSome **bold** text',
+    created_at: '2026-01-01T00:00:00Z',
+    author_id: null,
+    is_system: true,
+    kind: 'message',
     ...overrides,
   };
 }
@@ -167,6 +188,63 @@ describe('ChatPanel', () => {
 
     expect(await screen.findByText('Wire up login')).toBeInTheDocument();
     expect(screen.queryByDisplayValue('Wire up login')).not.toBeInTheDocument();
+  });
+
+  it('renders the description as markdown', async () => {
+    const detail = makeDetail();
+    detail.chat = { ...detail.chat, description: 'Wire up **login**' };
+    vi.mocked(getChat).mockResolvedValue(detail);
+
+    const { container } = render(<ChatPanel taskId="CH-1" />);
+
+    await screen.findByText('CH-1: Add authentication');
+    expect(container.querySelector('.chat-description-text strong')).toHaveTextContent('login');
+    expect(screen.queryByText('Wire up **login**')).not.toBeInTheDocument();
+  });
+
+  it.each<ChatMessageKind>(['plan', 'question', 'research', 'message'])(
+    'renders %s messages as markdown',
+    async (kind) => {
+      vi.mocked(getChat).mockResolvedValue(
+        makeDetail({ messages: [makeMessage({ kind })] }),
+      );
+
+      const { container } = render(<ChatPanel taskId="CH-1" />);
+
+      await screen.findByText('CH-1: Add authentication');
+      expect(container.querySelector('.chat-message-body h2')).toHaveTextContent('Heading');
+      expect(container.querySelector('.chat-message-body strong')).toHaveTextContent('bold');
+    },
+  );
+
+  it('keeps failure messages as plain text', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        messages: [
+          makeMessage({
+            kind: 'failure',
+            body: '## Build failed\n\nSome **bold** detail',
+          }),
+        ],
+      }),
+    );
+
+    const { container } = render(<ChatPanel taskId="CH-1" />);
+
+    await screen.findByText('CH-1: Add authentication');
+    expect(screen.getByText('Some **bold** detail')).toBeInTheDocument();
+    expect(container.querySelector('.chat-message-body strong')).toBeNull();
+    expect(container.querySelector('.chat-message-body h2')).toBeNull();
+  });
+
+  it('keeps status messages as plain text', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({ messages: [makeMessage({ kind: 'status', body: 'Working on **it**' })] }),
+    );
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    expect(await screen.findByText('Working on **it**')).toBeInTheDocument();
   });
 
   it('offers re-run for a failed session', async () => {
