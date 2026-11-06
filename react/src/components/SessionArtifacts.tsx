@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, memo, useRef } from 'react';
-import { marked } from 'marked';
-import DOMPurify from 'dompurify';
 import { getSessionHistory, type Session, type SessionHistoryResponse } from '../services/api';
+import { MarkdownContent } from './MarkdownContent';
 import { SessionHistory } from './SessionHistory';
 
 const EMPTY_TOKEN_TOTALS = { length: 0, input_tokens: 0, output_tokens: 0, reasoning_tokens: 0, cache_read_tokens: 0, cache_write_tokens: 0, cost: 0 };
@@ -212,7 +211,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
               {!isRendered ? (
                 <pre className="build-plan-text">{session.build_plan}</pre>
               ) : (
-                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.build_plan!, { async: false }) as string) }} />
+                <MarkdownContent content={session.build_plan!} className="rendered-content" />
               )}
             </div>
             <div className="modal-footer">
@@ -239,7 +238,7 @@ function SessionArtifactsInner({ taskId, sessions }: SessionArtifactsProps) {
               {!researchIsRendered ? (
                 <pre className="build-plan-text">{session.research_report}</pre>
               ) : (
-                <div className="rendered-content" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(marked.parse(session.research_report!, { async: false }) as string, { FORBID_TAGS: ['img', 'style'] }) }} />
+                <MarkdownContent content={session.research_report!} className="rendered-content" forbidTags={['img', 'style']} />
               )}
             </div>
             <div className="modal-footer">
