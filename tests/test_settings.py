@@ -110,6 +110,35 @@ class TestSettings:
     def test_git_worktree_path_default(self):
         assert ".demetra/worktrees" in str(settings.GIT["worktree_path"])
 
+    def test_git_disable_worktree_removal_defaults_false(self, monkeypatch):
+        monkeypatch.delenv("GIT_DISABLE_WORKTREE_REMOVAL", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.GIT["disable_worktree_removal"] is False
+        finally:
+            importlib.reload(settings_module)
+
+    def test_git_disable_worktree_removal_env_override(self, monkeypatch):
+        monkeypatch.setenv("GIT_DISABLE_WORKTREE_REMOVAL", "true")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.GIT["disable_worktree_removal"] is True
+        finally:
+            monkeypatch.delenv("GIT_DISABLE_WORKTREE_REMOVAL", raising=False)
+            importlib.reload(settings_module)
+
     def test_settings_can_be_overridden_via_env(self, monkeypatch):
         monkeypatch.setenv("PROJECTS_PATH", "/custom/projects")
         monkeypatch.setenv("LINEAR_TEAM_ID", "test-team")

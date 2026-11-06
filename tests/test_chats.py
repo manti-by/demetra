@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import IntegrityError
 
 from demetra.app import app
 from demetra.library.models import (
@@ -1038,7 +1038,8 @@ class TestChatCleanup:
         context = _chat_context(chat=chat, project=project)
         steps_during_cleanup: list[str] = []
 
-        async def _record_step(context, is_success):
+        async def _record_step(context, is_success, remove_worktree):
+            assert remove_worktree is False
             steps_during_cleanup.append((await _session_for(task_id=chat.session_task_id)).step)
             return True
 
@@ -1078,18 +1079,34 @@ class TestChatCleanup:
         await update_session_step(task_id=chat.session_task_id, step="build")
         context = _chat_context(chat=chat, project=project)
 
-        with (
-            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock),
-            patch(
-                "demetra.workflows.cleanup.invalidate_agent_sessions",
-                new_callable=AsyncMock,
-                side_effect=SQLAlchemyError("database unavailable"),
-            ),
+        with patch(
+            "demetra.workflows.cleanup.git_cleanup",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("worktree busy"),
         ):
-            with pytest.raises(SQLAlchemyError):
+            with pytest.raises(RuntimeError):
                 await cleanup_workflow(context=context, is_success=True, should_update_linear_status=False)
 
         assert (await _session_for(task_id=chat.session_task_id)).step == "failed"
+
+    @pytest.mark.asyncio
+    async def test_success_keeps_worktree_and_branch(self, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.session_task_id, step="build")
+        context = _chat_context(chat=chat, project=project)
+
+        with (
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as mock_linear,
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_not_awaited()
+        mock_linear.assert_not_awaited()
+        assert (await _session_for(task_id=chat.session_task_id)).step == "completed"
 
     @pytest.mark.asyncio
     async def test_failed_worktree_removal_publishes_failed_step(self, chat: Chat, project: dict):

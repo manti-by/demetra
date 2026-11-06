@@ -485,18 +485,21 @@ async def git_force_push(
     return True
 
 
-async def git_cleanup(context: Context, is_success: bool) -> bool:
+async def git_cleanup(context: Context, is_success: bool, remove_worktree: bool = True) -> bool:
     """Clean up a workflow's worktree and branch after a run finishes.
 
-    Chat-mode failures keep both the worktree and the branch, so a rerun can
-    continue the files the failed run left behind. Every other run removes the
-    worktree and, on failure, force-deletes the branch. Research contexts run
-    read-only in the main checkout with no branch or worktree, so they are
-    skipped entirely.
+    With ``remove_worktree`` set, the worktree is removed and, on failure, the
+    branch is force-deleted. When it is False the worktree and the branch (which
+    is checked out in it) are kept on disk, so the caller can continue the
+    session's code later; nothing is removed and the cleanup counts as
+    successful. Research contexts run read-only in the main checkout with no
+    branch or worktree, so they are skipped entirely.
 
     Args:
         context: The workflow context describing the worktree and branch.
         is_success: Whether the workflow completed successfully.
+        remove_worktree: Whether the worktree is removed. False keeps the
+            worktree and the branch.
 
     Returns:
         bool: True when every cleanup step succeeded, False when the worktree
@@ -505,8 +508,8 @@ async def git_cleanup(context: Context, is_success: bool) -> bool:
     if context.is_research:
         return True
 
-    if context.is_chat and not is_success:
-        print_message("Keeping worktree and branch for the chat rerun", style="info")
+    if not remove_worktree:
+        print_message("Keeping worktree and branch", style="info")
         return True
 
     environment = context.environment

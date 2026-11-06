@@ -1935,6 +1935,53 @@ class TestWorkflowCleanup:
             mock_write_session_wiki_page,
         )
 
+    def make_context(self, faker, chat: bool = False) -> Context:
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=str(uuid4()),
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        task_id = "CH-1" if chat else "MNT-123"
+        chat_record = (
+            Chat(
+                id=1,
+                session_task_id=task_id,
+                title=faker.sentence(),
+                description=faker.text(),
+                user_id=str(uuid4()),
+                project_id=project.id,
+                project_name=project.name,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            )
+            if chat
+            else None
+        )
+        return Context(
+            project=project,
+            auto_mode=False,
+            linear_task=LinearTask(
+                id=task_id,
+                identifier=task_id,
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+            chat=chat_record,
+        )
+
     @pytest.mark.asyncio
     async def test_commit_and_push(self, faker, mock_commit_deps):
         _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
@@ -2285,52 +2332,91 @@ class TestWorkflowCleanup:
             )
 
     @pytest.mark.asyncio
-    async def test_git_cleanup_keeps_chat_worktree_on_failure(self, faker):
-        project = Project(
-            id=str(uuid4()),
-            user_id=str(uuid4()),
-            linear_project_id=None,
-            name="demetra",
-            state="active",
-            repository_url="https://github.com/test/demetra",
-            repository_name="demetra",
-            repository_owner="test",
-            local_path=Path(f"/tmp/{faker.slug()}"),
-            created_at=datetime.now().isoformat(),
-            updated_at=datetime.now().isoformat(),
-        )
-        context = Context(
-            project=project,
-            auto_mode=True,
-            linear_task=LinearTask(
-                id="CH-1",
-                identifier="CH-1",
-                title=faker.sentence(),
-                description=faker.text(),
-                priority=0,
-                created_at=datetime.now().isoformat(),
-            ),
-            branch_name="feature/test",
-            worktree_path=Path(f"/tmp/{faker.slug()}"),
-            session=None,
-            chat=Chat(
-                id=1,
-                session_task_id="CH-1",
-                title=faker.sentence(),
-                description=faker.text(),
-                user_id=str(uuid4()),
-                project_id=project.id,
-                project_name=project.name,
-                created_at=datetime.now().isoformat(),
-                updated_at=datetime.now().isoformat(),
-            ),
-        )
+    async def test_cleanup_workflow_keeps_chat_worktree(self, faker):
+        context = self.make_context(faker, chat=True)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock) as mock_linear,
+            patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_cleanup.assert_awaited_once_with(context=context, is_success=True, remove_worktree=False)
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_not_awaited()
+        mock_linear.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_workflow_keeps_chat_worktree_on_failure(self, faker):
+        context = self.make_context(faker, chat=True)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.update_session_step", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=False, should_update_linear_status=True)
+
+        mock_cleanup.assert_awaited_once_with(context=context, is_success=False, remove_worktree=False)
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_workflow_removes_worktree_for_linear_session(self, faker):
+        context = self.make_context(faker)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_cleanup.assert_awaited_once_with(context=context, is_success=True, remove_worktree=True)
+        mock_remove.assert_awaited_once()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_awaited_once_with(task_id=context.linear_task.id)
+
+    @pytest.mark.asyncio
+    async def test_cleanup_workflow_keeps_worktree_when_removal_disabled(self, faker):
+        context = self.make_context(faker)
+
+        with (
+            patch.dict("demetra.workflows.cleanup.GIT", {"disable_worktree_removal": True}),
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_cleanup.assert_awaited_once_with(context=context, is_success=True, remove_worktree=False)
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_git_cleanup_keeps_worktree_and_branch_when_removal_disabled(self, faker):
+        context = self.make_context(faker)
 
         with (
             patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
             patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
         ):
-            assert await git_cleanup(context=context, is_success=False) is True
+            assert await git_cleanup(context=context, is_success=False, remove_worktree=False) is True
 
         mock_remove.assert_not_awaited()
         mock_delete.assert_not_awaited()
