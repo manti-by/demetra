@@ -358,6 +358,10 @@
   overflow: hidden;
 }
 
+.console-container > .chat-error {
+  margin: 0.5rem;
+}
+
 .log-console {
   display: flex;
   flex-direction: column;
@@ -2198,6 +2202,11 @@ th {
   display: flex;
   justify-content: flex-end;
   gap: 0.5rem;
+}
+
+.chat-delete-btn:hover {
+  color: var(--color-error);
+  border-color: var(--color-error);
 }
 
 .chat-header {

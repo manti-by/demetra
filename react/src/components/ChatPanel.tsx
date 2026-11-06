@@ -95,6 +95,7 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const requestIdRef = useRef(0);
+  const deletingTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     requestIdRef.current += 1;
@@ -151,6 +152,19 @@ export function ChatPanel({
     }
   }, [taskId, load]);
 
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      if (!onDeleteSession || deletingTaskIdsRef.current.has(id)) return;
+      deletingTaskIdsRef.current.add(id);
+      try {
+        await onDeleteSession(id);
+      } finally {
+        deletingTaskIdsRef.current.delete(id);
+      }
+    },
+    [onDeleteSession],
+  );
+
   const step = detail?.session?.step ?? "initial";
   const isResearch = detail?.session?.is_research ?? false;
   const feedbackLoops = detail?.session?.feedback_loops ?? null;
@@ -162,7 +176,7 @@ export function ChatPanel({
       {loadError && <div className="chat-error">{loadError}</div>}
 
       <div className="chat-panel-body">
-        {(onShowLogsToggle || canRerun) && (
+        {(onShowLogsToggle || canRerun || onDeleteSession) && (
           <div className="chat-topbar-actions">
             {onShowLogsToggle && (
               <button className="btn-secondary" onClick={onShowLogsToggle}>
@@ -172,6 +186,14 @@ export function ChatPanel({
             {canRerun && (
               <button className="btn-primary" onClick={handleRerun}>
                 Re-run
+              </button>
+            )}
+            {onDeleteSession && (
+              <button
+                className="btn-secondary chat-delete-btn"
+                onClick={() => handleDeleteSession(taskId)}
+              >
+                Delete
               </button>
             )}
           </div>
@@ -250,7 +272,7 @@ export function ChatPanel({
             step={detail?.session?.step ?? null}
             isResearch={isResearch}
             feedbackLoops={feedbackLoops}
-            onDeleteSession={onDeleteSession}
+            onDeleteSession={onDeleteSession ? handleDeleteSession : undefined}
             onSessionStatus={onSessionStatus}
             showFlow={false}
           />

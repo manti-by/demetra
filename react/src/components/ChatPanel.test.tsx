@@ -77,6 +77,69 @@ describe('ChatPanel', () => {
     expect(screen.getByText('Show logs')).toBeInTheDocument();
   });
 
+  it('shows the delete button only when a handler is provided', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+
+    const { rerender } = render(<ChatPanel taskId="CH-1" />);
+    await waitFor(() => {
+      expect(screen.getByText('CH-1: Add authentication')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('Delete')).not.toBeInTheDocument();
+
+    rerender(<ChatPanel taskId="CH-1" onDeleteSession={vi.fn()} />);
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('deletes the session with its task id', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    const onDeleteSession = vi.fn();
+
+    render(<ChatPanel taskId="CH-1" onDeleteSession={onDeleteSession} />);
+
+    fireEvent.click(await screen.findByText('Delete'));
+
+    expect(onDeleteSession).toHaveBeenCalledWith('CH-1');
+  });
+
+  it('ignores repeated delete clicks for the same task while a request is in flight', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const onDeleteSession = vi.fn().mockReturnValue(gate);
+
+    render(<ChatPanel taskId="CH-1" onDeleteSession={onDeleteSession} />);
+
+    fireEvent.click(await screen.findByText('Delete'));
+    fireEvent.click(screen.getByText('Delete'));
+
+    expect(onDeleteSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      release();
+      await gate;
+    });
+  });
+
+  it('allows a new delete request after the previous one settles', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    const onDeleteSession = vi.fn().mockResolvedValue(undefined);
+
+    render(<ChatPanel taskId="CH-1" onDeleteSession={onDeleteSession} />);
+
+    fireEvent.click(await screen.findByText('Delete'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByText('Delete'));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(onDeleteSession).toHaveBeenCalledTimes(2);
+  });
+
   it('clears the composer draft when the session changes', async () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 
