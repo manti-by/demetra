@@ -33,6 +33,12 @@ class TestSessionDeletionAPI:
 
     @pytest.mark.asyncio
     @pytest.mark.usefixtures("setup_test_db")
+    async def test_delete_session_accepts_chat_task_id(self, authenticated_client: TestClient):
+        response = authenticated_client.delete("/api/v1/sessions/CH-999999")
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
     async def test_delete_session_success(self, authenticated_client: TestClient):
 
         task_id = "task-123"

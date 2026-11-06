@@ -1,9 +1,20 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom/vitest';
-import { MessageBubble, splitFailureBody } from './ChatPage';
-import type { ChatMessage } from '../services/api';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { ChatPage, MessageBubble, splitFailureBody } from './ChatPage';
+import { AuthProvider } from '../contexts/AuthContext';
+import { deleteSession, getChat, type ChatDetail, type ChatMessage } from '../services/api';
+
+vi.mock('../services/api', () => ({
+  getCurrentUser: vi.fn().mockResolvedValue({ id: 'u1', email: 'user@example.com' }),
+  logout: vi.fn(),
+  getChat: vi.fn(),
+  postChatMessage: vi.fn(),
+  rerunChat: vi.fn(),
+  deleteSession: vi.fn(),
+}));
 
 function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {
@@ -96,5 +107,61 @@ describe('TestMessageBubbleMarkdown', () => {
 
     expect(screen.getByText('Some **bold** detail')).toBeInTheDocument();
     expect(document.querySelector('strong')).toBeNull();
+  });
+});
+
+function makeDetail(): ChatDetail {
+  return {
+    chat: {
+      id: 1,
+      session_task_id: 'CH-1',
+      title: 'Add authentication',
+      description: 'Wire up login',
+      user_id: 'u1',
+      project_id: 'p1',
+      project_name: 'demetra',
+      tags: [],
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+    },
+    messages: [],
+    session: { step: 'build', name: 'Add authentication', is_research: false, is_chat: true },
+  };
+}
+
+function renderChatPage() {
+  localStorage.setItem('user', JSON.stringify({ id: 'u1', email: 'user@example.com' }));
+  return render(
+    <MemoryRouter initialEntries={['/chats/CH-1']}>
+      <AuthProvider>
+        <Routes>
+          <Route path="/chats/:taskId" element={<ChatPage />} />
+        </Routes>
+      </AuthProvider>
+    </MemoryRouter>,
+  );
+}
+
+describe('TestChatPageDeletion', () => {
+  it('deletes the chat and returns to the session list', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    vi.mocked(deleteSession).mockResolvedValue();
+
+    renderChatPage();
+
+    await userEvent.click(await screen.findByText('Delete'));
+
+    expect(deleteSession).toHaveBeenCalledWith('CH-1');
+  });
+
+  it('shows an error when deleting the chat fails', async () => {
+    vi.mocked(getChat).mockResolvedValue(makeDetail());
+    vi.mocked(deleteSession).mockRejectedValue(new Error('Failed to delete session'));
+
+    renderChatPage();
+
+    await userEvent.click(await screen.findByText('Delete'));
+
+    expect(await screen.findByText('Failed to delete session')).toBeInTheDocument();
   });
 });

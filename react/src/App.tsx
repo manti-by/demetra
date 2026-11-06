@@ -63,6 +63,7 @@ function AppContent() {
   const [showLogs, setShowLogs] = useState(false);
   const [sessionRefreshTrigger, setSessionRefreshTrigger] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const paletteRef = useRef<CommandPaletteHandle>(null);
   const handleOpenPalette = useCallback(() => paletteRef.current?.open(), []);
 
@@ -154,16 +155,20 @@ function AppContent() {
 
   const handleSelectSession = useCallback((taskId: string) => {
     setSelectedTaskId(taskId);
+    setDeleteError(null);
     setSidebarOpen(false);
   }, []);
 
   const handleDeleteSession = useCallback(async (taskId: string) => {
+    setDeleteError(null);
     try {
       await deleteSession(taskId);
       setSelectedTaskId(null);
       setSessionRefreshTrigger((t) => t + 1);
     } catch (err) {
-      console.error("Failed to delete session:", err);
+      setDeleteError(
+        err instanceof Error ? err.message : "Failed to delete session",
+      );
     }
   }, []);
 
@@ -206,6 +211,7 @@ function AppContent() {
               />
             </div>
             <div className="console-container" {...consoleInert}>
+              {deleteError && <div className="chat-error">{deleteError}</div>}
               {sessions.length > 0 && (
                 <div className="console-tabs">
                   {sessions.map((session) => (
