@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) — Implementation of MNT-277: Do not remove git worktree for sessions (2026-11-06)
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — Implementation of CH-6: Markdown renderer (2026-11-06)
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — Implementation of CH-5: Delete chat button (2026-11-06)
 - [Agent ECONNRESET network errors — root cause](pages/2026-11-06-agent-econnreset-network-investigation.md) — Traced the CH-1–CH-4 agent `ECONNRESET` failures: idle-hold tests (Google stays alive 80s; DeepSeek closes at 30s, Cloudflare at 15s) plus streaming and a 10 MB download proved the mid-stream resets are server-side LLM-provider connection timeouts, not the ISP, Docker, or MTU (host NIC is actually 1500, no mismatch); disabled IPv6 in containers via compose sysctls and flagged raising the MNT-276 retry budget. (2026-11-06)
@@ -159,8 +160,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 2026-08-04
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — 2026-07-16
 
-### Sessions, status & resume (15 pages)
+### Sessions, status & resume (16 pages)
 
+- [MNT-277: Chat sessions keep their git worktree](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) — 2026-11-06
 - [MNT-260: OpenRouter calls in the session history](pages/2026-10-27-mnt-260-openrouter-call-history.md) — 2026-10-27
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md) — 2026-10-25
 - [Session history — session cost total and failure reasons](pages/2026-10-25-session-history-cost-and-failure-reasons.md) — 2026-10-25
@@ -194,6 +196,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
+- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) — 2026-11-06
 
 ### Authentication & API security (9 pages)
 

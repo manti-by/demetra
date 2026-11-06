@@ -191,6 +191,7 @@ UV: PathConfig = {
 GIT: GitConfig = {
     "path": env_get_path("GIT_PATH", Path("/usr/bin/git")),
     "worktree_path": env_get_path("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"),
+    "disable_worktree_removal": env_get_bool("GIT_DISABLE_WORKTREE_REMOVAL", False),
 }
 
 GITHUB: GitHubConfig = {
