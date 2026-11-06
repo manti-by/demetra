@@ -95,6 +95,7 @@ export function ChatPanel({
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
   const requestIdRef = useRef(0);
+  const deletingTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     requestIdRef.current += 1;
@@ -151,6 +152,19 @@ export function ChatPanel({
     }
   }, [taskId, load]);
 
+  const handleDeleteSession = useCallback(
+    async (id: string) => {
+      if (!onDeleteSession || deletingTaskIdsRef.current.has(id)) return;
+      deletingTaskIdsRef.current.add(id);
+      try {
+        await onDeleteSession(id);
+      } finally {
+        deletingTaskIdsRef.current.delete(id);
+      }
+    },
+    [onDeleteSession],
+  );
+
   const step = detail?.session?.step ?? "initial";
   const isResearch = detail?.session?.is_research ?? false;
   const feedbackLoops = detail?.session?.feedback_loops ?? null;
@@ -177,7 +191,7 @@ export function ChatPanel({
             {onDeleteSession && (
               <button
                 className="btn-secondary chat-delete-btn"
-                onClick={() => onDeleteSession(taskId)}
+                onClick={() => handleDeleteSession(taskId)}
               >
                 Delete
               </button>
@@ -258,7 +272,7 @@ export function ChatPanel({
             step={detail?.session?.step ?? null}
             isResearch={isResearch}
             feedbackLoops={feedbackLoops}
-            onDeleteSession={onDeleteSession}
+            onDeleteSession={handleDeleteSession}
             onSessionStatus={onSessionStatus}
             showFlow={false}
           />
