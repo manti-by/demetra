@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 
@@ -12,9 +13,15 @@ export function MarkdownContent({
   className,
   forbidTags,
 }: MarkdownContentProps) {
-  const html = DOMPurify.sanitize(
-    marked.parse(content, { async: false }) as string,
-    forbidTags && forbidTags.length > 0 ? { FORBID_TAGS: forbidTags } : undefined,
+  const html = useMemo(
+    () =>
+      DOMPurify.sanitize(
+        marked.parse(content, { async: false }) as string,
+        forbidTags && forbidTags.length > 0
+          ? { FORBID_TAGS: forbidTags }
+          : undefined,
+      ),
+    [content, forbidTags],
   );
   return (
     <div className={className} dangerouslySetInnerHTML={{ __html: html }} />

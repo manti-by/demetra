@@ -22,42 +22,46 @@ The goal was to render markdown content in chat blocks instead of displaying pla
 ## Step 1 — Create MarkdownContent Component
 **File:** `react/src/components/MarkdownContent.tsx`
 
-A new `MarkdownContent` component was created to handle markdown rendering consistently across different parts of the application. This component uses DOMPurify for sanitization to prevent XSS vulnerabilities.
+A new `MarkdownContent` component was created to handle markdown rendering consistently across different parts of the application. This component parses markdown with `marked` first, then sanitizes the resulting HTML with DOMPurify before injection (sanitizing raw markdown before parsing would let markdown syntax hide HTML). An optional `forbidTags` prop drives a `{ FORBID_TAGS }` DOMPurify config where a call site needs tag exclusions. Trigger words for image or link removal are passed by the caller.
 
 ```typescript
-export function MarkdownContent({ content }: { content: string }) {
-  const sanitized = DOMPurify.sanitize(content);
-  return <div className="chat-markdown" dangerouslySetInnerHTML={{ __html: marked(sanitized) }} />;
+import { useMemo } from "react";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
+
+export function MarkdownContent({ content }: { content: string; className?: string; forbidTags?: string[] }) {
+  const html = useMemo(
+    () =>
+      DOMPurify.sanitize(
+        marked.parse(content, { async: false }) as string,
+        forbidTags && forbidTags.length > 0 ? { FORBID_TAGS: forbidTags } : undefined,
+      ),
+    [content, forbidTags],
+  );
+  return <div className={className} dangerouslySetInnerHTML={{ __html: html }} />;
 }
 ```
 
-## Step 2 — Update ChatPanel Component
-**File:** `react/src/components/ChatPanel.tsx`
-
-The `ChatPanel` component was updated to use the `MarkdownContent` component for rendering message bodies. Specific message kinds (`message`, `plan`, `question`, `research`) are allowlisted for markdown rendering, while `failure` and `status` messages remain as plain text.
+The `ChatPanel` component was updated to render message bodies through the `MarkdownContent` component. The markdown check lives in a module-local `shouldRenderMarkdown` helper driven by `MARKDOWN_MESSAGE_KINDS`; the failure-details branch (`splitFailureBody`) runs first, so `failure` and `status` messages remain plain text.
 
 ```typescript
-function MessageBody({ message }: { message: ChatMessage }) {
-  if (message.kind === 'failure' || message.kind === 'status') {
-    return <div className="chat-message-body">{message.body}</div>;
-  }
-  return <MarkdownContent content={message.body} />;
+const MARKDOWN_MESSAGE_KINDS: ChatMessageKind[] = ["message", "plan", "question", "research"];
+
+function shouldRenderMarkdown(message: ChatMessage): boolean {
+  return MARKDOWN_MESSAGE_KINDS.includes(message.kind);
 }
+
+// inside MessageBubble, after splitting the failure body:
+const markdown = shouldRenderMarkdown(message);
 ```
 
 ## Step 3 — Update SessionArtifacts Component
 **File:** `react/src/components/SessionArtifacts.tsx`
 
-The `SessionArtifacts` component was modified to reuse the `MarkdownContent` component for rendering build-plan and research modals, ensuring consistent markdown rendering across the application.
-
-```typescript
-function BuildPlanModal({ plan }: { plan: string }) {
-  return <MarkdownContent content={plan} />;
-}
-```
+The `SessionArtifacts` component's build-plan and research modals were changed to reuse the `MarkdownContent` component for rendering their plan/report bodies, ensuring consistent markdown rendering across the application. The research modal passes `forbidTags={['img', 'style']}` to preserve its previous DOMPurify configuration.
 
 ## Step 4 — Add CSS Styling
-**File:** `react/src/App.css**
+**File:** `react/src/App.css`
 
 CSS styles were added to ensure proper rendering of markdown content in chat blocks, including handling of headings, lists, code blocks, and other markdown elements.
 

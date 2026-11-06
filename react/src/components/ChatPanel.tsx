@@ -29,7 +29,7 @@ const MARKDOWN_MESSAGE_KINDS: ChatMessageKind[] = [
   "research",
 ];
 
-export function shouldRenderMarkdown(message: ChatMessage): boolean {
+function shouldRenderMarkdown(message: ChatMessage): boolean {
   return MARKDOWN_MESSAGE_KINDS.includes(message.kind);
 }
 
