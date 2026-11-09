@@ -4,10 +4,10 @@ date: '2026-11-06'
 type: implementation
 status: resolved
 session_id: ses_e4f736c64ffeYQq2KL14RQEQQL
-services: [pyproject, App, ChatPanel.test, ChatPanel, ChatPage.test, ChatPage, test_chats, test_session_logging, uv, INDEX, 2026-11-06-ch-5-delete-chat-button]
+services: [react]
 branch: ch-5-delete-chat-button
 tickets: [CH-5]
-tags: [wiki, frontent, feature]
+tags: [wiki, frontend, feature]
 related: [2026-11-03-ch-2-single-unified-session-view.md, 2026-11-04-chat-session-list-and-rerun.md]
 ---
 

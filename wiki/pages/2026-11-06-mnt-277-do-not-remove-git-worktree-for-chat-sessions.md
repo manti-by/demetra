@@ -4,7 +4,7 @@ date: '2026-11-06'
 type: implementation
 status: resolved
 session_id: ses_e4ea43174ffeYjDE3I2j0qhRvE
-services: [.env.docker, library, vcs/git, settings, workflows, pyproject, test_chats, test_settings, test_workflows, uv, .sessions, INDEX, 2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions]
+services: [library, workflows, settings, vcs]
 branch: mnt-277-do-not-remove-git-worktree-for-sessions
 tickets: [MNT-277]
 tags: [wiki, feature, backend]
