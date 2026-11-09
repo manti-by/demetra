@@ -303,6 +303,7 @@ class TestAgentNetworkRetry:
         assert first_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",
@@ -316,6 +317,7 @@ class TestAgentNetworkRetry:
         assert second_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",
@@ -376,6 +378,7 @@ class TestAgentNetworkRetry:
         assert second_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",

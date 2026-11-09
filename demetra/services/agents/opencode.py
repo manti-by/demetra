@@ -694,7 +694,7 @@ async def run_opencode_agent(
     resumed_session_id: str | None = None
     for attempt in range(attempts):
         continued_session_id = resumed_session_id if resumed_session_id is not None else session_id
-        command = [str(OPENCODE["path"]), "run", "--model", model, "--agent", agent]
+        command = [str(OPENCODE["path"]), "run", "--standalone", "--model", model, "--agent", agent]
         if continued_session_id is not None:
             command.extend(["--session", continued_session_id])
             if fork and attempt == 0:
