@@ -114,11 +114,11 @@ class TestWatcherService:
             yield mock
 
     @pytest.fixture(autouse=True)
-    def mock_get_session_attempt_states(self):
+    def mock_get_exhausted_session_task_ids(self):
         with patch(
-            "demetra.services.daemons.watcher.get_session_attempt_states",
+            "demetra.services.daemons.watcher.get_exhausted_session_task_ids",
             new_callable=AsyncMock,
-            return_value={},
+            return_value=set(),
         ) as mock:
             yield mock
 
@@ -251,12 +251,12 @@ class TestWatcherService:
         mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
-        mock_get_session_attempt_states,
+        mock_get_exhausted_session_task_ids,
         mock_reset_run_attempts,
         mock_update_session_step,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_session_attempt_states.return_value = {task.id: ("awaiting_input", 4)}
+        mock_get_exhausted_session_task_ids.return_value = {task.id}
 
         await process_tasks(tasks=[task])
 
@@ -265,7 +265,7 @@ class TestWatcherService:
         mock_delay_run_workflow.assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_process_tasks_does_not_reset_for_non_awaiting_task(
+    async def test_process_tasks_does_not_reset_without_recorded_exhaustion(
         self,
         faker,
         mock_get_pending_session_task_ids,
@@ -273,12 +273,12 @@ class TestWatcherService:
         mock_resolve_linear_state,
         mock_update_ticket_status,
         mock_delay_run_workflow,
-        mock_get_session_attempt_states,
+        mock_get_exhausted_session_task_ids,
         mock_reset_run_attempts,
         mock_update_session_step,
     ):
         task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
-        mock_get_session_attempt_states.return_value = {task.id: ("failed", 4)}
+        mock_get_exhausted_session_task_ids.return_value = set()
 
         await process_tasks(tasks=[task])
 

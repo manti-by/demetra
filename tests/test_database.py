@@ -9,17 +9,21 @@ from demetra.services.persistence.database import (
     create_session,
     delete_session,
     get_connection,
+    get_exhausted_session_task_ids,
     get_pending_session_task_ids,
     get_session,
     get_session_history,
     get_session_id_by_task_id,
     get_session_state,
     get_sessions,
+    increment_run_attempts,
     invalidate_agent_sessions,
     is_project_ready,
+    mark_attempts_exhausted,
     record_agent_invocation,
     record_llm_call,
     record_session_step,
+    reset_run_attempts,
     update_session_is_research,
     update_session_step,
     upsert_pending_session,
@@ -79,6 +83,52 @@ class TestUpdateSessionStep:
         assert state is not None
         assert state.step == "build"
         assert await get_session_history(task_id=task_id) == []
+
+
+class TestAttemptsExhaustedMarker:
+    @pytest.mark.asyncio
+    async def test_awaiting_input_step_alone_is_not_an_exhaustion_marker(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+        await update_session_step(task_id=task_id, step="awaiting_input")
+
+        assert await get_exhausted_session_task_ids(task_ids=[task_id]) == set()
+
+    @pytest.mark.asyncio
+    async def test_marked_session_is_reported_only_for_requested_ids(self):
+        marked, other = _unique_task_id(), _unique_task_id()
+        await upsert_pending_session(task_id=marked, session_id=_unique_session_id())
+        await upsert_pending_session(task_id=other, session_id=_unique_session_id())
+
+        await mark_attempts_exhausted(task_id=marked)
+
+        assert await get_exhausted_session_task_ids(task_ids=[marked, other]) == {marked}
+        assert await get_exhausted_session_task_ids(task_ids=[other]) == set()
+        assert await get_exhausted_session_task_ids(task_ids=[]) == set()
+
+    @pytest.mark.asyncio
+    async def test_reset_clears_counter_and_marker(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+        await increment_run_attempts(task_id=task_id)
+        await mark_attempts_exhausted(task_id=task_id)
+
+        assert await reset_run_attempts(task_id=task_id) == 0
+
+        assert await get_exhausted_session_task_ids(task_ids=[task_id]) == set()
+        session = await get_session(task_id=task_id)
+        assert session is not None
+        assert session.run_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_upsert_preserves_the_marker(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+        await mark_attempts_exhausted(task_id=task_id)
+
+        await upsert_pending_session(task_id=task_id, session_id=None)
+
+        assert await get_exhausted_session_task_ids(task_ids=[task_id]) == {task_id}
 
 
 class TestRecordSessionStep:

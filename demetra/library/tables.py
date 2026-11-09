@@ -32,6 +32,7 @@ sessions = Table(
     Column("project_id", String(), nullable=True),
     Column("user_id", String(), nullable=True),
     Column("run_attempts", Integer(), nullable=False, server_default="0"),
+    Column("attempts_exhausted", Boolean(), nullable=False, server_default="false"),
     Column("listener_attempts", Integer(), nullable=False, server_default="0"),
     Column("pr_link", String(), nullable=True),
     Column("linear_link", String(), nullable=True),

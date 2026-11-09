@@ -648,8 +648,9 @@ async def opencode_supports_standalone(target_path: Path, environment: SessionEn
 
     Support is read from ``run --help`` rather than inferred from a version
     number, so it stays correct across releases. A successful probe is cached
-    per CLI path; a failed probe is not cached and reports no support, so the
-    flag is omitted instead of risking an unknown-option failure.
+    per CLI path; a failed probe (non-zero exit or an ``OSError`` starting the
+    subprocess) is not cached and reports no support, so the flag is omitted
+    instead of risking an unknown-option failure.
 
     Args:
         target_path: Directory to run the help probe in.
@@ -662,9 +663,13 @@ async def opencode_supports_standalone(target_path: Path, environment: SessionEn
     if path in _STANDALONE_SUPPORT_CACHE:
         return _STANDALONE_SUPPORT_CACHE[path]
 
-    exit_code, stdout, stderr = await run_command(
-        command=[path, "run", "--help"], target_path=target_path, disable_stdio=True, environment=environment
-    )
+    try:
+        exit_code, stdout, stderr = await run_command(
+            command=[path, "run", "--help"], target_path=target_path, disable_stdio=True, environment=environment
+        )
+    except OSError:
+        logger.exception("Failed to probe opencode run --help for --standalone support")
+        return False
     if exit_code != 0:
         return False
 

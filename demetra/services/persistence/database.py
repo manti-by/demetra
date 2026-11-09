@@ -308,11 +308,32 @@ async def increment_run_attempts(task_id: str) -> int:
     return row.run_attempts if row else 0
 
 
+async def mark_attempts_exhausted(task_id: str) -> None:
+    """Record that a session's exhaustion transition completed successfully.
+
+    Called only after the ticket was moved to Awaiting Input (or the chat status
+    recorded), never when that update failed, so the marker distinguishes a
+    completed transition from a stuck counter.
+
+    Args:
+        task_id: The Linear task identifier.
+    """
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update()
+            .where(sessions.c.task_id == task_id)
+            .values(attempts_exhausted=True, updated_at=datetime.now(UTC))
+        )
+        await connection.commit()
+
+
 async def reset_run_attempts(task_id: str) -> int:
-    """Reset the run attempt counter for a session to zero.
+    """Reset the run attempt counter for a session to zero and clear the exhaustion marker.
 
     Called when an exhausted task is moved back to ``TODO`` so a fresh attempt
     budget is granted instead of bouncing it straight back to Awaiting Input.
+    The marker is cleared in the same statement so a later exhaustion has to be
+    recorded again.
 
     Args:
         task_id: The Linear task identifier.
@@ -325,7 +346,7 @@ async def reset_run_attempts(task_id: str) -> int:
             text(
                 """
                 UPDATE sessions
-                SET run_attempts = 0, updated_at = :updated_at
+                SET run_attempts = 0, attempts_exhausted = false, updated_at = :updated_at
                 WHERE task_id = :task_id
                 RETURNING run_attempts
                 """
@@ -1453,28 +1474,29 @@ async def get_pending_session_task_ids() -> set[str]:
     return {row.task_id for row in rows}
 
 
-async def get_session_attempt_states(task_ids: list[str]) -> dict[str, tuple[str, int]]:
-    """Return each task's current step and run-attempt count.
+async def get_exhausted_session_task_ids(task_ids: list[str]) -> set[str]:
+    """Return the task ids whose exhaustion transition was recorded successfully.
 
-    Used by the watcher to recognize a task that exhausted its budget (moved to
-    ``awaiting_input``) and has since been moved back to ``TODO``, so it can
-    grant a fresh attempt budget instead of bouncing it straight back.
+    Used by the watcher to recognize a task that exhausted its budget, was
+    successfully moved to Awaiting Input, and has since returned to ``TODO``, so
+    it can grant a fresh attempt budget. The durable ``attempts_exhausted``
+    marker is separate from the workflow step, so a failed status update or an
+    ``awaiting_input`` step reached any other way never qualifies.
 
     Args:
         task_ids: The Linear task ids to look up.
 
     Returns:
-        dict[str, tuple[str, int]]: ``{task_id: (step, run_attempts)}`` for the
-            sessions that exist among ``task_ids``.
+        set[str]: The subset of ``task_ids`` carrying the exhaustion marker.
     """
     if not task_ids:
-        return {}
+        return set()
     async with get_connection() as connection:
         result = await connection.execute(
-            select(sessions.c.task_id, sessions.c.step, sessions.c.run_attempts).where(sessions.c.task_id.in_(task_ids))
+            select(sessions.c.task_id).where(sessions.c.task_id.in_(task_ids) & sessions.c.attempts_exhausted)
         )
         rows = result.fetchall()
-    return {row.task_id: (row.step or "", row.run_attempts or 0) for row in rows}
+    return {row.task_id for row in rows}
 
 
 async def create_user(

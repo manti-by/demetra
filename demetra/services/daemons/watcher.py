@@ -10,11 +10,12 @@ from demetra.library.models import LinearTask, SessionEnvironment
 from demetra.services.chat import is_chat_task, record_chat_message, record_chat_status
 from demetra.services.linear import get_user_environments_decrypted, post_comment, update_ticket_status
 from demetra.services.persistence.database import (
+    get_exhausted_session_task_ids,
     get_pending_session_task_ids,
     get_project_environments,
     get_session,
-    get_session_attempt_states,
     increment_run_attempts,
+    mark_attempts_exhausted,
     reset_run_attempts,
     update_session_step,
     upsert_pending_session,
@@ -78,9 +79,11 @@ async def handle_exhausted_attempts(
     if not await update_ticket_status(task_id=task_id, state_id=state_id):
         logger.warning(f"Failed to move task {task_id} to 'awaiting_input'")
         return
-    # Mark the session so a later move back to TODO is recognized as a fresh
-    # lifecycle (and grants a new attempt budget) rather than a stuck counter.
     await update_session_step(task_id=task_id, step="awaiting_input")
+    # Durable marker, set only after the ticket move succeeded: a later move
+    # back to TODO is a fresh lifecycle (new attempt budget) only when this
+    # transition was recorded, never inferred from the step alone.
+    await mark_attempts_exhausted(task_id=task_id)
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
@@ -191,15 +194,14 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
     ``in_progress``, including on re-pickup: a task can return to TODO while
     still pending after a failed run and the status update can fail transiently,
     and re-applying the same state each poll is idempotent in Linear. A task
-    that exhausted its budget and was moved to ``awaiting_input`` gets a fresh
-    attempt budget when it returns to TODO.
+    that exhausted its budget and whose move to ``awaiting_input`` was recorded
+    (``attempts_exhausted``) gets a fresh attempt budget when it returns to TODO.
 
     Args:
         tasks: The TODO tasks to process.
     """
     pending_ids = await get_pending_session_task_ids()
-    attempt_states = await get_session_attempt_states(task_ids=[task.id for task in tasks])
-    max_run_attempts = MAX_ATTEMPTS["run"]
+    exhausted_ids = await get_exhausted_session_task_ids(task_ids=[task.id for task in tasks])
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
 
     for task in tasks:
@@ -221,13 +223,12 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 linear_link=task.url,
             )
 
-        step, run_attempts = attempt_states.get(task.id, ("", 0))
-        if step == "awaiting_input" and run_attempts > max_run_attempts:
-            # The task exhausted its budget and a human moved it back to TODO,
-            # so grant a fresh budget for this run instead of bouncing it again.
-            # The step leaves ``awaiting_input`` in the same transition: the
-            # session upsert preserves the stored step, so a stale marker would
-            # make the next poll treat the fresh budget as exhausted again.
+        if task.id in exhausted_ids:
+            # The exhaustion transition was recorded and the task is back in
+            # TODO, so grant a fresh budget for this run instead of bouncing it
+            # again. Resetting also clears the marker, and the step leaves
+            # ``awaiting_input`` in the same transition because the session
+            # upsert preserves the stored step.
             await reset_run_attempts(task_id=task.id)
             await update_session_step(task_id=task.id, step="initial")
 

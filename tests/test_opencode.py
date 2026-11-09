@@ -84,6 +84,27 @@ class TestOpencodeSupportsStandalone:
         mock_run_command.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_oserror_reports_unsupported_and_is_not_cached(self, mock_run_command):
+        mock_run_command.side_effect = [OSError("spawn failed"), (0, "--standalone", "")]
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is False
+        assert await opencode_supports_standalone(target_path=Path("/test")) is True
+
+    @pytest.mark.asyncio
+    async def test_run_agent_still_runs_without_standalone_when_probe_hits_oserror(self, _standalone_supported):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "m"}),
+            patch("demetra.services.agents.opencode.opencode_supports_standalone", new=opencode_supports_standalone),
+        ):
+            mock_run.side_effect = [OSError("spawn failed"), (0, "output", "")]
+            result = await run_opencode_agent(Path("/test"), "task", model="m", agent="plan")
+
+        assert result == (0, "output", "")
+        agent_command = mock_run.await_args_list[1].kwargs["command"]
+        assert agent_command == ["/bin/opencode", "run", "--model", "m", "--agent", "plan"]
+
+    @pytest.mark.asyncio
     async def test_failed_probe_reports_unsupported_and_is_not_cached(self, mock_run_command):
         mock_run_command.side_effect = [(1, "", "boom"), (0, "--standalone", "")]
 
