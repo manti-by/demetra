@@ -8,7 +8,7 @@ services: [opencode, database, workflows, settings, groq]
 branch: "-"
 tickets: [MNT-145]
 tags: [session-history, compaction, tokens, opencode-export, audit, cost]
-related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
 
 # Session History & Token Consumption Audit (Revalidated)
@@ -90,6 +90,7 @@ The delta model recommended here shipped in [[2026-10-16-mnt-251-session-attribu
 
 - `agent_sessions` holds one row per `(task_id, session_id)` with the cumulative cursor; `session_history` `kind='invocation'` rows store `delta = max(0, info.tokens - cursor)`.
 - `_compute_total_tokens` sums only `kind='invocation'` rows and drops the legacy `row.length` fallback, so a resumed session no longer counts the same tokens many times.
+  - **Consistency note (2026-11-09, Consistency Agent):** superseded — `_compute_total_tokens` now also sums `kind='llm_call'` rows (added by [[2026-10-27-mnt-260-openrouter-call-history]], `demetra/api/sessions.py:118`).
 - `context_tokens` stays a per-step snapshot (`input + cache.read`), excluded from the total — rec #2 here remains the deliberate design.
 - `info.tokens` was measured **monotonic across a `/compact`**, so no cursor reset or compaction special-casing is needed.
 

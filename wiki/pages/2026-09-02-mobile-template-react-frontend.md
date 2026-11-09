@@ -8,7 +8,7 @@ services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
 tickets: [MNT-193, MNT-92, MNT-113]
 tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert, truncate, layout, markdown, marked, modal]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md]
+related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md, 2026-11-04-chat-session-list-and-rerun.md]
 ---
 
 # MNT-193 — Mobile template for the React frontend
@@ -97,6 +97,8 @@ MNT-92 (2026-06-02): long task titles in the session list stretched the sidebar 
 - Grouping by step not applicable — search+cards suffices.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
+> **Consistency note (2026-11-09, Consistency Agent):** two item-level statements above no longer hold on HEAD. (1) `.session-dot.step-<step>` was removed by the 2026-11-04 session-list redesign ([[2026-11-04-chat-session-list-and-rerun]]) — no `session-dot` remains in `react/src`. (2) The `.session-plan` / `.session-name` `max-width: 120px` pairing quoted in the MNT-92 note has been replaced by `.session-title` truncation (`react/src/App.css:1187`); the mobile-drawer layout itself is unchanged.
 
 ## References
 

@@ -69,6 +69,8 @@ command = [str(OPENCODE["path"]), "export", session_id]
 
 Works on 1.18.30 (this is why MNT-246 could read tokens at all). On v2 it exits 1 (`Unexpected positional argument: "<ses_id>"`) and `get_opencode_session_tokens` returns `None` at `opencode.py:436-437`. Pinning the image was **explicitly declined**, so it is recorded in MNT-251 §12 as an accepted risk — though the blast radius is now known to be total rather than gradual, and the ticket asks for that decision to be revisited. Mitigations that don't require pinning: log `opencode --version` at startup, make the export path fail loudly instead of returning `None`, and add a startup smoke test asserting the flags and subcommands Demetra passes.
 
+> **Consistency note (2026-11-09, Consistency Agent):** the pinning decision above ("explicitly declined", "accepted risk") and the floating install are superseded — the Dockerfile now pins the CLI: `ARG OPENCODE_VERSION=2.2.5` feeds the v2 install script (`Dockerfile:1,16-17`) and the final stage asserts `opencode --version | grep -qF "${OPENCODE_VERSION}"` (`Dockerfile:43`), so a stale cached build fails instead of shipping an old binary. Of the other landmines here: `run --dir` was closed by dropping the flag in favour of subprocess `cwd` (`demetra/services/agents/opencode.py:41-42,705`), and compaction is now version-gated (`opencode_supports_compaction`, `opencode.py:1113`) — deliberately unsupported on v2, as this page recommends. The "production runs 1.18.30" statements are kept as the state at page time.
+
 ---
 
 ## Phase 0 spike measurements (v2.0.30, 2026-10-16)

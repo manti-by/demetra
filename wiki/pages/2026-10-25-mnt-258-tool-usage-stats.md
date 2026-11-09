@@ -8,7 +8,7 @@ services: [api, library, agents, persistence, vcs, workflows, database, migratio
 branch: mnt-258-tool-usage-stats
 tickets: [MNT-258]
 tags: [wiki, feature, backend, frontend]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-09-30-mnt-228-intermediate-history-states.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-mcp-tool-usage.md]
 ---
 
 # MNT-258: Tool usage stats
@@ -21,6 +21,8 @@ The goal of this session was to add tool usage stats to the session history, all
 
 ## Step 1 — Create a new table for tool usage data
 A new table `session_tool_usage` was created to store per-tool call counts, with foreign keys referencing the `agent_sessions` table. This table will be used to accumulate tool usage data for each session.
+
+> **Consistency note (2026-11-09, Consistency Agent):** this table was re-keyed two days later by [[2026-10-25-session-history-per-invocation-rows]] — its unique constraint is now `UniqueConstraint("history_id", "tool_name", name="uq_session_tool_usage_history")` (`demetra/library/tables.py:252`); the `agent_session_id` FK column remains. The opencode code-mode MCP-tool extraction gap closed afterwards is documented in [[2026-10-25-session-history-mcp-tool-usage]].
 
 ## Step 2 — Extend the SessionExport model
 The `SessionExport` model was extended to include a `tool_usage` field, which will store the tool usage data for each session. This field will be populated with data from the `session_tool_usage` table.

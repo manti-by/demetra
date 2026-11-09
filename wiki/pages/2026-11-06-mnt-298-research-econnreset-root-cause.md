@@ -194,6 +194,8 @@ Implemented the fix and verified it.
 
 - See "Known follow-up" above.
 
+> **Consistency note (2026-11-09, Consistency Agent):** two facts above are time-bound. (1) The incident logs quote `attempt N/10` and the page says the retry budget was "exhausting", but the shipped default since MNT-276 (`eeec893`) is `MAX_AGENT_NETWORK_ATTEMPTS = 5` (`demetra/settings.py:61`; `.env.docker.example` does not override it) — the 10-attempt run implies an environment override at the time, tracked as **Q-003** in `wiki/QUESTIONS.md`. (2) "opencode.py:697 now builds `["run", "--standalone", …]`" is unconditional in wording; the implemented code probes first (`opencode_supports_standalone`, `demetra/services/agents/opencode.py:646-676`) and only appends `--standalone` when `run --help` advertises it (`:741`), so older CLIs are not broken.
+
 ## References
 
 - Related: [[2026-11-06-agent-econnreset-network-investigation]]

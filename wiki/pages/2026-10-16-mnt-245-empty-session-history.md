@@ -8,7 +8,7 @@ services: [persistence, workflows, api, react]
 branch: "-"
 tickets: [MNT-245, MNT-251, MNT-246, MNT-228, MNT-181]
 tags: [session-history, empty-rows, tokens, research, validate, review, cumulative]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
 
 # MNT-245: Empty session history
@@ -41,6 +41,8 @@ The "empty card" symptom was structural, not a data-loss accident: those steps w
 - `kind='step'` rows (no tokens) and `kind='invocation'` rows (exact deltas) are distinct; `update_session_step` no longer writes history, `record_session_step(task_id, step)` does.
 - Every agent step — including research, resolve, merge, rebase, review_fixes and review per `(round, model)` — records an invocation row.
 - `_compute_total_tokens` sums only `kind='invocation'`; the legacy `row.length` fallback is dropped.
+
+> **Consistency note (2026-11-09, Consistency Agent):** that totals bullet is superseded — [[2026-10-27-mnt-260-openrouter-call-history]] widened `_compute_total_tokens` to also count `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`. The kind split documented here is unchanged.
 - React renders from the explicit `kind` field instead of null-sniffing.
 
 ## Follow-ups
