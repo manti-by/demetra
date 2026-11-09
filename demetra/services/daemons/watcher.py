@@ -13,8 +13,10 @@ from demetra.services.persistence.database import (
     get_pending_session_task_ids,
     get_project_environments,
     get_session,
+    get_session_attempt_states,
     increment_run_attempts,
     reset_run_attempts,
+    update_session_step,
     upsert_pending_session,
 )
 from demetra.services.persistence.queue import enqueue_workflow
@@ -70,10 +72,15 @@ async def handle_exhausted_attempts(
 
     await post_comment(task_id=task_id, body="Max run attempts reached")
     state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
-    if state_id:
-        await update_ticket_status(task_id=task_id, state_id=state_id)
-    else:
+    if state_id is None:
         logger.error("Linear state 'awaiting_input' is not configured")
+        return
+    if not await update_ticket_status(task_id=task_id, state_id=state_id):
+        logger.warning(f"Failed to move task {task_id} to 'awaiting_input'")
+        return
+    # Mark the session so a later move back to TODO is recognized as a fresh
+    # lifecycle (and grants a new attempt budget) rather than a stuck counter.
+    await update_session_step(task_id=task_id, step="awaiting_input")
 
 
 async def run_workflow(project_name: str, task_id: str) -> bool:
@@ -99,10 +106,13 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     user_id = session.user_id if session else DEFAULT_USER_ID
     project_id = session.project_id if session else None
     if session and session.run_attempts > max_run_attempts:
-        # The ticket was moved back to TODO after exhausting its attempt budget,
-        # so grant a fresh budget instead of bouncing it straight back to
-        # Awaiting Input. The run below then re-increments on failure as usual.
-        await reset_run_attempts(task_id=task_id)
+        await handle_exhausted_attempts(
+            task_id=task_id,
+            user_id=user_id,
+            project_id=project_id,
+            max_run_attempts=max_run_attempts,
+        )
+        return False
 
     process = None
     try:
@@ -180,12 +190,16 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
     enqueued. The watcher attempts to move every accepted TODO task to
     ``in_progress``, including on re-pickup: a task can return to TODO while
     still pending after a failed run and the status update can fail transiently,
-    and re-applying the same state each poll is idempotent in Linear.
+    and re-applying the same state each poll is idempotent in Linear. A task
+    that exhausted its budget and was moved to ``awaiting_input`` gets a fresh
+    attempt budget when it returns to TODO.
 
     Args:
         tasks: The TODO tasks to process.
     """
     pending_ids = await get_pending_session_task_ids()
+    attempt_states = await get_session_attempt_states(task_ids=[task.id for task in tasks])
+    max_run_attempts = MAX_ATTEMPTS["run"]
     logger.info(f"Processing {len(tasks)} TODO tasks ({len(pending_ids)} pending)")
 
     for task in tasks:
@@ -206,6 +220,12 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
                 name=task.full_title,
                 linear_link=task.url,
             )
+
+        step, run_attempts = attempt_states.get(task.id, ("", 0))
+        if step == "awaiting_input" and run_attempts > max_run_attempts:
+            # The task exhausted its budget and a human moved it back to TODO,
+            # so grant a fresh budget for this run instead of bouncing it again.
+            await reset_run_attempts(task_id=task.id)
 
         # Always move an accepted TODO task to ``in_progress``, even on re-pickup:
         # a task can return to TODO while still pending (session_id="") after a

@@ -1453,6 +1453,30 @@ async def get_pending_session_task_ids() -> set[str]:
     return {row.task_id for row in rows}
 
 
+async def get_session_attempt_states(task_ids: list[str]) -> dict[str, tuple[str, int]]:
+    """Return each task's current step and run-attempt count.
+
+    Used by the watcher to recognize a task that exhausted its budget (moved to
+    ``awaiting_input``) and has since been moved back to ``TODO``, so it can
+    grant a fresh attempt budget instead of bouncing it straight back.
+
+    Args:
+        task_ids: The Linear task ids to look up.
+
+    Returns:
+        dict[str, tuple[str, int]]: ``{task_id: (step, run_attempts)}`` for the
+            sessions that exist among ``task_ids``.
+    """
+    if not task_ids:
+        return {}
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(sessions.c.task_id, sessions.c.step, sessions.c.run_attempts).where(sessions.c.task_id.in_(task_ids))
+        )
+        rows = result.fetchall()
+    return {row.task_id: (row.step or "", row.run_attempts or 0) for row in rows}
+
+
 async def create_user(
     *,
     email: str,
