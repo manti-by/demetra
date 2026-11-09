@@ -8,7 +8,7 @@ services: [main, api, library, persistence, workflows, migrations, react, tests]
 branch: "-"
 tickets: []
 tags: [session-history, token-accounting, frontend, cost, failure-reasons]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-08-05-pr-creation-failure-handler.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Session history — session cost total and failure reasons
@@ -42,6 +42,11 @@ The `total` dict aggregated five token counter fields across `kind='invocation'`
 rows but skipped `cost` entirely, even though `_serialize_history_row` exposed it
 per row and the card rendered it. The totals block (`TotalTokensBlock` in
 `react/src/components/SessionHistory.tsx`) therefore had nothing to show.
+
+> **Consistency note (2026-11-06, Consistency Agent):** the invocation-only row sum
+> above was later widened by [[2026-10-27-mnt-260-openrouter-call-history]] —
+> `_compute_total_tokens` now also sums `kind='llm_call'` rows
+> (`demetra/api/sessions.py`).
 
 - Added `"cost": 0.0` to the initial dict and `total["cost"] += row.cost or 0.0`
   inside the invocation-row loop (before: simply absent — no other writer needed

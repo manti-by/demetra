@@ -91,14 +91,21 @@ parser.add_argument("--waitlist-status", help="Optional status filter for waitli
 parser.add_argument("--approved-by", help="Optional admin user id recorded on waitlist approve", default=None)
 
 
-async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None):
+async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None) -> int:
+    """Run the implementation workflow and return its process exit code.
+
+    Returns 0 when the workflow (or research step) completed successfully or
+    ended in a terminal ``awaiting_input`` state (questions posted, PR/review
+    failure, etc.), and a non-zero code when it failed and should be retried.
+    A non-zero exit lets the watcher's run-attempt accounting bound retries.
+    """
     await init_db()
     await print_heading()
 
     print_message("Running workflow", style="heading")
     context = await setup_workflow(project_name=project_name, auto_mode=auto_mode, task_id=task_id)
     if not context:
-        return
+        return 1
 
     context.plan_loop = plan_loop
 
@@ -136,24 +143,24 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         if is_research_ticket(context=context):
             report = await run_research_step(context=context)
             if report is None:
-                return
+                return 1
             # Research is read-only: no branch or PR to keep, and git_cleanup
             # skips git work for research contexts.
             is_success = True
             should_update_linear_status = False
-            return
+            return 0
 
         if not context.session or not context.session.build_plan:
             if not await run_plan_step(context=context):
-                return
+                return 1
 
         if not context.session:
             print_message("Empty session, exiting.", style="error")
-            return
+            return 1
 
         if not context.session.build_plan:
             print_message("Empty build plan, exiting.", style="error")
-            return
+            return 1
 
         if not context.session.posted_to_linear:
             if await notify_message(context=context, body=context.session.build_plan, kind="plan"):
@@ -243,6 +250,8 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
                 failure_message=failure_message,
             )
 
+    return 0 if is_success or failure_step == "awaiting_input" else 1
+
 
 if __name__ == "__main__":
     args = parser.parse_args()
@@ -273,11 +282,13 @@ if __name__ == "__main__":
             )
         )
     else:
-        asyncio.run(
-            main(
-                project_name=args.project_name,
-                auto_mode=args.auto,
-                plan_loop=args.plan_loop,
-                task_id=args.task_id,
+        sys.exit(
+            asyncio.run(
+                main(
+                    project_name=args.project_name,
+                    auto_mode=args.auto,
+                    plan_loop=args.plan_loop,
+                    task_id=args.task_id,
+                )
             )
         )

@@ -23,6 +23,7 @@ from demetra.services.agents.opencode import (
     opencode_research_agent,
     opencode_resolve_agent,
     opencode_supports_compaction,
+    opencode_supports_standalone,
     opencode_validate_agent,
     reset_opencode_cli_state,
     run_opencode_agent,
@@ -35,6 +36,80 @@ def _reset_opencode_cli_state():
     reset_opencode_cli_state()
     yield
     reset_opencode_cli_state()
+
+
+@pytest.fixture(autouse=True)
+def _standalone_supported():
+    with patch(
+        "demetra.services.agents.opencode.opencode_supports_standalone", new_callable=AsyncMock, return_value=True
+    ) as mock:
+        yield mock
+
+
+class TestOpencodeSupportsStandalone:
+    @pytest.fixture
+    def mock_run_command(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_true_when_help_lists_flag(self, mock_run_command):
+        mock_run_command.return_value = (0, "Options:\n  --standalone  run without server\n  --model", "")
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is True
+        assert mock_run_command.await_args.kwargs["command"] == ["/bin/opencode", "run", "--help"]
+
+    @pytest.mark.asyncio
+    async def test_false_when_help_omits_flag(self, mock_run_command):
+        mock_run_command.return_value = (0, "Options:\n  --model\n  --agent", "")
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_flag_is_only_a_prefix_of_another(self, mock_run_command):
+        mock_run_command.return_value = (0, "  --standalone-mode", "")
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is False
+
+    @pytest.mark.asyncio
+    async def test_result_is_cached_per_path(self, mock_run_command):
+        mock_run_command.return_value = (0, "--standalone", "")
+
+        await opencode_supports_standalone(target_path=Path("/test"))
+        await opencode_supports_standalone(target_path=Path("/test"))
+
+        mock_run_command.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_oserror_reports_unsupported_and_is_not_cached(self, mock_run_command):
+        mock_run_command.side_effect = [OSError("spawn failed"), (0, "--standalone", "")]
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is False
+        assert await opencode_supports_standalone(target_path=Path("/test")) is True
+
+    @pytest.mark.asyncio
+    async def test_run_agent_still_runs_without_standalone_when_probe_hits_oserror(self, _standalone_supported):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "m"}),
+            patch("demetra.services.agents.opencode.opencode_supports_standalone", new=opencode_supports_standalone),
+        ):
+            mock_run.side_effect = [OSError("spawn failed"), (0, "output", "")]
+            result = await run_opencode_agent(Path("/test"), "task", model="m", agent="plan")
+
+        assert result == (0, "output", "")
+        agent_command = mock_run.await_args_list[1].kwargs["command"]
+        assert agent_command == ["/bin/opencode", "run", "--model", "m", "--agent", "plan"]
+
+    @pytest.mark.asyncio
+    async def test_failed_probe_reports_unsupported_and_is_not_cached(self, mock_run_command):
+        mock_run_command.side_effect = [(1, "", "boom"), (0, "--standalone", "")]
+
+        assert await opencode_supports_standalone(target_path=Path("/test")) is False
+        assert await opencode_supports_standalone(target_path=Path("/test")) is True
 
 
 class TestOpencodeService:
@@ -109,6 +184,25 @@ class TestOpencodeService:
         # Task is delivered via stdin, not as a command-line argument.
         assert all(arg != "task" for arg in command)
         assert call_args.kwargs["input_text"] == "task"
+
+    @pytest.mark.asyncio
+    async def test_run_opencode_agent_passes_standalone_when_supported(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan")
+
+        command = mock_run_command_and_opencode_config.call_args.kwargs["command"]
+        assert command[:3] == ["/bin/opencode", "run", "--standalone"]
+
+    @pytest.mark.asyncio
+    async def test_run_opencode_agent_omits_standalone_when_unsupported(
+        self, mock_run_command_and_opencode_config, _standalone_supported
+    ):
+        _standalone_supported.return_value = False
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan")
+
+        command = mock_run_command_and_opencode_config.call_args.kwargs["command"]
+        assert command == ["/bin/opencode", "run", "--model", "m", "--agent", "plan"]
 
     @pytest.mark.asyncio
     async def test_run_opencode_agent_passes_full_task_without_truncation(self, mock_run_command_and_opencode_config):
@@ -303,6 +397,7 @@ class TestAgentNetworkRetry:
         assert first_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",
@@ -316,6 +411,7 @@ class TestAgentNetworkRetry:
         assert second_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",
@@ -376,6 +472,7 @@ class TestAgentNetworkRetry:
         assert second_command == [
             "/bin/opencode",
             "run",
+            "--standalone",
             "--model",
             "m",
             "--agent",

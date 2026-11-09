@@ -8,7 +8,7 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
 
 # MNT-181: Total tokens counter
@@ -65,6 +65,8 @@ Session list title fallback (`task_title`/`custom name` → truncated `session_i
 - The legacy `row.length` fallback is dropped; `length` is derived from the summed token fields.
 - The old test `test_total_sums_length_independently` was replaced by `test_total_ignores_step_rows` and `test_total_sums_only_invocation_rows`.
 - The endpoint also resolves history by `task_id` (via `get_session_history(task_id)`), not by the display-only `sessions.session_id` pointer, so totals survive a worktree deletion.
+
+> **Consistency note (2026-11-09, Consistency Agent):** "sums only `kind='invocation'` rows" is superseded — [[2026-10-27-mnt-260-openrouter-call-history]] extended `_compute_total_tokens` to include `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`.
 
 ---
 

@@ -72,6 +72,8 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
+> **Consistency note (2026-11-09, Consistency Agent):** partial progress on resumability — run-attempt exhaustion no longer bounces a task forever: the watcher resets the attempts counter and moves the session to `initial` when a returned-to-TODO task is re-accepted (`reset_run_attempts` + `update_session_step(step="initial")`, `demetra/services/daemons/watcher.py:230-233`). The two open items below (durable `awaiting_input` replan guard; watcher enqueue dedupe, `delay_run_workflow` still unconditional) remain unimplemented.
+
 ## References
 
 - Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]

@@ -8,7 +8,7 @@ services: [react, api, persistence, vcs, workflows]
 branch: opencode/feature/chat-session-list-and-rerun
 tickets: []
 tags: [frontend, sessions, feedback-loops, chat, rerun]
-related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-11-03-ch-2-single-unified-session-view.md, 2026-09-24-mnt-219-session-log-autoscroll.md]
+related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-11-03-ch-2-single-unified-session-view.md, 2026-09-24-mnt-219-session-log-autoscroll.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-06-ch-6-markdown-renderer.md]
 ---
 
 # Chat session list and rerun semantics
@@ -62,6 +62,8 @@ The live `previousStepRef` detection stays for instant feedback between polls.
 
 ## Step 4 — Read-only description and resuming Re-run
 **Description.** Removed `PATCH /api/v1/chats/{task_id}`, the `UpdateChat` model, `update_chat`, `update_session_step_if_stopped` and the FE `updateChat` client. `ChatPanel` renders `chat.description` as pre-wrapped text (`.chat-description-text`); it is set only at creation now.
+
+> **Consistency note (2026-11-09, Consistency Agent):** "renders `chat.description` as pre-wrapped text" is superseded by [[2026-11-06-ch-6-markdown-renderer]] — `ChatPanel` now renders the description through `MarkdownContent` (marked + DOMPurify) with `chat-markdown` classes (`react/src/components/ChatPanel.tsx:251-254`). A later reshuffle also moved the delete wiring into `handleDeleteSession` under `.chat-topbar-actions` (see [[2026-11-06-ch-5-delete-chat-button]]); the rest of this page stands.
 
 **Re-run.** New `POST /api/v1/chats/{task_id}/rerun` (FE `rerunChat`); the endpoint checks the project is still ready via `is_project_ready` before claiming. `claim_session_for_rerun` is an atomic conditional update from `failed`/`awaiting_input`: a posted plan with content keeps `build_plan`, `posted_to_linear`, `run_attempts` and `session_id` and resumes at `step='build'`; a plan without approval (never posted, or a posted flag without plan content — the plan agent stopped with open questions before the plan reached the thread) instead clears the plan, resets the posted flag and restarts at `initial` with an `initial` step row in the timeline, so the rerun cannot build without the requested answers. With the plan kept, `main.py` skips `run_plan_step` and goes straight to build (the first build invocation forks the previous opencode session once). The step change also makes the claim exclusive, and the Re-run button is now limited to `failed`/`awaiting_input`.
 

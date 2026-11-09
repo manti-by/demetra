@@ -8,7 +8,7 @@ services: [docs, opencode, settings]
 branch: "-"
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
-related: [2026-07-22-feature-flag-settings-and-tests.md]
+related: [2026-07-22-feature-flag-settings-and-tests.md, 2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 
 # AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command
@@ -39,6 +39,8 @@ Description updated to match AGENTS.md; link `DOCS.md` → `wiki/INDEX.md`.
 ## Step 5 — `opencode.json`
 
 Added `"plugin": ["@langchain/langsmith-opencode"]` for session tracing.
+
+> **Consistency note (2026-11-09, Consistency Agent):** that plugin was later removed (`67d106c`) — `opencode.json` now declares `"plugins": []`, and tracing flows via `LANGSMITH_*` / `TRACE_TO_LANGSMITH` environment variables (host→container forwarding in `docker-compose.yaml`, in-process emission in `SessionEnvironment.system_env`, see [[2026-09-28-compose-langsmith-host-env]] and [[2026-10-06-unify-subprocess-env-on-session-environment]]).
 
 ## Step 6 — Wiki housekeeping
 

@@ -107,6 +107,8 @@ Covered: full coverage → `None`, partial → missing items, empty diff → all
 
 > **Consistency note (2026-08-27):** `demetra/services/opencode.py` → `demetra/services/agents/opencode.py`; `demetra/services/subprocess.py` → `demetra/services/runtime/subprocess.py` (`04436c6`). Stdin-piping behavior unchanged.
 
+> **Consistency note (2026-11-09, Consistency Agent):** the TL;DR parenthetical "there is no `MAX_REVIEW_ATTEMPTS` setting" is stale at HEAD — `MAX_ATTEMPTS["review"] = env_get_int("MAX_REVIEW_ATTEMPTS", 5)` exists in `demetra/settings.py` (`:51`, added with the `MAX_ATTEMPTS` dict). The budgets/branches described in the 2026-10-26 correction above are unaffected.
+
 > **Correction (2026-10-26, Consistency Agent):** the budget in current code is `MAX_ATTEMPTS["build"]` for both `rerun_attempts` and `validate_attempts` (`demetra/workflows/build.py:98-99`), not `MAX_REVIEW_ATTEMPTS`; the auto-mode branch decrements `rerun_attempts`/`validate_attempts` (`build.py:157-158`) and requires both `review_attempts > 0 and validate_attempts > 0` (`build.py:144`). The snippet's `env=context.project.environment` was also replaced by `environment=context.environment` in the 2026-10-06 `SessionEnvironment` unification ([[2026-10-06-unify-subprocess-env-on-session-environment]]).
 
 ## References

@@ -4,7 +4,7 @@ date: '2026-11-06'
 type: implementation
 status: resolved
 session_id: ses_e4f46534effeBppQxjkS76DkdH
-services: [pyproject, App, ChatPanel.test, ChatPanel, MarkdownContent.test, MarkdownContent, SessionArtifacts.test, SessionArtifacts, SessionList.test, ChatPage.test, .sessions, INDEX, 2026-11-06-ch-6-markdown-renderer]
+services: [react]
 branch: ch-6-markdown-renderer
 tickets: [CH-6]
 tags: [wiki, frontend, feature]
@@ -94,6 +94,5 @@ All frontend tests were updated to account for the new markdown rendering behavi
 - None
 
 ## References
-- External: <Linear ticket URL>
 - Related: [[2026-06-09-markdown-renderer]]
 - Related: [[2026-11-03-ch-2-single-unified-session-view]]

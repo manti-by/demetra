@@ -113,6 +113,30 @@ class TestWatcherService:
         with patch("demetra.services.daemons.watcher.delay_run_workflow", new_callable=AsyncMock) as mock:
             yield mock
 
+    @pytest.fixture(autouse=True)
+    def mock_get_exhausted_session_task_ids(self):
+        with patch(
+            "demetra.services.daemons.watcher.get_exhausted_session_task_ids",
+            new_callable=AsyncMock,
+            return_value=set(),
+        ) as mock:
+            yield mock
+
+    @pytest.fixture(autouse=True)
+    def mock_reset_run_attempts(self):
+        with patch("demetra.services.daemons.watcher.reset_run_attempts", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture(autouse=True)
+    def mock_update_session_step(self):
+        with patch("demetra.services.daemons.watcher.update_session_step", new_callable=AsyncMock) as mock:
+            yield mock
+
+    @pytest.fixture(autouse=True)
+    def mock_max_run_attempts(self):
+        with patch("demetra.services.daemons.watcher.MAX_ATTEMPTS", {"run": 3}):
+            yield
+
     def _task(self, faker, **kwargs):
         return LinearTask(
             id=str(uuid4()),
@@ -216,4 +240,48 @@ class TestWatcherService:
         await process_tasks(tasks=[task])
 
         mock_update_ticket_status.assert_awaited_once_with(task_id=task.id, state_id="in-progress-state")
+        mock_delay_run_workflow.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_resets_attempts_for_reopened_task(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_resolve_linear_state,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+        mock_get_exhausted_session_task_ids,
+        mock_reset_run_attempts,
+        mock_update_session_step,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_exhausted_session_task_ids.return_value = {task.id}
+
+        await process_tasks(tasks=[task])
+
+        mock_reset_run_attempts.assert_awaited_once_with(task_id=task.id)
+        mock_update_session_step.assert_awaited_once_with(task_id=task.id, step="initial")
+        mock_delay_run_workflow.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_process_tasks_does_not_reset_without_recorded_exhaustion(
+        self,
+        faker,
+        mock_get_pending_session_task_ids,
+        mock_upsert_pending_session,
+        mock_resolve_linear_state,
+        mock_update_ticket_status,
+        mock_delay_run_workflow,
+        mock_get_exhausted_session_task_ids,
+        mock_reset_run_attempts,
+        mock_update_session_step,
+    ):
+        task = self._task(faker, project_name="demetra", project_id="project-1", user_id="user-1")
+        mock_get_exhausted_session_task_ids.return_value = set()
+
+        await process_tasks(tasks=[task])
+
+        mock_reset_run_attempts.assert_not_awaited()
+        mock_update_session_step.assert_not_awaited()
         mock_delay_run_workflow.assert_awaited_once()

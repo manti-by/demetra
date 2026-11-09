@@ -7,6 +7,14 @@ pages and moves the entry to **Resolved**.
 
 ## Open
 
+### Q-003 — MAX_AGENT_NETWORK_ATTEMPTS: incident logs quote a 10-attempt budget vs the shipped default of 5
+
+- **Date:** 2026-11-09
+- **Pages:** [[2026-11-06-mnt-298-research-econnreset-root-cause]], [[2026-11-06-agent-econnreset-network-investigation]], [[2026-11-03-mnt-276-econnreset-retry-for-agents]]
+- **Discrepancy:** [[2026-11-06-mnt-298-research-econnreset-root-cause]] quotes incident logs `Agent research-agent hit a network error (attempt 1/10 … 7/10); retrying in {2s,4s,8s,…128s}` and describes "exhausting its retry budget", i.e. a budget of 10; [[2026-11-06-agent-econnreset-network-investigation]] says the budget is "currently 5". Current `demetra/settings.py:61` reads `MAX_AGENT_NETWORK_ATTEMPTS = env_get_int("MAX_AGENT_NETWORK_ATTEMPTS", 5)`, `.env.docker.example` does not set the variable, and `git log -S MAX_AGENT_NETWORK_ATTEMPTS` shows it was introduced by `eeec893` (MNT-276) and never changed.
+- **Checked:** `demetra/settings.py:61`, `.env.docker.example`, `demetra/services/agents/opencode.py:734`, `git log -S`. The repo cannot show whether the production environment carried an override of 10 at incident time.
+- **Answer:** _(human writes here)_
+
 ### Q-002 — MAX_RUN_ATTEMPTS / MAX_PLAN_ATTEMPTS defaults dropped in settings refactor
 
 - **Date:** 2026-10-06

@@ -8,7 +8,7 @@ services: [agents, deploy, llm]
 branch: master
 tickets: [MNT-276]
 tags: [network, econnreset, docker, llm, openrouter, deepseek, ipv6, mtu, debugging]
-related: [2026-11-03-mnt-276-econnreset-retry-for-agents.md]
+related: [2026-11-03-mnt-276-econnreset-retry-for-agents.md, 2026-11-06-mnt-298-research-econnreset-root-cause.md]
 ---
 
 # Agent ECONNRESET network errors — root cause
@@ -124,6 +124,14 @@ outages at those moments.
 ## Follow-ups
 
 - None beyond the "Known follow-up" items above.
+
+> **Consistency note (2026-11-06, Consistency Agent):** the root cause above is
+> superseded for the research-agent ECONNRESET family by
+> [[2026-11-06-mnt-298-research-econnreset-root-cause]]: the resetting server there was
+> opencode's own local managed-service server (concurrent `opencode run` invocations
+> thrashing one `service.json` registration), fixed with `--standalone` — not
+> `api.deepseek.com` idle closes. The provider-side idle-close findings in this page
+> remain the explanation for the mid-stream CH-1–CH-4 resets.
 
 ## References
 

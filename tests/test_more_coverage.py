@@ -5,7 +5,7 @@ import pytest
 
 from demetra.library.models import Session
 from demetra.services.agents.coderabbit import coderabbit_review_agent
-from demetra.services.daemons.watcher import process_tasks, run_workflow
+from demetra.services.daemons.watcher import handle_exhausted_attempts, process_tasks, run_workflow
 from demetra.services.persistence.encryption import get_fernet
 
 
@@ -279,3 +279,51 @@ class TestWatcherService:
         process_mock.kill.assert_called_once()
         process_mock.wait.assert_awaited_once()
         mock_increment_run_attempts.assert_awaited_once_with(task_id)
+
+    @pytest.mark.asyncio
+    async def test_handle_exhausted_attempts_marks_awaiting_input_on_success(
+        self,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_resolve_linear_state,
+    ):
+
+        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_update_ticket_status.return_value = True
+
+        with (
+            patch("demetra.services.daemons.watcher.is_chat_task", new_callable=AsyncMock, return_value=False),
+            patch("demetra.services.daemons.watcher.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.services.daemons.watcher.mark_attempts_exhausted", new_callable=AsyncMock) as mock_mark,
+        ):
+            await handle_exhausted_attempts(
+                task_id="TASK-1", user_id="user-1", project_id="project-1", max_run_attempts=3
+            )
+
+        mock_post_comment.assert_awaited_once_with(task_id="TASK-1", body="Max run attempts reached")
+        mock_update_step.assert_awaited_once_with(task_id="TASK-1", step="awaiting_input")
+        mock_mark.assert_awaited_once_with(task_id="TASK-1")
+
+    @pytest.mark.asyncio
+    async def test_handle_exhausted_attempts_preserves_counter_on_failed_move(
+        self,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_resolve_linear_state,
+    ):
+
+        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_update_ticket_status.return_value = False
+
+        with (
+            patch("demetra.services.daemons.watcher.is_chat_task", new_callable=AsyncMock, return_value=False),
+            patch("demetra.services.daemons.watcher.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.services.daemons.watcher.mark_attempts_exhausted", new_callable=AsyncMock) as mock_mark,
+        ):
+            await handle_exhausted_attempts(
+                task_id="TASK-1", user_id="user-1", project_id="project-1", max_run_attempts=3
+            )
+
+        mock_post_comment.assert_awaited_once_with(task_id="TASK-1", body="Max run attempts reached")
+        mock_update_step.assert_not_awaited()
+        mock_mark.assert_not_awaited()

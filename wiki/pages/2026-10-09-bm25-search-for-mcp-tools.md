@@ -219,6 +219,11 @@ the tool). `docstring_search` keeps BM25F. See
 - `AGENTS.md:157` describes `SEARCH` as holding "shared wiki/docstring weights". That is
   still true in spirit but now means boosts and length norms plus `bm25_k1`, so the
   wording is worth tightening.
+  - **Consistency note (2026-11-09, Consistency Agent):** partially superseded by
+    [[2026-10-15-replace-wiki-mcp-tool-with-wi]] — the six `SEARCH["wiki_*"]`
+    boost/length-norm keys were deleted when the in-repo wiki MCP tools were retired;
+    only the `docstring_*` keys remain in `SEARCH` (`demetra/settings.py:78-82`), so
+    AGENTS.md's SEARCH description no longer covers wiki weights.
 - Step 5 of the audit (stemming, and shrinking or dropping the hardcoded stop-word list
   now that IDF handles common terms) was deliberately **not** done. `logging`/`logs` and
   `configure`/`configuration` are the visible recall gaps that stemming would close.
