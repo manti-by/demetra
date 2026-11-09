@@ -14,6 +14,7 @@ from demetra.services.persistence.database import (
     get_project_environments,
     get_session,
     increment_run_attempts,
+    reset_run_attempts,
     upsert_pending_session,
 )
 from demetra.services.persistence.queue import enqueue_workflow
@@ -98,13 +99,10 @@ async def run_workflow(project_name: str, task_id: str) -> bool:
     user_id = session.user_id if session else DEFAULT_USER_ID
     project_id = session.project_id if session else None
     if session and session.run_attempts > max_run_attempts:
-        await handle_exhausted_attempts(
-            task_id=task_id,
-            user_id=user_id,
-            project_id=project_id,
-            max_run_attempts=max_run_attempts,
-        )
-        return False
+        # The ticket was moved back to TODO after exhausting its attempt budget,
+        # so grant a fresh budget instead of bouncing it straight back to
+        # Awaiting Input. The run below then re-increments on failure as usual.
+        await reset_run_attempts(task_id=task_id)
 
     process = None
     try:

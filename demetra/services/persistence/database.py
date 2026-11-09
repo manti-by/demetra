@@ -308,6 +308,38 @@ async def increment_run_attempts(task_id: str) -> int:
     return row.run_attempts if row else 0
 
 
+async def reset_run_attempts(task_id: str) -> int:
+    """Reset the run attempt counter for a session to zero.
+
+    Called when an exhausted task is moved back to ``TODO`` so a fresh attempt
+    budget is granted instead of bouncing it straight back to Awaiting Input.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The reset run attempt count, or 0 when the session is missing.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET run_attempts = 0, updated_at = :updated_at
+                WHERE task_id = :task_id
+                RETURNING run_attempts
+                """
+            ),
+            {
+                "task_id": task_id,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+    return row.run_attempts if row else 0
+
+
 async def reset_listener_attempts(task_id: str) -> int:
     """Reset the listener attempt counter for a session to zero.
 
