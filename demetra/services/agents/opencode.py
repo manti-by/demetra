@@ -45,13 +45,15 @@ _VERSION_PATTERN = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 _CLI_ARGS_PATTERN = re.compile(r"--[a-z][a-z-]+")
 
 _MAJOR_VERSION_CACHE: dict[str, int | None] = {}
+_STANDALONE_SUPPORT_CACHE: dict[str, bool] = {}
 _CLI_VERIFIED = False
 
 
 def reset_opencode_cli_state() -> None:
-    """Clear the cached CLI version and the once-per-process smoke-test flag."""
+    """Clear the cached CLI version, flag support and the once-per-process smoke-test flag."""
     global _CLI_VERIFIED
     _MAJOR_VERSION_CACHE.clear()
+    _STANDALONE_SUPPORT_CACHE.clear()
     _CLI_VERIFIED = False
 
 
@@ -641,6 +643,36 @@ async def opencode_research_agent(
     )
 
 
+async def opencode_supports_standalone(target_path: Path, environment: SessionEnvironment | None = None) -> bool:
+    """Return whether ``opencode run`` advertises the ``--standalone`` flag.
+
+    Support is read from ``run --help`` rather than inferred from a version
+    number, so it stays correct across releases. A successful probe is cached
+    per CLI path; a failed probe is not cached and reports no support, so the
+    flag is omitted instead of risking an unknown-option failure.
+
+    Args:
+        target_path: Directory to run the help probe in.
+        environment: The resolved session environment forwarded to the subprocess.
+
+    Returns:
+        bool: True when ``run --help`` lists ``--standalone``.
+    """
+    path = str(OPENCODE["path"])
+    if path in _STANDALONE_SUPPORT_CACHE:
+        return _STANDALONE_SUPPORT_CACHE[path]
+
+    exit_code, stdout, stderr = await run_command(
+        command=[path, "run", "--help"], target_path=target_path, disable_stdio=True, environment=environment
+    )
+    if exit_code != 0:
+        return False
+
+    supported = "--standalone" in set(_CLI_ARGS_PATTERN.findall(f"{stdout}\n{stderr}"))
+    _STANDALONE_SUPPORT_CACHE[path] = supported
+    return supported
+
+
 async def run_opencode_agent(
     target_path: Path,
     task: str,
@@ -659,6 +691,10 @@ async def run_opencode_agent(
     The task prompt is delivered to the ``opencode run`` message slot via stdin,
     so arbitrarily long prompts (e.g. full build plans) reach the agent intact
     instead of being truncated to fit a command-line argument.
+
+    ``--standalone`` is passed only when ``run --help`` lists it (see
+    :func:`opencode_supports_standalone`), so older CLIs are not broken by an
+    unknown option.
 
     The working directory is set through the subprocess ``cwd`` rather than
     ``--dir``: opencode 2.x removed the flag (the directory became a root
@@ -692,9 +728,13 @@ async def run_opencode_agent(
     """
     attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
     resumed_session_id: str | None = None
+    standalone = await opencode_supports_standalone(target_path=target_path, environment=environment)
     for attempt in range(attempts):
         continued_session_id = resumed_session_id if resumed_session_id is not None else session_id
-        command = [str(OPENCODE["path"]), "run", "--standalone", "--model", model, "--agent", agent]
+        command = [str(OPENCODE["path"]), "run"]
+        if standalone:
+            command.append("--standalone")
+        command.extend(["--model", model, "--agent", agent])
         if continued_session_id is not None:
             command.extend(["--session", continued_session_id])
             if fork and attempt == 0:

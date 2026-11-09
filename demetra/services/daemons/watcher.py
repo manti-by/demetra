@@ -225,7 +225,11 @@ async def process_tasks(tasks: list[LinearTask]) -> None:
         if step == "awaiting_input" and run_attempts > max_run_attempts:
             # The task exhausted its budget and a human moved it back to TODO,
             # so grant a fresh budget for this run instead of bouncing it again.
+            # The step leaves ``awaiting_input`` in the same transition: the
+            # session upsert preserves the stored step, so a stale marker would
+            # make the next poll treat the fresh budget as exhausted again.
             await reset_run_attempts(task_id=task.id)
+            await update_session_step(task_id=task.id, step="initial")
 
         # Always move an accepted TODO task to ``in_progress``, even on re-pickup:
         # a task can return to TODO while still pending (session_id="") after a
