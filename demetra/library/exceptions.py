@@ -42,6 +42,10 @@ class ReviewError(DemetraError):
     pass
 
 
+class LintError(DemetraError):
+    pass
+
+
 class PrDescriptionError(DemetraError):
     pass
 

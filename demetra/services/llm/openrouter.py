@@ -1,12 +1,20 @@
 import logging
 from pathlib import Path
+from typing import Literal
 
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.constants import WIKI_REQUIRED_SECTIONS
-from demetra.library.exceptions import EnvironmentConfigError, PlanError, PrDescriptionError, ReviewError, WikiError
+from demetra.library.exceptions import (
+    EnvironmentConfigError,
+    LintError,
+    PlanError,
+    PrDescriptionError,
+    ReviewError,
+    WikiError,
+)
 from demetra.library.models import SessionEnvironment, TokenUsage
 from demetra.services.llm.factory import build_llm, resolve_llm_model
 from demetra.services.llm.parser import NumberedListOutputParser
@@ -19,6 +27,12 @@ logger = logging.getLogger(__name__)
 
 
 PLAN_OUTPUT_MAX_CHARS = 32_000
+
+ERRORS_OUTPUT_MAX_CHARS = 16_000
+
+ERRORS_MAX_TOKENS = 8192
+
+ErrorSource = Literal["ruff", "pytest"]
 
 TICKET_FIELDS = ("title", "description", "technical_requirements", "acceptance_criteria", "project_name")
 
@@ -238,6 +252,94 @@ async def summarize_review(
         raise ReviewError("Failed to summarize the review") from None
 
     await _record_llm_call(task_id=task_id, step="summarize_review", environment=environment, message=message)
+    return result
+
+
+async def extract_errors(
+    errors_output: str,
+    source: ErrorSource,
+    *,
+    task_id: str | None = None,
+    environment: SessionEnvironment | None = None,
+) -> list[str]:
+    """Extract the actionable errors from a raw ruff or pytest output.
+
+    The raw outputs are noisy (progress lines, headers, timing lines,
+    tracebacks) and the build agent only needs the errors themselves. The input
+    is capped at ``ERRORS_OUTPUT_MAX_CHARS`` characters the same way the plan
+    output is, keeping the head for ruff (it prints one concise diagnostic per
+    violation and no trailing summary) and the tail for pytest (it ends with
+    the short test summary listing every failing test). The LLM call is skipped
+    entirely when there is no input.
+
+    The completion budget covers the whole input budget: a 16k-char ruff output
+    is roughly 200 entries at ~80 chars each, so ``ERRORS_MAX_TOKENS`` leaves
+    headroom above that. A list cut off by the token limit is never returned as
+    a partial result — the response is checked for a ``length`` finish reason
+    and ``LintError`` is raised instead, so the caller falls back to the raw
+    output.
+
+    Args:
+        errors_output: The raw ruff or pytest output.
+        source: The tool that produced the output, ``ruff`` or ``pytest``.
+        task_id: Optional task id used to record the call in the session history.
+        environment: Optional resolved env layer configuring the LLM via
+            ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
+
+    Returns:
+        list[str]: De-duplicated error entries, or an empty list.
+
+    Raises:
+        LintError: When the LLM call fails or its list is truncated by the limit.
+    """
+    if not errors_output or not errors_output.strip():
+        return []
+
+    # ruff ends with the last violation, so the tail carries no summary and the
+    # head keeps the violations the build agent reads first; pytest ends with
+    # the short test summary, which the tail keeps along with the latest failures.
+    errors_output = (
+        errors_output[:ERRORS_OUTPUT_MAX_CHARS] if source == "ruff" else errors_output[-ERRORS_OUTPUT_MAX_CHARS:]
+    )
+
+    seen: set[str] = set()
+    result: list[str] = []
+    message = None
+    try:
+        llm = await build_llm(temperature=0.1, max_tokens=ERRORS_MAX_TOKENS, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="extract_errors")),
+                ("human", "Output:\n{errors_output}"),
+            ]
+        )
+        output_parser = NumberedListOutputParser()
+
+        chain = prompt | llm
+        message = await chain.ainvoke(input={"source": source, "errors_output": errors_output})
+        metadata = getattr(message, "response_metadata", None) or {}
+        if isinstance(metadata, dict) and metadata.get("finish_reason") == "length":
+            raise LintError("The error extraction was truncated by the token limit")
+        parsed = output_parser.parse(text=str(message.content))
+
+        for item in parsed:
+            if error := str(item).strip():
+                key = error.casefold()
+                if key not in seen:
+                    seen.add(key)
+                    result.append(error)
+    except Exception as e:
+        logger.exception("LLM call failed in extract_errors")
+        await _record_llm_call(
+            task_id=task_id,
+            step="extract_errors",
+            environment=environment,
+            message=message,
+            error=str(e),
+        )
+        raise LintError("Failed to extract the lint errors") from None
+
+    await _record_llm_call(task_id=task_id, step="extract_errors", environment=environment, message=message)
     return result
 
 

@@ -21,7 +21,7 @@ class TestLintService:
 
         assert mock_run_command.call_count == 1
         call = mock_run_command.call_args
-        assert call[1]["command"][1:] == ["run", "--active", "ruff", "check", "--quiet"]
+        assert call[1]["command"][1:] == ["run", "--active", "ruff", "check", "--quiet", "--output-format=concise"]
         assert call[1]["target_path"] == target_path
         assert result == (0, "ruff check output", "")
 

@@ -25,6 +25,10 @@ async def run_ruff_format(target_path: Path, environment: SessionEnvironment | N
 async def run_ruff_checks(target_path: Path, environment: SessionEnvironment | None = None) -> tuple[int, str, str]:
     """Run ruff lint checks over a directory.
 
+    The concise format renders one ``path:line:col: CODE message`` line per
+    violation instead of a multi-line snippet, so the whole violation set fits
+    the error-extraction budget and matches the shape the extractor reads.
+
     Args:
         target_path: Directory to lint.
         environment: The resolved session environment forwarded to the subprocess.
@@ -33,7 +37,7 @@ async def run_ruff_checks(target_path: Path, environment: SessionEnvironment | N
         tuple[int, str, str]: Exit code, stdout and stderr of the command.
     """
     return await run_command(
-        command=[str(UV["path"]), "run", "--active", "ruff", "check", "--quiet"],
+        command=[str(UV["path"]), "run", "--active", "ruff", "check", "--quiet", "--output-format=concise"],
         target_path=target_path,
         environment=environment,
     )

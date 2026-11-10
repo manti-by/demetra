@@ -4,12 +4,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from demetra.library.exceptions import PlanError, WikiError
+from demetra.library.exceptions import LintError, PlanError, WikiError
 from demetra.library.models import TokenUsage
 from demetra.services.llm.openrouter import (
     _extract_usage,
     _record_llm_call,
     compose_wiki_page,
+    extract_errors,
     extract_plan,
     extract_questions,
     generate_pr_description,
@@ -314,6 +315,191 @@ class TestOpenRouterService:
 
             with pytest.raises(PlanError, match="Failed to summarize the build plan"):
                 await extract_plan(plan_output="plan", task_description="task", comments=[])
+
+
+class TestExtractErrors:
+    @staticmethod
+    def _chain(content: str) -> tuple[MagicMock, AsyncMock]:
+        mock_chain = AsyncMock()
+        mock_chain.ainvoke.return_value = MagicMock(content=content)
+        mock_prompt = MagicMock()
+        mock_prompt.__or__.return_value = mock_chain
+        return mock_prompt, mock_chain
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_function_exists(self):
+        assert callable(extract_errors)
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_signature(self):
+        sig = inspect.signature(extract_errors)
+        params = list(sig.parameters.keys())
+
+        assert "errors_output" in params
+        assert "source" in params
+        assert sig.return_annotation == list[str]
+        assert "environment" in params
+        assert "user_id" not in params
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_returns_empty_for_empty_input(self):
+        with patch("demetra.services.llm.openrouter.build_llm") as mock_llm:
+            result = await extract_errors(errors_output="", source="ruff")
+
+        assert result == []
+        mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_returns_empty_for_whitespace_input(self):
+        with patch("demetra.services.llm.openrouter.build_llm") as mock_llm:
+            result = await extract_errors(errors_output="   \n\t  ", source="pytest")
+
+        assert result == []
+        mock_llm.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_parses_the_numbered_list(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, _ = self._chain(
+                "1. app/main.py:10:5: F401 `os` imported but unused\n2. app/main.py:20:1: E501 Line too long"
+            )
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_errors(errors_output="raw output", source="ruff")
+
+        assert result == [
+            "app/main.py:10:5: F401 `os` imported but unused",
+            "app/main.py:20:1: E501 Line too long",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_deduplicates_the_errors(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, _ = self._chain(
+                "1. tests/test_a.py::test_x - AssertionError\n2. TESTS/TEST_A.PY::TEST_X - AssertionError"
+            )
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_errors(errors_output="raw output", source="pytest")
+
+        assert result == ["tests/test_a.py::test_x - AssertionError"]
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_keeps_the_head_of_a_long_ruff_output(self):
+        long_output = "".join(f"app/main.py:{line}:1: E501 Line too long\n" for line in range(2_000))
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, mock_chain = self._chain("1. app/main.py:3:1: E501 Line too long")
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_errors(errors_output=long_output, source="ruff")
+
+        assert result == ["app/main.py:3:1: E501 Line too long"]
+        output_passed = mock_chain.ainvoke.call_args.kwargs["input"]["errors_output"]
+        assert len(output_passed) <= 16_000
+        assert output_passed == long_output[:16_000]
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_keeps_the_tail_of_a_long_pytest_output(self):
+        long_output = "E" * 40_000
+
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, mock_chain = self._chain("1. tests/test_a.py::test_x - AssertionError")
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_errors(errors_output=long_output, source="pytest")
+
+        assert result == ["tests/test_a.py::test_x - AssertionError"]
+        output_passed = mock_chain.ainvoke.call_args.kwargs["input"]["errors_output"]
+        assert len(output_passed) <= 16_000
+        assert output_passed == long_output[-16_000:]
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_forwards_the_source(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, mock_chain = self._chain("1. tests/test_a.py::test_x - AssertionError")
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            await extract_errors(errors_output="raw output", source="pytest")
+
+        assert mock_chain.ainvoke.call_args.kwargs["input"]["source"] == "pytest"
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_requests_enough_output_tokens(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, _ = self._chain("1. app/main.py:3:1: E501 Line too long")
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            await extract_errors(errors_output="raw output", source="ruff")
+
+        assert mock_llm.call_args.kwargs["max_tokens"] == 8192
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_raises_lint_error_on_a_truncated_response(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = MagicMock(
+                content="1. app/main.py:3:1: E501 Line too long",
+                response_metadata={"finish_reason": "length"},
+            )
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(LintError, match="Failed to extract the lint errors"):
+                await extract_errors(errors_output="raw output", source="ruff")
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_raises_lint_error_on_llm_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(LintError, match="Failed to extract the lint errors"):
+                await extract_errors(errors_output="raw output", source="ruff")
 
 
 class TestExtractQuestions:
@@ -792,6 +978,90 @@ class TestOpenRouterSessionCalls:
             model="openai/gpt-oss-120b",
             usage=None,
             message=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_records_the_call(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = self._message("1. app/main.py:10:5: F401 unused import")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await extract_errors(errors_output="raw output", source="ruff", task_id="TASK-1")
+
+        assert result == ["app/main.py:10:5: F401 unused import"]
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="extract_errors",
+            model="openai/gpt-oss-120b",
+            usage=None,
+            message=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_records_the_failure_reason(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(LintError):
+                await extract_errors(errors_output="raw output", source="pytest", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="extract_errors",
+            model="openai/gpt-oss-120b",
+            usage=None,
+            message="LLM unavailable",
+        )
+
+    @pytest.mark.asyncio
+    async def test_extract_errors_records_the_truncation_reason(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="openai/gpt-oss-120b"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = MagicMock(
+                content="1. app/main.py:3:1: E501 Line too long",
+                response_metadata={"finish_reason": "length"},
+            )
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(LintError):
+                await extract_errors(errors_output="raw output", source="ruff", task_id="TASK-1")
+
+        mock_record.assert_awaited_once_with(
+            task_id="TASK-1",
+            step="extract_errors",
+            model="openai/gpt-oss-120b",
+            usage=None,
+            message="The error extraction was truncated by the token limit",
         )
 
     @pytest.mark.asyncio
