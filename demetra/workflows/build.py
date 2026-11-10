@@ -9,7 +9,12 @@ from demetra.services.agents.opencode import (
     opencode_compact_session,
     opencode_supports_compaction,
 )
-from demetra.services.persistence.database import record_session_step, update_session_step
+from demetra.services.persistence.database import (
+    increment_review_attempts,
+    record_session_step,
+    reset_review_attempts,
+    update_session_step,
+)
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.project import bump_project_version
 from demetra.services.runtime.tui import print_message
@@ -80,7 +85,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
 
     Iterates the build agent, feeding it missing plan items, review comments or
     lint/test failures as the next task until the pipeline is clean or the
-    attempt budget is exhausted. The first invocation forks the plan session
+    attempt budget is exhausted. The review-round budget is durable
+    (``sessions.review_attempts``): rounds whose comments were applied are
+    counted there, so a workflow restart resumes the stored count instead of
+    renewing the budget. The first invocation forks the plan session
     once; every later iteration resumes the fork so the context is bounded
     exactly once. A ``kind='step'`` history row is recorded every time the
     build starts, so the feedback-loop transitions the step-count query reads
@@ -100,7 +108,16 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     current_task: str = build_plan
     rerun_attempts = MAX_ATTEMPTS["build"]
     validate_attempts = MAX_ATTEMPTS["build"]
-    review_attempts = MAX_ATTEMPTS["review"]
+    # The review budget is durable: sessions.review_attempts counts the rounds
+    # whose comments were already applied, so a watcher restart resumes the
+    # stored count instead of granting a fresh budget every run.
+    review_attempts = MAX_ATTEMPTS["review"] - (context.session.review_attempts if context.session else 0)
+    if review_attempts <= 0:
+        review_attempts = 0
+        print_message(
+            f"Durable review budget exhausted ({MAX_ATTEMPTS['review']} rounds already applied).",
+            style="warning",
+        )
     is_version_updated = False
     review_step_finished = False
     is_first_build = True
@@ -174,6 +191,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     rerun_attempts = MAX_ATTEMPTS["build"]
                     validate_attempts = MAX_ATTEMPTS["build"]
                     review_attempts = MAX_ATTEMPTS["review"]
+                    await reset_review_attempts(task_id=context.linear_task.id)
 
             await update_session_step(task_id=context.linear_task.id, step="review")
             review_round += 1
@@ -190,6 +208,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     current_task = review_comments
                     rerun_attempts -= 1
                     review_attempts -= 1
+                    await increment_review_attempts(task_id=context.linear_task.id)
                     continue
 
                 result, _ = await user_input([("1", "apply review comments"), ("2", "skip")])
@@ -198,12 +217,14 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     current_task = review_comments
                     rerun_attempts -= 1
                     review_attempts -= 1
+                    await increment_review_attempts(task_id=context.linear_task.id)
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
                     rerun_attempts = MAX_ATTEMPTS["build"]
                     validate_attempts = MAX_ATTEMPTS["build"]
                     review_attempts = MAX_ATTEMPTS["review"]
+                    await reset_review_attempts(task_id=context.linear_task.id)
         else:
             print_message("Skipping CODE REVIEW (attempt budget reached)", style="warning")
 

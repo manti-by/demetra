@@ -1190,6 +1190,118 @@ class TestWorkflowBuild:
         assert mock_run_review_agents.call_count == 1
         assert mock_build_agent.call_count == 12
 
+    @pytest.mark.asyncio
+    async def test_run_build_step_skips_review_when_durable_budget_is_exhausted(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="TASK-1",
+                build_plan="plan",
+                posted_to_linear=False,
+                step="build",
+                review_attempts=5,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        with patch("demetra.workflows.build.MAX_ATTEMPTS", {"build": 3, "review": 5}):
+            result = await run_build_step("test build plan", context)
+
+        assert result is None
+        mock_run_review_agents.assert_not_awaited()
+        assert mock_build_agent.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_run_build_step_counts_applied_review_rounds_durably(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=True,
+            linear_task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.side_effect = ["Fix the review comments", None]
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        with patch("demetra.workflows.build.increment_review_attempts", new_callable=AsyncMock) as mock_increment:
+            result = await run_build_step("test build plan", context)
+
+        assert result is None
+        assert mock_build_agent.call_count == 2
+        mock_increment.assert_awaited_once_with(task_id=context.linear_task.id)
+
 
 class TestContextCompaction:
     """Tests for check_and_compact_context in build.py."""

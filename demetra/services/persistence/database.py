@@ -233,7 +233,7 @@ async def upsert_pending_session(
                     user_id = COALESCE(EXCLUDED.user_id, sessions.user_id),
                     linear_link = COALESCE(EXCLUDED.linear_link, sessions.linear_link),
                     updated_at = EXCLUDED.updated_at
-                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, is_research, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, research_report, created_at, updated_at
+                RETURNING task_id, name, session_id, build_plan, posted_to_linear, step, is_research, project_id, user_id, run_attempts, listener_attempts, review_attempts, pr_link, linear_link, research_report, created_at, updated_at
                 """
             ),
             {
@@ -271,6 +271,7 @@ async def upsert_pending_session(
         user_id=row.user_id,
         run_attempts=row.run_attempts,
         listener_attempts=row.listener_attempts,
+        review_attempts=row.review_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         research_report=row.research_report,
@@ -333,7 +334,8 @@ async def reset_run_attempts(task_id: str) -> int:
     Called when an exhausted task is moved back to ``TODO`` so a fresh attempt
     budget is granted instead of bouncing it straight back to Awaiting Input.
     The marker is cleared in the same statement so a later exhaustion has to be
-    recorded again.
+    recorded again. The durable review-round counter is reset alongside, since
+    a fresh lifecycle also grants a fresh review budget.
 
     Args:
         task_id: The Linear task identifier.
@@ -346,7 +348,7 @@ async def reset_run_attempts(task_id: str) -> int:
             text(
                 """
                 UPDATE sessions
-                SET run_attempts = 0, attempts_exhausted = false, updated_at = :updated_at
+                SET run_attempts = 0, attempts_exhausted = false, review_attempts = 0, updated_at = :updated_at
                 WHERE task_id = :task_id
                 RETURNING run_attempts
                 """
@@ -359,6 +361,72 @@ async def reset_run_attempts(task_id: str) -> int:
         await connection.commit()
         row = result.fetchone()
     return row.run_attempts if row else 0
+
+
+async def increment_review_attempts(task_id: str) -> int:
+    """Increment the durable review-round counter for a session.
+
+    Counts the review rounds whose comments were applied as the next build
+    task, so the budget survives a workflow restart: a re-run resumes the
+    stored count instead of starting from zero.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The updated review-round count, or 0 when the session is missing.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET review_attempts = review_attempts + 1, updated_at = :updated_at
+                WHERE task_id = :task_id
+                RETURNING review_attempts
+                """
+            ),
+            {
+                "task_id": task_id,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+    return row.review_attempts if row else 0
+
+
+async def reset_review_attempts(task_id: str) -> int:
+    """Reset the durable review-round counter for a session to zero.
+
+    Called when a review round's comments were deliberately skipped (manual
+    mode) or a fresh lifecycle granted a new budget, renewing the review
+    budget the same way the in-memory counter was renewed before.
+
+    Args:
+        task_id: The Linear task identifier.
+
+    Returns:
+        int: The reset review-round count, or 0 when the session is missing.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            text(
+                """
+                UPDATE sessions
+                SET review_attempts = 0, updated_at = :updated_at
+                WHERE task_id = :task_id
+                RETURNING review_attempts
+                """
+            ),
+            {
+                "task_id": task_id,
+                "updated_at": datetime.now(UTC),
+            },
+        )
+        await connection.commit()
+        row = result.fetchone()
+    return row.review_attempts if row else 0
 
 
 async def reset_listener_attempts(task_id: str) -> int:
@@ -461,6 +529,7 @@ async def get_session(task_id: str) -> Session | None:
         user_id=row.user_id,
         run_attempts=row.run_attempts,
         listener_attempts=row.listener_attempts,
+        review_attempts=row.review_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         research_report=row.research_report,
@@ -497,6 +566,7 @@ async def get_session_by_pr_link(pr_link: str) -> Session | None:
         user_id=row.user_id,
         run_attempts=row.run_attempts,
         listener_attempts=row.listener_attempts,
+        review_attempts=row.review_attempts,
         pr_link=row.pr_link,
         linear_link=row.linear_link,
         research_report=row.research_report,
@@ -579,6 +649,7 @@ async def save_session(
             user_id=row.user_id,
             run_attempts=row.run_attempts,
             listener_attempts=row.listener_attempts,
+            review_attempts=row.review_attempts,
             pr_link=row.pr_link,
             linear_link=row.linear_link,
             research_report=row.research_report,
@@ -598,6 +669,7 @@ async def save_session(
         user_id=None,
         run_attempts=0,
         listener_attempts=0,
+        review_attempts=0,
         pr_link=None,
         linear_link=linear_link,
         research_report=None,
@@ -3040,7 +3112,8 @@ async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] 
     affected-row count of zero. Only stopped steps are accepted, which keeps a
     run from overlapping an active one. Clears the build plan (so the plan step
     re-runs with the updated thread as task context), the posted flag and the
-    run-attempt counter, then moves the session back to ``initial``.
+    run-attempt and review-round counters, then moves the session back to
+    ``initial``.
 
     Args:
         task_id: The task id.
@@ -3058,6 +3131,7 @@ async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] 
                 build_plan="",
                 posted_to_linear=False,
                 run_attempts=0,
+                review_attempts=0,
                 step="initial",
                 updated_at=datetime.now(UTC),
             )
