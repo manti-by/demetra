@@ -2,10 +2,11 @@ from redis import Redis
 from rq import Queue
 from rq.job import Job
 
-from demetra.settings import REDIS_URL
+from demetra.settings import REDIS_URL, SUBPROCESS_TIMEOUT
 
 
-queue = Queue(connection=Redis.from_url(url=REDIS_URL), default_timeout=3600)
+connection = Redis.from_url(url=REDIS_URL)
+queue = Queue(connection=connection, default_timeout=SUBPROCESS_TIMEOUT + 60)  # Overhead for RQ itself
 
 WORKFLOW_JOB_PATH = "demetra.services.daemons.watcher.run_workflow"
 
