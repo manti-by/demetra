@@ -122,6 +122,13 @@ class CreateChatMessage:
 
 
 @dataclass
+class ChatTemplate:
+    name: str
+    label: str
+    content: str
+
+
+@dataclass
 class TokenUsage:
     input: int = 0
     output: int = 0
