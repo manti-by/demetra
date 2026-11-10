@@ -3,14 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { Header } from "../components/Header";
 import { Loader } from "../components/Loader";
 import { useAuth } from "../contexts/AuthContext";
-import { createChat, getProjects, type Project } from "../services/api";
+import { createChat, getChatTemplates, getProjects, type ChatTemplate, type Project } from "../services/api";
 
 export function NewChatPage() {
   const navigate = useNavigate();
   const { user, loading, logout } = useAuth();
   const [projects, setProjects] = useState<Project[]>([]);
+  const [templates, setTemplates] = useState<ChatTemplate[]>([]);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [selectedTemplate, setSelectedTemplate] = useState("");
   const [projectId, setProjectId] = useState("");
   const [tags, setTags] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -32,10 +34,29 @@ export function NewChatPage() {
     };
   }, [user]);
 
+  useEffect(() => {
+    let cancelled = false;
+    getChatTemplates()
+      .then((data) => {
+        if (cancelled) return;
+        setTemplates(data);
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : "Failed to load templates"));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const handleLogout = useCallback(async () => {
     await logout();
     window.location.reload();
   }, [logout]);
+
+  const handleApplyTemplate = useCallback(() => {
+    const template = templates.find((item) => item.name === selectedTemplate);
+    if (!template) return;
+    setDescription(template.content);
+  }, [templates, selectedTemplate]);
 
   const handleSubmit = useCallback(async () => {
     if (!title.trim() || !description.trim() || !projectId) {
@@ -89,6 +110,26 @@ export function NewChatPage() {
               placeholder="Add user authentication"
             />
           </label>
+
+          <div className="chat-form-template">
+            <select
+              id="chat-template"
+              className="form-input"
+              aria-label="Template"
+              value={selectedTemplate}
+              onChange={(e) => setSelectedTemplate(e.target.value)}
+            >
+              <option value="">Select a template</option>
+              {templates.map((template) => (
+                <option key={template.name} value={template.name}>
+                  {template.label}
+                </option>
+              ))}
+            </select>
+            <button className="btn-secondary" onClick={handleApplyTemplate} disabled={!selectedTemplate}>
+              Apply
+            </button>
+          </div>
 
           <label className="chat-field" htmlFor="chat-description">
             <span>Description</span>

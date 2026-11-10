@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import logging.config
+import os
+import socket
 from collections.abc import AsyncGenerator
 from contextlib import ExitStack, contextmanager
 from typing import Any
@@ -37,6 +39,39 @@ from demetra.settings import DATABASE
 fake = Faker()
 
 _test_db_engine = None
+
+
+def _select_test_db_host() -> None:
+    """Point the test database at the compose service when localhost is empty.
+
+    CI publishes Postgres on ``localhost`` and local development usually runs
+    it there too, so the configured host is kept whenever it accepts
+    connections. Inside the Docker compose network the database is only
+    reachable as ``postgres``, so fall back to that name instead of failing
+    every test during fixture setup.
+    """
+    if os.environ.get("DB_HOST"):
+        return
+    try:
+        port = int(os.environ.get("DB_PORT", "5432"))
+    except ValueError:
+        return
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+            return
+    except OSError:
+        pass
+    try:
+        socket.getaddrinfo("postgres", port, type=socket.SOCK_STREAM)
+    except OSError:
+        return
+    DATABASE["host"] = "postgres"
+    if not DATABASE["password"]:
+        # The compose service defaults to demetra:demetra (docker-compose.yaml).
+        DATABASE["password"] = "demetra"
+
+
+_select_test_db_host()
 
 
 @pytest.fixture(autouse=True)

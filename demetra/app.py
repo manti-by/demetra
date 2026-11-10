@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from demetra.api.auth import router as auth_router
+from demetra.api.chat_templates import router as chat_templates_router
 from demetra.api.chats import router as chats_router
 from demetra.api.github import router as github_router
 from demetra.api.projects import router as projects_router
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(chat_templates_router)
 app.include_router(chats_router)
 app.include_router(github_router)
 app.include_router(projects_router)

@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Implementation of MNT-309: Chat Template (2026-11-10)
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md) — The build loop's review budget was a local variable, so every workflow restart re-granted a fresh `MAX_ATTEMPTS["review"]` rounds; applied review rounds are now counted in a durable `sessions.review_attempts` column (migration `e8f9a0b1c2d3`) via `increment_review_attempts`/`reset_review_attempts`, `reset_run_attempts` and `claim_session_for_resume` renew it on a fresh lifecycle, and the RQ queue `default_timeout` now derives from `SUBPROCESS_TIMEOUT + 60` instead of a hardcoded 3600. (2026-11-10)
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — Implementation of MNT-308: Lint and test erorrs (2026-11-10)
 - [MNT-298 research agent ECONNRESET — local opencode server thrash](pages/2026-11-06-mnt-298-research-econnreset-root-cause.md) — Proved the `ECONNRESET` is a local opencode CLI↔server event-stream drop (`event stream disconnected`, `role=cli`), not a DeepSeek failure: concurrent `opencode run` invocations replace one `service.json` managed-service registration and shut down each other's server (shared `demetra_app_data:/home/demetra/` volume). Fixed by adding `--standalone` to the agent run command (append is probed via `run --help`); 2026-11-09 note: the incident's 10-attempt budget vs the shipped default of 5 is tracked as Q-003. (2026-11-06)
@@ -124,8 +125,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (15 pages)
+### React frontend / UI (16 pages)
 
+- [MNT-309: Chat templates](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
 - [Chat session list and rerun semantics](pages/2026-11-04-chat-session-list-and-rerun.md) _(also Workflow orchestration & agents: rerun claim, worktree retention)_ — 2026-11-04
@@ -188,6 +190,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — 2026-11-10
+- [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
 
 ### Authentication & API security (10 pages)
 

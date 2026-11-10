@@ -244,6 +244,20 @@ export interface ChatDetail {
   session: ChatSessionState | null;
 }
 
+export interface ChatTemplate {
+  name: string;
+  label: string;
+  content: string;
+}
+
+export async function getChatTemplates(): Promise<ChatTemplate[]> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/chat-templates`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch chat templates");
+  }
+  return response.json();
+}
+
 export async function getChat(
   taskId: string,
   signal?: AbortSignal,
