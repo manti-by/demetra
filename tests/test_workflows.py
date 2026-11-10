@@ -12,6 +12,7 @@ from demetra.library.exceptions import (
     InfiniteLoopError,
     LinearConfigError,
     LinearError,
+    LintError,
     PlanError,
 )
 from demetra.library.models import (
@@ -1826,6 +1827,12 @@ class TestWorkflowLint:
             yield m
 
     @pytest.fixture(autouse=True)
+    def mock_extract_errors(self):
+        with patch("demetra.workflows.lint.extract_errors", new_callable=AsyncMock) as m:
+            m.return_value = []
+            yield m
+
+    @pytest.fixture(autouse=True)
     def mock_features_enabled(self):
         with patch.dict(
             "demetra.workflows.lint.FEATURES",
@@ -1840,15 +1847,83 @@ class TestWorkflowLint:
         mock_is_package_installed,
         mock_run_ruff_format,
         mock_run_ruff_checks,
+        mock_extract_errors,
     ):
         target_path = Path(f"/tmp/{faker.slug()}")
 
         mock_is_package_installed.return_value = True
         mock_run_ruff_checks.return_value = (1, "lint errors", None)
+        mock_extract_errors.return_value = ["app/main.py:10:5: F401 `os` imported but unused"]
+
+        result = await run_lint_and_test(target_path)
+
+        assert result == (True, "1. app/main.py:10:5: F401 `os` imported but unused")
+        mock_extract_errors.assert_awaited_once_with(
+            errors_output="lint errors", source="ruff", task_id=None, environment=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_lint_and_test_returns_extracted_pytest_errors(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+        mock_extract_errors,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (1, "pytest errors", None)
+        mock_extract_errors.return_value = ["tests/test_a.py::test_x - AssertionError"]
+
+        result = await run_lint_and_test(target_path)
+
+        assert result == (True, "1. tests/test_a.py::test_x - AssertionError")
+        mock_extract_errors.assert_awaited_once_with(
+            errors_output="pytest errors", source="pytest", task_id=None, environment=None
+        )
+
+    @pytest.mark.asyncio
+    async def test_run_lint_and_test_falls_back_to_raw_output_when_extraction_fails(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_extract_errors,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (1, "lint errors", None)
+        mock_extract_errors.side_effect = LintError("Failed to extract the lint errors")
 
         result = await run_lint_and_test(target_path)
 
         assert result == (True, "lint errors")
+
+    @pytest.mark.asyncio
+    async def test_run_lint_and_test_falls_back_to_raw_output_when_nothing_is_extracted(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+        mock_extract_errors,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (1, "pytest errors", None)
+
+        result = await run_lint_and_test(target_path)
+
+        assert result == (True, "pytest errors")
 
     @pytest.mark.asyncio
     async def test_run_lint_and_test_no_errors(
