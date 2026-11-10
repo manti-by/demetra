@@ -16,6 +16,7 @@ from demetra.services.persistence.database import (
     get_session_id_by_task_id,
     get_session_state,
     get_sessions,
+    increment_review_attempts,
     increment_run_attempts,
     invalidate_agent_sessions,
     is_project_ready,
@@ -23,6 +24,7 @@ from demetra.services.persistence.database import (
     record_agent_invocation,
     record_llm_call,
     record_session_step,
+    reset_review_attempts,
     reset_run_attempts,
     update_session_is_research,
     update_session_step,
@@ -129,6 +131,49 @@ class TestAttemptsExhaustedMarker:
         await upsert_pending_session(task_id=task_id, session_id=None)
 
         assert await get_exhausted_session_task_ids(task_ids=[task_id]) == {task_id}
+
+
+class TestReviewAttempts:
+    @pytest.mark.asyncio
+    async def test_increment_counts_applied_review_rounds(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+
+        assert await increment_review_attempts(task_id=task_id) == 1
+        assert await increment_review_attempts(task_id=task_id) == 2
+
+        session = await get_session(task_id=task_id)
+        assert session is not None
+        assert session.review_attempts == 2
+
+    @pytest.mark.asyncio
+    async def test_increment_returns_zero_for_missing_session(self):
+        assert await increment_review_attempts(task_id="MISSING-1") == 0
+
+    @pytest.mark.asyncio
+    async def test_reset_renews_the_review_budget(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+        await increment_review_attempts(task_id=task_id)
+        await increment_review_attempts(task_id=task_id)
+
+        assert await reset_review_attempts(task_id=task_id) == 0
+
+        session = await get_session(task_id=task_id)
+        assert session is not None
+        assert session.review_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_reset_run_attempts_also_resets_the_review_budget(self):
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id())
+        await increment_review_attempts(task_id=task_id)
+
+        await reset_run_attempts(task_id=task_id)
+
+        session = await get_session(task_id=task_id)
+        assert session is not None
+        assert session.review_attempts == 0
 
 
 class TestRecordSessionStep:

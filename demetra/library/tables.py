@@ -34,6 +34,7 @@ sessions = Table(
     Column("run_attempts", Integer(), nullable=False, server_default="0"),
     Column("attempts_exhausted", Boolean(), nullable=False, server_default="false"),
     Column("listener_attempts", Integer(), nullable=False, server_default="0"),
+    Column("review_attempts", Integer(), nullable=False, server_default="0"),
     Column("pr_link", String(), nullable=True),
     Column("linear_link", String(), nullable=True),
     Column("research_report", Text(), nullable=True),
