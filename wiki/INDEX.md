@@ -7,6 +7,7 @@ by the plugin.
 
 ## Pages
 _Newest first._
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Implementation of CH-10: PR description for Chat sessions (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Implementation of MNT-309: Chat Template (2026-11-10)
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md) — The build loop's review budget was a local variable, so every workflow restart re-granted a fresh `MAX_ATTEMPTS["review"]` rounds; applied review rounds are now counted in a durable `sessions.review_attempts` column (migration `e8f9a0b1c2d3`) via `increment_review_attempts`/`reset_review_attempts`, `reset_run_attempts` and `claim_session_for_resume` renew it on a fresh lifecycle, and the RQ queue `default_timeout` now derives from `SUBPROCESS_TIMEOUT + 60` instead of a hardcoded 3600. (2026-11-10)
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — Implementation of MNT-308: Lint and test erorrs (2026-11-10)
@@ -191,6 +192,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — 2026-11-10
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 
 ### Authentication & API security (10 pages)
 
