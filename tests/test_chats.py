@@ -7,7 +7,7 @@ import pytest
 import pytest_asyncio
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from demetra.app import app
 from demetra.library.models import (
@@ -599,6 +599,39 @@ class TestNotificationGate:
             await notify_message(context=context, body="hello")
 
         mock_update.assert_awaited_once_with(task_id="linear-id", state_id="state-1")
+        mock_comment.assert_awaited_once_with(task_id="linear-id", body="hello")
+
+    @pytest.mark.asyncio
+    async def test_a_failed_local_copy_does_not_repost_the_comment(self, project: dict):
+        context = Context(
+            project=_project_model(project),
+            auto_mode=True,
+            task=LinearTask(
+                id="linear-id",
+                identifier="MNT-123",
+                title="Linear task",
+                description="desc",
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/linear",
+            worktree_path=Path("/tmp/linear"),
+            session=None,
+        )
+
+        with (
+            patch("demetra.workflows.notifications.post_comment", new_callable=AsyncMock) as mock_comment,
+            patch(
+                "demetra.services.linear.mirror.upsert_message",
+                new_callable=AsyncMock,
+                side_effect=SQLAlchemyError("boom"),
+            ),
+            patch("demetra.services.linear.mirror.COMMENT_STORE_BACKOFF_SECONDS", 0),
+        ):
+            mock_comment.return_value = "comment-1"
+
+            assert await notify_message(context=context, body="hello") is True
+
         mock_comment.assert_awaited_once_with(task_id="linear-id", body="hello")
 
 

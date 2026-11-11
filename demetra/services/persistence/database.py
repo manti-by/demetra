@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from sqlalchemy import Column, and_, case, create_engine, delete, func, insert, select, text, update
+from sqlalchemy import Column, Insert, and_, case, create_engine, delete, func, insert, select, text, update
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
@@ -326,22 +326,16 @@ async def ensure_task(
         await connection.commit()
 
 
-async def upsert_task(values: dict) -> Task:
-    """Insert or update a generic task row and return the stored record.
-
-    Only the supplied columns are written on conflict, so partial updates keep
-    the values they do not mention. Columns the table requires are filled with
-    a default on insert. The project id is resolved against the ``projects``
-    table, so a project that no longer exists is stored as NULL instead of
-    violating the foreign key.
+def _task_upsert_statement(values: dict, now: datetime) -> Insert:
+    """Build the upsert statement of a generic task row.
 
     Args:
         values: The task columns to write, including the ``id`` key.
+        now: The timestamp of this write.
 
     Returns:
-        Task: The stored task record.
+        Insert: The upsert statement.
     """
-    now = datetime.now(UTC)
     task_id = values["id"]
     payload = {
         "id": task_id,
@@ -359,14 +353,55 @@ async def upsert_task(values: dict) -> Task:
         "updated_at": now,
     }
     statement = pg_insert(tasks).values(**payload)
-    updatable = {
-        key: getattr(statement.excluded, key) for key in values if key not in ("id", "created_at", "updated_at")
-    }
-    statement = statement.on_conflict_do_update(index_elements=[tasks.c.id], set_=updatable)
+    updatable = {key: getattr(statement.excluded, key) for key in values if key not in ("id", "created_at")}
+    updatable["updated_at"] = statement.excluded.updated_at
+    return statement.on_conflict_do_update(index_elements=[tasks.c.id], set_=updatable)
+
+
+async def upsert_task(values: dict) -> Task:
+    """Insert or update a generic task row and return the stored record.
+
+    Only the supplied columns are written on conflict, so partial updates keep
+    the values they do not mention. Columns the table requires are filled with
+    a default on insert. The project id is resolved against the ``projects``
+    table, so a project that no longer exists is stored as NULL instead of
+    violating the foreign key. The modification time is refreshed on every
+    write, while the creation time is preserved.
+
+    Args:
+        values: The task columns to write, including the ``id`` key.
+
+    Returns:
+        Task: The stored task record.
+    """
+    statement = _task_upsert_statement(values, datetime.now(UTC))
     async with get_connection() as connection:
         result = await connection.execute(statement.returning(tasks))
         row = result.fetchone()
         await connection.commit()
+    return _task_from_row(row)
+
+
+async def upsert_task_with_linear(values: dict, linear_values: dict) -> Task:
+    """Insert or update a task and its Linear subtype in a single transaction.
+
+    Both rows are written inside one transaction, so a failure in either write
+    rolls the other one back and never leaves a task without its Linear
+    subtype.
+
+    Args:
+        values: The task columns to write, including the ``id`` key.
+        linear_values: The ``linear_tasks`` columns to write.
+
+    Returns:
+        Task: The stored task record.
+    """
+    statement = _task_upsert_statement(values, datetime.now(UTC))
+    linear_statement = _linear_task_upsert_statement(linear_values)
+    async with get_transaction() as connection:
+        result = await connection.execute(statement.returning(tasks))
+        row = result.fetchone()
+        await connection.execute(linear_statement)
     return _task_from_row(row)
 
 
@@ -399,15 +434,27 @@ async def get_task(task_id: str) -> Task | None:
     return _task_from_row(row) if row else None
 
 
+def _linear_task_upsert_statement(values: dict) -> Insert:
+    """Build the upsert statement of a Linear-specific task row.
+
+    Args:
+        values: The ``linear_tasks`` columns to write, including ``task_id``.
+
+    Returns:
+        Insert: The upsert statement.
+    """
+    statement = pg_insert(linear_tasks).values(**values)
+    updatable = {key: getattr(statement.excluded, key) for key in values if key != "task_id"}
+    return statement.on_conflict_do_update(index_elements=[linear_tasks.c.task_id], set_=updatable)
+
+
 async def upsert_linear_task(values: dict) -> None:
     """Insert or update the Linear-specific columns of a task.
 
     Args:
         values: The ``linear_tasks`` columns to write, including ``task_id``.
     """
-    statement = pg_insert(linear_tasks).values(**values)
-    updatable = {key: getattr(statement.excluded, key) for key in values if key != "task_id"}
-    statement = statement.on_conflict_do_update(index_elements=[linear_tasks.c.task_id], set_=updatable)
+    statement = _linear_task_upsert_statement(values)
     async with get_connection() as connection:
         await connection.execute(statement)
         await connection.commit()
@@ -456,21 +503,27 @@ async def get_linear_task(task_id: str) -> LinearTask | None:
     )
 
 
-async def post_message(
+async def _insert_message(
+    connection: AsyncSession,
     *,
     task_id: str,
     body: str,
-    kind: ChatMessageKind = "message",
-    source: MessageSource = "chat",
+    kind: ChatMessageKind,
+    source: MessageSource,
     author_id: str | None = None,
     author_name: str | None = None,
     is_system: bool = False,
     parent_id: str | None = None,
     external_id: str | None = None,
 ) -> Message:
-    """Append a message to a task's conversation.
+    """Insert a message row on an open connection.
+
+    The task is not created here: a caller that appends to an existing task
+    must fail on the foreign key when the task is gone instead of recreating
+    it.
 
     Args:
+        connection: The open database session.
         task_id: The task the message belongs to.
         body: The message body.
         kind: The message kind.
@@ -486,24 +539,21 @@ async def post_message(
     """
     message_id = str(uuid4())
     now = datetime.now(UTC)
-    await ensure_task(task_id=task_id, kind="linear" if source == "linear" else "chat")
-    async with get_connection() as connection:
-        await connection.execute(
-            insert(messages).values(
-                id=message_id,
-                task_id=task_id,
-                parent_id=parent_id,
-                source=source,
-                external_id=external_id,
-                author_id=author_id,
-                author_name=author_name,
-                is_system=is_system,
-                kind=kind,
-                body=body,
-                created_at=now,
-            )
+    await connection.execute(
+        insert(messages).values(
+            id=message_id,
+            task_id=task_id,
+            parent_id=parent_id,
+            source=source,
+            external_id=external_id,
+            author_id=author_id,
+            author_name=author_name,
+            is_system=is_system,
+            kind=kind,
+            body=body,
+            created_at=now,
         )
-        await connection.commit()
+    )
     return Message(
         id=message_id,
         task_id=task_id,
@@ -517,6 +567,57 @@ async def post_message(
         body=body,
         created_at=now.isoformat(),
     )
+
+
+async def post_message(
+    *,
+    task_id: str,
+    body: str,
+    kind: ChatMessageKind = "message",
+    source: MessageSource = "chat",
+    author_id: str | None = None,
+    author_name: str | None = None,
+    is_system: bool = False,
+    parent_id: str | None = None,
+    external_id: str | None = None,
+    create_task: bool = True,
+) -> Message:
+    """Append a message to a task's conversation.
+
+    Args:
+        task_id: The task the message belongs to.
+        body: The message body.
+        kind: The message kind.
+        source: The message source, ``"chat"`` or ``"linear"``.
+        author_id: Optional Demetra user id of the author.
+        author_name: Optional display name of the author.
+        is_system: Whether the message was produced by the system.
+        parent_id: Optional parent message id for threaded replies.
+        external_id: Optional external identifier, e.g. a Linear comment id.
+        create_task: Whether a missing task is created before the message is
+            stored. Callers that append to an existing task pass False, so a
+            deleted task is not recreated by the append.
+
+    Returns:
+        Message: The stored message record.
+    """
+    if create_task:
+        await ensure_task(task_id=task_id, kind="linear" if source == "linear" else "chat")
+    async with get_connection() as connection:
+        message = await _insert_message(
+            connection,
+            task_id=task_id,
+            body=body,
+            kind=kind,
+            source=source,
+            author_id=author_id,
+            author_name=author_name,
+            is_system=is_system,
+            parent_id=parent_id,
+            external_id=external_id,
+        )
+        await connection.commit()
+    return message
 
 
 async def upsert_message(
@@ -3471,6 +3572,12 @@ async def post_chat_message(
 ) -> ChatMessage | None:
     """Append a message to a chat-mode thread.
 
+    The existence check and the insert run in one transaction, and the task
+    row is locked for the append. A deletion that races with the append
+    therefore either happens before the check, which reports the chat as
+    gone, or after the commit, which removes the message with the chat. The
+    task is never recreated by the append.
+
     Args:
         task_id: The ``CH-<id>`` task id.
         body: The message body.
@@ -3482,18 +3589,22 @@ async def post_chat_message(
         ChatMessage | None: The created message, or None when the chat does not
             exist.
     """
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
+        task = await connection.execute(select(tasks.c.id).where(tasks.c.id == task_id).with_for_update())
+        if task.fetchone() is None:
+            return None
         chat = await connection.execute(select(chats.c.id).where(chats.c.task_id == task_id))
         if chat.fetchone() is None:
             return None
-    message = await post_message(
-        task_id=task_id,
-        body=body,
-        kind=kind,
-        source="chat",
-        author_id=author_id,
-        is_system=is_system,
-    )
+        message = await _insert_message(
+            connection,
+            task_id=task_id,
+            body=body,
+            kind=kind,
+            source="chat",
+            author_id=author_id,
+            is_system=is_system,
+        )
     return _chat_message_from_row(message)
 
 
@@ -3600,6 +3711,10 @@ async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] 
 async def delete_session(task_id: str, user_id: str) -> bool:
     """Delete a user-scoped session and its log file.
 
+    The session, its history, its agent sessions and the chat task are
+    deleted in one transaction, so a failure never leaves a chat task, a chat
+    row and its messages behind without a session.
+
     Args:
         task_id: The Linear task identifier.
         user_id: The owning user id.
@@ -3612,7 +3727,7 @@ async def delete_session(task_id: str, user_id: str) -> bool:
     if not SAFE_TASK_ID_PATTERN.fullmatch(task_id):
         return False
 
-    async with get_connection() as connection:
+    async with get_transaction() as connection:
         result = await connection.execute(
             delete(sessions)
             .where((sessions.c.task_id == task_id) & (sessions.c.user_id == user_id))
@@ -3620,7 +3735,6 @@ async def delete_session(task_id: str, user_id: str) -> bool:
         )
         row = result.fetchone()
         if not row:
-            await connection.commit()
             return False
         await connection.execute(delete(session_history).where(session_history.c.task_id == task_id))
         await connection.execute(delete(agent_sessions).where(agent_sessions.c.task_id == task_id))
@@ -3628,7 +3742,6 @@ async def delete_session(task_id: str, user_id: str) -> bool:
         kind_row = kind.fetchone()
         if kind_row is not None and kind_row.kind == "chat":
             await connection.execute(delete(tasks).where(tasks.c.id == task_id))
-        await connection.commit()
 
     sessions_log_dir = (LOG_DIR / "sessions").resolve()
     log_path = (sessions_log_dir / f"{task_id}.log").resolve()

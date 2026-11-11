@@ -6,6 +6,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy.exc import SQLAlchemyError
 
+from demetra.library.exceptions import LinearError
 from demetra.services.linear.graphql import get_query
 from demetra.services.linear.mirror import (
     extract_comment_threads,
@@ -282,14 +283,33 @@ class TestPagination:
 class TestRecordLinearComment:
     @pytest.mark.asyncio
     async def test_swallows_a_storage_failure(self):
-        with patch(
-            "demetra.services.linear.mirror.upsert_message",
-            new_callable=AsyncMock,
-            side_effect=SQLAlchemyError("boom"),
+        with (
+            patch(
+                "demetra.services.linear.mirror.upsert_message",
+                new_callable=AsyncMock,
+                side_effect=SQLAlchemyError("boom"),
+            ),
+            patch("demetra.services.linear.mirror.COMMENT_STORE_BACKOFF_SECONDS", 0),
         ):
             stored = await record_linear_comment(task_id="task-1", body="A comment", external_id="comment-1")
 
         assert stored is None
+
+    @pytest.mark.asyncio
+    async def test_retries_the_local_write(self):
+        task_id = f"task-{uuid4().hex[:8]}"
+
+        with (
+            patch(
+                "demetra.services.linear.mirror.upsert_message",
+                new_callable=AsyncMock,
+                side_effect=[SQLAlchemyError("boom"), None],
+            ) as mock_upsert,
+            patch("demetra.services.linear.mirror.COMMENT_STORE_BACKOFF_SECONDS", 0),
+        ):
+            await record_linear_comment(task_id=task_id, body="A comment", external_id="comment-1")
+
+        assert mock_upsert.await_count == 2
 
     @pytest.mark.asyncio
     async def test_stores_the_comment(self):
@@ -366,6 +386,30 @@ class TestSyncLinearMirror:
     async def test_reports_a_failed_project(self, linked_project: dict):
         with patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues:
             mock_issues.side_effect = RuntimeError("boom")
+            report = await sync_linear_mirror()
+
+        assert report.issues == 0
+        assert len(report.failures) == 1
+
+    @pytest.mark.asyncio
+    async def test_reports_a_failed_project_of_a_transport_error(self, linked_project: dict):
+        with patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues:
+            mock_issues.side_effect = LinearError("boom")
+            report = await sync_linear_mirror()
+
+        assert report.issues == 0
+        assert len(report.failures) == 1
+
+    @pytest.mark.asyncio
+    async def test_reports_a_failed_issue_of_a_transport_error(self, linked_project: dict):
+        issue = _issue()
+
+        with (
+            patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues,
+            patch("demetra.services.linear.sync.fetch_issue_comments", new_callable=AsyncMock) as mock_comments,
+        ):
+            mock_issues.return_value = [issue]
+            mock_comments.side_effect = LinearError("boom")
             report = await sync_linear_mirror()
 
         assert report.issues == 0

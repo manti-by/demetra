@@ -37,6 +37,10 @@ class SyncReport:
 async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
     """Mirror every issue of the linked Linear projects into the local store.
 
+    A project or an issue that cannot be read is recorded as a failure and the
+    backfill continues, so a partial run keeps the results it already
+    mirrored.
+
     Args:
         dry_run: When True, the issues are counted but nothing is written.
 
@@ -52,7 +56,7 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
         print_message(f"Syncing Linear project {linear_project_id}", style="info")
         try:
             issues = await fetch_project_issues(linear_project_id)
-        except RuntimeError as error:
+        except (RuntimeError, LinearError) as error:
             report.failures.append(f"{linear_project_id}: {error}")
             continue
         for issue in issues:
@@ -61,7 +65,7 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
                 continue
             try:
                 comments = await fetch_issue_comments(issue_id)
-            except RuntimeError as error:
+            except (RuntimeError, LinearError) as error:
                 report.failures.append(f"{issue_id}: {error}")
                 continue
             report.issues += 1

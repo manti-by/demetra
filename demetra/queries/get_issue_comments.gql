@@ -14,7 +14,7 @@ query GetIssueComments($issueId: String!, $after: String) {
           id
           name
         }
-        children {
+        children(first: 50) {
           pageInfo {
             hasNextPage
             endCursor

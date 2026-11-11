@@ -267,6 +267,56 @@ foreign key: `upsert_task` now resolves the project id against the `projects` ta
 aborting the sync. `create_chat` keeps the strict check on purpose — a chat for a non-existent
 project must still fail.
 
+## Update — 2026-11-11 17:40
+
+Seven further review findings on PR #159, all in the storage layer the new model introduced.
+
+- **The task and its Linear subtype were written in two transactions.** `store_linear_issue` called
+  `upsert_task` and then `upsert_linear_task`, each on its own autocommit connection, so a failure
+  in the second write left a task row without its `linear_tasks` row. Both writes now go through
+  `upsert_task_with_linear`, which runs them inside one `get_transaction()`.
+- **A task upsert never refreshed `updated_at`.** The conflict update excluded `updated_at`
+  together with `created_at`, and the table has no automatic timestamp, so the stored modification
+  time stayed at the insertion value. `updated_at` is now part of the conflict update; `created_at`
+  stays untouched.
+- **The chat-session deletion was not atomic.** `delete_session` ran on an autocommit connection,
+  so the session row was committed before the history, the agent sessions and the chat task were
+  removed; a failure in between left a chat task, a chat row and its messages behind without a
+  session, and a retry returned `False` because the session was already gone. The whole sequence
+  now runs in one transaction.
+- **A chat append could recreate a deleted chat.** `post_chat_message` checked that the chat
+  existed and then called `post_message`, which calls `ensure_task` — so a deletion racing with
+  the append made the append recreate the task without its owner, project, session or chat row,
+  and the endpoint answered with success for an inaccessible thread. The check and the insert now
+  run in one transaction, the task row is locked for the append (`SELECT … FOR UPDATE`), and the
+  insert no longer creates the task: a missing task fails on the foreign key instead.
+- **A transport error aborted the whole backfill.** The sync caught `RuntimeError` only, but the
+  Linear client raises `LinearError` — which is not a `RuntimeError` — so a single failed request
+  discarded the partial report. Both the project and the issue boundary now catch
+  `(RuntimeError, LinearError)` and record the failure, and the backfill continues.
+- **A rate-limited request failed the caller.** `graphql_request` turned every non-2xx answer into
+  an error, including Linear's `429`. The request is now repeated after the delay of the
+  `Retry-After` header (exponential backoff when the header is absent) before it fails.
+- **A failed local copy of a Linear comment was not retried.** The comment id makes the mirror
+  write idempotent, so the write is now retried a few times before it is given up on; the comment
+  is never posted twice, because `notify_message` still reports the message as sent and the
+  workflow marks the plan as posted.
+
+The reply pagination of the comments query was completed as well: the inline `children`
+connection now asks for a page of 50 replies, matching `get_comment_replies.gql`.
+
+```
+uv run pytest tests/ -q          1315 passed
+uv run ruff check .               All checks passed!
+uv run ruff format --check .      235 files already formatted
+uv run ty check                   All checks passed!
+```
+
+Thirteen regression tests were added for these findings; each of them fails against the
+unfixed code (the atomic writes, the refreshed `updated_at`, the rollback of a failed deletion
+and the append that must not create a task were verified by reverting the fix and re-running
+the test).
+
 ## Follow-ups
 
 - The Linear mirror is **backfill-only** (the decision taken for this ticket): the local copy goes

@@ -31,6 +31,11 @@ async def notify_message(context: Context, body: str, kind: ChatMessageKind = "m
     Both branches record the message in the local task history, so a task's
     conversation is available locally whichever source it came from.
 
+    A Linear comment that was accepted but could not be mirrored locally is
+    not posted again: the local write is best-effort, so the caller still
+    records the message as sent, and the mirror restores the missing copy
+    from Linear with its comment id on a later run.
+
     Args:
         context: The workflow context.
         body: The message body.

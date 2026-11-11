@@ -1,7 +1,10 @@
+import asyncio
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy.exc import IntegrityError
 
 from demetra.library.models import Task
 from demetra.services.persistence.database import (
@@ -11,14 +14,17 @@ from demetra.services.persistence.database import (
     delete_session,
     ensure_task,
     get_linear_task,
+    get_session,
     get_sessions,
     get_task,
     list_messages,
+    post_chat_message,
     post_message,
     upsert_linear_task,
     upsert_message,
     upsert_pending_session,
     upsert_task,
+    upsert_task_with_linear,
 )
 
 
@@ -116,6 +122,53 @@ class TestUpsertTask:
         assert task is not None
         assert task.title == "First"
         assert task.state == "Done"
+
+    @pytest.mark.asyncio
+    async def test_refreshes_the_modification_time(self):
+        task_id = f"task-{uuid4().hex[:8]}"
+        created = await upsert_task({"id": task_id, "kind": "linear", "identifier": "MNT-1", "title": "First"})
+        await asyncio.sleep(0.01)
+
+        updated = await upsert_task({"id": task_id, "kind": "linear", "title": "Second"})
+
+        assert created.created_at is not None
+        assert created.updated_at is not None
+        assert updated.updated_at is not None
+        assert updated.created_at == created.created_at
+        assert updated.updated_at > created.updated_at
+
+
+class TestUpsertTaskWithLinear:
+    @pytest.mark.asyncio
+    async def test_writes_the_task_and_its_linear_subtype(self):
+        task_id = f"task-{uuid4().hex[:8]}"
+
+        task = await upsert_task_with_linear(
+            {"id": task_id, "kind": "linear", "identifier": "MNT-1", "title": "Mirrored"},
+            {"task_id": task_id, "linear_issue_id": task_id, "linear_identifier": "MNT-1"},
+        )
+
+        assert task.identifier == "MNT-1"
+        mirrored = await get_linear_task(task_id)
+        assert mirrored is not None
+        assert mirrored.linear_identifier == "MNT-1"
+
+    @pytest.mark.asyncio
+    async def test_rolls_back_the_task_when_the_linear_subtype_fails(self):
+        first_id = f"task-{uuid4().hex[:8]}"
+        second_id = f"task-{uuid4().hex[:8]}"
+        await upsert_task_with_linear(
+            {"id": first_id, "kind": "linear", "identifier": "MNT-1", "title": "First"},
+            {"task_id": first_id, "linear_issue_id": "issue-1", "linear_identifier": "MNT-1"},
+        )
+
+        with pytest.raises(IntegrityError):
+            await upsert_task_with_linear(
+                {"id": second_id, "kind": "linear", "identifier": "MNT-2", "title": "Second"},
+                {"task_id": second_id, "linear_issue_id": "issue-1", "linear_identifier": "MNT-2"},
+            )
+
+        assert await get_task(second_id) is None
 
 
 class TestMessages:
@@ -246,6 +299,52 @@ class TestChatTask:
 
         assert await get_task(chat.id) is None
         assert await list_messages(chat.id) == []
+
+    @pytest.mark.asyncio
+    async def test_appending_to_a_deleted_chat_does_not_recreate_it(self, owner: str, project: dict):
+        chat = await create_chat(
+            user_id=owner,
+            project_id=project["id"],
+            title="Chat about auth",
+            description="How do I add auth?",
+        )
+        assert await delete_session(task_id=chat.id, user_id=owner) is True
+
+        assert await post_chat_message(task_id=chat.id, body="hello") is None
+
+        assert await get_task(chat.id) is None
+
+    @pytest.mark.asyncio
+    async def test_an_append_never_creates_the_task_it_writes_to(self, owner: str, project: dict):
+        chat = await create_chat(
+            user_id=owner,
+            project_id=project["id"],
+            title="Chat about auth",
+            description="How do I add auth?",
+        )
+
+        with patch("demetra.services.persistence.database.ensure_task", new_callable=AsyncMock) as mock_ensure:
+            message = await post_chat_message(task_id=chat.id, body="hello")
+
+        assert message is not None
+        mock_ensure.assert_not_awaited()
+        assert await get_task(chat.id) is not None
+
+    @pytest.mark.asyncio
+    async def test_a_failed_deletion_keeps_the_session_and_the_chat(self, owner: str, project: dict):
+        chat = await create_chat(
+            user_id=owner,
+            project_id=project["id"],
+            title="Chat about auth",
+            description="How do I add auth?",
+        )
+
+        with patch("demetra.services.persistence.database.select", side_effect=RuntimeError("boom")):
+            with pytest.raises(RuntimeError):
+                await delete_session(task_id=chat.id, user_id=owner)
+
+        assert await get_session(task_id=chat.id) is not None
+        assert await get_task(chat.id) is not None
 
 
 class TestLinearTaskMirror:
