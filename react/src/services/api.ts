@@ -181,6 +181,8 @@ export interface Session {
   linear_link: string | null;
   research_report: string | null;
   has_history?: boolean;
+  kind?: string | null;
+  task_title?: string | null;
   chat_id?: number | null;
   tags?: string[] | null;
   project_id?: string | null;
@@ -204,30 +206,44 @@ export async function getSessions(
 }
 
 export interface Chat {
-  id: number;
-  session_task_id: string;
+  id: string;
+  chat_id: number | null;
+  identifier: string;
   title: string;
   description: string;
-  user_id: string;
-  project_id: string;
-  project_name: string;
+  priority: number;
+  state: string | null;
+  url: string | null;
   tags: string[];
+  project_id: string | null;
+  project_name: string | null;
+  user_id: string | null;
   created_at: string;
   updated_at: string;
+  kind: string;
 }
 
 export type ChatMessageKind =
-  "message" | "question" | "plan" | "failure" | "research" | "status";
+  | "message"
+  | "question"
+  | "plan"
+  | "failure"
+  | "research"
+  | "status"
+  | "comment";
 
 export interface ChatMessage {
   id: string;
-  chat_id: number;
-  session_task_id: string;
-  body: string;
-  created_at: string;
+  task_id: string;
+  parent_id: string | null;
+  source: string;
+  external_id: string | null;
   author_id: string | null;
+  author_name: string | null;
   is_system: boolean;
   kind: ChatMessageKind;
+  body: string;
+  created_at: string;
 }
 
 export interface ChatSessionState {

@@ -108,12 +108,12 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
     finally:
         if worktree_path and merge_succeeded:
             try:
-                linear_task = await resolve_task_by_id(task_id=task_id)
-                if linear_task is not None:
+                task = await resolve_task_by_id(task_id=task_id)
+                if task is not None:
                     context = Context(
                         project=project,
                         auto_mode=True,
-                        linear_task=linear_task,
+                        task=task,
                         branch_name=head_branch,
                         worktree_path=worktree_path,
                         session=session,

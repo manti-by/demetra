@@ -1,4 +1,11 @@
 from demetra.services.linear.graphql import get_query, graphql_request
+from demetra.services.linear.mirror import (
+    extract_comment_threads,
+    fetch_issue_comments,
+    fetch_project_issues,
+    record_linear_comment,
+    store_linear_issue,
+)
 from demetra.services.linear.mutations import (
     create_issue_relation,
     create_linear_ticket,
@@ -7,6 +14,7 @@ from demetra.services.linear.mutations import (
     post_comment,
     update_ticket_status,
 )
+from demetra.services.linear.sync import SyncReport, sync_cli, sync_linear_mirror
 from demetra.services.linear.tasks import (
     extract_comments,
     extract_labels,
@@ -22,11 +30,15 @@ from demetra.settings import LINEAR
 
 __all__ = [
     "LINEAR",
+    "SyncReport",
     "create_issue_relation",
     "create_linear_ticket",
     "create_research_ticket",
+    "extract_comment_threads",
     "extract_comments",
     "extract_labels",
+    "fetch_issue_comments",
+    "fetch_project_issues",
     "get_connection",
     "get_linear_task",
     "get_linear_task_by_id",
@@ -38,5 +50,9 @@ __all__ = [
     "linear_cleanup",
     "post_comment",
     "print_message",
+    "record_linear_comment",
+    "store_linear_issue",
+    "sync_cli",
+    "sync_linear_mirror",
     "update_ticket_status",
 ]

@@ -135,12 +135,12 @@ async def _record_review_fixes_wiki(
         worktree_path: The worktree the fixes were made in.
     """
     try:
-        linear_task = await resolve_task_by_id(task_id=task_id)
-        if linear_task is not None:
+        task = await resolve_task_by_id(task_id=task_id)
+        if task is not None:
             context = Context(
                 project=project,
                 auto_mode=True,
-                linear_task=linear_task,
+                task=task,
                 branch_name=head_branch,
                 worktree_path=worktree_path,
                 session=session,

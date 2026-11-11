@@ -1,8 +1,15 @@
+import logging
+
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 
 import demetra.services.linear as service
-from demetra.library.models import LinearTask, SessionEnvironment
+from demetra.library.models import LinearTask, Message, SessionEnvironment
 from demetra.library.tables import projects
+from demetra.services.linear.mirror import store_linear_issue
+
+
+logger = logging.getLogger(__name__)
 
 
 async def get_linked_projects() -> dict[str, tuple[str, str]]:
@@ -61,6 +68,85 @@ def extract_labels(issue: dict) -> list[str]:
     return [label["name"] for label in labels if label.get("name")]
 
 
+def _resolve_ownership(issue: dict, linked_projects: dict[str, tuple[str, str]]) -> tuple[str | None, str | None]:
+    """Resolve the Demetra project and user a Linear issue maps to.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+        linked_projects: The linked project lookup.
+
+    Returns:
+        tuple[str | None, str | None]: The project id and user id, or
+            ``(None, None)`` when the issue maps to no known project.
+    """
+    linear_project_id = (issue.get("project") or {}).get("id", "").lower()
+    project_name = (issue.get("project") or {}).get("name", "").lower()
+    resolved = linked_projects.get(linear_project_id) or linked_projects.get(project_name)
+    return resolved if resolved else (None, None)
+
+
+def build_context_messages(issue: dict) -> list[Message]:
+    """Build the context messages of a Linear issue.
+
+    Only non-resolved comments and their replies feed the agent context, the
+    same way chat turns do for a chat-mode task.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+
+    Returns:
+        list[Message]: The context messages, in recording order.
+    """
+    bodies = extract_comments(issue)
+    return [
+        Message(
+            id=f"linear-context-{index}",
+            task_id=issue["id"],
+            body=body,
+            created_at=issue.get("createdAt") or "",
+            source="linear",
+            kind="comment",
+        )
+        for index, body in enumerate(bodies)
+    ]
+
+
+def _build_linear_task(issue: dict, *, project_id: str | None, user_id: str | None) -> LinearTask:
+    """Build a Linear task record from a Linear issue payload.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+        project_id: The Demetra project the issue maps to.
+        user_id: The Demetra user the issue maps to.
+
+    Returns:
+        LinearTask: The task record.
+    """
+    state = issue.get("state") or {}
+    linear_project = issue.get("project") or {}
+    return LinearTask(
+        id=issue["id"],
+        identifier=issue["identifier"],
+        title=issue["title"],
+        description=issue.get("description", ""),
+        priority=issue.get("priority") or 0,
+        created_at=issue.get("createdAt"),
+        state=state.get("name"),
+        project_name=linear_project.get("name"),
+        project_id=project_id,
+        linear_project_id=(linear_project.get("id") or "").lower() or None,
+        user_id=user_id,
+        tags=extract_labels(issue),
+        url=issue.get("url"),
+        messages=build_context_messages(issue),
+        linear_issue_id=issue["id"],
+        linear_identifier=issue["identifier"],
+        linear_state_id=state.get("id"),
+        linear_state_name=state.get("name"),
+        branch_name=issue.get("branchName"),
+    )
+
+
 async def get_todo_issues(project_name: str | None = None, *, user_id: str | None = None) -> list[LinearTask]:
     """Fetch TODO issues from Linear, filtered by project and labels.
 
@@ -106,29 +192,15 @@ async def get_todo_issues(project_name: str | None = None, *, user_id: str | Non
         else:
             project_id, user_id = None, None
 
-        tasks.append(
-            LinearTask(
-                id=issue["id"],
-                identifier=issue["identifier"],
-                title=issue["title"],
-                description=issue.get("description", ""),
-                priority=issue["priority"],
-                created_at=issue["createdAt"],
-                state="Todo",
-                project_name=issue_project_name,
-                project_id=project_id,
-                linear_project_id=linear_project_id or None,
-                user_id=user_id,
-                comments=extract_comments(issue),
-                labels=extract_labels(issue),
-                url=issue.get("url"),
-            )
-        )
+        tasks.append(_build_linear_task(issue, project_id=project_id, user_id=user_id))
     return tasks
 
 
 async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     """Fetch a single Linear task by its id.
+
+    The issue is fetched live from Linear and mirrored into the local task
+    store, so the conversation history of a worked-on ticket is kept locally.
 
     Args:
         task_id: The Linear issue id.
@@ -142,28 +214,15 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
     if not issue:
         return None
 
-    linear_project_id = issue.get("project", {}).get("id", "").lower()
-    project_name = issue.get("project", {}).get("name", "").lower()
-
     linked = await service.get_linked_projects()
-    resolved = linked.get(linear_project_id) or linked.get(project_name)
-    project_id, user_id = resolved if resolved else (None, None)
+    project_id, user_id = _resolve_ownership(issue, linked)
 
-    return LinearTask(
-        id=issue["id"],
-        identifier=issue["identifier"],
-        title=issue["title"],
-        description=issue.get("description", ""),
-        priority=issue["priority"],
-        created_at=issue["createdAt"],
-        project_name=project_name,
-        project_id=project_id,
-        linear_project_id=linear_project_id or None,
-        user_id=user_id,
-        comments=extract_comments(issue),
-        labels=extract_labels(issue),
-        url=issue.get("url"),
-    )
+    task = _build_linear_task(issue, project_id=project_id, user_id=user_id)
+    try:
+        await store_linear_issue(issue=issue, project_id=project_id, user_id=user_id)
+    except SQLAlchemyError:
+        logger.warning("Failed to mirror Linear issue %s into the local task store", task_id, exc_info=True)
+    return task
 
 
 async def get_linear_task(project_name: str, *, user_id: str | None = None) -> LinearTask | None:

@@ -8,7 +8,7 @@ from demetra.library.exceptions import (
     WikiError,
 )
 from demetra.library.models import Context
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.linear import post_comment, record_linear_comment, update_ticket_status
 from demetra.services.runtime.template import get_template
 from demetra.services.runtime.tui import print_message
 from demetra.workflows.notifications import notify_message
@@ -35,9 +35,12 @@ async def notify_linear_failure(context: Context, body: str, comment_label: str)
         return
 
     try:
-        comment_posted = await post_comment(task_id=context.linear_task.id, body=body)
+        comment_id = await post_comment(task_id=context.task.id, body=body)
+        comment_posted = bool(comment_id)
+        if comment_posted:
+            await record_linear_comment(task_id=context.task.id, body=body, kind="failure", external_id=comment_id)
         state_id = context.environment.linear_state("awaiting_input")
-        status_updated = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        status_updated = await update_ticket_status(task_id=context.task.id, state_id=state_id)
     except (LinearError, EnvironmentConfigError) as e:
         print_message(
             f"Failed to update Linear after failure: {e}. Move the ticket to Awaiting Input manually.",

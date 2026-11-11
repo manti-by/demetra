@@ -28,22 +28,41 @@ StepType = Literal[
 ]
 
 
-@dataclass
-class LinearTask:
+TaskKind = Literal["linear", "chat"]
+
+MessageSource = Literal["chat", "linear"]
+
+ChatMessageKind = Literal["message", "question", "plan", "failure", "research", "status", "comment"]
+
+
+@dataclass(kw_only=True)
+class Task:
+    """Base entity for a unit of work handled by Demetra.
+
+    A task is either backed by a Linear issue (``kind="linear"``) or by a chat
+    session (``kind="chat"``). The fields below are the ones every source can
+    supply; source-specific fields live on the subtypes.
+
+    The dataclass is keyword-only so that subtypes can add defaulted fields
+    without tripping the "non-default argument follows default argument"
+    error that plain dataclass inheritance raises.
+    """
+
     id: str
+    kind: TaskKind
     identifier: str
     title: str
-    description: str
-    priority: int
-    created_at: str
+    description: str = ""
+    priority: int = 0
     state: str | None = None
-    project_name: str | None = None
-    project_id: str | None = None
-    linear_project_id: str | None = None
-    user_id: str | None = None
-    comments: list[str] = field(default_factory=list)
-    labels: list[str] = field(default_factory=list)
     url: str | None = None
+    tags: list[str] = field(default_factory=list)
+    project_id: str | None = None
+    project_name: str | None = None
+    user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    messages: list["Message"] = field(default_factory=list)
 
     @property
     def full_title(self) -> str:
@@ -56,17 +75,27 @@ class LinearTask:
         return f"{self.identifier.strip()}: {self.title.strip()}"
 
     @property
+    def message_bodies(self) -> list[str]:
+        """Return the bodies of the task's context messages.
+
+        Returns:
+            list[str]: The message bodies in recording order.
+        """
+        return [message.body for message in self.messages]
+
+    @property
     def text(self) -> str:
         """Return the task body formatted for LLM consumption.
 
-        Includes the title and description, and appends any comments when
+        Includes the title and description, and appends any messages when
         present.
 
         Returns:
-            str: The prompt-ready task text, optionally with comments.
+            str: The prompt-ready task text, optionally with messages.
         """
-        if self.comments:
-            return f"{self.title.strip()}\n({self.description.strip()})\n\nComments:\n{'\n'.join(self.comments)}"
+        bodies = self.message_bodies
+        if bodies:
+            return f"{self.title.strip()}\n({self.description.strip()})\n\nComments:\n{'\n'.join(bodies)}"
         return f"{self.title.strip()}\n({self.description.strip()})"
 
     @property
@@ -79,33 +108,61 @@ class LinearTask:
         return slugify(f"{self.identifier.strip()}-{self.title.strip()}")
 
 
-ChatMessageKind = Literal["message", "question", "plan", "failure", "research", "status"]
+@dataclass(kw_only=True)
+class LinearTask(Task):
+    """A task backed by a Linear issue."""
+
+    kind: TaskKind = "linear"
+    linear_issue_id: str | None = None
+    linear_identifier: str | None = None
+    linear_state_id: str | None = None
+    linear_state_name: str | None = None
+    linear_project_id: str | None = None
+    branch_name: str | None = None
 
 
-@dataclass
-class Chat:
-    id: int
-    session_task_id: str
-    title: str
-    description: str
-    user_id: str
-    project_id: str
-    project_name: str
-    created_at: str
-    updated_at: str
-    tags: list[str] = field(default_factory=list)
+@dataclass(kw_only=True)
+class Chat(Task):
+    """A task backed by a chat session."""
+
+    kind: TaskKind = "chat"
+    chat_id: int | None = None
 
 
-@dataclass
-class ChatMessage:
+@dataclass(kw_only=True)
+class Message:
+    """A message in a task's conversation history.
+
+    Messages are the unified history of a task: chat turns for chat tasks and
+    mirrored Linear comments for Linear tasks.
+    """
+
     id: str
-    chat_id: int
-    session_task_id: str
+    task_id: str
     body: str
     created_at: str
+    parent_id: str | None = None
+    source: MessageSource = "chat"
+    external_id: str | None = None
     author_id: str | None = None
+    author_name: str | None = None
     is_system: bool = False
     kind: ChatMessageKind = "message"
+
+
+@dataclass(kw_only=True)
+class ChatMessage(Message):
+    """A message written into a chat thread."""
+
+    source: MessageSource = "chat"
+
+
+@dataclass(kw_only=True)
+class LinearComment(Message):
+    """A comment mirrored from a Linear issue."""
+
+    source: MessageSource = "linear"
+    kind: ChatMessageKind = "comment"
 
 
 @dataclass
@@ -670,7 +727,7 @@ class SessionEnvironment:
 class Context:
     project: Project
     auto_mode: bool
-    linear_task: LinearTask
+    task: Task
     branch_name: str
     worktree_path: Path
     session: Session | None
@@ -690,7 +747,7 @@ class Context:
         Returns:
             bool: True when the context carries a chat record.
         """
-        return self.chat is not None
+        return self.chat is not None or self.task.kind == "chat"
 
     @property
     def environment(self) -> SessionEnvironment:

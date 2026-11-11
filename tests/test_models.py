@@ -6,6 +6,7 @@ from faker import Faker
 from demetra.library.models import (
     Environment,
     LinearTask,
+    Message,
     Project,
     SessionHistory,
     StepType,
@@ -14,6 +15,26 @@ from demetra.library.models import (
 
 
 fake = Faker()
+
+
+def make_message(body: str, index: int = 0) -> Message:
+    """Build a context message for a task.
+
+    Args:
+        body: The message body.
+        index: The message index, used for the synthetic id.
+
+    Returns:
+        Message: The built message.
+    """
+    return Message(
+        id=f"msg-{index}",
+        task_id="task-1",
+        body=body,
+        created_at="2026-01-01T00:00:00Z",
+        source="linear",
+        kind="comment",
+    )
 
 
 class TestModels:
@@ -25,13 +46,13 @@ class TestModels:
         assert "Comments:" not in text
 
     def test_linear_issue_text_with_comments(self, linear_task: LinearTask):
-        linear_task.comments = [fake.sentence(), fake.sentence()]
+        linear_task.messages = [make_message(fake.sentence(), 0), make_message(fake.sentence(), 1)]
         text = linear_task.text
 
         assert linear_task.title in text
         assert "Comments:" in text
-        assert linear_task.comments[0] in text
-        assert linear_task.comments[1] in text
+        assert linear_task.message_bodies[0] in text
+        assert linear_task.message_bodies[1] in text
 
     def test_linear_issue_slug_generates_correctly(self, linear_task: LinearTask):
         slug = linear_task.slug
@@ -40,22 +61,23 @@ class TestModels:
         title_for_slug = linear_task.title.lower().rstrip(".").replace(" ", "-")
         assert title_for_slug in slug.lower()
 
-    def test_linear_issue_default_comments_is_empty_list(self, linear_task: LinearTask):
-        assert linear_task.comments == []
+    def test_linear_issue_default_messages_is_empty_list(self, linear_task: LinearTask):
+        assert linear_task.messages == []
+        assert linear_task.message_bodies == []
 
-    def test_linear_issue_default_labels_is_empty_list(self, linear_task: LinearTask):
-        assert linear_task.labels == []
+    def test_linear_issue_default_tags_is_empty_list(self, linear_task: LinearTask):
+        assert linear_task.tags == []
 
-    def test_linear_issue_labels_stores_names_only(self, linear_task: LinearTask):
-        linear_task.labels = ["bug", "frontend", "high-priority"]
-        assert len(linear_task.labels) == 3
-        assert "bug" in linear_task.labels
-        assert "frontend" in linear_task.labels
-        assert all(isinstance(label, str) for label in linear_task.labels)
+    def test_linear_issue_tags_stores_names_only(self, linear_task: LinearTask):
+        linear_task.tags = ["bug", "frontend", "high-priority"]
+        assert len(linear_task.tags) == 3
+        assert "bug" in linear_task.tags
+        assert "frontend" in linear_task.tags
+        assert all(isinstance(tag, str) for tag in linear_task.tags)
 
     def test_linear_issue_fields_are_accessible(self, linear_task: LinearTask):
-        linear_task.comments = [fake.sentence()]
-        linear_task.labels = ["bug"]
+        linear_task.messages = [make_message(fake.sentence())]
+        linear_task.tags = ["bug"]
 
         assert linear_task.id
         assert linear_task.identifier
@@ -63,8 +85,8 @@ class TestModels:
         assert linear_task.description
         assert linear_task.priority
         assert linear_task.created_at
-        assert linear_task.comments
-        assert linear_task.labels
+        assert linear_task.messages
+        assert linear_task.tags
 
 
 class TestEnvironment:

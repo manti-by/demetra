@@ -73,17 +73,17 @@ async def run_plan_step(context: Context) -> str | None:
         UserCancelledError: When the user exits the workflow.
         InfiniteLoopError: When the plan loop attempt budget is exhausted.
     """
-    current_task: str = context.linear_task.text
+    current_task: str = context.task.text
     plan_attempts = MAX_ATTEMPTS["plan"] if context.plan_loop else 1
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="plan")
+        await update_session_step(task_id=context.task.id, step="plan")
 
         invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_plan_agent(
             target_path=context.worktree_path,
             task=current_task,
-            task_title=context.linear_task.full_title,
+            task_title=context.task.full_title,
             project_id=context.project.id,
             environment=context.environment,
         )
@@ -96,10 +96,10 @@ async def run_plan_step(context: Context) -> str | None:
         # unique title, which also fixes the plan-loop stale-id bug) and mark it
         # primary so sessions.session_id always points at the live plan session.
         history = await capture_agent_session(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             step="plan",
             target_path=context.worktree_path,
-            task_title=context.linear_task.full_title,
+            task_title=context.task.full_title,
             is_primary=True,
             environment=context.environment,
             invoked_at=invoked_at,
@@ -117,9 +117,9 @@ async def run_plan_step(context: Context) -> str | None:
                 raise PlanError("Plan agent output is missing the implementation plan section")
             build_plan = await extract_plan(
                 plan_output=plan_output,
-                task_description=context.linear_task.description,
-                comments=context.linear_task.comments,
-                task_id=context.linear_task.id,
+                task_description=context.task.description,
+                comments=context.task.message_bodies,
+                task_id=context.task.id,
                 environment=context.environment,
             )
         except PlanError as e:
@@ -131,10 +131,11 @@ async def run_plan_step(context: Context) -> str | None:
             return None
 
         context.session = await save_session(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             build_plan=build_plan,
-            name=context.linear_task.full_title,
-            linear_link=context.linear_task.url,
+            name=context.task.full_title,
+            linear_link=context.task.url,
+            kind=context.task.kind,
         )
         if context.session_id:
             print_message(f"Saved session {context.session_id}.", style="result")
@@ -146,7 +147,7 @@ async def run_plan_step(context: Context) -> str | None:
 
         questions = await extract_questions(
             plan_output=plan_output,
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             environment=context.environment,
         )
         questions = [q for q in questions if q.lower() not in NO_ISSUE_TOKENS and "no output" not in q.lower()]
@@ -167,10 +168,10 @@ async def run_plan_step(context: Context) -> str | None:
                 style="heading",
             )
             resolve_output = await run_resolve_step(
-                context=context, original_task=context.linear_task.text, questions=questions
+                context=context, original_task=context.task.text, questions=questions
             )
             current_task = (
-                f"Original Task:\n{context.linear_task.text}\n\n"
+                f"Original Task:\n{context.task.text}\n\n"
                 f"Resolved Answers:\n{resolve_output}\n\n"
                 "Revisit your plan with these resolved answers, finalize it, "
                 "and re-emit the Implementation Plan section."

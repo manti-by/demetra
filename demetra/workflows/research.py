@@ -2,7 +2,7 @@ import time
 from typing import Any
 
 from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
-from demetra.library.models import Context, LinearTask
+from demetra.library.models import Context, LinearTask, Task
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
     capture_agent_session,
@@ -19,20 +19,20 @@ from demetra.settings import LINEAR, MAX_ATTEMPTS
 from demetra.workflows.notifications import notify_message
 
 
-def is_research_task(linear_task: LinearTask) -> bool:
+def is_research_task(task: Task) -> bool:
     """Return whether a Linear task carries a research label.
 
     Compares the task's labels against the configured research labels
     case-insensitively.
 
     Args:
-        linear_task: The Linear task to inspect.
+        task: The Linear task to inspect.
 
     Returns:
         bool: True when at least one label matches a research label.
     """
     research_labels = {label.casefold() for label in LINEAR["research_labels"]}
-    task_labels = {label.casefold() for label in linear_task.labels}
+    task_labels = {label.casefold() for label in task.tags}
     return bool(research_labels & task_labels)
 
 
@@ -45,7 +45,7 @@ def is_research_ticket(context: Context) -> bool:
     Returns:
         bool: True when at least one label matches a research label.
     """
-    return is_research_task(linear_task=context.linear_task)
+    return is_research_task(task=context.task)
 
 
 async def _validate_research_ticket_prerequisites(context: Context) -> None:
@@ -63,7 +63,8 @@ async def _validate_research_ticket_prerequisites(context: Context) -> None:
         LinearConfigError: When the source project, the PRD state, the team id
             or the in-review state is not configured.
     """
-    if not context.linear_task.linear_project_id:
+    linear_project_id = context.task.linear_project_id if isinstance(context.task, LinearTask) else None
+    if not linear_project_id:
         raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
     try:
         context.environment.linear_state("prd")
@@ -92,13 +93,13 @@ async def _run_research_agent(context: Context) -> str | None:
     attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         print_message("Running RESEARCH agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="research")
+        await update_session_step(task_id=context.task.id, step="research")
 
         invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_research_agent(
             target_path=context.worktree_path,
-            task=context.linear_task.text,
-            task_title=context.linear_task.full_title,
+            task=context.task.text,
+            task_title=context.task.full_title,
             project_id=context.project.id,
             environment=context.environment,
         )
@@ -106,10 +107,10 @@ async def _run_research_agent(context: Context) -> str | None:
         # Research has no plan step, so this is the only place its session is
         # attributed; capture it (primary) so a research-only task gets history.
         await capture_agent_session(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             step="research",
             target_path=context.worktree_path,
-            task_title=context.linear_task.full_title,
+            task_title=context.task.full_title,
             is_primary=True,
             environment=context.environment,
             invoked_at=invoked_at,
@@ -141,7 +142,7 @@ async def _run_research_agent(context: Context) -> str | None:
 
         print_message(f"Research report:\n{report}")
         try:
-            persisted = await update_session_research_report(task_id=context.linear_task.id, research_report=report)
+            persisted = await update_session_research_report(task_id=context.task.id, research_report=report)
             if not persisted:
                 print_message(
                     "Failed to persist research report: no session matched task_id, continuing.", style="warning"
@@ -206,7 +207,7 @@ async def _link_research_ticket(context: Context, research_ticket_id: str) -> No
     attempts = MAX_ATTEMPTS["research"]
     while attempts > 0:
         try:
-            linked = await create_issue_relation(task_id=context.linear_task.id, related_task_id=research_ticket_id)
+            linked = await create_issue_relation(task_id=context.task.id, related_task_id=research_ticket_id)
         except LinearError as e:
             print_message(f"Failed to link research ticket: {e}, retrying.", style="warning")
             attempts -= 1
@@ -235,7 +236,7 @@ async def _move_to_in_review(context: Context) -> None:
         return
 
     try:
-        moved = await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        moved = await update_ticket_status(task_id=context.task.id, state_id=state_id)
     except LinearError as e:
         print_message(f"Failed to move the ticket to In Review: {e}; move it manually.", style="warning")
         return
@@ -244,7 +245,7 @@ async def _move_to_in_review(context: Context) -> None:
         print_message("Failed to move the ticket to In Review in Linear; move it manually.", style="warning")
         return
 
-    await update_session_step(task_id=context.linear_task.id, step="researched")
+    await update_session_step(task_id=context.task.id, step="researched")
     print_message("Task moved to In Review state.", style="result")
 
 
@@ -280,7 +281,7 @@ async def run_research_step(context: Context) -> str | None:
             print_message("Research agent produced no report after all attempts.", style="error")
             return None
         await notify_message(context=context, body=report, kind="research")
-        await update_session_step(task_id=context.linear_task.id, step="researched")
+        await update_session_step(task_id=context.task.id, step="researched")
         print_message("Research report posted to the chat thread.", style="result")
         return report
 

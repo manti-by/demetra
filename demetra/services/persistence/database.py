@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 import re
 import threading
@@ -8,15 +9,21 @@ from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import Column, and_, case, create_engine, delete, func, insert, select, text, update
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
 from demetra.library.models import (
     Chat,
     ChatMessage,
     ChatMessageKind,
+    LinearTask,
+    Message,
+    MessageSource,
     Session,
     SessionHistory,
     SessionState,
+    Task,
+    TaskKind,
     TokenUsage,
     ToolUsage,
     WaitlistEntryUpdate,
@@ -25,15 +32,17 @@ from demetra.library.models import (
 from demetra.library.tables import (
     agent_sessions,
     allowlist_entries,
-    chat_messages,
     chats,
     jwt_tokens,
+    linear_tasks,
+    messages,
     oauth_tokens,
     project_environments,
     projects,
     session_history,
     session_tool_usage,
     sessions,
+    tasks,
     users,
     waitlist_entries,
 )
@@ -191,6 +200,418 @@ async def init_db() -> None:
         await connection.execute(text("SELECT 1"))
 
 
+def _task_from_row(row) -> Task:
+    """Convert a ``tasks`` row into a Task dataclass.
+
+    Args:
+        row: A SQLAlchemy row carrying the ``tasks`` columns.
+
+    Returns:
+        Task: The mapped task record.
+    """
+    return Task(
+        id=row.id,
+        kind=row.kind,
+        identifier=row.identifier,
+        title=row.title,
+        description=row.description or "",
+        priority=row.priority or 0,
+        state=row.state,
+        url=row.url,
+        tags=list(row.tags or []),
+        project_id=row.project_id,
+        project_name=getattr(row, "project_name", None),
+        user_id=row.user_id,
+        created_at=row.created_at.isoformat() if row.created_at else None,
+        updated_at=row.updated_at.isoformat() if row.updated_at else None,
+    )
+
+
+def _message_from_row(row) -> Message:
+    """Convert a ``messages`` row into a Message dataclass.
+
+    Args:
+        row: A SQLAlchemy row carrying the ``messages`` columns.
+
+    Returns:
+        Message: The mapped message record.
+    """
+    return Message(
+        id=row.id,
+        task_id=row.task_id,
+        parent_id=row.parent_id,
+        source=row.source or "chat",
+        external_id=row.external_id,
+        author_id=row.author_id,
+        author_name=row.author_name,
+        is_system=bool(row.is_system),
+        kind=row.kind or "message",
+        body=row.body,
+        created_at=row.created_at.isoformat(),
+    )
+
+
+async def ensure_task(
+    *,
+    task_id: str,
+    kind: TaskKind,
+    identifier: str | None = None,
+    title: str | None = None,
+    description: str | None = None,
+    priority: int = 0,
+    state: str | None = None,
+    url: str | None = None,
+    tags: list[str] | None = None,
+    project_id: str | None = None,
+    user_id: str | None = None,
+) -> None:
+    """Create a task row when it does not exist yet.
+
+    The row is left untouched when the task is already known, so callers can
+    use this to guarantee the presence of a task before referencing it.
+
+    Args:
+        task_id: The task id, e.g. a Linear issue uuid or ``CH-<id>``.
+        kind: The task kind, ``"linear"`` or ``"chat"``.
+        identifier: Optional human-readable identifier.
+        title: Optional task title.
+        description: Optional task description.
+        priority: Optional task priority.
+        state: Optional task state.
+        url: Optional external url.
+        tags: Optional task tags.
+        project_id: Optional owning project id.
+        user_id: Optional owning user id.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            text(
+                """
+                INSERT INTO tasks (id, kind, identifier, title, description, priority, state, url, tags, project_id, user_id, created_at, updated_at)
+                VALUES (
+                    :id,
+                    :kind,
+                    :identifier,
+                    :title,
+                    :description,
+                    :priority,
+                    :state,
+                    :url,
+                    CAST(:tags AS jsonb),
+                    (SELECT p.id FROM projects p WHERE p.id = :project_id),
+                    :user_id,
+                    :created_at,
+                    :updated_at
+                )
+                ON CONFLICT (id) DO NOTHING
+                """
+            ),
+            {
+                "id": task_id,
+                "kind": kind,
+                "identifier": identifier or task_id,
+                "title": title or "",
+                "description": description or "",
+                "priority": priority,
+                "state": state,
+                "url": url,
+                "tags": json.dumps(list(tags or [])),
+                "project_id": project_id,
+                "user_id": user_id,
+                "created_at": now,
+                "updated_at": now,
+            },
+        )
+        await connection.commit()
+
+
+async def upsert_task(values: dict) -> Task:
+    """Insert or update a generic task row and return the stored record.
+
+    Only the supplied columns are written on conflict, so partial updates keep
+    the values they do not mention. Columns the table requires are filled with
+    a default on insert.
+
+    Args:
+        values: The task columns to write, including the ``id`` key.
+
+    Returns:
+        Task: The stored task record.
+    """
+    now = datetime.now(UTC)
+    task_id = values["id"]
+    payload = {
+        "id": task_id,
+        "kind": values.get("kind", "linear"),
+        "identifier": values.get("identifier", task_id),
+        "title": values.get("title", ""),
+        "description": values.get("description", ""),
+        "priority": values.get("priority", 0),
+        "state": values.get("state"),
+        "url": values.get("url"),
+        "tags": values.get("tags", []),
+        "project_id": values.get("project_id"),
+        "user_id": values.get("user_id"),
+        "created_at": now,
+        "updated_at": now,
+    }
+    statement = pg_insert(tasks).values(**payload)
+    updatable = {
+        key: getattr(statement.excluded, key) for key in values if key not in ("id", "created_at", "updated_at")
+    }
+    statement = statement.on_conflict_do_update(index_elements=[tasks.c.id], set_=updatable)
+    async with get_connection() as connection:
+        result = await connection.execute(statement.returning(tasks))
+        row = result.fetchone()
+        await connection.commit()
+    return _task_from_row(row)
+
+
+async def list_linked_linear_projects() -> list[str]:
+    """Return the distinct Linear project ids linked to Demetra projects.
+
+    Returns:
+        list[str]: The linked Linear project ids.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(projects.c.linear_project_id).where(projects.c.linear_project_id.is_not(None)).distinct()
+        )
+        rows = result.fetchall()
+    return [row.linear_project_id for row in rows if row.linear_project_id]
+
+
+async def get_task(task_id: str) -> Task | None:
+    """Return a task by its id.
+
+    Args:
+        task_id: The task id.
+
+    Returns:
+        Task | None: The task record, or None when it does not exist.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(select(tasks).where(tasks.c.id == task_id))
+        row = result.fetchone()
+    return _task_from_row(row) if row else None
+
+
+async def upsert_linear_task(values: dict) -> None:
+    """Insert or update the Linear-specific columns of a task.
+
+    Args:
+        values: The ``linear_tasks`` columns to write, including ``task_id``.
+    """
+    statement = pg_insert(linear_tasks).values(**values)
+    updatable = {key: getattr(statement.excluded, key) for key in values if key != "task_id"}
+    statement = statement.on_conflict_do_update(index_elements=[linear_tasks.c.task_id], set_=updatable)
+    async with get_connection() as connection:
+        await connection.execute(statement)
+        await connection.commit()
+
+
+async def get_linear_task(task_id: str) -> LinearTask | None:
+    """Return a Linear-backed task by its id.
+
+    Args:
+        task_id: The task id, which is the Linear issue uuid.
+
+    Returns:
+        LinearTask | None: The task record, or None when it is not a Linear
+            task or does not exist.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(tasks, linear_tasks)
+            .join(linear_tasks, linear_tasks.c.task_id == tasks.c.id)
+            .where(tasks.c.id == task_id)
+        )
+        row = result.fetchone()
+    if row is None:
+        return None
+    task = _task_from_row(row)
+    return LinearTask(
+        id=task.id,
+        identifier=task.identifier,
+        title=task.title,
+        description=task.description,
+        priority=task.priority,
+        state=task.state,
+        url=task.url,
+        tags=task.tags,
+        project_id=task.project_id,
+        project_name=task.project_name,
+        user_id=task.user_id,
+        created_at=task.created_at,
+        updated_at=task.updated_at,
+        linear_issue_id=row.linear_issue_id,
+        linear_identifier=row.linear_identifier,
+        linear_state_id=row.linear_state_id,
+        linear_state_name=row.linear_state_name,
+        linear_project_id=row.linear_project_id,
+        branch_name=row.branch_name,
+    )
+
+
+async def post_message(
+    *,
+    task_id: str,
+    body: str,
+    kind: ChatMessageKind = "message",
+    source: MessageSource = "chat",
+    author_id: str | None = None,
+    author_name: str | None = None,
+    is_system: bool = False,
+    parent_id: str | None = None,
+    external_id: str | None = None,
+) -> Message:
+    """Append a message to a task's conversation.
+
+    Args:
+        task_id: The task the message belongs to.
+        body: The message body.
+        kind: The message kind.
+        source: The message source, ``"chat"`` or ``"linear"``.
+        author_id: Optional Demetra user id of the author.
+        author_name: Optional display name of the author.
+        is_system: Whether the message was produced by the system.
+        parent_id: Optional parent message id for threaded replies.
+        external_id: Optional external identifier, e.g. a Linear comment id.
+
+    Returns:
+        Message: The stored message record.
+    """
+    message_id = str(uuid4())
+    now = datetime.now(UTC)
+    await ensure_task(task_id=task_id, kind="linear" if source == "linear" else "chat")
+    async with get_connection() as connection:
+        await connection.execute(
+            insert(messages).values(
+                id=message_id,
+                task_id=task_id,
+                parent_id=parent_id,
+                source=source,
+                external_id=external_id,
+                author_id=author_id,
+                author_name=author_name,
+                is_system=is_system,
+                kind=kind,
+                body=body,
+                created_at=now,
+            )
+        )
+        await connection.commit()
+    return Message(
+        id=message_id,
+        task_id=task_id,
+        parent_id=parent_id,
+        source=source,
+        external_id=external_id,
+        author_id=author_id,
+        author_name=author_name,
+        is_system=is_system,
+        kind=kind,
+        body=body,
+        created_at=now.isoformat(),
+    )
+
+
+async def upsert_message(
+    *,
+    task_id: str,
+    body: str,
+    external_id: str,
+    kind: ChatMessageKind = "comment",
+    source: MessageSource = "linear",
+    author_id: str | None = None,
+    author_name: str | None = None,
+    parent_id: str | None = None,
+    created_at: datetime | None = None,
+) -> Message:
+    """Insert or update a mirrored message keyed by its external id.
+
+    Args:
+        task_id: The task the message belongs to.
+        body: The message body.
+        external_id: The external identifier, e.g. a Linear comment id.
+        kind: The message kind.
+        source: The message source.
+        author_id: Optional Demetra user id of the author.
+        author_name: Optional display name of the author.
+        parent_id: Optional parent message id for threaded replies.
+        created_at: Optional creation timestamp of the external message.
+
+    Returns:
+        Message: The stored message record.
+    """
+    now = datetime.now(UTC)
+    await ensure_task(task_id=task_id, kind="linear" if source == "linear" else "chat")
+    statement = pg_insert(messages).values(
+        id=str(uuid4()),
+        task_id=task_id,
+        parent_id=parent_id,
+        source=source,
+        external_id=external_id,
+        author_id=author_id,
+        author_name=author_name,
+        is_system=False,
+        kind=kind,
+        body=body,
+        created_at=created_at or now,
+    )
+    statement = statement.on_conflict_do_update(
+        index_elements=[messages.c.external_id],
+        index_where=text("external_id IS NOT NULL"),
+        set_={
+            "task_id": statement.excluded.task_id,
+            "parent_id": statement.excluded.parent_id,
+            "author_name": statement.excluded.author_name,
+            "body": statement.excluded.body,
+        },
+    )
+    async with get_connection() as connection:
+        result = await connection.execute(statement.returning(messages))
+        row = result.fetchone()
+        await connection.commit()
+    return _message_from_row(row)
+
+
+async def list_messages(task_id: str, *, source: MessageSource | None = None) -> list[Message]:
+    """Return a task's messages in recording order.
+
+    Args:
+        task_id: The task id.
+        source: Optional source filter, ``"chat"`` or ``"linear"``.
+
+    Returns:
+        list[Message]: The task messages, oldest first.
+    """
+    query = select(messages).where(messages.c.task_id == task_id)
+    if source is not None:
+        query = query.where(messages.c.source == source)
+    async with get_connection() as connection:
+        result = await connection.execute(query.order_by(messages.c.created_at, messages.c.id))
+        rows = result.fetchall()
+    return [_message_from_row(row) for row in rows]
+
+
+def split_task_name(name: str) -> tuple[str, str]:
+    """Split a session display name into its identifier and title.
+
+    Args:
+        name: The display name, e.g. ``"MNT-312: Add auth"``.
+
+    Returns:
+        tuple[str, str]: The identifier and the title.
+    """
+    identifier, separator, title = name.partition(": ")
+    if not separator:
+        stripped = name.strip()
+        return stripped, stripped
+    return identifier.strip(), title.strip()
+
+
 async def upsert_pending_session(
     task_id: str,
     session_id: str | None,
@@ -198,19 +619,22 @@ async def upsert_pending_session(
     user_id: str | None = None,
     name: str | None = None,
     linear_link: str | None = None,
+    kind: TaskKind = "linear",
 ) -> Session:
     """Create or update a pending session row for a task.
 
     Inserts a session in the ``initial`` step or, on conflict, refreshes the
-    mutable fields while preserving the existing step.
+    mutable fields while preserving the existing step. The referenced task row
+    is created first so the session always points at a known task.
 
     Args:
-        task_id: The Linear task identifier.
+        task_id: The task identifier.
         session_id: The opencode session id, or None while still pending.
         project_id: Optional project id the session belongs to.
         user_id: Optional user id the session belongs to.
         name: Optional display name for the session.
         linear_link: Optional link to the Linear issue.
+        kind: The task kind, ``"linear"`` or ``"chat"``.
 
     Returns:
         Session: The created or updated session record.
@@ -219,6 +643,16 @@ async def upsert_pending_session(
         BaseException: When the database returns no row.
     """
     now = datetime.now(UTC)
+    identifier, title = split_task_name(name or "")
+    await ensure_task(
+        task_id=task_id,
+        kind=kind,
+        identifier=identifier or task_id,
+        title=title,
+        project_id=project_id,
+        user_id=user_id,
+        url=linear_link,
+    )
     async with get_connection() as connection:
         result = await connection.execute(
             text(
@@ -581,22 +1015,34 @@ async def save_session(
     name: str | None = None,
     session_id: str | None = None,
     linear_link: str | None = None,
+    kind: TaskKind = "linear",
 ) -> Session:
     """Persist a session with its build plan, advancing the step to ``plan``.
 
-    Upserts the session row by task id and returns the resulting record.
+    Upserts the session row by task id and returns the resulting record. The
+    referenced task row is created first so the session always points at a
+    known task.
 
     Args:
-        task_id: The Linear task identifier.
+        task_id: The task identifier.
         build_plan: The build plan markdown to store.
         name: Optional display name for the session.
         session_id: Optional opencode session id.
         linear_link: Optional link to the Linear issue.
+        kind: The task kind, ``"linear"`` or ``"chat"``.
 
     Returns:
         Session: The saved session record.
     """
     now = datetime.now(UTC)
+    identifier, title = split_task_name(name or "")
+    await ensure_task(
+        task_id=task_id,
+        kind=kind,
+        identifier=identifier or task_id,
+        title=title,
+        url=linear_link,
+    )
     async with get_connection() as connection:
         await connection.execute(
             text(
@@ -835,10 +1281,11 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
     Sessions are returned newest first. Each row carries a ``has_history`` flag
     derived from ``session_history`` (resolved by ``task_id``) so the UI can
     offer the history view without depending on the display-only
-    ``sessions.session_id`` pointer. Chat-mode sessions expose their chat id
-    under ``chat_id`` (None for Linear sessions) and their tags under ``tags``.
-    The owning project's name is returned under ``project_name``, and the
-    feedback loops taken during the run are returned under ``feedback_loops``.
+    ``sessions.session_id`` pointer. Every session carries the generic task
+    ``kind`` (``linear`` or ``chat``) and ``tags``; chat-mode sessions also
+    expose their chat id under ``chat_id`` (None for Linear sessions). The
+    owning project's name is returned under ``project_name``, and the feedback
+    loops taken during the run are returned under ``feedback_loops``.
 
     Args:
         user_id: The user id to scope the query to.
@@ -858,18 +1305,21 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
         select(
             sessions,
             has_history,
+            tasks.c.kind.label("kind"),
+            tasks.c.title.label("task_title"),
+            tasks.c.tags.label("tags"),
             chats.c.id.label("chat_id"),
-            chats.c.tags.label("tags"),
             projects.c.name.label("project_name"),
         )
-        .outerjoin(chats, chats.c.session_task_id == sessions.c.task_id)
+        .join(tasks, tasks.c.id == sessions.c.task_id)
+        .outerjoin(chats, chats.c.task_id == sessions.c.task_id)
         .outerjoin(projects, projects.c.id == sessions.c.project_id)
         .where(sessions.c.user_id == user_id)
     )
     if step is not None:
         query = query.where(sessions.c.step == step)
     if tag is not None:
-        query = query.where(chats.c.tags.contains([tag]))
+        query = query.where(tasks.c.tags.contains([tag]))
 
     query = query.order_by(sessions.c.created_at.desc())
 
@@ -1401,8 +1851,8 @@ async def get_session_state(task_id: str, user_id: str | None = None) -> Session
             state, or None when the session does not exist.
     """
     query = (
-        select(sessions.c.step, sessions.c.name, sessions.c.is_research, chats.c.id.label("chat_id"))
-        .outerjoin(chats, chats.c.session_task_id == sessions.c.task_id)
+        select(sessions.c.step, sessions.c.name, sessions.c.is_research, tasks.c.kind.label("kind"))
+        .join(tasks, tasks.c.id == sessions.c.task_id)
         .where(sessions.c.task_id == task_id)
     )
     if user_id is not None:
@@ -1417,7 +1867,7 @@ async def get_session_state(task_id: str, user_id: str | None = None) -> Session
         step=row.step or "initial",
         name=row.name or "",
         is_research=bool(row.is_research),
-        is_chat=row.chat_id is not None,
+        is_chat=row.kind == "chat",
         feedback_loops=loops.get(task_id, empty_feedback_loops()),
     )
 
@@ -2773,7 +3223,9 @@ async def delete_project(project_id: str, user_id: str) -> bool:
         )
         if not existing.fetchone():
             return False
-        has_chats = await connection.execute(select(chats.c.id).where(chats.c.project_id == project_id).limit(1))
+        has_chats = await connection.execute(
+            select(tasks.c.id).where((tasks.c.project_id == project_id) & (tasks.c.kind == "chat")).limit(1)
+        )
         if has_chats.fetchone():
             raise ValueError("Project still has chat sessions")
         await connection.execute(delete(project_environments).where(project_environments.c.project_id == project_id))
@@ -2802,53 +3254,64 @@ def _chat_select():
     """Return a chat select statement with the owning project's name joined in.
 
     Returns:
-        Select: A select of ``chats`` plus the ``project_name`` label read by
-            :func:`_chat_from_row`.
+        Select: A select of ``chats`` plus the ``tasks`` columns and the
+            ``project_name`` label read by :func:`_chat_from_row`.
     """
-    return select(chats, projects.c.name.label("project_name")).join(projects, projects.c.id == chats.c.project_id)
+    return (
+        select(chats.c.id.label("chat_id"), tasks, projects.c.name.label("project_name"))
+        .join(tasks, tasks.c.id == chats.c.task_id)
+        .join(projects, projects.c.id == tasks.c.project_id)
+    )
 
 
 def _chat_from_row(row) -> Chat:
-    """Convert a ``chats`` row into a Chat dataclass.
+    """Convert a joined ``chats``/``tasks`` row into a Chat dataclass.
 
     Args:
-        row: A SQLAlchemy row from the ``chats`` table.
+        row: A SQLAlchemy row from the chat select.
 
     Returns:
         Chat: The mapped chat record.
     """
     return Chat(
         id=row.id,
-        session_task_id=row.session_task_id,
+        chat_id=row.chat_id,
+        identifier=row.identifier,
         title=row.title,
         description=row.description or "",
+        priority=row.priority or 0,
+        state=row.state,
+        url=row.url,
+        tags=list(row.tags or []),
         user_id=row.user_id,
         project_id=row.project_id,
         project_name=row.project_name,
-        tags=list(row.tags or []),
         created_at=row.created_at.isoformat(),
         updated_at=row.updated_at.isoformat(),
     )
 
 
-def _chat_message_from_row(row) -> ChatMessage:
-    """Convert a ``chat_messages`` row into a ChatMessage dataclass.
+def _chat_message_from_row(message: Message) -> ChatMessage:
+    """Convert a stored message into a ChatMessage dataclass.
 
     Args:
-        row: A SQLAlchemy row from the ``chat_messages`` table.
+        message: The stored message.
 
     Returns:
         ChatMessage: The mapped chat message record.
     """
     return ChatMessage(
-        id=row.id,
-        chat_id=row.chat_id,
-        session_task_id=row.session_task_id,
-        body=row.body,
-        created_at=row.created_at.isoformat(),
-        author_id=row.author_id,
-        is_system=bool(row.is_system),
-        kind=row.kind or "message",
+        id=message.id,
+        task_id=message.task_id,
+        parent_id=message.parent_id,
+        source=message.source,
+        external_id=message.external_id,
+        author_id=message.author_id,
+        author_name=message.author_name,
+        is_system=message.is_system,
+        kind=message.kind,
+        body=message.body,
+        created_at=message.created_at,
     )
 
 
@@ -2863,9 +3326,9 @@ async def create_chat(
     """Create a chat-mode task together with its pending session row.
 
     The serial id is reserved with ``nextval`` so the ``CH-<id>`` task id is
-    known before either row exists. The session is inserted first because the
-    chat row carries an immediate foreign key to it, and both are committed in
-    a single transaction so the worker never observes one without the other.
+    known before any row exists. The generic task row is inserted first because
+    both the session and the chat reference it, and all three are committed in
+    a single transaction so the worker never observes a partial chat.
 
     Args:
         user_id: The owning user id.
@@ -2883,46 +3346,61 @@ async def create_chat(
         chat_id = sequence.scalar_one()
         task_id = chat_task_id(chat_id)
         await connection.execute(
-            text(
-                """
-                INSERT INTO sessions (task_id, name, session_id, build_plan, posted_to_linear, step, project_id, user_id, run_attempts, listener_attempts, pr_link, linear_link, created_at, updated_at)
-                VALUES (:task_id, :name, NULL, '', false, 'initial', :project_id, :user_id, 0, 0, NULL, NULL, :created_at, :updated_at)
-                """
-            ),
-            {
-                "task_id": task_id,
-                "name": f"{task_id}: {title}",
-                "project_id": project_id,
-                "user_id": user_id,
-                "created_at": now,
-                "updated_at": now,
-            },
-        )
-        await connection.execute(
-            insert(chats).values(
-                id=chat_id,
-                session_task_id=task_id,
+            insert(tasks).values(
+                id=task_id,
+                kind="chat",
+                identifier=task_id,
                 title=title,
                 description=description,
+                priority=0,
+                state="initial",
+                url=None,
                 tags=list(tags or []),
-                user_id=user_id,
                 project_id=project_id,
+                user_id=user_id,
                 created_at=now,
                 updated_at=now,
             )
         )
+        await connection.execute(
+            insert(sessions).values(
+                task_id=task_id,
+                name=f"{task_id}: {title}",
+                session_id=None,
+                build_plan="",
+                posted_to_linear=False,
+                step="initial",
+                is_research=False,
+                project_id=project_id,
+                user_id=user_id,
+                run_attempts=0,
+                attempts_exhausted=False,
+                listener_attempts=0,
+                review_attempts=0,
+                pr_link=None,
+                linear_link=None,
+                research_report=None,
+                created_at=now,
+                updated_at=now,
+            )
+        )
+        await connection.execute(insert(chats).values(id=chat_id, task_id=task_id))
         project_row = await connection.execute(select(projects.c.name).where(projects.c.id == project_id))
         project_name = project_row.scalar_one()
 
     return Chat(
-        id=chat_id,
-        session_task_id=task_id,
+        id=task_id,
+        chat_id=chat_id,
+        identifier=task_id,
         title=title,
         description=description,
+        priority=0,
+        state="initial",
+        url=None,
+        tags=list(tags or []),
         user_id=user_id,
         project_id=project_id,
         project_name=project_name,
-        tags=list(tags or []),
         created_at=now.isoformat(),
         updated_at=now.isoformat(),
     )
@@ -2938,7 +3416,7 @@ async def get_chat_by_task_id(task_id: str) -> Chat | None:
         Chat | None: The chat record, or None when the task is a Linear task.
     """
     async with get_connection() as connection:
-        result = await connection.execute(_chat_select().where(chats.c.session_task_id == task_id))
+        result = await connection.execute(_chat_select().where(chats.c.task_id == task_id))
         row = result.fetchone()
     return _chat_from_row(row) if row else None
 
@@ -2951,11 +3429,12 @@ async def get_chat(task_id: str, user_id: str) -> Chat | None:
         user_id: The owning user id.
 
     Returns:
-        Chat | None: The chat record, or None when absent or not owned.
+        Chat | None: The chat record, or None when it does not exist or is
+            owned by another user.
     """
     async with get_connection() as connection:
         result = await connection.execute(
-            _chat_select().where((chats.c.session_task_id == task_id) & (chats.c.user_id == user_id))
+            _chat_select().where((chats.c.task_id == task_id) & (tasks.c.user_id == user_id))
         )
         row = result.fetchone()
     return _chat_from_row(row) if row else None
@@ -2971,11 +3450,11 @@ async def list_chats(user_id: str, tag: str | None = None) -> list[Chat]:
     Returns:
         list[Chat]: The matching chat records.
     """
-    query = _chat_select().where(chats.c.user_id == user_id)
+    query = _chat_select().where(tasks.c.user_id == user_id)
     if tag is not None:
-        query = query.where(chats.c.tags.contains([tag]))
+        query = query.where(tasks.c.tags.contains([tag]))
     async with get_connection() as connection:
-        result = await connection.execute(query.order_by(chats.c.created_at.desc()))
+        result = await connection.execute(query.order_by(tasks.c.created_at.desc()))
         rows = result.fetchall()
     return [_chat_from_row(row) for row in rows]
 
@@ -3001,37 +3480,19 @@ async def post_chat_message(
         ChatMessage | None: The created message, or None when the chat does not
             exist.
     """
-    now = datetime.now(UTC)
     async with get_connection() as connection:
-        chat = await connection.execute(select(chats.c.id).where(chats.c.session_task_id == task_id))
-        chat_row = chat.fetchone()
-        if chat_row is None:
+        chat = await connection.execute(select(chats.c.id).where(chats.c.task_id == task_id))
+        if chat.fetchone() is None:
             return None
-        message_id = str(uuid4())
-        message = ChatMessage(
-            id=message_id,
-            chat_id=chat_row.id,
-            session_task_id=task_id,
-            body=body,
-            created_at=now.isoformat(),
-            author_id=author_id,
-            is_system=is_system,
-            kind=kind,
-        )
-        await connection.execute(
-            insert(chat_messages).values(
-                id=message.id,
-                chat_id=message.chat_id,
-                session_task_id=message.session_task_id,
-                author_id=message.author_id,
-                is_system=message.is_system,
-                kind=message.kind,
-                body=message.body,
-                created_at=now,
-            )
-        )
-        await connection.commit()
-    return message
+    message = await post_message(
+        task_id=task_id,
+        body=body,
+        kind=kind,
+        source="chat",
+        author_id=author_id,
+        is_system=is_system,
+    )
+    return _chat_message_from_row(message)
 
 
 async def list_chat_messages(task_id: str) -> list[ChatMessage]:
@@ -3041,16 +3502,10 @@ async def list_chat_messages(task_id: str) -> list[ChatMessage]:
         task_id: The ``CH-<id>`` task id.
 
     Returns:
-        list[ChatMessage]: The thread messages, oldest first.
+        list[ChatMessage]: The chat messages, oldest first.
     """
-    async with get_connection() as connection:
-        result = await connection.execute(
-            select(chat_messages)
-            .where(chat_messages.c.session_task_id == task_id)
-            .order_by(chat_messages.c.created_at, chat_messages.c.id)
-        )
-        rows = result.fetchall()
-    return [_chat_message_from_row(row) for row in rows]
+    stored = await list_messages(task_id, source="chat")
+    return [_chat_message_from_row(message) for message in stored]
 
 
 RESUMABLE_CHAT_STEPS = ("awaiting_input", "failed", "completed", "researched")
@@ -3167,6 +3622,10 @@ async def delete_session(task_id: str, user_id: str) -> bool:
             return False
         await connection.execute(delete(session_history).where(session_history.c.task_id == task_id))
         await connection.execute(delete(agent_sessions).where(agent_sessions.c.task_id == task_id))
+        kind = await connection.execute(select(tasks.c.kind).where(tasks.c.id == task_id))
+        kind_row = kind.fetchone()
+        if kind_row is not None and kind_row.kind == "chat":
+            await connection.execute(delete(tasks).where(tasks.c.id == task_id))
         await connection.commit()
 
     sessions_log_dir = (LOG_DIR / "sessions").resolve()

@@ -158,18 +158,18 @@ def collect_session_facts(context: Context) -> dict:
         dict: The session facts keyed for page composition, including the git
             diff summary against the default branch.
     """
-    linear_task = context.linear_task
+    task = context.task
     return {
-        "ticket_identifier": linear_task.identifier,
-        "title": linear_task.title,
-        "description": linear_task.description,
-        "url": linear_task.url,
-        "labels": linear_task.labels,
+        "ticket_identifier": task.identifier,
+        "title": task.title,
+        "description": task.description,
+        "url": task.url,
+        "tags": task.tags,
         "branch": context.branch_name,
         "worktree_path": context.worktree_path,
         "build_plan": service.truncate(text=context.build_plan or "", limit=service.WIKI["build_plan_cap"]),
         "session_id": context.session_id,
         "pr_link": context.session.pr_link if context.session is not None else None,
-        "task_id": linear_task.id,
-        "log_tail": service.session_log_tail(task_id=linear_task.id),
+        "task_id": task.id,
+        "log_tail": service.session_log_tail(task_id=task.id),
     }

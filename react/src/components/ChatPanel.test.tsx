@@ -20,25 +20,33 @@ vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
 function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
   return {
     chat: {
-      id: 1,
-      session_task_id: 'CH-1',
+      id: 'CH-1',
+      chat_id: 1,
+      identifier: 'CH-1',
       title: 'Add authentication',
       description: 'Wire up login',
+      priority: 0,
+      state: 'build',
+      url: null,
       user_id: 'u1',
       project_id: 'p1',
       project_name: 'demetra',
       tags: ['Backend'],
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',
+      kind: 'chat',
     },
     messages: [
       {
         id: 'm1',
-        chat_id: 1,
-        session_task_id: 'CH-1',
+        task_id: 'CH-1',
+        parent_id: null,
+        source: 'chat',
+        external_id: null,
         body: 'Started working on it',
         created_at: '2026-01-01T00:00:00Z',
         author_id: null,
+        author_name: null,
         is_system: true,
         kind: 'status',
       },
@@ -51,11 +59,14 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
 function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
   return {
     id: 'm-md',
-    chat_id: 1,
-    session_task_id: 'CH-1',
+    task_id: 'CH-1',
+    parent_id: null,
+    source: 'chat',
+    external_id: null,
     body: '## Heading\n\nSome **bold** text',
     created_at: '2026-01-01T00:00:00Z',
     author_id: null,
+    author_name: null,
     is_system: true,
     kind: 'message',
     ...overrides,
@@ -171,7 +182,7 @@ describe('ChatPanel', () => {
     expect(composer).toHaveValue('draft for CH-1');
 
     const next = makeDetail();
-    next.chat = { ...next.chat, session_task_id: 'CH-2', title: 'Second chat' };
+    next.chat = { ...next.chat, id: 'CH-2', identifier: 'CH-2', title: 'Second chat' };
     vi.mocked(getChat).mockResolvedValue(next);
 
     rerender(<ChatPanel taskId="CH-2" />);
@@ -357,7 +368,7 @@ describe('ChatPanel', () => {
     expect(await screen.findByText('send failed')).toBeInTheDocument();
 
     const next = makeDetail();
-    next.chat = { ...next.chat, session_task_id: 'CH-2', title: 'Second chat' };
+    next.chat = { ...next.chat, id: 'CH-2', identifier: 'CH-2', title: 'Second chat' };
     vi.mocked(getChat).mockResolvedValue(next);
 
     rerender(<ChatPanel taskId="CH-2" />);

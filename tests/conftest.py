@@ -516,7 +516,7 @@ def linear_task(linear_task_data: dict):
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
         linear_project_id=linear_task_data["project"].get("id"),
-        labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
+        tags=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
         url=linear_task_data["url"],
     )
 

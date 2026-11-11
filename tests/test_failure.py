@@ -56,7 +56,7 @@ def build_context() -> Context:
     return Context(
         project=project,
         auto_mode=True,
-        linear_task=linear_task,
+        task=linear_task,
         branch_name="mnt-128-create-bare-react-application",
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
@@ -90,7 +90,7 @@ class TestRunFailureStep:
         assert "gh: could not create PR" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -105,7 +105,7 @@ class TestRunFailureStep:
         assert "Failed to summarize the review" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -121,7 +121,7 @@ class TestRunFailureStep:
         assert "Unexpected server error" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -138,7 +138,7 @@ class TestRunFailureStep:
         assert "read ECONNRESET" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -154,7 +154,7 @@ class TestRunFailureStep:
         assert "Failed to write wiki page for MNT-128: disk full" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 

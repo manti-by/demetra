@@ -139,7 +139,6 @@ class TestWorkflowSetup:
             "description": faker.text(),
             "priority": "1",
             "created_at": datetime.now().isoformat(),
-            "comments": [],
         }
 
         mock_search.return_value = [project_data]
@@ -225,7 +224,7 @@ class TestWorkflowPlan:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -272,7 +271,7 @@ class TestWorkflowPlan:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -330,7 +329,7 @@ class TestWorkflowPlan:
                     updated_at=datetime.now().isoformat(),
                 ),
                 auto_mode=False,
-                linear_task=LinearTask(
+                task=LinearTask(
                     id=str(uuid4()),
                     identifier="MNT-123",
                     title=faker.sentence(),
@@ -351,10 +350,10 @@ class TestWorkflowPlan:
 
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.task.id, state_id="awaiting-input-state-id"
             )
             # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
-            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
+            mock_update_session_step.assert_awaited_once_with(task_id=context.task.id, step="plan")
 
     @pytest.mark.asyncio
     async def test_run_plan_step_empty_agent_output_moves_to_awaiting_input(
@@ -390,7 +389,7 @@ class TestWorkflowPlan:
                     updated_at=datetime.now().isoformat(),
                 ),
                 auto_mode=False,
-                linear_task=LinearTask(
+                task=LinearTask(
                     id=str(uuid4()),
                     identifier="MNT-123",
                     title=faker.sentence(),
@@ -411,10 +410,10 @@ class TestWorkflowPlan:
             mock_extract_plan.assert_not_called()
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.task.id, state_id="awaiting-input-state-id"
             )
             # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
-            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
+            mock_update_session_step.assert_awaited_once_with(task_id=context.task.id, step="plan")
 
     @pytest.mark.asyncio
     async def test_run_plan_step_output_missing_plan_header_moves_to_awaiting_input(
@@ -450,7 +449,7 @@ class TestWorkflowPlan:
                     updated_at=datetime.now().isoformat(),
                 ),
                 auto_mode=False,
-                linear_task=LinearTask(
+                task=LinearTask(
                     id=str(uuid4()),
                     identifier="MNT-123",
                     title=faker.sentence(),
@@ -471,10 +470,10 @@ class TestWorkflowPlan:
             mock_extract_plan.assert_not_called()
             mock_post_comment.assert_awaited_once()
             mock_update_ticket_status.assert_awaited_once_with(
-                task_id=context.linear_task.id, state_id="awaiting-input-state-id"
+                task_id=context.task.id, state_id="awaiting-input-state-id"
             )
             # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
-            mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
+            mock_update_session_step.assert_awaited_once_with(task_id=context.task.id, step="plan")
 
 
 class TestWorkflowResolve:
@@ -511,7 +510,7 @@ class TestWorkflowResolve:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -571,7 +570,7 @@ class TestWorkflowResolve:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -710,7 +709,7 @@ class TestWorkflowPlanLoop:
             ),
             auto_mode=True,
             plan_loop=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -785,7 +784,7 @@ class TestWorkflowPlanLoop:
             ),
             auto_mode=True,
             plan_loop=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -844,7 +843,7 @@ class TestWorkflowPlanLoop:
             ),
             auto_mode=True,
             plan_loop=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -903,7 +902,7 @@ class TestWorkflowPlanLoop:
             ),
             auto_mode=True,
             plan_loop=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -928,7 +927,7 @@ class TestWorkflowPlanLoop:
             await run_plan_step(context)
 
         # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
-        mock_update_session_step.assert_awaited_once_with(task_id=context.linear_task.id, step="plan")
+        mock_update_session_step.assert_awaited_once_with(task_id=context.task.id, step="plan")
 
 
 class TestWorkflowBuild:
@@ -993,7 +992,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1046,7 +1045,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1104,7 +1103,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1161,7 +1160,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1217,7 +1216,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1277,7 +1276,7 @@ class TestWorkflowBuild:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1301,7 +1300,7 @@ class TestWorkflowBuild:
 
         assert result is None
         assert mock_build_agent.call_count == 2
-        mock_increment.assert_awaited_once_with(task_id=context.linear_task.id)
+        mock_increment.assert_awaited_once_with(task_id=context.task.id)
 
 
 class TestContextCompaction:
@@ -1350,7 +1349,7 @@ class TestContextCompaction:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1548,7 +1547,7 @@ class TestCompactionReducesContext:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2139,8 +2138,9 @@ class TestWorkflowCleanup:
         task_id = "CH-1" if chat else "MNT-123"
         chat_record = (
             Chat(
-                id=1,
-                session_task_id=task_id,
+                id=task_id,
+                chat_id=1,
+                identifier=task_id,
                 title=faker.sentence(),
                 description=faker.text(),
                 user_id=str(uuid4()),
@@ -2155,7 +2155,7 @@ class TestWorkflowCleanup:
         return Context(
             project=project,
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=task_id,
                 identifier=task_id,
                 title=faker.sentence(),
@@ -2187,7 +2187,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2356,7 +2356,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2396,7 +2396,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2441,7 +2441,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2458,7 +2458,7 @@ class TestWorkflowCleanup:
 
         await commit_and_push(context)
         mock_update_session_pr_link.assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             pr_link="https://github.com/test/demetra/pull/42",
         )
         mock_wiki.assert_awaited_once_with(context=context, wiki_root=context.worktree_path / "wiki")
@@ -2486,7 +2486,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2523,7 +2523,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2564,7 +2564,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2608,7 +2608,7 @@ class TestWorkflowCleanup:
                     updated_at=datetime.now().isoformat(),
                 ),
                 auto_mode=False,
-                linear_task=LinearTask(
+                task=LinearTask(
                     id=str(uuid4()),
                     identifier="MNT-123",
                     title=faker.sentence(),
@@ -2637,9 +2637,9 @@ class TestWorkflowCleanup:
                 failure_message="Plan questions posted to Linear, waiting for answers",
             )
 
-            mock_update_step.assert_awaited_once_with(task_id=context.linear_task.id, step="awaiting_input")
+            mock_update_step.assert_awaited_once_with(task_id=context.task.id, step="awaiting_input")
             mock_record_step.assert_awaited_once_with(
-                task_id=context.linear_task.id,
+                task_id=context.task.id,
                 step="awaiting_input",
                 message="Plan questions posted to Linear, waiting for answers",
             )
@@ -2700,7 +2700,7 @@ class TestWorkflowCleanup:
         mock_cleanup.assert_awaited_once_with(context=context, is_success=True, remove_worktree=True)
         mock_remove.assert_awaited_once()
         mock_delete.assert_not_awaited()
-        mock_invalidate.assert_awaited_once_with(task_id=context.linear_task.id)
+        mock_invalidate.assert_awaited_once_with(task_id=context.task.id)
 
     @pytest.mark.asyncio
     async def test_cleanup_workflow_keeps_worktree_when_removal_disabled(self, faker):
@@ -2779,7 +2779,7 @@ class TestWorkflowCleanup:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -2818,14 +2818,14 @@ class TestMainBumpVersion:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
                 description=faker.text(),
                 priority=1,
                 created_at=datetime.now().isoformat(),
-                labels=["bug"],
+                tags=["bug"],
             ),
             branch_name=f"feature/{faker.slug()}",
             worktree_path=Path(f"/tmp/{faker.slug()}"),
@@ -2951,14 +2951,14 @@ class TestWorkflowResearch:
                 updated_at=datetime.now().isoformat(),
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id=str(uuid4()),
                 identifier="MNT-123",
                 title=faker.sentence(),
                 description=faker.text(),
                 priority=1,
                 created_at=datetime.now().isoformat(),
-                labels=labels or [],
+                tags=labels or [],
                 linear_project_id=linear_project_id,
             ),
             branch_name="feature/test",
@@ -2992,10 +2992,8 @@ class TestWorkflowResearch:
 
         assert result == report
         mock_create_research_ticket.assert_awaited_once_with(context=context, report=report)
-        mock_create_issue_relation.assert_awaited_once_with(
-            task_id=context.linear_task.id, related_task_id="ticket-123"
-        )
-        mock_update_ticket_status.assert_awaited_once_with(task_id=context.linear_task.id, state_id="state-123")
+        mock_create_issue_relation.assert_awaited_once_with(task_id=context.task.id, related_task_id="ticket-123")
+        mock_update_ticket_status.assert_awaited_once_with(task_id=context.task.id, state_id="state-123")
         assert mock_update_session_step.call_args.kwargs["step"] == "researched"
 
     @pytest.mark.asyncio
@@ -3023,9 +3021,7 @@ class TestWorkflowResearch:
 
         await run_research_step(context)
 
-        mock_update_session_research_report.assert_awaited_once_with(
-            task_id=context.linear_task.id, research_report=report
-        )
+        mock_update_session_research_report.assert_awaited_once_with(task_id=context.task.id, research_report=report)
 
     @pytest.mark.asyncio
     async def test_run_research_step_retries_after_agent_failure(

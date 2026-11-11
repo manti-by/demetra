@@ -29,10 +29,12 @@ async def list_sessions(
     """List processing sessions for the authenticated user.
 
     Returns a list of session records with their current step and metadata.
-    Chat-mode sessions also carry ``chat_id`` and ``tags``; ``tag`` filters the
-    list to chat sessions carrying that tag. Every session whose project still
-    exists exposes the project's display name under ``project_name``, and the
-    review/test feedback loops taken during the run under ``feedback_loops``.
+    Every session carries the generic task ``kind`` (``linear`` or ``chat``)
+    and its ``tags``; chat-mode sessions also carry ``chat_id``, and ``tag``
+    filters the list to chat sessions carrying that tag. Every session whose
+    project still exists exposes the project's display name under
+    ``project_name``, and the review/test feedback loops taken during the run
+    under ``feedback_loops``.
     """
     if step is not None and step not in VALID_STEPS:
         raise HTTPException(status_code=400, detail=f"Invalid step. Must be one of: {', '.join(VALID_STEPS)}")

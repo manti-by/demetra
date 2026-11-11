@@ -74,7 +74,7 @@ export function NewChatPage() {
           .map((tag) => tag.trim())
           .filter(Boolean),
       });
-      navigate(`/chats/${chat.session_task_id}`);
+      navigate(`/chats/${chat.id}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to create chat");
     } finally {

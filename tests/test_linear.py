@@ -136,7 +136,7 @@ class TestLinearService:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_post_comment_returns_true_on_success(
+    async def test_post_comment_returns_the_comment_id_on_success(
         self,
         graphql_comment_success_response: dict,
     ):
@@ -146,10 +146,10 @@ class TestLinearService:
             mock_request.return_value = graphql_comment_success_response
             result = await post_comment("issue-1", "Test comment")
 
-        assert result is True
+        assert result == graphql_comment_success_response["data"]["commentCreate"]["comment"]["id"]
 
     @pytest.mark.asyncio
-    async def test_post_comment_returns_false_on_failure(
+    async def test_post_comment_returns_none_on_failure(
         self,
         graphql_comment_failure_response: dict,
     ):
@@ -159,7 +159,7 @@ class TestLinearService:
             mock_request.return_value = graphql_comment_failure_response
             result = await post_comment("issue-1", "Test comment")
 
-        assert result is False
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_create_issue_relation_returns_true_on_success(self):
@@ -205,10 +205,10 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert len(issues[0].comments) == 3
-        assert issues[0].comments[0] == "First question from the team?"
-        assert issues[0].comments[1] == "Answer to first question"
-        assert issues[0].comments[2] == "Second question about the implementation?"
+        assert len(issues[0].message_bodies) == 3
+        assert issues[0].message_bodies[0] == "First question from the team?"
+        assert issues[0].message_bodies[1] == "Answer to first question"
+        assert issues[0].message_bodies[2] == "Second question about the implementation?"
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_empty_comments(
@@ -225,7 +225,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].comments == []
+        assert issues[0].message_bodies == []
 
     @pytest.mark.asyncio
     async def test_linear_task_text_includes_comments(
@@ -276,7 +276,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].labels == ["bug", "frontend"]
+        assert issues[0].tags == ["bug", "frontend"]
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_empty_labels(
@@ -291,7 +291,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].labels == []
+        assert issues[0].tags == []
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_filter_labels_includes_matching(
@@ -308,7 +308,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert "bug" in issues[0].labels
+        assert "bug" in issues[0].tags
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_filter_labels_skips_non_matching(
@@ -661,14 +661,14 @@ class TestCreateResearchTicket:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="issue-1",
                 identifier="MNT-123",
                 title="Research something",
                 description="desc",
                 priority=priority,
                 created_at="2026-01-01T00:00:00",
-                labels=labels or [],
+                tags=labels or [],
                 linear_project_id=linear_project_id,
             ),
             branch_name="feature/test",
@@ -1055,9 +1055,9 @@ class TestGetLinearTaskById:
             task = await get_linear_task_by_id("issue-1")
 
         assert task is not None
-        assert len(task.comments) > 0
-        assert "First question" in task.comments[0]
-        assert "Answer to first question" in task.comments[1]
+        assert len(task.message_bodies) > 0
+        assert "First question" in task.message_bodies[0]
+        assert "Answer to first question" in task.message_bodies[1]
 
     @pytest.mark.asyncio
     async def test_get_linear_task_by_id_enriches_with_project_id(
@@ -1089,7 +1089,7 @@ class TestGetLinearTaskById:
             task = await get_linear_task_by_id("issue-1")
 
         assert task is not None
-        assert task.labels == ["bug", "frontend"]
+        assert task.tags == ["bug", "frontend"]
 
 
 class TestLinearCleanup:
@@ -1130,7 +1130,7 @@ class TestLinearCleanup:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="linear-task-123",
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1173,7 +1173,7 @@ class TestLinearCleanup:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="linear-task-456",
                 identifier="MNT-456",
                 title=faker.sentence(),

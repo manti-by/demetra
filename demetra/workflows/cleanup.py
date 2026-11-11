@@ -91,8 +91,8 @@ async def commit_and_push(context: Context) -> bool:
         return False
 
     print_message("Generating wiki page", style="heading")
-    await update_session_step(task_id=context.linear_task.id, step="wiki")
-    await record_session_step(task_id=context.linear_task.id, step="wiki")
+    await update_session_step(task_id=context.task.id, step="wiki")
+    await record_session_step(task_id=context.task.id, step="wiki")
     wiki_error: WikiError | None = None
     try:
         await write_session_wiki_page(context=context, wiki_root=context.worktree_path / "wiki")
@@ -113,11 +113,11 @@ async def commit_and_push(context: Context) -> bool:
             style="warning",
         )
 
-    await update_session_step(task_id=context.linear_task.id, step="push")
-    await record_session_step(task_id=context.linear_task.id, step="push")
+    await update_session_step(task_id=context.task.id, step="push")
+    await record_session_step(task_id=context.task.id, step="push")
     await git_commit(
         target_path=context.worktree_path,
-        message=context.linear_task.full_title,
+        message=context.task.full_title,
         environment=context.environment,
         project_id=context.project.id,
     )
@@ -131,12 +131,12 @@ async def commit_and_push(context: Context) -> bool:
     )
 
     print_message("Generating PR description", style="heading")
-    task_details = f"{context.linear_task.full_title}\n\n{context.linear_task.description}"
+    task_details = f"{context.task.full_title}\n\n{context.task.description}"
     try:
         pr_body = await generate_pr_description(
             task_details=task_details,
             build_plan=context.build_plan,
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             environment=context.environment,
         )
     except PrDescriptionError as e:
@@ -150,7 +150,7 @@ async def commit_and_push(context: Context) -> bool:
     exit_code, stdout, stderr = await create_pull_request(
         target_path=context.worktree_path,
         branch_name=context.branch_name,
-        title=context.linear_task.full_title,
+        title=context.task.full_title,
         body=pr_body,
         environment=context.environment,
         project_id=context.project.id,
@@ -162,13 +162,13 @@ async def commit_and_push(context: Context) -> bool:
 
     if pr_link := extract_pr_link(stdout):
         try:
-            await update_session_pr_link(task_id=context.linear_task.id, pr_link=pr_link)
+            await update_session_pr_link(task_id=context.task.id, pr_link=pr_link)
         except SQLAlchemyError:
             print_message("Failed to persist PR link, continuing.", style="warning")
 
     if not context.is_chat:
-        await update_session_step(task_id=context.linear_task.id, step="completed")
-    await record_session_step(task_id=context.linear_task.id, step="completed")
+        await update_session_step(task_id=context.task.id, step="completed")
+    await record_session_step(task_id=context.task.id, step="completed")
 
     if wiki_error is not None:
         print_message(
@@ -213,8 +213,8 @@ async def cleanup_workflow(
         failure_message: Failure reason to record with the failure step row.
     """
     if not is_success and not context.is_chat:
-        await update_session_step(task_id=context.linear_task.id, step=failure_step)
-        await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)
+        await update_session_step(task_id=context.task.id, step=failure_step)
+        await record_session_step(task_id=context.task.id, step=failure_step, message=failure_message)
 
     remove_worktree = not (context.is_chat or GIT["disable_worktree_removal"])
     worktree_cleaned = False
@@ -222,7 +222,7 @@ async def cleanup_workflow(
     try:
         worktree_cleaned = await git_cleanup(context=context, is_success=is_success, remove_worktree=remove_worktree)
         if not context.is_research and remove_worktree:
-            await invalidate_agent_sessions(task_id=context.linear_task.id)
+            await invalidate_agent_sessions(task_id=context.task.id)
         if should_update_linear_status and not context.is_chat:
             await linear_cleanup(context=context, is_success=is_success)
         cleanup_succeeded = worktree_cleaned
@@ -230,7 +230,7 @@ async def cleanup_workflow(
         if context.is_chat:
             if is_success and cleanup_succeeded:
                 if not context.is_research:
-                    await update_session_step(task_id=context.linear_task.id, step="completed")
+                    await update_session_step(task_id=context.task.id, step="completed")
             else:
-                await update_session_step(task_id=context.linear_task.id, step=failure_step)
-                await record_session_step(task_id=context.linear_task.id, step=failure_step, message=failure_message)
+                await update_session_step(task_id=context.task.id, step=failure_step)
+                await record_session_step(task_id=context.task.id, step=failure_step, message=failure_message)

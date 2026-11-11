@@ -84,7 +84,7 @@ def _build_context(*, step, build_plan, is_research=False) -> Context:
     return Context(
         project=project,
         auto_mode=True,
-        linear_task=linear_task,
+        task=linear_task,
         branch_name="mnt-128-create-bare-react-application",
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
@@ -306,7 +306,7 @@ class TestMainReplanning:
         mock_main_deps["setup_workflow"].return_value = context
         mock_main_deps["run_plan_step"].return_value = None
         mock_main_deps["upsert_pending_session"].return_value = Session(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             build_plan="",
             posted_to_linear=False,
             created_at=datetime.now().isoformat(),
@@ -317,12 +317,13 @@ class TestMainReplanning:
         await main(project_name="demetra", auto_mode=True)
 
         mock_main_deps["upsert_pending_session"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             session_id=None,
             project_id=context.project.id,
-            user_id=context.linear_task.user_id or DEFAULT_USER_ID,
-            name=context.linear_task.full_title,
-            linear_link=context.linear_task.url,
+            user_id=context.task.user_id or DEFAULT_USER_ID,
+            name=context.task.full_title,
+            linear_link=context.task.url,
+            kind=context.task.kind,
         )
 
     @pytest.mark.asyncio
@@ -349,7 +350,7 @@ class TestMainReplanning:
         await main(project_name="demetra", auto_mode=True)
 
         mock_main_deps["update_session_is_research"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             is_research=False,
         )
 
@@ -369,7 +370,7 @@ class TestMainReplanning:
             await main(project_name="demetra", auto_mode=True)
 
         mock_main_deps["update_session_is_research"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             is_research=True,
         )
         mock_run_research_step.assert_awaited_once_with(context=context)

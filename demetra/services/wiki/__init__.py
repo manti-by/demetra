@@ -2,7 +2,7 @@ import logging
 import re
 
 from demetra.library.exceptions import WikiError
-from demetra.library.models import Context, LinearTask
+from demetra.library.models import Context, Task
 from demetra.services.llm.openrouter import compose_wiki_page
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
@@ -135,7 +135,7 @@ __all__ = [
     "WIKI",
     "WIKI_ROOT",
     "Context",
-    "LinearTask",
+    "Task",
     "WikiError",
     "answer_sweep",
     "check_agents_drift",
