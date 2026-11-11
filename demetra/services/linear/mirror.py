@@ -239,8 +239,41 @@ async def fetch_project_issues(linear_project_id: str) -> list[dict]:
     return issues
 
 
+async def fetch_comment_replies(comment_id: str, after: str | None = None) -> list[dict]:
+    """Fetch the replies of a comment that follow a cursor.
+
+    The issue query already returns the first page of replies inline; this
+    walks the remaining pages of a comment whose replies overflow one page.
+
+    Args:
+        comment_id: The Linear comment id.
+        after: The cursor to resume from, or None to start at the beginning.
+
+    Returns:
+        list[dict]: The reply nodes.
+    """
+    query = await get_query(name="get_comment_replies")
+    replies: list[dict] = []
+    while True:
+        payload = await graphql_request(query, {"commentId": comment_id, "after": after})
+        if payload.get("errors"):
+            raise RuntimeError(f"Linear API error: {payload['errors']}")
+        connection = ((payload.get("data") or {}).get("comment") or {}).get("children") or {}
+        replies.extend((edge.get("node") or {}) for edge in connection.get("edges") or [])
+        page_info = connection.get("pageInfo") or {}
+        if not page_info.get("hasNextPage"):
+            break
+        after = page_info.get("endCursor")
+        if not after:
+            break
+    return replies
+
+
 async def fetch_issue_comments(issue_id: str) -> list[dict]:
     """Fetch every comment of a Linear issue, following the cursor.
+
+    The replies of a top-level comment are fetched with their own cursor, so a
+    thread longer than one page is not truncated.
 
     Args:
         issue_id: The Linear issue id.
@@ -256,7 +289,10 @@ async def fetch_issue_comments(issue_id: str) -> list[dict]:
         if payload.get("errors"):
             raise RuntimeError(f"Linear API error: {payload['errors']}")
         connection = ((payload.get("data") or {}).get("issue") or {}).get("comments") or {}
-        comments.extend(connection.get("nodes") or [])
+        nodes = connection.get("nodes") or []
+        for node in nodes:
+            node["children"] = {"edges": await _fetch_comment_edges(node)}
+        comments.extend(nodes)
         page_info = connection.get("pageInfo") or {}
         if not page_info.get("hasNextPage"):
             break
@@ -264,3 +300,25 @@ async def fetch_issue_comments(issue_id: str) -> list[dict]:
         if not after:
             break
     return comments
+
+
+async def _fetch_comment_edges(comment: dict) -> list[dict]:
+    """Return every reply of a comment, following the reply cursor.
+
+    Args:
+        comment: The Linear comment node.
+
+    Returns:
+        list[dict]: The reply edges.
+    """
+    children = comment.get("children") or {}
+    edges = list(children.get("edges") or [])
+    page_info = children.get("pageInfo") or {}
+    if not page_info.get("hasNextPage"):
+        return edges
+    comment_id = comment.get("id")
+    if not comment_id:
+        return edges
+    remaining = await fetch_comment_replies(comment_id=comment_id, after=page_info.get("endCursor"))
+    edges.extend({"node": reply} for reply in remaining)
+    return edges

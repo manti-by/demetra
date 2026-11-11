@@ -1,5 +1,5 @@
 query GetProjectIssues($projectId: ID!, $after: String) {
-  issues(first: 50, after: $after, filter: {project: {id: {eq: $projectId}}}) {
+  issues(first: 50, after: $after, includeArchived: true, filter: {project: {id: {eq: $projectId}}}) {
     pageInfo {
       hasNextPage
       endCursor

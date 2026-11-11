@@ -178,3 +178,24 @@ class TestTaskMessageMigration:
 
         assert chats == [("CH-1", "Chat about auth", ["backend"])]
         assert messages == [("msg-1", 1, "CH-1", "How do I add auth?")]
+
+    @pytest.mark.asyncio
+    async def test_downgrade_maps_a_comment_kind_back_to_a_legacy_kind(self, setup_test_db):
+        engine = create_engine(_sync_url())
+        with engine.begin() as connection:
+            _seed_probe(connection)
+            _run_migration(connection, upgrade)
+            connection.execute(
+                text(
+                    "INSERT INTO messages (id, task_id, parent_id, source, external_id, author_id, "
+                    "author_name, is_system, kind, body, created_at) "
+                    "VALUES ('msg-2', 'CH-1', NULL, 'chat', NULL, NULL, NULL, false, 'comment', "
+                    "'A comment', NOW())"
+                )
+            )
+            _run_migration(connection, downgrade)
+
+            kinds = connection.execute(text("SELECT id, kind FROM chat_messages ORDER BY id")).fetchall()
+        engine.dispose()
+
+        assert kinds == [("msg-1", "message"), ("msg-2", "message")]

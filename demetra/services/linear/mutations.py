@@ -73,7 +73,7 @@ async def post_comment(task_id: str, body: str) -> str | None:
     data = result.get("data")
     if data is None:
         return None
-    payload = data.get("commentCreate", {})
+    payload = data.get("commentCreate") or {}
     if not payload.get("success", False):
         return None
     return (payload.get("comment") or {}).get("id")

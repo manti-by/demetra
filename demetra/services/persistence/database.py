@@ -1319,7 +1319,7 @@ async def get_sessions(user_id: str, step: str | None = None, tag: str | None = 
     if step is not None:
         query = query.where(sessions.c.step == step)
     if tag is not None:
-        query = query.where(tasks.c.tags.contains([tag]))
+        query = query.where((tasks.c.tags.contains([tag])) & (tasks.c.kind == "chat"))
 
     query = query.order_by(sessions.c.created_at.desc())
 

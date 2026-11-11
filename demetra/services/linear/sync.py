@@ -13,6 +13,7 @@ from demetra.services.linear.mirror import (
     fetch_project_issues,
     store_linear_issue,
 )
+from demetra.services.linear.tasks import get_linked_projects
 from demetra.services.persistence.database import list_linked_linear_projects
 from demetra.services.runtime.tui import print_message
 
@@ -43,8 +44,10 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
         SyncReport: The counters of the run.
     """
     report = SyncReport()
-    linked_projects = await list_linked_linear_projects()
-    for linear_project_id in linked_projects:
+    linked = await get_linked_projects()
+    for linear_project_id in await list_linked_linear_projects():
+        resolved = linked.get(linear_project_id.lower())
+        project_id, user_id = resolved if resolved else (None, None)
         report.projects += 1
         print_message(f"Syncing Linear project {linear_project_id}", style="info")
         try:
@@ -66,7 +69,7 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
             if dry_run:
                 continue
             payload = {**issue, "comments": {"nodes": comments}}
-            await store_linear_issue(issue=payload)
+            await store_linear_issue(issue=payload, project_id=project_id, user_id=user_id)
     return report
 
 

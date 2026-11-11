@@ -1,9 +1,11 @@
+from collections.abc import AsyncGenerator
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 import pytest_asyncio
 
+from demetra.services.linear.graphql import get_query
 from demetra.services.linear.mirror import (
     extract_comment_threads,
     fetch_issue_comments,
@@ -14,6 +16,7 @@ from demetra.services.linear.sync import sync_linear_mirror
 from demetra.services.persistence.database import (
     create_project,
     create_user,
+    delete_project,
     get_linear_task,
     list_messages,
 )
@@ -133,6 +136,14 @@ class TestStoreLinearIssue:
 
 class TestPagination:
     @pytest.mark.asyncio
+    async def test_the_project_query_includes_archived_issues(self):
+        query = await get_query(name="get_project_issues")
+
+        assert "includeArchived: true" in query
+        assert "after: $after" in query
+        assert "filter: {project: {id: {eq: $projectId}}}" in query
+
+    @pytest.mark.asyncio
     async def test_follows_the_issue_cursor(self):
         pages = [
             {
@@ -192,6 +203,73 @@ class TestPagination:
         assert [comment["id"] for comment in comments] == ["c1", "c2"]
 
     @pytest.mark.asyncio
+    async def test_follows_the_reply_cursor_of_a_comment(self):
+        first_page = {
+            "data": {
+                "issue": {
+                    "comments": {
+                        "nodes": [
+                            {
+                                **_comment("c1", "First question"),
+                                "children": {
+                                    "pageInfo": {"hasNextPage": True, "endCursor": "child-cursor"},
+                                    "edges": [{"node": _comment("c2", "First answer")}],
+                                },
+                            }
+                        ],
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                    }
+                }
+            }
+        }
+        reply_page = {
+            "data": {
+                "comment": {
+                    "id": "c1",
+                    "children": {
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                        "edges": [{"node": _comment("c3", "Late answer")}],
+                    },
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [first_page, reply_page]
+            comments = await fetch_issue_comments("issue-1")
+
+        assert mock_request.await_args_list[1].args[1] == {"commentId": "c1", "after": "child-cursor"}
+        assert [edge["node"]["id"] for edge in comments[0]["children"]["edges"]] == ["c2", "c3"]
+
+    @pytest.mark.asyncio
+    async def test_does_not_query_replies_when_one_page_is_enough(self):
+        page = {
+            "data": {
+                "issue": {
+                    "comments": {
+                        "nodes": [
+                            {
+                                **_comment("c1", "First question"),
+                                "children": {
+                                    "pageInfo": {"hasNextPage": False, "endCursor": None},
+                                    "edges": [{"node": _comment("c2", "First answer")}],
+                                },
+                            }
+                        ],
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                    }
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [page]
+            comments = await fetch_issue_comments("issue-1")
+
+        assert mock_request.await_count == 1
+        assert [edge["node"]["id"] for edge in comments[0]["children"]["edges"]] == ["c2"]
+
+    @pytest.mark.asyncio
     async def test_raises_on_a_graphql_error(self):
         with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = {"errors": [{"message": "boom"}]}
@@ -205,17 +283,21 @@ class TestSyncLinearMirror:
         return await create_user(email=f"{uuid4().hex}@example.com", password_hash="x")
 
     @pytest_asyncio.fixture
-    async def linked_project(self, owner: str) -> dict:
-        return await create_project(
+    async def linked_project(self, owner: str) -> AsyncGenerator[dict]:
+        project = await create_project(
             user_id=owner,
             name=f"sync-project-{uuid4().hex[:8]}",
             repository_url=f"https://github.com/owner/sync-{uuid4().hex[:8]}",
             repository_owner="owner",
             repository_name="sync-project",
             local_path="/tmp/sync-project",
-            linear_project_id="linear-proj-1",
+            linear_project_id=f"linear-proj-{uuid4().hex[:8]}",
             state="active",
         )
+        yield project
+        # The test database is shared for the session, so the linked project is
+        # removed again to keep the sync scoped to the project under test.
+        await delete_project(project_id=project["id"], user_id=owner)
 
     @pytest.mark.asyncio
     async def test_mirrors_every_issue_of_the_linked_project(self, linked_project: dict):
@@ -238,6 +320,7 @@ class TestSyncLinearMirror:
         mirrored = await get_linear_task(issue["id"])
         assert mirrored is not None
         assert mirrored.identifier == "MNT-1"
+        assert mirrored.project_id == linked_project["id"]
 
     @pytest.mark.asyncio
     async def test_dry_run_writes_nothing(self, linked_project: dict):

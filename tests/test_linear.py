@@ -162,6 +162,16 @@ class TestLinearService:
         assert result is None
 
     @pytest.mark.asyncio
+    async def test_post_comment_returns_none_on_a_null_payload(self):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_request.return_value = {"data": {"commentCreate": None}}
+            result = await post_comment("issue-1", "Test comment")
+
+        assert result is None
+
+    @pytest.mark.asyncio
     async def test_create_issue_relation_returns_true_on_success(self):
         with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
             mock_request.return_value = {"data": {"issueRelationCreate": {"success": True}}}

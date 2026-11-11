@@ -118,7 +118,7 @@ SELECT
     m.task_id,
     m.author_id,
     m.is_system,
-    m.kind,
+    CASE WHEN m.kind = 'comment' THEN 'message' ELSE m.kind END,
     m.body,
     m.created_at
 FROM messages m

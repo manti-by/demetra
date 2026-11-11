@@ -17,6 +17,7 @@ from demetra.services.persistence.database import (
     post_message,
     upsert_linear_task,
     upsert_message,
+    upsert_pending_session,
     upsert_task,
 )
 
@@ -197,6 +198,39 @@ class TestChatTask:
 
         assert row["kind"] == "chat"
         assert row["chat_id"] == chat.chat_id
+
+    @pytest.mark.asyncio
+    async def test_the_tag_filter_only_matches_chat_sessions(self, owner: str, project: dict):
+        chat = await create_chat(
+            user_id=owner,
+            project_id=project["id"],
+            title="Chat about auth",
+            description="How do I add auth?",
+            tags=["Backend"],
+        )
+        linear_task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_task(
+            {
+                "id": linear_task_id,
+                "kind": "linear",
+                "identifier": "MNT-1",
+                "title": "Linear issue",
+                "tags": ["Backend"],
+                "project_id": project["id"],
+                "user_id": owner,
+            }
+        )
+        await upsert_pending_session(
+            task_id=linear_task_id,
+            session_id=None,
+            project_id=project["id"],
+            user_id=owner,
+            name="MNT-1: Linear issue",
+        )
+
+        rows = await get_sessions(user_id=owner, tag="Backend")
+
+        assert {row["task_id"] for row in rows} == {chat.id}
 
     @pytest.mark.asyncio
     async def test_deleting_the_session_removes_the_chat_task(self, owner: str, project: dict):

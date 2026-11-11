@@ -1,0 +1,22 @@
+query GetCommentReplies($commentId: String!, $after: String) {
+  comment(id: $commentId) {
+    id
+    children(first: 50, after: $after) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      edges {
+        node {
+          id
+          body
+          createdAt
+          user {
+            id
+            name
+          }
+        }
+      }
+    }
+  }
+}

@@ -215,6 +215,34 @@ The migration was verified against a scratch Postgres database: `upgrade head` �
 
 ---
 
+## Update — 2026-11-11 16:59
+
+Six review findings were verified against the live Linear schema and fixed.
+
+- **The session tag filter lost its chat-only scope.** `get_sessions` filtered on
+  `tasks.c.tags.contains([tag])`, and tags now live on `tasks` — so a Linear task carrying the
+  same label matched a chat-only filter. The predicate is now
+  `(tasks.c.tags.contains([tag])) & (tasks.c.kind == "chat")`, restoring the documented contract.
+- **Archived issues were missing from the backfill.** Linear hides archived resources by default;
+  `get_project_issues.gql` now passes `includeArchived: true` (confirmed against
+  `IssueConnection`/the root `issues` query arguments).
+- **The downgrade could violate the legacy kind constraint.** `chat_messages.kind` does not accept
+  `comment`, so `CHAT_MESSAGE_RESTORE` maps `comment` back to `message`. Without the mapping the
+  downgrade raises `ck_chat_messages_kind`; the regression is covered by
+  `tests/test_task_message_migration.py`.
+- **A null `commentCreate` payload crashed `post_comment`.** `data.get("commentCreate", {})` returns
+  `None` when the key is present with a null value, so `payload.get("success")` raised
+  `AttributeError` instead of reporting a failed comment. The payload is now normalised with
+  `or {}`.
+- **Mirrored Linear tasks were not linked to their Demetra project.** `sync_linear_mirror` stored
+  every issue without a project or owner, so the backfilled rows had `project_id = NULL`. The sync
+  now resolves the owner through the same `get_linked_projects()` mapping the live read path uses.
+- **Reply threads were truncated.** `Comment.children` was fetched inline without a cursor, so a
+  comment with more replies than one page lost the rest. The children connection now returns its
+  `pageInfo`, and the remaining pages are fetched through a new `get_comment_replies.gql`
+  (the root `comment(id:)` query) only when `hasNextPage` is set — one extra request per
+  overflowing thread, not per comment.
+
 ## Follow-ups
 
 - The Linear mirror is **backfill-only** (the decision taken for this ticket): the local copy goes

@@ -15,6 +15,10 @@ query GetIssueComments($issueId: String!, $after: String) {
           name
         }
         children {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
           edges {
             node {
               id
