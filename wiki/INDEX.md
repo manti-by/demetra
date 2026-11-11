@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — Lint and test failures are now summarised before they reach the build agent: a new `extract_errors` service (OpenRouter prompt `demetra/prompts/extract_errors.md`) parses ruff/pytest output into a ded... (2026-11-10)
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md) — The build loop's review budget was a local variable, so every workflow restart re-granted a fresh `MAX_ATTEMPTS["review"]` rounds; applied review rounds are now counted in a durable `sessions.review_a... (2026-11-10)
@@ -236,8 +237,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Linear & GitHub integrations (6 pages)
+### Linear & GitHub integrations (7 pages)
 
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
 - [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — 2026-08-05

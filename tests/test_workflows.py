@@ -2212,6 +2212,132 @@ class TestWorkflowCleanup:
         assert [call.kwargs["step"] for call in mock_record_step.await_args_list] == ["wiki", "push", "completed"]
 
     @pytest.mark.asyncio
+    async def test_commit_and_push_unwraps_fenced_pr_body(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = "```markdown\n## Summary\nAdds the chat PR description.\n```"
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/7", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == "## Summary\nAdds the chat PR description."
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_unfenced_pr_body(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = "## Summary\nAdds the chat PR description.\n\n## Testing\nNo testing information available."
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/8", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_pr_body_with_code_sample(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = (
+            "## Summary\nGuards the humidity property.\n\n## Changes\n- Fixed the guard:\n\n"
+            "```python\nif self.latest_log and self.latest_log.humidity is not None:\n    return 1\n```"
+        )
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/9", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_unwraps_outer_fence_around_code_sample(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        inner = "## Summary\nGuards the humidity property.\n\n```python\nreturn 1\n```"
+        body = f"````markdown\n{inner}\n````"
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/10", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == inner
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_pr_body_closed_by_interior_fence(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = "````markdown\n## Summary\nGuards the humidity property.\n\n````python\nreturn 1\n````\n````"
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/11", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_empty_fenced_pr_body(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = "```markdown\n```"
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/12", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_code_only_pr_body(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = "```python\nprint('hello')\n```"
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/10", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
+    async def test_commit_and_push_keeps_wrapped_pr_body_with_code_sample(self, faker, mock_commit_deps):
+        mock_add_all, _mock_commit, _mock_push, mock_pr, mock_pr_body, _mock_wiki = mock_commit_deps
+        context = self.make_context(faker, chat=True)
+
+        body = (
+            "```markdown\n## Summary\nGuards the humidity property.\n\n## Changes\n- Fixed the guard:\n\n"
+            "```python\nif self.latest_log and self.latest_log.humidity is not None:\n    return 1\n```\n```"
+        )
+        mock_add_all.return_value = True
+        mock_pr_body.return_value = body
+        mock_pr.return_value = (0, "https://github.com/test/demetra/pull/11", "")
+
+        with patch("demetra.workflows.cleanup.record_session_step", new_callable=AsyncMock):
+            await commit_and_push(context)
+
+        assert mock_pr.await_args.kwargs["body"] == body
+
+    @pytest.mark.asyncio
     async def test_commit_and_push_pr_failure(self, faker, mock_commit_deps):
 
         _mock_add_all, _mock_commit, _mock_push, mock_pr, _mock_pr_body, mock_wiki = mock_commit_deps
