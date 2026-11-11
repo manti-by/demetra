@@ -8,7 +8,7 @@ services: [persistence, workflows, api, react]
 branch: mnt-228-intermediate-history-states
 tickets: [MNT-228]
 tags: [wiki, feature, backend, frontend]
-related: [2026-07-23-session-history-modal.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
+related: [2026-07-23-session-history-modal.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
 # MNT-228: Intermediate history states
 
@@ -30,7 +30,7 @@ Here is the summary of the implementation plan:
 - **Extend `update_session_step`**: Instead of adding ~15 duplicate `record_session_step_history` calls across workflows, add an optional `session_id` parameter directly to `update_session_step`. When provided, it inserts a `session_history` row (step + timestamp only) in the same transaction.
 - **No Database Migration**: The token usage and `model` columns in `session_history` are already nullable, so step-only history rows can be inserted without schema changes.
 - **Skip `session_id` on Terminal Steps**: In `cleanup.py`, `completed` and failure updates will omit `session_id` to prevent duplicate history rows, as `record_session_step_history` already writes token rows immediately following those steps.
-- **Fronte…
+- **Frontend**: show localized clock times for the step rows in the history UI, with the full timestamp in the tooltip.
 
 ## Test Results
 
@@ -45,7 +45,7 @@ Here is the summary of the implementation plan:
 
 - `update_session_step(task_id, step)` now only advances `sessions.step`; it no longer writes history.
 - Step rows come from `record_session_step(task_id, step)`, keyed by `task_id` and written with `kind='step'` — so a research-only task gets history without a session id.
-- `kind` is now explicit on every row (`'step'` vs `'invocation'`), and the UI drives tokens/attribution from it instead of null-sniffing.
+- `kind` is now explicit on every row (`'step'` vs `'invocation'`), and the UI drives tokens/attribution from it instead of null-sniffing. (MNT-260 later added a third kind, `kind='llm_call'`, for OpenRouter calls — see [[2026-10-27-mnt-260-openrouter-call-history]].)
 
 The localized-clock-time frontend change from this page remains in effect.
 
@@ -60,4 +60,7 @@ The localized-clock-time frontend change from this page remains in effect.
 - Related: [[2026-07-23-session-history-modal]]
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]]
 - Related: [[2026-07-23-session-tokens-audit-revalidation]]
+- Related: [[2026-10-27-mnt-260-openrouter-call-history]]
 - External: https://linear.app/mnt/issue/MNT-228/intermediate-history-states
+
+> **Consistency fix (2026-11-11, Consistency Agent):** the truncated `- **Fronte…` plan bullet was completed from the shipped frontend behaviour (localized clock times, full timestamp in the tooltip); the 2026-10-16 update's `kind` list was extended with MNT-260's third kind (`llm_call`), and the matching `related:` entry was added.

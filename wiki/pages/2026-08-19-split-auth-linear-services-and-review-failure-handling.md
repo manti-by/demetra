@@ -96,3 +96,5 @@ MNT-103 (2026-06-09): validated the GraphQL shape behind `LinearTask.text` and s
 > (`get_openrouter_config`) were deleted; resolution moved to
 > `SessionEnvironment` / `context.environment`. See
 > [[2026-09-16-mnt-205-revise-merged-environment]].
+
+> **Consistency note (2026-11-11, Consistency Agent):** `demetra/services/linear/config.py` was deleted (its `get_linear_config_value` was replaced by `SessionEnvironment.linear_state`); the `linear/` package is now `graphql.py`, `mutations.py`, `oauth.py`, `tasks.py`. The `auth/` package likewise grew `allowlist.py`, `copy.py`, `passwords.py` and `waitlist.py` beyond the three modules listed above.

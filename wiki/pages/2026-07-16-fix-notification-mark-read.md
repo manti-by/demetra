@@ -58,3 +58,5 @@ None.
 ## References
 
 - Related: none
+
+> **Consistency note (2026-11-11, Consistency Agent):** The DB helpers moved with the persistence split: `increment_listener_attempts` / `reset_listener_attempts` now live in `demetra/services/persistence/database.py:461` / `:432` (`demetra/services/database.py` no longer exists), and the budget is `MAX_ATTEMPTS["listener"]` (`demetra/settings.py:54`, value 5) rather than a standalone constant.

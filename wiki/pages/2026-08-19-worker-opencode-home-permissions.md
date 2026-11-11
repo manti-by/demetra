@@ -74,3 +74,5 @@ Prunes bind-mounted secrets (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`,
 ## References
 
 - Related: [[2026-08-18-compose-anchors-refactor]], [[2026-08-17-docker-setup-review]], [[2026-08-10-docker-compose-deploy]], [[2026-08-24-gh-config-dir-permission-entrypoint]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The entrypoint changed since this page: `configs/docker-entrypoint.sh` now prunes by path (`-path …/.config/gh/hosts.yml`, `-path …/.config/opencode/opencode.json`, `-path …/.local/share/opencode/auth.json`) and uses `chown -h`, so the `-name`-based prune list quoted above no longer exists. The `USER demetra` line was restored in the Dockerfile (`:77`) — the 2026-10-08 note already covers that. `make docker-deploy` has **no recipe**; use `make deploy` (or `make docker-up`).

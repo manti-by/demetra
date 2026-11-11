@@ -14,7 +14,9 @@ related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guar
 
 ## TL;DR
 
-Added Research loop: tickets with `Research` label run a read-only `research-agent` (wiki + web validation) that extracts `## Research Report`, posts it as a Linear comment, and moves the ticket to `Awaiting Input`. Branch short-circuits the normal plan→build pipeline in `main.py`. Added `MAX_RESEARCH_ATTEMPTS=5`, `OPENCODE["research_model"]`, `LINEAR["research_labels"]`, `research` StepType. 920 tests, ruff/ty/bandit green.
+Added Research loop: tickets with `Research` label run a read-only `research-agent` (wiki + web validation) that extracts `## Research Report` and hands it to the research workflow. Branch short-circuits the normal plan→build pipeline in `main.py`. Added `MAX_RESEARCH_ATTEMPTS=5` (now `MAX_ATTEMPTS["research"]`), `OPENCODE["research_model"]`, `LINEAR["research_labels"]`, `research` StepType. 920 tests, ruff/ty/bandit green.
+
+> **Updated (2026-11-11, Consistency Agent):** the TL;DR above described the first generation of the loop. The flow has since been reworked twice — the research report is persisted to `sessions.research_report`, the workflow creates a **related** Linear ticket instead of commenting on the source, the source ticket ends in **In Review** with `step="researched"`, and the retry budget is `MAX_ATTEMPTS["research"]`. See the 2026-09-15 / 2026-10-06 / 2026-10-08 update blocks below and [[2026-10-05-mnt-232-update-research-flow]].
 
 ---
 

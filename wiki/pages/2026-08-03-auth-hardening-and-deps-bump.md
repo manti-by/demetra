@@ -79,3 +79,5 @@ Was `allow_origins=["*"]` + `allow_credentials=True` — unsafe. Restricted via 
 ## References
 
 - Related: [[2026-07-24-plain-auth-review-followups]], [[2026-08-03-check-api-auth-and-credentials]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `CORS_ALLOWED_ORIGINS` default quoted above is now the explicit-scheme list `["http://localhost:5173", "http://localhost:8000"]` (`demetra/settings.py:248`), and `bcrypt` is pinned at `5.0.0`. The `get_cookie_samesite(is_cockie_secure=COOKIE_SECURE)` typo in `demetra/settings.py:253` is still present in the source.

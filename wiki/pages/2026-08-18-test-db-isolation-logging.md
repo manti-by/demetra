@@ -80,3 +80,5 @@ None.
 ## References
 
 - Related: [[2026-06-15-remove-patches-from-tests]], [[2026-07-16-simplify-session-logging-setup]], [[2026-07-15-duplicated-log-messages]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** This page has two follow-up sections that disagree: the “known follow-ups” list near the top (stale `demetra` DB artifacts; `setup_test_db` autouse now requires Postgres for every `pytest` run) and the `## Follow-ups` section at the bottom, which says “None”. The two listed items are the accurate ones; the bottom section should not read “None”.

@@ -36,7 +36,7 @@ The plan is to add a "Copy" button to the existing build-plan modal footer in `S
 ### Implementation Steps
 1. **Update `SessionArtifacts.tsx`**:
    - Add a `copied` state and a `copyResetRef` to track the feedback-reset timeout.
-   - Implement the `handleCopy` clipboard handler (line truncated in the generated plan).
+   - Implement the `handleCopy` clipboard handler: `navigator.clipboard.writeText(rawMarkdown)` behind a clipboard feature check, then set `copied` for 1.5s and clear it through `copyResetRef` (a pending copy is invalidated when the modal closes).
 
 ## Test Results
 
@@ -55,3 +55,5 @@ The plan is to add a "Copy" button to the existing build-plan modal footer in `S
 - External: https://linear.app/mnt/issue/MNT-225/add-copy-button
 
 > **Consistency fix (2026-09-28, Consistency Agent):** mirrored `related:` into the body; trimmed the ~150-entry `services:` filename dump to subsystem tags.
+
+> **Consistency fix (2026-11-11, Consistency Agent):** the truncated `handleCopy` bullet above was completed from the TL;DR's description of the shipped behaviour (clipboard write, feature detection, 1.5s "Copied!" feedback, `copyResetRef` timeout).

@@ -58,3 +58,5 @@ All tests have passed, indicating that the implementation was successful.
 - Related: [[2026-10-25-session-history-per-invocation-rows]]
 - Related: [[2026-10-25-session-history-cost-and-failure-reasons]]
 - Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** “Six functions were updated to accept a `task_id` parameter and call `_record_llm_call`” undercounts: there are now nine or more call sites in `demetra/services/llm/openrouter.py` (including `extract_errors` and `compose_wiki_page`).

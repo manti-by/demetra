@@ -56,3 +56,5 @@ None.
 
 - Related: [[2026-07-22-warp-theme-review-fixes-and-ops]], [[2026-08-21-mnt-176-bump-version-error]], [[2026-09-08-docstring-mcp-search]]
 - External: [MNT-116 — Update project version (Linear)](https://linear.app/mnt/issue/MNT-116)
+
+> **Consistency note (2026-11-11, Consistency Agent):** Two corrections. (1) The pointer “see Q-001 in `wiki/QUESTIONS.md`” is stale — Q-001 was resolved on 2026-09-11 (patch default is intentional, `demetra/services/runtime/project.py:331-332`, `is_patch=True`); the still-open question in that family is **Q-002** (`MAX_RUN_ATTEMPTS` / `MAX_PLAN_ATTEMPTS` defaults dropped by the 2026-09-28 settings refactor). (2) The body still says the bump is “rolled back on failure” and that rollback is tested — the rollback was removed in `8f42bd6`; the current call site (`demetra/workflows/build.py:234`) bumps the patch version with no rollback, and `tests/test_project.py` no longer covers a rollback path.

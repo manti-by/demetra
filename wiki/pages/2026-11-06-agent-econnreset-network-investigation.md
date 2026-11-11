@@ -136,3 +136,5 @@ outages at those moments.
 ## References
 
 - Related: [[2026-11-03-mnt-276-econnreset-retry-for-agents]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “exhausted 5 retries” phrasing reflects the shipped default; production ran with the environment override `MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2` (`.env.docker:17-18`), and the incident postmortem confirms the override was live during this window. The “fix is to raise its budget” recommendation was applied operationally through that override; the retry layer itself is described in [[2026-11-03-mnt-276-econnreset-retry-for-agents]]. The model ids quoted above (`deepseek/deepseek-flash`, `openrouter/minimax/minimax-m3`, `openrouter/z-ai/glm-5.3`, `meta-llama/llama-3.3-70b-instruct`) are **per-user `project_environment` overrides**, not repository defaults — the shipped defaults are `opencode-go/deepseek-v4-flash` (plan/build), `opencode-go/minimax-m3` (research) and `openai/gpt-oss-120b` (OpenRouter LLM calls) at `demetra/settings.py:169-176` and `:221`. The IPv6/sysctl and DNS changes are still present in `docker-compose.yaml:15-17`, `:33-37`.

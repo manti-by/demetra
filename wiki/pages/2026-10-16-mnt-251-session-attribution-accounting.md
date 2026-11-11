@@ -169,3 +169,5 @@ MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consol
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]] — the total this build re-points at `kind='invocation'`
 - Related: [[2026-07-23-session-history-modal]] — the history endpoint this build re-keys by `task_id`
 - External: https://linear.app/mnt/issue/MNT-251
+
+> **Consistency note (2026-11-11, Consistency Agent):** Three corrections. (1) “The opencode version stays unpinned (`Dockerfile:14` floats on `opencode.ai/v2/install`)” is obsolete — the image pins `OPENCODE_VERSION=2.2.5` (`Dockerfile:1`, install `:16-17`) and asserts `opencode --version` at build time (`:43`). (2) “`_compute_total_tokens` sums only `kind='invocation'` rows” was widened by MNT-260 to `invocation` + `llm_call` (`demetra/api/sessions.py:118`). (3) The test counts differ between the TL;DR (1020) and the Test Results (1022) — both are historical. `record_agent_invocation` now lives at `demetra/services/persistence/database.py:1125` and `_export_command` at `demetra/services/agents/opencode.py:979` (`OPENCODE_V2_MAJOR` at `:42`).

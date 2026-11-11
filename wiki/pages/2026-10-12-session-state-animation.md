@@ -24,6 +24,21 @@ related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-06-25-websocket-
 > instead of service names; reduced to `[react]`. Reciprocated the
 > `[[2026-10-12-session-state-flow-feedback-loops]]` link, which that page already carried here.
 
+## TL;DR
+
+The original body of this page was lost in commit `516d951` (see the banner above), so this summary is
+restored from the page's `INDEX.md` entry: a `SessionStateFlow` React component was added to animate the
+live session step above the log console, updated over the session websocket. The backend gained a
+`sessions.is_research` column (migration `b7c8d9e0f1a2`), a `SessionState` dataclass, `get_session_state`
+replacing `get_session_step_name`, and `update_session_is_research`, with `main.py` recording the flag and
+`upsert_pending_session` returning it.
+
+## Follow-ups
+
+- The lost body is recoverable with `git show 1be4bfd:wiki/pages/2026-10-12-session-state-animation.md`.
+- The component was iterated on in [[2026-10-12-session-state-flow-feedback-loops]] — see that page for the
+  completed-chain, feedback-loop and research-chain behaviour.
+
 ## References
 
 - Related: [[2026-10-12-session-state-flow-feedback-loops]] — the follow-up session on the same component

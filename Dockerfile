@@ -36,7 +36,7 @@ FROM python:3.13.9-slim
 ARG OPENCODE_VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git gnupg openssh-client build-essential pkg-config \
+    git vim gnupg openssh-client build-essential pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode

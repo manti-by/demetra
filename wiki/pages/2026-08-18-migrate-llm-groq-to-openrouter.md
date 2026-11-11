@@ -89,3 +89,5 @@ Groq llama review dedup → numbered list; now via OpenRouter.
 
 - Related: [[2026-06-04-review-summarization]], [[2026-06-22-github-pr-description]], [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-05-25-async-review]], [[2026-02-26-create-llm-test-script]]
 - External: [MNT-168](https://linear.app/mnt/issue/MNT-168/migrate-llm-summarization-from-groq-to-openrouter)
+
+> **Consistency note (2026-11-11, Consistency Agent):** `build_llm()` is now `async` and takes an optional `environment: SessionEnvironment | None` (`demetra/services/llm/factory.py:23`). “Six functions … the other five functions are still there” undercounts: seven public functions survive in `demetra/services/llm/openrouter.py` — `extract_questions`, `summarize_review`, `extract_errors` (added by MNT-308), `process_text_with_openrouter`, `extract_plan`, `compose_wiki_page`, `generate_pr_description` — while `summarize_session` was removed. The `GROQ_*` settings block and `langchain-groq` are gone; `PLAN_OUTPUT_MAX_CHARS` is at `openrouter.py:29`.

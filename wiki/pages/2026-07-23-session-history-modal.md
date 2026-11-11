@@ -112,3 +112,5 @@ The `SELECT DISTINCT step FROM session_history` follow-up below is **closed** by
 - [[2026-07-16-session-history-tokens-null]] — why tokens can be null
 - [[2026-08-25-mnt-181-total-tokens-counter]] — total tokens + response-shape change
 - `demetra/services/database.py:535` — `get_session_history` · `demetra/library/tables.py:97` — `session_history` · `react/src/components/SessionArtifacts.tsx:111-134` — build-plan modal pattern
+
+> **Consistency note (2026-11-11, Consistency Agent):** The endpoint now returns `{"total", "tool_usage", "history"}` keyed by `task_id` directly (no `task_id` → `session_id` resolution), and the response grew the `tool_usage` block in MNT-258 — neither is mentioned in the body above. The “absolute time on hover” open question was implemented by MNT-181; the component has since grown from 112 to ~266 lines and `react/src/App.css` now carries ~28 `.session-history-*` rules.

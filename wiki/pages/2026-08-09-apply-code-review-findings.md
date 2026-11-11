@@ -124,3 +124,5 @@ Working tree uncommitted on `master`; orchestrator handles commit/PR.
 
 - External: [CODE_REVIEW_FINDINGS.md](../../CODE_REVIEW_FINDINGS.md) (`v1.15.4..HEAD`)
 - Related: [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-06-allowlist-review-fixes]], [[2026-08-09-wiki-fixes-and-test-optimization]], [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-09-apply-pr75-coderabbit-findings]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “working tree uncommitted … orchestrator handles commit/PR” note was never closed — these findings landed on `master` (the sibling pages record the merges). The `file:line` references have drifted since: `env_get_int` is at `demetra/services/runtime/utils.py:231`, `MISSING_ITEM_RE` at `demetra/workflows/validate.py:12`, `get_transaction()` at `demetra/services/persistence/database.py:162`. `RegistrationNotAllowedError` and `GitHubAccountNotAuthorizedError` were later removed from `demetra/library/exceptions.py`.

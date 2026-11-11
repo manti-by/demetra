@@ -3,15 +3,25 @@ title: Session history — one row per agent invocation
 date: 2026-10-25
 type: debug
 status: resolved
-session_id:
+session_id: ses_e8b0f709dffe9wHRWc1gmo1Lp5
 services: [persistence, api, react, workflows]
 branch: opencode/feature/session-history-per-invocation-rows
 tickets: []
 tags: [session-history, agent-sessions, tokens, tool-usage, build-loop, validate]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-234-isolate-session-context.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-25-session-history-cost-and-failure-reasons.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-234-isolate-session-context.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
 
 # Session history — one row per agent invocation
+
+> **Consistency note (2026-11-11, Consistency Agent):** the frontmatter `session_id`
+> was empty in the original commit (`a355efd`). Recovered it as
+> `ses_e8b0f709dffe9wHRWc1gmo1Lp5` — the 2026-10-25 21:21 UTC `build` agent session in
+> `/srv/demetra/src` (found in the demetra-worker container's `opencode.db`,
+> `session_v2`), whose opening request was the "check the latest session history, after
+> every build I see 2-3 validation agent runs" symptom above and whose later steps created
+> the branch and wrote this page. The "Follow-up — non-agent step rows" section below came
+> from the next session on the same box, `ses_e8b0dd848ffehneTXPNCsv5DCj` ("there are should
+> be test and lint state, but I don't see them on FE").
 
 ## TL;DR
 
@@ -154,3 +164,5 @@ enabling them is required for those rows to appear in the latest sessions.
 - Related: [[2026-10-16-mnt-251-session-attribution-accounting]], [[2026-10-25-mnt-258-tool-usage-stats]],
   [[2026-10-16-mnt-234-isolate-session-context]], [[2026-10-16-mnt-245-empty-session-history]],
   [[2026-10-25-session-history-cost-and-failure-reasons]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** Two supersessions. (1) “`_compute_total_tokens` … sums only `kind='invocation'` rows” — MNT-260 widened it to `invocation` + `llm_call` (`demetra/api/sessions.py:118`), see [[2026-10-27-mnt-260-openrouter-call-history]]. (2) The accumulate-onto-one-row design this page replaced was itself rebuilt by MNT-251 — `record_agent_invocation` now inserts one row per invocation (`demetra/services/persistence/database.py:1125`); the current call sites are `build.py:130`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The `session_id` field was left empty by the wiki writer; it now carries the `"-"` placeholder (the true session id is unrecoverable — see **Q-004** in `wiki/QUESTIONS.md`).

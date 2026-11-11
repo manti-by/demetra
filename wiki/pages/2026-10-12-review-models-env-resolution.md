@@ -195,3 +195,5 @@ callers (and their tests) working.
 - Related: [[2026-09-16-mnt-205-revise-merged-environment]]
 - Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
 - Related: [[2026-08-18-categorize-settings-env-vars-by-layer]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `run_review_agents` signature quoted above has grown — it is now `run_review_agents(target_path, *, task_id=None, task_title=None, round_index=0, project_id=None, environment=None)` (`demetra/workflows/review.py:27-35`), and the model loop is at `review.py:61-75`. The plural `case` in `settings_default()` is at `demetra/library/models.py:450` and the `review_models` property at `:589`; the default list (`opencode-go/qwen3.7-plus`, `opencode-go/glm-5.2`, `opencode-go/kimi-k2.7-code`) is at `demetra/settings.py:174-176`.

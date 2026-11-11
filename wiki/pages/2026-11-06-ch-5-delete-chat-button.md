@@ -90,6 +90,8 @@ All 1203 tests passed successfully, including the new frontend tests for the del
 - None
 
 ## References
-- External: <linear ticket URL>
+- External: CH-5 (chat request; no Linear ticket URL recorded)
 - Related: [[2026-11-03-ch-2-single-unified-session-view]]
 - Related: [[2026-11-04-chat-session-list-and-rerun]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The button snippet above is stale in two details: the container class is now `chat-topbar-actions` (not `topbar-actions`) and the click handler is `handleDeleteSession(taskId)` with in-flight de-duplication (`react/src/components/ChatPanel.tsx:174-184`, button block `:198-216`).

@@ -8,7 +8,7 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-10-25-session-history-cost-and-failure-reasons.md]
 ---
 
 # MNT-181: Total tokens counter
@@ -86,5 +86,7 @@ Session list title fallback (`task_title`/`custom name` → truncated `session_i
 
 ## References
 
-- Related: [[2026-07-23-session-history-modal]], [[2026-07-16-session-history-tokens-null]], [[2026-07-23-session-tokens-audit-revalidation]]
+- Related: [[2026-07-23-session-history-modal]], [[2026-07-16-session-history-tokens-null]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-10-25-session-history-cost-and-failure-reasons]] — extended the `total` block with `cost` and added failure reasons
 - External: https://github.com/manti-by/demetra/pull/101, [MNT-181](https://linear.app/mnt/issue/MNT-181)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “falls back to `row.length` for all-NULL rows” clause in the TL;DR and the Backend section was dropped by MNT-251 — `_compute_total_tokens` now sums only `kind='invocation'` rows (`demetra/api/sessions.py:118`), and the endpoint resolves history by `task_id`. The `total` block also carries `cost` since the 2026-10-25 session-history work.

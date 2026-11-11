@@ -39,3 +39,5 @@ Create related ticket in same project/priority/state, with `Feature` label plus 
 
 - Related: [[2026-09-01-mnt-177-research-loop]], [[2026-09-10-mnt-200-update-research-loop]]
 - External: https://linear.app/mnt/issue/MNT-203/create-related-ticket-for-research
+
+> **Consistency note (2026-11-11, Consistency Agent):** The file references in the Overview were mangled by the page generator (“`create_research_ticket` 118/1”, “`demetra/workflows/research.py` (133/30)”). The helper lives in `demetra/services/linear/mutations.py` and the call site in `demetra/workflows/research.py`; the “reverted scaffolding” phrasing is branch-local (corrected by the 2026-09-18 note below).

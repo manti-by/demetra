@@ -27,6 +27,7 @@ x-demetra-app: &demetra-app
     - .keys/.git-credentials:/home/demetra/.git-credentials
     - .keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml
     - .keys/opencode/auth.json:/home/demetra/.local/share/opencode/auth.json
+    - .keys/opencode/opencode.json:/home/demetra/.config/opencode/opencode.json
     - /var/log/demetra/:/var/log/demetra/
   sysctls:
     - net.ipv4.tcp_keepalive_time=60    # Check if connection is alive after 60s of silence

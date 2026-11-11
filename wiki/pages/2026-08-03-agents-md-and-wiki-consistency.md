@@ -145,3 +145,5 @@ Verified the working tree and git history to correct outdated page statements:
 
 - Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]], [[2026-07-16-fix-notification-mark-read]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
 - External: PR #66 (`8abcd8d`), PR #67 (`bcddc00`), commit `47d428d`
+
+> **Consistency note (2026-11-11, Consistency Agent):** The 2026-08-24 note still asserts that compaction “is invoked at `demetra/workflows/build.py:100`”; that claim was retracted later — compaction was **never live before MNT-251** (`/compact` was passed as a message positional), and the caller is now `demetra/workflows/build.py:163` (version-gated, 1.x only). `PLAN_OUTPUT_MAX_CHARS = 32_000` moved from the deleted `demetra/services/groq.py` to `demetra/services/llm/openrouter.py:29`, and the `session_history` columns live at `demetra/library/tables.py:230-232`. The “master has since advanced to 1.15.7 / 1.16.0” lines are historical; the project is at `1.19.11`.

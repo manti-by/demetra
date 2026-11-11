@@ -79,3 +79,5 @@ The tool this page describes was **removed**. `demetra/tools/wiki.py` and
 
 - Related: [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-03-fix-mcp-server-2.0-api]]
 - External: AGENTS.md Wiki section (`wiki_search`/`wiki_list_pages`/`wiki_get_page`)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The tool aggregate quoted in this page is no longer accurate in either variant: `demetra/tools/registry.py:15-19` registers **database + docstrings + logs** — there is no `proj` and no `wiki` module (`demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor, see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]). The wiki is served by the external **WI** MCP server instead of an in-repo tool. The scoring described above was replaced by BM25F in [[2026-10-09-bm25-search-for-mcp-tools]].

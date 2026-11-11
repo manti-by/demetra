@@ -81,3 +81,5 @@ Working tree uncommitted on `code-review`; orchestrator handles commit/PR.
 
 - Related: [[2026-08-09-apply-code-review-findings]], [[2026-07-24-plain-auth-review-followups]]
 - External: [manti-by/demetra#75](https://github.com/manti-by/demetra/pull/75)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “working tree uncommitted on `code-review`” note was never closed — the findings landed via PR #75. The migration `a4b5c6d7e8f9` (`users.password_version`, `jwt_tokens.password_version`, both `server_default="1"`) is present, and the `env_get_int` negative-default rejection now lives at `demetra/services/runtime/utils.py:231`.

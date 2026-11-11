@@ -88,3 +88,5 @@ MNT-173 (PR #86) superseded Step 2 naming: gate now reads `IS_ALLOWLIST_ENABLED`
 
 - Related: [[2026-07-24-plain-auth-review-followups]], [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-09-apply-code-review-findings]], [[2026-08-20-fix-allowlist-tests]]
 - External: PR #71 https://github.com/manti-by/demetra/pull/71
+
+> **Consistency note (2026-11-11, Consistency Agent):** The patch targets quoted above are dead paths: `demetra/services/allowlist.py` no longer exists and the symbol is `IS_ALLOWLIST_ENABLED` (not `ALLOWLIST_ENABLED`). Current target is `demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED` (`demetra/services/auth/allowlist.py:22` imports it; the gates are at `:77` and `:108`) — see [[2026-08-20-fix-allowlist-tests]].

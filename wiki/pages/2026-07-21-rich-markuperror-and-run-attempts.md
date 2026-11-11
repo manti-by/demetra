@@ -91,6 +91,10 @@ In `manti-by/odin` repo, not `demetra`:
 
 > **Open discrepancy (2026-10-26, Consistency Agent):** the cap is **3** again in current code — `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)` (`demetra/settings.py:47`), reset from `5` by the `10ea543` settings refactor. Tracked as **Q-002** in `wiki/QUESTIONS.md`; everything else in this page still holds.
 
+## Follow-ups
+
+- The three items listed under “Known follow-up (not fixed here)” above are still open — they live in the `manti-by/odin` repo, not in `demetra`. The third one (surface the effective `MAX_RUN_ATTEMPTS` in the watcher startup log) is the subject of **Q-002** in `wiki/QUESTIONS.md`: the shipped default is 3 again (`demetra/settings.py:48`), so the “default 5” wording above is stale.
+
 ## Source — [[2026-06-08-max-run-attempts-for-a-ticket]]
 
 `run_attempts` + `MAX_RUN_ATTEMPTS` (5) guards infinite runs; incremented only on failure → Awaiting Input. Originally decided 2026-06-08.
@@ -101,3 +105,5 @@ In `manti-by/odin` repo, not `demetra`:
 
 - Related: [[2026-02-14-add-tui-support]], [[2026-06-08-max-run-attempts-for-a-ticket]]
 - External: [MNT-136](https://linear.app/mnt/issue/MNT-136) · Session log: `/var/log/demetra/sessions/4c32355e-55bf-478f-8cd6-832bacafe6f9.log` · Watcher log: `/var/log/demetra/demetra.log:390177`
+
+> **Consistency note (2026-11-11, Consistency Agent):** The two occurrences of “`MAX_RUN_ATTEMPTS` (5)” in the body are stale: the shipped default is **3** (`demetra/settings.py:48`, `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)`). The 2026-10-26 discrepancy banner already tracks this as **Q-002** (the 5 → 3 reset in the 2026-09-28 settings refactor has no recorded intent); the body text was written when the default was still 5.
