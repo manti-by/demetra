@@ -5,7 +5,10 @@ subtype row, and Linear comments as ``messages`` rows keyed by their Linear
 comment id. Writes are idempotent so the mirror can be refreshed at any time.
 """
 
+import logging
 from datetime import UTC, datetime
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.models import ChatMessageKind, LinearTask, Message
 from demetra.services.linear.graphql import get_query, graphql_request
@@ -15,6 +18,9 @@ from demetra.services.persistence.database import (
     upsert_message,
     upsert_task,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 ISSUE_PAGE_SIZE = 50
@@ -85,8 +91,12 @@ async def record_linear_comment(
     body: str,
     kind: ChatMessageKind = "comment",
     external_id: str | None = None,
-) -> Message:
+) -> Message | None:
     """Store a comment Demetra posted to Linear in the local message history.
+
+    The local copy is a mirror of a comment Linear already accepted, so a
+    storage failure is logged and swallowed: it must not stop the caller from
+    applying the state change the comment announced.
 
     Args:
         task_id: The task the comment belongs to.
@@ -95,17 +105,22 @@ async def record_linear_comment(
         external_id: The Linear comment id, when the API returned one.
 
     Returns:
-        Message: The stored message record.
+        Message | None: The stored message record, or None when it could not
+            be stored.
     """
-    if isinstance(external_id, str) and external_id:
-        return await upsert_message(
-            task_id=task_id,
-            body=body,
-            external_id=external_id,
-            kind=kind,
-            source="linear",
-        )
-    return await post_message(task_id=task_id, body=body, kind=kind, source="linear", is_system=True)
+    try:
+        if isinstance(external_id, str) and external_id:
+            return await upsert_message(
+                task_id=task_id,
+                body=body,
+                external_id=external_id,
+                kind=kind,
+                source="linear",
+            )
+        return await post_message(task_id=task_id, body=body, kind=kind, source="linear", is_system=True)
+    except SQLAlchemyError:
+        logger.warning("Failed to store the Linear comment of task %s locally", task_id, exc_info=True)
+        return None
 
 
 async def store_linear_issue(

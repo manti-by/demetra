@@ -25,6 +25,7 @@ query GetIssues($state_id: ID!) {
       }
       comments(first: 100, filter: {parent: {null: true}}) {
         nodes {
+          id
           body
           resolvedAt
           createdAt

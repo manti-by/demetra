@@ -331,7 +331,9 @@ async def upsert_task(values: dict) -> Task:
 
     Only the supplied columns are written on conflict, so partial updates keep
     the values they do not mention. Columns the table requires are filled with
-    a default on insert.
+    a default on insert. The project id is resolved against the ``projects``
+    table, so a project that no longer exists is stored as NULL instead of
+    violating the foreign key.
 
     Args:
         values: The task columns to write, including the ``id`` key.
@@ -351,7 +353,7 @@ async def upsert_task(values: dict) -> Task:
         "state": values.get("state"),
         "url": values.get("url"),
         "tags": values.get("tags", []),
-        "project_id": values.get("project_id"),
+        "project_id": select(projects.c.id).where(projects.c.id == values.get("project_id")).scalar_subquery(),
         "user_id": values.get("user_id"),
         "created_at": now,
         "updated_at": now,

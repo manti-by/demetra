@@ -243,6 +243,30 @@ Six review findings were verified against the live Linear schema and fixed.
   (the root `comment(id:)` query) only when `hasNextPage` is set — one extra request per
   overflowing thread, not per comment.
 
+## Update — 2026-11-11 17:25
+
+Two further review findings, both introduced by the local mirror.
+
+- **A failed local copy aborted the failure handler.** `notify_linear_failure` posts the comment to
+  Linear and then mirrors it locally; the `try` around it only caught `LinearError` and
+  `EnvironmentConfigError`, so a database error while saving the copy escaped the handler. The
+  comment was already on Linear but the ticket was never moved to Awaiting Input. The mirror write
+  is now best-effort inside `record_linear_comment`: a `SQLAlchemyError` is logged and swallowed,
+  so the state change the comment announced still happens. The live read path already guarded its
+  mirror write the same way.
+- **Top-level Linear comments never reached the message store.** `get_issue_by_id.gql` did not
+  select the comment `id`, and `store_linear_comments` skips rows without one — so only the replies
+  (which did carry an id) were mirrored, and their parent link pointed at a comment that was not
+  there. The query now selects the top-level comment ids, which restores both the comments
+  themselves and the parent link. `get_all_issues.gql` got the same field so the two documents
+  cannot drift apart again.
+
+While fixing the second finding, the mirror write turned out to be strict about the project
+foreign key: `upsert_task` now resolves the project id against the `projects` table the same way
+`ensure_task` does, so a project deleted between the lookup and the write stores NULL instead of
+aborting the sync. `create_chat` keeps the strict check on purpose — a chat for a non-existent
+project must still fail.
+
 ## Follow-ups
 
 - The Linear mirror is **backfill-only** (the decision taken for this ticket): the local copy goes

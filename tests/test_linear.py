@@ -22,8 +22,10 @@ from demetra.services.linear import (
     post_comment,
     update_ticket_status,
 )
+from demetra.services.linear.graphql import get_query
 from demetra.services.persistence.database import (
     create_project,
+    list_messages,
 )
 from demetra.services.persistence.database import (
     get_connection as _get_connection,
@@ -1023,6 +1025,37 @@ class TestGetLinearTaskById:
         with patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as m:
             m.return_value = mock_linked_projects
             yield m
+
+    @pytest.mark.asyncio
+    async def test_get_linear_task_by_id_mirrors_the_comments(
+        self,
+        graphql_get_issue_by_id_response_with_comments: dict,
+        mock_linked: AsyncMock,
+    ):
+        issue = graphql_get_issue_by_id_response_with_comments["data"]["issue"]
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_get_issue_by_id_response_with_comments
+            task = await get_linear_task_by_id(issue["id"])
+
+        assert task is not None
+        messages = await list_messages(issue["id"])
+
+        assert [message.body for message in messages] == [
+            "First question from the team?",
+            "Answer to first question",
+            "Second question about the implementation?",
+        ]
+        assert messages[1].parent_id == messages[0].id
+        assert messages[2].parent_id is None
+
+    @pytest.mark.asyncio
+    async def test_the_issue_query_selects_the_comment_ids(self):
+        """The mirror keys comments by their id, so the query has to fetch it."""
+        query = await get_query(name="get_issue_by_id")
+
+        comment_block = query.split("comments(first: 100")[1].split("children")[0]
+        assert "id" in comment_block
 
     @pytest.mark.asyncio
     async def test_get_linear_task_by_id_returns_task(

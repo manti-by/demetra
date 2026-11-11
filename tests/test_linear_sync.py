@@ -4,12 +4,14 @@ from uuid import uuid4
 
 import pytest
 import pytest_asyncio
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.services.linear.graphql import get_query
 from demetra.services.linear.mirror import (
     extract_comment_threads,
     fetch_issue_comments,
     fetch_project_issues,
+    record_linear_comment,
     store_linear_issue,
 )
 from demetra.services.linear.sync import sync_linear_mirror
@@ -275,6 +277,29 @@ class TestPagination:
             mock_request.return_value = {"errors": [{"message": "boom"}]}
             with pytest.raises(RuntimeError):
                 await fetch_project_issues("linear-proj-1")
+
+
+class TestRecordLinearComment:
+    @pytest.mark.asyncio
+    async def test_swallows_a_storage_failure(self):
+        with patch(
+            "demetra.services.linear.mirror.upsert_message",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("boom"),
+        ):
+            stored = await record_linear_comment(task_id="task-1", body="A comment", external_id="comment-1")
+
+        assert stored is None
+
+    @pytest.mark.asyncio
+    async def test_stores_the_comment(self):
+        task_id = f"task-{uuid4().hex[:8]}"
+
+        stored = await record_linear_comment(task_id=task_id, body="A comment", external_id="comment-1")
+
+        assert stored is not None
+        assert stored.external_id == "comment-1"
+        assert stored.source == "linear"
 
 
 class TestSyncLinearMirror:
