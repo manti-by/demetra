@@ -3,7 +3,7 @@ title: Unified Task model with Linear and Chat subtypes
 date: '2026-11-11'
 type: implementation
 status: resolved
-session_id: ses_e3564600affeB6baIfhSN8dli5
+session_id: ses_e3564c1b5ffeBDYG4coFDCd3Wo
 services: [persistence, linear, chat, workflows, api, react]
 branch: opencode/feature/MNT-312-unified-task-model
 tickets: [MNT-312, MNT-311]
@@ -29,11 +29,13 @@ every list query used to need.
 
 Before this change the storage model had three shapes for two concepts:
 
-| Concept | Where it lived | Problem |
-|---|---|---|
-| Task identity | `sessions.task_id` (a Linear issue uuid **or** `CH-<id>`) | The kind was never declared — it was inferred from the presence of a `chats` row |
-| Chat specifics | `chats` (1:1 subtype of `sessions`) | `title`, `description`, `tags`, `user_id`, `project_id` duplicated generic task fields |
-| Conversation | `chat_messages` (chat only), Linear comments fetched live | Two paths to one history; `chat_messages.session_task_id` had no FK, `chat_messages.chat_id` did |
+- **Task identity** — lived in `sessions.task_id` (a Linear issue uuid **or** `CH-<id>`); the kind
+  was never declared, it was inferred from the presence of a `chats` row.
+- **Chat specifics** — lived in `chats` (a 1:1 subtype of `sessions`), where `title`,
+  `description`, `tags`, `user_id` and `project_id` duplicated generic task fields.
+- **Conversation** — lived in `chat_messages` for chats only, while Linear comments were fetched
+  live; two paths to one history, with `chat_messages.session_task_id` carrying no FK while
+  `chat_messages.chat_id` did.
 
 The pipeline was written against `LinearTask`, so chat mode *fabricated* one
 (`build_chat_task` in `demetra/services/chat/tasks.py`) rather than branching every workflow. The
@@ -42,7 +44,7 @@ with `LinearTask`/`Chat` as two implementations behind one interface.
 
 ## Step 1 — The model layer
 
-**File:** `demetra/library/models.py:31`
+**File:** `demetra/library/models.py:39`
 
 `Task` and `Message` are keyword-only dataclasses (`kw_only=True`) so subtypes can add defaulted
 fields without the "non-default argument follows default argument" error plain dataclass
@@ -196,7 +198,7 @@ const isChat = session.kind === "chat";
 `Chat.id` is now the task id (`"CH-12"`, a string) and `Chat.chat_id` carries the serial; the
 `session_task_id` field is gone from the payload and the TS interfaces.
 
-## Test results
+## Test Results
 
 ```
 uv run pytest tests/ -q          1291 passed
