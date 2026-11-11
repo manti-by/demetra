@@ -57,3 +57,5 @@ The "empty card" symptom was structural, not a data-loss accident: those steps w
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]] — the total this re-points at `kind='invocation'`
 - Related: [[2026-07-23-session-history-modal]] — the endpoint and the follow-up this closes
 - External: https://linear.app/mnt/issue/MNT-245
+
+> **Consistency note (2026-11-11, Consistency Agent):** `record_session_step_history` no longer exists — it was renamed to `record_session_step` (`demetra/services/persistence/database.py:979`); the four call sites quoted above are now `build.py:128`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The totals bullet was later widened by MNT-260 to include `kind='llm_call'` rows (`demetra/api/sessions.py:118`), as the 2026-11-09 note records.

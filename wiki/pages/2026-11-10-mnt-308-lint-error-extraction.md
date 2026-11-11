@@ -4,7 +4,7 @@ date: '2026-11-10'
 type: implementation
 status: resolved
 session_id: ses_e3a8c92a6ffeVcW9fQN9vDVOsN
-services: [library, prompts, llm/__init__, llm/openrouter, quality/lint, workflows, pyproject, test_lint, test_openrouter, test_workflows, uv, .sessions, INDEX, 2026-11-10-mnt-308-lint-error-extraction]
+services: [llm, workflows, quality, library]
 branch: mnt-308-lint-and-test-erorrs
 tickets: [MNT-308]
 tags: [wiki, feature, backend]

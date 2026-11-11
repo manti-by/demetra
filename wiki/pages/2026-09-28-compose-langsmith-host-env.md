@@ -243,3 +243,5 @@ change plus a matching test default.
 - Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]]
 - Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
 - External: [@langchain/langsmith-opencode](https://github.com/langchain-ai/langsmith-opencode)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The compose defaults quoted above (`LANGSMITH_TRACING` true, `LANGSMITH_PROJECT` `Demetra`) differ from what the application now derives in-process: `SessionEnvironment.system_env` (`demetra/library/models.py:633-641`) forces tracing **off** unless `LANGSMITH_TRACING` is configured and defaults `LANGSMITH_PROJECT` to the empty string. The compose interpolation only pre-seeds the container environment; the in-process derivation wins for subprocesses. The plugin this page analyses is gone (`opencode.json` has `"plugins": []` since `67d106c`).

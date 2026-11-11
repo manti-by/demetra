@@ -83,3 +83,5 @@ Waitlist "notification" remains pluggable log-only `send_approval_email` per [[2
 - Related: [[2026-09-01-mnt-177-research-loop]], [[2026-08-28-mnt-188-waitlist]], [[2026-08-31-mnt-192-env-edit-button]], [[2026-09-02-mobile-template-react-frontend]]
 
 > **Consistency fix (2026-09-02):** fixed `session_id:` empty YAML → `"-"`.
+
+> **Consistency note (2026-11-11, Consistency Agent):** the `_resolve_encrypted_env_value` helper extracted above coexists with `_fetch_stored_encrypted_value` (`demetra/services/persistence/database.py:2351`), which only reads the stored ciphertext — the two names are not a rename pair (see [[2026-08-31-mnt-192-env-edit-button]]). The waitlist-notification follow-up below is still open: `send_approval_email` remains a log-only stub with no SMTP provider.

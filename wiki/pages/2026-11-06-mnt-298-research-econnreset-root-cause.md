@@ -200,3 +200,5 @@ Implemented the fix and verified it.
 
 - Related: [[2026-11-06-agent-econnreset-network-investigation]]
 - Related: [[2026-11-03-mnt-276-econnreset-retry-for-agents]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** Update to the 2026-11-09 consistency note above: the “10-attempt budget vs shipped default of 5” discrepancy (**Q-003**) is **resolved** — production carried an environment-level override (`MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2`, `.env.docker:17-18`), confirmed by `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. The repository default stays 5 (`demetra/settings.py:61`); the `attempt N/10` logs and the shipped default were never in conflict. The second item in the 2026-11-09 note (the `--standalone` probe) still holds.

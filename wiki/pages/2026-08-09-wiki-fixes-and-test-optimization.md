@@ -84,3 +84,5 @@ None.
 ## References
 
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-07-mnt-147-wiki-processes-pr70-review]], [[2026-08-09-apply-code-review-findings]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `revalidation_changed_files()` command quoted above (`git status --porcelain --untracked-files=all -- wiki/ AGENTS.md`) was superseded by the NUL-separated form used in [[2026-08-09-apply-code-review-findings]] — `["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/", "AGENTS.md"]`. The other edits on this page (empty env path handling, unreadable-page skip, last-header insertion, `answer_sweep` preamble) still hold.

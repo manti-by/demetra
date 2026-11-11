@@ -49,3 +49,5 @@ The implementation was tested, and the results show that the tool usage stats ar
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]]
 - Related: [[2026-07-23-session-history-modal]]
 - Related: [[2026-09-30-mnt-228-intermediate-history-states]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `UniqueConstraint("history_id", "tool_name")` line reference is `demetra/library/tables.py:253` (the table starts at `:243`). The per-invocation `tool_usage` payload is written by `record_agent_invocation` (`demetra/services/persistence/database.py:1125-1140`).

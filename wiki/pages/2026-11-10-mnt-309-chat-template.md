@@ -4,7 +4,7 @@ date: '2026-11-10'
 type: implementation
 status: resolved
 session_id: ses_e398f59eaffe97sD58aWWe8zUs
-services: [api, app.py, library, runtime/template, templates, App, NewChatPage.test, NewChatPage, conftest, test_chat_templates, INDEX, 2026-11-10-mnt-309-chat-template]
+services: [api, library, runtime, react]
 branch: mnt-309-chat-template
 tickets: [MNT-309]
 tags: [wiki, backend, feature, frontend]
@@ -127,3 +127,5 @@ Test Files  1 passed (1)
 - External: https://linear.app/mnt/issue/MNT-309/chat-template
 - Related: [[2026-11-03-ch-2-single-unified-session-view]]
 - Related: [[2026-11-04-chat-session-list-and-rerun]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** “Templates use standard `analyze_ticket` headings” is not accurate — `demetra/prompts/analyze_ticket.md` has no `##` headings; the templates define their own (`## Description`, `## Technical Requirements`, `## Acceptance Criteria`). There are now **two** templates (`demetra/templates/chat/feature_template.md` and `research_template.md`); only the first is documented above. The page's own follow-ups (re-run the workflow to confirm the build-agent failure was transient, verify the deployed endpoint) are still open — the TL;DR's “implemented successfully” refers to the code, not to a completed verification run. The `services:` frontmatter was a file dump and is now `[api, library, runtime, react]`.

@@ -44,3 +44,5 @@ None.
 
 - Related: none
 - External: [MNT-106 — Remove patches from tests where possible (Linear)](https://linear.app/mnt/issue/MNT-106)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The Docker targets no longer build an ARM64 image — the `Makefile` builds `--platform linux/amd64` only (`Makefile:28`, `:98`) and the Dockerfile has no `TARGETARCH` matrix. The `patch`-to-fixtures refactor described here still holds.

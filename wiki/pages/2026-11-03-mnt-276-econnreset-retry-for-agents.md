@@ -137,3 +137,5 @@ modules after the merge; `ruff`, `ty` and `bandit` clean.
 - Related: [[2026-08-19-build-agent-server-error-handler]] — the generic `UnknownError` →
   `Awaiting Input` handler this specialised path complements
 - External: https://linear.app/mnt/issue/MNT-276/econnreset-retry-for-agents
+
+> **Consistency note (2026-11-11, Consistency Agent):** The shipped defaults quoted above (`MAX_AGENT_NETWORK_ATTEMPTS = 5`, `AGENT_NETWORK_BACKOFF_BASE = 1.0`) are correct for the repository (`demetra/settings.py:61-62`), but **production ran with an environment override of 10 / 2** during the November 2026 incident window — see `.env.docker:17-18` (gitignored) and `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. That is why the incident logs quote `attempt N/10` instead of `N/5`; **Q-003** in `wiki/QUESTIONS.md` is resolved by that evidence.

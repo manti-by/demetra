@@ -8,7 +8,7 @@ services: [react, api, persistence, vcs, workflows]
 branch: opencode/feature/chat-session-list-and-rerun
 tickets: []
 tags: [frontend, sessions, feedback-loops, chat, rerun]
-related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-11-03-ch-2-single-unified-session-view.md, 2026-09-24-mnt-219-session-log-autoscroll.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-06-ch-6-markdown-renderer.md]
+related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-11-03-ch-2-single-unified-session-view.md, 2026-09-24-mnt-219-session-log-autoscroll.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-06-ch-6-markdown-renderer.md, 2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md]
 ---
 
 # Chat session list and rerun semantics
@@ -82,3 +82,5 @@ The live `previousStepRef` detection stays for instant feedback between polls.
 - Related: [[2026-10-12-session-state-flow-feedback-loops]]
 - Related: [[2026-11-03-ch-2-single-unified-session-view]]
 - Related: [[2026-09-24-mnt-219-session-log-autoscroll]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “Failed-run workspace” bullet above is stale for completed runs: chat sessions **always** keep their worktree and branch — `demetra/workflows/cleanup.py:172` computes `remove_worktree = not (context.is_chat or GIT["disable_worktree_removal"])`, so `is_chat` short-circuits the removal regardless of success. That is the MNT-277 behaviour recorded in [[2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions]] (and `GIT_DISABLE_WORKTREE_REMOVAL` in `.env.docker.example:69-71`). The helper quoted as `get_feedback_loops` is private now (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`).

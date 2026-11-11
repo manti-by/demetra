@@ -102,3 +102,5 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 
 - Related: [[2026-07-07-project-deploy-script]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-17-docker-setup-review]]
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
+
+> **Consistency note (2026-11-11, Consistency Agent):** Several compose facts drifted: the database image is `postgres:18` (**not** `postgres:18-alpine`) and Redis is `redis:7` (`docker-compose.yaml:48`, `:68`); the volumes are `demetra_postgres_data`, `demetra_redis_data` and `demetra_app_data` — there is no `demetra_react_dist`; `DB_HOST` is `postgres`, not `db`; the api service publishes `8001:8001` on all interfaces (`:108`) instead of a loopback mapping; and `worker.deploy.replicas` is **2** (`:117`, `make deploy` scales 2, `make docker-up` scales 4). The `docker-deploy` Makefile target named above is only a `.PHONY` entry with no recipe — the working targets are `deploy` (`Makefile:26-33`) and `docker-up` (`Makefile:100-101`).

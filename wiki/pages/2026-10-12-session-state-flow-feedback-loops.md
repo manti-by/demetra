@@ -4,11 +4,11 @@ date: 2026-10-12
 type: implementation
 status: resolved
 session_id: ses_ecf670f97ffe0sa9KB2TJeV1Hd
-services: [react, SessionStateFlow, App.css, StyleGuide]
+services: [react]
 branch: master
 tickets: []
 tags: [frontend, react, session-state-flow, svg, feedback-loops, styleguide, websocket]
-related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md]
+related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-11-04-chat-session-list-and-rerun.md]
 ---
 
 # Session state flow: completed chain, feedback loops, research chain
@@ -285,3 +285,5 @@ verifies state logic but not geometry.
 - Related: [[2026-10-12-session-state-animation]]
 - Related: [[2026-06-25-websocket-to-track-session-statuses]]
 - Related: [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** Two claims above were superseded on 2026-11-04. (1) The feedback-loop counters are no longer in-memory only — they are derived from `session_history` and persisted (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`), and `resolveLoopState(taken, finished)` replaced the earlier `resolveLoopState(flow, feedback, taken, step)` signature (`react/src/components/SessionStateFlow.tsx:120`); see [[2026-11-04-chat-session-list-and-rerun]]. (2) The centring is **not** done with `margin-inline: auto` — `react/src/App.css:519-523` has no such rule; the track uses `width: max-content` inside a centred wrapper. The `services:` frontmatter was a file dump (`SessionStateFlow`, `App.css`, `StyleGuide`) and is now `[react]`.

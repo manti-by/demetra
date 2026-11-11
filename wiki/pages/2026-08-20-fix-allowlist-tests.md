@@ -52,3 +52,5 @@ Frontmatter `branch: -` quoted to `"-"` for valid YAML.
 
 - Related: [[2026-08-06-allowlist-review-fixes]], [[2026-08-18-test-db-isolation-logging]]
 - External: [MNT-173 — Allowlist does not work](https://linear.app/mnt/issue/MNT-173)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “merged form reads `env_get_bool(..., True)` with no spell-tolerant parser” claim is imprecise: `demetra/settings.py:95-96` still defines `ALLOWLIST_TRUTHY_VALUES` / `ALLOWLIST_FALSY_VALUES`. The setting itself moved to `demetra/settings.py:98` (`IS_ALLOWLIST_ENABLED`), and `ALLOWLIST_ENABLED` no longer exists anywhere.

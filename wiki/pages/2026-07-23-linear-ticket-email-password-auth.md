@@ -75,3 +75,5 @@ No code changes — ticket is the deliverable.
 ## References
 
 - External: [MNT-148](https://linear.app/mnt/issue/MNT-148/featauth-add-emailpassword-authentication-alongside-github-oauth) · [Demetra project](https://linear.app/mnt/project/demetra-a41f780f8bdc)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The schema described above is now inverted: `users.github_id` is **nullable** with a partial unique index, `users.email` is NOT NULL and unique, and `password_hash` / `password_version` exist (`demetra/library/tables.py:89-104`, migration `b1c2d3e4f5a6`). The auth service was split into `demetra/services/auth/{sessions,jwt,oauth,copy,passwords,allowlist,waitlist}.py`; the API routes are mounted under `/api/v1/auth`. The “email uniqueness migration” open question is moot — the unique index shipped.

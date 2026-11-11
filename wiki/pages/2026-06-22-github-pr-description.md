@@ -4,10 +4,10 @@ date: 2026-06-22
 type: implementation
 status: resolved
 session_id: "-"
-services: [groq, github]
+services: [llm, github]
 branch: "-"
 tickets: [MNT-115]
-tags: [groq, pr, description]
+tags: [llm, pr, description]
 related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 
@@ -49,3 +49,5 @@ None.
 
 - Related: [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 - External: [MNT-115 — GitHub PR description (Linear)](https://linear.app/mnt/issue/MNT-115)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `services:`/`tags:` frontmatter still listed `groq`, a service that no longer exists — `demetra/services/llm/` holds only `openrouter.py`, `parser.py`, `prompt.py` and `factory.py` (the Groq → OpenRouter migration is tracked in [[2026-08-18-migrate-llm-groq-to-openrouter]]). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py:553` and still raises `PrDescriptionError` → Awaiting Input.

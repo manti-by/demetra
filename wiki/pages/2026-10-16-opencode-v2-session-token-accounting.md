@@ -339,3 +339,5 @@ Tracked one session across three exports using a free model (`opencode/deepseek-
 - External: https://linear.app/mnt/issue/MNT-251 — implementation target, carries the full Phase 0 measurements and corrected build plan
 - External: https://linear.app/mnt/issue/MNT-246 — 1.18.35 research record, annotated with the v2 corrections
 - External: https://linear.app/mnt/issue/MNT-241 — epic
+
+> **Consistency note (2026-11-11, Consistency Agent):** Two further supersessions beyond the 2026-11-09 note: `record_session_step_history` was renamed to `record_session_step` (`demetra/services/persistence/database.py:979`), and the “production runs opencode 1.18.30 / the Dockerfile floats on the installer” statements are superseded by the image pin (`Dockerfile:1` `OPENCODE_VERSION=2.2.5`, assert `:43`). The open question “the v2 compaction mechanism is undecided” is answered in code: compaction is deliberately unsupported on v2 and version-gated to 1.x (`opencode_supports_compaction`, `demetra/services/agents/opencode.py:1113`).

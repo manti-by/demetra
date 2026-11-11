@@ -277,3 +277,5 @@ Coverage changes:
 - Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
 - Related: [[2026-09-28-compose-langsmith-host-env]]
 - Related: [[2026-08-18-categorize-settings-env-vars-by-layer]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `demetra/library/models.py` line references in this page have drifted: `SessionEnvironment` is at `:473`, `lookup` at `:490`, `subprocess_env` at `:529`, `openrouter_config` at `:601`, `system_env` at `:621`, `linear_state` at `:648`. The five-layer precedence, the removal of the legacy `env` channel and the credential-surface follow-ups (always emitting `LANGSMITH_API_KEY`, forcing `LANGSMITH_TRACING=false` / `LANGSMITH_PROJECT` into the child env) still hold — `system_env` forces both tracing flags off unless a key is configured and defaults `LANGSMITH_PROJECT` to the empty string.

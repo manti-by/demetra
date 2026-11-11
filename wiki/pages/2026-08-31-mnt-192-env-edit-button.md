@@ -8,7 +8,7 @@ services: [api, persistence, react]
 branch: feature/mnt-192-add-edit-button-for-env-settings
 tickets: [MNT-192]
 tags: [env, frontend, encryption]
-related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-09-02-review-findings-cleanup.md]
 ---
 
 # MNT-192 Add edit button for env settings
@@ -80,3 +80,5 @@ Cursor PR review found two high-severity data-loss paths, both fixed:
 - Ticket: https://linear.app/mnt/issue/MNT-192/add-edit-button-for-env-settings
 
 > **Consistency note (2026-09-03):** Fixed `related` frontmatter — added `.md` extension to `2026-08-10-process-environment-3-layers-encryption-uv-venv.md`.
+
+> **Consistency note (2026-11-11, Consistency Agent):** the `_fetch_stored_encrypted_value` helper named above is not a rename of the `_resolve_encrypted_env_value` helper extracted in [[2026-09-02-review-findings-cleanup]] — both exist and have different roles: `_fetch_stored_encrypted_value` (`demetra/services/persistence/database.py:2351`) reads the stored ciphertext for a key set, `_resolve_encrypted_env_value` (`:2383`) resolves and decrypts it. The `ENV_KEY_RE` / `MAX_ENV_KEY_LENGTH` / `MAX_ENV_VALUE_LENGTH` constants now live in `demetra/library/env.py:4-6`.

@@ -237,3 +237,5 @@ the tool). `docstring_search` keeps BM25F. See
 - Related: [[2026-08-03-wiki-mcp-tools]]
 - Related: [[2026-09-08-docstring-mcp-search]]
 - External: Robertson & Zaragoza, *The Probabilistic Relevance Framework: BM25 and Beyond* (2009); Lucene `BM25Similarity` docs
+
+> **Consistency note (2026-11-11, Consistency Agent):** The corpus sizes quoted above have moved: the wiki now holds **113** live pages (45 archived), not 105/27. The follow-up “the 2026-08-03 and 2026-09-08 pages still describe the retired algorithm” is now addressed — both carry consistency notes pointing at BM25F and at the retirement of the in-repo wiki tool. The `SEARCH` dictionary now holds the `docstring_*` weights plus the shared limits only; the six `SEARCH["wiki_*"]` keys were deleted with the in-repo wiki tools.

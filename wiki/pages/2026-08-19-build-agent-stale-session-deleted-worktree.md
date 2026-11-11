@@ -71,3 +71,5 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 > `context.environment.opencode_build_model` on the shared
 > `SessionEnvironment` resolver. See
 > [[2026-09-16-mnt-205-revise-merged-environment]].
+
+> **Consistency note (2026-11-11, Consistency Agent):** The systemic-fix follow-up was closed by MNT-251, but by a third path: `invalidate_agent_sessions(task_id)` clears the pointer and history is resolved **by `task_id`** rather than by `sessions.session_id`, so a stale `--session` can no longer 500 the build. The residual risk noted below it (a stale `--session` on the first build after a worktree deletion) was addressed by the same change.

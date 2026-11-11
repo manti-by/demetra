@@ -206,3 +206,5 @@ Follow-up pass on the same session, closing the doc and bookkeeping loose ends:
 - Corpus cache — `demetra/tools/corpus.py`
 - Related: [[2026-08-03-wiki-mcp-tools]]
 - Related: [[2026-10-09-bm25-search-for-mcp-tools]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “verified in-image as `opencode v2.0.30` … the CLI layer still calls the V1 `opencode export <id>` spellings, so those call sites need a follow-up pass” follow-up has been done: the agent layer is version-aware (`OPENCODE_V2_MAJOR` at `demetra/services/agents/opencode.py:42`, `_export_command` at `:979`), `run --dir` was dropped, and the image now pins `OPENCODE_VERSION=2.2.5`. The remaining open item is unchanged: the database tool still uses a `SENSITIVE_COLUMNS` denylist instead of an allow-list.

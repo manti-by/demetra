@@ -8,7 +8,7 @@ services: [react]
 branch: ch-2-single-unified-session-view
 tickets: [CH-2]
 tags: [wiki, frontend, feature]
-related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-09-24-mnt-219-session-log-autoscroll.md]
+related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-09-24-mnt-219-session-log-autoscroll.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-04-chat-session-list-and-rerun.md]
 ---
 
 # CH-2: Single (unified) session view
@@ -41,6 +41,8 @@ All tests passed after the implementation.
 - None
 
 ## References
-- External: 
+- External: CH-2 (chat request; no Linear ticket URL recorded)
 - Related: [[2026-10-12-session-state-flow-feedback-loops]]
 - Related: [[2026-09-24-mnt-219-session-log-autoscroll]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** `ChatPage` is no longer a thin wrapper only: it still owns the delete handler, the header and the navigation, while the delete wiring moved **into** `ChatPanel` (`handleDeleteSession`, `react/src/components/ChatPanel.tsx:174-184`) with CH-5 — see [[2026-11-06-ch-5-delete-chat-button]] and [[2026-11-04-chat-session-list-and-rerun]].

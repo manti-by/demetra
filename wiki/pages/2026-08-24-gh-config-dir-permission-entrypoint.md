@@ -72,3 +72,5 @@ As `demetra` (normal compose path): skip to `exec "$@"` — no `setpriv`/`chown`
 ## References
 
 - Related: [[2026-08-20-review-gh-auth-mount-changes]], [[2026-08-19-worker-opencode-home-permissions]], [[2026-08-18-compose-anchors-refactor]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** `make docker-deploy` has **no recipe** — it is only listed in `.PHONY` (`Makefile:2`); the working targets are `deploy` (`Makefile:26-33`) and `docker-up` (`Makefile:100-101`). Worker count is 2 on the deploy path (`--scale worker=2`), 4 only via `make docker-up`. The entrypoint itself now prunes by path rather than by `-name`.

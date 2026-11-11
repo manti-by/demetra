@@ -49,3 +49,5 @@ None.
 ## References
 
 - External: [MNT-101 — Websocket to track session statuses (Linear)](https://linear.app/mnt/issue/MNT-101), MNT-53
+
+> **Consistency note (2026-11-11, Consistency Agent):** The status payload shape changed after MNT-244: the websocket now sends `{"type": "status", "data": asdict(state)}` with the full `SessionState` dataclass (`step`, `name`, `is_research`, `is_chat`, `feedback_loops` — `demetra/library/models.py:255-261`), not the two-key `{step, name}` object described above. The handlers live in `demetra/api/watcher.py` (`send_log`/`send_status`/`send_deleted`), mounted in `demetra/app.py`. Session identifiers are the Linear task id, not a UUID.

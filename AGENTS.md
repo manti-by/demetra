@@ -12,24 +12,24 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `demetra/services/`: External system and cross-cutting integrations (`agents/`, `auth/`, `chat/`, `daemons/`, `linear/`, `llm/`, `persistence/`, `quality/`, `runtime/`, `vcs/`, `wiki/` plus `utils.py` shared helpers: waitlist-join audit, auth rate limiter)
 - `demetra/queries/`: GraphQL queries
 - `demetra/workflows/`: Workflow orchestration steps (`plan`, `research`, `resolve`, `build`, `validate`, `review`, `lint`, `cleanup`, `merge`/`rebase`, `review_fixes`, `setup`, `failure`, `postprocess`, `notifications`, etc.)
-- `demetra/api/`: FastAPI REST endpoints (`auth`, `chats`, `github`, `projects`, `sessions`, `users`, `watcher`, `webhooks` plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
+- `demetra/api/`: FastAPI REST endpoints (`auth`, `chats`, `chat_templates`, `github`, `projects`, `sessions`, `users`, `watcher`, `webhooks` plus `responses.py` shared helpers: `waitlisted_response`, `delete_cookie_header`, `client_host`)
 - `demetra/tools/`: MCP tool definitions (`database`, `docstrings`, `logs` plus shared `config`/`corpus`/`models`/`search`/`registry`/`utils` helpers)
 - `demetra/prompts/`: LLM prompt templates (`research_agent`, `validate_agent`, `resolve_questions`, `merge_agent`, `rebase_agent`, `analyze_ticket`, etc.)
-- `demetra/templates/`: Linear failure-comment message templates (`agent_network_failed`, `build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`)
+- `demetra/templates/`: Linear failure-comment message templates (`agent_network_failed`, `build_failed`, `pr_creation_failed`, `review_failed`, `wiki_failed`) plus `chat/` — Markdown chat templates (`feature_template.md`, `research_template.md`) served by `demetra/api/chat_templates.py`
 - `demetra/app.py`: FastAPI application
 - `demetra/mcp_server.py`: MCP server
-- `demetra/watcher.py` / `demetra/listener.py` / `demetra/worker.py`: Thin entrypoints (watcher/listener logic lives in `demetra/services/daemons/`; watcher = Linear TODO poller, listener = GitHub notifications; `worker.py` is a self-contained RQ worker)
+- `demetra/watcher.py` / `demetra/listener.py` / `demetra/worker.py`: Thin entrypoints (watcher/listener logic lives in `demetra/services/daemons/`; watcher = Linear TODO poller, listener = GitHub notifications; `worker.py` is a self-contained RQ worker — the queue's `default_timeout` is `SUBPROCESS_TIMEOUT + 60` in `demetra/services/persistence/queue.py:9`, so raising `SUBPROCESS_TIMEOUT` past the old hardcoded 3600s no longer kills workflow jobs mid-run)
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (58 `test_*.py` files, 60 total with `__init__.py`/`conftest.py`)
+- `tests/`: Comprehensive test suite (59 `test_*.py` files, 62 total with `__init__.py`/`conftest.py`)
 - `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker
-- `wiki/audits/`: Workflow audit notes plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
+- `wiki/audits/`: Dated audit directories (workflow audits, `2026-11-05-security-audit/` with numbered security findings) plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make deploy` / `make docker-up`). The image bakes the `opencode` and `wi` binaries onto `PATH` — both are version-pinned build args (`OPENCODE_VERSION`, `WI_VERSION`), and the final stage asserts `opencode --version` matches `OPENCODE_VERSION`, so a stale cached `COPY --from=builder` fails the build instead of shipping an old binary; `wi` is the external MCP server wired into `opencode.json`, so agents can launch it in-container
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
-- `.opencode/`: OpenCode agent definitions (8 agents: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter). `.opencode/skills/` is gitignored: skills resolve as installed skills (`wiki-sync`, `wiki-consistency`, `wiki-dedup`, `wiki-archive`, `wiki-agents-file`, `code-review`, plus the release/fix skills)
+- `.opencode/`: OpenCode agent definitions in `agents/` (8 `*-agent.md` files: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter; npm manifest pins `@opencode-ai/plugin`). `.opencode/skills/` is gitignored: skills resolve as installed skills (`wiki-sync`, `wiki-consistency`, `wiki-dedup`, `wiki-archive`, `wiki-agents-file`, `code-review`, plus the release/fix skills)
 - `opencode.json`: OpenCode agent toolchain configuration (MCP servers Demetra/WI/Linear; `plugins` list is empty — the `@langchain/langsmith-opencode` plugin was removed in `67d106c`, tracing now flows via env vars, see LangSmith below)
-- `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `.sessions.json` maps session ids to pages, machine-maintained; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
+- `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, `postmortems/` blameless incident postmortems per `postmortems/README.md`, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `.sessions.json` maps session ids to pages, machine-maintained; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
 
@@ -185,12 +185,12 @@ Declared in `pyproject.toml` (core under `dependencies`, dev tooling under `[dep
 
 Demetra coordinates the following external tools:
 
-- **OpenCode**: AI coding assistant for planning and building features
+- **OpenCode**: AI coding assistant for planning and building features; agent runs use the `--standalone` flag when the CLI advertises it — support is probed from `run --help` and cached per CLI path (`opencode_supports_standalone`, `demetra/services/agents/opencode.py:646-676`)
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
 - **Linear**: Issue tracking via GraphQL API
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
-- **OpenRouter**: LLM API for plan extraction, review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
+- **OpenRouter**: LLM API for plan extraction, lint/test error extraction (`extract_errors`, MNT-308), review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 - **WI**: project wiki search/read/list via MCP (`opencode.json` `mcp.servers.WI`, `wi` command) — the in-repo `wiki_*` MCP tools were removed in favour of it
 - **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`): `docker-compose.yaml` forwards host `LANGSMITH_*` into containers and `SessionEnvironment.system_env` derives `TRACE_TO_LANGSMITH` etc. in-process (`demetra/library/models.py:610`)
 

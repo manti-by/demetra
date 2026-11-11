@@ -4,7 +4,7 @@ date: 2026-07-23
 type: investigation
 status: resolved
 session_id: 3eae8036-e679-4a09-be65-144e738741e0
-services: [opencode, database, workflows, settings, groq]
+services: [opencode, database, workflows, settings, llm]
 branch: "-"
 tickets: [MNT-145]
 tags: [session-history, compaction, tokens, opencode-export, audit, cost]
@@ -116,3 +116,5 @@ Recommendation status: **#1 done** (non-cumulative metric + delta model); **#2 o
 
 - Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-16-opencode-v2-session-token-accounting]]
 - `wiki/audits/2026-07-23-session-tokens/RESULT.md`, `BUILD_PLAN.md`
+
+> **Consistency note (2026-11-11, Consistency Agent):** `services:` still listed the removed `groq` module; `PLAN_OUTPUT_MAX_CHARS = 32_000` now lives in `demetra/services/llm/openrouter.py:29`. The audit's recommendation #3 (broad `except` in `cleanup.py`) is called “no longer a finding” in the correction block but is still listed as remaining in the Follow-ups section — the remaining broad catch is `demetra/workflows/cleanup.py:55` (`# noqa: BLE001`); recommendations #2 (cache reads in the compaction decision) and #4 (TTL cache on `opencode export`) are still open. The pre-MNT-251 `file:line` references in the body (e.g. `services/opencode.py:142`, `services/groq.py:106`, `library/tables.py:97`) have all moved — the current locations are `demetra/services/agents/opencode.py:1078`, `demetra/library/tables.py:215-237` and `demetra/services/persistence/database.py:979`.

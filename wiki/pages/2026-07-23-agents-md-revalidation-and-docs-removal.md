@@ -66,3 +66,5 @@ Docs-only; no test/lint impact.
 
 - Related: [[2026-07-22-feature-flag-settings-and-tests]]
 - External: [LangSmith OpenCode plugin](https://github.com/langchain-ai/langsmith-opencode)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “removed resolved Q-002 (ANSI stripping dedup done)” note refers to an **older** question numbering: that entry no longer exists under any number, and today's `wiki/QUESTIONS.md` uses Q-002 for the `MAX_RUN_ATTEMPTS`/`MAX_PLAN_ATTEMPTS` discrepancy and Q-003 for the agent network-retry budget. The `.opencode/skills/` directory is gitignored (`.gitignore:23`), so `wiki-agents-file/SKILL.md` is a local install, not a tracked file.

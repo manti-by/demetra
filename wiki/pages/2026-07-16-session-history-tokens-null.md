@@ -67,3 +67,5 @@ Deploy via git pull to odin.
 ## References
 
 - Related: [[2026-07-23-session-tokens-audit-revalidation]]
+
+> **Consistency note (2026-11-11, Consistency Agent):** Two corrections. (1) The consistency note's “`demetra/services/agents/opencode.py:355`” is the wrong line — `get_opencode_session_tokens` is at `demetra/services/agents/opencode.py:1078` (`get_opencode_session_export` at `:986`). (2) The “Deploy via git pull to odin” follow-up is an operational action for the deployment host, not a code change; the underlying fix is in place.

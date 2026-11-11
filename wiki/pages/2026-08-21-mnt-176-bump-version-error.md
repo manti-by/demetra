@@ -67,3 +67,5 @@ Deleted `EPIC_LABEL` and `is_epic_label(labels)`. Docstring updated: minor bumpe
 
 - Related: [[2026-06-25-update-project-version]], [[2026-09-08-docstring-mcp-search]]
 - External: [MNT-176 — Bump version error (Linear)](https://linear.app/mnt/issue/MNT-176)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The body above still describes a minor bump; since the 2026-09-08 rework `bump_project_version(target_path, is_major=False, is_minor=False, is_patch=True)` defaults to a **patch** bump (`demetra/services/runtime/project.py:331-332`) and the build workflow calls it with no flag (`demetra/workflows/build.py:234`), so the auto-bump increments the patch component. This is the resolved **Q-001**; the `is_epic` rule removed here is still gone.

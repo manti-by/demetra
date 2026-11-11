@@ -210,3 +210,5 @@ Replaced tests:
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]] — the `facts.py` / `render.py`
   layout this change edits
 - Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]] — quoted as the `'403'` tag-quoting example
+
+> **Consistency note (2026-11-11, Consistency Agent):** `compose_wiki_page` now takes thirteen keyword-only parameters (plus `environment`) and lives at `demetra/services/llm/openrouter.py:456` (the `template_input` literal at `:505-516`); `render_page` is at `demetra/services/wiki/render.py:60` and calls it at `:154`/`:169`. The “93 files under `wiki/pages` changed” count is historical — there are now 113 live pages. `PAGE_TYPE` is still hardcoded to `implementation` (`demetra/services/wiki/__init__.py:68`).

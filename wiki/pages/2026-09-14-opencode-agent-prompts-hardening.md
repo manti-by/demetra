@@ -8,7 +8,7 @@ services: [agents]
 branch: wiki-updates
 tickets: []
 tags: [opencode, agent-prompts, permissions, prompt-injection, merge, rebase, bmad, ai-dlc]
-related: [2026-08-24-guard-empty-plan-output.md, 2026-09-01-mnt-177-research-loop.md]
+related: [2026-08-24-guard-empty-plan-output.md, 2026-09-01-mnt-177-research-loop.md, 2026-09-18-dockerfile-opencode-agents-skills.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics
@@ -130,3 +130,5 @@ Intentionally deferred (user scoped to items 1–4):
 
 - Related: [[2026-09-01-mnt-177-research-loop]], [[2026-08-24-guard-empty-plan-output]]
 - External: [BMAD-METHOD](https://github.com/bmad-code-org/bmad-method), [AWS AI-DLC](https://awslabs.github.io/aidlc-workflows/guide/00-introduction/), [OpenCode agent config](https://opencode.ai/docs/agents/)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The agent count is now **8** (`.opencode/agents/`: build, merge, plan, rebase, research, resolve, review, validate) — `AGENTS.md` and [[2026-09-18-dockerfile-opencode-agents-skills]] agree on 8. The follow-up “wire wiki lookups into `plan-agent.md`” is stale in its premise: the in-repo wiki MCP tool was retired in favour of the external **WI** MCP server (see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]), so agents reach the wiki through WI, not through a `wiki_search` tool.

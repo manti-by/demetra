@@ -48,3 +48,5 @@ None.
 
 - Related: [[2026-08-10-docker-compose-deploy]]
 - External: [MNT-119 — Project deploy script (Linear)](https://linear.app/mnt/issue/MNT-119)
+
+> **Consistency note (2026-11-11, Consistency Agent):** This page documents the **retired** systemd deploy path. `configs/bootstrap.sh` and `configs/services/*.service` were deleted in `f5904d5` (2026-09-11); `configs/` now holds only `docker-entrypoint.sh`, `nginx.conf` and `proxy.params`. The current path is `make deploy` (Docker compose, `Makefile:26-33`): `git pull` → `docker build` → `docker compose pull` → one-shot `migrate`/`react-build` → `docker compose up --scale worker=2` → `sudo service nginx reload`. Treat the body above as history.

@@ -8,7 +8,7 @@ services: [main, workflows, agents, linear]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, awaiting-input, spending-limit, server-error, linear]
-related: [2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-21-awaiting-input-status-for-session.md]
+related: [2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
 ---
 
 # Build agent server error — root cause and Awaiting Input handler
@@ -68,3 +68,5 @@ Before re-running MNT-151 clear stale session as above, then address limit: rais
 
 - Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-build-agent-stale-session-deleted-worktree]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-07-21-awaiting-input-status-for-session]]
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The “optional systemic fix” follow-up (detect `UnknownError`/spending-limit/stale-session and retry without `--session`) was closed by MNT-251, although it took a third path rather than either option proposed here — sessions are invalidated via `invalidate_agent_sessions(task_id)` and history is resolved by `task_id` instead of the `sessions.session_id` pointer (see [[2026-10-16-mnt-251-session-attribution-accounting]] and [[2026-08-19-build-agent-stale-session-deleted-worktree]]). The `main.py` handler moved to `main.py:216` (`except BuildError`).

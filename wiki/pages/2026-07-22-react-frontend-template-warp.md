@@ -121,3 +121,5 @@ Frontend dir renamed `hera` → `react/` (MNT-77, 2026-06-01). All paths in this
 ## References
 
 - External: [MNT-142](https://linear.app/manti/project/warp-theme-for-react-0c0c0c0c)
+
+> **Consistency note (2026-11-11, Consistency Agent):** The `.sidebar-footer` element described above never landed — there is no `sidebar-footer` rule or JSX in `react/src` and `git log -S "sidebar-footer"` returns nothing, so the first follow-up (“add `.sidebar-footer` content/styles when needed”) is moot. The `.modal-btn` half of that follow-up is still open (the class is still raw CSS in `react/src/App.css`). The Playwright MCP entry was removed from `opencode.json` in `e9c9702` (see the 2026-11-03 note).

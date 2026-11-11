@@ -4,7 +4,7 @@ date: 2026-10-25
 type: implementation
 status: resolved
 session_id: ses_e8b5aa148ffeyIlCo1dEIlSawZ
-services: [api, agents/opencode, persistence/database, react, tests]
+services: [api, agents, persistence, react, tests]
 branch: "-"
 tickets: []
 tags: [session-history, tool-usage, mcp, opencode, code-mode, frontend, cost]
