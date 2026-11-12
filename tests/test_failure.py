@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import (
     AgentNetworkError,
@@ -56,7 +57,7 @@ def build_context() -> Context:
     return Context(
         project=project,
         auto_mode=True,
-        linear_task=linear_task,
+        task=linear_task,
         branch_name="mnt-128-create-bare-react-application",
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
@@ -73,7 +74,7 @@ class TestRunFailureStep:
             ) as mock_update_ticket_status,
             patch("demetra.services.linear.get_user_environments_decrypted", new_callable=AsyncMock, return_value={}),
         ):
-            mock_post_comment.return_value = True
+            mock_post_comment.return_value = f"comment-{uuid4().hex[:8]}"
             mock_update_ticket_status.return_value = True
             yield {"post_comment": mock_post_comment, "update_ticket_status": mock_update_ticket_status}
 
@@ -90,7 +91,7 @@ class TestRunFailureStep:
         assert "gh: could not create PR" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -105,7 +106,7 @@ class TestRunFailureStep:
         assert "Failed to summarize the review" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -121,7 +122,7 @@ class TestRunFailureStep:
         assert "Unexpected server error" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -138,7 +139,7 @@ class TestRunFailureStep:
         assert "read ECONNRESET" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -154,7 +155,7 @@ class TestRunFailureStep:
         assert "Failed to write wiki page for MNT-128: disk full" in body
 
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
         )
 
@@ -182,6 +183,23 @@ class TestRunFailureStep:
 
         messages = [call.args[0] for call in mock_print_message.call_args_list]
         assert any("Failed to update Linear" in message for message in messages)
+
+    @pytest.mark.asyncio
+    async def test_moves_to_awaiting_input_when_the_local_copy_fails(self, mock_linear_deps):
+        """A failed local copy must not stop the ticket from moving to Awaiting Input."""
+        context = build_context()
+
+        with patch(
+            "demetra.services.linear.mirror.upsert_message",
+            new_callable=AsyncMock,
+            side_effect=SQLAlchemyError("database is down"),
+        ):
+            await process_pr_failure(context=context, error=PullRequestError("gh: could not create PR"))
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
 
     @pytest.mark.asyncio
     async def test_reports_failed_comment(self, mock_linear_deps):

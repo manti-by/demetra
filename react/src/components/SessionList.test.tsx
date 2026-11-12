@@ -72,6 +72,7 @@ describe('SessionList', () => {
         pr_link: null,
         linear_link: null,
         research_report: null,
+        kind: 'chat',
         chat_id: 12,
         tags: ['Backend', 'Research'],
         project_name: 'demetra',

@@ -2,7 +2,7 @@ from typing import Any
 
 import demetra.services.linear as service
 from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
-from demetra.library.models import Context, SessionEnvironment
+from demetra.library.models import Context, LinearTask, SessionEnvironment
 
 
 async def update_ticket_status(task_id: str, state_id: str) -> bool:
@@ -55,7 +55,7 @@ async def create_issue_relation(task_id: str, related_task_id: str, relation_typ
     return (data.get("issueRelationCreate") or {}).get("success", False)
 
 
-async def post_comment(task_id: str, body: str) -> bool:
+async def post_comment(task_id: str, body: str) -> str | None:
     """Post a comment on a Linear issue.
 
     Args:
@@ -63,16 +63,20 @@ async def post_comment(task_id: str, body: str) -> bool:
         body: The comment body markdown.
 
     Returns:
-        bool: True when the comment was created successfully.
+        str | None: The created comment id, or None when the comment was not
+            created successfully.
     """
     query = await service.get_query(name="create_issue_comment")
     result = await service.graphql_request(query=query, variables={"issueId": task_id, "body": body})
     if result is None:
-        return False
+        return None
     data = result.get("data")
     if data is None:
-        return False
-    return data.get("commentCreate", {}).get("success", False)
+        return None
+    payload = data.get("commentCreate") or {}
+    if not payload.get("success", False):
+        return None
+    return (payload.get("comment") or {}).get("id")
 
 
 async def linear_cleanup(context: Context, is_success: bool):
@@ -88,7 +92,7 @@ async def linear_cleanup(context: Context, is_success: bool):
             state_id = context.environment.linear_state("in_review")
         except EnvironmentConfigError as e:
             raise LinearError("Linear state 'in_review' is not configured") from e
-        await service.update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+        await service.update_ticket_status(task_id=context.task.id, state_id=state_id)
         return
 
     service.print_message("Moving back a ticket in TODO column", style="heading")
@@ -96,7 +100,7 @@ async def linear_cleanup(context: Context, is_success: bool):
         state_id = context.environment.linear_state("todo")
     except EnvironmentConfigError as e:
         raise LinearError("Linear state 'todo' is not configured") from e
-    await service.update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+    await service.update_ticket_status(task_id=context.task.id, state_id=state_id)
 
 
 async def create_linear_ticket(
@@ -248,7 +252,7 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
         LinearError: When the API request fails or Linear rejects the
             creation/update (transient, retryable).
     """
-    linear_project_id = context.linear_task.linear_project_id
+    linear_project_id = context.task.linear_project_id if isinstance(context.task, LinearTask) else None
     if not linear_project_id:
         raise LinearConfigError("Source Linear task has no project to attach the research ticket to")
 
@@ -262,7 +266,7 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
     except EnvironmentConfigError as e:
         raise LinearConfigError("Linear team id is not configured") from e
 
-    resolved_title = title or f"Research: {context.linear_task.identifier} — {context.linear_task.title}"
+    resolved_title = title or f"Research: {context.task.identifier} — {context.task.title}"
     existing = await _find_existing_research_ticket(linear_project_id=linear_project_id, title=resolved_title)
     if existing is not None:
         query_update = await service.get_query(name="update_issue")
@@ -286,7 +290,7 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
         return existing
 
     label_ids = [service.LINEAR["feature_label_id"]]
-    source_labels = {label.casefold() for label in context.linear_task.labels}
+    source_labels = {label.casefold() for label in context.task.tags}
     if "backend" in source_labels and service.LINEAR["backend_label_id"]:
         label_ids.append(service.LINEAR["backend_label_id"])
     if "frontend" in source_labels and service.LINEAR["frontend_label_id"]:
@@ -301,8 +305,8 @@ async def create_research_ticket(context: Context, report: str, *, title: str | 
         "labelIds": label_ids,
         "createAsUser": "Demetra",
     }
-    if context.linear_task.priority is not None:
-        ticket_input["priority"] = context.linear_task.priority
+    if context.task.priority is not None:
+        ticket_input["priority"] = context.task.priority
 
     query = await service.get_query(name="create_issue")
     result = await service.graphql_request(query=query, variables={"input": ticket_input})

@@ -162,7 +162,7 @@ async def create_chat_endpoint(
         description=request.description.strip(),
         tags=_normalize_tags(request.tags),
     )
-    await _enqueue(project_name=project["name"], task_id=chat.session_task_id)
+    await _enqueue(project_name=project["name"], task_id=chat.id)
     return chat
 
 
@@ -226,7 +226,7 @@ async def rerun_chat_endpoint(
     chat = await get_chat(task_id=task_id, user_id=user.id)
     if chat is None:
         raise HTTPException(status_code=404, detail="Chat not found")
-    project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
+    project = await get_project_by_id(project_id=chat.project_id or "", user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
     if not is_project_ready(project=project):
@@ -273,7 +273,7 @@ async def create_chat_message_endpoint(
     if not body:
         raise HTTPException(status_code=400, detail="Message cannot be empty")
 
-    project = await get_project_by_id(project_id=chat.project_id, user_id=user.id)
+    project = await get_project_by_id(project_id=chat.project_id or "", user_id=user.id)
     if project is None:
         raise HTTPException(status_code=404, detail="Project not found")
 

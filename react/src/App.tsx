@@ -226,7 +226,7 @@ function AppContent() {
                 </div>
               )}
               <Suspense fallback={<Loader size={48} />}>
-                {selectedTaskId && selectedSession?.chat_id ? (
+                {selectedTaskId && selectedSession?.kind === "chat" ? (
                   <ChatPanel
                     taskId={selectedTaskId}
                     showLogs={showLogs}

@@ -20,7 +20,7 @@ from demetra.services.agents.opencode import verify_opencode_cli
 from demetra.services.auth import reset_password_cli
 from demetra.services.auth.allowlist import allowlist_cli
 from demetra.services.auth.waitlist import waitlist_cli
-from demetra.services.linear import update_ticket_status
+from demetra.services.linear import sync_cli, update_ticket_status
 from demetra.services.persistence.database import (
     init_db,
     mark_session_posted,
@@ -90,6 +90,12 @@ parser.add_argument("--waitlist-entry-id", help="Waitlist entry id for approve/r
 parser.add_argument("--waitlist-status", help="Optional status filter for waitlist list", default=None)
 parser.add_argument("--approved-by", help="Optional admin user id recorded on waitlist approve", default=None)
 
+parser.add_argument(
+    "--linear-sync",
+    help="Mirror the linked Linear projects and their comments into the local task store",
+    action="store_true",
+)
+
 
 async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = False, task_id: str | None = None) -> int:
     """Run the implementation workflow and return its process exit code.
@@ -109,10 +115,10 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     context.plan_loop = plan_loop
 
-    if not context.linear_task.user_id and DEFAULT_USER_ID:
-        context.linear_task.user_id = DEFAULT_USER_ID
+    if not context.task.user_id and DEFAULT_USER_ID:
+        context.task.user_id = DEFAULT_USER_ID
 
-    await setup_session_logging(task_id=context.linear_task.id)
+    await setup_session_logging(task_id=context.task.id)
 
     is_success = False
     should_update_linear_status = True
@@ -123,22 +129,23 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
         if not context.session:
             context.session = await upsert_pending_session(
-                task_id=context.linear_task.id,
+                task_id=context.task.id,
                 session_id=None,
                 project_id=context.project.id,
-                user_id=context.linear_task.user_id or DEFAULT_USER_ID,
-                name=context.linear_task.full_title,
-                linear_link=context.linear_task.url,
+                user_id=context.task.user_id or DEFAULT_USER_ID,
+                name=context.task.full_title,
+                linear_link=context.task.url,
+                kind=context.task.kind,
             )
 
-        await update_session_is_research(task_id=context.linear_task.id, is_research=context.is_research)
+        await update_session_is_research(task_id=context.task.id, is_research=context.is_research)
 
         if not context.is_chat:
             try:
                 state_id = context.environment.linear_state("in_progress")
             except EnvironmentConfigError as e:
                 raise LinearError("Linear state 'in_progress' is not configured") from e
-            await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+            await update_ticket_status(task_id=context.task.id, state_id=state_id)
 
         if is_research_ticket(context=context):
             report = await run_research_step(context=context)
@@ -164,7 +171,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
         if not context.session.posted_to_linear:
             if await notify_message(context=context, body=context.session.build_plan, kind="plan"):
-                await mark_session_posted(task_id=context.linear_task.id)
+                await mark_session_posted(task_id=context.task.id)
 
         build_plan = context.session.build_plan
         commit_retries = MAX_ATTEMPTS["build"]
@@ -281,6 +288,8 @@ if __name__ == "__main__":
                 )
             )
         )
+    elif args.linear_sync:
+        sys.exit(asyncio.run(sync_cli(dry_run=args.dry_run)))
     else:
         sys.exit(
             asyncio.run(

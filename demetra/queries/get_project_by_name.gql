@@ -1,0 +1,8 @@
+query GetProjectByName($name: String!) {
+  projects(first: 10, filter: {name: {eqIgnoreCase: $name}}) {
+    nodes {
+      id
+      name
+    }
+  }
+}

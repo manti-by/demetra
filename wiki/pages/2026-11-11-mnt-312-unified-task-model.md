@@ -1,0 +1,391 @@
+---
+title: Unified Task model with Linear and Chat subtypes
+date: '2026-11-11'
+type: implementation
+status: resolved
+session_id: ses_e3564c1b5ffeBDYG4coFDCd3Wo
+services: [persistence, linear, chat, workflows, api, react]
+branch: opencode/feature/MNT-312-unified-task-model
+tickets: [MNT-312, MNT-311]
+tags: [data-model, task, message, linear, chat, migration, backfill]
+related: [2026-11-04-chat-session-list-and-rerun.md, 2026-11-03-ch-2-single-unified-session-view.md]
+---
+
+# Unified Task model with Linear and Chat subtypes
+
+## TL;DR
+Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic
+`Message` history, persisted in two new tables (`tasks`, `messages`) that sit beside the workflow
+state in `sessions`. `LinearTask` + `LinearComment` and `Chat` + `ChatMessage` became subtypes of
+those bases, `chats` shrank to a subtype row (`chats.id` + `chats.task_id`), the duplicate
+foreign-key-less `chat_messages.session_task_id` column is gone, and a new `--linear-sync` CLI
+backfills every issue of the linked Linear projects — with its comments — into the local store.
+The `kind` discriminator (`linear` / `chat`) replaced the "does a `chats` row exist?" inference that
+every list query used to need.
+
+---
+
+## Overview
+
+Before this change the storage model had three shapes for two concepts:
+
+- **Task identity** — lived in `sessions.task_id` (a Linear issue uuid **or** `CH-<id>`); the kind
+  was never declared, it was inferred from the presence of a `chats` row.
+- **Chat specifics** — lived in `chats` (a 1:1 subtype of `sessions`), where `title`,
+  `description`, `tags`, `user_id` and `project_id` duplicated generic task fields.
+- **Conversation** — lived in `chat_messages` for chats only, while Linear comments were fetched
+  live; two paths to one history, with `chat_messages.session_task_id` carrying no FK while
+  `chat_messages.chat_id` did.
+
+The pipeline was written against `LinearTask`, so chat mode *fabricated* one
+(`build_chat_task` in `demetra/services/chat/tasks.py`) rather than branching every workflow. The
+research ticket MNT-312 confirmed the direction was inverted: the generic type has to be the base,
+with `LinearTask`/`Chat` as two implementations behind one interface.
+
+## Step 1 — The model layer
+
+**File:** `demetra/library/models.py:39`
+
+`Task` and `Message` are keyword-only dataclasses (`kw_only=True`) so subtypes can add defaulted
+fields without the "non-default argument follows default argument" error plain dataclass
+inheritance raises:
+
+```python
+@dataclass(kw_only=True)
+class Task:
+    id: str
+    kind: TaskKind          # "linear" | "chat"
+    identifier: str
+    title: str
+    description: str = ""
+    priority: int = 0
+    state: str | None = None
+    url: str | None = None
+    tags: list[str] = field(default_factory=list)
+    project_id: str | None = None
+    project_name: str | None = None
+    user_id: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    messages: list["Message"] = field(default_factory=list)
+```
+
+Subtypes:
+
+- `LinearTask(Task)` — `kind="linear"` plus `linear_issue_id`, `linear_identifier`,
+  `linear_state_id`, `linear_state_name`, `linear_project_id`, `branch_name`.
+- `Chat(Task)` — `kind="chat"` plus `chat_id` (the `chats` serial).
+- `Message` — `id`, `task_id`, `body`, `created_at`, `parent_id`, `source`, `external_id`,
+  `author_id`, `author_name`, `is_system`, `kind`.
+- `ChatMessage(Message)` (`source="chat"`) and `LinearComment(Message)` (`source="linear"`,
+  `kind="comment"`).
+
+Two field merges came out of this:
+
+- **`labels` → `tags`.** Linear label names and chat tags are the same concept ("functional
+  labels on a work item"), so they are one column now.
+- **`comments: list[str]` → `messages: list[Message]`.** `Task.text` (the prompt body) renders
+  `Task.message_bodies`, so the LLM input is unchanged.
+
+`Context.linear_task` became `Context.task` (144 references across 20 files, renamed mechanically).
+`Context.is_chat` now reads `self.chat is not None or self.task.kind == "chat"`.
+
+## Step 2 — The schema
+
+**File:** `demetra/library/tables.py:22`, `migrations/versions/a9b0c1d2e3f4_add_tasks_and_messages_tables.py`
+
+```
+tasks        id PK (Linear issue uuid | "CH-<id>"), kind, identifier, title, description,
+             priority, state, url, tags JSONB, project_id FK→projects (SET NULL), user_id,
+             created_at, updated_at
+linear_tasks task_id PK/FK→tasks, linear_issue_id UNIQUE, linear_identifier, linear_state_id,
+             linear_state_name, linear_project_id, branch_name
+messages     id PK, task_id FK→tasks, parent_id FK→messages, source, external_id, author_id,
+             author_name, is_system, kind, body, created_at
+             + partial unique index on external_id WHERE external_id IS NOT NULL
+```
+
+`sessions.task_id` became a foreign key to `tasks.id`, and `chats` shrank to `id` + `task_id`.
+
+**Why `tasks.id` reuses the old `sessions.task_id` values** (the Linear issue uuid, `CH-<id>`):
+the session rows then need no rewrite, the FK is a pure addition, and the API task ids stay
+stable. `chats.id` is kept as a serial because the `CH-<id>` task id is derived from it.
+
+**`tasks.project_id` has a FK but `tasks.user_id` does not.** The project id must be validated —
+`create_chat` relies on it to reject a chat for a non-existent project — but `sessions.user_id` has
+never been a FK (`DEFAULT_USER_ID` and test fixtures use ids that are not in `users`), so adding
+one would break existing write paths. `ensure_task` resolves the project through a subquery, so an
+unknown project id is stored as NULL instead of raising.
+
+### The data migration
+
+The revision is one transaction and carries the data with it:
+
+1. create `tasks`, `linear_tasks`, `messages`;
+2. back-fill `tasks` from `chats` (kind `chat`) and from the remaining `sessions` (kind `linear`);
+3. copy `chat_messages` into `messages` (source `chat`), then drop `chat_messages`;
+4. re-point `chats.session_task_id` → `chats.task_id` and drop the duplicated generic columns;
+5. add the `sessions.task_id` → `tasks.id` foreign key.
+
+The linear back-fill has to split the session display name back into an identifier and a title,
+because `sessions.name` is the only local record of a Linear ticket:
+
+```sql
+CASE WHEN position(':' in s.name) > 0 THEN split_part(s.name, ':', 1) ELSE s.name END   -- identifier
+CASE WHEN position(':' in s.name) > 0 THEN trim(substr(s.name, position(':' in s.name) + 1)) ELSE s.name END
+```
+
+Dangling `project_id` / `user_id` values are dropped with an `EXISTS` guard, because `sessions`
+never enforced them. `downgrade()` restores the previous tables and re-populates them from
+`tasks` / `messages`; the round trip is exercised by
+`tests/test_task_message_migration.py`, which runs the revision against a throwaway schema.
+
+## Step 3 — The service layer
+
+**File:** `demetra/services/linear/mirror.py` (new)
+
+`LinearTask` was a dataclass hydrated from the Linear API on every run — there was no local
+Linear store at all. The mirror adds one:
+
+- `store_linear_issue()` writes the issue into `tasks` + `linear_tasks` and its comments into
+  `messages`, keyed by the Linear comment id (`external_id`) so a re-run is idempotent.
+- Threaded replies resolve their `parent_id` to the *local* message id, not the Linear comment id —
+  the first version stored the Linear id and violated `messages_parent_id_fkey`.
+- `get_linear_task_by_id()` still fetches live from Linear (the API stays the source of truth for
+  the pipeline) and mirrors the result on the way through.
+
+**File:** `demetra/services/linear/sync.py` (new)
+
+`sync_linear_mirror()` walks the Linear projects linked to Demetra projects (`projects.linear_project_id`)
+and mirrors every issue with its comments. The existing `.gql` documents use `first: 100` with no
+cursor, so two new documents were added with proper Relay pagination:
+
+```
+demetra/queries/get_project_issues.gql   issues(first: 50, after: $after) { pageInfo { hasNextPage endCursor } nodes { ... } }
+demetra/queries/get_issue_comments.gql   issue(id: $issueId) { comments(first: 50, after: $after) { pageInfo { ... } nodes { ... } } }
+```
+
+The CLI entry point mirrors the `--allowlist seed-existing` shape:
+
+```bash
+uv run python main.py --linear-sync --dry-run   # count only
+uv run python main.py --linear-sync             # write
+```
+
+**File:** `demetra/workflows/notifications.py`
+
+`notify_message` is still the single fork, but both branches now record the message locally:
+
+```python
+comment_id = await post_comment(task_id=context.task.id, body=body)
+if not comment_id:
+    return False
+await record_linear_comment(task_id=context.task.id, body=body, kind=kind, external_id=comment_id)
+```
+
+`post_comment` therefore returns the created comment id (`str | None`) instead of a bool — the id
+is what makes the local row idempotent against the backfill.
+
+## Step 4 — API and frontend
+
+`GET /api/v1/sessions` now returns `kind` (`linear` / `chat`) and `task_title` next to the
+existing `chat_id`. The frontend badge stopped inferring the kind from `chat_id`:
+
+```tsx
+const isChat = session.kind === "chat";
+```
+
+`Chat.id` is now the task id (`"CH-12"`, a string) and `Chat.chat_id` carries the serial; the
+`session_task_id` field is gone from the payload and the TS interfaces.
+
+## Test Results
+
+```
+uv run pytest tests/ -q          1291 passed
+uv run ruff check .               All checks passed!
+uv run ty check                   All checks passed!
+uv run pre-commit run --all-files all hooks passed
+cd react && npx tsc --noEmit      clean
+cd react && npx vitest run        168 passed
+```
+
+The migration was verified against a scratch Postgres database: `upgrade head` → `downgrade -1` →
+`upgrade head` with seeded chat and Linear rows, and separately by
+`tests/test_task_message_migration.py`.
+
+---
+
+## Update — 2026-11-11 16:59
+
+Six review findings were verified against the live Linear schema and fixed.
+
+- **The session tag filter lost its chat-only scope.** `get_sessions` filtered on
+  `tasks.c.tags.contains([tag])`, and tags now live on `tasks` — so a Linear task carrying the
+  same label matched a chat-only filter. The predicate is now
+  `(tasks.c.tags.contains([tag])) & (tasks.c.kind == "chat")`, restoring the documented contract.
+- **Archived issues were missing from the backfill.** Linear hides archived resources by default;
+  `get_project_issues.gql` now passes `includeArchived: true` (confirmed against
+  `IssueConnection`/the root `issues` query arguments).
+- **The downgrade could violate the legacy kind constraint.** `chat_messages.kind` does not accept
+  `comment`, so `CHAT_MESSAGE_RESTORE` maps `comment` back to `message`. Without the mapping the
+  downgrade raises `ck_chat_messages_kind`; the regression is covered by
+  `tests/test_task_message_migration.py`.
+- **A null `commentCreate` payload crashed `post_comment`.** `data.get("commentCreate", {})` returns
+  `None` when the key is present with a null value, so `payload.get("success")` raised
+  `AttributeError` instead of reporting a failed comment. The payload is now normalised with
+  `or {}`.
+- **Mirrored Linear tasks were not linked to their Demetra project.** `sync_linear_mirror` stored
+  every issue without a project or owner, so the backfilled rows had `project_id = NULL`. The sync
+  now resolves the owner through the same `get_linked_projects()` mapping the live read path uses.
+- **Reply threads were truncated.** `Comment.children` was fetched inline without a cursor, so a
+  comment with more replies than one page lost the rest. The children connection now returns its
+  `pageInfo`, and the remaining pages are fetched through a new `get_comment_replies.gql`
+  (the root `comment(id:)` query) only when `hasNextPage` is set — one extra request per
+  overflowing thread, not per comment.
+
+## Update — 2026-11-11 17:25
+
+Two further review findings, both introduced by the local mirror.
+
+- **A failed local copy aborted the failure handler.** `notify_linear_failure` posts the comment to
+  Linear and then mirrors it locally; the `try` around it only caught `LinearError` and
+  `EnvironmentConfigError`, so a database error while saving the copy escaped the handler. The
+  comment was already on Linear but the ticket was never moved to Awaiting Input. The mirror write
+  is now best-effort inside `record_linear_comment`: a `SQLAlchemyError` is logged and swallowed,
+  so the state change the comment announced still happens. The live read path already guarded its
+  mirror write the same way.
+- **Top-level Linear comments never reached the message store.** `get_issue_by_id.gql` did not
+  select the comment `id`, and `store_linear_comments` skips rows without one — so only the replies
+  (which did carry an id) were mirrored, and their parent link pointed at a comment that was not
+  there. The query now selects the top-level comment ids, which restores both the comments
+  themselves and the parent link. `get_all_issues.gql` got the same field so the two documents
+  cannot drift apart again.
+
+While fixing the second finding, the mirror write turned out to be strict about the project
+foreign key: `upsert_task` now resolves the project id against the `projects` table the same way
+`ensure_task` does, so a project deleted between the lookup and the write stores NULL instead of
+aborting the sync. `create_chat` keeps the strict check on purpose — a chat for a non-existent
+project must still fail.
+
+## Update — 2026-11-11 17:40
+
+Seven further review findings on PR #159, all in the storage layer the new model introduced.
+
+- **The task and its Linear subtype were written in two transactions.** `store_linear_issue` called
+  `upsert_task` and then `upsert_linear_task`, each on its own autocommit connection, so a failure
+  in the second write left a task row without its `linear_tasks` row. Both writes now go through
+  `upsert_task_with_linear`, which runs them inside one `get_transaction()`.
+- **A task upsert never refreshed `updated_at`.** The conflict update excluded `updated_at`
+  together with `created_at`, and the table has no automatic timestamp, so the stored modification
+  time stayed at the insertion value. `updated_at` is now part of the conflict update; `created_at`
+  stays untouched.
+- **The chat-session deletion was not atomic.** `delete_session` ran on an autocommit connection,
+  so the session row was committed before the history, the agent sessions and the chat task were
+  removed; a failure in between left a chat task, a chat row and its messages behind without a
+  session, and a retry returned `False` because the session was already gone. The whole sequence
+  now runs in one transaction.
+- **A chat append could recreate a deleted chat.** `post_chat_message` checked that the chat
+  existed and then called `post_message`, which calls `ensure_task` — so a deletion racing with
+  the append made the append recreate the task without its owner, project, session or chat row,
+  and the endpoint answered with success for an inaccessible thread. The check and the insert now
+  run in one transaction, the task row is locked for the append (`SELECT … FOR UPDATE`), and the
+  insert no longer creates the task: a missing task fails on the foreign key instead.
+- **A transport error aborted the whole backfill.** The sync caught `RuntimeError` only, but the
+  Linear client raises `LinearError` — which is not a `RuntimeError` — so a single failed request
+  discarded the partial report. Both the project and the issue boundary now catch
+  `(RuntimeError, LinearError)` and record the failure, and the backfill continues.
+- **A rate-limited request failed the caller.** `graphql_request` turned every non-2xx answer into
+  an error, including Linear's `429`. The request is now repeated after the delay of the
+  `Retry-After` header (exponential backoff when the header is absent) before it fails.
+- **A failed local copy of a Linear comment was not retried.** The comment id makes the mirror
+  write idempotent, so the write is now retried a few times before it is given up on; the comment
+  is never posted twice, because `notify_message` still reports the message as sent and the
+  workflow marks the plan as posted.
+
+The reply pagination of the comments query was completed as well: the inline `children`
+connection now asks for a page of 50 replies, matching `get_comment_replies.gql`.
+
+```
+uv run pytest tests/ -q          1315 passed
+uv run ruff check .               All checks passed!
+uv run ruff format --check .      235 files already formatted
+uv run ty check                   All checks passed!
+```
+
+Thirteen regression tests were added for these findings; each of them fails against the
+unfixed code (the atomic writes, the refreshed `updated_at`, the rollback of a failed deletion
+and the append that must not create a task were verified by reverting the fix and re-running
+the test).
+
+## Update — 2026-11-12
+
+Eight further review findings on PR #159, all in the Linear mirror and its backfill.
+
+- **The live read path mirrored a truncated comment history.** `get_issue_by_id.gql` returns one
+  page of comments and one page of replies inline, so an issue with more comments than that lost
+  the rest until the next backfill. `get_linear_task_by_id` now fetches the complete paginated
+  comment connection (`fetch_complete_issue`) and merges it into the inline one before the issue
+  is stored, so the mirror and the agent context see every comment. A failed fetch keeps the
+  inline page instead of dropping the history.
+- **A pagination cursor that did not advance was followed forever.** The three pagination loops
+  (project issues, issue comments, comment replies) only stopped on a missing cursor, so a server
+  that keeps answering `hasNextPage` with the same `endCursor` was paged in a loop. The new
+  `next_cursor` helper rejects a missing cursor and one equal to the cursor just sent, and raises
+  `LinearError` for both.
+- **A project linked to Linear by name only was skipped by the backfill.** The sync walked the
+  Linear project ids stored in `projects.linear_project_id`, so a project matched by name alone was
+  never mirrored and the run still reported success. `resolve_sync_targets` now resolves those
+  names to their Linear id through the new `get_project_by_name.gql` query
+  (`projects(filter: {name: {eqIgnoreCase: …}})`) and walks them as well; a name without a
+  Linear project is skipped, a failed lookup is recorded as a failure.
+- **The comment counter of the backfill ignored the replies.** `len(comments)` counted the
+  top-level comments only, while the mirror stores the replies too. The counter now uses
+  `extract_comment_rows`, the same extraction the store uses, so the dry-run total matches the
+  stored messages.
+- **A storage error aborted the whole backfill.** A `SQLAlchemyError` of `store_linear_issue`
+  escaped `sync_linear_mirror` and `sync_cli` does not catch it, so the remaining issues were not
+  processed and the partial report was never printed. The error is now caught at the issue
+  boundary and recorded in `report.failures`.
+- **Three call sites passed positional arguments.** The retry helper, the GraphQL poster, the
+  mirror upsert and the GraphQL requests of the pagination loops now pass named arguments, as the
+  coding guidelines require.
+
+Two more findings landed on the name-only resolution of the backfill.
+
+- **A name-only project could be stored under the owner of another project.** The ownership of a
+  name-only target was recovered from `get_linked_projects()`, a lookup that maps both the Linear
+  project id and the project name to one owner tuple. Two projects can share a name — the column
+  has no unique constraint — so the tuple of the wrong project was picked and its issues were
+  stored under it. Every target now carries the identity of the project that owns the link
+  (`list_linked_linear_projects` and `list_name_only_linear_projects` return it), and an ambiguous
+  mapping is rejected before storage: a name shared by two projects, a Linear project claimed by
+  two projects and a Linear project id stored by two projects are all recorded as failures. This
+  is the same class of problem as the name-based ownership takeover of
+  `wiki/audits/2026-11-05-security-audit/15-linear-link-ownership-takeover.md`: a link has to
+  resolve to exactly one project.
+- **A failed write was counted as mirrored.** `report.issues` and `report.comments` were raised
+  before the store, so an issue whose transaction rolled back was still reported as "synced". The
+  counters are now raised after a successful write, and the dry run counts its candidates in
+  `pending_issues` / `pending_comments`, so the two never mix.
+
+```bash
+uv run pytest tests/ -q          1333 passed
+uv run ruff check .               All checks passed!
+uv run ty check                   All checks passed!
+```
+
+## Follow-ups
+
+- The Linear mirror is **backfill-only** (the decision taken for this ticket): the local copy goes
+  stale until the next `--linear-sync`. A Linear webhook receiver for `Issue`/`Comment` events
+  would keep it fresh — that was the other option considered and it was explicitly deferred.
+- `Task.state` is `NULL` for chats: the chat's state is `sessions.step`, and duplicating it would
+  create a second source of truth. Linear tasks carry their Linear state name.
+- `tasks.project_id` is `SET NULL` on project deletion, so a deleted Demetra project leaves its
+  Linear mirror rows without an owner. `delete_project` refuses to delete a project that still
+  owns chat tasks.
+
+## References
+
+- Related: [[2026-11-04-chat-session-list-and-rerun]], [[2026-11-03-ch-2-single-unified-session-view]]
+- External: MNT-312 (research), MNT-311 (original ticket)

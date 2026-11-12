@@ -124,8 +124,8 @@ async def run_build_step(build_plan: str, context: Context) -> None:
     review_round = 0
     while rerun_attempts:
         print_message("Running BUILD agent", style="heading")
-        await update_session_step(task_id=context.linear_task.id, step="build")
-        await record_session_step(task_id=context.linear_task.id, step="build", repeat=True)
+        await update_session_step(task_id=context.task.id, step="build")
+        await record_session_step(task_id=context.task.id, step="build", repeat=True)
 
         fork = is_first_build and context.session_id is not None
         invoked_at = int(time.time() * 1000)
@@ -133,7 +133,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             target_path=context.worktree_path,
             task=current_task,
             session_id=context.session_id,
-            task_title=context.linear_task.full_title,
+            task_title=context.task.full_title,
             project_id=context.project.id,
             environment=context.environment,
             fork=fork,
@@ -144,10 +144,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             )
 
         history = await capture_agent_session(
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             step="build",
             target_path=context.worktree_path,
-            task_title=context.linear_task.full_title,
+            task_title=context.task.full_title,
             session_id=context.session_id,
             forked=fork,
             is_primary=is_first_build,
@@ -163,12 +163,12 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await check_and_compact_context(context, context_tokens)
 
         if review_attempts > 0 and validate_attempts > 0 and not review_step_finished:
-            await update_session_step(task_id=context.linear_task.id, step="validate")
+            await update_session_step(task_id=context.task.id, step="validate")
             missing_items = await run_validate_agent(
                 target_path=context.worktree_path,
                 build_plan=build_plan,
-                task_title=context.linear_task.full_title,
-                task_id=context.linear_task.id,
+                task_title=context.task.full_title,
+                task_id=context.task.id,
                 project_id=context.project.id,
                 environment=context.environment,
             )
@@ -191,14 +191,14 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     rerun_attempts = MAX_ATTEMPTS["build"]
                     validate_attempts = MAX_ATTEMPTS["build"]
                     review_attempts = MAX_ATTEMPTS["review"]
-                    await reset_review_attempts(task_id=context.linear_task.id)
+                    await reset_review_attempts(task_id=context.task.id)
 
-            await update_session_step(task_id=context.linear_task.id, step="review")
+            await update_session_step(task_id=context.task.id, step="review")
             review_round += 1
             review_comments = await run_review_agents(
                 target_path=context.worktree_path,
-                task_id=context.linear_task.id,
-                task_title=context.linear_task.full_title,
+                task_id=context.task.id,
+                task_title=context.task.full_title,
                 round_index=review_round,
                 project_id=context.project.id,
                 environment=context.environment,
@@ -208,7 +208,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     current_task = review_comments
                     rerun_attempts -= 1
                     review_attempts -= 1
-                    await increment_review_attempts(task_id=context.linear_task.id)
+                    await increment_review_attempts(task_id=context.task.id)
                     continue
 
                 result, _ = await user_input([("1", "apply review comments"), ("2", "skip")])
@@ -217,14 +217,14 @@ async def run_build_step(build_plan: str, context: Context) -> None:
                     current_task = review_comments
                     rerun_attempts -= 1
                     review_attempts -= 1
-                    await increment_review_attempts(task_id=context.linear_task.id)
+                    await increment_review_attempts(task_id=context.task.id)
                     continue
                 else:
                     print_message("Continuing the workflow.", style="result")
                     rerun_attempts = MAX_ATTEMPTS["build"]
                     validate_attempts = MAX_ATTEMPTS["build"]
                     review_attempts = MAX_ATTEMPTS["review"]
-                    await reset_review_attempts(task_id=context.linear_task.id)
+                    await reset_review_attempts(task_id=context.task.id)
         else:
             print_message("Skipping CODE REVIEW (attempt budget reached)", style="warning")
 
@@ -238,7 +238,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         has_errors, lint_result = await run_lint_and_test(
             target_path=context.worktree_path,
             session_id=context.session_id,
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             environment=context.environment,
         )
         if has_errors and lint_result:

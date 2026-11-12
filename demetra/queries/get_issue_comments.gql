@@ -1,0 +1,37 @@
+query GetIssueComments($issueId: String!, $after: String) {
+  issue(id: $issueId) {
+    comments(first: 50, after: $after, filter: {parent: {null: true}}) {
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+      nodes {
+        id
+        body
+        createdAt
+        resolvedAt
+        user {
+          id
+          name
+        }
+        children(first: 50) {
+          pageInfo {
+            hasNextPage
+            endCursor
+          }
+          edges {
+            node {
+              id
+              body
+              createdAt
+              user {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

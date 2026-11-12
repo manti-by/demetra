@@ -22,8 +22,10 @@ from demetra.services.linear import (
     post_comment,
     update_ticket_status,
 )
+from demetra.services.linear.graphql import get_query
 from demetra.services.persistence.database import (
     create_project,
+    list_messages,
 )
 from demetra.services.persistence.database import (
     get_connection as _get_connection,
@@ -136,7 +138,7 @@ class TestLinearService:
         assert result is False
 
     @pytest.mark.asyncio
-    async def test_post_comment_returns_true_on_success(
+    async def test_post_comment_returns_the_comment_id_on_success(
         self,
         graphql_comment_success_response: dict,
     ):
@@ -146,10 +148,10 @@ class TestLinearService:
             mock_request.return_value = graphql_comment_success_response
             result = await post_comment("issue-1", "Test comment")
 
-        assert result is True
+        assert result == graphql_comment_success_response["data"]["commentCreate"]["comment"]["id"]
 
     @pytest.mark.asyncio
-    async def test_post_comment_returns_false_on_failure(
+    async def test_post_comment_returns_none_on_failure(
         self,
         graphql_comment_failure_response: dict,
     ):
@@ -159,7 +161,17 @@ class TestLinearService:
             mock_request.return_value = graphql_comment_failure_response
             result = await post_comment("issue-1", "Test comment")
 
-        assert result is False
+        assert result is None
+
+    @pytest.mark.asyncio
+    async def test_post_comment_returns_none_on_a_null_payload(self):
+        with (
+            patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request,
+        ):
+            mock_request.return_value = {"data": {"commentCreate": None}}
+            result = await post_comment("issue-1", "Test comment")
+
+        assert result is None
 
     @pytest.mark.asyncio
     async def test_create_issue_relation_returns_true_on_success(self):
@@ -205,10 +217,10 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert len(issues[0].comments) == 3
-        assert issues[0].comments[0] == "First question from the team?"
-        assert issues[0].comments[1] == "Answer to first question"
-        assert issues[0].comments[2] == "Second question about the implementation?"
+        assert len(issues[0].message_bodies) == 3
+        assert issues[0].message_bodies[0] == "First question from the team?"
+        assert issues[0].message_bodies[1] == "Answer to first question"
+        assert issues[0].message_bodies[2] == "Second question about the implementation?"
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_empty_comments(
@@ -225,7 +237,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].comments == []
+        assert issues[0].message_bodies == []
 
     @pytest.mark.asyncio
     async def test_linear_task_text_includes_comments(
@@ -276,7 +288,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].labels == ["bug", "frontend"]
+        assert issues[0].tags == ["bug", "frontend"]
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_empty_labels(
@@ -291,7 +303,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert issues[0].labels == []
+        assert issues[0].tags == []
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_filter_labels_includes_matching(
@@ -308,7 +320,7 @@ class TestLinearService:
             issues = await get_todo_issues("demetra")
 
         assert len(issues) == 1
-        assert "bug" in issues[0].labels
+        assert "bug" in issues[0].tags
 
     @pytest.mark.asyncio
     async def test_get_todo_issues_filter_labels_skips_non_matching(
@@ -661,14 +673,14 @@ class TestCreateResearchTicket:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="issue-1",
                 identifier="MNT-123",
                 title="Research something",
                 description="desc",
                 priority=priority,
                 created_at="2026-01-01T00:00:00",
-                labels=labels or [],
+                tags=labels or [],
                 linear_project_id=linear_project_id,
             ),
             branch_name="feature/test",
@@ -1008,11 +1020,58 @@ class TestCreateIssueRelation:
 
 
 class TestGetLinearTaskById:
+    @pytest.fixture(autouse=True)
+    def mock_comment_pages(self):
+        """Keep the paginated comment fetch of the mirror local.
+
+        The mirror reads the complete comment connection of an issue before it
+        stores it, so the request has to be answered without the Linear API.
+        """
+        with patch(
+            "demetra.services.linear.mirror.graphql_request",
+            new_callable=AsyncMock,
+        ) as mock_request:
+            mock_request.return_value = {
+                "data": {"issue": {"comments": {"nodes": [], "pageInfo": {"hasNextPage": False}}}}
+            }
+            yield mock_request
+
     @pytest.fixture
     def mock_linked(self, mock_linked_projects):
         with patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as m:
             m.return_value = mock_linked_projects
             yield m
+
+    @pytest.mark.asyncio
+    async def test_get_linear_task_by_id_mirrors_the_comments(
+        self,
+        graphql_get_issue_by_id_response_with_comments: dict,
+        mock_linked: AsyncMock,
+    ):
+        issue = graphql_get_issue_by_id_response_with_comments["data"]["issue"]
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = graphql_get_issue_by_id_response_with_comments
+            task = await get_linear_task_by_id(issue["id"])
+
+        assert task is not None
+        messages = await list_messages(issue["id"])
+
+        assert [message.body for message in messages] == [
+            "First question from the team?",
+            "Answer to first question",
+            "Second question about the implementation?",
+        ]
+        assert messages[1].parent_id == messages[0].id
+        assert messages[2].parent_id is None
+
+    @pytest.mark.asyncio
+    async def test_the_issue_query_selects_the_comment_ids(self):
+        """The mirror keys comments by their id, so the query has to fetch it."""
+        query = await get_query(name="get_issue_by_id")
+
+        comment_block = query.split("comments(first: 100")[1].split("children")[0]
+        assert "id" in comment_block
 
     @pytest.mark.asyncio
     async def test_get_linear_task_by_id_returns_task(
@@ -1055,9 +1114,9 @@ class TestGetLinearTaskById:
             task = await get_linear_task_by_id("issue-1")
 
         assert task is not None
-        assert len(task.comments) > 0
-        assert "First question" in task.comments[0]
-        assert "Answer to first question" in task.comments[1]
+        assert len(task.message_bodies) > 0
+        assert "First question" in task.message_bodies[0]
+        assert "Answer to first question" in task.message_bodies[1]
 
     @pytest.mark.asyncio
     async def test_get_linear_task_by_id_enriches_with_project_id(
@@ -1089,7 +1148,7 @@ class TestGetLinearTaskById:
             task = await get_linear_task_by_id("issue-1")
 
         assert task is not None
-        assert task.labels == ["bug", "frontend"]
+        assert task.tags == ["bug", "frontend"]
 
 
 class TestLinearCleanup:
@@ -1130,7 +1189,7 @@ class TestLinearCleanup:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="linear-task-123",
                 identifier="MNT-123",
                 title=faker.sentence(),
@@ -1173,7 +1232,7 @@ class TestLinearCleanup:
                 updated_at="2026-01-01T00:00:00",
             ),
             auto_mode=False,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="linear-task-456",
                 identifier="MNT-456",
                 title=faker.sentence(),

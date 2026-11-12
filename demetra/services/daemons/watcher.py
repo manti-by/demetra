@@ -2,13 +2,19 @@ import asyncio
 import logging.config
 import os
 import sys
+from collections.abc import Sequence
 
 from rq.job import Job
 
 from demetra.library.exceptions import EnvironmentConfigError
-from demetra.library.models import LinearTask, SessionEnvironment
+from demetra.library.models import SessionEnvironment, Task
 from demetra.services.chat import is_chat_task, record_chat_message, record_chat_status
-from demetra.services.linear import get_user_environments_decrypted, post_comment, update_ticket_status
+from demetra.services.linear import (
+    get_user_environments_decrypted,
+    post_comment,
+    record_linear_comment,
+    update_ticket_status,
+)
 from demetra.services.persistence.database import (
     get_exhausted_session_task_ids,
     get_pending_session_task_ids,
@@ -71,7 +77,11 @@ async def handle_exhausted_attempts(
         await record_chat_status(task_id=task_id, state="awaiting_input")
         return
 
-    await post_comment(task_id=task_id, body="Max run attempts reached")
+    comment_id = await post_comment(task_id=task_id, body="Max run attempts reached")
+    if comment_id:
+        await record_linear_comment(
+            task_id=task_id, body="Max run attempts reached", kind="failure", external_id=comment_id
+        )
     state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
     if state_id is None:
         logger.error("Linear state 'awaiting_input' is not configured")
@@ -185,7 +195,7 @@ async def delay_run_workflow(project_name: str, task_id: str) -> Job:
     return enqueue_workflow(project_name=project_name, task_id=task_id)
 
 
-async def process_tasks(tasks: list[LinearTask]) -> None:
+async def process_tasks(tasks: Sequence[Task]) -> None:
     """Process a batch of TODO tasks, upserting sessions and queueing workflows.
 
     Tasks already pending keep their session; new tasks get a pending session

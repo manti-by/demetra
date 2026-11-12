@@ -29,7 +29,7 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
         numbered_questions=numbered_questions,
     )
 
-    task_title = f"{context.linear_task.full_title} - resolve"
+    task_title = f"{context.task.full_title} - resolve"
     invoked_at = int(time.time() * 1000)
     _, resolve_output, _ = await opencode_resolve_agent(
         target_path=context.worktree_path,
@@ -40,7 +40,7 @@ async def run_resolve_step(context: Context, original_task: str, questions: list
     )
 
     await capture_agent_session(
-        task_id=context.linear_task.id,
+        task_id=context.task.id,
         step="resolve",
         target_path=context.worktree_path,
         task_title=task_title,

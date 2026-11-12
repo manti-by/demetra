@@ -24,6 +24,7 @@ query GetIssueById($issueId: String!) {
       }
       comments(first: 100, filter: {parent: {null: true}}) {
       nodes {
+        id
         body
         resolvedAt
         createdAt

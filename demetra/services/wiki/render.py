@@ -147,14 +147,14 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             "services": service.infer_services(facts["files"]),
             "branch": facts["branch"],
             "tickets": [identifier],
-            "tags": service.infer_tags(linear_task=context.linear_task),
+            "tags": service.infer_tags(task=context.task),
             "related": related,
         }
 
         page_body = await service.compose_wiki_page(
             title=meta["title"],
             page_type=meta["type"],
-            ticket_text=context.linear_task.text,
+            ticket_text=context.task.text,
             description=facts["description"],
             build_plan=facts["build_plan"],
             diff_summary=facts["stat_text"],
@@ -162,7 +162,7 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             log_tail=facts["log_tail"],
             linear_url=facts["url"] or "-",
             related=related,
-            task_id=context.linear_task.id,
+            task_id=context.task.id,
             environment=context.environment,
         )
 

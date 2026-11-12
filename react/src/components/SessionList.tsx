@@ -37,6 +37,7 @@ const SessionItem = memo(
     onClick: (e: React.MouseEvent) => void;
   }) => {
     const step = session.step || "initial";
+    const isChat = session.kind === "chat";
 
     return (
       <div
@@ -46,10 +47,10 @@ const SessionItem = memo(
         <div className="session-item-header">
           <div className="session-item-badges">
             <span
-              className={`session-type ${session.chat_id ? "chat" : "linear"}`}
-              title={session.chat_id ? "Chat" : "Linear"}
+              className={`session-type ${isChat ? "chat" : "linear"}`}
+              title={isChat ? "Chat" : "Linear"}
             >
-              {session.chat_id ? "C" : "L"}
+              {isChat ? "C" : "L"}
             </span>
             <span className={`session-step ${step}`}>{step}</span>
           </div>

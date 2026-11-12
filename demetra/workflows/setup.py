@@ -65,34 +65,34 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     chat: Chat | None = None
     if task_id:
         if (chat_task := await get_chat_task(task_id=task_id)) is not None:
-            linear_task, chat = chat_task
+            task, chat = chat_task
         else:
-            linear_task = await get_linear_task_by_id(task_id=task_id)
+            task = await get_linear_task_by_id(task_id=task_id)
     else:
-        linear_task = await get_linear_task(project_name=project.name, user_id=project.user_id)
+        task = await get_linear_task(project_name=project.name, user_id=project.user_id)
 
-    if not linear_task:
+    if not task:
         print_message(f"No TODO tasks found for {project.name} project", style="error")
         return None
 
-    print_message(f"Retrieved task: {linear_task.full_title}", style="result")
+    print_message(f"Retrieved task: {task.full_title}", style="result")
 
-    session = await get_session(task_id=linear_task.id)
-    branch_name = linear_task.slug
+    session = await get_session(task_id=task.id)
+    branch_name = task.slug
 
     print_message("Pulling latest changes", style="heading")
     print_message("")
     await git_pull(target_path=project.local_path, environment=environment, project_id=project.id)
     print_message("")
 
-    if is_research_task(linear_task=linear_task):
+    if is_research_task(task=task):
         # Research is read-only: it needs no branch or worktree and runs in
         # the main checkout. git_cleanup skips git work for research contexts.
         print_message("Research task: skipping branch and worktree creation", style="heading")
         return Context(
             project=project,
             auto_mode=auto_mode,
-            linear_task=linear_task,
+            task=task,
             branch_name=branch_name,
             worktree_path=project.local_path,
             session=session,
@@ -111,7 +111,7 @@ async def setup_workflow(project_name: str, auto_mode: bool, task_id: str | None
     return Context(
         project=project,
         auto_mode=auto_mode,
-        linear_task=linear_task,
+        task=task,
         branch_name=branch_name,
         worktree_path=worktree_path,
         session=session,

@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic `Message` history: new `tasks`/`messages` tables beside the workflow state in `sessions`, `LinearTask`/`Chat` and `LinearComment`/`ChatMessage` as subtypes, `chats` shrunk to a subtype row, the FK-less duplicate `chat_messages.session_task_id` dropped, and a `--linear-sync` CLI that backfills every issue of the linked Linear projects with its comments. (2026-11-11)
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
 - [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — Lint and test failures are now summarised before they reach the build agent: a new `extract_errors` service (OpenRouter prompt `demetra/prompts/extract_errors.md`) parses ruff/pytest output into a ded... (2026-11-10)
@@ -237,8 +238,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Linear & GitHub integrations (7 pages)
+### Linear & GitHub integrations (8 pages)
 
+- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
@@ -272,8 +274,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Simplify setup_session_logging](pages/2026-07-16-simplify-session-logging-setup.md) — 2026-07-16
 - [Duplicated log messages and missing build agent logs](pages/2026-07-15-duplicated-log-messages.md) — 2026-07-15
 
-### Sessions, status & state flow (3 pages)
+### Sessions, status & state flow (4 pages)
 
+- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
 - [Awaiting Input status for session](pages/2026-07-21-awaiting-input-status-for-session.md) — 2026-07-21
 - [Fix code-review findings on step/status refactor](pages/2026-07-16-fix-step-status-review-findings.md) — 2026-07-16
 - [Websocket to track session statuses](pages/2026-06-25-websocket-to-track-session-statuses.md) — 2026-06-25

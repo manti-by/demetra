@@ -18,7 +18,7 @@ def make_linear_task(identifier="MNT-147", title="Wiki processes", labels=None) 
         description="Automate wiki maintenance loops.",
         priority=1,
         created_at="2026-08-04T00:00:00Z",
-        labels=resolved_labels,
+        tags=resolved_labels,
         url=f"https://linear.app/mnt/issue/{identifier}",
     )
 
@@ -49,7 +49,7 @@ def make_context(tmp_path: Path, task: LinearTask | None = None, build_plan: str
     return Context(
         project=project,
         auto_mode=True,
-        linear_task=task or make_linear_task(),
+        task=task or make_linear_task(),
         branch_name="mnt-147-wiki-processes",
         worktree_path=tmp_path,
         session=session,
@@ -151,11 +151,11 @@ class TestInferServices:
 class TestInferTags:
     def test_slugs_labels_and_prepends_wiki(self):
         task = make_linear_task(labels=["Feature", "Backend Hardening"])
-        assert service.infer_tags(linear_task=task) == ["wiki", "feature", "backend-hardening"]
+        assert service.infer_tags(task=task) == ["wiki", "feature", "backend-hardening"]
 
     def test_empty_labels_keeps_wiki_tag(self):
         task = make_linear_task(labels=[])
-        assert service.infer_tags(linear_task=task) == ["wiki"]
+        assert service.infer_tags(task=task) == ["wiki"]
 
 
 class TestSessionLogTail:

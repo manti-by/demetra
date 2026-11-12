@@ -436,7 +436,7 @@ class TestContextEnvironment:
         context = Context(
             project=project,
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="task-1",
                 identifier="MNT-1",
                 title="Test",
@@ -457,7 +457,7 @@ class TestContextEnvironment:
         context = Context(
             project=project,
             auto_mode=True,
-            linear_task=LinearTask(
+            task=LinearTask(
                 id="task-1",
                 identifier="MNT-1",
                 title="Test",

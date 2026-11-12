@@ -464,6 +464,7 @@ def linear_task_data_with_comments(linear_task_data_demetra: dict) -> dict:
             "comments": {
                 "nodes": [
                     {
+                        "id": "comment-1",
                         "body": "First question from the team?",
                         "resolvedAt": None,
                         "createdAt": "2026-01-01T00:00:00Z",
@@ -482,6 +483,7 @@ def linear_task_data_with_comments(linear_task_data_demetra: dict) -> dict:
                         },
                     },
                     {
+                        "id": "comment-2",
                         "body": "Second question about the implementation?",
                         "resolvedAt": None,
                         "createdAt": "2026-01-02T00:00:00Z",
@@ -516,7 +518,7 @@ def linear_task(linear_task_data: dict):
         created_at=linear_task_data["createdAt"],
         project_name=linear_task_data["project"]["name"],
         linear_project_id=linear_task_data["project"].get("id"),
-        labels=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
+        tags=[n["name"] for n in linear_task_data.get("labels", {}).get("nodes", []) if n.get("name")],
         url=linear_task_data["url"],
     )
 

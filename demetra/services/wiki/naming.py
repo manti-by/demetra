@@ -4,7 +4,7 @@ from pathlib import Path
 from slugify import slugify
 
 import demetra.services.wiki as service
-from demetra.library.models import LinearTask
+from demetra.library.models import Task
 
 
 def today() -> str:
@@ -20,7 +20,7 @@ def session_filename(ticket_identifier: str, title: str) -> str:
     """Derive the wiki page filename for a ticket.
 
     Follows the ``pages/YYYY-MM-DD-<ticket-key>-<slug>.md`` convention using the
-    same slugification as ``LinearTask.slug``.
+    same slugification as ``Task.slug``.
 
     Args:
         ticket_identifier: The Linear ticket identifier, e.g. ``MNT-147``.
@@ -58,17 +58,17 @@ def infer_services(changed_files: list[str]) -> list[str]:
     return services
 
 
-def infer_tags(linear_task: LinearTask) -> list[str]:
-    """Infer the wiki page ``tags`` from Linear labels.
+def infer_tags(task: Task) -> list[str]:
+    """Infer the wiki page ``tags`` from a task's labels.
 
     Args:
-        linear_task: The Linear task carrying ``labels``.
+        task: The task carrying ``tags``.
 
     Returns:
         list[str]: The de-duplicated tag list, always including ``wiki``.
     """
     tags = ["wiki"]
-    for label in linear_task.labels or []:
+    for label in task.tags or []:
         tag = slugify(label)
         if tag and tag not in tags:
             tags.append(tag)

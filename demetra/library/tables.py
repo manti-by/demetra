@@ -19,10 +19,73 @@ from sqlalchemy.dialects.postgresql import JSONB
 
 metadata = MetaData()
 
+tasks = Table(
+    "tasks",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("kind", String(), nullable=False),
+    Column("identifier", String(), nullable=False),
+    Column("title", String(), nullable=False),
+    Column("description", Text(), nullable=False, server_default=""),
+    Column("priority", Integer(), nullable=False, server_default="0"),
+    Column("state", String(), nullable=True),
+    Column("url", String(), nullable=True),
+    Column("tags", JSONB(), nullable=False, server_default="[]"),
+    Column("project_id", String(), ForeignKey("projects.id", ondelete="SET NULL"), nullable=True),
+    Column("user_id", String(), nullable=True),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Column("updated_at", DateTime(timezone=True), nullable=False),
+    Index("ix_tasks_kind", "kind"),
+    Index("ix_tasks_project_id", "project_id"),
+    CheckConstraint("kind IN ('linear', 'chat')", name="ck_tasks_kind"),
+)
+
+linear_tasks = Table(
+    "linear_tasks",
+    metadata,
+    Column("task_id", String(), ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
+    Column("linear_issue_id", String(), nullable=False),
+    Column("linear_identifier", String(), nullable=True),
+    Column("linear_state_id", String(), nullable=True),
+    Column("linear_state_name", String(), nullable=True),
+    Column("linear_project_id", String(), nullable=True),
+    Column("branch_name", String(), nullable=True),
+    UniqueConstraint("linear_issue_id", name="uq_linear_tasks_issue_id"),
+)
+
+messages = Table(
+    "messages",
+    metadata,
+    Column("id", String(), primary_key=True),
+    Column("task_id", String(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
+    Column("parent_id", String(), ForeignKey("messages.id", ondelete="CASCADE"), nullable=True),
+    Column("source", String(), nullable=False, server_default="chat"),
+    Column("external_id", String(), nullable=True),
+    Column("author_id", String(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
+    Column("author_name", String(), nullable=True),
+    Column("is_system", Boolean(), nullable=False, server_default="false"),
+    Column("kind", String(), nullable=False, server_default="message"),
+    Column("body", Text(), nullable=False),
+    Column("created_at", DateTime(timezone=True), nullable=False),
+    Index("ix_messages_task_id", "task_id"),
+    Index("ix_messages_parent_id", "parent_id"),
+    Index(
+        "uq_messages_external_id",
+        "external_id",
+        unique=True,
+        postgresql_where=text("external_id IS NOT NULL"),
+    ),
+    CheckConstraint("source IN ('chat', 'linear')", name="ck_messages_source"),
+    CheckConstraint(
+        "kind IN ('message', 'question', 'plan', 'failure', 'research', 'status', 'comment')",
+        name="ck_messages_kind",
+    ),
+)
+
 sessions = Table(
     "sessions",
     metadata,
-    Column("task_id", String(), primary_key=True),
+    Column("task_id", String(), ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True),
     Column("name", String(), nullable=True),
     Column("session_id", String(), nullable=True),
     Column("build_plan", Text(), nullable=False, server_default=""),
@@ -46,35 +109,8 @@ chats = Table(
     "chats",
     metadata,
     Column("id", Integer(), primary_key=True, autoincrement=True),
-    Column("session_task_id", String(), ForeignKey("sessions.task_id", ondelete="CASCADE"), nullable=False),
-    Column("title", String(), nullable=False),
-    Column("description", Text(), nullable=False, server_default=""),
-    Column("tags", JSONB(), nullable=False, server_default="[]"),
-    Column("user_id", String(), ForeignKey("users.id", ondelete="CASCADE"), nullable=False),
-    Column("project_id", String(), ForeignKey("projects.id", ondelete="CASCADE"), nullable=False),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Column("updated_at", DateTime(timezone=True), nullable=False),
-    UniqueConstraint("session_task_id", name="uq_chats_session_task_id"),
-    Index("ix_chats_user_id", "user_id"),
-    Index("ix_chats_project_id", "project_id"),
-)
-
-chat_messages = Table(
-    "chat_messages",
-    metadata,
-    Column("id", String(), primary_key=True),
-    Column("chat_id", Integer(), ForeignKey("chats.id", ondelete="CASCADE"), nullable=False),
-    Column("session_task_id", String(), nullable=False),
-    Column("author_id", String(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
-    Column("is_system", Boolean(), nullable=False, server_default="false"),
-    Column("kind", String(), nullable=False, server_default="message"),
-    Column("body", Text(), nullable=False),
-    Column("created_at", DateTime(timezone=True), nullable=False),
-    Index("ix_chat_messages_session_task_id", "session_task_id"),
-    CheckConstraint(
-        "kind IN ('message', 'question', 'plan', 'failure', 'research', 'status')",
-        name="ck_chat_messages_kind",
-    ),
+    Column("task_id", String(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
+    UniqueConstraint("task_id", name="uq_chats_task_id"),
 )
 
 oauth_tokens = Table(

@@ -1,6 +1,6 @@
 from demetra.library.models import ChatMessageKind, Context
 from demetra.services.chat import record_chat_message, record_chat_status
-from demetra.services.linear import post_comment, update_ticket_status
+from demetra.services.linear import post_comment, record_linear_comment, update_ticket_status
 
 
 async def notify_status(context: Context, state: str) -> bool:
@@ -18,24 +18,36 @@ async def notify_status(context: Context, state: str) -> bool:
         EnvironmentConfigError: When a Linear state id is not configured.
     """
     if context.is_chat:
-        await record_chat_status(task_id=context.linear_task.id, state=state)
+        await record_chat_status(task_id=context.task.id, state=state)
         return True
 
     state_id = context.environment.linear_state(state)
-    return await update_ticket_status(task_id=context.linear_task.id, state_id=state_id)
+    return await update_ticket_status(task_id=context.task.id, state_id=state_id)
 
 
 async def notify_message(context: Context, body: str, kind: ChatMessageKind = "message") -> bool:
     """Post a message to Linear, or append it to the chat thread.
 
+    Both branches record the message in the local task history, so a task's
+    conversation is available locally whichever source it came from.
+
+    A Linear comment that was accepted but could not be mirrored locally is
+    not posted again: the local write is best-effort, so the caller still
+    records the message as sent, and the mirror restores the missing copy
+    from Linear with its comment id on a later run.
+
     Args:
         context: The workflow context.
         body: The message body.
-        kind: The chat message kind (ignored for Linear tasks).
+        kind: The message kind.
 
     Returns:
         bool: True when the message was stored.
     """
     if context.is_chat:
-        return await record_chat_message(task_id=context.linear_task.id, body=body, kind=kind)
-    return await post_comment(task_id=context.linear_task.id, body=body)
+        return await record_chat_message(task_id=context.task.id, body=body, kind=kind)
+    comment_id = await post_comment(task_id=context.task.id, body=body)
+    if not comment_id:
+        return False
+    await record_linear_comment(task_id=context.task.id, body=body, kind=kind, external_id=comment_id)
+    return True

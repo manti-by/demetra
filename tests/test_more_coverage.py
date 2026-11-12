@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.models import Session
 from demetra.services.agents.coderabbit import coderabbit_review_agent
@@ -327,3 +328,33 @@ class TestWatcherService:
         mock_post_comment.assert_awaited_once_with(task_id="TASK-1", body="Max run attempts reached")
         mock_update_step.assert_not_awaited()
         mock_mark.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_handle_exhausted_attempts_survives_a_failed_local_copy(
+        self,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_resolve_linear_state,
+    ):
+        """A failed local copy must not stop the transition to Awaiting Input."""
+        mock_post_comment.return_value = "comment-1"
+        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_update_ticket_status.return_value = True
+
+        with (
+            patch("demetra.services.daemons.watcher.is_chat_task", new_callable=AsyncMock, return_value=False),
+            patch("demetra.services.daemons.watcher.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.services.daemons.watcher.mark_attempts_exhausted", new_callable=AsyncMock) as mock_mark,
+            patch(
+                "demetra.services.linear.mirror.upsert_message",
+                new_callable=AsyncMock,
+                side_effect=SQLAlchemyError("database is down"),
+            ),
+            patch("demetra.services.linear.mirror.COMMENT_STORE_BACKOFF_SECONDS", 0),
+        ):
+            await handle_exhausted_attempts(
+                task_id="TASK-1", user_id="user-1", project_id="project-1", max_run_attempts=3
+            )
+
+        mock_update_step.assert_awaited_once_with(task_id="TASK-1", step="awaiting_input")
+        mock_mark.assert_awaited_once_with(task_id="TASK-1")

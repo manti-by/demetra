@@ -224,7 +224,7 @@ export function ChatPanel({
           <>
             <div className="chat-header">
               <h1 className="chat-title">
-                {detail.chat.session_task_id}: {detail.chat.title}
+                {detail.chat.id}: {detail.chat.title}
               </h1>
               <div className="chat-meta">
                 <span className={`session-step ${step}`}>{step}</span>
