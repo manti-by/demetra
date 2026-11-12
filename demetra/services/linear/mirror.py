@@ -11,6 +11,7 @@ from datetime import UTC, datetime
 
 from sqlalchemy.exc import SQLAlchemyError
 
+from demetra.library.exceptions import LinearError
 from demetra.library.models import ChatMessageKind, LinearTask, Message
 from demetra.services.linear.graphql import get_query, graphql_request
 from demetra.services.persistence.database import (
@@ -85,6 +86,22 @@ def _comment_row(node: dict, parent_id: str | None) -> dict:
         "author_name": (node.get("user") or {}).get("name"),
         "parent_id": parent_id,
     }
+
+
+def extract_comment_rows(comments: list[dict]) -> list[dict]:
+    """Extract the mirror rows of a list of top-level comment nodes.
+
+    The rows are the ones the mirror stores, so a counter built from them
+    matches the number of stored messages.
+
+    Args:
+        comments: The top-level comment nodes.
+
+    Returns:
+        list[dict]: One entry per comment and reply that can be stored.
+    """
+    rows = extract_comment_threads({"comments": {"nodes": comments}})
+    return [row for row in rows if row["id"]]
 
 
 async def record_linear_comment(
@@ -170,8 +187,8 @@ async def store_linear_issue(
         values["user_id"] = user_id
 
     task = await upsert_task_with_linear(
-        values,
-        {
+        values=values,
+        linear_values={
             "task_id": issue_id,
             "linear_issue_id": issue_id,
             "linear_identifier": issue.get("identifier"),
@@ -235,6 +252,32 @@ async def store_linear_comments(*, task_id: str, issue: dict) -> int:
     return stored
 
 
+def next_cursor(page_info: dict, current: str | None) -> str | None:
+    """Return the cursor of the next page of a paginated connection.
+
+    A connection that announces more pages without an advancing cursor would
+    be fetched forever, so such a response is rejected.
+
+    Args:
+        page_info: The page info of the current page.
+        current: The cursor that was sent for the current page.
+
+    Returns:
+        str | None: The cursor of the next page, or None when the last page
+            was reached.
+
+    Raises:
+        LinearError: When the connection announces more pages without an
+            advancing cursor.
+    """
+    if not page_info.get("hasNextPage"):
+        return None
+    end_cursor = page_info.get("endCursor")
+    if not end_cursor or end_cursor == current:
+        raise LinearError("Linear API returned a pagination cursor that does not advance")
+    return end_cursor
+
+
 async def fetch_project_issues(linear_project_id: str) -> list[dict]:
     """Fetch every issue of a Linear project, following the cursor.
 
@@ -248,18 +291,46 @@ async def fetch_project_issues(linear_project_id: str) -> list[dict]:
     issues: list[dict] = []
     after: str | None = None
     while True:
-        payload = await graphql_request(query, {"projectId": linear_project_id, "after": after})
+        payload = await graphql_request(
+            query=query,
+            variables={"projectId": linear_project_id, "after": after},
+        )
         if payload.get("errors"):
             raise RuntimeError(f"Linear API error: {payload['errors']}")
         connection = (payload.get("data") or {}).get("issues") or {}
         issues.extend(connection.get("nodes") or [])
         page_info = connection.get("pageInfo") or {}
-        if not page_info.get("hasNextPage"):
+        next_page = next_cursor(page_info=page_info, current=after)
+        if next_page is None:
             break
-        after = page_info.get("endCursor")
-        if not after:
-            break
+        after = next_page
     return issues
+
+
+async def fetch_linear_project_id(name: str) -> str | None:
+    """Resolve the id of a Linear project by its name.
+
+    A Demetra project can be linked to a Linear project by name only, so the
+    backfill resolves the missing Linear id through this lookup.
+
+    Args:
+        name: The Linear project name.
+
+    Returns:
+        str | None: The Linear project id, or None when no project matches.
+
+    Raises:
+        RuntimeError: When the Linear API answers with an error.
+    """
+    query = await get_query(name="get_project_by_name")
+    payload = await graphql_request(query=query, variables={"name": name})
+    if payload.get("errors"):
+        raise RuntimeError(f"Linear API error: {payload['errors']}")
+    nodes = ((payload.get("data") or {}).get("projects") or {}).get("nodes") or []
+    for node in nodes:
+        if node.get("id") and (node.get("name") or "").lower() == name.lower():
+            return node["id"]
+    return None
 
 
 async def fetch_comment_replies(comment_id: str, after: str | None = None) -> list[dict]:
@@ -278,17 +349,19 @@ async def fetch_comment_replies(comment_id: str, after: str | None = None) -> li
     query = await get_query(name="get_comment_replies")
     replies: list[dict] = []
     while True:
-        payload = await graphql_request(query, {"commentId": comment_id, "after": after})
+        payload = await graphql_request(
+            query=query,
+            variables={"commentId": comment_id, "after": after},
+        )
         if payload.get("errors"):
             raise RuntimeError(f"Linear API error: {payload['errors']}")
         connection = ((payload.get("data") or {}).get("comment") or {}).get("children") or {}
         replies.extend((edge.get("node") or {}) for edge in connection.get("edges") or [])
         page_info = connection.get("pageInfo") or {}
-        if not page_info.get("hasNextPage"):
+        next_page = next_cursor(page_info=page_info, current=after)
+        if next_page is None:
             break
-        after = page_info.get("endCursor")
-        if not after:
-            break
+        after = next_page
     return replies
 
 
@@ -308,7 +381,10 @@ async def fetch_issue_comments(issue_id: str) -> list[dict]:
     comments: list[dict] = []
     after: str | None = None
     while True:
-        payload = await graphql_request(query, {"issueId": issue_id, "after": after})
+        payload = await graphql_request(
+            query=query,
+            variables={"issueId": issue_id, "after": after},
+        )
         if payload.get("errors"):
             raise RuntimeError(f"Linear API error: {payload['errors']}")
         connection = ((payload.get("data") or {}).get("issue") or {}).get("comments") or {}
@@ -317,12 +393,56 @@ async def fetch_issue_comments(issue_id: str) -> list[dict]:
             node["children"] = {"edges": await _fetch_comment_edges(node)}
         comments.extend(nodes)
         page_info = connection.get("pageInfo") or {}
-        if not page_info.get("hasNextPage"):
+        next_page = next_cursor(page_info=page_info, current=after)
+        if next_page is None:
             break
-        after = page_info.get("endCursor")
-        if not after:
-            break
+        after = next_page
     return comments
+
+
+async def fetch_complete_issue(issue: dict) -> dict:
+    """Return an issue payload whose comment connection is complete.
+
+    The issue query returns a single page of comments and of their replies, so
+    a busy issue would be mirrored with a truncated history. The paginated
+    comment connection is fetched here and merged into the inline one.
+
+    Args:
+        issue: The Linear issue GraphQL payload.
+
+    Returns:
+        dict: The issue payload with its complete comment connection.
+    """
+    issue_id = issue.get("id")
+    if not issue_id:
+        return issue
+    try:
+        comments = await fetch_issue_comments(issue_id=issue_id)
+    except (RuntimeError, LinearError):
+        logger.warning("Failed to fetch the comments of Linear issue %s", issue_id, exc_info=True)
+        return issue
+    inline = issue.get("comments", {}).get("nodes", [])
+    return {**issue, "comments": {"nodes": merge_comments(inline=inline, complete=comments)}}
+
+
+def merge_comments(*, inline: list[dict], complete: list[dict]) -> list[dict]:
+    """Merge the inline comments of an issue with its complete comment page.
+
+    The paginated connection is the complete one, so it wins over the inline
+    page. A comment the inline page holds and the paginated one does not is
+    kept, so nothing is lost between the two reads.
+
+    Args:
+        inline: The comment nodes of the issue query.
+        complete: The comment nodes of the paginated comment query.
+
+    Returns:
+        list[dict]: The merged comment nodes.
+    """
+    complete_ids = {node.get("id") for node in complete if node.get("id")}
+    merged = list(complete)
+    merged.extend(node for node in inline if node.get("id") not in complete_ids)
+    return merged
 
 
 async def _fetch_comment_edges(comment: dict) -> list[dict]:
@@ -342,6 +462,9 @@ async def _fetch_comment_edges(comment: dict) -> list[dict]:
     comment_id = comment.get("id")
     if not comment_id:
         return edges
-    remaining = await fetch_comment_replies(comment_id=comment_id, after=page_info.get("endCursor"))
+    resume_cursor = next_cursor(page_info=page_info, current=None)
+    if resume_cursor is None:
+        return edges
+    remaining = await fetch_comment_replies(comment_id=comment_id, after=resume_cursor)
     edges.extend({"node": reply} for reply in remaining)
     return edges

@@ -1,4 +1,4 @@
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Generator
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -9,8 +9,11 @@ from sqlalchemy.exc import SQLAlchemyError
 from demetra.library.exceptions import LinearError
 from demetra.services.linear.graphql import get_query
 from demetra.services.linear.mirror import (
+    extract_comment_rows,
     extract_comment_threads,
+    fetch_complete_issue,
     fetch_issue_comments,
+    fetch_linear_project_id,
     fetch_project_issues,
     record_linear_comment,
     store_linear_issue,
@@ -96,6 +99,24 @@ class TestExtractCommentThreads:
     def test_returns_an_empty_list_without_comments(self):
         assert extract_comment_threads(_issue()) == []
 
+    def test_extract_comment_rows_counts_the_replies(self):
+        comments = [
+            {
+                **_comment("c1", "First question"),
+                "children": {"edges": [{"node": _comment("c2", "First answer")}]},
+            }
+        ]
+
+        rows = extract_comment_rows(comments)
+
+        assert [row["id"] for row in rows] == ["c1", "c2"]
+        assert rows[1]["parent_id"] == "c1"
+
+    def test_extract_comment_rows_skips_rows_without_an_id(self):
+        comments = [{**_comment("c1", "First question"), "id": None}]
+
+        assert extract_comment_rows(comments) == []
+
 
 class TestStoreLinearIssue:
     @pytest.mark.asyncio
@@ -172,7 +193,7 @@ class TestPagination:
             issues = await fetch_project_issues("linear-proj-1")
 
         assert [issue["id"] for issue in issues] == ["issue-1", "issue-2"]
-        assert mock_request.await_args_list[1].args[1]["after"] == "cursor-1"
+        assert mock_request.await_args_list[1].kwargs["variables"]["after"] == "cursor-1"
 
     @pytest.mark.asyncio
     async def test_follows_the_comment_cursor(self):
@@ -241,7 +262,7 @@ class TestPagination:
             mock_request.side_effect = [first_page, reply_page]
             comments = await fetch_issue_comments("issue-1")
 
-        assert mock_request.await_args_list[1].args[1] == {"commentId": "c1", "after": "child-cursor"}
+        assert mock_request.await_args_list[1].kwargs["variables"] == {"commentId": "c1", "after": "child-cursor"}
         assert [edge["node"]["id"] for edge in comments[0]["children"]["edges"]] == ["c2", "c3"]
 
     @pytest.mark.asyncio
@@ -278,6 +299,166 @@ class TestPagination:
             mock_request.return_value = {"errors": [{"message": "boom"}]}
             with pytest.raises(RuntimeError):
                 await fetch_project_issues("linear-proj-1")
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_cursor_that_does_not_advance(self):
+        page = {
+            "data": {
+                "issues": {
+                    "nodes": [_issue("issue-1")],
+                    "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = page
+            with pytest.raises(LinearError):
+                await fetch_project_issues("linear-proj-1")
+
+        assert mock_request.await_count == 2
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_missing_cursor(self):
+        page = {
+            "data": {
+                "issues": {
+                    "nodes": [_issue("issue-1")],
+                    "pageInfo": {"hasNextPage": True, "endCursor": None},
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = page
+            with pytest.raises(LinearError):
+                await fetch_project_issues("linear-proj-1")
+
+        assert mock_request.await_count == 1
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_reply_cursor_that_does_not_advance(self):
+        issue_page = {
+            "data": {
+                "issue": {
+                    "comments": {
+                        "nodes": [
+                            {
+                                **_comment("c1", "First question"),
+                                "children": {
+                                    "pageInfo": {"hasNextPage": True, "endCursor": "child-cursor"},
+                                    "edges": [{"node": _comment("c2", "First answer")}],
+                                },
+                            }
+                        ],
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                    }
+                }
+            }
+        }
+        reply_page = {
+            "data": {
+                "comment": {
+                    "id": "c1",
+                    "children": {
+                        "pageInfo": {"hasNextPage": True, "endCursor": "child-cursor"},
+                        "edges": [{"node": _comment("c3", "Late answer")}],
+                    },
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.side_effect = [issue_page, reply_page]
+            with pytest.raises(LinearError):
+                await fetch_issue_comments("issue-1")
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_comment_cursor_that_does_not_advance(self):
+        page = {
+            "data": {
+                "issue": {
+                    "comments": {
+                        "nodes": [_comment("c1", "First question")],
+                        "pageInfo": {"hasNextPage": True, "endCursor": "cursor-1"},
+                    }
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = page
+            with pytest.raises(LinearError):
+                await fetch_issue_comments("issue-1")
+
+        assert mock_request.await_count == 2
+
+
+class TestFetchCompleteIssue:
+    @pytest.mark.asyncio
+    async def test_merges_the_complete_comment_page(self):
+        issue = _issue()
+        issue["comments"]["nodes"] = [_comment("c1", "First question")]
+        page = {
+            "data": {
+                "issue": {
+                    "comments": {
+                        "nodes": [
+                            _comment("c1", "First question"),
+                            _comment("c2", "Second question"),
+                        ],
+                        "pageInfo": {"hasNextPage": False, "endCursor": None},
+                    }
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = page
+            complete = await fetch_complete_issue(issue=issue)
+
+        assert [comment["id"] for comment in complete["comments"]["nodes"]] == ["c1", "c2"]
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_inline_comments_when_the_fetch_fails(self):
+        issue = _issue()
+        issue["comments"]["nodes"] = [_comment("c1", "First question")]
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"errors": [{"message": "boom"}]}
+            complete = await fetch_complete_issue(issue=issue)
+
+        assert [comment["id"] for comment in complete["comments"]["nodes"]] == ["c1"]
+
+
+class TestFetchLinearProjectId:
+    @pytest.mark.asyncio
+    async def test_resolves_the_project_id_by_name(self):
+        payload = {"data": {"projects": {"nodes": [{"id": "linear-proj-1", "name": "demetra"}]}}}
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = payload
+            project_id = await fetch_linear_project_id(name="demetra")
+
+        assert project_id == "linear-proj-1"
+        assert mock_request.await_args_list[0].kwargs["variables"] == {"name": "demetra"}
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_a_matching_project(self):
+        payload = {"data": {"projects": {"nodes": []}}}
+
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = payload
+            project_id = await fetch_linear_project_id(name="demetra")
+
+        assert project_id is None
+
+    @pytest.mark.asyncio
+    async def test_raises_on_a_graphql_error(self):
+        with patch("demetra.services.linear.mirror.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = {"errors": [{"message": "boom"}]}
+            with pytest.raises(RuntimeError):
+                await fetch_linear_project_id(name="demetra")
 
 
 class TestRecordLinearComment:
@@ -327,6 +508,20 @@ class TestSyncLinearMirror:
     async def owner(self) -> str:
         return await create_user(email=f"{uuid4().hex}@example.com", password_hash="x")
 
+    @pytest.fixture(autouse=True)
+    def mock_name_lookup(self) -> Generator[AsyncMock]:
+        """Resolve the projects that are linked by name only locally.
+
+        The backfill looks up the Linear id of every project without a stored
+        one, so the request has to be answered without the Linear API.
+        """
+        with patch(
+            "demetra.services.linear.sync.fetch_linear_project_id",
+            new_callable=AsyncMock,
+            return_value=None,
+        ) as mock_lookup:
+            yield mock_lookup
+
     @pytest_asyncio.fixture
     async def linked_project(self, owner: str) -> AsyncGenerator[dict]:
         project = await create_project(
@@ -342,6 +537,20 @@ class TestSyncLinearMirror:
         yield project
         # The test database is shared for the session, so the linked project is
         # removed again to keep the sync scoped to the project under test.
+        await delete_project(project_id=project["id"], user_id=owner)
+
+    @pytest_asyncio.fixture
+    async def name_only_project(self, owner: str) -> AsyncGenerator[dict]:
+        project = await create_project(
+            user_id=owner,
+            name=f"name-only-project-{uuid4().hex[:8]}",
+            repository_url=f"https://github.com/owner/name-only-{uuid4().hex[:8]}",
+            repository_owner="owner",
+            repository_name="name-only-project",
+            local_path="/tmp/name-only-project",
+            state="active",
+        )
+        yield project
         await delete_project(project_id=project["id"], user_id=owner)
 
     @pytest.mark.asyncio
@@ -410,6 +619,83 @@ class TestSyncLinearMirror:
         ):
             mock_issues.return_value = [issue]
             mock_comments.side_effect = LinearError("boom")
+            report = await sync_linear_mirror()
+
+        assert report.issues == 0
+        assert len(report.failures) == 1
+
+    @pytest.mark.asyncio
+    async def test_counts_the_replies_in_the_report(self, linked_project: dict):
+        issue = _issue()
+        comments = [
+            {
+                **_comment("c1", "First question"),
+                "children": {"edges": [{"node": _comment("c2", "First answer")}]},
+            }
+        ]
+
+        with (
+            patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues,
+            patch("demetra.services.linear.sync.fetch_issue_comments", new_callable=AsyncMock) as mock_comments,
+        ):
+            mock_issues.return_value = [issue]
+            mock_comments.return_value = comments
+            report = await sync_linear_mirror()
+
+        assert report.comments == 2
+
+    @pytest.mark.asyncio
+    async def test_records_a_storage_failure_and_continues(self, linked_project: dict):
+        first_issue = _issue()
+        second_issue = _issue()
+
+        with (
+            patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues,
+            patch("demetra.services.linear.sync.fetch_issue_comments", new_callable=AsyncMock) as mock_comments,
+            patch("demetra.services.linear.sync.store_linear_issue", new_callable=AsyncMock) as mock_store,
+        ):
+            mock_issues.return_value = [first_issue, second_issue]
+            mock_comments.return_value = []
+            mock_store.side_effect = [SQLAlchemyError("boom"), None]
+            report = await sync_linear_mirror()
+
+        assert report.issues == 2
+        assert mock_store.await_count == 2
+        assert len(report.failures) == 1
+        assert first_issue["id"] in report.failures[0]
+
+    @pytest.mark.asyncio
+    async def test_mirrors_a_project_linked_by_name_only(
+        self,
+        name_only_project: dict,
+        mock_name_lookup: AsyncMock,
+    ):
+        issue = _issue()
+        mock_name_lookup.side_effect = lambda name: (
+            "linear-proj-name-only" if name == name_only_project["name"] else None
+        )
+
+        with (
+            patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues,
+            patch("demetra.services.linear.sync.fetch_issue_comments", new_callable=AsyncMock) as mock_comments,
+        ):
+            mock_issues.return_value = [issue]
+            mock_comments.return_value = []
+            report = await sync_linear_mirror()
+
+        assert report.issues == 1
+        assert report.failures == []
+
+        mirrored = await get_linear_task(issue["id"])
+        assert mirrored is not None
+        assert mirrored.project_id == name_only_project["id"]
+
+    @pytest.mark.asyncio
+    async def test_reports_a_failed_name_lookup(self, name_only_project: dict, mock_name_lookup: AsyncMock):
+        mock_name_lookup.side_effect = RuntimeError("boom")
+
+        with patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues:
+            mock_issues.return_value = []
             report = await sync_linear_mirror()
 
         assert report.issues == 0

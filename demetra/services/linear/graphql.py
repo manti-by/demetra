@@ -73,7 +73,7 @@ async def _post_graphql(url: str, payload: dict, headers: dict) -> Any:
                 timeout=aiohttp.ClientTimeout(total=10),
             ) as response:
                 if response.status == 429 and attempt < RATE_LIMIT_RETRIES:
-                    await asyncio.sleep(_retry_after_seconds(response, attempt))
+                    await asyncio.sleep(_retry_after_seconds(response=response, attempt=attempt))
                     continue
                 response.raise_for_status()
                 return await response.json()
@@ -109,7 +109,7 @@ async def graphql_request(query: str, variables: dict[str, Any] | None = None) -
     }
 
     try:
-        data = await _post_graphql(LINEAR["api_url"], payload, headers)
+        data = await _post_graphql(url=LINEAR["api_url"], payload=payload, headers=headers)
     except aiohttp.ClientError as e:
         raise LinearError(f"Linear API error: {e}") from e
 

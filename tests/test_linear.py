@@ -1020,6 +1020,22 @@ class TestCreateIssueRelation:
 
 
 class TestGetLinearTaskById:
+    @pytest.fixture(autouse=True)
+    def mock_comment_pages(self):
+        """Keep the paginated comment fetch of the mirror local.
+
+        The mirror reads the complete comment connection of an issue before it
+        stores it, so the request has to be answered without the Linear API.
+        """
+        with patch(
+            "demetra.services.linear.mirror.graphql_request",
+            new_callable=AsyncMock,
+        ) as mock_request:
+            mock_request.return_value = {
+                "data": {"issue": {"comments": {"nodes": [], "pageInfo": {"hasNextPage": False}}}}
+            }
+            yield mock_request
+
     @pytest.fixture
     def mock_linked(self, mock_linked_projects):
         with patch("demetra.services.linear.get_linked_projects", new_callable=AsyncMock) as m:

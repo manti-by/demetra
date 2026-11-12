@@ -317,6 +317,45 @@ unfixed code (the atomic writes, the refreshed `updated_at`, the rollback of a f
 and the append that must not create a task were verified by reverting the fix and re-running
 the test).
 
+## Update — 2026-11-12
+
+Eight further review findings on PR #159, all in the Linear mirror and its backfill.
+
+- **The live read path mirrored a truncated comment history.** `get_issue_by_id.gql` returns one
+  page of comments and one page of replies inline, so an issue with more comments than that lost
+  the rest until the next backfill. `get_linear_task_by_id` now fetches the complete paginated
+  comment connection (`fetch_complete_issue`) and merges it into the inline one before the issue
+  is stored, so the mirror and the agent context see every comment. A failed fetch keeps the
+  inline page instead of dropping the history.
+- **A pagination cursor that did not advance was followed forever.** The three pagination loops
+  (project issues, issue comments, comment replies) only stopped on a missing cursor, so a server
+  that keeps answering `hasNextPage` with the same `endCursor` was paged in a loop. The new
+  `next_cursor` helper rejects a missing cursor and one equal to the cursor just sent, and raises
+  `LinearError` for both.
+- **A project linked to Linear by name only was skipped by the backfill.** The sync walked the
+  Linear project ids stored in `projects.linear_project_id`, so a project matched by name alone was
+  never mirrored and the run still reported success. `resolve_sync_targets` now resolves those
+  names to their Linear id through the new `get_project_by_name.gql` query
+  (`projects(filter: {name: {eqIgnoreCase: …}})`) and walks them as well; a name without a
+  Linear project is skipped, a failed lookup is recorded as a failure.
+- **The comment counter of the backfill ignored the replies.** `len(comments)` counted the
+  top-level comments only, while the mirror stores the replies too. The counter now uses
+  `extract_comment_rows`, the same extraction the store uses, so the dry-run total matches the
+  stored messages.
+- **A storage error aborted the whole backfill.** A `SQLAlchemyError` of `store_linear_issue`
+  escaped `sync_linear_mirror` and `sync_cli` does not catch it, so the remaining issues were not
+  processed and the partial report was never printed. The error is now caught at the issue
+  boundary and recorded in `report.failures`.
+- **Three call sites passed positional arguments.** The retry helper, the GraphQL poster, the
+  mirror upsert and the GraphQL requests of the pagination loops now pass named arguments, as the
+  coding guidelines require.
+
+```bash
+uv run pytest tests/ -q          1328 passed
+uv run ruff check .               All checks passed!
+uv run ty check                   All checks passed!
+```
+
 ## Follow-ups
 
 - The Linear mirror is **backfill-only** (the decision taken for this ticket): the local copy goes

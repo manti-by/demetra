@@ -374,7 +374,7 @@ async def upsert_task(values: dict) -> Task:
     Returns:
         Task: The stored task record.
     """
-    statement = _task_upsert_statement(values, datetime.now(UTC))
+    statement = _task_upsert_statement(values=values, now=datetime.now(UTC))
     async with get_connection() as connection:
         result = await connection.execute(statement.returning(tasks))
         row = result.fetchone()
@@ -396,8 +396,8 @@ async def upsert_task_with_linear(values: dict, linear_values: dict) -> Task:
     Returns:
         Task: The stored task record.
     """
-    statement = _task_upsert_statement(values, datetime.now(UTC))
-    linear_statement = _linear_task_upsert_statement(linear_values)
+    statement = _task_upsert_statement(values=values, now=datetime.now(UTC))
+    linear_statement = _linear_task_upsert_statement(values=linear_values)
     async with get_transaction() as connection:
         result = await connection.execute(statement.returning(tasks))
         row = result.fetchone()
@@ -417,6 +417,26 @@ async def list_linked_linear_projects() -> list[str]:
         )
         rows = result.fetchall()
     return [row.linear_project_id for row in rows if row.linear_project_id]
+
+
+async def list_name_only_linear_projects() -> list[str]:
+    """Return the names of the projects linked to Linear without a stored id.
+
+    A Demetra project can be linked to a Linear project by name only. The
+    backfill resolves the missing Linear id of those projects through the
+    Linear API.
+
+    Returns:
+        list[str]: The names of the projects without a stored Linear id.
+    """
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(projects.c.name)
+            .where(projects.c.name.is_not(None), projects.c.linear_project_id.is_(None))
+            .distinct()
+        )
+        rows = result.fetchall()
+    return [row.name for row in rows if row.name]
 
 
 async def get_task(task_id: str) -> Task | None:

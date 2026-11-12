@@ -7,14 +7,21 @@ messages. Every write is idempotent, so the sync can be re-run at any time.
 
 from dataclasses import dataclass, field
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from demetra.library.exceptions import LinearError
 from demetra.services.linear.mirror import (
+    extract_comment_rows,
     fetch_issue_comments,
+    fetch_linear_project_id,
     fetch_project_issues,
     store_linear_issue,
 )
 from demetra.services.linear.tasks import get_linked_projects
-from demetra.services.persistence.database import list_linked_linear_projects
+from demetra.services.persistence.database import (
+    list_linked_linear_projects,
+    list_name_only_linear_projects,
+)
 from demetra.services.runtime.tui import print_message
 
 
@@ -34,6 +41,53 @@ class SyncReport:
     failures: list[str] = field(default_factory=list)
 
 
+async def resolve_sync_targets(
+    *,
+    linked: dict[str, tuple[str, str]],
+    report: SyncReport,
+) -> list[tuple[str, str | None, str | None]]:
+    """Resolve the Linear projects the backfill has to walk.
+
+    Every project linked by its Linear id is walked directly. A project linked
+    by name only is resolved to its Linear id first, so its issues are
+    mirrored as well.
+
+    Args:
+        linked: The linked project lookup.
+        report: The report the failures are recorded in.
+
+    Returns:
+        list[tuple[str, str | None, str | None]]: The Linear project id and the
+            Demetra project and user it belongs to.
+    """
+    targets: list[tuple[str, str | None, str | None]] = []
+    walked: set[str] = set()
+
+    for linear_project_id in await list_linked_linear_projects():
+        resolved = linked.get(linear_project_id.lower())
+        project_id, user_id = resolved if resolved else (None, None)
+        targets.append((linear_project_id, project_id, user_id))
+        walked.add(linear_project_id.lower())
+
+    for name in await list_name_only_linear_projects():
+        resolved = linked.get(name.lower())
+        project_id, user_id = resolved if resolved else (None, None)
+        try:
+            linear_project_id = await fetch_linear_project_id(name=name)
+        except (RuntimeError, LinearError) as error:
+            report.failures.append(f"{name}: {error}")
+            continue
+        if not linear_project_id:
+            print_message(f"No Linear project named {name} to sync", style="info")
+            continue
+        if linear_project_id.lower() in walked:
+            continue
+        targets.append((linear_project_id, project_id, user_id))
+        walked.add(linear_project_id.lower())
+
+    return targets
+
+
 async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
     """Mirror every issue of the linked Linear projects into the local store.
 
@@ -49,13 +103,11 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
     """
     report = SyncReport()
     linked = await get_linked_projects()
-    for linear_project_id in await list_linked_linear_projects():
-        resolved = linked.get(linear_project_id.lower())
-        project_id, user_id = resolved if resolved else (None, None)
+    for linear_project_id, project_id, user_id in await resolve_sync_targets(linked=linked, report=report):
         report.projects += 1
         print_message(f"Syncing Linear project {linear_project_id}", style="info")
         try:
-            issues = await fetch_project_issues(linear_project_id)
+            issues = await fetch_project_issues(linear_project_id=linear_project_id)
         except (RuntimeError, LinearError) as error:
             report.failures.append(f"{linear_project_id}: {error}")
             continue
@@ -64,16 +116,20 @@ async def sync_linear_mirror(*, dry_run: bool = False) -> SyncReport:
             if not issue_id:
                 continue
             try:
-                comments = await fetch_issue_comments(issue_id)
+                comments = await fetch_issue_comments(issue_id=issue_id)
             except (RuntimeError, LinearError) as error:
                 report.failures.append(f"{issue_id}: {error}")
                 continue
             report.issues += 1
-            report.comments += len(comments)
+            report.comments += len(extract_comment_rows(comments))
             if dry_run:
                 continue
             payload = {**issue, "comments": {"nodes": comments}}
-            await store_linear_issue(issue=payload, project_id=project_id, user_id=user_id)
+            try:
+                await store_linear_issue(issue=payload, project_id=project_id, user_id=user_id)
+            except SQLAlchemyError as error:
+                report.failures.append(f"{issue_id}: {error}")
+                continue
     return report
 
 

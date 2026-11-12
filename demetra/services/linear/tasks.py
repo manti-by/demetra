@@ -209,10 +209,12 @@ async def get_linear_task_by_id(task_id: str) -> LinearTask | None:
         LinearTask | None: The task, or None when the issue does not exist.
     """
     query = await service.get_query(name="get_issue_by_id")
-    result = await service.graphql_request(query, {"issueId": task_id})
+    result = await service.graphql_request(query=query, variables={"issueId": task_id})
     issue = result.get("data", {}).get("issue", {})
     if not issue:
         return None
+
+    issue = await service.fetch_complete_issue(issue=issue)
 
     linked = await service.get_linked_projects()
     project_id, user_id = _resolve_ownership(issue, linked)
