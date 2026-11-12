@@ -2129,6 +2129,34 @@ async def get_pending_session_task_ids() -> set[str]:
     return {row.task_id for row in rows}
 
 
+async def get_user_session_task_ids(user_id: str, task_ids: list[str]) -> set[str]:
+    """Return which of the given task ids are sessions owned by a user.
+
+    Used to scope the running jobs reported by the queue to the sessions the
+    caller can see, since the job payload carries no owner. Only the candidate
+    ids are looked up, so the query stays bounded by the number of jobs
+    actually running instead of by the size of the user's session history.
+
+    Args:
+        user_id: The user id to scope the query to.
+        task_ids: The task ids to check ownership for.
+
+    Returns:
+        set[str]: The subset of ``task_ids`` owned by the user.
+    """
+    if not task_ids:
+        return set()
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(sessions.c.task_id).where(
+                sessions.c.user_id == user_id,
+                sessions.c.task_id.in_(task_ids),
+            )
+        )
+        rows = result.fetchall()
+    return {row.task_id for row in rows}
+
+
 async def get_exhausted_session_task_ids(task_ids: list[str]) -> set[str]:
     """Return the task ids whose exhaustion transition was recorded successfully.
 

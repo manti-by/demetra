@@ -675,6 +675,16 @@
   }
 }
 
+@keyframes session-live-blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .session-flow-node.active,
   .session-flow-loop.active {
@@ -1133,6 +1143,13 @@
   color: var(--color-error);
 }
 
+/* Separates the active block from the completed block of the list. */
+.session-list-divider {
+  border: none;
+  border-top: 1px solid var(--color-border);
+  margin: 0.5rem 0.25rem;
+}
+
 /* ─── Session Item ────────────────────────────────────────── */
 .session-item {
   padding: 0.5rem 0.625rem;
@@ -1150,6 +1167,18 @@
 .session-item.selected {
   background: var(--color-accent-subtle);
   border-color: var(--color-accent);
+}
+
+.session-item.live .session-step {
+  animation: session-live-blink 1s ease-in-out infinite;
+}
+
+/* Declared after the animation above because both selectors have the same
+   specificity, so source order decides which one wins. */
+@media (prefers-reduced-motion: reduce) {
+  .session-item.live .session-step {
+    animation: none;
+  }
 }
 
 .session-item-header {
@@ -2080,6 +2109,10 @@ th {
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     background: var(--color-surface-2);
+  }
+
+  .session-list-divider {
+    margin: 0.5rem 0.375rem;
   }
 
   .session-item.selected {

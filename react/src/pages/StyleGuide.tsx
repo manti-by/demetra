@@ -306,6 +306,12 @@ const hello = "world";`}</pre>
       {/* ── Session items ── */}
       <section className="sg-section">
         <h2 className="sg-section-title">Sessions & Projects</h2>
+        <p className="sg-section-desc">
+          Active sessions (any step except <code>completed</code> / <code>researched</code>) sit above
+          the completed block; <code>session-list-divider</code> separates the blocks and renders only
+          when both of them have sessions. A session whose workflow job is running carries
+          <code> live</code>, which blinks its step badge and adds a <code>Live — running</code> tooltip.
+        </p>
         <div className="sg-card">
           <div className="sg-stack">
             <div className="session-item selected">
@@ -313,9 +319,9 @@ const hello = "world";`}</pre>
               <div className="session-title">my-feature-branch</div>
               <div className="session-item-meta"><span className="session-project">demetra</span><span className="session-tag">Backend</span></div>
             </div>
-            <div className="session-item">
-              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step completed">completed</span></div><span className="session-time">1d ago</span></div>
-              <div className="session-title">fix/auth-flow</div>
+            <div className="session-item live">
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step build" title="Live — running">build</span></div><span className="session-time">5m ago</span></div>
+              <div className="session-title">live run — blinking step badge</div>
               <div className="session-item-meta"><span className="session-project">demetra</span></div>
             </div>
             <div className="session-item">
@@ -325,6 +331,16 @@ const hello = "world";`}</pre>
             <div className="session-item">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step initial">initial</span></div><span className="session-time">5m ago</span></div>
               <div className="session-title">initial session</div>
+            </div>
+            <hr className="session-list-divider" />
+            <div className="session-item">
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step completed">completed</span></div><span className="session-time">1d ago</span></div>
+              <div className="session-title">fix/auth-flow</div>
+              <div className="session-item-meta"><span className="session-project">demetra</span></div>
+            </div>
+            <div className="session-item">
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step researched">researched</span></div><span className="session-time">3d ago</span></div>
+              <div className="session-title">research session</div>
             </div>
           </div>
           <div className="sg-row sg-wrap" style={{ marginTop: 12 }}>
