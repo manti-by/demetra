@@ -350,8 +350,26 @@ Eight further review findings on PR #159, all in the Linear mirror and its backf
   mirror upsert and the GraphQL requests of the pagination loops now pass named arguments, as the
   coding guidelines require.
 
+Two more findings landed on the name-only resolution of the backfill.
+
+- **A name-only project could be stored under the owner of another project.** The ownership of a
+  name-only target was recovered from `get_linked_projects()`, a lookup that maps both the Linear
+  project id and the project name to one owner tuple. Two projects can share a name — the column
+  has no unique constraint — so the tuple of the wrong project was picked and its issues were
+  stored under it. Every target now carries the identity of the project that owns the link
+  (`list_linked_linear_projects` and `list_name_only_linear_projects` return it), and an ambiguous
+  mapping is rejected before storage: a name shared by two projects, a Linear project claimed by
+  two projects and a Linear project id stored by two projects are all recorded as failures. This
+  is the same class of problem as the name-based ownership takeover of
+  `wiki/audits/2026-11-05-security-audit/15-linear-link-ownership-takeover.md`: a link has to
+  resolve to exactly one project.
+- **A failed write was counted as mirrored.** `report.issues` and `report.comments` were raised
+  before the store, so an issue whose transaction rolled back was still reported as "synced". The
+  counters are now raised after a successful write, and the dry run counts its candidates in
+  `pending_issues` / `pending_comments`, so the two never mix.
+
 ```bash
-uv run pytest tests/ -q          1328 passed
+uv run pytest tests/ -q          1333 passed
 uv run ruff check .               All checks passed!
 uv run ty check                   All checks passed!
 ```

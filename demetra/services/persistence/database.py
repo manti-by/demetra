@@ -405,38 +405,48 @@ async def upsert_task_with_linear(values: dict, linear_values: dict) -> Task:
     return _task_from_row(row)
 
 
-async def list_linked_linear_projects() -> list[str]:
-    """Return the distinct Linear project ids linked to Demetra projects.
+async def list_linked_linear_projects() -> list[dict[str, str]]:
+    """Return the projects linked to Linear by their Linear project id.
+
+    The identity of every project comes with its Linear project id, so the
+    issues of a Linear project are stored under the project that owns the link
+    instead of a project that happens to share its name.
 
     Returns:
-        list[str]: The linked Linear project ids.
+        list[dict[str, str]]: One entry per project with its
+            ``linear_project_id``, ``id`` and ``user_id``.
     """
     async with get_connection() as connection:
         result = await connection.execute(
-            select(projects.c.linear_project_id).where(projects.c.linear_project_id.is_not(None)).distinct()
+            select(projects.c.linear_project_id, projects.c.id, projects.c.user_id).where(
+                projects.c.linear_project_id.is_not(None)
+            )
         )
         rows = result.fetchall()
-    return [row.linear_project_id for row in rows if row.linear_project_id]
+    return [
+        {"linear_project_id": row.linear_project_id, "id": row.id, "user_id": row.user_id}
+        for row in rows
+        if row.linear_project_id
+    ]
 
 
-async def list_name_only_linear_projects() -> list[str]:
-    """Return the names of the projects linked to Linear without a stored id.
+async def list_name_only_linear_projects() -> list[dict[str, str]]:
+    """Return the projects linked to Linear by name only.
 
     A Demetra project can be linked to a Linear project by name only. The
     backfill resolves the missing Linear id of those projects through the
-    Linear API.
+    Linear API and needs their identity to store their issues.
 
     Returns:
-        list[str]: The names of the projects without a stored Linear id.
+        list[dict[str, str]]: One entry per project with its ``name``, ``id``
+            and ``user_id``.
     """
     async with get_connection() as connection:
         result = await connection.execute(
-            select(projects.c.name)
-            .where(projects.c.name.is_not(None), projects.c.linear_project_id.is_(None))
-            .distinct()
+            select(projects.c.name, projects.c.id, projects.c.user_id).where(projects.c.linear_project_id.is_(None))
         )
         rows = result.fetchall()
-    return [row.name for row in rows if row.name]
+    return [{"name": row.name, "id": row.id, "user_id": row.user_id} for row in rows]
 
 
 async def get_task(task_id: str) -> Task | None:

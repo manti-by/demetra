@@ -553,6 +553,20 @@ class TestSyncLinearMirror:
         yield project
         await delete_project(project_id=project["id"], user_id=owner)
 
+    @pytest_asyncio.fixture
+    async def second_name_only_project(self, owner: str) -> AsyncGenerator[dict]:
+        project = await create_project(
+            user_id=owner,
+            name=f"name-only-project-{uuid4().hex[:8]}",
+            repository_url=f"https://github.com/owner/name-only-{uuid4().hex[:8]}",
+            repository_owner="owner",
+            repository_name="name-only-project",
+            local_path="/tmp/name-only-project",
+            state="active",
+        )
+        yield project
+        await delete_project(project_id=project["id"], user_id=owner)
+
     @pytest.mark.asyncio
     async def test_mirrors_every_issue_of_the_linked_project(self, linked_project: dict):
         issue = _issue()
@@ -588,7 +602,8 @@ class TestSyncLinearMirror:
             mock_comments.return_value = []
             report = await sync_linear_mirror(dry_run=True)
 
-        assert report.issues == 1
+        assert report.pending_issues == 1
+        assert report.issues == 0
         assert await get_linear_task(issue["id"]) is None
 
     @pytest.mark.asyncio
@@ -659,7 +674,7 @@ class TestSyncLinearMirror:
             mock_store.side_effect = [SQLAlchemyError("boom"), None]
             report = await sync_linear_mirror()
 
-        assert report.issues == 2
+        assert report.issues == 1
         assert mock_store.await_count == 2
         assert len(report.failures) == 1
         assert first_issue["id"] in report.failures[0]
@@ -700,3 +715,125 @@ class TestSyncLinearMirror:
 
         assert report.issues == 0
         assert len(report.failures) == 1
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_identity_of_a_name_only_project(self, owner: str, mock_name_lookup: AsyncMock):
+        shared_name = f"shared-name-{uuid4().hex[:8]}"
+        name_only = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            state="active",
+        )
+        linked = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            linear_project_id=f"linear-proj-{uuid4().hex[:8]}",
+            state="active",
+        )
+        issue = _issue()
+        mock_name_lookup.side_effect = lambda name: "linear-proj-name-only" if name == shared_name else None
+
+        try:
+            with (
+                patch(
+                    "demetra.services.linear.sync.fetch_project_issues",
+                    new_callable=AsyncMock,
+                    side_effect=lambda linear_project_id: (
+                        [issue] if linear_project_id == "linear-proj-name-only" else []
+                    ),
+                ),
+                patch("demetra.services.linear.sync.fetch_issue_comments", new_callable=AsyncMock) as mock_comments,
+            ):
+                mock_comments.return_value = []
+                report = await sync_linear_mirror()
+
+            assert report.failures == []
+
+            mirrored = await get_linear_task(issue["id"])
+            assert mirrored is not None
+            assert mirrored.project_id == name_only["id"]
+        finally:
+            await delete_project(project_id=linked["id"], user_id=owner)
+            await delete_project(project_id=name_only["id"], user_id=owner)
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_name_shared_by_two_projects(self, owner: str, mock_name_lookup: AsyncMock):
+        shared_name = f"shared-name-{uuid4().hex[:8]}"
+        first = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            state="active",
+        )
+        second = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            state="active",
+        )
+        mock_name_lookup.side_effect = lambda name: "linear-proj-name-only" if name == shared_name else None
+
+        try:
+            with patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues:
+                mock_issues.return_value = []
+                report = await sync_linear_mirror()
+        finally:
+            await delete_project(project_id=first["id"], user_id=owner)
+            await delete_project(project_id=second["id"], user_id=owner)
+
+        assert len(report.failures) == 1
+        assert shared_name in report.failures[0]
+
+    @pytest.mark.asyncio
+    async def test_rejects_a_name_only_project_of_a_linked_linear_project(
+        self,
+        owner: str,
+        mock_name_lookup: AsyncMock,
+    ):
+        shared_name = f"shared-name-{uuid4().hex[:8]}"
+        linear_project_id = f"linear-proj-{uuid4().hex[:8]}"
+        linked = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            linear_project_id=linear_project_id,
+            state="active",
+        )
+        name_only = await create_project(
+            user_id=owner,
+            name=shared_name,
+            repository_url=f"https://github.com/owner/{uuid4().hex}",
+            repository_owner="owner",
+            repository_name="shared-name",
+            local_path="/tmp/shared-name",
+            state="active",
+        )
+        mock_name_lookup.side_effect = lambda name: linear_project_id if name == shared_name else None
+
+        try:
+            with patch("demetra.services.linear.sync.fetch_project_issues", new_callable=AsyncMock) as mock_issues:
+                mock_issues.return_value = []
+                report = await sync_linear_mirror()
+        finally:
+            await delete_project(project_id=linked["id"], user_id=owner)
+            await delete_project(project_id=name_only["id"], user_id=owner)
+
+        assert len(report.failures) == 1
+        assert "already linked" in report.failures[0]
