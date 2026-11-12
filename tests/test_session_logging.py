@@ -164,3 +164,77 @@ class TestSessionListingAPI:
         session = next(s for s in data if s["task_id"] == task_id)
         assert session["build_plan"] == "1. Step one\n2. Step two"
         assert session["pr_link"] == "https://github.com/owner/repo/pull/42"
+
+
+class TestLiveSessionsAPI:
+    @pytest.mark.asyncio
+    async def test_live_sessions_require_auth(self):
+        client = TestClient(app, raise_server_exceptions=False)
+        response = client.get("/api/v1/sessions/live")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_live_sessions_returns_an_empty_list_when_nothing_runs(self, authenticated_client: TestClient):
+        with (
+            patch("demetra.api.sessions.get_live_task_ids", return_value=[]),
+            patch("demetra.api.sessions.get_user_session_task_ids", new_callable=AsyncMock) as mock_owned,
+        ):
+            response = authenticated_client.get("/api/v1/sessions/live")
+
+        assert response.status_code == 200
+        assert response.json() == []
+        mock_owned.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
+    async def test_live_sessions_returns_the_users_running_sessions(self, authenticated_client: TestClient):
+        task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id, session_id="session-live", user_id="test_user_id", name="Live Session"
+        )
+
+        with patch("demetra.api.sessions.get_live_task_ids", return_value=[task_id]):
+            response = authenticated_client.get("/api/v1/sessions/live")
+
+        assert response.status_code == 200
+        assert response.json() == [task_id]
+
+    @pytest.mark.asyncio
+    @pytest.mark.usefixtures("setup_test_db")
+    async def test_live_sessions_excludes_other_users_and_unknown_sessions(self, authenticated_client: TestClient):
+        task_id = f"task-{uuid4().hex[:8]}"
+        foreign_task_id = f"task-{uuid4().hex[:8]}"
+        await upsert_pending_session(
+            task_id=task_id, session_id="session-live", user_id="test_user_id", name="Live Session"
+        )
+        await upsert_pending_session(
+            task_id=foreign_task_id, session_id="session-foreign", user_id="other_user_id", name="Foreign Session"
+        )
+
+        with patch(
+            "demetra.api.sessions.get_live_task_ids",
+            return_value=[task_id, foreign_task_id, "task-without-session"],
+        ):
+            response = authenticated_client.get("/api/v1/sessions/live")
+
+        assert response.status_code == 200
+        assert response.json() == [task_id]
+
+    @pytest.mark.asyncio
+    async def test_live_sessions_scopes_only_the_running_ids(self, authenticated_client: TestClient):
+        # The ownership lookup is bounded by the running jobs, so the live ids
+        # are passed straight through to the query instead of scanning every
+        # session of the user.
+        with (
+            patch("demetra.api.sessions.get_live_task_ids", return_value=["CH-1", "CH-2"]),
+            patch(
+                "demetra.api.sessions.get_user_session_task_ids",
+                new_callable=AsyncMock,
+                return_value={"CH-2"},
+            ) as mock_owned,
+        ):
+            response = authenticated_client.get("/api/v1/sessions/live")
+
+        assert response.status_code == 200
+        assert response.json() == ["CH-2"]
+        mock_owned.assert_awaited_once_with(user_id="test_user_id", task_ids=["CH-1", "CH-2"])

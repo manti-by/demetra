@@ -1,11 +1,12 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent, within } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { SessionList } from './SessionList';
-import { getSessions } from '../services/api';
+import { getLiveSessionIds, getSessions, type Session } from '../services/api';
 
 vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getSessions: vi.fn().mockResolvedValue([]),
+  getLiveSessionIds: vi.fn().mockResolvedValue([]),
   deleteSession: vi.fn(),
 }));
 
@@ -14,6 +15,11 @@ vi.mock('react-router-dom', () => ({
 }));
 
 describe('SessionList', () => {
+  beforeEach(() => {
+    vi.mocked(getLiveSessionIds).mockReset();
+    vi.mocked(getLiveSessionIds).mockResolvedValue([]);
+  });
+
   it('renders without crashing', () => {
     render(
       <SessionList
@@ -316,5 +322,142 @@ describe('SessionList', () => {
     });
 
     expect(screen.getByText('No matching sessions')).toBeInTheDocument();
+  });
+
+  describe('active and completed blocks', () => {
+    beforeEach(() => {
+      vi.mocked(getLiveSessionIds).mockReset();
+      vi.mocked(getLiveSessionIds).mockResolvedValue([]);
+    });
+
+    const makeSession = (
+      taskId: string,
+      name: string,
+      step: string,
+      overrides: Partial<Session> = {},
+    ): Session => ({
+      task_id: taskId,
+      session_id: `sess-${taskId}`,
+      name,
+      build_plan: null,
+      posted_to_linear: false,
+      created_at: '2026-01-01T00:00:00Z',
+      updated_at: '2026-01-01T00:00:00Z',
+      step,
+      pr_link: null,
+      linear_link: null,
+      research_report: null,
+      ...overrides,
+    });
+
+    const renderList = (sessions: Session[]) =>
+      render(
+        <SessionList
+          onSelectSession={vi.fn()}
+          selectedTaskId={null}
+          sessions={sessions}
+          setSessions={vi.fn()}
+        />,
+      );
+
+    it('lists active sessions first and separates the completed block with a divider', () => {
+      const { container } = renderList([
+        makeSession('task-done', 'completed session', 'completed'),
+        makeSession('task-research', 'research session', 'researched'),
+        makeSession('task-build', 'active session', 'build'),
+        makeSession('task-waiting', 'waiting session', 'awaiting_input'),
+      ]);
+
+      const list = container.querySelector('.session-list') as HTMLElement;
+      expect(Array.from(list.children).map((node) => node.className)).toEqual([
+        'session-item',
+        'session-item',
+        'session-list-divider',
+        'session-item',
+        'session-item',
+      ]);
+      expect(
+        Array.from(list.querySelectorAll('.session-title')).map(
+          (node) => node.textContent,
+        ),
+      ).toEqual([
+        'active session',
+        'waiting session',
+        'completed session',
+        'research session',
+      ]);
+    });
+
+    it('omits the divider when only the active block has sessions', () => {
+      const { container } = renderList([
+        makeSession('task-1', 'odin', 'build'),
+      ]);
+
+      expect(container.querySelector('.session-list-divider')).toBeNull();
+    });
+
+    it('splits the filtered sessions, so a search that hides every active session drops the divider', () => {
+      const { container } = renderList([
+        makeSession('task-active', 'odin', 'build'),
+        makeSession('task-done', 'amon-ra', 'completed'),
+      ]);
+
+      expect(container.querySelector('.session-list-divider')).toBeInTheDocument();
+
+      fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
+        target: { value: 'amon' },
+      });
+
+      expect(container.querySelector('.session-list-divider')).toBeNull();
+      expect(screen.getByText('amon-ra')).toBeInTheDocument();
+      expect(screen.queryByText('odin')).not.toBeInTheDocument();
+    });
+
+    it('re-polls the live status on the 5s interval', async () => {
+      const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+      renderList([makeSession('task-1', 'odin', 'build')]);
+      await waitFor(() => expect(getLiveSessionIds).toHaveBeenCalled());
+
+      const poll = intervalSpy.mock.calls.find(([, delay]) => delay === 5000)?.[0] as () => Promise<void>;
+      vi.mocked(getLiveSessionIds).mockClear();
+      await act(async () => {
+        await poll();
+      });
+
+      expect(getLiveSessionIds).toHaveBeenCalledTimes(1);
+      intervalSpy.mockRestore();
+    });
+
+    it('marks the sessions a running job reports as live', async () => {
+      vi.mocked(getLiveSessionIds).mockResolvedValue(['task-live']);
+
+      renderList([
+        makeSession('task-live', 'live session', 'build'),
+        makeSession('task-idle', 'idle session', 'review'),
+      ]);
+
+      const liveItem = screen
+        .getByText('live session')
+        .closest('.session-item') as HTMLElement;
+      await waitFor(() => expect(liveItem).toHaveClass('live'));
+      expect(screen.getByText('build')).toHaveAttribute(
+        'title',
+        'Live — running',
+      );
+      expect(
+        screen.getByText('idle session').closest('.session-item') as HTMLElement,
+      ).not.toHaveClass('live');
+    });
+
+    it('drops the live flag when the live poll fails', async () => {
+      vi.mocked(getLiveSessionIds).mockRejectedValue(new Error('broker down'));
+
+      const { container } = renderList([makeSession('task-1', 'odin', 'build')]);
+
+      await waitFor(() => expect(getLiveSessionIds).toHaveBeenCalled());
+      expect(container.querySelector('.session-item.live')).toBeNull();
+      expect(screen.getByText('odin')).toBeInTheDocument();
+    });
   });
 });
