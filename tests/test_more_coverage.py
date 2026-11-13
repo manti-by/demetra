@@ -99,11 +99,11 @@ class TestWatcherService:
             yield mock
 
     @pytest.fixture
-    def mock_resolve_linear_state(self):
+    def mock_resolve_awaiting_input_state(self):
         with patch(
-            "demetra.services.daemons.watcher.resolve_linear_state",
+            "demetra.services.daemons.watcher.resolve_awaiting_input_state",
             new_callable=AsyncMock,
-            return_value="test-state-id",
+            return_value=("test-state-id", None),
         ) as mock:
             yield mock
 
@@ -127,7 +127,7 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
-        mock_resolve_linear_state,
+        mock_resolve_awaiting_input_state,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
@@ -145,8 +145,7 @@ class TestWatcherService:
         mock_update_ticket_status.assert_awaited_once()
         mock_create_subprocess_exec.assert_not_called()
         mock_increment_run_attempts.assert_not_called()
-        mock_resolve_linear_state.assert_awaited_once_with(
-            "awaiting_input",
+        mock_resolve_awaiting_input_state.assert_awaited_once_with(
             user_id="user-1",
             project_id="project-1",
         )
@@ -217,7 +216,7 @@ class TestWatcherService:
         mock_post_comment,
         mock_update_ticket_status,
         mock_create_subprocess_exec,
-        mock_resolve_linear_state,
+        mock_resolve_awaiting_input_state,
     ):
 
         task_id = f"TASK-{faker.random_int(min=100, max=999)}"
@@ -241,8 +240,7 @@ class TestWatcherService:
         mock_increment_run_attempts.assert_awaited_once_with(task_id)
         mock_post_comment.assert_awaited_once_with(task_id=task_id, body="Max run attempts reached")
         mock_update_ticket_status.assert_awaited_once()
-        mock_resolve_linear_state.assert_awaited_once_with(
-            "awaiting_input",
+        mock_resolve_awaiting_input_state.assert_awaited_once_with(
             user_id="user-1",
             project_id="project-1",
         )
@@ -286,10 +284,10 @@ class TestWatcherService:
         self,
         mock_post_comment,
         mock_update_ticket_status,
-        mock_resolve_linear_state,
+        mock_resolve_awaiting_input_state,
     ):
 
-        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_resolve_awaiting_input_state.return_value = ("awaiting-state", None)
         mock_update_ticket_status.return_value = True
 
         with (
@@ -310,10 +308,10 @@ class TestWatcherService:
         self,
         mock_post_comment,
         mock_update_ticket_status,
-        mock_resolve_linear_state,
+        mock_resolve_awaiting_input_state,
     ):
 
-        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_resolve_awaiting_input_state.return_value = ("awaiting-state", None)
         mock_update_ticket_status.return_value = False
 
         with (
@@ -334,11 +332,11 @@ class TestWatcherService:
         self,
         mock_post_comment,
         mock_update_ticket_status,
-        mock_resolve_linear_state,
+        mock_resolve_awaiting_input_state,
     ):
         """A failed local copy must not stop the transition to Awaiting Input."""
         mock_post_comment.return_value = "comment-1"
-        mock_resolve_linear_state.return_value = "awaiting-state"
+        mock_resolve_awaiting_input_state.return_value = ("awaiting-state", None)
         mock_update_ticket_status.return_value = True
 
         with (

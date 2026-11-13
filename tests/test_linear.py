@@ -23,6 +23,12 @@ from demetra.services.linear import (
     update_ticket_status,
 )
 from demetra.services.linear.graphql import get_query
+from demetra.services.linear.states import (
+    LinearState,
+    expected_state_label,
+    fetch_team_states,
+    resolve_state_id,
+)
 from demetra.services.persistence.database import (
     create_project,
     list_messages,
@@ -1252,3 +1258,152 @@ class TestLinearCleanup:
             task_id="linear-task-456",
             state_id=mock_linear_settings["states"]["todo"],
         )
+
+
+class TestResolveLinearState:
+    TEAM_STATES = [
+        LinearState(id="state-failed", name="Failed", type="started"),
+        LinearState(id="state-awaiting", name="Awaiting Input", type="started"),
+        LinearState(id="state-todo", name="Todo", type="unstarted"),
+    ]
+
+    def test_expected_state_label_derives_the_column_name(self):
+        assert expected_state_label("awaiting_input") == "Awaiting Input"
+        assert expected_state_label("in_progress") == "In Progress"
+
+    @pytest.mark.asyncio
+    async def test_resolves_the_column_named_after_the_state(self):
+        """A configured id pointing at another column must not win: the reported
+        symptom was a ticket parked in 'Failed' instead of 'Awaiting Input'."""
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=self.TEAM_STATES,
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-failed", team_id="team-123"
+            )
+
+        assert state_id == "state-awaiting"
+        assert warning is not None
+        assert "'Failed'" in warning
+        assert "'Awaiting Input'" in warning
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_configured_id_when_it_is_the_named_column(self):
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=self.TEAM_STATES,
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-awaiting", team_id="team-123"
+            )
+
+        assert state_id == "state-awaiting"
+        assert warning is None
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_configured_id_when_no_column_matches(self):
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=self.TEAM_STATES,
+        ):
+            state_id, warning = await resolve_state_id(name="done", configured_id="state-done", team_id="team-123")
+
+        assert state_id == "state-done"
+        assert warning is None
+
+    @pytest.mark.asyncio
+    async def test_reports_a_configured_id_from_another_team(self):
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=self.TEAM_STATES,
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-unknown", team_id="team-123"
+            )
+
+        assert state_id == "state-awaiting"
+        assert warning is not None
+        assert "not a column of team team-123" in warning
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_configured_id_without_a_team(self):
+        with patch("demetra.services.linear.states.fetch_team_states", new_callable=AsyncMock) as mock_fetch:
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-failed", team_id=None
+            )
+
+        assert state_id == "state-failed"
+        assert warning is None
+        mock_fetch.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_configured_id_when_the_columns_are_unavailable(self):
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-failed", team_id="team-123"
+            )
+
+        assert state_id == "state-failed"
+        assert warning is None
+
+    @pytest.mark.asyncio
+    async def test_fetch_team_states_reads_the_team_columns(self):
+        response = {
+            "data": {
+                "team": {
+                    "id": "team-123",
+                    "states": {
+                        "nodes": [
+                            {"id": "state-awaiting", "name": "Awaiting Input", "type": "started"},
+                            {"id": "state-todo", "name": "Todo", "type": "unstarted"},
+                        ]
+                    },
+                }
+            }
+        }
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = response
+            states = await fetch_team_states("team-123")
+
+        mock_request.assert_awaited_once()
+        await_args = mock_request.await_args
+        assert await_args is not None
+        assert await_args.kwargs["variables"] == {"teamId": "team-123"}
+        assert [state.name for state in states] == ["Awaiting Input", "Todo"]
+        assert states[0].id == "state-awaiting"
+
+    @pytest.mark.asyncio
+    async def test_fetch_team_states_caches_per_team(self):
+        response = {
+            "data": {
+                "team": {"id": "team-123", "states": {"nodes": [{"id": "s1", "name": "Todo", "type": "unstarted"}]}}
+            }
+        }
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = response
+            await fetch_team_states("team-123")
+            await fetch_team_states("team-123")
+
+        mock_request.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_fetch_team_states_returns_empty_when_linear_fails(self):
+        with patch(
+            "demetra.services.linear.graphql_request",
+            new_callable=AsyncMock,
+            side_effect=LinearError("Linear API error: timeout"),
+        ):
+            states = await fetch_team_states("team-123")
+
+        assert states == []
