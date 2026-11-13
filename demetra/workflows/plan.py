@@ -2,6 +2,7 @@ import time
 
 from demetra.library.exceptions import (
     AutoCancelledError,
+    AwaitingInputError,
     EnvironmentConfigError,
     InfiniteLoopError,
     LinearError,
@@ -24,31 +25,55 @@ from demetra.workflows.notifications import notify_message, notify_status
 from demetra.workflows.resolve import run_resolve_step
 
 
+AWAITING_INPUT_RECOVERY_BODY = (
+    "## Awaiting Input\n"
+    "The ticket could not be moved to the Awaiting Input column automatically. "
+    "Move it manually so the questions are not picked up again."
+)
+
+
 async def move_to_awaiting_input(context: Context, reason: str | None = None) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
     Updates the Linear ticket status (Linear tasks only) and then raises
     AutoCancelledError (carrying ``reason`` for the session history) so the
     caller's cleanup rolls back the worktree and branch without moving the
-    status again. The session step is not published here: chat-mode cleanup
-    publishes the terminal step after the worktree is cleaned, so a rerun or
-    resume request cannot claim the session while this worker still owns the
-    worktree.
+    status again. A park that did not happen raises AwaitingInputError instead:
+    the run must fail so the watcher counts it against the run-attempt budget,
+    but the ticket must not be re-queued, because ``build_plan`` is already
+    persisted and a re-run would skip the plan step and build from the questions
+    that were never answered. The recovery comment on the ticket is best effort
+    and cannot change that outcome. The session step is not published here:
+    chat-mode cleanup publishes the terminal step after the worktree is cleaned,
+    so a rerun or resume request cannot claim the session while this worker
+    still owns the worktree.
 
     Args:
         context: The workflow context.
         reason: Optional explanation recorded with the awaiting-input step.
 
     Raises:
-        LinearError: When the awaiting_input state is not configured.
-        AutoCancelledError: Always, to halt the workflow.
+        AwaitingInputError: When the ticket could not be moved to Awaiting
+            Input, so the run fails without moving the ticket.
+        AutoCancelledError: When the ticket was parked, to halt the workflow.
     """
     if not context.is_chat:
         try:
-            await notify_status(context=context, state="awaiting_input")
+            moved = await notify_status(context=context, state="awaiting_input")
         except EnvironmentConfigError as e:
-            raise LinearError("Linear state 'awaiting_input' is not configured") from e
-    print_message("Task moved to Awaiting Input state.", style="result")
+            raise AwaitingInputError("Linear state 'awaiting_input' is not configured") from e
+        except LinearError as e:
+            raise AwaitingInputError(f"Failed to move the ticket to Awaiting Input: {e}") from e
+        if not moved:
+            print_message("Failed to move the ticket to Awaiting Input in Linear; move it manually.", style="error")
+            try:
+                await notify_message(context=context, body=AWAITING_INPUT_RECOVERY_BODY, kind="failure")
+            except LinearError as e:
+                print_message(f"Failed to comment on the ticket: {e}", style="error")
+            raise AwaitingInputError("Failed to move the ticket to Awaiting Input in Linear")
+        print_message("Task moved to Awaiting Input state.", style="result")
+    else:
+        print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError(reason)
 
 

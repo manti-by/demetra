@@ -17,6 +17,7 @@ from demetra.services.linear.mutations import (
     post_comment,
     update_ticket_status,
 )
+from demetra.services.linear.states import LinearState, fetch_team_states, resolve_state_id
 from demetra.services.linear.sync import SyncReport, sync_cli, sync_linear_mirror
 from demetra.services.linear.tasks import (
     extract_comments,
@@ -33,6 +34,7 @@ from demetra.settings import LINEAR
 
 __all__ = [
     "LINEAR",
+    "LinearState",
     "SyncReport",
     "create_issue_relation",
     "create_linear_ticket",
@@ -45,6 +47,7 @@ __all__ = [
     "fetch_issue_comments",
     "fetch_linear_project_id",
     "fetch_project_issues",
+    "fetch_team_states",
     "get_connection",
     "get_linear_task",
     "get_linear_task_by_id",
@@ -57,6 +60,7 @@ __all__ = [
     "post_comment",
     "print_message",
     "record_linear_comment",
+    "resolve_state_id",
     "store_linear_issue",
     "sync_cli",
     "sync_linear_mirror",

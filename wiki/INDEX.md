@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — Implementation of CH-11: Failed status for Awaiting Input tickets (2026-11-13)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic `Message` history: new `tasks`/`messages` tables beside the workflow state in `sessions`, `LinearTask`/`Chat` and `LinearComment`/`ChatMessage` as subtypes, `chats` shrunk to a subtype row, the FK-less duplicate `chat_messages.session_task_id` dropped, and a `--linear-sync` CLI that backfills every issue of the linked Linear projects with its comments. (2026-11-11)
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
@@ -162,6 +163,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-13
 
 ### Session history & token accounting (13 pages)
 
@@ -238,8 +240,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Linear & GitHub integrations (8 pages)
+### Linear & GitHub integrations (9 pages)
 
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-12
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14

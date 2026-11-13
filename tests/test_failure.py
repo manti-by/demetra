@@ -14,7 +14,8 @@ from demetra.library.exceptions import (
     ReviewError,
     WikiError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session
+from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment
+from demetra.services.linear.states import LinearState
 from demetra.settings import LINEAR
 from demetra.workflows.failure import (
     process_agent_network_failure,
@@ -157,6 +158,31 @@ class TestRunFailureStep:
         mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
             task_id=context.task.id,
             state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_moves_to_the_named_awaiting_input_column(self, mock_linear_deps):
+        """A configured id pointing at another column must not win: the ticket
+        has to land in the column named Awaiting Input."""
+        context = build_context()
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", return_value="state-failed"),
+            patch.object(SessionEnvironment, "linear_value", return_value="team-123"),
+            patch(
+                "demetra.services.linear.states.fetch_team_states",
+                new_callable=AsyncMock,
+                return_value=[
+                    LinearState(id="state-failed", name="Failed", type="started"),
+                    LinearState(id="state-awaiting", name="Awaiting Input", type="started"),
+                ],
+            ),
+        ):
+            await process_pr_failure(context=context, error=PullRequestError("gh: could not create PR"))
+
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.task.id,
+            state_id="state-awaiting",
         )
 
     @pytest.mark.asyncio

@@ -21,6 +21,7 @@ from demetra.app import app
 from demetra.library.models import LinearTask, UserResponse
 from demetra.library.tables import metadata
 from demetra.services.auth import create_jwt_token
+from demetra.services.linear import states as linear_states
 from demetra.services.persistence import database as _database_module
 from demetra.services.persistence.database import (
     _engine_cache,
@@ -117,6 +118,22 @@ def patch_agent_session_capture():
             mock.return_value = None
         mocks[-1].return_value = True
         yield
+
+
+@pytest.fixture(autouse=True)
+def stub_linear_team_states(monkeypatch):
+    """Keep the suite off the Linear API when resolving workflow columns.
+
+    ``notify_status`` and the watcher resolve a workflow state id from the
+    team's columns, one query per team per process. The stub reports no
+    columns, so every resolution falls back to the configured state id; the
+    tests that exercise the resolution itself patch the fetch locally.
+    """
+    monkeypatch.setattr(linear_states, "_TEAM_STATES", {})
+    with patch(
+        "demetra.services.linear.states.fetch_team_states", new_callable=AsyncMock, return_value=[]
+    ) as fetch_team_states:
+        yield fetch_team_states
 
 
 @pytest.fixture(scope="session", autouse=True)
