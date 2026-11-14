@@ -1,4 +1,6 @@
 ARG OPENCODE_VERSION=2.2.5
+ARG DOCKER_CLI_VERSION=27.3.1
+ARG DOCKER_COMPOSE_VERSION=v2.29.7
 
 FROM python:3.13.9-slim AS builder
 
@@ -19,6 +21,16 @@ RUN curl -fsSL https://opencode.ai/v2/install | bash -s -- --version "${OPENCODE
 ARG WI_VERSION=v0.2.1
 RUN curl -LsSf "https://raw.githubusercontent.com/manti-by/wi/${WI_VERSION}/install.sh" | sh -s -- --version "${WI_VERSION}" --dir /usr/local/bin
 
+ARG DOCKER_CLI_VERSION
+ARG DOCKER_COMPOSE_VERSION
+RUN curl -fsSL "https://download.docker.com/linux/static/stable/x86_64/docker-${DOCKER_CLI_VERSION}.tgz" -o /tmp/docker.tgz \
+    && tar -xzf /tmp/docker.tgz -C /tmp docker \
+    && mkdir -p /tmp/docker-cli-plugins \
+    && curl -fsSL "https://github.com/docker/compose/releases/download/${DOCKER_COMPOSE_VERSION}/docker-compose-linux-x86_64" \
+      -o /tmp/docker-cli-plugins/docker-compose \
+    && chmod +x /tmp/docker-cli-plugins/docker-compose \
+    && rm /tmp/docker.tgz
+
 WORKDIR /app/
 
 COPY pyproject.toml uv.lock ./
@@ -34,6 +46,8 @@ FROM rust:1-slim AS rust
 FROM python:3.13.9-slim
 
 ARG OPENCODE_VERSION
+ARG DOCKER_CLI_VERSION
+ARG DOCKER_COMPOSE_VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git vim gnupg openssh-client build-essential pkg-config \
@@ -48,6 +62,10 @@ COPY --from=builder /bin/uv /bin/uvx /bin/
 COPY --from=builder /opt/venv /opt/venv
 COPY --from=rust /usr/local/cargo /usr/local/cargo
 COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=builder /tmp/docker/docker /usr/local/bin/docker
+COPY --from=builder /tmp/docker-cli-plugins /usr/local/lib/docker/cli-plugins
+RUN docker --version | grep -qF "${DOCKER_CLI_VERSION}" \
+    && docker compose version | grep -qF "${DOCKER_COMPOSE_VERSION}"
 
 RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
@@ -63,6 +81,9 @@ RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/openco
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
     && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv /usr/local/cargo /usr/local/rustup
+
+COPY demetra/ /opt/demetra/src/demetra/
+RUN chmod -R go-w /opt/demetra/src
 
 COPY configs/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh

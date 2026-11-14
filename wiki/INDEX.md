@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — Implementation of MNT-315: Auto deploy on master commits (2026-11-14)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic `Message` history: new `tasks`/`messages` tables beside the workflow state in `sessions`, `LinearTask`/`Chat` and `LinearComment`/`ChatMessage` as subtypes, `chats` shrunk to a subtype row, the FK-less duplicate `chat_messages.session_task_id` dropped, and a `--linear-sync` CLI that backfills every issue of the linked Linear projects with its comments. (2026-11-11)
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
@@ -162,6 +163,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
+- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — 2026-11-14
 
 ### Session history & token accounting (13 pages)
 
@@ -193,8 +195,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — 2026-08-05
 - [Fix empty build plan infinite loop](pages/2026-07-16-fix-empty-build-plan-loop.md) — 2026-07-16
 
-### Deploy & infrastructure (9 pages)
+### Deploy & infrastructure (10 pages)
 
+- [Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — 2026-11-14
 - [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — 2026-09-28
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24

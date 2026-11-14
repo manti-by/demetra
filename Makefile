@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check-migrations
+.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -28,7 +28,7 @@ deploy:
 	docker build --platform linux/amd64 --tag mantiby/demetra:latest .
 	docker compose --env-file .env.docker pull postgres redis react-build || true
 	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
-	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=2 api worker watcher listener rq-dashboard
+	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=2 api worker watcher listener rq-dashboard deployer
 	sudo service nginx reload
 
 
@@ -63,6 +63,9 @@ migrate:
 check-migrations:
 	uv run alembic -x url=sqlite:///:memory: upgrade head
 
+check-compose:
+	docker compose --env-file .env.docker config -q
+
 ci: install check check-migrations test react-build react-test
 
 
@@ -81,6 +84,9 @@ worker:
 watcher:
 	uv run -m demetra.watcher
 
+deployer:
+	uv run -m demetra.deployer
+
 react:
 	cd react && bun run dev --host
 
@@ -98,7 +104,7 @@ docker-build:
 	docker build --platform linux/amd64 -t mantiby/demetra:latest .
 
 docker-up:
-	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard
+	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard deployer
 
 docker-down:
 	docker compose --env-file .env.docker down

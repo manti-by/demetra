@@ -18,6 +18,18 @@ class TestWatcher:
         assert WATCHER_POLL_INTERVAL == 60
 
 
+class TestDeployer:
+    def test_poll_interval_value(self):
+        from demetra.settings import DEPLOY
+
+        assert DEPLOY["poll_interval"] == 60
+
+    def test_compose_services_exclude_the_deployer(self):
+        from demetra.settings import DEPLOY
+
+        assert "deployer" not in DEPLOY["compose_services"]
+
+
 class TestWorker:
     def test_worker_exists(self):
         assert connection is not None
