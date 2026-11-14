@@ -130,6 +130,34 @@ services:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/listener.log
 
+  deployer:
+    <<: *demetra-base
+    command: ["python", "-m", "demetra.deployer"]
+    entrypoint: ""
+    user: root
+    pid: host
+    cap_add:
+      - SYS_ADMIN
+    working_dir: /opt/demetra/src
+    environment:
+      <<: *demetra-env
+      HOME: /home/demetra
+      LOG_PATH: /var/log/demetra/deployer.log
+      DEPLOY_HOST_CHECKOUT: ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
+    volumes:
+      - demetra_deployer_data:/var/lib/demetra/
+      - .keys/.ssh:/home/demetra/.ssh
+      - .keys/.gnupg:/home/demetra/.gnupg
+      - .keys/.gitconfig:/home/demetra/.gitconfig
+      - .keys/.git-credentials:/home/demetra/.git-credentials
+      - .keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/log/demetra/:/var/log/demetra/
+      - ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}:${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
+    depends_on:
+      redis:
+        condition: service_healthy
+
   rq-dashboard:
     <<: *demetra-base
     command:
@@ -170,3 +198,5 @@ volumes:
     name: demetra_redis_data
   demetra_app_data:
     name: demetra_app_data
+  demetra_deployer_data:
+    name: demetra_deployer_data

@@ -299,6 +299,47 @@ class Session:
     research_report: str | None = None
 
 
+@dataclass
+class DeployState:
+    """Deploy daemon state persisted between poll cycles.
+
+    ``last_deployed_sha`` is set only after a deploy succeeds, so a failed
+    pull, build or migration is retried once the minimum interval elapsed.
+    ``last_failed_sha`` records the commit of the last reported failure, either
+    a failed CI gate or a failed deploy, so the error is logged once per
+    commit instead of on every poll.
+    """
+
+    last_deployed_sha: str | None = None
+    last_deploy_at: float = 0.0
+    last_failed_sha: str | None = None
+    last_error: str | None = None
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "DeployState":
+        """Build the state from its persisted JSON mapping.
+
+        Unknown or malformed values fall back to the empty state so a state
+        file written by an older daemon never stops the poll loop.
+
+        Args:
+            payload: The decoded JSON object.
+
+        Returns:
+            DeployState: The state described by the payload.
+        """
+        try:
+            last_deploy_at = float(payload.get("last_deploy_at") or 0.0)
+        except (TypeError, ValueError):
+            last_deploy_at = 0.0
+        return cls(
+            last_deployed_sha=payload.get("last_deployed_sha"),
+            last_deploy_at=last_deploy_at,
+            last_failed_sha=payload.get("last_failed_sha"),
+            last_error=payload.get("last_error"),
+        )
+
+
 def empty_feedback_loops() -> FeedbackLoops:
     """Return the zero-valued feedback-loop counts shared by fresh sessions.
 

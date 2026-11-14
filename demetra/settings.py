@@ -3,6 +3,7 @@ from pathlib import Path
 from demetra.library.exceptions import SettingsError
 from demetra.library.types import (
     DBConfig,
+    DeployConfig,
     GitConfig,
     GitHubConfig,
     JWTConfig,
@@ -208,6 +209,21 @@ GITHUB: GitHubConfig = {
         "secret": env_get_str("GITHUB_WEBHOOK_SECRET", None),
     },
     "token": env_get_str("GITHUB_TOKEN", None),
+}
+
+DEPLOY: DeployConfig = {
+    "poll_interval": env_get_int("DEPLOYER_POLL_INTERVAL", 60),
+    "min_interval": env_get_int("DEPLOY_MIN_INTERVAL", 300),
+    "drain_timeout": env_get_int("DEPLOY_DRAIN_TIMEOUT", 3600),
+    "step_timeout": env_get_int("DEPLOY_STEP_TIMEOUT", 3600),
+    "host_checkout": env_get_path("DEPLOY_HOST_CHECKOUT", Path("/home/manti/www/demetra")),
+    "repository": env_get_str("DEPLOY_REPOSITORY", None),
+    "state_path": env_get_path("DEPLOY_STATE_PATH", None),
+    "docker_path": env_get_path("DOCKER_PATH", Path("/usr/local/bin/docker")),
+    "git_path": GIT["path"],
+    "github_path": GITHUB["path"],
+    "nginx_reload_command": env_get_str("DEPLOY_NGINX_RELOAD_COMMAND", "nsenter -t 1 -m -p -- service nginx reload"),
+    "compose_services": ("api", "worker", "watcher", "listener", "rq-dashboard"),
 }
 
 JWT: JWTConfig = {

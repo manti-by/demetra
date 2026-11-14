@@ -66,6 +66,21 @@ class GitConfig(PathConfig):
     disable_worktree_removal: bool
 
 
+class DeployConfig(TypedDict):
+    poll_interval: int
+    min_interval: int
+    drain_timeout: int
+    step_timeout: int
+    host_checkout: Path
+    repository: str | None
+    state_path: Path | None
+    docker_path: Path
+    git_path: Path
+    github_path: Path
+    nginx_reload_command: str
+    compose_services: tuple[str, ...]
+
+
 class GitHubOAuthConfig(TypedDict):
     client_id: str | None
     client_secret: str | None
