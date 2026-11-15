@@ -221,7 +221,7 @@ DEPLOY: DeployConfig = {
     "host_checkout": env_get_path("DEPLOY_HOST_CHECKOUT", Path("/home/manti/www/demetra")),
     "repository": env_get_str("DEPLOY_REPOSITORY", None),
     "state_path": env_get_path("DEPLOY_STATE_PATH", None),
-    "docker_path": env_get_path("DOCKER_PATH", Path("/usr/local/bin/docker")),
+    "docker_path": env_get_path("DOCKER_PATH", Path("/usr/bin/docker")),
     "git_path": GIT["path"],
     "github_path": GITHUB["path"],
     "nginx_reload_command": env_get_str("DEPLOY_NGINX_RELOAD_COMMAND", "nsenter -t 1 -m -p -- service nginx reload"),

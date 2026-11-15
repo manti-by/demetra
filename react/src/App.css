@@ -1773,11 +1773,48 @@ th {
 .session-history-card-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.session-history-card[data-open="true"] .session-history-card-header {
   margin-bottom: 0.5rem;
 }
 
+.session-history-chevron {
+  flex: none;
+  margin-right: 0.35rem;
+  transition: transform 0.15s ease;
+}
+
+.session-history-card-header[aria-expanded="true"] .session-history-chevron {
+  transform: rotate(90deg);
+}
+
+.session-history-header-meta {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex: none;
+}
+
+.session-history-cost {
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+}
+
 .session-history-step {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--font-mono);
   font-size: 0.75rem;
   font-weight: 600;
@@ -1789,6 +1826,46 @@ th {
 .session-history-time {
   font-size: 0.7rem;
   color: var(--color-text-tertiary);
+}
+
+.session-history-timing {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem 1rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+}
+
+.session-history-timing dt {
+  color: var(--color-text-tertiary);
+}
+
+.session-history-timing dd {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+}
+
+.session-history-status {
+  margin: 0 0 0.5rem;
+  font-size: 0.72rem;
+}
+
+.session-history-status-error {
+  color: var(--color-error);
+}
+
+.session-history-status-pending {
+  color: var(--color-accent);
+}
+
+.session-history-card-error {
+  border-color: var(--color-error);
+}
+
+.session-history-card-pending {
+  border-color: var(--color-accent);
+  border-style: dashed;
 }
 
 .session-history-tokens {

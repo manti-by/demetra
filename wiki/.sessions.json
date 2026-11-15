@@ -18,6 +18,10 @@
   "ses_093670774ffeRqtTEflrkIDv8O": "2026-09-14-listener-readline-limit-crash.md",
   "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-08-18-test-db-isolation-logging.md",
   "ses_8f3a2b1c-20260825": "2026-08-25-loader-styleguide.md",
+  "ses_e1f6a316fffeH9qGy1hJrzbrI8": "2026-11-15-session-history-blocks-and-ui-deploy.md",
+  "ses_e1fda1d84ffe8DTiZYxz45gjjo": "2026-11-15-session-list-three-sections.md",
+  "ses_e20a2d79affe7UhwTAmInRdV2Y": "2026-11-15-mnt-314-linear-mcp-static-api-key.md",
+  "ses_e3017eff4ffe4Z3l3PlPgwbyhL": "2026-11-12-scale-workers-without-recreate.md",
   "ses_e3564c1b5ffeBDYG4coFDCd3Wo": "2026-11-11-mnt-312-unified-task-model.md",
   "ses_e3a8c92a6ffeVcW9fQN9vDVOsN": "2026-11-10-mnt-308-lint-error-extraction.md",
   "ses_e3b031b40ffeslB7Om1aqmIcTt": "2026-11-10-durable-review-attempts-budget.md",
@@ -48,8 +52,5 @@
   "ses_mnt177_20260901": "2026-09-01-mnt-177-research-loop.md",
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
   "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
-  "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md",
-  "ses_e3017eff4ffe4Z3l3PlPgwbyhL": "2026-11-12-scale-workers-without-recreate.md",
-  "ses_e20a2d79affe7UhwTAmInRdV2Y": "2026-11-15-mnt-314-linear-mcp-static-api-key.md",
-  "ses_e1fda1d84ffe8DTiZYxz45gjjo": "2026-11-15-session-list-three-sections.md"
+  "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md"
 }

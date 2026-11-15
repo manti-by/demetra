@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: deploy deploy-steps react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
+.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -32,6 +32,19 @@ deploy-steps:
 	docker compose --env-file .env.docker pull postgres redis react-build || true
 	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
 	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=4 api worker watcher listener rq-dashboard deployer
+	sudo service nginx reload
+
+
+# Frontend-only deploy: rebuild the React bundle and reload nginx. The image,
+# the migrations and the long-running services are left alone, so a UI change
+# ships without restarting the API or interrupting the running workflows.
+deploy-ui:
+	uv run python -m demetra.deploy_lock -- $(MAKE) deploy-ui-steps
+
+deploy-ui-steps:
+	git pull --ff-only
+	docker compose --env-file .env.docker pull react-build || true
+	docker compose --env-file .env.docker up --abort-on-container-failure react-build
 	sudo service nginx reload
 
 

@@ -477,8 +477,8 @@ const hello = "world";`}</pre>
           <div className="sg-muted" style={{ marginTop: 8 }}>Modal overlay demo — same component used in SessionArtifacts.</div>
           <div className="sg-history-inline">
             <ol className="session-history-timeline">
-              <li className="session-history-card"><div className="session-history-card-header"><span className="session-history-step">plan</span><time className="session-history-time">1h ago</time></div><dl className="session-history-tokens"><div><dt>Input</dt><dd>600</dd></div><div><dt>Output</dt><dd>400</dd></div><div><dt>Total</dt><dd>1,200</dd></div></dl></li>
-              <li className="session-history-card"><div className="session-history-card-header"><span className="session-history-step">build</span><time className="session-history-time">30m ago</time></div><dl className="session-history-tokens"><div><dt>Input</dt><dd>1,100</dd></div><div><dt>Output</dt><dd>900</dd></div><div><dt>Total</dt><dd>2,400</dd></div></dl></li>
+              <li className="session-history-card" data-open="false"><button type="button" className="session-history-card-header" aria-expanded="false"><span className="session-history-step">plan</span><span className="session-history-header-meta"><span className="session-history-cost">$0.0420</span><time className="session-history-time">1h ago</time></span></button></li>
+              <li className="session-history-card" data-open="true"><button type="button" className="session-history-card-header" aria-expanded="true"><span className="session-history-step">build</span><span className="session-history-header-meta"><time className="session-history-time">30m ago</time></span></button><dl className="session-history-tokens"><div><dt>Input</dt><dd>1,100</dd></div><div><dt>Output</dt><dd>900</dd></div><div><dt>Total</dt><dd>2,400</dd></div></dl></li>
             </ol>
             <div className="session-history-totals">
               <h3 className="session-history-totals-header">Total Tokens</h3>

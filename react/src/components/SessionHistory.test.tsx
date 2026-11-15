@@ -95,6 +95,14 @@ const zeroTotal = {
 
 const emptyToolUsage: SessionToolUsage[] = [];
 
+async function expandAll() {
+  const user = userEvent.setup();
+  const headers = document.querySelectorAll('button.session-history-card-header');
+  for (const header of headers) {
+    await user.click(header);
+  }
+}
+
 const mockToolUsage: SessionToolUsage[] = [
   { name: 'bash', calls: 5, succeeded: 5, failed: 0, duration_ms: 120 },
   { name: 'read', calls: 3, succeeded: 3, failed: 0, duration_ms: 45 },
@@ -157,17 +165,18 @@ describe('SessionHistory', () => {
     expect(timeEl.getAttribute('datetime')).toBe(iso);
   });
 
-  it('renders token dl only for entries with token data', () => {
+  it('renders token dl only for entries with token data', async () => {
     render(
       <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
     const tokenDls = document.querySelectorAll('.session-history-tokens');
     expect(tokenDls.length).toBe(2);
     expect(screen.getByText('500')).toBeInTheDocument();
     expect(screen.getAllByText('Total').length).toBe(3);
   });
 
-  it('hides token dl when all token fields are null', () => {
+  it('hides token dl when all token fields are null', async () => {
     const nullEntry: SessionHistoryEntry = {
       id: '4',
       session_id: null,
@@ -192,12 +201,13 @@ describe('SessionHistory', () => {
     render(
       <SessionHistory entries={[nullEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     expect(screen.getByText('initial')).toBeInTheDocument();
     expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
   });
 
-  it('renders tokens and attribution for an llm call entry', () => {
+  it('renders tokens and attribution for an llm call entry', async () => {
     const entry: SessionHistoryEntry = {
       ...mockEntries[2],
       id: 'llm-1',
@@ -213,6 +223,7 @@ describe('SessionHistory', () => {
     render(
       <SessionHistory entries={[entry]} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     expect(document.querySelector('.session-history-tokens')).toBeInTheDocument();
     expect(screen.getByText('summarize_plan')).toBeInTheDocument();
@@ -222,12 +233,13 @@ describe('SessionHistory', () => {
     expect(screen.getByText('100')).toBeInTheDocument();
   });
 
-  it('renders agent and cost for an invocation entry', () => {
+  it('renders agent and cost for an invocation entry', async () => {
     const entry = { ...mockEntries[0], agent: 'build', cost: 0.1234, model: 'provider/model' };
 
     render(
       <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     expect(screen.getByText('Agent')).toBeInTheDocument();
     expect(screen.getByText('build')).toBeInTheDocument();
@@ -236,7 +248,7 @@ describe('SessionHistory', () => {
     expect(screen.getByText('provider/model')).toBeInTheDocument();
   });
 
-  it('renders failure reason context for a failed step entry', () => {
+  it('renders failure reason context for a failed step entry', async () => {
     const failedEntry: SessionHistoryEntry = {
       ...mockEntries[2],
       step: 'failed',
@@ -246,26 +258,29 @@ describe('SessionHistory', () => {
     render(
       <SessionHistory entries={[failedEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     const failure = document.querySelector('.session-history-failure');
     expect(failure).not.toBeNull();
     expect(failure!.textContent).toBe('Plan agent failed (exit 1): quota exceeded');
   });
 
-  it('does not render failure context without a message', () => {
+  it('does not render failure context without a message', async () => {
     render(
       <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     expect(document.querySelector('.session-history-failure')).not.toBeInTheDocument();
   });
 
-  it('does not render tokens for a step entry even with a length', () => {
+  it('does not render tokens for a step entry even with a length', async () => {
     const stepEntry = { ...mockEntries[2], length: 999 };
 
     render(
       <SessionHistory entries={[stepEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     expect(document.querySelector('.session-history-tokens')).not.toBeInTheDocument();
   });
@@ -296,7 +311,7 @@ describe('SessionHistory', () => {
     expect(document.querySelectorAll('.session-history-totals')).toHaveLength(2);
   });
 
-  it('renders MCP tools invoked through the code-mode execute tool', () => {
+  it('renders MCP tools invoked through the code-mode execute tool', async () => {
     const usage: SessionToolUsage[] = [
       { name: 'execute', calls: 1, succeeded: 1, failed: 0, duration_ms: 20 },
       { name: 'WI.wiki_search', calls: 2, succeeded: 2, failed: 0, duration_ms: 0 },
@@ -306,6 +321,7 @@ describe('SessionHistory', () => {
     render(
       <SessionHistory entries={[mockEntries[0]]} total={mockTotal} toolUsage={usage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     const grid = document.querySelector('.session-history-tool-grid');
     expect(grid?.textContent).toContain('WI.wiki_search');
@@ -321,10 +337,11 @@ describe('SessionHistory', () => {
     expect(screen.queryByText('Tool Usage')).not.toBeInTheDocument();
   });
 
-  it('renders per-card tools for invocation entries only', () => {
+  it('renders per-card tools for invocation entries only', async () => {
     render(
       <SessionHistory entries={mockEntries} total={mockTotal} toolUsage={emptyToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
     );
+    await expandAll();
 
     const toolLists = document.querySelectorAll('.session-history-tools-list');
     expect(toolLists).toHaveLength(2);
@@ -349,6 +366,186 @@ describe('SessionHistory', () => {
 
     expect(screen.getByText('No history yet')).toBeInTheDocument();
     expect(document.querySelector('.session-history-totals')).not.toBeInTheDocument();
+  });
+
+  it('merges a build step marker with its invocation into one card', async () => {
+    const started = new Date(Date.now() - 1800000).toISOString();
+    const finished = new Date(Date.now() - 1500000).toISOString();
+    const entries: SessionHistoryEntry[] = [
+      {
+        ...mockEntries[2],
+        id: 'marker-1',
+        kind: 'step',
+        step: 'build',
+        created_at: started,
+      },
+      { ...mockEntries[1], id: 'invocation-1', step: 'build', created_at: finished },
+    ];
+
+    render(
+      <SessionHistory entries={entries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const cards = document.querySelectorAll('.session-history-card');
+    expect(cards).toHaveLength(1);
+    const card = cards[0];
+    expect(card.getAttribute('data-status')).toBe('ok');
+    await expandAll();
+    expect(card.querySelector('.session-history-timing')).not.toBeNull();
+    expect(card.textContent).toContain('Start');
+    expect(card.textContent).toContain('End');
+    expect(card.textContent).toContain('Duration');
+    expect(card.querySelector('.session-history-tokens')).not.toBeNull();
+    expect(screen.getByText('1,200')).toBeInTheDocument();
+  });
+
+  it('keeps markers of steps without invocations as plain cards', () => {
+    const lintEntry: SessionHistoryEntry = {
+      ...mockEntries[2],
+      id: 'lint-1',
+      step: 'lint',
+    };
+
+    render(
+      <SessionHistory entries={[...mockEntries, lintEntry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const cards = document.querySelectorAll('.session-history-card');
+    expect(cards).toHaveLength(4);
+    expect(cards[3].getAttribute('data-status')).toBe('ok');
+    expect(cards[3].querySelector('.session-history-timing')).toBeNull();
+  });
+
+  it('merges each round when the same step runs twice', async () => {
+    const firstMarker: SessionHistoryEntry = {
+      ...mockEntries[2],
+      id: 'marker-1',
+      kind: 'step',
+      step: 'build',
+      created_at: '2026-01-01T00:00:00Z',
+    };
+    const firstInvocation: SessionHistoryEntry = {
+      ...mockEntries[1],
+      id: 'invocation-1',
+      created_at: '2026-01-01T00:05:00Z',
+    };
+    const secondMarker: SessionHistoryEntry = {
+      ...firstMarker,
+      id: 'marker-2',
+      created_at: '2026-01-01T01:00:00Z',
+    };
+    const secondInvocation: SessionHistoryEntry = {
+      ...firstInvocation,
+      id: 'invocation-2',
+      created_at: '2026-01-01T01:10:00Z',
+    };
+
+    render(
+      <SessionHistory
+        entries={[firstMarker, firstInvocation, mockEntries[0], secondMarker, secondInvocation]}
+        total={mockTotal}
+        toolUsage={mockToolUsage}
+        isOpen={true}
+        onClose={vi.fn()}
+        isLoading={false}
+        error={null}
+      />
+    );
+
+    const cards = document.querySelectorAll('.session-history-card');
+    expect(cards).toHaveLength(3);
+    expect(cards[0].getAttribute('data-status')).toBe('ok');
+    expect(cards[1].getAttribute('data-step')).toBe('plan');
+    expect(cards[2].getAttribute('data-status')).toBe('ok');
+    await expandAll();
+    expect(document.querySelectorAll('.session-history-timing')).toHaveLength(2);
+  });
+
+  it('renders a failed marker as an error when later rows exist', async () => {
+    const entries: SessionHistoryEntry[] = [
+      {
+        ...mockEntries[2],
+        id: 'marker-1',
+        kind: 'step',
+        step: 'build',
+      },
+      {
+        ...mockEntries[2],
+        id: 'failed-1',
+        step: 'failed',
+        message: 'Build agent failed (exit 1): quota exceeded',
+      },
+    ];
+
+    render(
+      <SessionHistory entries={entries} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const cards = document.querySelectorAll('.session-history-card');
+    expect(cards).toHaveLength(2);
+    expect(cards[0].getAttribute('data-status')).toBe('failed');
+    expect(cards[0].className).toContain('session-history-card-error');
+    await expandAll();
+    expect(cards[0].textContent).toContain('Agent did not complete');
+    expect(cards[1].className).toContain('session-history-card-error');
+  });
+
+  it('renders the newest unpaired marker as pending, not failed', async () => {
+    const entry: SessionHistoryEntry = {
+      ...mockEntries[2],
+      id: 'marker-1',
+      kind: 'step',
+      step: 'build',
+    };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const card = document.querySelector('.session-history-card')!;
+    expect(card.getAttribute('data-status')).toBe('pending');
+    expect(card.className).toContain('session-history-card-pending');
+    expect(card.className).not.toContain('session-history-card-error');
+    await expandAll();
+    expect(card.textContent).toContain('Agent is still running');
+  });
+
+  it('renders collapsed cards with name, cost and time in the header', () => {
+    const entry = { ...mockEntries[0], cost: 0.05 };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const card = document.querySelector('.session-history-card')!;
+    expect(card.getAttribute('data-open')).toBe('false');
+    expect(document.querySelectorAll('.session-history-card-header')).toHaveLength(1);
+    const header = card.querySelector('.session-history-card-header')!;
+    expect(header.getAttribute('aria-expanded')).toBe('false');
+    expect(header.textContent).toContain('plan');
+    expect(header.querySelector('.session-history-cost')?.textContent).toBe('$0.0500');
+    expect(header.querySelector('time')).not.toBeNull();
+    expect(card.querySelector('.session-history-tokens')).toBeNull();
+  });
+
+  it('hides the header cost and shows the body when a card is expanded', async () => {
+    const entry = { ...mockEntries[0], cost: 0.05 };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+
+    const user = userEvent.setup();
+    const header = document.querySelector('button.session-history-card-header')!;
+    await user.click(header);
+
+    const card = document.querySelector('.session-history-card')!;
+    expect(card.getAttribute('data-open')).toBe('true');
+    expect(header.getAttribute('aria-expanded')).toBe('true');
+    expect(header.querySelector('.session-history-cost')).toBeNull();
+    expect(header.querySelector('time')).not.toBeNull();
+    expect(card.querySelector('.session-history-tokens')).not.toBeNull();
+    expect(screen.getByText('Cost')).toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {

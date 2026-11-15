@@ -103,9 +103,12 @@ Prerequisites: Docker Compose v2 (the `docker-up` target passes `--scale worker=
 cp .env.docker.example .env.docker   # then fill in real values
 make check-compose                   # validate docker-compose.yaml (docker compose config -q)
 make deploy                          # git pull + build + pull infra + migrate/react one-shots + up long-running (scale 4) + nginx reload
+make deploy-ui                       # git pull + react one-shot build + nginx reload (frontend only)
 # pure-Docker path (no git pull / nginx reload):
 make docker-build && make docker-up  # build image + up with 4 workers (Makefile:109-110); `postgres`/`redis`/`oven/bun` pulled automatically
 ```
+
+`make deploy-ui` ships frontend-only changes: it pulls, rebuilds the React bundle through the one-shot `react-build` service and reloads nginx, leaving the image, the migrations and the running containers untouched — a UI change goes live without restarting the API or interrupting the running workflows. It takes the same Redis deploy lock as `make deploy` (`demetra/deploy_lock.py`), so it cannot overlap the deploy daemon, which rebuilds the same bundle.
 
 ## Language & Environment
 
