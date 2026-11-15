@@ -459,5 +459,76 @@ describe('SessionList', () => {
       expect(container.querySelector('.session-item.live')).toBeNull();
       expect(screen.getByText('odin')).toBeInTheDocument();
     });
+
+    it('ignores a stale live poll that resolves after a newer one', async () => {
+      const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+      vi.mocked(getLiveSessionIds).mockResolvedValue(['task-live']);
+
+      const { container } = renderList([
+        makeSession('task-live', 'odin', 'build'),
+      ]);
+      await waitFor(() =>
+        expect(
+          container.querySelector('.session-item.live'),
+        ).toBeInTheDocument(),
+      );
+
+      const poll = intervalSpy.mock.calls.find(
+        ([, delay]) => delay === 5000,
+      )?.[0] as () => Promise<void>;
+      let resolveStale: (taskIds: string[]) => void = () => {};
+      const stale = new Promise<string[]>((resolve) => {
+        resolveStale = resolve;
+      });
+      vi.mocked(getLiveSessionIds).mockReset();
+      vi.mocked(getLiveSessionIds)
+        .mockReturnValueOnce(stale)
+        .mockResolvedValueOnce([]);
+
+      await act(async () => {
+        const stalePoll = poll();
+        const newerPoll = poll();
+        await newerPoll;
+        resolveStale(['task-live']);
+        await stalePoll;
+      });
+
+      expect(container.querySelector('.session-item.live')).toBeNull();
+      intervalSpy.mockRestore();
+    });
+
+    it('keeps the newest live result when a stale poll fails', async () => {
+      const intervalSpy = vi.spyOn(globalThis, 'setInterval');
+
+      const { container } = renderList([
+        makeSession('task-live', 'odin', 'build'),
+      ]);
+      await waitFor(() => expect(getLiveSessionIds).toHaveBeenCalled());
+
+      const poll = intervalSpy.mock.calls.find(
+        ([, delay]) => delay === 5000,
+      )?.[0] as () => Promise<void>;
+      let rejectStale: (error: Error) => void = () => {};
+      const stale = new Promise<string[]>((_, reject) => {
+        rejectStale = reject;
+      });
+      vi.mocked(getLiveSessionIds).mockReset();
+      vi.mocked(getLiveSessionIds)
+        .mockReturnValueOnce(stale)
+        .mockResolvedValueOnce(['task-live']);
+
+      await act(async () => {
+        const stalePoll = poll();
+        const newerPoll = poll();
+        await newerPoll;
+        rejectStale(new Error('broker down'));
+        await stalePoll;
+      });
+
+      expect(
+        container.querySelector('.session-item.live'),
+      ).toBeInTheDocument();
+      intervalSpy.mockRestore();
+    });
   });
 });

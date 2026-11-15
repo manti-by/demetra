@@ -1178,6 +1178,7 @@
 @media (prefers-reduced-motion: reduce) {
   .session-item.live .session-step {
     animation: none;
+    box-shadow: inset 0 0 0 1px currentColor;
   }
 }
 

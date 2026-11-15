@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef, memo } from "react";
 import { getLiveSessionIds, getSessions, type Session } from "../services/api";
 import { Loader } from "./Loader";
 
@@ -99,6 +99,7 @@ export function SessionList({
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   const [liveTaskIds, setLiveTaskIds] = useState<Set<string>>(new Set());
+  const livePollSequence = useRef(0);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -113,10 +114,16 @@ export function SessionList({
   }, [setSessions]);
 
   const fetchLiveSessions = useCallback(async () => {
+    // Only the most recent poll may update the flag: a slow request that
+    // resolves after a newer one would otherwise restore obsolete state.
+    const sequence = ++livePollSequence.current;
+    const isLatest = () => sequence === livePollSequence.current;
     try {
       const taskIds = await getLiveSessionIds();
+      if (!isLatest()) return;
       setLiveTaskIds(new Set(taskIds));
     } catch {
+      if (!isLatest()) return;
       // A failed live poll must not break the list; drop the flag instead of
       // showing a stale "live" badge.
       setLiveTaskIds(new Set());
