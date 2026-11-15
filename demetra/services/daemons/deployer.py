@@ -286,7 +286,7 @@ def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tupl
         ("migrate", [*compose, "up", "--abort-on-container-failure", "migrate", "react-build"]),
         (
             "up",
-            [*compose, "up", "--detach", "--force-recreate", "--scale", "worker=2", *DEPLOY["compose_services"]],
+            [*compose, "up", "--detach", "--force-recreate", "--scale", "worker=4", *DEPLOY["compose_services"]],
         ),
     ]
     if reload_command := shlex.split(DEPLOY["nginx_reload_command"]):

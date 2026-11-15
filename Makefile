@@ -31,7 +31,7 @@ deploy-steps:
 	docker build --platform linux/amd64 --tag mantiby/demetra:latest .
 	docker compose --env-file .env.docker pull postgres redis react-build || true
 	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
-	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=4 api worker watcher listener rq-dashboard
+	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=4 api worker watcher listener rq-dashboard deployer
 	sudo service nginx reload
 
 
