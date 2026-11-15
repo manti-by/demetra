@@ -2,6 +2,7 @@ import time
 
 from demetra.library.exceptions import (
     AutoCancelledError,
+    AwaitingInputError,
     EnvironmentConfigError,
     InfiniteLoopError,
     LinearError,
@@ -15,7 +16,7 @@ from demetra.services.agents.opencode import (
     opencode_plan_agent,
 )
 from demetra.services.llm.openrouter import extract_plan, extract_questions
-from demetra.services.persistence.database import save_session, update_session_step
+from demetra.services.persistence.database import clear_session_build_plan, save_session, update_session_step
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
@@ -24,30 +25,70 @@ from demetra.workflows.notifications import notify_message, notify_status
 from demetra.workflows.resolve import run_resolve_step
 
 
+AWAITING_INPUT_RECOVERY_BODY = (
+    "## Awaiting Input\n"
+    "The ticket could not be moved to the Awaiting Input column automatically. "
+    "Move it manually so the questions are not picked up again."
+)
+
+
+async def _park_linear_task(context: Context) -> None:
+    """Move a Linear ticket to Awaiting Input, or report how to recover.
+
+    Args:
+        context: The workflow context.
+
+    Raises:
+        AwaitingInputError: When the ticket could not be moved, after a
+            best-effort recovery comment on the ticket.
+    """
+    try:
+        moved = await notify_status(context=context, state="awaiting_input")
+    except EnvironmentConfigError as e:
+        raise AwaitingInputError("Linear state 'awaiting_input' is not configured") from e
+    except LinearError as e:
+        raise AwaitingInputError(f"Failed to move the ticket to Awaiting Input: {e}") from e
+    if moved:
+        return
+
+    print_message("Failed to move the ticket to Awaiting Input in Linear; move it manually.", style="error")
+    try:
+        await notify_message(context=context, body=AWAITING_INPUT_RECOVERY_BODY, kind="failure")
+    except LinearError as e:
+        print_message(f"Failed to comment on the ticket: {e}", style="error")
+    raise AwaitingInputError("Failed to move the ticket to Awaiting Input in Linear")
+
+
 async def move_to_awaiting_input(context: Context, reason: str | None = None) -> None:
     """Move the task to Awaiting Input and stop the workflow.
 
     Updates the Linear ticket status (Linear tasks only) and then raises
     AutoCancelledError (carrying ``reason`` for the session history) so the
     caller's cleanup rolls back the worktree and branch without moving the
-    status again. The session step is not published here: chat-mode cleanup
-    publishes the terminal step after the worktree is cleaned, so a rerun or
-    resume request cannot claim the session while this worker still owns the
-    worktree.
+    status again. A park that did not happen raises AwaitingInputError instead:
+    the ticket stays in its column for manual recovery, and the persisted build
+    plan is cleared first, so a later run replans rather than building from the
+    answers to questions that were never answered. The recovery comment on the
+    ticket is best effort and cannot change that outcome. The session step is
+    not published here: chat-mode cleanup publishes the terminal step after the
+    worktree is cleaned, so a rerun or resume request cannot claim the session
+    while this worker still owns the worktree.
 
     Args:
         context: The workflow context.
         reason: Optional explanation recorded with the awaiting-input step.
 
     Raises:
-        LinearError: When the awaiting_input state is not configured.
-        AutoCancelledError: Always, to halt the workflow.
+        AwaitingInputError: When the ticket could not be moved to Awaiting
+            Input, so the ticket is left for manual recovery.
+        AutoCancelledError: When the ticket was parked, to halt the workflow.
     """
     if not context.is_chat:
         try:
-            await notify_status(context=context, state="awaiting_input")
-        except EnvironmentConfigError as e:
-            raise LinearError("Linear state 'awaiting_input' is not configured") from e
+            await _park_linear_task(context=context)
+        except AwaitingInputError:
+            await clear_session_build_plan(task_id=context.task.id)
+            raise
     print_message("Task moved to Awaiting Input state.", style="result")
     raise AutoCancelledError(reason)
 

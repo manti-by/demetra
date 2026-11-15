@@ -8,6 +8,7 @@ import pytest
 
 from demetra.library.exceptions import (
     AutoCancelledError,
+    AwaitingInputError,
     EnvironmentConfigError,
     InfiniteLoopError,
     LinearConfigError,
@@ -25,6 +26,7 @@ from demetra.library.models import (
     TokenUsage,
 )
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
+from demetra.services.linear.states import LinearState
 from demetra.services.vcs.git import git_cleanup, git_worktree_create
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import (
@@ -592,6 +594,37 @@ class TestWorkflowResolve:
         assert "session_id" not in call_kwargs or call_kwargs.get("session_id") is None
 
 
+def _plan_questions_context(faker) -> Context:
+    """Build the Linear context the plan-questions tests drive."""
+    return Context(
+        project=Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=str(uuid4()),
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        ),
+        auto_mode=True,
+        task=LinearTask(
+            id=str(uuid4()),
+            identifier="MNT-123",
+            title=faker.sentence(),
+            description=faker.text(),
+            priority=1,
+            created_at=datetime.now().isoformat(),
+        ),
+        branch_name="feature/test",
+        worktree_path=Path(f"/tmp/{faker.slug()}"),
+        session=None,
+    )
+
+
 class TestWorkflowPlanLoop:
     @pytest.fixture
     def mock_plan_agent(self):
@@ -650,6 +683,11 @@ class TestWorkflowPlanLoop:
     def mock_max_plan_attempts_2(self):
         with patch("demetra.workflows.plan.MAX_ATTEMPTS", {"plan": 2}):
             yield
+
+    @pytest.fixture
+    def mock_clear_session_build_plan(self):
+        with patch("demetra.workflows.plan.clear_session_build_plan", new_callable=AsyncMock) as m:
+            yield m
 
     @pytest.fixture(autouse=True)
     def _auto_mock_update_session_step(self, mock_update_session_step):
@@ -928,6 +966,195 @@ class TestWorkflowPlanLoop:
 
         # The session step stays unpublished: chat-mode cleanup releases it after the worktree.
         mock_update_session_step.assert_awaited_once_with(task_id=context.task.id, step="plan")
+
+    @pytest.mark.asyncio
+    async def test_plan_questions_move_the_ticket_to_the_named_awaiting_input_column(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+    ):
+        """A mis-pointed LINEAR_STATE_AWAITING_INPUT_ID must not park the ticket
+        in another column: the questions path resolves the Awaiting Input column."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", return_value="state-failed"),
+            patch.object(SessionEnvironment, "linear_value", return_value="team-123"),
+            patch(
+                "demetra.services.linear.states.fetch_team_states",
+                new_callable=AsyncMock,
+                return_value=[
+                    LinearState(id="state-failed", name="Failed", type="started"),
+                    LinearState(id="state-awaiting", name="Awaiting Input", type="started"),
+                ],
+            ),
+            patch("demetra.workflows.notifications.print_message") as mock_print_message,
+        ):
+            with pytest.raises(AutoCancelledError):
+                await run_plan_step(context)
+
+        mock_update_ticket_status.assert_awaited_once_with(task_id=context.task.id, state_id="state-awaiting")
+        messages = [call.args[0] for call in mock_print_message.call_args_list]
+        assert any("'Failed'" in message and "'Awaiting Input'" in message for message in messages)
+
+    @pytest.mark.asyncio
+    async def test_plan_questions_refuse_a_mis_pointed_id_when_the_column_is_missing(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_clear_session_build_plan,
+    ):
+        """When the team has no Awaiting Input column, a configured id known to
+        point at another column must leave the ticket alone for manual recovery."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", return_value="state-failed"),
+            patch.object(SessionEnvironment, "linear_value", return_value="team-123"),
+            patch(
+                "demetra.services.linear.states.fetch_team_states",
+                new_callable=AsyncMock,
+                return_value=[LinearState(id="state-failed", name="Failed", type="started")],
+            ),
+            patch("demetra.workflows.notifications.print_message"),
+        ):
+            with pytest.raises(AwaitingInputError):
+                await run_plan_step(context)
+
+        mock_update_ticket_status.assert_not_awaited()
+        bodies = [call.kwargs["body"] for call in mock_post_comment.call_args_list]
+        assert any("Move it manually" in body for body in bodies)
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
+
+    @pytest.mark.asyncio
+    async def test_plan_questions_fail_the_run_when_the_move_is_rejected(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_clear_session_build_plan,
+    ):
+        """A rejected move must stop the run, leave the ticket for manual
+        recovery, and discard the plan so a later run replans."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_update_ticket_status.return_value = False
+
+        with pytest.raises(AwaitingInputError):
+            await run_plan_step(context)
+
+        bodies = [call.kwargs["body"] for call in mock_post_comment.call_args_list]
+        assert any("Move it manually" in body for body in bodies)
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
+
+    @pytest.mark.asyncio
+    async def test_plan_questions_fail_the_run_on_a_linear_transport_error(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_clear_session_build_plan,
+    ):
+        """A LinearError raised by the status update must reach the caller, so the
+        ticket is left for manual recovery and the plan is discarded."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_update_ticket_status.side_effect = LinearError("Linear API error: timeout")
+
+        with pytest.raises(AwaitingInputError):
+            await run_plan_step(context)
+
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
+
+    @pytest.mark.asyncio
+    async def test_plan_questions_fail_the_run_when_the_recovery_comment_fails(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_clear_session_build_plan,
+    ):
+        """A failed recovery comment must not mask the rejected move: the run
+        still stops for manual recovery."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+        mock_update_ticket_status.return_value = False
+        mock_post_comment.side_effect = [f"comment-{uuid4().hex[:8]}", LinearError("Linear API error: timeout")]
+
+        with pytest.raises(AwaitingInputError):
+            await run_plan_step(context)
+
+        assert mock_post_comment.await_count == 2
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
 
 
 class TestWorkflowBuild:

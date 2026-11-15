@@ -199,6 +199,30 @@ class TestMainReplanning:
         )
 
     @pytest.mark.asyncio
+    async def test_main_records_a_failed_park_as_awaiting_input(self, mock_main_deps):
+        """A park that could not move the ticket must leave the ticket in place
+        for manual recovery and record the terminal awaiting_input step, so the
+        watcher neither retries it nor reports an exhausted budget on it."""
+        from main import main
+
+        from demetra.library.exceptions import AwaitingInputError
+
+        context = _build_context(step="plan", build_plan="")
+        mock_main_deps["setup_workflow"].return_value = context
+        mock_main_deps["run_plan_step"].side_effect = AwaitingInputError("Failed to move the ticket to Awaiting Input")
+
+        exit_code = await main(project_name="demetra", auto_mode=True)
+
+        assert exit_code == 0
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+            failure_message="Failed to move the ticket to Awaiting Input",
+        )
+
+    @pytest.mark.asyncio
     async def test_main_delegates_pr_creation_failure_to_failure_step(self, mock_main_deps):
         from main import main
 

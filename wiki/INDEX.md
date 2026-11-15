@@ -241,8 +241,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Linear & GitHub integrations (8 pages)
+### Linear & GitHub integrations (9 pages)
 
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-12
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14

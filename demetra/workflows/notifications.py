@@ -1,6 +1,47 @@
+from demetra.library.exceptions import EnvironmentConfigError
 from demetra.library.models import ChatMessageKind, Context
 from demetra.services.chat import record_chat_message, record_chat_status
-from demetra.services.linear import post_comment, record_linear_comment, update_ticket_status
+from demetra.services.linear import (
+    post_comment,
+    record_linear_comment,
+    resolve_state_id,
+    update_ticket_status,
+)
+from demetra.services.runtime.tui import print_message
+
+
+async def resolve_state(context: Context, state: str) -> str | None:
+    """Resolve the Linear state id a workflow state name refers to.
+
+    The team column named after the state (``awaiting_input`` →
+    ``Awaiting Input``) wins over the configured ``LINEAR_STATE_<NAME>_ID``, so a
+    stale or mis-pointed id can never park a ticket in a different column. A
+    mismatch is reported instead of being applied silently, and the configured
+    id is kept whenever the team has no such column. An ``awaiting_input``
+    request whose configured id is known to point at another team column is
+    refused, so the caller can leave the ticket for manual recovery.
+
+    Args:
+        context: The workflow context.
+        state: The Linear state name, e.g. ``"awaiting_input"``.
+
+    Returns:
+        str | None: The resolved Linear state id, or None when the configured
+            column is known to be the wrong one.
+
+    Raises:
+        EnvironmentConfigError: When the state id is not configured at all.
+    """
+    configured_id = context.environment.linear_state(state)
+    try:
+        team_id = context.environment.linear_value("team_id")
+    except EnvironmentConfigError:
+        team_id = None
+
+    resolved_id, warning = await resolve_state_id(name=state, configured_id=configured_id, team_id=team_id)
+    if warning:
+        print_message(warning, style="warning")
+    return resolved_id
 
 
 async def notify_status(context: Context, state: str) -> bool:
@@ -12,7 +53,8 @@ async def notify_status(context: Context, state: str) -> bool:
 
     Returns:
         bool: True when the state was applied (chat mode always succeeds for
-            step-backed states).
+            step-backed states), False when the resolved Linear column must not
+            be used.
 
     Raises:
         EnvironmentConfigError: When a Linear state id is not configured.
@@ -21,7 +63,9 @@ async def notify_status(context: Context, state: str) -> bool:
         await record_chat_status(task_id=context.task.id, state=state)
         return True
 
-    state_id = context.environment.linear_state(state)
+    state_id = await resolve_state(context=context, state=state)
+    if state_id is None:
+        return False
     return await update_ticket_status(task_id=context.task.id, state_id=state_id)
 
 
