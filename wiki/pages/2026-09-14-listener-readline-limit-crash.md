@@ -2,7 +2,7 @@
 title: Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications
 date: 2026-09-14
 type: debug
-status: open
+status: resolved
 session_id: ses_f5e6bd69bffexNX7o87koO5QLl
 services: [listener, daemons, runtime, github]
 branch: "-"
@@ -86,6 +86,8 @@ Not applied this session (diagnosis only). Proposed fix, matching the existing p
 > **Consistency note (2026-10-26, Consistency Agent):** re-verified on HEAD `be55753` — `get_notifications` and `fetch_subject_body` still use `run_command` (`demetra/services/daemons/listener.py:36,121`) and `live_stream`/`log_stream` still call `stream.readline()` (`demetra/services/runtime/utils.py:96,117`). No fix has landed; status stays `open`.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
+
+> **Resolved (2026-11-15):** Fix applied. `get_notifications` and `fetch_subject_body` now use `run_command_to_file` (`demetra/services/daemons/listener.py`), keeping `run_command` only for `mark_notification_read` (tiny PATCH response). Reproduced the failure mode with a 100-element compact JSON payload: `run_command` raises `ValueError: Separator is found, but chunk is longer than limit` while `run_command_to_file` returns the full 102KB payload parsed. Live evidence at fix time: `gh api /notifications --jq .` emits **117,287 bytes on one line** (26 unread threads, backlog intact because crashes prevented mark-read), `gh auth status` healthy for `demetra-ai`. Tests updated in `tests/test_listener.py` (7 patch targets renamed); 53 pass, ruff/ty clean. Requires image rebuild + listener container recreate (`make deploy`) to take effect.
 
 ## References
 

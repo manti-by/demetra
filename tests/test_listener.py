@@ -19,14 +19,14 @@ from demetra.services.daemons.listener import (
 class TestGetNotifications:
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_api_error(self):
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "API error")
             result = await get_notifications()
             assert result == []
 
     @pytest.mark.asyncio
     async def test_returns_empty_list_on_empty_response(self):
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             result = await get_notifications()
             assert result == []
@@ -40,14 +40,14 @@ class TestGetNotifications:
                 "subject": {"type": "PullRequest", "url": "https://api.github.com/repos/owner/repo/pulls/42"},
             }
         ]
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, json.dumps(notifications), "")
             result = await get_notifications()
             assert result == notifications
 
     @pytest.mark.asyncio
     async def test_handles_invalid_json(self):
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "invalid json", "")
             result = await get_notifications()
             assert result == []
@@ -125,7 +125,7 @@ class TestFetchSubjectBody:
             "title": "PR Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "demetra-ai please rebase", "")
             result = await fetch_subject_body(subject)
             assert result == "demetra-ai please rebase"
@@ -142,7 +142,7 @@ class TestFetchSubjectBody:
             "title": "Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "Not found")
             result = await fetch_subject_body(subject)
             assert result == "Title"
@@ -153,7 +153,7 @@ class TestFetchSubjectBody:
             "title": "Title",
             "latest_comment_url": "https://api.github.com/repos/owner/repo/issues/comments/123",
         }
-        with patch("demetra.services.daemons.listener.run_command", new_callable=AsyncMock) as mock_run:
+        with patch("demetra.services.daemons.listener.run_command_to_file", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "", "")
             result = await fetch_subject_body(subject)
             assert result == "Title"

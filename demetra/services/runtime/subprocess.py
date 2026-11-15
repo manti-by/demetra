@@ -7,7 +7,7 @@ from typing import Any
 from demetra.library.constants import OS_ENV_ALLOWLIST
 from demetra.library.models import SessionEnvironment
 from demetra.services.runtime.utils import live_stream
-from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_TIMEOUT
+from demetra.settings import OS_ENV_PROJECT_OPTINS, SUBPROCESS_READ_LIMIT, SUBPROCESS_TIMEOUT
 
 
 def filter_os_env(project_id: str | None = None) -> dict[str, str]:
@@ -132,6 +132,7 @@ async def run_command(
         "env": merged_env,
         "stdout": asyncio.subprocess.PIPE,
         "stderr": asyncio.subprocess.PIPE,
+        "limit": SUBPROCESS_READ_LIMIT,
     }
     if input_text is not None:
         process_kwargs["stdin"] = asyncio.subprocess.PIPE
@@ -213,6 +214,7 @@ async def run_command_to_file(
                 env=merged_env,
                 stdout=stdout_file,
                 stderr=asyncio.subprocess.PIPE,
+                limit=SUBPROCESS_READ_LIMIT,
             )
             if not process.stderr:
                 process.kill()
