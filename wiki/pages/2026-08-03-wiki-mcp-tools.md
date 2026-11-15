@@ -8,7 +8,7 @@ services: [wiki, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [wiki, mcp, tools, knowledge-base, search]
-related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-10-09-bm25-search-for-mcp-tools.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
+related: [2026-08-03-agents-md-and-wiki-consistency.md, 2026-10-25-mcp-db-tools-env-sql.md, 2026-10-09-bm25-search-for-mcp-tools.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
 ---
 
 # Wiki MCP Tools — Search, Read, and List Pages
@@ -77,7 +77,7 @@ The tool this page describes was **removed**. `demetra/tools/wiki.py` and
 
 ## References
 
-- Related: [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-03-fix-mcp-server-2.0-api]]
+- Related: [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-10-25-mcp-db-tools-env-sql]]
 - External: AGENTS.md Wiki section (`wiki_search`/`wiki_list_pages`/`wiki_get_page`)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The tool aggregate quoted in this page is no longer accurate in either variant: `demetra/tools/registry.py:15-19` registers **database + docstrings + logs** — there is no `proj` and no `wiki` module (`demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor, see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]). The wiki is served by the external **WI** MCP server instead of an in-repo tool. The scoring described above was replaced by BM25F in [[2026-10-09-bm25-search-for-mcp-tools]].

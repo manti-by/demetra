@@ -4,11 +4,11 @@ date: 2026-08-18
 type: investigation
 status: resolved
 session_id: '-'
-services: [settings, subprocess, workflows, persistence]
+services: [settings, subprocess, workflows, persistence, opencode]
 branch: feature/mnt-169-removeupdate-settings
-tickets: [MNT-169, MNT-170]
-tags: [environment, settings, project-env, user-env, layers, subprocess]
-related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
+tickets: [MNT-169, MNT-170, MNT-97, MNT-18, MNT-112]
+tags: [environment, settings, project-env, user-env, layers, subprocess, timeout, project-creation, streaming, live-output]
+related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-06-10-fix-project-creation-timeouts.md, 2026-02-15-subagent-output-streaming.md]
 ---
 # Categorize settings env vars by layer
 
@@ -114,6 +114,10 @@ App/DB/auth/logging only, stay in `settings.py`:
 > it is in fact read on every accepted TODO task by `daemons/watcher.py:216` (MNT-191,
 > `process_tasks` moves the ticket to In Progress). Row corrected, and its settings line updated
 > to the current `settings.py:157`.
+
+## Source — [[2026-06-10-fix-project-creation-timeouts]]
+
+The default subprocess timeout is `SUBPROCESS_TIMEOUT` (seconds): renamed from `SHELL_TIMEOUT_MS` (120 s, milliseconds) on 2026-06-10 (MNT-97) after the short value killed long project-creation operations (`git clone`, dependency build), with a then-default of 1800 s — since raised to `4 * 60 * 60` (4 h, `demetra/settings.py:59`). `run_command` (`demetra/services/runtime/subprocess.py`) uses it as its default timeout and OpenCode agent callers inherit it instead of passing an explicit short timeout — there is no separate agent-tool-layer timeout. Child `stdout`/`stderr` stream line-by-line through `live_stream` (MNT-18, [[2026-02-15-subagent-output-streaming]]). Originally decided in [[2026-06-10-fix-project-creation-timeouts]] on 2026-06-10.
 
 ## Follow-ups
 

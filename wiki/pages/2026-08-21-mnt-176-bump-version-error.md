@@ -4,9 +4,9 @@ date: 2026-08-21
 type: implementation
 status: resolved
 session_id: "-"
-services: [workflows]
+services: [workflows, settings]
 branch: mnt-176-bump-version-error
-tickets: [MNT-176]
+tickets: [MNT-176, MNT-116]
 tags: [version, bump, pyproject, bug-fix]
 related: [2026-09-08-docstring-mcp-search.md, 2026-06-25-update-project-version.md]
 ---
@@ -48,6 +48,10 @@ Deleted `EPIC_LABEL` and `is_epic_label(labels)`. Docstring updated: minor bumpe
 ## Test Results
 
 `pytest tests/test_project.py tests/test_workflows.py tests/test_more_edge_cases.py` pass; `ruff check .` and `ty check` clean.
+
+## Source — [[2026-06-25-update-project-version]]
+
+Auto-bump of `pyproject.toml` on every feature/bugfix run originated 2026-06-25 (MNT-116); major bumps are manual-only (this page removed the Epic major-bump branch). Current contract: `bump_project_version` runs inside the build loop (`demetra/workflows/build.py:234`) with no rollback (`8f42bd6` removed the revert block) and defaults to `is_patch=True` ([[2026-09-08-docstring-mcp-search]]; Q-001 resolved 2026-09-11). Originally decided in [[2026-06-25-update-project-version]] on 2026-06-25.
 
 ## Follow-ups
 

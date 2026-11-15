@@ -13,6 +13,9 @@ related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-li
 
 # GitHub PR description
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-migrate-llm-groq-to-openrouter]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 PRs now get a generated description instead of an empty body: a Groq-backed service summarises the completed work and the text is passed as the GitHub PR body. Tests added.

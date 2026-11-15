@@ -8,7 +8,7 @@ services: [opencode, workflows, main, subprocess]
 branch: '-'
 tickets: [MNT-79, MNT-105]
 tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex, questions, auto, cwd, worktree, context, bug]
-related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md, 2026-06-03-context-bloating.md, 2026-07-16-fix-empty-build-plan-loop.md]
+related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md, 2026-06-03-context-bloating.md, 2026-08-24-guard-empty-plan-output.md]
 ---
 # Plan loop resolve agent received truncated context
 
@@ -67,7 +67,7 @@ Agents run with worktree as `cwd`/`target_path` — fixed 2026-06-03.
 
 ## References
 
-- Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-07-16-session-history-tokens-null]], [[2026-08-05-post-build-validation]], [[2026-06-03-context-bloating]], [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-07-16-session-history-tokens-null]], [[2026-08-05-post-build-validation]], [[2026-06-03-context-bloating]], [[2026-08-24-guard-empty-plan-output]]
 - External: `opencode run --help` (`--file` + positional `message`)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “`MAX_PLAN_ATTEMPTS` 30” reference is stale — the shipped default is **10** (`demetra/settings.py:49`), reset from 30 by the 2026-09-28 settings refactor (`10ea543`). Tracked as **Q-002** in `wiki/QUESTIONS.md`. The rest of the page (the silent `[:4095]` slice, the `ARG_MAX` / `MAX_ARG_STRLEN` limits, the later switch to stdin piping) still holds.

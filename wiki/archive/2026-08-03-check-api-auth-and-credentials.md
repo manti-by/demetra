@@ -13,6 +13,9 @@ related: [2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md, 
 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Tightened API auth on three axes: (1) replaced ~10 hand-rolled cookie/`get_current_user` checks with `Depends(get_current_user_dep)`; (2) scoped session lookups by `user_id` so users can't read/stream/delete others' sessions; (3) fixed WebSocket close codes (4001/4003/4000/4004) to reach clients via accept-then-close, and added React Origin guard for credentialed mutations.

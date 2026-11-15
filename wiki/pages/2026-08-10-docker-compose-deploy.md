@@ -6,8 +6,8 @@ status: resolved
 session_id: "-"
 services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
-tickets: [MNT-164, MNT-40]
-tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon]
+tickets: [MNT-164, MNT-40, MNT-119]
+tags: [docker, compose, deploy, makefile, watcher, process-manager, daemon, systemd, nginx]
 related: [2026-03-02-process-manager.md, 2026-08-18-compose-anchors-refactor.md, 2026-07-07-project-deploy-script.md, 2026-08-17-docker-setup-review.md]
 ---
 
@@ -70,6 +70,10 @@ Runtime deviations from plan:
 ## Source — [[2026-03-02-process-manager]]
 
 MNT-40 (2026-03-02): `watcher` polls Linear TODO every 5 min, spawns `main.py` up to `num_cpu−1`, tracks `sessions` `pending→processed/failed`. Compose `watcher`/`worker` are containerized continuation; original shipped systemd units in `configs/`.
+
+## Source — [[2026-07-07-project-deploy-script]]
+
+The retired systemd path this compose stack replaced: `Makefile` `deploy` (`git pull --ff-only` → `uv sync` → `alembic upgrade head` → bun build → `systemctl restart demetra-*` → nginx reload) plus `configs/bootstrap.sh` first-time setup with systemd units and `.env`-fed auth (MNT-119, 2026-07-07). Removed in `f5904d5` (2026-09-11); `configs/` now holds only `docker-entrypoint.sh`, `nginx.conf` and `proxy.params`, and `make deploy` runs this Docker Compose stack. Originally decided in [[2026-07-07-project-deploy-script]] on 2026-07-07.
 
 ## Follow-ups
 

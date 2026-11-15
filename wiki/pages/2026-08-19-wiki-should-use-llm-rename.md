@@ -8,7 +8,7 @@ services: [wiki]
 branch: master
 tickets: []
 tags: [wiki, naming, refactor, llm]
-related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-10-08-llm-authored-wiki-pages.md]
+related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-10-08-llm-authored-wiki-pages.md, 2026-08-07-mnt-147-wiki-processes-pr70-review.md]
 ---
 
 # Rename wiki budget_exceeded to should_use_llm
@@ -49,3 +49,4 @@ Wiki pages are deterministic scaffold (`render_wiki_page`); LLM generates only T
 ## References
 
 - Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-08-llm-authored-wiki-pages]]
+- See also: [[2026-08-07-mnt-147-wiki-processes-pr70-review]] — earlier wiki-service session (PR #70 CI regression in `env_get_list`).

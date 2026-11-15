@@ -8,7 +8,7 @@ services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
 tickets: [MNT-193, MNT-92, MNT-113]
 tags: [frontend, react, mobile, responsive, css, media-queries, accessibility, inert, truncate, layout, markdown, marked, modal]
-related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-06-09-markdown-renderer.md, 2026-11-04-chat-session-list-and-rerun.md]
+related: [2026-07-22-react-frontend-template-warp.md, 2026-08-25-loader-styleguide.md, 2026-06-02-truncate-session-name.md, 2026-11-06-ch-6-markdown-renderer.md, 2026-11-04-chat-session-list-and-rerun.md]
 ---
 
 # MNT-193 — Mobile template for the React frontend
@@ -103,5 +103,5 @@ MNT-92 (2026-06-02): long task titles in the session list stretched the sidebar 
 ## References
 
 - Related: [[2026-07-22-react-frontend-template-warp]], [[2026-08-25-loader-styleguide]]
-- Source: Session truncation CSS [[2026-06-02-truncate-session-name]]; markdown via `marked ^15.0.12` [[2026-06-09-markdown-renderer]]
+- Source: Session truncation CSS [[2026-06-02-truncate-session-name]]; markdown via `marked ^15.0.12` [[2026-11-06-ch-6-markdown-renderer]]
 - External: [MNT-193](https://linear.app/mnt/issue/MNT-193/add-mobile-template-for-fe-app), [MNT-174](https://linear.app/mnt/issue/MNT-174/mobile-template), [PR #117](https://github.com/manti-by/demetra/pull/117)

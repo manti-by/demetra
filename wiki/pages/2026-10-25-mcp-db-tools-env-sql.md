@@ -6,8 +6,8 @@ status: resolved
 session_id: ses_e8b4cf16affeyLVQTq6NG6fUqQ
 services: [mcp, tools, database, deploy, tests]
 branch: "-"
-tickets: []
-tags: [mcp, database, asyncpg, environment, docker, uv-env-file, sql-injection, bandit, tooling]
+tickets: [MNT-90]
+tags: [mcp, database, asyncpg, environment, docker, uv-env-file, sql-injection, bandit, tooling, upgrade, streamable-http]
 related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-06-01-add-mcp-server.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
 ---
 
@@ -83,6 +83,10 @@ Three independent defects stacked behind one opaque error string:
 - Making `.env.docker` load-bearing means a fresh clone without it loses *all* Demetra MCP tools at spawn time, not just the database ones.
 
 ---
+
+## Source — [[2026-08-03-fix-mcp-server-2.0-api]]
+
+The MCP server targets the mcp 2.0 low-level API (MNT-90, 2026-08-03): constructor callbacks instead of decorators — `Server(APP_NAME, version=VERSION, on_list_tools=..., on_call_tool=...)` returning `ListToolsResult`/`CallToolResult` — because 2.0 removed `@server.list_tools()`/`@server.call_tool()`. Per-system dispatchers return the shared `ToolResult` (`content` + `is_error`) and validation/unknown/backend errors forward as `is_error=True`. Originally decided in [[2026-08-03-fix-mcp-server-2.0-api]] on 2026-08-03.
 
 ## Follow-ups
 

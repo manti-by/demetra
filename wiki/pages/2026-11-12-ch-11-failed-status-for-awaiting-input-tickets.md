@@ -1,17 +1,19 @@
 ---
 title: 'CH-11: Failed status for Awaiting Input tickets'
-date: '2026-11-13'
+date: '2026-11-12'
 type: implementation
 status: resolved
 session_id: ses_e2c7d823cffeeyVpystxIHvf9u
 services: [library, queries, daemons/watcher, linear/__init__, linear/states, workflows, main, pyproject, conftest, test_entrypoints, test_failure, test_linear, test_more_coverage, test_workflows, uv, .sessions, INDEX, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]
 branch: ch-11-failed-status-for-awaiting-input-tickets
 tickets: [CH-11]
-tags: [wiki, bug, backend]
-related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md, 2026-08-05-pr-creation-failure-handler.md]
+tags: [wiki, bug, backend, awaiting-input, plan, triggers, auto-mode, questions]
+related: [2026-07-21-awaiting-input-status-for-session.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md, 2026-08-05-pr-creation-failure-handler.md, 2026-02-23-plan-agent-output-triggers.md]
 ---
 
 # CH-11: Failed status for Awaiting Input tickets
+
+> **Consistency note (2026-11-15, Consistency Agent):** frontmatter `date` aligned to the filename (`2026-11-12`); the session finished on 2026-11-13.
 
 ## TL;DR
 
@@ -97,6 +99,10 @@ The implementation includes comprehensive test coverage:
 - Notification workflow tests
 - Error handling scenarios
 - Integration tests for the complete flow
+
+## Source — [[2026-07-21-awaiting-input-status-for-session]]
+
+`step="awaiting_input"` is a first-class session state (MNT-140, 2026-07-21) — sessions with plan-agent questions are not `Failed`. The trigger chain comes from [[2026-02-23-plan-agent-output-triggers]] (MNT-30): `PLAN_IS_READY_STRING` auto-builds; `PLAN_HAS_QUESTIONS` posts questions as a Linear comment and moves the ticket to awaiting-input without posting the build plan. Cleanup/history preserve awaiting-input instead of overwriting it; this page extends the same contract to the ticket side. Originally decided in [[2026-07-21-awaiting-input-status-for-session]] on 2026-07-21.
 
 ## Follow-ups
 

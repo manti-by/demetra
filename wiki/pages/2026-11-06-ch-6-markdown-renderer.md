@@ -7,7 +7,7 @@ session_id: ses_e4f46534effeBppQxjkS76DkdH
 services: [react]
 branch: ch-6-markdown-renderer
 tickets: [CH-6]
-tags: [wiki, frontend, feature]
+tags: [wiki, frontend, feature, react, markdown, marked, modal]
 related: [2026-06-09-markdown-renderer.md, 2026-11-03-ch-2-single-unified-session-view.md]
 ---
 
@@ -89,6 +89,10 @@ CSS styles were added to ensure proper rendering of markdown content in chat blo
 
 ## Test Results
 All frontend tests were updated to account for the new markdown rendering behavior. The changes passed all existing tests, and new tests were added to verify the correct rendering of markdown content in chat blocks.
+
+## Source — [[2026-06-09-markdown-renderer]]
+
+Markdown rendering in the React app originated 2026-06-09 (MNT-113): the `marked` library (^15.0.12, `react/package.json`) renders the build-plan modal's raw markdown to HTML behind a toggle button. This page's renderer reuses that same library for chat blocks. Originally decided in [[2026-06-09-markdown-renderer]] on 2026-06-09.
 
 ## Follow-ups
 - None

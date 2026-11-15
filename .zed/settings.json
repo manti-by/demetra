@@ -35,13 +35,13 @@
       "language_servers": ["!basedpyright", "!pylsp", "!pyright", "...", "ty"],
     },
     "TypeScript": {
-      "format_on_save": "on",
+      "format_on_save": "off",
     },
     "TSX": {
-      "format_on_save": "on",
+      "format_on_save": "off",
     },
     "Plain Text": {
-      "format_on_save": "on",
+      "format_on_save": "off",
       "remove_trailing_whitespace_on_save": true,
     },
     "YAML": {

@@ -13,6 +13,9 @@ related: [2026-07-16-simplify-session-logging-setup.md]
 
 # Duplicated log messages and missing build agent logs
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Two build-workflow logging bugs fixed: (1) `print_message()` lines duplicated in session logs because `setup_session_logging()` compared `Path` to `str` (always `False`), adding a second `FileHandler` to `tui_logger` with `propagate=True`. Fixed by comparing `Path.resolve()` on both sides. (2) Build agent `stdout` was captured but discarded on success — never reached the logging framework. Fixed by adding a `print_message` call on success matching the plan agent pattern.

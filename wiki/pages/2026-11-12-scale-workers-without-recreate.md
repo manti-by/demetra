@@ -149,6 +149,11 @@ Further checks:
 
 ## Make targets disagree with the live count
 
+> **Resolved (2026-11-14, commit `1a53faf` "Upscale workers, templates, minor fixes"):** the
+> `deploy` target was updated to `--scale worker=4` (and now includes `deployer`), so both
+> Make targets and the compose file's `deploy.replicas: 4` agree; the canonical worker count
+> is **4**. The historical `worker=2` quotes below describe the pre-`1a53faf` state.
+
 **File:** `Makefile:26-32` (`deploy`)
 
 ```make
@@ -195,7 +200,7 @@ wrapped in a Make target.
 
 ## Follow-ups
 
-- Decide the canonical worker count (2 or 4) and align `Makefile:31` and `Makefile:101` with it.
+- ~~Decide the canonical worker count (2 or 4) and align `Makefile:31` and `Makefile:101` with it.~~ **Done 2026-11-14** (`1a53faf`) — canonical count is 4; both targets aligned.
 - Consider adding a `make docker-scale-workers` target wrapping the verified command.
 
 ## References

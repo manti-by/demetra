@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-225-add-copy-button
 tickets: [MNT-225]
 tags: [wiki, feature, frontend]
-related: [2026-06-09-build-artifacts.md, 2026-06-09-markdown-renderer.md]
+related: [2026-06-09-build-artifacts.md, 2026-11-06-ch-6-markdown-renderer.md]
 ---
 # MNT-225: Add copy button
 
@@ -51,7 +51,7 @@ The plan is to add a "Copy" button to the existing build-plan modal footer in `S
 
 ## References
 
-- Related: [[2026-06-09-build-artifacts]], [[2026-06-09-markdown-renderer]]
+- Related: [[2026-06-09-build-artifacts]], [[2026-11-06-ch-6-markdown-renderer]]
 - External: https://linear.app/mnt/issue/MNT-225/add-copy-button
 
 > **Consistency fix (2026-09-28, Consistency Agent):** mirrored `related:` into the body; trimmed the ~150-entry `services:` filename dump to subsystem tags.

@@ -4,10 +4,10 @@ date: 2026-08-18
 type: implementation
 status: resolved
 session_id: '-'
-services: [llm, openrouter, groq, workflows, wiki, settings, review, prompts, opencode]
+services: [llm, openrouter, groq, workflows, wiki, settings, review, prompts, opencode, github]
 branch: openrouter
-tickets: [MNT-168, MNT-87, MNT-35, MNT-98, MNT-41, MNT-61]
-tags: [openrouter, groq, llm, migration, summarization, langchain, review, async, parallelism, multiagent, cursor, coderabbit, llama, parsing, testing, plan, build-plan]
+tickets: [MNT-168, MNT-87, MNT-35, MNT-98, MNT-41, MNT-61, MNT-115]
+tags: [openrouter, groq, llm, migration, summarization, langchain, review, async, parallelism, multiagent, cursor, coderabbit, llama, parsing, testing, plan, build-plan, pr, description]
 related: [2026-06-04-review-summarization.md, 2026-06-22-github-pr-description.md, 2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-05-25-async-review.md, 2026-02-26-create-llm-test-script.md]
 ---
 # Migrate LLM summarization from Groq to OpenRouter
@@ -74,6 +74,10 @@ MNT-87/35 (2026-05-25): `run_review_agents` launches opencode/cursor/coderabbit 
 ## Source — [[2026-06-04-review-summarization]]
 
 Groq llama review dedup → numbered list; now via OpenRouter.
+
+## Source — [[2026-06-22-github-pr-description]]
+
+PR bodies were originally empty placeholders; LLM-generated descriptions shipped on 2026-06-22 (MNT-115). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py` and on LLM failure raises `PrDescriptionError` → Awaiting Input (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]). Originally decided in [[2026-06-22-github-pr-description]] on 2026-06-22.
 
 ## Follow-ups
 

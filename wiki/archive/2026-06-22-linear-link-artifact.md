@@ -13,6 +13,9 @@ related: [2026-06-09-build-artifacts.md, 2026-09-14-research-plan-artifact.md]
 
 # Linear link artifact
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-09-14-research-plan-artifact]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Session artifacts now include a "View Linear Issue" link. A `linear_link` field was added to `sessions` (migration), set on first save when the Linear task is retrieved, returned by the API, and rendered in the React artifacts section.

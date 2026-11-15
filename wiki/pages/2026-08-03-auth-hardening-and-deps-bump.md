@@ -4,11 +4,11 @@ date: 2026-08-03
 type: implementation
 status: resolved
 session_id: "-"
-services: [auth, main, settings]
+services: [auth, main, settings, api, react, database, watcher]
 branch: master
-tickets: [MNT-148]
-tags: [auth, security, bcrypt, cors, cookies, dependencies]
-related: [2026-08-03-check-api-auth-and-credentials.md, 2026-07-24-plain-auth-review-followups.md]
+tickets: [MNT-148, MNT-50, MNT-48, MNT-156, MNT-81, MNT-86]
+tags: [auth, security, bcrypt, cors, cookies, dependencies, jwt, passwords, csrf, origin-validation, websockets, ownership]
+related: [2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-07-24-plain-auth-review-followups.md, 2026-08-03-check-api-auth-and-credentials.md]
 ---
 
 # Password Hashing, Cookie & CORS Hardening, and Dependency Bump
@@ -17,7 +17,7 @@ related: [2026-08-03-check-api-auth-and-credentials.md, 2026-07-24-plain-auth-re
 
 Replaced `passlib` `CryptContext` wrapper with direct `bcrypt` (dropped `passlib[bcrypt]`), made auth-cookie `SameSite` and CORS origins env-driven instead of hardcoded/wildcard, and bumped to `1.15.5` with broad dependency refresh. All gated at 545 tests. Committed as `5bcce84` via PR #67.
 
-> **Status (2026-08-23):** Merged long ago; subsequent hardening in [[2026-08-03-check-api-auth-and-credentials]]. "Not yet committed" framing below is historical.
+> **Status (2026-08-23):** Merged long ago; subsequent hardening in [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]. "Not yet committed" framing below is historical.
 
 ## Step 1 — Replace passlib with direct bcrypt
 
@@ -68,6 +68,14 @@ Was `allow_origins=["*"]` + `allow_credentials=True` — unsafe. Restricted via 
 
 `ruff`, `ty`, `bandit`, `pre-commit`, 545 tests pass.
 
+## Source — [[2026-07-24-plain-auth-review-followups]]
+
+Password auth (MNT-148, 2026-07-24): bcrypt via `demetra/services/auth/passwords.py` (`hash_password`/`verify_password`, rejects empty/<8 chars/>72-byte), `signup_with_password`/`login_with_password`/`reset_password` in the `auth/` subpackage, JWT cookie endpoints `POST /auth/signup|login|logout`, the `--resetpass` CLI, and the `users` migration (nullable `password_hash`/`github_id`, unique email, CHECK `password_hash IS NOT NULL OR github_id IS NOT NULL`, GitHub emails backfilled as `gh-<id>@github.local`). Review hardening: token cookie-only (removed from JSON body), email normalization `strip().lower()` + `IntegrityError` race guard, named-argument helper calls, a11y labels. Originally decided in [[2026-07-24-plain-auth-review-followups]].
+
+## Source — [[2026-08-03-check-api-auth-and-credentials]]
+
+API auth tightening (MNT-156, 2026-08-03): shared `Depends(get_current_user_dep)` replaced ~10 hand-rolled cookie checks (consistent 401 contract across routers); session lookups are user-scoped (`get_session_id_by_task_id(task_id, user_id)`; the watcher verifies ownership before streaming); WebSocket rejections deliver close codes via accept-then-close (`reject_connection`: 4001 no token, 4003 forbidden, 4000 invalid task_id/log path, 4004 session not found); React `authenticatedFetch` adds `credentials:'include'` on every request and runs `assertTrustedOrigin` before credentialed mutations. Originally decided in [[2026-08-03-check-api-auth-and-credentials]].
+
 ## Follow-ups
 
 - Verify login with `COOKIE_SAMESITE`/`COOKIE_SECURE`/`CORS_ALLOWED_ORIGINS` in deployment.
@@ -78,6 +86,6 @@ Was `allow_origins=["*"]` + `allow_credentials=True` — unsafe. Restricted via 
 
 ## References
 
-- Related: [[2026-07-24-plain-auth-review-followups]], [[2026-08-03-check-api-auth-and-credentials]]
+- Related: [[2026-07-24-plain-auth-review-followups]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
 
 > **Consistency note (2026-11-11, Consistency Agent):** The `CORS_ALLOWED_ORIGINS` default quoted above is now the explicit-scheme list `["http://localhost:5173", "http://localhost:8000"]` (`demetra/settings.py:248`), and `bcrypt` is pinned at `5.0.0`. The `get_cookie_samesite(is_cockie_secure=COOKIE_SECURE)` typo in `demetra/settings.py:253` is still present in the source.

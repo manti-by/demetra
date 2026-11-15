@@ -13,6 +13,9 @@ related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-hi
 
 # Add context compaction
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-10-16-mnt-251-session-attribution-accounting]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Added automatic context-length tracking and compaction for OpenCode sessions. `session_history` records length after each step; when it exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000) the session is compacted via `/compact`. Later disabled in MNT-145 due to cumulative `length` (see [[2026-07-23-session-tokens-audit-revalidation]]), then re-enabled.

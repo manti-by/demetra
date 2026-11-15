@@ -13,6 +13,9 @@ related: []
 
 # Remove patches from tests where possible
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Replaced `patch` DB mocks with fixtures/factories and local service calls with real invocations (third-party calls may stay mocked). Added Docker amd64/ARM64 targets, filtered trivial "no issue" review responses, updated `.dockerignore`, added import-at-top guidance to AGENTS.md. Bumped to 1.13.0.

@@ -4,7 +4,7 @@ date: 2026-10-16
 type: implementation
 status: resolved
 session_id: ses_ebb87d8cfffePjoAvLThMh0EBJ
-services: [agents, persistence, workflows, api, library, vcs, react, database, alembic, settings, sqlalchemy]
+services: [agents, persistence, workflows, api, library, vcs, react, database, alembic, settings, sqlalchemy, opencode]
 branch: opencode/feature/mnt-251-agent-session-attribution
 tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234, MNT-228, MNT-181, MNT-122, MNT-151, MNT-99, MNT-51, MNT-62]
 tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history, migrations, agent-attribution, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
@@ -151,6 +151,10 @@ MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consol
 > rows (`demetra/api/sessions.py:116`), not invocation rows alone — added by
 > [[2026-10-27-mnt-260-openrouter-call-history]]. The `row.length` fallback is
 > still gone.
+
+## Source — [[2026-07-07-add-context-compaction]]
+
+Context compaction originated 2026-07-07 (MNT-122): `session_history` records context length after each step and `CONTEXT_COMPACTION_THRESHOLD` (default 100_000 tokens) triggers compaction via `check_and_compact_context`. It silently no-op'd for three months (`/compact` was passed as the message positional) — this page's `run --command compact` fix on 1.x and the deliberate v2 removal are the correction, and the re-export-and-warn guard exists so a failed compaction can never pass unnoticed again. Originally decided in [[2026-07-07-add-context-compaction]] on 2026-07-07.
 
 ## Follow-ups
 

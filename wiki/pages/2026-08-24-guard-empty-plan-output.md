@@ -4,10 +4,10 @@ date: 2026-08-24
 type: implementation
 status: resolved
 session_id: ses_fcc17abbaffe7m4bui291JEEZ3
-services: [workflows, opencode, llm]
+services: [workflows, opencode, llm, linear, database, main]
 branch: "-"
-tickets: []
-tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan]
+tickets: [MNT-29, MNT-39]
+tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan, workflow, linear, session-management, database]
 related: [2026-09-14-opencode-agent-prompts-hardening.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md]
 ---
 
@@ -42,6 +42,10 @@ except PlanError as e:
 - 2 new tests `test_run_plan_step_empty_agent_output_moves_to_awaiting_input` / `test_run_plan_step_output_missing_plan_header_moves_to_awaiting_input` — assert `AutoCancelledError`, one `post_comment`, `awaiting-input-state-id`, `extract_plan` never called
 - Updated 2 existing plan tests to include header in mock output
 - `uv run pytest tests/test_workflows.py -q` — **42 passed**; `ruff check` / `ty check` clean
+
+## Source — [[2026-07-16-fix-empty-build-plan-loop]]
+
+Two durable decisions from the empty-plan infinite-loop fix (2026-07-16): the replan gate keys on the plan, not the step — `if not context.session or not context.session.build_plan` (a `step='failed'` session with an empty plan must replan, not stall forever) — and Linear API responses are validated as dicts (`demetra/services/linear/graphql.py`), raising `LinearError` on `null`/list payloads instead of crashing callers downstream. Originally decided in [[2026-07-16-fix-empty-build-plan-loop]] on 2026-07-16.
 
 ## Follow-ups
 

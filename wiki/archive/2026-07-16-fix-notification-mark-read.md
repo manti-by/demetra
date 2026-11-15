@@ -13,6 +13,9 @@ related: []
 
 # Fix notification mark-as-read and add infinite-loop protection
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-09-14-listener-readline-limit-crash]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Two listener bugs fixed: (1) `process_merge/rebase_notification` returned `bool` success but `demetra/listener.py` discarded it and always called `mark_notification_read` — failed enqueues were lost. Now guarded by the return value. (2) No retry limit, so persistently failing notifications polled forever. Added `listener_attempts` (default 5, originally 3) mirroring `run_attempts` to break the loop after N failures.

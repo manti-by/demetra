@@ -8,7 +8,7 @@ services: [main, workflows, linear, github]
 branch: '-'
 tickets: [MNT-23, MNT-31]
 tags: [pr, pull-request, error-handling, awaiting-input, linear, status, workflow, github, gh]
-related: [2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
+related: [2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-08-24-guard-empty-plan-output.md, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
 # PR creation failure moves ticket to Awaiting Input
 
@@ -75,4 +75,4 @@ Handler extracted to `demetra/workflows/failure.py:process_pr_failure()`. Commen
 
 ## References
 
-- Related: [[2026-02-16-update-ticket-status]], [[2026-02-21-create-github-pr]], [[2026-07-16-fix-empty-build-plan-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
+- Related: [[2026-02-16-update-ticket-status]], [[2026-02-21-create-github-pr]], [[2026-08-24-guard-empty-plan-output]], [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]

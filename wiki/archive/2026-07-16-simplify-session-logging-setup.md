@@ -13,6 +13,9 @@ related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-revi
 
 # Simplify setup_session_logging
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Behavior-preserving refactor of `setup_session_logging()` (`demetra/services/utils.py`) after the dedup fix in [[2026-07-15-duplicated-log-messages]]: dropped unused `logger` param (3 call sites), collapsed two handler loops into one `next(...)` lookup, removed dead formatter fallbacks, and anchored the dedup early-return with a comment. 36→27 lines; 472 tests, `ruff`/`ty` clean.

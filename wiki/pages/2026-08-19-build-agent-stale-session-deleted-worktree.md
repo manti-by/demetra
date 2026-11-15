@@ -8,7 +8,7 @@ services: [main, workflows, agents, opencode]
 branch: master
 tickets: [MNT-151]
 tags: [build, opencode, error-handling, session-resume, worktree, server-error]
-related: [2026-08-19-build-agent-server-error-handler.md, 2026-07-15-duplicated-log-messages.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
+related: [2026-08-19-build-agent-server-error-handler.md, 2026-08-18-test-db-isolation-logging.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
 ---
 
 # Build agent UnknownError — stale opencode session bound to deleted worktree
@@ -63,7 +63,7 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 
 ## References
 
-- Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-07-15-duplicated-log-messages]]
+- Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-08-18-test-db-isolation-logging]]
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
 
 > **Status update (2026-09-16, MNT-205):** The model resolution path described

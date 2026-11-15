@@ -8,7 +8,7 @@ services: [workflows, persistence, library, api, react, wiki]
 branch: mnt-200-update-research-loop
 tickets: [MNT-200]
 tags: [research, research-loop, persistence, sessions]
-related: [2026-09-01-mnt-177-research-loop.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-07-16-fix-step-status-review-findings.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-09-14-research-plan-artifact.md, 2026-10-05-mnt-232-update-research-flow.md]
+related: [2026-09-01-mnt-177-research-loop.md, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md, 2026-10-12-session-state-flow-feedback-loops.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-09-14-research-plan-artifact.md, 2026-10-05-mnt-232-update-research-flow.md]
 ---
 # MNT-200: Update research loop
 
@@ -61,5 +61,5 @@ Persist extracted report to `sessions.research_report`, rename post-research ste
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-07-16-fix-step-status-review-findings]], [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-10-05-mnt-232-update-research-flow]]
+- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]], [[2026-10-12-session-state-flow-feedback-loops]], [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-10-05-mnt-232-update-research-flow]]
 - External: https://linear.app/mnt/issue/MNT-200/update-research-loop

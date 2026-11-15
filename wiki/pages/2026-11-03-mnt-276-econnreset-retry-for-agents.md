@@ -8,7 +8,7 @@ services: [agents, workflows, runtime, templates, settings, library, main]
 branch: mnt-276-econnreset-retry-for-agents
 tickets: [MNT-276]
 tags: [wiki, feature, backend]
-related: [2026-07-21-rich-markuperror-and-run-attempts.md, 2026-08-19-build-agent-server-error-handler.md]
+related: [2026-07-21-rich-markuperror-and-run-attempts.md, 2026-08-19-build-agent-server-error-handler.md, 2026-11-06-agent-econnreset-network-investigation.md, 2026-11-06-mnt-298-research-econnreset-root-cause.md]
 ---
 
 # MNT-276: ECONNRESET retry for agents
@@ -136,6 +136,7 @@ modules after the merge; `ruff`, `ty` and `bandit` clean.
   crash consumed the run budget and the workflow died with empty stderr
 - Related: [[2026-08-19-build-agent-server-error-handler]] — the generic `UnknownError` →
   `Awaiting Input` handler this specialised path complements
+- See also: [[2026-11-06-agent-econnreset-network-investigation]] and [[2026-11-06-mnt-298-research-econnreset-root-cause]] — the follow-up investigation and root-cause session for these transient network failures.
 - External: https://linear.app/mnt/issue/MNT-276/econnreset-retry-for-agents
 
 > **Consistency note (2026-11-11, Consistency Agent):** The shipped defaults quoted above (`MAX_AGENT_NETWORK_ATTEMPTS = 5`, `AGENT_NETWORK_BACKOFF_BASE = 1.0`) are correct for the repository (`demetra/settings.py:61-62`), but **production ran with an environment override of 10 / 2** during the November 2026 incident window — see `.env.docker:17-18` (gitignored) and `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. That is why the incident logs quote `attempt N/10` instead of `N/5`; **Q-003** in `wiki/QUESTIONS.md` is resolved by that evidence.

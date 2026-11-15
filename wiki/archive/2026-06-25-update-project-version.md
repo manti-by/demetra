@@ -13,6 +13,9 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-08-21-mnt-176-bump
 
 # Update project version
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-21-mnt-176-bump-version-error]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Every feature/bugfix workflow now auto-bumps `pyproject.toml`; major bumps are manual. The bump is integrated into the workflow with rollback on failure. Tests added.

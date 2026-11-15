@@ -6,9 +6,9 @@ status: resolved
 session_id: ses_e25708f3cffeIdPEZjNp0Mwatw
 services: [.env.docker, AGENTS, Dockerfile, Makefile, README, deployer.py, library, daemons/deployer, settings, docker-compose, pyproject, test_deployer, test_docker_compose, test_dockerfile, test_entrypoints, uv, INDEX, 2026-11-14-mnt-315-auto-deploy-on-master-commits]
 branch: mnt-315-auto-deploy-on-master-commits
-tickets: [MNT-315]
+tickets: [MNT-315, MNT-316]
 tags: [wiki, infrastructure, feature]
-related: [2026-08-10-docker-compose-deploy.md, 2026-07-07-project-deploy-script.md, 2026-09-28-compose-langsmith-host-env.md]
+related: [2026-08-10-docker-compose-deploy.md, 2026-09-28-compose-langsmith-host-env.md]
 ---
 
 # MNT-315: Auto deploy on master commits
@@ -103,10 +103,12 @@ Manual verification confirmed:
 
 ## Follow-ups
 
-- [[MNT-316]] to merge watcher/listener/deployer into one universal watcher
+> **Consistency note (2026-11-15, Consistency Agent):** `[[MNT-316]]` rewritten to plain text `MNT-316` — a Linear ticket reference, not a wiki page link.
+
+- MNT-316 to merge watcher/listener/deployer into one universal watcher
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-315/auto-deploy-on-master-commits
 - Related: [[2026-08-10-docker-compose-deploy]]
-- Related: [[2026-07-07-project-deploy-script]]
+- Related: [[2026-08-10-docker-compose-deploy]]
 - Related: [[2026-09-28-compose-langsmith-host-env]]

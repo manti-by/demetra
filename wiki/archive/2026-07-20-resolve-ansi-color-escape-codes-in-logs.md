@@ -13,6 +13,9 @@ related: []
 
 # Resolve ANSI Color Escape Codes in Logs
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Raw ANSI escape sequences (`\x1b[31m` etc.) in logs rendered as garbled text. Fixed by adding stripping via regex `\x1b\[[0-9;]*[a-zA-Z]` at source and in the logging config, covering all handlers.

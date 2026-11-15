@@ -8,7 +8,7 @@ services: [auth, linear]
 branch: mnt-148-plain-auth
 tickets: [MNT-148]
 tags: [auth, linear, planning, email-password, github-oauth, bcrypt]
-related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-24-plain-auth-review-followups.md]
+related: [2026-08-03-auth-hardening-and-deps-bump.md]
 ---
 
 # Linear Ticket for Email/Password Authentication
@@ -44,7 +44,7 @@ Same `users` table, same JWT + `auth_token` cookie, same `/api/v1/github/me` sha
 
 Explicitly excludes reset, verification, linking, rate limiting.
 
-> **Status update (2026-08-27):** Password reset was excluded above but an admin `--resetpass` CLI shipped under MNT-148 anyway (see [[2026-07-24-plain-auth-review-followups]] Step 4) — operator CLI, not self-service forgot-password.
+> **Status update (2026-08-27):** Password reset was excluded above but an admin `--resetpass` CLI shipped under MNT-148 anyway (see [[2026-08-03-auth-hardening-and-deps-bump]] Step 4) — operator CLI, not self-service forgot-password.
 
 ## Linear API calls
 

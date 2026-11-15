@@ -8,7 +8,7 @@ services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
 tickets: []
 tags: [agents-md, wiki, consistency, documentation, context-metric]
-related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-wiki-mcp-tools.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-08-03-check-api-auth-and-credentials.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-07-16-fix-notification-mark-read.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-10-16-opencode-v2-session-token-accounting.md]
+related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-03-wiki-mcp-tools.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-03-auth-hardening-and-deps-bump.md, 2026-09-14-listener-readline-limit-crash.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-10-16-opencode-v2-session-token-accounting.md]
 ---
 
 # AGENTS.md Revalidation and Wiki Consistency Audit
@@ -75,7 +75,7 @@ Fixed the `MAX_LISTENER_ATTEMPTS` summary text (default is now `5`, not `3`).
 
 Verified the working tree and git history to correct outdated page statements:
 
-- **File:** wiki/pages/2026-08-03-check-api-auth-and-credentials.md — the old
+- **File:** wiki/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md — the old
   "uncommitted on top of `a1e479d`" follow-up is now marked **done**: merged as PR #66
   (`8abcd8d`); the auth-filter/cors/mcp follow-up landed as PR #67 (`bcddc00`). Note: the Step 6
   bump to `1.16.0` was superseded — `5bcce84` shipped `1.15.5`.
@@ -143,7 +143,7 @@ Verified the working tree and git history to correct outdated page statements:
 
 ## References
 
-- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-03-check-api-auth-and-credentials]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]], [[2026-07-16-fix-notification-mark-read]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]], [[2026-09-14-listener-readline-limit-crash]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
 - External: PR #66 (`8abcd8d`), PR #67 (`bcddc00`), commit `47d428d`
 
 > **Consistency note (2026-11-11, Consistency Agent):** The 2026-08-24 note still asserts that compaction “is invoked at `demetra/workflows/build.py:100`”; that claim was retracted later — compaction was **never live before MNT-251** (`/compact` was passed as a message positional), and the caller is now `demetra/workflows/build.py:163` (version-gated, 1.x only). `PLAN_OUTPUT_MAX_CHARS = 32_000` moved from the deleted `demetra/services/groq.py` to `demetra/services/llm/openrouter.py:29`, and the `session_history` columns live at `demetra/library/tables.py:230-232`. The “master has since advanced to 1.15.7 / 1.16.0” lines are historical; the project is at `1.19.11`.

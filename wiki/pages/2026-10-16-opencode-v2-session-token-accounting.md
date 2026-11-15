@@ -8,7 +8,7 @@ services: [agents, persistence, workflows, api]
 branch: "-"
 tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234]
 tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history]
-related: [2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-07-07-add-context-compaction.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
+related: [2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 
 # OpenCode v2 migration — CLI ground truth, the compaction no-op, and the corrected MNT-251 plan
@@ -295,7 +295,7 @@ command = [path, "run", "--session", session_id, "--dir", str(target_path), "/co
 - **v2** — exit 0, and the `build` agent answered conversationally. Its own reasoning is preserved in the transcript: *"The user invoked /compact. This is a compact command. There's no tool for compaction explicitly. The harness likely handles it, but I should respond a Compact acknowledged"*. No `compaction` agent ran (distinct agents in the session: `['build']`), messages grew by a normal turn (11 → 15), and `context_tokens` did not drop (18,148 → 18,180).
 - **1.18.30** — the same form routes to `> build · MiniMax-M3` (an agent plus a model, i.e. a prompt), whereas `run --command compact` takes a visibly different code path. `--command` is documented on 1.18.30 as "the command to run, use message for args" — that is the correct mechanism, and Demetra does not use it.
 
-So every time a build session crosses `CONTEXT_COMPACTION_THRESHOLD`, Demetra pays for a **full-context LLM turn that returns a role-played acknowledgment** and the session keeps growing. `2026-07-07-add-context-compaction.md` records compaction as "live" since `47d428d` (2026-07-23) and its Test Results as "compaction triggering" — the tests assert the subprocess was called, never that the context shrank, which is why this survived three months.
+So every time a build session crosses `CONTEXT_COMPACTION_THRESHOLD`, Demetra pays for a **full-context LLM turn that returns a role-played acknowledgment** and the session keeps growing. `2026-10-16-mnt-251-session-attribution-accounting.md` records compaction as "live" since `47d428d` (2026-07-23) and its Test Results as "compaction triggering" — the tests assert the subprocess was called, never that the context shrank, which is why this survived three months.
 
 **v2 has no `--command` flag on `run` at all**, so compaction has no CLI path there. Options: `opencode api` (v2 server API, takes an OpenAPI operation id or `method path`), or drop compaction and rely on the fork-once design to bound context. Whichever is chosen, the replacement test must assert `context_tokens` **decreases**, not that the command exited 0.
 
@@ -334,7 +334,7 @@ Tracked one session across three exports using a free model (`opencode/deepseek-
 - Related: [[2026-09-30-mnt-228-intermediate-history-states]] (the two-writer rule `plan.py:47` violates)
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]] (`_compute_total_tokens` semantics this changes)
 - Related: [[2026-07-23-session-history-modal]] (history endpoint; the `SELECT DISTINCT step` follow-up MNT-245 closed)
-- Related: [[2026-07-07-add-context-compaction]] (`CONTEXT_COMPACTION_THRESHOLD`; currently dead code in production)
+- Related: [[2026-10-16-mnt-251-session-attribution-accounting]] (`CONTEXT_COMPACTION_THRESHOLD`; currently dead code in production)
 - Related: [[2026-10-06-unify-subprocess-env-on-session-environment]] (`run_command` / `build_subprocess_env` plumbing)
 - External: https://linear.app/mnt/issue/MNT-251 — implementation target, carries the full Phase 0 measurements and corrected build plan
 - External: https://linear.app/mnt/issue/MNT-246 — 1.18.35 research record, annotated with the v2 corrections

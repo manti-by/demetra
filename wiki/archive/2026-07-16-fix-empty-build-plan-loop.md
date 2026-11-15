@@ -13,6 +13,9 @@ related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-pla
 
 # Fix empty build plan infinite loop
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-24-guard-empty-plan-output]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Fixed a permanent stall where a run failing before plan save left `step='failed'` + empty `build_plan` → next run skipped planning (`step == 'initial'` gate) and exited forever. Three fixes: (1) replan when `build_plan` empty, not `step == 'initial'`; (2) reject non-dict Linear payloads as `LinearError`; (3) enable fallback session ID for worktree mismatches. 472 tests pass, 9 new tests added.

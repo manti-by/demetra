@@ -8,7 +8,7 @@ services: [main, watcher, workflows]
 branch: "-"
 tickets: []
 tags: [awaiting-input, linear, plan, workflow, review, build-plan, resume, duplicate-enqueue]
-related: [2026-08-28-mnt-191-ticket-status-not-changed.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md]
+related: [2026-08-28-mnt-191-ticket-status-not-changed.md, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md]
 ---
 
 # Workflow proceeds to review after ticket moved to Awaiting Input
@@ -76,4 +76,4 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 
 ## References
 
-- Related: [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]
+- Related: [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]

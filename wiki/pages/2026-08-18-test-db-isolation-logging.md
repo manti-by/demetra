@@ -4,11 +4,11 @@ date: 2026-08-18
 type: debug
 status: resolved
 session_id: "-"
-services: [tests, database, settings, runtime, api, workflows, linear]
+services: [tests, database, settings, runtime, api, workflows, linear, main]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
-tickets: []
-tags: [tests, database, logging, isolation, test_demetra, conftest, websocket, sessions, console]
-related: [2026-06-15-remove-patches-from-tests.md, 2026-07-16-simplify-session-logging-setup.md, 2026-07-15-duplicated-log-messages.md]
+tickets: [MNT-106]
+tags: [tests, database, logging, isolation, test_demetra, conftest, websocket, sessions, console, ansi, fixtures]
+related: [2026-06-15-remove-patches-from-tests.md, 2026-07-16-simplify-session-logging-setup.md, 2026-07-15-duplicated-log-messages.md, 2026-07-20-resolve-ansi-color-escape-codes-in-logs.md]
 ---
 
 # Test DB isolation and console-only logging
@@ -66,6 +66,22 @@ Opt-in isolation: DB redirect and console-vs-file distinction weren't guaranteed
 **Tests:** new in `tests/test_api.py` (websocket before-session), `tests/test_api_auth.py` (ownership reject), `tests/test_entrypoints.py` (pending session guards), `tests/test_openrouter.py`, `tests/test_workflows.py`. **869 passed**; `ruff`/`ty`/`bandit` clean.
 
 ---
+
+## Source — [[2026-06-15-remove-patches-from-tests]]
+
+Test-suite convention, originally decided on 2026-06-15 (MNT-106): replace `patch` DB mocks with real fixtures/factories and call local services directly — only third-party calls stay mocked — so refactors fail loudly instead of passing against a mock. The `setup_test_db` isolation on this page is what makes those real-DB tests safe.
+
+## Source — [[2026-07-15-duplicated-log-messages]]
+
+The logging-dedup guard in `setup_session_logging()` must compare `Path` to `Path` (`Path(LOGGING["handlers"]["file"]["filename"]).resolve() == session_log_path.resolve()`) — the original `Path == str` comparison was always `False` and added a second `FileHandler` with `propagate=True`, duplicating every `print_message` line in session logs (fixed 2026-07-15). Same session: build-agent `stdout` is now logged on success (`print_message(f"Build agent output:\n{stdout.strip()}", ...)`) instead of being discarded, matching the plan-agent pattern. Originally recorded in [[2026-07-15-duplicated-log-messages]].
+
+## Source — [[2026-07-16-simplify-session-logging-setup]]
+
+`setup_session_logging(task_id)` (the unused `logger` param was dropped) has two cases, originally recorded on 2026-07-16: subprocess (`LOG_PATH=sessions/<task>.log`) — root already targets the session log, so reuse its `FileHandler` for `stream_logger` and return early (adding another handler duplicates output); in-process (merge/rebase, `LOG_PATH=demetra.log`) — build a new `FileHandler` and swap it onto root and `stream_logger`. A single `next(...)` lookup replaces the two handler loops. Originally recorded in [[2026-07-16-simplify-session-logging-setup]].
+
+## Source — [[2026-07-20-resolve-ansi-color-escape-codes-in-logs]]
+
+ANSI escapes are stripped from all log output (2026-07-20): `AnsiStrippingFilter` + `ansi_strip` (regex `\x1b\[[0-9;]*[a-zA-Z]`) applied at source in `live_stream`, registered in the `LOGGING` dictConfig on both `console` and `file` handlers, and attached to dynamically created session handlers in `setup_session_logging()`. Originally recorded in [[2026-07-20-resolve-ansi-color-escape-codes-in-logs]].
 
 ## Follow-ups
 

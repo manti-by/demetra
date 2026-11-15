@@ -8,7 +8,7 @@ services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
 tags: [docker, compose, security, review]
-related: [2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-10-docker-compose-deploy.md, 2026-07-07-project-deploy-script.md]
+related: [2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-10-docker-compose-deploy.md]
 ---
 
 # Docker setup review — Dockerfile + docker-compose.yaml on mnt-164
@@ -156,7 +156,7 @@ Most fixed in anchor refactor — see [[2026-08-18-compose-anchors-refactor]]. #
 
 ## References
 
-- Related: [[2026-08-10-docker-compose-deploy]], [[2026-07-07-project-deploy-script]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-19-worker-opencode-home-permissions]]
+- Related: [[2026-08-10-docker-compose-deploy]], [[2026-08-10-docker-compose-deploy]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-19-worker-opencode-home-permissions]]
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The open follow-up “re-run `make docker-deploy` end-to-end” should read `make deploy` — `docker-deploy` is a `.PHONY` entry with no recipe. The compose file also changed since this review: healthchecks and `DB_HOST: postgres` were added, the image is `mantiby/demetra:latest` (`:12`) and the ports are published on all interfaces (`:108`).

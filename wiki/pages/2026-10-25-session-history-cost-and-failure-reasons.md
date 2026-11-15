@@ -8,7 +8,7 @@ services: [main, api, library, persistence, workflows, migrations, react, tests]
 branch: "-"
 tickets: []
 tags: [session-history, token-accounting, frontend, cost, failure-reasons]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-181-total-tokens-counter.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-mcp-tool-usage.md]
 ---
 
 # Session history — session cost total and failure reasons
@@ -145,6 +145,7 @@ StyleGuide before `tsc` recognized the widened `SessionTokenTotals`.
 - Related: [[2026-08-25-mnt-181-total-tokens-counter]] — the `total` block this
   page extends with `cost`; its "fallback to row.length for all-NULL rows"
   clause was already dropped by MNT-251.
+- See also: [[2026-10-25-session-history-per-invocation-rows]] and [[2026-10-25-session-history-mcp-tool-usage]] — sibling session-history extensions from the same day.
 - External: no Linear ticket (user-reported inline).
 
-> **Consistency note (2026-11-11, Consistency Agent):** The migration parent quoted above is wrong: `e0f1a2b3c4d5_add_session_history_message_column` chains on `f0a1b2c3d4e5` (which itself chains on `d9e0f1a2b3c4`), not directly on `d9e0f1a2b3c4`. `record_session_step` is now at `demetra/services/persistence/database.py:979` and `_compute_total_tokens` at `demetra/api/sessions.py:92`.
+> **Consistency note (2026-11-11, Consistency Agent):** The migration parent quoted above is wrong: `e0f1a2b3c4d5_add_session_history_message_column` chains on `f0a1b2c3d4e5` (which itself chains on `d9e0f1a2b3c4`), not directly on `d9e0f1a2b3c4`. `record_session_step` is now at `demetra/services/persistence/database.py:1580` and `_compute_total_tokens` at `demetra/api/sessions.py:122` (line refs updated 2026-11-15, Consistency Agent).

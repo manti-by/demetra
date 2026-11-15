@@ -4,11 +4,11 @@ date: 2026-10-12
 type: implementation
 status: resolved
 session_id: ses_ecf670f97ffe0sa9KB2TJeV1Hd
-services: [react]
+services: [react, api, workflows]
 branch: master
-tickets: []
-tags: [frontend, react, session-state-flow, svg, feedback-loops, styleguide, websocket]
-related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-11-04-chat-session-list-and-rerun.md]
+tickets: [MNT-101, MNT-54, MNT-37, MNT-63, MNT-83, MNT-22]
+tags: [frontend, react, session-state-flow, svg, feedback-loops, styleguide, websocket, sessions, step, migration, database]
+related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-11-04-chat-session-list-and-rerun.md, 2026-07-16-fix-step-status-review-findings.md]
 ---
 
 # Session state flow: completed chain, feedback loops, research chain
@@ -270,6 +270,14 @@ verifies state logic but not geometry.
   - `loopTrigger` transition matrix, `resolveLoopState` pending/active/passed, `loopPath`
     geometry incl. the narrow-span radius clamp
   - `BUILD_FEEDBACK` asserts both loops target `build` and the lane order
+
+## Source — [[2026-06-25-websocket-to-track-session-statuses]]
+
+The websocket feed this component renders is typed JSON, not raw text: `{"type":"log"}` log lines and `{"type":"status"}` transitions (MNT-101, 2026-06-25), deduplicated to emit only on actual change. Since MNT-244 the status payload carries the full `SessionState` dataclass (`{"type":"status","data":asdict(state)}` — `step`, `name`, `is_research`, `is_chat`, `feedback_loops`); handlers `send_log`/`send_status`/`send_deleted` live in `demetra/api/watcher.py`. Originally decided in [[2026-06-25-websocket-to-track-session-statuses]].
+
+## Source — [[2026-07-16-fix-step-status-review-findings]]
+
+Durable decisions from the step/status refactor review (2026-07-16): the step vocabulary is unified — `VALID_STEPS = set(get_args(StepType))` (`demetra/api/sessions.py:20`) instead of a drifted duplicate enum — and the two upsert `ON CONFLICT` clauses are deliberately divergent: `upsert_pending_session` preserves the existing step (`step = sessions.step`, never regress an in-progress step to `"initial"`), while `save_session` always advances (`step = EXCLUDED.step`). Originally recorded in [[2026-07-16-fix-step-status-review-findings]].
 
 ## Follow-ups
 

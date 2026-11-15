@@ -13,6 +13,9 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-02-23-plan-agent-outpu
 
 # Awaiting Input status for session
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Sessions with plan-agent questions no longer flip to `Failed` — they now enter an `Awaiting Input` state (stored as `step="awaiting_input"`). Workflows can record custom failure states, and cleanup/history preserve awaiting-input status instead of overwriting it.

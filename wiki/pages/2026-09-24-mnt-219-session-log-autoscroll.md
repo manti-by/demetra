@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-219-session-log-autoscroll
 tickets: [MNT-219]
 tags: [wiki, frontend, feature]
-related: [2026-06-25-websocket-to-track-session-statuses.md]
+related: [2026-10-12-session-state-flow-feedback-loops.md]
 ---
 # MNT-219: Session log autoscroll
 
@@ -58,7 +58,7 @@ useEffect(() => {
 
 ## References
 
-- Related: [[2026-06-25-websocket-to-track-session-statuses]]
+- Related: [[2026-10-12-session-state-flow-feedback-loops]]
 - External: https://linear.app/mnt/issue/MNT-219/session-log-autoscroll
 
 > **Consistency fix (2026-09-28, Consistency Agent):** mirrored `related:` into the body; trimmed the ~150-entry `services:` filename dump to subsystem tags. The `Changed files`/`Stat` sections (since removed from this page) were a whole-tree diff against a stale base, not this ticket's changeset — e.g. they showed `demetra/services/linear/config.py` / `llm/config.py` as added (both deleted by MNT-205 in `68e53b7` and absent from HEAD), `configs/services/*.service` + `configs/bootstrap.sh` (no `configs/services/` dir on HEAD), and the `.opencode/skills/wiki-sync => wiki-update` rename (never landed; only `wiki-sync` exists). The ticket's real changeset is `LogConsole.tsx` + `App.css` + `LogConsole.test.tsx` per the Overview.

@@ -13,6 +13,9 @@ related: [2026-02-20-add-pre-commit-checks-and-tests.md]
 
 # Add tests for existing feature-flag changes
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-11-10-mnt-308-lint-error-extraction]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Added `FEATURES` dict to `demetra/settings.py` gating `ruff`/`pytest` via `IS_RUFF_ENABLED`/`IS_PYTEST_ENABLED` (both default `False`), and made `demetra/workflows/lint.py:14-17, 31-34` check those flags alongside `is_package_installed`. Fixed broken existing tests and added 6 new ones covering all flag combinations. All 17 tests pass.

@@ -12,6 +12,10 @@ related: [2026-06-09-build-artifacts.md, 2026-09-02-mobile-template-react-fronte
 ---
 
 # Markdown renderer
+
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-11-06-ch-6-markdown-renderer]]. See wiki/archive/ for the original.
+
 > **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
 > record, not an archived page. Its reusable content was merged into
 > [[2026-09-02-mobile-template-react-frontend]], the page to read for the current state of that subsystem.

@@ -13,6 +13,9 @@ related: [2026-03-05-github-login.md, 2026-08-03-auth-hardening-and-deps-bump.md
 
 # Plain Password Auth Implementation and Review Follow-ups
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-03-auth-hardening-and-deps-bump]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Implemented bcrypt password auth (signup/login/logout) alongside GitHub OAuth with JWT cookies and a React form. Two CodeRabbit passes hardened it: removed token from JSON body (cookie-only), email normalization, `--resetpass` CLI, DB email backfill migration, a11y fixes, named-argument hardening, `verify_password` policy, structured CLI error handling, and unified Header display-name.

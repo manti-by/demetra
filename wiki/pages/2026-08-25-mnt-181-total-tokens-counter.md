@@ -8,7 +8,7 @@ services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
 tags: [session-history, tokens, react, api, frontend, sessions, title, sidebar, websocket]
-related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-10-25-session-history-cost-and-failure-reasons.md]
+related: [2026-07-23-session-history-modal.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-05-22-task-title-session-listing.md, 2026-10-12-session-state-flow-feedback-loops.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-10-25-session-history-cost-and-failure-reasons.md]
 ---
 
 # MNT-181: Total tokens counter
@@ -55,7 +55,7 @@ Backend `tests/test_api.py:TestSessionHistoryEndpoint`: `test_returns_total_and_
 
 ## Source — [[2026-05-22-task-title-session-listing]]
 
-Session list title fallback (`task_title`/`custom name` → truncated `session_id`, `GET /api/v1/sessions?step=...` see [[2026-07-16-fix-step-status-review-findings]]) — still in effect.
+Session list title fallback (`task_title`/`custom name` → truncated `session_id`, `GET /api/v1/sessions?step=...` see [[2026-10-12-session-state-flow-feedback-loops]]) — still in effect.
 
 ## Update — 2026-10-16 15:08
 
@@ -76,7 +76,7 @@ Session list title fallback (`task_title`/`custom name` → truncated `session_i
 
 ## Consistency fix (2026-09-01)
 
-- Added `2026-07-16-fix-step-status-review-findings.md` to `related`.
+- Added `2026-10-12-session-state-flow-feedback-loops.md` to `related`.
 
 ## Consistency fix (2026-09-02)
 

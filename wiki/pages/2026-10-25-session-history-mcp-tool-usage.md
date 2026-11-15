@@ -8,7 +8,7 @@ services: [api, agents, persistence, react, tests]
 branch: "-"
 tickets: []
 tags: [session-history, tool-usage, mcp, opencode, code-mode, frontend, cost]
-related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
+related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-10-25-session-history-per-invocation-rows.md]
 ---
 
 # Session history — cached bundle and MCP tool usage
@@ -162,4 +162,5 @@ now yields `WI.wiki_list_pages: 1`, `WI.wiki_search: 1` alongside `execute: 2`.
   `kind='invocation'` rows and `invoked_at` watermark the nested calls inherit.
 - Related: [[2026-10-16-opencode-v2-session-token-accounting]] — the opencode v2
   export shapes (`content`, `state.time`, `state.metadata`) this parser reads.
+- See also: [[2026-10-25-session-history-per-invocation-rows]] — the invocation-row schema these nested calls are recorded against.
 - External: user-reported inline; no Linear ticket.

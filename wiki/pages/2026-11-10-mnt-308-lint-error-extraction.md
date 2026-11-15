@@ -4,10 +4,10 @@ date: '2026-11-10'
 type: implementation
 status: resolved
 session_id: ses_e3a8c92a6ffeVcW9fQN9vDVOsN
-services: [llm, workflows, quality, library]
+services: [llm, workflows, quality, library, settings]
 branch: mnt-308-lint-and-test-erorrs
-tickets: [MNT-308]
-tags: [wiki, feature, backend]
+tickets: [MNT-308, MNT-21]
+tags: [wiki, feature, backend, feature-flags, testing, ruff, pytest]
 related: [2026-10-27-mnt-260-openrouter-call-history.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-05-post-build-validation.md]
 ---
 
@@ -90,6 +90,10 @@ All 1245 tests passed successfully, including new tests for the error extraction
 - Updated workflow files
 - Comprehensive test coverage
 - Wiki documentation added
+
+## Source — [[2026-07-22-feature-flag-settings-and-tests]]
+
+Lint/tests are opt-in feature flags (MNT-21, 2026-07-22): `FEATURES` in `demetra/settings.py` reads `IS_RUFF_ENABLED`/`IS_PYTEST_ENABLED` via `env_get_bool(..., False)` (`demetra/services/runtime/utils.py:240`), and `demetra/workflows/lint.py` requires the flag *and* the package installed before running ruff/pytest. Originally decided in [[2026-07-22-feature-flag-settings-and-tests]] on 2026-07-22.
 
 ## Follow-ups
 - None

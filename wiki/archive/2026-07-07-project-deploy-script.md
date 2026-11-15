@@ -13,6 +13,9 @@ related: [2026-08-10-docker-compose-deploy.md]
 
 # Project deploy script
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-10-docker-compose-deploy]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Added a fast deploy path: `Makefile` `deploy` target for updates plus `configs/bootstrap.sh` for first-time setup, with systemd units and nginx. Auth (GitHub/OpenCode) lives in `.env` via `EnvironmentFile`. Docker (MNT-106) remains an alternative.

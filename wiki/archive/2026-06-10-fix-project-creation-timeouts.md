@@ -13,6 +13,9 @@ related: [2026-02-15-subagent-output-streaming.md]
 
 # Fix Project creation timeouts
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-08-18-categorize-settings-env-vars-by-layer]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Project creation was timing out because `run_command` applied the short `SHELL_TIMEOUT_MS` (120s) to OpenCode agent/subprocess calls too, killing long operations like clone and build. The fix removed the explicit short timeout from the OpenCode callers in `demetra/services/opencode.py`, renamed the setting `SHELL_TIMEOUT_MS` to `SUBPROCESS_TIMEOUT` (seconds) in `demetra/settings.py`, and made `run_command`'s default timeout the `SUBPROCESS_TIMEOUT`. Project-creation error handling in `demetra/services/project.py` was also tightened.

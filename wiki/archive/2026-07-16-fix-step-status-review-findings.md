@@ -12,6 +12,9 @@ related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-us
 ---
 # Fix code-review findings on step/status refactor
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-10-12-session-state-flow-feedback-loops]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Code review of the `status`→`step` migration surfaced 4 findings — drifted duplicate step enum, `status`/`step` naming conflation in the API, stale hardcoded return in `upsert_pending_session`, and two undocumented divergent `ON CONFLICT` clauses. All fixed; 473 tests, `ruff`/`ty` clean.

@@ -13,6 +13,9 @@ related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.
 
 # Fix MCP Server for the mcp 2.0 API
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-10-25-mcp-db-tools-env-sql]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 `mcp 2.0.0` (pulled by `uv-bump` in [[2026-08-03-auth-hardening-and-deps-bump]]) removed `@server.list_tools()`/`@server.call_tool()` decorators from low-level `Server`. `uv run python -m demetra.mcp_server` crashed at import with `AttributeError: 'Server' has no attribute 'list_tools'`. Rewrote `demetra/mcp_server.py` to use constructor callbacks `on_list_tools`/`on_call_tool` returning `ListToolsResult`/`CallToolResult`, and `ToolResult(is_error)` forwarding. Verified over stdio + full suite.

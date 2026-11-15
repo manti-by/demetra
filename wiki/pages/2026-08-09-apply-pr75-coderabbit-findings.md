@@ -8,7 +8,7 @@ services: [auth, api, database, runtime, wiki, react]
 branch: code-review
 tickets: []
 tags: [code-review, coderabbit, auth, jwt, password-reset, react, env, wiki]
-related: [2026-08-09-apply-code-review-findings.md, 2026-07-24-plain-auth-review-followups.md]
+related: [2026-08-09-apply-code-review-findings.md, 2026-08-03-auth-hardening-and-deps-bump.md]
 ---
 
 # Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int
@@ -79,7 +79,7 @@ Working tree uncommitted on `code-review`; orchestrator handles commit/PR.
 
 ## References
 
-- Related: [[2026-08-09-apply-code-review-findings]], [[2026-07-24-plain-auth-review-followups]]
+- Related: [[2026-08-09-apply-code-review-findings]], [[2026-08-03-auth-hardening-and-deps-bump]]
 - External: [manti-by/demetra#75](https://github.com/manti-by/demetra/pull/75)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “working tree uncommitted on `code-review`” note was never closed — the findings landed via PR #75. The migration `a4b5c6d7e8f9` (`users.password_version`, `jwt_tokens.password_version`, both `server_default="1"`) is present, and the `env_get_int` negative-default rejection now lives at `demetra/services/runtime/utils.py:231`.

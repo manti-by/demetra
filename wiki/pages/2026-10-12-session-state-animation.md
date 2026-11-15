@@ -8,7 +8,7 @@ services: [react]
 branch: mnt-244-session-state-animation
 tickets: [MNT-244]
 tags: [wiki, feature, frontend]
-related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-06-25-websocket-to-track-session-statuses.md, 2026-07-23-session-history-modal.md, 2026-07-16-fix-step-status-review-findings.md]
+related: [2026-10-12-session-state-flow-feedback-loops.md, 2026-07-23-session-history-modal.md]
 ---
 
 # MNT-244: Session state animation
@@ -42,7 +42,7 @@ replacing `get_session_step_name`, and `update_session_is_research`, with `main.
 ## References
 
 - Related: [[2026-10-12-session-state-flow-feedback-loops]] — the follow-up session on the same component
-- Related: [[2026-06-25-websocket-to-track-session-statuses]] — the websocket feed the component renders
+- Related: [[2026-10-12-session-state-flow-feedback-loops]] — the websocket feed the component renders
 - Related: [[2026-07-23-session-history-modal]] — the history view over the same step data
-- Related: [[2026-07-16-fix-step-status-review-findings]] — the step/status vocabulary the component branches on
+- Related: [[2026-10-12-session-state-flow-feedback-loops]] — the step/status vocabulary the component branches on
 - External: https://linear.app/mnt/issue/MNT-244

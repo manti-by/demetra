@@ -12,6 +12,9 @@ related: [2026-07-16-fix-step-status-review-findings.md, 2026-03-09-isolate-user
 ---
 # Websocket to track session statuses
 
+> **Archived on 2026-11-15.** Useful info merged into
+> [[2026-10-12-session-state-flow-feedback-loops]]. See wiki/archive/ for the original.
+
 ## TL;DR
 
 Rebuilt the session-log websocket from raw text to typed JSON (`{"type":"log"}` / `{"type":"status"}`) so the React app distinguishes log lines from status transitions. Status messages are deduplicated (emitted only on actual change); viewers tail recent history. Supersedes the raw-text websocket from MNT-53 (`2026-03-05-stream-logs-websocket.md`).

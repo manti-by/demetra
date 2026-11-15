@@ -6,8 +6,8 @@ status: resolved
 session_id: ses_f6ebf2b52ffeSrLs1KXvA5gPQI
 services: [api, library, persistence, workflows, react, settings]
 branch: mnt-204-research-result-modal
-tickets: [MNT-204]
-tags: [wiki, feature, frontend]
+tickets: [MNT-204, MNT-114, MNT-108]
+tags: [wiki, feature, frontend, linear-link, artifacts, pr-link, react]
 related: [2026-06-22-linear-link-artifact.md, 2026-06-09-build-artifacts.md, 2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-research-loop.md]
 ---
 # MNT-204: Research result modal
@@ -34,6 +34,10 @@ Mirrors `build_plan` end-to-end for research output: schema → dataclass → pe
 ## Test Results
 
 - Session `resolved`, OpenCode `ses_f6ebf2b52ffeSrLs1KXvA5gPQI`
+
+## Source — [[2026-06-22-linear-link-artifact]]
+
+Session artifacts are persisted as `sessions` columns rendered in the React top block: `pr_link` + `build_plan` ([[2026-06-09-build-artifacts]], MNT-108) and `linear_link` — the "View Linear Issue" link, populated on first save once the Linear task is retrieved (MNT-114, 2026-06-22). `research_plan` (this page, MNT-204) follows the same pattern. Originally decided in [[2026-06-22-linear-link-artifact]].
 
 ## Follow-ups
 

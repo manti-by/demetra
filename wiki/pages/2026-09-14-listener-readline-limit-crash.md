@@ -7,7 +7,7 @@ session_id: ses_f5e6bd69bffexNX7o87koO5QLl
 services: [listener, daemons, runtime, github]
 branch: "-"
 tickets: []
-tags: [listener, github, notifications, asyncio, readline, limit, gh, merge, rebase]
+tags: [listener, github, notifications, asyncio, readline, limit, gh, merge, rebase, infinite-loop, listener-attempts]
 related: [2026-07-16-fix-notification-mark-read.md]
 ---
 
@@ -78,6 +78,10 @@ Not applied this session (diagnosis only). Proposed fix, matching the existing p
 - Consider `--jq '. [0:100]'` or per-thread pagination as a cheaper mitigation if the backlog stays large.
 
 ---
+
+## Source — [[2026-07-16-fix-notification-mark-read]]
+
+Listener loop-protection decisions (2026-07-16): `mark_notification_read` is gated on success — `process_merge/rebase_notification` returning `False` (no session, no `project_id`, unknown action) leaves the notification unread for retry — and a per-session attempts counter breaks the loop after N failures (`MAX_ATTEMPTS["listener"]` = 5, `demetra/settings.py`; helpers `increment_listener_attempts`/`reset_listener_attempts` in `demetra/services/persistence/database.py:1028`/`:999`). Originally decided in [[2026-07-16-fix-notification-mark-read]] on 2026-07-16.
 
 ## Follow-ups
 
