@@ -1,6 +1,47 @@
 import re
 import shutil
 
+import pytest
+
+from demetra.mcp_server import main
+
+
+class TestMcpServerFailFast:
+    async def test_exits_when_db_password_is_missing(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.mcp_server.DATABASE",
+            {"host": "localhost", "port": 5432, "user": "demetra", "name": "demetra", "password": None},
+        )
+
+        with pytest.raises(RuntimeError, match="DB_PASSWORD"):
+            await main()
+
+    async def test_starts_when_a_password_is_configured(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.mcp_server.DATABASE",
+            {"host": "localhost", "port": 5432, "user": "demetra", "name": "demetra", "password": "secret"},
+        )
+
+        class StartupReachedError(Exception):
+            pass
+
+        entered = []
+
+        class FakeStdioServer:
+            async def __aenter__(self):
+                entered.append(True)
+                raise StartupReachedError
+
+            async def __aexit__(self, exc_type, exc, traceback):
+                return False
+
+        monkeypatch.setattr("demetra.mcp_server.stdio_server", FakeStdioServer)
+
+        with pytest.raises(StartupReachedError):
+            await main()
+
+        assert entered == [True]
+
 
 class TestTableNameValidation:
     def test_valid_table_names(self):

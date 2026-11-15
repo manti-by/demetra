@@ -143,6 +143,7 @@ REDIS_URL = env_get_str("REDIS_URL", "redis://localhost:6379/1")
 
 LINEAR: LinearConfig = {
     "api_url": "https://api.linear.app/graphql",
+    "api_key": env_get_str("LINEAR_API_KEY", None),
     "client_id": env_get_str("LINEAR_CLIENT_ID", None),
     "client_secret": env_get_str("LINEAR_CLIENT_SECRET", None),
     "oauth_scope": env_get_str("LINEAR_OAUTH_SCOPE", "read,write,comments:create"),
