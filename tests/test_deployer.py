@@ -14,6 +14,7 @@ from demetra.services.daemons.deployer import (
     DEPLOY_IMAGE,
     DOCKER_SOCKET,
     IMAGE_REVISION_LABEL,
+    NO_LABEL_VALUE,
     acquire_deploy_lock,
     build_deploy_steps,
     checkout_has_no_local_changes,
@@ -119,19 +120,31 @@ class TestGetCheckoutHeadSha:
 
 class TestGetRunningRevision:
     @pytest.mark.asyncio
-    async def test_reads_the_api_image_revision_label(self):
+    async def test_resolves_this_stacks_api_container_through_compose(self):
         with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
-            mock_run.return_value = (0, f"{SHA}\n", "")
+            mock_run.side_effect = [(0, "abc123\n", ""), (0, f"{SHA}\n", "")]
             result = await get_running_revision(checkout_path=Path("/tmp/checkout"))
+
         assert result == SHA
-        command = mock_run.call_args.kwargs["command"]
-        assert IMAGE_REVISION_LABEL in command[-1]
-        assert command[command.index("--filter") + 1] == "label=com.docker.compose.service=api"
+        ps_command = mock_run.call_args_list[0].kwargs["command"]
+        assert ps_command[1:3] == ["compose", "--project-directory"]
+        assert ps_command[ps_command.index("--project-directory") + 1] == "/tmp/checkout"
+        assert ps_command[-3:] == ["ps", "-q", "api"]
+        assert ps_command[ps_command.index("--env-file") + 1] == str(Path("/tmp/checkout/.env.docker"))
+        inspect_command = mock_run.call_args_list[1].kwargs["command"]
+        assert IMAGE_REVISION_LABEL in inspect_command[inspect_command.index("--format") + 1]
+        assert inspect_command[-1] == "abc123"
 
     @pytest.mark.asyncio
     async def test_returns_none_without_a_labelled_container(self):
         with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (0, "\n", "")
+            assert await get_running_revision(checkout_path=Path("/tmp/checkout")) is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_the_label_is_absent(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = [(0, "abc123\n", ""), (0, f"{NO_LABEL_VALUE}\n", "")]
             assert await get_running_revision(checkout_path=Path("/tmp/checkout")) is None
 
     @pytest.mark.asyncio

@@ -42,7 +42,7 @@ DEPLOY_IMAGE = "mantiby/demetra:latest"
 
 IMAGE_REVISION_LABEL = "org.opencontainers.image.revision"
 
-RUNNING_API_FILTER = "label=com.docker.compose.service=api"
+NO_LABEL_VALUE = "<no value>"
 
 DEPLOY_SERVICE = "deployer"
 
@@ -248,6 +248,26 @@ def save_state(path: Path, state: DeployState) -> None:
         logger.exception(f"Failed to write the deploy state to {path}")
 
 
+def compose_command(checkout_path: Path) -> list[str]:
+    """Build a ``docker compose`` prefix pinned to the host checkout.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+
+    Returns:
+        list[str]: The ``docker compose`` command prefix.
+    """
+    checkout = str(checkout_path)
+    return [
+        str(DEPLOY["docker_path"]),
+        "compose",
+        "--project-directory",
+        checkout,
+        "--env-file",
+        str(checkout_path / ".env.docker"),
+    ]
+
+
 def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tuple[str, list[str]]]:
     """Build the ordered deploy commands for the host checkout.
 
@@ -274,7 +294,7 @@ def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tupl
     docker = str(DEPLOY["docker_path"])
     git = str(DEPLOY["git_path"])
     checkout = str(checkout_path)
-    compose = [docker, "compose", "--project-directory", checkout, "--env-file", str(checkout_path / ".env.docker")]
+    compose = compose_command(checkout_path=checkout_path)
     owner = checkout_owner_prefix(checkout_path=checkout_path)
     build = [docker, "build", "--platform", "linux/amd64", "--tag", DEPLOY_IMAGE]
     if sha:
@@ -383,11 +403,13 @@ async def get_checkout_head_sha(checkout_path: Path) -> str | None:
 
 
 async def get_running_revision(checkout_path: Path) -> str | None:
-    """Read the commit label of the running api image.
+    """Read the commit label of this stack's running api container.
 
     This is the only trustworthy record of what is actually deployed: the
     checkout can sit at a newer commit whose build failed, and the state file
-    can be lost or reset.
+    can be lost or reset. The container is resolved through Compose, so a
+    same-named ``api`` service of another project on the same Docker daemon is
+    never mistaken for this checkout's one.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -395,14 +417,25 @@ async def get_running_revision(checkout_path: Path) -> str | None:
     Returns:
         str | None: The label value, or None when no labelled container runs.
     """
-    docker = str(DEPLOY["docker_path"])
+    exit_code, stdout, stderr = await run_command(
+        command=[*compose_command(checkout_path=checkout_path), "ps", "-q", "api"],
+        target_path=checkout_path,
+        disable_stdio=True,
+        timeout=DEPLOY["step_timeout"],
+    )
+    if exit_code != 0:
+        logger.warning(f"Failed to resolve the running api container: {stderr.strip()}")
+        return None
+    containers = stdout.split()
+    if not containers:
+        return None
+
     command = [
-        docker,
-        "ps",
-        "--filter",
-        RUNNING_API_FILTER,
+        str(DEPLOY["docker_path"]),
+        "inspect",
         "--format",
-        f'{{{{.Label "{IMAGE_REVISION_LABEL}"}}}}',
+        f'{{{{index .Config.Labels "{IMAGE_REVISION_LABEL}"}}}}',
+        containers[0],
     ]
     exit_code, stdout, stderr = await run_command(
         command=command, target_path=checkout_path, disable_stdio=True, timeout=DEPLOY["step_timeout"]
@@ -410,7 +443,8 @@ async def get_running_revision(checkout_path: Path) -> str | None:
     if exit_code != 0:
         logger.warning(f"Failed to read the running image revision: {stderr.strip()}")
         return None
-    return stdout.strip() or None
+    revision = stdout.strip()
+    return revision if revision and revision != NO_LABEL_VALUE else None
 
 
 async def checkout_has_no_local_changes(checkout_path: Path) -> bool:

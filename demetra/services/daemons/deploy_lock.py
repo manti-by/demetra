@@ -76,6 +76,23 @@ def redis_cli_command(checkout_path: Path, *arguments: str) -> list[str]:
     return [*compose, *arguments]
 
 
+def manual_deploy_timeout(checkout_path: Path) -> int:
+    """Return the deadline for the command wrapped by ``make deploy``.
+
+    The manual recipe runs the same commands as the daemon but bounds no single
+    step, so the wrapped command has to stop before the lease it holds expires.
+    The lease budgets the drain wait, which the manual recipe never performs,
+    so that slack is what keeps the command and its release inside the lease.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+
+    Returns:
+        int: The wrapped command deadline in seconds.
+    """
+    return deploy_lock_timeout(checkout_path=checkout_path) - DEPLOY["drain_timeout"]
+
+
 async def acquire_manual_deploy_lock(checkout_path: Path) -> str | None:
     """Take the deploy lock the daemon uses, waiting for a running deploy.
 

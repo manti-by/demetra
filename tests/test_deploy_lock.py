@@ -4,15 +4,31 @@ from unittest.mock import AsyncMock, patch
 import pytest
 import yaml
 
+from demetra.deploy_lock import parse_command
 from demetra.services.daemons.deploy_lock import (
     REDIS_OK,
     acquire_manual_deploy_lock,
+    manual_deploy_timeout,
     redis_cli_command,
     redis_database,
     release_manual_deploy_lock,
 )
 from demetra.services.daemons.deployer import DEPLOY_LOCK_NAME, deploy_lock_timeout
-from demetra.settings import SUBPROCESS_TIMEOUT
+from demetra.settings import DEPLOY, SUBPROCESS_TIMEOUT
+
+
+class TestParseCommand:
+    def test_strips_the_module_argument_separator(self):
+        assert parse_command(arguments=["--", "make", "deploy-steps"]) == ["make", "deploy-steps"]
+
+    def test_keeps_a_command_without_a_separator(self):
+        assert parse_command(arguments=["make", "deploy-steps"]) == ["make", "deploy-steps"]
+
+    def test_returns_nothing_for_an_empty_argv(self):
+        assert parse_command(arguments=[]) == []
+
+    def test_returns_nothing_for_a_lone_separator(self):
+        assert parse_command(arguments=["--"]) == []
 
 
 class TestRedisDatabase:
@@ -93,6 +109,17 @@ class TestReleaseManualDeployLock:
         assert mock_run.await_count == 1
 
 
+class TestManualDeployTimeout:
+    def test_stops_the_wrapped_command_before_the_lease_expires(self):
+        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) < deploy_lock_timeout(
+            checkout_path=Path("/srv/checkout")
+        )
+
+    def test_leaves_the_manual_recipes_unused_drain_budget_as_slack(self):
+        expected = deploy_lock_timeout(checkout_path=Path("/srv/checkout")) - DEPLOY["drain_timeout"]
+        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) == expected
+
+
 class TestWorkerStopGracePeriod:
     def test_covers_the_queue_job_timeout(self):
         compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "docker-compose.yaml").read_text())
@@ -100,3 +127,9 @@ class TestWorkerStopGracePeriod:
 
         assert grace.endswith("s")
         assert int(grace.removesuffix("s")) >= SUBPROCESS_TIMEOUT + 60
+
+    def test_the_up_step_outlives_the_grace_period(self):
+        compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "docker-compose.yaml").read_text())
+        grace = str(compose["services"]["worker"]["stop_grace_period"]).split(":-")[-1].rstrip("}")
+
+        assert DEPLOY["step_timeout"] > int(grace.removesuffix("s"))
