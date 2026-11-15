@@ -5,6 +5,7 @@ import { SessionSidebar } from './SessionSidebar';
 
 vi.mock('../services/api', () => ({
   getSessions: vi.fn().mockResolvedValue([]),
+  getLiveSessionIds: vi.fn().mockResolvedValue([]),
 }));
 
 vi.mock('react-router-dom', () => ({

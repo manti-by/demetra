@@ -8,7 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — Implementation of CH-11: Failed status for Awaiting Input tickets (2026-11-13)
+- [Scaling RQ workers without recreating running containers](pages/2026-11-12-scale-workers-without-recreate.md) — `docker compose up -d --scale worker=4 --no-recreate worker` adds two worker containers without touching the running ones: verified live, `worker-1/2` kept their start times and image while `worker-3/4` joined the RQ queue and took work. Also why `make deploy` (`--scale worker=2 --force-recreate`) undoes the scale-up. (2026-11-12)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic `Message` history: new `tasks`/`messages` tables beside the workflow state in `sessions`, `LinearTask`/`Chat` and `LinearComment`/`ChatMessage` as subtypes, `chats` shrunk to a subtype row, the FK-less duplicate `chat_messages.session_task_id` dropped, and a `--linear-sync` CLI that backfills every issue of the linked Linear projects with its comments. (2026-11-11)
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
@@ -129,8 +129,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (16 pages)
+### React frontend / UI (17 pages)
 
+- [CH-12: Session list order and live status](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
@@ -163,7 +164,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
-- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-13
+- [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 
 ### Session history & token accounting (13 pages)
 
