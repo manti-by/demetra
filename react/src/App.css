@@ -1143,11 +1143,24 @@
   color: var(--color-error);
 }
 
-/* Separates the active block from the completed block of the list. */
-.session-list-divider {
-  border: none;
+/* Separates the active block from the backlog block of the list. */
+.session-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding: 0.5rem 0.625rem 0.25rem;
   border-top: 1px solid var(--color-border);
-  margin: 0.5rem 0.25rem;
+  font-size: 0.65rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--color-text-tertiary);
+}
+
+.session-section-count {
+  font-family: var(--font-mono);
 }
 
 /* ─── Session Item ────────────────────────────────────────── */
@@ -2112,8 +2125,9 @@ th {
     background: var(--color-surface-2);
   }
 
-  .session-list-divider {
-    margin: 0.5rem 0.375rem;
+  .session-section-header {
+    margin-top: 0.5rem;
+    padding: 0.5rem 0.375rem 0.25rem;
   }
 
   .session-item.selected {

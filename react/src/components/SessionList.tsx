@@ -5,7 +5,9 @@ import { Loader } from "./Loader";
 const POLL_INTERVAL = 60000;
 const LIVE_POLL_INTERVAL = 5000;
 
-const TERMINAL_STEPS = new Set(["completed", "researched"]);
+const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+const TERMINAL_STEPS = new Set(["completed", "failed", "researched"]);
 
 const isTerminalStep = (step: string | null | undefined): boolean =>
   TERMINAL_STEPS.has(step ?? "");
@@ -30,6 +32,13 @@ const formatDate = (dateStr: string): string => {
   if (minutes < 60) return `${minutes}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
+};
+
+const isActiveSession = (session: Session, now: number): boolean => {
+  if (isTerminalStep(session.step)) return false;
+  const createdAt = new Date(session.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return now - createdAt < ACTIVE_WINDOW_MS;
 };
 
 const SessionItem = memo(
@@ -186,14 +195,14 @@ export function SessionList({
     });
   }, [sessions, query, activeTag]);
 
-  const { activeSessions, completedSessions } = useMemo(() => {
+  const { activeSessions, backlogSessions } = useMemo(() => {
+    const now = Date.now();
     const active: Session[] = [];
-    const completed: Session[] = [];
+    const backlog: Session[] = [];
     for (const session of filteredSessions) {
-      if (isTerminalStep(session.step)) completed.push(session);
-      else active.push(session);
+      (isActiveSession(session, now) ? active : backlog).push(session);
     }
-    return { activeSessions: active, completedSessions: completed };
+    return { activeSessions: active, backlogSessions: backlog };
   }, [filteredSessions]);
 
   const renderSession = (session: Session) => (
@@ -250,10 +259,15 @@ export function SessionList({
         ) : (
           <>
             {activeSessions.map(renderSession)}
-            {activeSessions.length > 0 && completedSessions.length > 0 && (
-              <hr className="session-list-divider" />
+            {backlogSessions.length > 0 && (
+              <>
+                <div className="session-section-header">
+                  <span>Backlog</span>
+                  <span className="session-section-count">{backlogSessions.length}</span>
+                </div>
+                {backlogSessions.map(renderSession)}
+              </>
             )}
-            {completedSessions.map(renderSession)}
           </>
         )}
       </div>

@@ -307,9 +307,10 @@ const hello = "world";`}</pre>
       <section className="sg-section">
         <h2 className="sg-section-title">Sessions & Projects</h2>
         <p className="sg-section-desc">
-          Active sessions (any step except <code>completed</code> / <code>researched</code>) sit above
-          the completed block; <code>session-list-divider</code> separates the blocks and renders only
-          when both of them have sessions. A session whose workflow job is running carries
+          Active sessions (any step except <code>completed</code> / <code>failed</code> /{' '}
+          <code>researched</code>, created within the last two weeks) sit above the backlog block;{' '}
+          <code>session-section-header</code> labels the backlog and renders only when it has
+          sessions. A session whose workflow job is running carries
           <code> live</code>, which blinks its step badge and adds a <code>Live — running</code> tooltip.
         </p>
         <div className="sg-card">
@@ -325,14 +326,17 @@ const hello = "world";`}</pre>
               <div className="session-item-meta"><span className="session-project">demetra</span></div>
             </div>
             <div className="session-item">
-              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step failed">failed</span></div><span className="session-time">Just now</span></div>
-              <div className="session-title">init</div>
-            </div>
-            <div className="session-item">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step initial">initial</span></div><span className="session-time">5m ago</span></div>
               <div className="session-title">initial session</div>
             </div>
-            <hr className="session-list-divider" />
+            <div className="session-section-header">
+              <span>Backlog</span>
+              <span className="session-section-count">3</span>
+            </div>
+            <div className="session-item">
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step failed">failed</span></div><span className="session-time">Just now</span></div>
+              <div className="session-title">init</div>
+            </div>
             <div className="session-item">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step completed">completed</span></div><span className="session-time">1d ago</span></div>
               <div className="session-title">fix/auth-flow</div>
