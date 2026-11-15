@@ -99,6 +99,24 @@ class TestSessionEnvironmentSubprocessEnv:
         assert env["PROJECT_ONLY"] == "project-only"
         assert env["USER_ONLY"] == "user-only"
 
+    def test_blank_project_values_fall_back_to_user_shared(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_PASSWORD": "", "KEY": "   "},
+            user_environment={"DB_PASSWORD": "user-password", "KEY": "user-key"},
+        )
+
+        env = environment.subprocess_env
+        assert env["DB_PASSWORD"] == "user-password"
+        assert env["KEY"] == "user-key"
+
+    def test_blank_project_values_keep_the_system_fallback(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_USER": ""},
+            user_environment={},
+        )
+
+        assert environment.subprocess_env["DB_USER"] == "settings-db-user"
+
     def test_empty_layers_still_resolve_the_tracing_vars(self, settings_defaults):
         env = SessionEnvironment(project_environment={}, user_environment={}).subprocess_env
 

@@ -9,6 +9,7 @@ the container derives a config that keeps only ``$schema`` and ``provider``.
 
 import argparse
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -41,15 +42,26 @@ def derive_config(source: Path) -> dict[str, Any]:
 def write_config(config: dict[str, Any], target: Path) -> None:
     """Write a derived config atomically with owner-only permissions.
 
+    The temporary file is created with mode ``0600`` before any credential is
+    written, so provider keys are never readable by another user during the
+    write. A failed write or replace removes the temporary file.
+
     Args:
         config: The derived config mapping.
         target: The destination path.
     """
     target.parent.mkdir(parents=True, exist_ok=True)
     temporary = target.with_suffix(f"{target.suffix}.tmp")
-    temporary.write_text(json.dumps(config, indent=2) + "\n", encoding="utf-8")
-    temporary.chmod(0o600)
-    temporary.replace(target)
+    payload = json.dumps(config, indent=2) + "\n"
+    try:
+        descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(descriptor, 0o600)
+        with os.fdopen(descriptor, "w", encoding="utf-8") as handle:
+            handle.write(payload)
+        temporary.replace(target)
+    except OSError:
+        temporary.unlink(missing_ok=True)
+        raise
 
 
 def main() -> None:

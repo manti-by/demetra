@@ -120,6 +120,37 @@ class TestDeriveOpencodeConfig:
         assert json.loads(target.read_text(encoding="utf-8"))["provider"] == {"p": {}}
         assert target.stat().st_mode & 0o777 == 0o600
 
+    def test_temporary_file_is_owner_only_before_replacement(self, tmp_path, monkeypatch):
+        module = _load_derive_module()
+        target = tmp_path / "opencode.json"
+        modes = []
+        real_replace = Path.replace
+
+        def capture_mode(path, other):
+            modes.append(path.stat().st_mode & 0o777)
+            return real_replace(path, other)
+
+        monkeypatch.setattr(Path, "replace", capture_mode)
+
+        module.write_config(config={"provider": {"p": {}}}, target=target)
+
+        assert modes == [0o600]
+
+    def test_removes_the_temporary_file_when_replacement_fails(self, tmp_path, monkeypatch):
+        module = _load_derive_module()
+        target = tmp_path / "opencode.json"
+
+        def fail_replace(self, other):
+            raise OSError("replacement failed")
+
+        monkeypatch.setattr(Path, "replace", fail_replace)
+
+        with pytest.raises(OSError, match="replacement failed"):
+            module.write_config(config={"provider": {"p": {}}}, target=target)
+
+        assert not target.with_suffix(".json.tmp").exists()
+        assert not target.exists()
+
     def test_cli_derives_the_container_config(self, tmp_path):
         source = tmp_path / "providers.json"
         target = tmp_path / "opencode.json"
@@ -160,3 +191,8 @@ class TestDockerProviderCredentialsMount:
         assert "derive-opencode-config.py" in entrypoint
         assert "providers.json" in entrypoint
         assert "/home/demetra/.config/opencode/opencode.json" in entrypoint
+
+    def test_entrypoint_prunes_the_read_only_provider_mount(self):
+        entrypoint = (REPO_ROOT / "configs" / "docker-entrypoint.sh").read_text(encoding="utf-8")
+
+        assert "-path /home/demetra/.config/opencode/providers.json" in entrypoint

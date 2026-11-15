@@ -598,15 +598,18 @@ class SessionEnvironment:
         """Return everything a demetra subprocess needs, as one mapping.
 
         The user-shared env is the base, the project env is layered over it (a
-        project key always wins), and the derived LangSmith tracing vars from
-        :attr:`langsmith_env` sit on top so an agent subprocess never reads a
-        half-configured tracing flag. This is the single place where the layers
-        are combined for :func:`run_command`.
+        non-blank project key always wins), and the derived LangSmith tracing
+        vars from :attr:`system_env` sit on top so an agent subprocess never
+        reads a half-configured tracing flag. A blank project value counts as
+        absent, matching :meth:`lookup`, so it never masks a user-shared value.
+        This is the single place where the layers are combined for
+        :func:`run_command`.
 
         Returns:
             dict[str, str]: The merged environment.
         """
-        return {**self.user_environment, **self.project_environment, **self.system_env}
+        project_environment = {key: value for key, value in self.project_environment.items() if value.strip()}
+        return {**self.user_environment, **project_environment, **self.system_env}
 
     @property
     def opencode_plan_model(self) -> str:
