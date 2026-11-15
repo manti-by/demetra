@@ -13,7 +13,7 @@ from demetra.settings import REDIS_URL, SUBPROCESS_TIMEOUT
 logger = logging.getLogger(__name__)
 
 connection = Redis.from_url(url=REDIS_URL)
-queue = Queue(connection=connection, default_timeout=SUBPROCESS_TIMEOUT + 60)  # Overhead for RQ itself
+queue = Queue(connection=connection, default_timeout=SUBPROCESS_TIMEOUT)
 
 WORKFLOW_JOB_PATH = "demetra.services.daemons.watcher.run_workflow"
 

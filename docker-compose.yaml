@@ -114,7 +114,7 @@ services:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/worker.log
     deploy:
-      replicas: 2
+      replicas: 4
 
   watcher:
     <<: *demetra-app
