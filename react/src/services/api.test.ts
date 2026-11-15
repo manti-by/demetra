@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 
-import { getCurrentUser, getSessionHistory, signup, WaitlistedError } from "./api";
+import { getCurrentUser, getLiveSessionIds, getSessionHistory, signup, WaitlistedError } from "./api";
 
 describe("getCurrentUser", () => {
   beforeEach(() => {
@@ -56,6 +56,28 @@ describe("signup", () => {
     );
 
     await expect(signup("blocked@example.com", "hunter2hunter2")).rejects.toThrow(WaitlistedError);
+  });
+});
+
+describe("getLiveSessionIds", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("returns the ids of the sessions with a running job", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify(["CH-1", "TASK-2"]), { status: 200 })
+    );
+
+    await expect(getLiveSessionIds()).resolves.toEqual(["CH-1", "TASK-2"]);
+  });
+
+  it("throws when the endpoint fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(JSON.stringify({ detail: "boom" }), { status: 500 })
+    );
+
+    await expect(getLiveSessionIds()).rejects.toThrow("Failed to fetch live sessions");
   });
 });
 

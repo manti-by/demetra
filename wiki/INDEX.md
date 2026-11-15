@@ -129,8 +129,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (16 pages)
+### React frontend / UI (17 pages)
 
+- [CH-12: Session list order and live status](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
@@ -163,6 +164,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
+- [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 
 ### Session history & token accounting (13 pages)
 
