@@ -7,10 +7,12 @@ const LIVE_POLL_INTERVAL = 5000;
 
 const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
 
-const TERMINAL_STEPS = new Set(["completed", "failed", "researched"]);
+const COMPLETED_STEPS = new Set(["completed", "researched"]);
 
-const isTerminalStep = (step: string | null | undefined): boolean =>
-  TERMINAL_STEPS.has(step ?? "");
+const isCompletedStep = (step: string | null | undefined): boolean =>
+  COMPLETED_STEPS.has(step ?? "");
+
+type SessionSection = "active" | "completed" | "backlog";
 
 interface SessionListProps {
   onSelectSession: (taskId: string) => void;
@@ -34,11 +36,23 @@ const formatDate = (dateStr: string): string => {
   return `${days}d ago`;
 };
 
-const isActiveSession = (session: Session, now: number): boolean => {
-  if (isTerminalStep(session.step)) return false;
-  const createdAt = new Date(session.created_at).getTime();
-  if (Number.isNaN(createdAt)) return false;
-  return now - createdAt < ACTIVE_WINDOW_MS;
+const isStaleSession = (session: Session, now: number): boolean => {
+  const updatedAt = new Date(session.updated_at).getTime();
+  if (Number.isNaN(updatedAt)) return false;
+  return now - updatedAt >= ACTIVE_WINDOW_MS;
+};
+
+const sectionOf = (
+  session: Session,
+  now: number,
+  liveTaskIds: Set<string>,
+): SessionSection => {
+  if (isCompletedStep(session.step)) return "completed";
+  if (session.step === "failed") return "backlog";
+  if (!liveTaskIds.has(session.task_id) && isStaleSession(session, now)) {
+    return "backlog";
+  }
+  return "active";
 };
 
 const SessionItem = memo(
@@ -154,13 +168,15 @@ export function SessionList({
 
   useEffect(() => {
     if (sessions.length > 0 && !selectedTaskId) {
+      const now = Date.now();
       const linearSessions = sessions.filter((session) => !session.chat_id);
-      const firstLinear =
-        linearSessions.find((session) => !isTerminalStep(session.step)) ??
-        linearSessions[0];
+      const firstActive = linearSessions.find(
+        (session) => sectionOf(session, now, liveTaskIds) === "active",
+      );
+      const firstLinear = firstActive ?? linearSessions[0];
       if (firstLinear) onSelectSession(firstLinear.task_id);
     }
-  }, [sessions, selectedTaskId, onSelectSession]);
+  }, [sessions, selectedTaskId, onSelectSession, liveTaskIds]);
 
   const handleSelectSession = useCallback(
     (e: React.MouseEvent, session: Session) => {
@@ -195,15 +211,23 @@ export function SessionList({
     });
   }, [sessions, query, activeTag]);
 
-  const { activeSessions, backlogSessions } = useMemo(() => {
+  const { activeSessions, completedSessions, backlogSessions } = useMemo(() => {
     const now = Date.now();
     const active: Session[] = [];
+    const completed: Session[] = [];
     const backlog: Session[] = [];
     for (const session of filteredSessions) {
-      (isActiveSession(session, now) ? active : backlog).push(session);
+      const section = sectionOf(session, now, liveTaskIds);
+      if (section === "completed") completed.push(session);
+      else if (section === "backlog") backlog.push(session);
+      else active.push(session);
     }
-    return { activeSessions: active, backlogSessions: backlog };
-  }, [filteredSessions]);
+    return {
+      activeSessions: active,
+      completedSessions: completed,
+      backlogSessions: backlog,
+    };
+  }, [filteredSessions, liveTaskIds]);
 
   const renderSession = (session: Session) => (
     <SessionItem
@@ -213,6 +237,24 @@ export function SessionList({
       isLive={liveTaskIds.has(session.task_id)}
       onClick={(e) => handleSelectSession(e, session)}
     />
+  );
+
+  const renderSection = (
+    title: string,
+    sectionSessions: Session[],
+    emptyMessage?: string,
+  ) => (
+    <>
+      <div className="session-section-header">
+        <span>{title}</span>
+        <span className="session-section-count">{sectionSessions.length}</span>
+      </div>
+      {sectionSessions.length === 0 && emptyMessage ? (
+        <div className="session-section-empty">{emptyMessage}</div>
+      ) : (
+        sectionSessions.map(renderSession)
+      )}
+    </>
   );
 
   return (
@@ -258,16 +300,11 @@ export function SessionList({
           <div className="session-list-empty">No matching sessions</div>
         ) : (
           <>
-            {activeSessions.map(renderSession)}
-            {backlogSessions.length > 0 && (
-              <>
-                <div className="session-section-header">
-                  <span>Backlog</span>
-                  <span className="session-section-count">{backlogSessions.length}</span>
-                </div>
-                {backlogSessions.map(renderSession)}
-              </>
-            )}
+            {renderSection("Active", activeSessions, "No active sessions")}
+            {completedSessions.length > 0 &&
+              renderSection("Completed", completedSessions)}
+            {backlogSessions.length > 0 &&
+              renderSection("Backlog", backlogSessions)}
           </>
         )}
       </div>

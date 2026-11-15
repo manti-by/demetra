@@ -1143,7 +1143,7 @@
   color: var(--color-error);
 }
 
-/* Separates the active block from the backlog block of the list. */
+/* Separates the active, completed and backlog blocks of the list. */
 .session-section-header {
   display: flex;
   align-items: center;
@@ -1159,8 +1159,21 @@
   color: var(--color-text-tertiary);
 }
 
+/* The first block sits directly under the search box, so it needs no rule. */
+.session-section-header:first-child {
+  margin-top: 0;
+  padding-top: 0.25rem;
+  border-top: none;
+}
+
 .session-section-count {
   font-family: var(--font-mono);
+}
+
+.session-section-empty {
+  padding: 0.75rem 0.625rem 0.5rem;
+  font-size: 0.75rem;
+  color: var(--color-text-tertiary);
 }
 
 /* ─── Session Item ────────────────────────────────────────── */

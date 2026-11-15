@@ -307,14 +307,21 @@ const hello = "world";`}</pre>
       <section className="sg-section">
         <h2 className="sg-section-title">Sessions & Projects</h2>
         <p className="sg-section-desc">
-          Active sessions (any step except <code>completed</code> / <code>failed</code> /{' '}
-          <code>researched</code>, created within the last two weeks) sit above the backlog block;{' '}
-          <code>session-section-header</code> labels the backlog and renders only when it has
-          sessions. A session whose workflow job is running carries
-          <code> live</code>, which blinks its step badge and adds a <code>Live — running</code> tooltip.
+          The list is split into three blocks separated by <code>session-section-header</code> rules:
+          <strong> Active</strong> (in progress, including <code>awaiting_input</code>, updated within
+          the last two weeks or running now), <strong>Completed</strong> (<code>completed</code> /{' '}
+          <code>researched</code>) and <strong>Backlog</strong> (<code>failed</code> or stale
+          in-progress). The active block always renders and shows <code>session-section-empty</code>{' '}
+          when it has no sessions; the other two render only when non-empty. A session whose workflow
+          job is running carries <code>live</code>, which blinks its step badge and adds a{' '}
+          <code>Live — running</code> tooltip.
         </p>
         <div className="sg-card">
           <div className="sg-stack">
+            <div className="session-section-header">
+              <span>Active</span>
+              <span className="session-section-count">3</span>
+            </div>
             <div className="session-item selected">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type chat">C</span><span className="session-step build">build</span></div><span className="session-time">2h ago</span></div>
               <div className="session-title">my-feature-branch</div>
@@ -330,12 +337,8 @@ const hello = "world";`}</pre>
               <div className="session-title">initial session</div>
             </div>
             <div className="session-section-header">
-              <span>Backlog</span>
-              <span className="session-section-count">3</span>
-            </div>
-            <div className="session-item">
-              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step failed">failed</span></div><span className="session-time">Just now</span></div>
-              <div className="session-title">init</div>
+              <span>Completed</span>
+              <span className="session-section-count">2</span>
             </div>
             <div className="session-item">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step completed">completed</span></div><span className="session-time">1d ago</span></div>
@@ -345,6 +348,14 @@ const hello = "world";`}</pre>
             <div className="session-item">
               <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step researched">researched</span></div><span className="session-time">3d ago</span></div>
               <div className="session-title">research session</div>
+            </div>
+            <div className="session-section-header">
+              <span>Backlog</span>
+              <span className="session-section-count">1</span>
+            </div>
+            <div className="session-item">
+              <div className="session-item-header"><div className="session-item-badges"><span className="session-type linear">L</span><span className="session-step failed">failed</span></div><span className="session-time">Just now</span></div>
+              <div className="session-title">init</div>
             </div>
           </div>
           <div className="sg-row sg-wrap" style={{ marginTop: 12 }}>

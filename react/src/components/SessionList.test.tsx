@@ -342,7 +342,7 @@ describe('SessionList', () => {
     expect(screen.getByText('No matching sessions')).toBeInTheDocument();
   });
 
-  describe('active and backlog blocks', () => {
+  describe('active, completed and backlog blocks', () => {
     const makeBlockSession = (
       taskId: string,
       name: string,
@@ -367,27 +367,32 @@ describe('SessionList', () => {
         />,
       );
 
-    it('lists recent in-progress sessions above the backlog section', () => {
+    it('groups sessions into active, completed and backlog sections', () => {
       const { container } = renderList([
         makeBlockSession('task-done', 'completed session', 'completed'),
         makeBlockSession('task-failed', 'failed session', 'failed'),
         makeBlockSession('task-research', 'research session', 'researched', {
           created_at: daysAgo(30),
+          updated_at: daysAgo(30),
         }),
         makeBlockSession('task-build', 'active session', 'build', {
           created_at: daysAgo(2),
+          updated_at: daysAgo(2),
         }),
         makeBlockSession('task-stale', 'stale session', 'awaiting_input', {
-          created_at: daysAgo(20),
+          created_at: daysAgo(30),
+          updated_at: daysAgo(20),
         }),
       ]);
 
       const list = container.querySelector('.session-list') as HTMLElement;
       expect(Array.from(list.children).map((node) => node.className)).toEqual([
+        'session-section-header',
         'session-item',
         'session-section-header',
         'session-item',
         'session-item',
+        'session-section-header',
         'session-item',
         'session-item',
       ]);
@@ -398,46 +403,96 @@ describe('SessionList', () => {
       ).toEqual([
         'active session',
         'completed session',
-        'failed session',
         'research session',
+        'failed session',
         'stale session',
       ]);
+      expect(screen.getByText('Active')).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
       expect(screen.getByText('Backlog')).toBeInTheDocument();
-      expect(container.querySelector('.session-section-count')?.textContent).toBe('4');
+      expect(
+        Array.from(list.querySelectorAll('.session-section-count')).map(
+          (node) => node.textContent,
+        ),
+      ).toEqual(['1', '2', '2']);
     });
 
-    it('omits the backlog section when only the active block has sessions', () => {
+    it('omits the completed and backlog sections when only the active block has sessions', () => {
       const { container } = renderList([
         makeBlockSession('task-1', 'odin', 'build'),
       ]);
 
-      expect(container.querySelector('.session-section-header')).toBeNull();
+      expect(container.querySelectorAll('.session-section-header')).toHaveLength(1);
+      expect(screen.getByText('Active')).toBeInTheDocument();
+      expect(screen.queryByText('Completed')).not.toBeInTheDocument();
+      expect(screen.queryByText('Backlog')).not.toBeInTheDocument();
       expect(screen.getByText('odin')).toBeInTheDocument();
     });
 
-    it('keeps a recent failed session out of the active block', () => {
+    it('shows an empty message in the active block when nothing is in progress', () => {
+      const { container } = renderList([
+        makeBlockSession('task-done', 'completed session', 'completed'),
+      ]);
+
+      const list = container.querySelector('.session-list') as HTMLElement;
+      expect(Array.from(list.children).map((node) => node.className)).toEqual([
+        'session-section-header',
+        'session-section-empty',
+        'session-section-header',
+        'session-item',
+      ]);
+      expect(screen.getByText('No active sessions')).toBeInTheDocument();
+      expect(screen.getByText('completed session')).toBeInTheDocument();
+    });
+
+    it('keeps a recent failed session in the backlog', () => {
       const { container } = renderList([
         makeBlockSession('task-failed', 'failed session', 'failed'),
       ]);
 
+      expect(screen.getByText('No active sessions')).toBeInTheDocument();
       expect(screen.getByText('Backlog')).toBeInTheDocument();
-      expect(container.querySelector('.session-section-count')?.textContent).toBe('1');
+      expect(
+        Array.from(container.querySelectorAll('.session-section-count')).map(
+          (node) => node.textContent,
+        ),
+      ).toEqual(['0', '1']);
       expect(screen.getByText('failed session')).toBeInTheDocument();
     });
 
-    it('splits the filtered sessions, so a search that hides every backlog session drops the header', () => {
+    it('keeps a live session in the active block past the staleness window', async () => {
+      vi.mocked(getLiveSessionIds).mockResolvedValue(['task-live']);
+
       const { container } = renderList([
-        makeBlockSession('task-active', 'odin', 'build'),
+        makeBlockSession('task-live', 'live session', 'build', {
+          created_at: daysAgo(30),
+          updated_at: daysAgo(30),
+        }),
+      ]);
+
+      await waitFor(() =>
+        expect(container.querySelector('.session-item.live')).toBeInTheDocument(),
+      );
+      expect(screen.getByText('Active')).toBeInTheDocument();
+      expect(container.querySelector('.session-section-count')?.textContent).toBe('1');
+      expect(screen.queryByText('Backlog')).not.toBeInTheDocument();
+    });
+
+    it('splits the filtered sessions, so a search that hides every completed session drops the header', () => {
+      renderList([
+        makeBlockSession('task-active', 'odin', 'build', {
+          updated_at: daysAgo(1),
+        }),
         makeBlockSession('task-done', 'amon-ra', 'completed'),
       ]);
 
-      expect(container.querySelector('.session-section-header')).toBeInTheDocument();
+      expect(screen.getByText('Completed')).toBeInTheDocument();
 
       fireEvent.change(screen.getByPlaceholderText('Search sessions...'), {
         target: { value: 'odin' },
       });
 
-      expect(container.querySelector('.session-section-header')).toBeNull();
+      expect(screen.queryByText('Completed')).not.toBeInTheDocument();
       expect(screen.getByText('odin')).toBeInTheDocument();
       expect(screen.queryByText('amon-ra')).not.toBeInTheDocument();
     });

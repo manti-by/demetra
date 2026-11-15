@@ -138,7 +138,7 @@ export function NewChatPage() {
               className="form-input"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              rows={6}
+              rows={12}
               placeholder="What should the agent build?"
             />
           </label>
