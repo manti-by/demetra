@@ -12,7 +12,7 @@ from mcp.types import (
     PaginatedRequestParams,
 )
 
-from demetra.settings import LOGGING
+from demetra.settings import DATABASE, LOGGING
 from demetra.tools import call_tool, list_tools
 from demetra.tools.database import close_db_pool
 
@@ -71,7 +71,15 @@ async def main():
 
     Serves the registered tool handlers over a stdio JSON-RPC transport and
     releases the shared database pool on shutdown.
+
+    Raises:
+        RuntimeError: When ``DB_PASSWORD`` is not configured, so the server
+            fails fast instead of starting with database tools that cannot
+            reach the database.
     """
+    if not DATABASE["password"]:
+        raise RuntimeError("DB_PASSWORD environment variable is required")
+
     async with stdio_server() as (read_stream, write_stream):
         try:
             await mcp_server.run(

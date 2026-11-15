@@ -164,6 +164,8 @@ lines-after-imports = 2
 "**/{settings}/*" = ["E402", "F403", "F405"]
 "**/migrations/*" = ["RUF", "I"]
 "demetra/tools/database.py" = ["S608"]
+# configs/ holds standalone operator scripts, not an importable package.
+"configs/*.py" = ["INP001"]
 
 [tool.ty.src]
 exclude = [

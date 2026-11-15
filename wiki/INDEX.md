@@ -8,7 +8,8 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — Implementation of MNT-315: Auto deploy on master commits (2026-11-14)
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — The Linear MCP server authenticates with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`; the key resolves project → user → system, the Demetra MCP command drops its cwd-relative `--env-file`, `DB_*` (except the encrypted `DB_PASSWORD`) are forwarded through `system_env`, the MCP server exits fast without a password, and the host credential file is derived into a provider-only global config. (2026-11-15)
+- [Scaling RQ workers without recreating running containers](pages/2026-11-12-scale-workers-without-recreate.md) — `docker compose up -d --scale worker=4 --no-recreate worker` adds two worker containers without touching the running ones: verified live, `worker-1/2` kept their start times and image while `worker-3/4` joined the RQ queue and took work. Also why `make deploy` (`--scale worker=2 --force-recreate`) undoes the scale-up. (2026-11-12)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — Linear tickets and chat sessions are now driven by one generic `Task` entity with one generic `Message` history: new `tasks`/`messages` tables beside the workflow state in `sessions`, `LinearTask`/`Chat` and `LinearComment`/`ChatMessage` as subtypes, `chats` shrunk to a subtype row, the FK-less duplicate `chat_messages.session_task_id` dropped, and a `--linear-sync` CLI that backfills every issue of the linked Linear projects with its comments. (2026-11-11)
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — Chat-session PR descriptions are unwrapped from markdown code fences before posting: `_unwrap_pr_body` in `demetra/workflows/cleanup.py` strips surrounding fences... (2026-11-11)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — Chat templates for new chats: Markdown files in `demetra/templates/chat/`, a public `GET /api/v1/chat-templates` endpoint returning every template's content, and a selector in `NewChatPage.tsx` whose... (2026-11-10)
@@ -48,7 +49,7 @@ _Newest first._
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — The implementation standardized methods for resolving agent models, Linear settings, and OpenRouter settings by introducing a single SessionEnvironment resolver. (2026-09-16)
 - [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — Added "View Research Plan" link + modal mirroring the build-plan artifact — new `sessions.research_plan` column, Session persistence, API exposure, and `SessionArtifacts` UI with markdown toggle. (2026-09-14)
 - [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — Hardened all 7 `.opencode/agents/*.md` prompts (only `research-agent.md` had `description`/`permission` before). (2026-09-14)
-- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — The GitHub notification listener (`demetra/listener.py`) has never processed a single notification: the log shows 2792 `Error polling GitHub notifications` tracebacks and **zero** `Processing notifica... (2026-09-14)
+- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — The GitHub notification listener never processed a notification: `gh api /notifications --jq .` emits one compact JSON line that exceeds the 64KB asyncio pipe readline limit when the unread backlog grows; fixed 2026-11-15 by switching `get_notifications`/`fetch_subject_body` to `run_command_to_file`. (2026-09-14)
 - [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — Research workflow now creates a related Linear ticket instead of posting a comment on the source ticket. New ticket inherits project, priority, and state (`PRD`), with `Feature` plus source `Backend`/... (2026-09-11)
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — Research loop now persists the extracted report to new `sessions.research_report` column and uses a new `researched` StepType (navy-blue badge). Added migration, StepType/Session updates, and React/CS... (2026-09-10)
 - [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — Demetra persists `reasoning` from `opencode export` unchanged — zeros originate in OpenCode, not in API/frontend/DB. (2026-09-08)
@@ -129,8 +130,9 @@ _Newest first._
 
 _Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-### React frontend / UI (16 pages)
+### React frontend / UI (17 pages)
 
+- [CH-12: Session list order and live status](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
 - [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
 - [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
@@ -148,8 +150,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
 - [Markdown renderer](pages/2026-06-09-markdown-renderer.md) — 2026-06-09
 
-### MCP & wiki tooling (13 pages)
+### MCP & wiki tooling (14 pages)
 
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
 - [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md) — 2026-10-25
 - [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md) — 2026-10-15
 - [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — 2026-10-09
@@ -163,7 +166,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
 - [Fix MCP Server for the mcp 2.0 API](pages/2026-08-03-fix-mcp-server-2.0-api.md) — 2026-08-03
-- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — 2026-11-14
+- [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
 
 ### Session history & token accounting (13 pages)
 
@@ -197,7 +200,7 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 
 ### Deploy & infrastructure (10 pages)
 
-- [Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — 2026-11-14
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
 - [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — 2026-09-28
 - [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
 - [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24
@@ -208,8 +211,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — 2026-08-10
 - [Project deploy script](pages/2026-07-07-project-deploy-script.md) — 2026-07-07
 
-### OpenCode CLI & agent integration (9 pages)
+### OpenCode CLI & agent integration (10 pages)
 
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
 - [MNT-298 research agent ECONNRESET — local opencode server thrash](pages/2026-11-06-mnt-298-research-econnreset-root-cause.md) — 2026-11-06
 - [Agent ECONNRESET network errors — root cause](pages/2026-11-06-agent-econnreset-network-investigation.md) — 2026-11-06
 - [MNT-276: ECONNRESET retry for agents](pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md) — 2026-11-03
@@ -220,8 +224,9 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md) — 2026-08-19
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 2026-08-04
 
-### Environment, settings & subprocess (8 pages)
+### Environment, settings & subprocess (9 pages)
 
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
 - [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — 2026-10-12
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — 2026-10-06
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — 2026-09-16
@@ -241,8 +246,10 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Plain Password Auth Implementation and Review Follow-ups](pages/2026-07-24-plain-auth-review-followups.md) — 2026-07-24
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Linear & GitHub integrations (8 pages)
+### Linear & GitHub integrations (10 pages)
 
+- [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-12
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-11
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14

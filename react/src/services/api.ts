@@ -205,6 +205,15 @@ export async function getSessions(
   return response.json();
 }
 
+// Task ids of the sessions whose workflow job is running right now.
+export async function getLiveSessionIds(): Promise<string[]> {
+  const response = await authenticatedFetch(`${API_URL}/api/v1/sessions/live`);
+  if (!response.ok) {
+    throw new Error("Failed to fetch live sessions");
+  }
+  return response.json();
+}
+
 export interface Chat {
   id: string;
   chat_id: number | null;

@@ -33,6 +33,7 @@ class LinearStates(TypedDict):
 
 class LinearConfig(TypedDict):
     api_url: str
+    api_key: str | None
     client_id: str | None
     client_secret: str | None
     oauth_scope: str

@@ -56,7 +56,8 @@ MAX_ATTEMPTS: dict = {
     "research": env_get_int("MAX_RESEARCH_ATTEMPTS", 5),
 }
 
-SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 30 * 60)
+SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 4 * 60 * 60)
+SUBPROCESS_READ_LIMIT = env_get_int("SUBPROCESS_READ_LIMIT", 16 * 1024 * 1024)
 CONTEXT_COMPACTION_THRESHOLD = env_get_int("CONTEXT_COMPACTION_THRESHOLD", 100_000)
 
 MAX_AGENT_NETWORK_ATTEMPTS = env_get_int("MAX_AGENT_NETWORK_ATTEMPTS", 5)
@@ -143,6 +144,7 @@ REDIS_URL = env_get_str("REDIS_URL", "redis://localhost:6379/1")
 
 LINEAR: LinearConfig = {
     "api_url": "https://api.linear.app/graphql",
+    "api_key": env_get_str("LINEAR_API_KEY", None),
     "client_id": env_get_str("LINEAR_CLIENT_ID", None),
     "client_secret": env_get_str("LINEAR_CLIENT_SECRET", None),
     "oauth_scope": env_get_str("LINEAR_OAUTH_SCOPE", "read,write,comments:create"),

@@ -32,6 +32,7 @@ from demetra.services.persistence.database import (
     chat_task_id,
     claim_session_for_rerun,
     claim_session_for_resume,
+    clear_session_build_plan,
     create_chat,
     create_project,
     delete_project,
@@ -294,6 +295,19 @@ class TestChatQueries:
         assert session.build_plan == ""
         assert session.posted_to_linear is False
         assert session.run_attempts == 0
+
+    @pytest.mark.asyncio
+    async def test_clear_session_build_plan_discards_only_the_plan(self, chat: Chat):
+        await save_session(task_id=chat.id, build_plan="plan body", session_id="ses-1")
+        await mark_session_posted(task_id=chat.id)
+
+        await clear_session_build_plan(task_id=chat.id)
+
+        session = await _session_for(task_id=chat.id)
+        assert session.build_plan == ""
+        assert session.posted_to_linear is True
+        assert session.step == "plan"
+        assert session.session_id == "ses-1"
 
     @pytest.mark.asyncio
     async def test_claim_session_for_resume_rejects_running_step(self, chat: Chat):

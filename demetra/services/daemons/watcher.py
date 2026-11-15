@@ -13,6 +13,7 @@ from demetra.services.linear import (
     get_user_environments_decrypted,
     post_comment,
     record_linear_comment,
+    resolve_state_id,
     update_ticket_status,
 )
 from demetra.services.persistence.database import (
@@ -48,13 +49,55 @@ async def resolve_linear_state(name: str, user_id: str | None, project_id: str |
     Returns:
         str | None: The resolved state id, or None when no layer provides it.
     """
-    user_environment = await get_user_environments_decrypted(user_id=user_id) if user_id else {}
-    project_environment = await get_project_environments(project_id=project_id) if project_id else {}
-    environment = SessionEnvironment(project_environment=project_environment, user_environment=user_environment)
+    environment = await _session_environment(user_id=user_id, project_id=project_id)
     try:
         return environment.linear_state(name)
     except EnvironmentConfigError:
         return None
+
+
+async def _session_environment(user_id: str | None, project_id: str | None = None) -> SessionEnvironment:
+    """Build the environment resolver for a task's owner and project.
+
+    Args:
+        user_id: The user id whose shared environment is consulted.
+        project_id: Optional project id whose environment is consulted first.
+
+    Returns:
+        SessionEnvironment: The resolver over the project and user-shared env.
+    """
+    user_environment = await get_user_environments_decrypted(user_id=user_id) if user_id else {}
+    project_environment = await get_project_environments(project_id=project_id) if project_id else {}
+    return SessionEnvironment(project_environment=project_environment, user_environment=user_environment)
+
+
+async def resolve_awaiting_input_state(
+    user_id: str | None, project_id: str | None = None
+) -> tuple[str | None, str | None]:
+    """Resolve the Awaiting Input column id for a task's environment.
+
+    Prefers the team column named *Awaiting Input* over the configured
+    ``LINEAR_STATE_AWAITING_INPUT_ID``, so a mis-pointed id cannot park a ticket
+    in a different column.
+
+    Args:
+        user_id: The user id whose shared environment is consulted.
+        project_id: Optional project id whose environment is consulted first.
+
+    Returns:
+        tuple[str | None, str | None]: The state id (None when no layer
+            configures it) and an optional mismatch warning.
+    """
+    environment = await _session_environment(user_id=user_id, project_id=project_id)
+    try:
+        configured_id = environment.linear_state("awaiting_input")
+    except EnvironmentConfigError:
+        return None, None
+    try:
+        team_id = environment.linear_value("team_id")
+    except EnvironmentConfigError:
+        team_id = None
+    return await resolve_state_id(name="awaiting_input", configured_id=configured_id, team_id=team_id)
 
 
 async def handle_exhausted_attempts(
@@ -82,7 +125,9 @@ async def handle_exhausted_attempts(
         await record_linear_comment(
             task_id=task_id, body="Max run attempts reached", kind="failure", external_id=comment_id
         )
-    state_id = await resolve_linear_state("awaiting_input", user_id=user_id, project_id=project_id)
+    state_id, warning = await resolve_awaiting_input_state(user_id=user_id, project_id=project_id)
+    if warning:
+        logger.warning(warning)
     if state_id is None:
         logger.error("Linear state 'awaiting_input' is not configured")
         return

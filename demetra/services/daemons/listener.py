@@ -8,7 +8,7 @@ from demetra.services.persistence.database import (
     reset_listener_attempts,
 )
 from demetra.services.persistence.queue import queue
-from demetra.services.runtime.subprocess import run_command
+from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.settings import BASE_PATH, GITHUB, MAX_ATTEMPTS
 from demetra.workflows.merge import run_merge_workflow
 from demetra.workflows.rebase import run_rebase_workflow
@@ -33,7 +33,9 @@ async def get_notifications() -> list[dict]:
         "--jq",
         ".",
     ]
-    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
+    # stdout is a single compact JSON line that exceeds the 64KB asyncio pipe
+    # readline limit whenever the unread backlog is large; read from a file instead.
+    exit_code, stdout, stderr = await run_command_to_file(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         logger.error(f"Failed to fetch notifications: {stderr.strip()}")
         return []
@@ -118,7 +120,7 @@ async def fetch_subject_body(subject: dict) -> str | None:
         "--jq",
         ".body",
     ]
-    exit_code, stdout, stderr = await run_command(command=command, target_path=BASE_PATH, disable_stdio=True)
+    exit_code, stdout, stderr = await run_command_to_file(command=command, target_path=BASE_PATH, disable_stdio=True)
     if exit_code != 0:
         logger.error(f"Failed to fetch subject body: {stderr.strip()}")
         return subject.get("title")

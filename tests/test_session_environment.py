@@ -31,9 +31,18 @@ LANGSMITH_SETTINGS: dict = {
 }
 
 LINEAR_SETTINGS: dict = {
+    "api_key": "settings-linear-key",
     "team_id": "settings-team",
     "default_state": "settings-default-state",
     "states": {"todo": "settings-todo", "in_review": "settings-in-review"},
+}
+
+DATABASE_SETTINGS: dict = {
+    "host": "settings-db-host",
+    "port": 5432,
+    "user": "settings-db-user",
+    "name": "settings-db-name",
+    "password": None,
 }
 
 TRACING_DEFAULTS: dict[str, str] = {
@@ -42,6 +51,11 @@ TRACING_DEFAULTS: dict[str, str] = {
     "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
     "LANGSMITH_API_KEY": "",
     "LANGSMITH_PROJECT": "settings-project",
+    "LINEAR_API_KEY": "settings-linear-key",
+    "DB_HOST": "settings-db-host",
+    "DB_PORT": "5432",
+    "DB_USER": "settings-db-user",
+    "DB_NAME": "settings-db-name",
 }
 
 
@@ -68,6 +82,7 @@ def settings_defaults():
         patch("demetra.settings.OPENROUTER", OPENROUTER_SETTINGS),
         patch("demetra.settings.LANGSMITH", LANGSMITH_SETTINGS),
         patch("demetra.settings.LINEAR", LINEAR_SETTINGS),
+        patch("demetra.settings.DATABASE", DATABASE_SETTINGS),
     ):
         yield
 
@@ -83,6 +98,24 @@ class TestSessionEnvironmentSubprocessEnv:
         assert env["KEY"] == "project-value"
         assert env["PROJECT_ONLY"] == "project-only"
         assert env["USER_ONLY"] == "user-only"
+
+    def test_blank_project_values_fall_back_to_user_shared(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_PASSWORD": "", "KEY": "   "},
+            user_environment={"DB_PASSWORD": "user-password", "KEY": "user-key"},
+        )
+
+        env = environment.subprocess_env
+        assert env["DB_PASSWORD"] == "user-password"
+        assert env["KEY"] == "user-key"
+
+    def test_blank_project_values_keep_the_system_fallback(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_USER": ""},
+            user_environment={},
+        )
+
+        assert environment.subprocess_env["DB_USER"] == "settings-db-user"
 
     def test_empty_layers_still_resolve_the_tracing_vars(self, settings_defaults):
         env = SessionEnvironment(project_environment={}, user_environment={}).subprocess_env
@@ -253,6 +286,11 @@ class TestSessionEnvironmentLangSmith:
             "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
             "LANGSMITH_API_KEY": "",
             "LANGSMITH_PROJECT": "settings-project",
+            "LINEAR_API_KEY": "settings-linear-key",
+            "DB_HOST": "settings-db-host",
+            "DB_PORT": "5432",
+            "DB_USER": "settings-db-user",
+            "DB_NAME": "settings-db-name",
         }
 
     def test_sets_both_trace_flags_when_tracing_and_key_configured(self, settings_defaults):
@@ -344,6 +382,70 @@ class TestSessionEnvironmentLangSmith:
             )
 
             assert environment.system_env["LANGSMITH_TRACING"] == "false", value
+
+
+class TestSessionEnvironmentLinearApiKey:
+    def test_settings_default_is_forwarded_to_agents(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.system_env["LINEAR_API_KEY"] == "settings-linear-key"
+
+    def test_project_layer_wins_over_user_and_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"LINEAR_API_KEY": "project-key"},
+            user_environment={"LINEAR_API_KEY": "user-key"},
+        )
+
+        assert environment.system_env["LINEAR_API_KEY"] == "project-key"
+
+    def test_user_layer_wins_over_settings(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={},
+            user_environment={"LINEAR_API_KEY": "user-key"},
+        )
+
+        assert environment.system_env["LINEAR_API_KEY"] == "user-key"
+
+    def test_missing_key_does_not_raise(self, settings_defaults):
+        with patch("demetra.settings.LINEAR", {**LINEAR_SETTINGS, "api_key": None}):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+
+            assert environment.system_env["LINEAR_API_KEY"] == ""
+
+
+class TestSessionEnvironmentDatabase:
+    def test_forwards_the_non_secret_database_defaults(self, settings_defaults):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+
+        assert environment.system_env["DB_HOST"] == "settings-db-host"
+        assert environment.system_env["DB_PORT"] == "5432"
+        assert environment.system_env["DB_USER"] == "settings-db-user"
+        assert environment.system_env["DB_NAME"] == "settings-db-name"
+
+    def test_project_layer_overrides_the_database_defaults(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_HOST": "project-db-host", "DB_PORT": "6543"},
+            user_environment={"DB_USER": "user-db-user"},
+        )
+
+        env = environment.system_env
+        assert env["DB_HOST"] == "project-db-host"
+        assert env["DB_PORT"] == "6543"
+        assert env["DB_USER"] == "user-db-user"
+
+    def test_never_forwards_a_system_password(self, settings_defaults):
+        with patch("demetra.settings.DATABASE", {**DATABASE_SETTINGS, "password": "settings-password"}):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+
+            assert "DB_PASSWORD" not in environment.system_env
+
+    def test_project_password_still_reaches_the_merged_env(self, settings_defaults):
+        environment = SessionEnvironment(
+            project_environment={"DB_PASSWORD": "encrypted-password"},
+            user_environment={},
+        )
+
+        assert environment.subprocess_env["DB_PASSWORD"] == "encrypted-password"
 
 
 class TestSessionEnvironmentLookup:

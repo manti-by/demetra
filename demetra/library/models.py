@@ -531,9 +531,18 @@ def settings_default(key: str) -> str | None:
         str | None: The configured default, or None when settings does not
             define the key.
     """
-    from demetra.settings import LANGSMITH, LINEAR, OPENCODE, OPENROUTER
+    from demetra.settings import DATABASE, LANGSMITH, LINEAR, OPENCODE, OPENROUTER
 
     match key:
+        case "DB_HOST":
+            return DATABASE["host"]
+        case "DB_PORT":
+            return str(DATABASE["port"])
+        case "DB_USER":
+            return DATABASE["user"]
+        case "DB_NAME":
+            return DATABASE["name"]
+
         case "OPENROUTER_API_KEY":
             return OPENROUTER["api_key"]
         case "OPENROUTER_MODEL":
@@ -552,6 +561,8 @@ def settings_default(key: str) -> str | None:
 
         case "LINEAR_TEAM_ID":
             return LINEAR["team_id"]
+        case "LINEAR_API_KEY":
+            return LINEAR["api_key"]
         case "LINEAR_DEFAULT_STATE_ID":
             return LINEAR["default_state"]
 
@@ -638,15 +649,18 @@ class SessionEnvironment:
         """Return everything a demetra subprocess needs, as one mapping.
 
         The user-shared env is the base, the project env is layered over it (a
-        project key always wins), and the derived LangSmith tracing vars from
-        :attr:`langsmith_env` sit on top so an agent subprocess never reads a
-        half-configured tracing flag. This is the single place where the layers
-        are combined for :func:`run_command`.
+        non-blank project key always wins), and the derived LangSmith tracing
+        vars from :attr:`system_env` sit on top so an agent subprocess never
+        reads a half-configured tracing flag. A blank project value counts as
+        absent, matching :meth:`lookup`, so it never masks a user-shared value.
+        This is the single place where the layers are combined for
+        :func:`run_command`.
 
         Returns:
             dict[str, str]: The merged environment.
         """
-        return {**self.user_environment, **self.project_environment, **self.system_env}
+        project_environment = {key: value for key, value in self.project_environment.items() if value.strip()}
+        return {**self.user_environment, **project_environment, **self.system_env}
 
     @property
     def opencode_plan_model(self) -> str:
@@ -747,6 +761,11 @@ class SessionEnvironment:
             "LANGSMITH_API_KEY": api_key,
             "LANGSMITH_ENDPOINT": env_get_str_from(getter=self.lookup, name="LANGSMITH_ENDPOINT", default=""),
             "LANGSMITH_PROJECT": env_get_str_from(getter=self.lookup, name="LANGSMITH_PROJECT", default=""),
+            "LINEAR_API_KEY": env_get_str_from(getter=self.lookup, name="LINEAR_API_KEY", default=""),
+            "DB_HOST": env_get_str_from(getter=self.lookup, name="DB_HOST", default=""),
+            "DB_PORT": env_get_str_from(getter=self.lookup, name="DB_PORT", default=""),
+            "DB_USER": env_get_str_from(getter=self.lookup, name="DB_USER", default=""),
+            "DB_NAME": env_get_str_from(getter=self.lookup, name="DB_NAME", default=""),
         }
 
     def linear_state(self, name: str) -> str:

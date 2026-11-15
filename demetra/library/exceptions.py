@@ -34,6 +34,14 @@ class AutoCancelledError(DemetraError):
     pass
 
 
+class AwaitingInputError(DemetraError):
+    """The task could not be parked in Awaiting Input, so the run stops without
+    moving the ticket: it stays in its current column for manual recovery, and
+    the saved build plan is discarded so a later run replans instead of building
+    from the answers to questions that were never answered.
+    """
+
+
 class PlanError(DemetraError):
     pass
 

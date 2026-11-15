@@ -1271,6 +1271,24 @@ async def mark_session_posted(task_id: str) -> None:
         await connection.commit()
 
 
+async def clear_session_build_plan(task_id: str) -> None:
+    """Discard a session's saved build plan.
+
+    Used when a plan must not be reused: a run that could not park the ticket
+    leaves the plan persisted, and a later run would skip the plan step and
+    build from questions that were never answered.
+
+    Args:
+        task_id: The task identifier.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update().where(sessions.c.task_id == task_id).values(build_plan="", updated_at=now)
+        )
+        await connection.commit()
+
+
 async def update_session_pr_link(task_id: str, pr_link: str) -> None:
     """Record the pull request link on a session.
 
@@ -2125,6 +2143,34 @@ async def get_pending_session_task_ids() -> set[str]:
     has_agent_session = select(agent_sessions.c.id).where(agent_sessions.c.task_id == sessions.c.task_id).exists()
     async with get_connection() as connection:
         result = await connection.execute(select(sessions.c.task_id).where(~has_agent_session))
+        rows = result.fetchall()
+    return {row.task_id for row in rows}
+
+
+async def get_user_session_task_ids(user_id: str, task_ids: list[str]) -> set[str]:
+    """Return which of the given task ids are sessions owned by a user.
+
+    Used to scope the running jobs reported by the queue to the sessions the
+    caller can see, since the job payload carries no owner. Only the candidate
+    ids are looked up, so the query stays bounded by the number of jobs
+    actually running instead of by the size of the user's session history.
+
+    Args:
+        user_id: The user id to scope the query to.
+        task_ids: The task ids to check ownership for.
+
+    Returns:
+        set[str]: The subset of ``task_ids`` owned by the user.
+    """
+    if not task_ids:
+        return set()
+    async with get_connection() as connection:
+        result = await connection.execute(
+            select(sessions.c.task_id).where(
+                sessions.c.user_id == user_id,
+                sessions.c.task_id.in_(task_ids),
+            )
+        )
         rows = result.fetchall()
     return {row.task_id for row in rows}
 

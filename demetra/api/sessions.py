@@ -1,3 +1,4 @@
+import asyncio
 from typing import Annotated, get_args
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -10,7 +11,9 @@ from demetra.services.persistence.database import (
     get_session_history,
     get_session_state,
     get_sessions,
+    get_user_session_task_ids,
 )
+from demetra.services.persistence.queue import get_live_task_ids
 
 
 router = APIRouter(prefix="/api/v1/sessions")
@@ -18,6 +21,31 @@ router = APIRouter(prefix="/api/v1/sessions")
 TASK_ID_PATTERN = r"^[A-Za-z0-9][A-Za-z0-9_-]*$"
 
 VALID_STEPS = set(get_args(StepType))
+
+
+@router.get("/live")
+async def list_live_sessions(user: UserResponse = Depends(get_current_user_dep)) -> list[str]:
+    """List the sessions whose workflow job is currently running.
+
+    A session is live while its RQ job sits in the started-job registry, so the
+    endpoint reports exactly the runs in flight. The job payload carries no
+    owner, so the live ids are intersected with the authenticated user's own
+    sessions (only those candidate ids are looked up). An unreachable broker
+    degrades to an empty list rather than an error: the flag is an indicator,
+    not session data.
+
+    Args:
+        user: The authenticated user.
+
+    Returns:
+        list[str]: The task ids of the user's running sessions.
+    """
+    live_task_ids = await asyncio.to_thread(get_live_task_ids)
+    if not live_task_ids:
+        return []
+
+    owned_task_ids = await get_user_session_task_ids(user_id=user.id, task_ids=live_task_ids)
+    return [task_id for task_id in live_task_ids if task_id in owned_task_ids]
 
 
 @router.get("")

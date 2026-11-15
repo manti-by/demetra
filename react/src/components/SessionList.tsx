@@ -1,8 +1,16 @@
-import { useEffect, useState, useCallback, useMemo, memo } from "react";
-import { getSessions, type Session } from "../services/api";
+import { useEffect, useState, useCallback, useMemo, useRef, memo } from "react";
+import { getLiveSessionIds, getSessions, type Session } from "../services/api";
 import { Loader } from "./Loader";
 
 const POLL_INTERVAL = 60000;
+const LIVE_POLL_INTERVAL = 5000;
+
+const ACTIVE_WINDOW_MS = 14 * 24 * 60 * 60 * 1000;
+
+const TERMINAL_STEPS = new Set(["completed", "failed", "researched"]);
+
+const isTerminalStep = (step: string | null | undefined): boolean =>
+  TERMINAL_STEPS.has(step ?? "");
 
 interface SessionListProps {
   onSelectSession: (taskId: string) => void;
@@ -26,14 +34,23 @@ const formatDate = (dateStr: string): string => {
   return `${days}d ago`;
 };
 
+const isActiveSession = (session: Session, now: number): boolean => {
+  if (isTerminalStep(session.step)) return false;
+  const createdAt = new Date(session.created_at).getTime();
+  if (Number.isNaN(createdAt)) return false;
+  return now - createdAt < ACTIVE_WINDOW_MS;
+};
+
 const SessionItem = memo(
   ({
     session,
     isSelected,
+    isLive,
     onClick,
   }: {
     session: Session;
     isSelected: boolean;
+    isLive: boolean;
     onClick: (e: React.MouseEvent) => void;
   }) => {
     const step = session.step || "initial";
@@ -41,7 +58,7 @@ const SessionItem = memo(
 
     return (
       <div
-        className={`session-item ${isSelected ? "selected" : ""}`}
+        className={`session-item${isSelected ? " selected" : ""}${isLive ? " live" : ""}`}
         onClick={onClick}
       >
         <div className="session-item-header">
@@ -52,7 +69,12 @@ const SessionItem = memo(
             >
               {isChat ? "C" : "L"}
             </span>
-            <span className={`session-step ${step}`}>{step}</span>
+            <span
+              className={`session-step ${step}`}
+              title={isLive ? "Live — running" : undefined}
+            >
+              {step}
+            </span>
           </div>
           <span className="session-time">{formatDate(session.created_at)}</span>
         </div>
@@ -85,6 +107,8 @@ export function SessionList({
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  const [liveTaskIds, setLiveTaskIds] = useState<Set<string>>(new Set());
+  const livePollSequence = useRef(0);
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -98,6 +122,23 @@ export function SessionList({
     }
   }, [setSessions]);
 
+  const fetchLiveSessions = useCallback(async () => {
+    // Only the most recent poll may update the flag: a slow request that
+    // resolves after a newer one would otherwise restore obsolete state.
+    const sequence = ++livePollSequence.current;
+    const isLatest = () => sequence === livePollSequence.current;
+    try {
+      const taskIds = await getLiveSessionIds();
+      if (!isLatest()) return;
+      setLiveTaskIds(new Set(taskIds));
+    } catch {
+      if (!isLatest()) return;
+      // A failed live poll must not break the list; drop the flag instead of
+      // showing a stale "live" badge.
+      setLiveTaskIds(new Set());
+    }
+  }, []);
+
   useEffect(() => {
     setLoading(true);
     fetchSessions();
@@ -106,8 +147,17 @@ export function SessionList({
   }, [fetchSessions, refreshTrigger]);
 
   useEffect(() => {
+    fetchLiveSessions();
+    const interval = setInterval(fetchLiveSessions, LIVE_POLL_INTERVAL);
+    return () => clearInterval(interval);
+  }, [fetchLiveSessions]);
+
+  useEffect(() => {
     if (sessions.length > 0 && !selectedTaskId) {
-      const firstLinear = sessions.find((session) => !session.chat_id);
+      const linearSessions = sessions.filter((session) => !session.chat_id);
+      const firstLinear =
+        linearSessions.find((session) => !isTerminalStep(session.step)) ??
+        linearSessions[0];
       if (firstLinear) onSelectSession(firstLinear.task_id);
     }
   }, [sessions, selectedTaskId, onSelectSession]);
@@ -144,6 +194,26 @@ export function SessionList({
       ].some((value) => (value ?? "").toLowerCase().includes(q));
     });
   }, [sessions, query, activeTag]);
+
+  const { activeSessions, backlogSessions } = useMemo(() => {
+    const now = Date.now();
+    const active: Session[] = [];
+    const backlog: Session[] = [];
+    for (const session of filteredSessions) {
+      (isActiveSession(session, now) ? active : backlog).push(session);
+    }
+    return { activeSessions: active, backlogSessions: backlog };
+  }, [filteredSessions]);
+
+  const renderSession = (session: Session) => (
+    <SessionItem
+      key={session.task_id}
+      session={session}
+      isSelected={selectedTaskId === session.task_id}
+      isLive={liveTaskIds.has(session.task_id)}
+      onClick={(e) => handleSelectSession(e, session)}
+    />
+  );
 
   return (
     <div className="session-list-root">
@@ -187,14 +257,18 @@ export function SessionList({
         ) : filteredSessions.length === 0 ? (
           <div className="session-list-empty">No matching sessions</div>
         ) : (
-          filteredSessions.map((session) => (
-            <SessionItem
-              key={session.task_id}
-              session={session}
-              isSelected={selectedTaskId === session.task_id}
-              onClick={(e) => handleSelectSession(e, session)}
-            />
-          ))
+          <>
+            {activeSessions.map(renderSession)}
+            {backlogSessions.length > 0 && (
+              <>
+                <div className="session-section-header">
+                  <span>Backlog</span>
+                  <span className="session-section-count">{backlogSessions.length}</span>
+                </div>
+                {backlogSessions.map(renderSession)}
+              </>
+            )}
+          </>
         )}
       </div>
     </div>
