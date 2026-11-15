@@ -1,3 +1,4 @@
+import math
 import re
 from dataclasses import dataclass, field
 from datetime import datetime
@@ -297,6 +298,56 @@ class Session:
     pr_link: str | None = None
     linear_link: str | None = None
     research_report: str | None = None
+
+
+@dataclass
+class DeployState:
+    """Deploy daemon state persisted between poll cycles.
+
+    ``last_deployed_sha`` is set only after a deploy succeeds, so a failed
+    pull, build or migration is retried once the minimum interval elapsed.
+    ``last_failed_sha`` records the commit of the last reported failure, either
+    a failed CI gate or a failed deploy, so the error is logged once per
+    commit instead of on every poll. ``pending_recreate`` records a deploy
+    whose image was built but whose deployer container is still running the
+    previous one, so the self-recreate is retried independently of a deploy.
+    """
+
+    last_deployed_sha: str | None = None
+    last_deploy_at: float = 0.0
+    last_failed_sha: str | None = None
+    last_error: str | None = None
+    pending_recreate: bool = False
+
+    @classmethod
+    def from_payload(cls, payload: dict) -> "DeployState":
+        """Build the state from its persisted JSON mapping.
+
+        Unknown or malformed values fall back to the empty state so a state
+        file written by an older daemon never stops the poll loop. A non-finite
+        timestamp is rejected too: ``NaN`` and ``inf`` parse as floats but make
+        every ``now - last_deploy_at`` comparison false, which would block
+        deployments forever.
+
+        Args:
+            payload: The decoded JSON object.
+
+        Returns:
+            DeployState: The state described by the payload.
+        """
+        try:
+            last_deploy_at = float(payload.get("last_deploy_at") or 0.0)
+        except (TypeError, ValueError):
+            last_deploy_at = 0.0
+        if not math.isfinite(last_deploy_at):
+            last_deploy_at = 0.0
+        return cls(
+            last_deployed_sha=payload.get("last_deployed_sha"),
+            last_deploy_at=last_deploy_at,
+            last_failed_sha=payload.get("last_failed_sha"),
+            last_error=payload.get("last_error"),
+            pending_recreate=bool(payload.get("pending_recreate")),
+        )
 
 
 def empty_feedback_loops() -> FeedbackLoops:

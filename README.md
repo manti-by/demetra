@@ -40,6 +40,17 @@ uv run main.py --project-name <project_name>
 
 Set environment variables via `.env` or shell, check [settings.py](demetra/settings.py) for the options.
 
+## Deployment
+
+The app layer runs from `docker-compose.yaml`:
+
+```bash
+cp .env.docker.example .env.docker   # then fill in real values
+make deploy                          # pull + build + migrate + recreate + nginx reload
+```
+
+`make deploy` is the manual path. The `deployer` service watches `origin/master` instead: it deploys a commit only when the GitHub check runs for it have all passed and the default RQ job queue has drained, at most once per `DEPLOY_MIN_INTERVAL`, and runs the same steps against the host checkout, the host Docker daemon and the host nginx. Its knobs are the `DEPLOY_*` variables in `.env.docker` — `DEPLOY_HOST_CHECKOUT` must be the host path of the checkout the daemon deploys, because that path is bind-mounted at itself so `docker compose` recreates the host stack. Each cycle is logged to `/var/log/demetra/deployer.log` (next to the other daemons), and `docker compose stop deployer` turns automatic deploys off without touching the rest of the stack. A successful deploy ends by recreating the `deployer` container from the image it just built, so the daemon always runs the code it deployed. The design is documented in [the deploy daemon page](wiki/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md); merging the watcher, the listener and the deploy daemon into one watcher is tracked in [MNT-316](https://linear.app/mnt/issue/MNT-316/merge-the-watcher-listener-and-deploy-daemon-into-one-watcher).
+
 ## Development
 
 ```bash
