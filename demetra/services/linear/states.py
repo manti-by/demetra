@@ -1,4 +1,5 @@
 import logging
+import time
 from dataclasses import dataclass
 
 import demetra.services.linear as service
@@ -23,7 +24,9 @@ class LinearState:
     type: str
 
 
-_TEAM_STATES: dict[str, list[LinearState]] = {}
+_TEAM_STATES_TTL = 300.0
+
+_TEAM_STATES: dict[str, tuple[float, list[LinearState]]] = {}
 
 
 def expected_state_label(name: str) -> str:
@@ -60,10 +63,11 @@ def _normalize(label: str) -> str:
 async def fetch_team_states(team_id: str) -> list[LinearState]:
     """Return the workflow states of a Linear team.
 
-    The states are cached per team id for the lifetime of the process, so a
-    workflow run fetches them once no matter how many status transitions it
-    makes. A failed request is reported and yields an empty list so the caller
-    falls back to the configured state ids instead of failing the workflow.
+    The states are cached per team id for a bounded period, so a workflow run
+    fetches them once no matter how many status transitions it makes, while a
+    renamed column is still picked up without a process restart. A failed
+    request is reported and yields an empty list so the caller falls back to the
+    configured state ids instead of failing the workflow.
 
     Args:
         team_id: The Linear team id.
@@ -71,8 +75,9 @@ async def fetch_team_states(team_id: str) -> list[LinearState]:
     Returns:
         list[LinearState]: The team's workflow states, empty when unavailable.
     """
-    if team_id in _TEAM_STATES:
-        return _TEAM_STATES[team_id]
+    cached = _TEAM_STATES.get(team_id)
+    if cached is not None and time.monotonic() - cached[0] < _TEAM_STATES_TTL:
+        return cached[1]
 
     try:
         query = await service.get_query(name="get_team_states")
@@ -88,11 +93,11 @@ async def fetch_team_states(team_id: str) -> list[LinearState]:
         if state.get("id")
     ]
     if states:
-        _TEAM_STATES[team_id] = states
+        _TEAM_STATES[team_id] = (time.monotonic(), states)
     return states
 
 
-async def resolve_state_id(*, name: str, configured_id: str, team_id: str | None) -> tuple[str, str | None]:
+async def resolve_state_id(*, name: str, configured_id: str, team_id: str | None) -> tuple[str | None, str | None]:
     """Resolve the Linear state id for a workflow state name.
 
     The team column named after the state wins over the configured
@@ -100,7 +105,10 @@ async def resolve_state_id(*, name: str, configured_id: str, team_id: str | None
     ticket in a different column. The configured id is kept whenever the team
     has no column with that name, when the team id is unknown, and when the
     states cannot be loaded, so an intentional configuration is never
-    overridden.
+    overridden. ``awaiting_input`` is the exception: when the team has no
+    *Awaiting Input* column, a configured id that is known to point at another
+    column is rejected, so the ticket is left for manual recovery instead of
+    being parked in, say, *Failed*.
 
     Args:
         name: The workflow state name, e.g. ``"awaiting_input"``.
@@ -108,8 +116,10 @@ async def resolve_state_id(*, name: str, configured_id: str, team_id: str | None
         team_id: The Linear team id, or None when it is not configured.
 
     Returns:
-        tuple[str, str | None]: The state id to use, and a warning describing a
-            configuration mismatch (None when the configured id is correct).
+        tuple[str | None, str | None]: The state id to use (None when the
+            configured column is known to be the wrong one), and a warning
+            describing a configuration mismatch (None when the configured id is
+            correct).
     """
     if not team_id:
         return configured_id, None
@@ -120,10 +130,17 @@ async def resolve_state_id(*, name: str, configured_id: str, team_id: str | None
 
     expected = _normalize(expected_state_label(name))
     matched = next((state for state in states if _normalize(state.name) == expected), None)
-    if matched is None or matched.id == configured_id:
+    configured = next((state for state in states if state.id == configured_id), None)
+    if matched is None:
+        if name == "awaiting_input" and configured is not None:
+            return None, (
+                f"Linear state '{name}' is configured as '{configured.name}', "
+                f"but team {team_id} has no '{expected_state_label(name)}' column"
+            )
+        return configured_id, None
+    if matched.id == configured_id:
         return configured_id, None
 
-    configured = next((state for state in states if state.id == configured_id), None)
     if configured is None:
         warning = f"Linear state '{name}' is not a column of team {team_id}; using '{matched.name}' instead"
     else:

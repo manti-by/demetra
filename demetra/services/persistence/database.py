@@ -1271,6 +1271,24 @@ async def mark_session_posted(task_id: str) -> None:
         await connection.commit()
 
 
+async def clear_session_build_plan(task_id: str) -> None:
+    """Discard a session's saved build plan.
+
+    Used when a plan must not be reused: a run that could not park the ticket
+    leaves the plan persisted, and a later run would skip the plan step and
+    build from questions that were never answered.
+
+    Args:
+        task_id: The task identifier.
+    """
+    now = datetime.now(UTC)
+    async with get_connection() as connection:
+        await connection.execute(
+            sessions.update().where(sessions.c.task_id == task_id).values(build_plan="", updated_at=now)
+        )
+        await connection.commit()
+
+
 async def update_session_pr_link(task_id: str, pr_link: str) -> None:
     """Record the pull request link on a session.
 

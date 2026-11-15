@@ -186,6 +186,28 @@ class TestRunFailureStep:
         )
 
     @pytest.mark.asyncio
+    async def test_refuses_a_mis_pointed_id_when_the_column_is_missing(self, mock_linear_deps):
+        """A team without an Awaiting Input column must not leave the ticket in
+        the column the configured id points at."""
+        context = build_context()
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", return_value="state-failed"),
+            patch.object(SessionEnvironment, "linear_value", return_value="team-123"),
+            patch(
+                "demetra.services.linear.states.fetch_team_states",
+                new_callable=AsyncMock,
+                return_value=[LinearState(id="state-failed", name="Failed", type="started")],
+            ),
+            patch("demetra.workflows.failure.print_message") as mock_print_message,
+        ):
+            await process_pr_failure(context=context, error=PullRequestError("gh: could not create PR"))
+
+        mock_linear_deps["update_ticket_status"].assert_not_awaited()
+        messages = [call.args[0] for call in mock_print_message.call_args_list]
+        assert any("move it manually" in message for message in messages)
+
+    @pytest.mark.asyncio
     async def test_reports_failed_status_update(self, mock_linear_deps):
         """A failed Awaiting Input update must surface a manual-recovery message instead of
         silently recording awaiting_input while Linear stays in another state."""

@@ -125,7 +125,7 @@ def stub_linear_team_states(monkeypatch):
     """Keep the suite off the Linear API when resolving workflow columns.
 
     ``notify_status`` and the watcher resolve a workflow state id from the
-    team's columns, one query per team per process. The stub reports no
+    team's columns, one query per team per cache window. The stub reports no
     columns, so every resolution falls back to the configured state id; the
     tests that exercise the resolution itself patch the fetch locally.
     """

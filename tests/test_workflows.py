@@ -684,6 +684,11 @@ class TestWorkflowPlanLoop:
         with patch("demetra.workflows.plan.MAX_ATTEMPTS", {"plan": 2}):
             yield
 
+    @pytest.fixture
+    def mock_clear_session_build_plan(self):
+        with patch("demetra.workflows.plan.clear_session_build_plan", new_callable=AsyncMock) as m:
+            yield m
+
     @pytest.fixture(autouse=True)
     def _auto_mock_update_session_step(self, mock_update_session_step):
         pass
@@ -1008,15 +1013,60 @@ class TestWorkflowPlanLoop:
         assert any("'Failed'" in message and "'Awaiting Input'" in message for message in messages)
 
     @pytest.mark.asyncio
+    async def test_plan_questions_refuse_a_mis_pointed_id_when_the_column_is_missing(
+        self,
+        faker,
+        mock_plan_loop_base,
+        mock_post_comment,
+        mock_update_ticket_status,
+        mock_clear_session_build_plan,
+    ):
+        """When the team has no Awaiting Input column, a configured id known to
+        point at another column must leave the ticket alone for manual recovery."""
+        (
+            mock_plan_agent,
+            mock_extract_plan,
+            mock_extract_questions,
+            _mock_save_session,
+        ) = mock_plan_loop_base
+        context = _plan_questions_context(faker)
+        mock_plan_agent.return_value = (
+            0,
+            "Plan\n## Implementation Plan\ncontent\nPlease check my questions above.",
+            None,
+        )
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = ["What is X?"]
+
+        with (
+            patch.object(SessionEnvironment, "linear_state", return_value="state-failed"),
+            patch.object(SessionEnvironment, "linear_value", return_value="team-123"),
+            patch(
+                "demetra.services.linear.states.fetch_team_states",
+                new_callable=AsyncMock,
+                return_value=[LinearState(id="state-failed", name="Failed", type="started")],
+            ),
+            patch("demetra.workflows.notifications.print_message"),
+        ):
+            with pytest.raises(AwaitingInputError):
+                await run_plan_step(context)
+
+        mock_update_ticket_status.assert_not_awaited()
+        bodies = [call.kwargs["body"] for call in mock_post_comment.call_args_list]
+        assert any("Move it manually" in body for body in bodies)
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
+
+    @pytest.mark.asyncio
     async def test_plan_questions_fail_the_run_when_the_move_is_rejected(
         self,
         faker,
         mock_plan_loop_base,
         mock_post_comment,
         mock_update_ticket_status,
+        mock_clear_session_build_plan,
     ):
-        """A rejected move must fail the run so the watcher counts it against the
-        run-attempt budget, and the ticket gets a best-effort recovery comment."""
+        """A rejected move must stop the run, leave the ticket for manual
+        recovery, and discard the plan so a later run replans."""
         (
             mock_plan_agent,
             mock_extract_plan,
@@ -1038,6 +1088,7 @@ class TestWorkflowPlanLoop:
 
         bodies = [call.kwargs["body"] for call in mock_post_comment.call_args_list]
         assert any("Move it manually" in body for body in bodies)
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
 
     @pytest.mark.asyncio
     async def test_plan_questions_fail_the_run_on_a_linear_transport_error(
@@ -1046,9 +1097,10 @@ class TestWorkflowPlanLoop:
         mock_plan_loop_base,
         mock_post_comment,
         mock_update_ticket_status,
+        mock_clear_session_build_plan,
     ):
         """A LinearError raised by the status update must reach the caller, so the
-        run is recorded as a failure and stays inside the run-attempt budget."""
+        ticket is left for manual recovery and the plan is discarded."""
         (
             mock_plan_agent,
             mock_extract_plan,
@@ -1068,6 +1120,8 @@ class TestWorkflowPlanLoop:
         with pytest.raises(AwaitingInputError):
             await run_plan_step(context)
 
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
+
     @pytest.mark.asyncio
     async def test_plan_questions_fail_the_run_when_the_recovery_comment_fails(
         self,
@@ -1075,9 +1129,10 @@ class TestWorkflowPlanLoop:
         mock_plan_loop_base,
         mock_post_comment,
         mock_update_ticket_status,
+        mock_clear_session_build_plan,
     ):
         """A failed recovery comment must not mask the rejected move: the run
-        still fails so the retry budget applies."""
+        still stops for manual recovery."""
         (
             mock_plan_agent,
             mock_extract_plan,
@@ -1099,6 +1154,7 @@ class TestWorkflowPlanLoop:
             await run_plan_step(context)
 
         assert mock_post_comment.await_count == 2
+        mock_clear_session_build_plan.assert_awaited_once_with(task_id=context.task.id)
 
 
 class TestWorkflowBuild:

@@ -5,6 +5,7 @@ from uuid import uuid4
 import pytest
 import pytest_asyncio
 
+import demetra.services.linear.states as linear_states
 from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError, LinearError
 from demetra.library.models import Context, LinearTask, Project, SessionEnvironment
 from demetra.library.tables import project_environments, projects
@@ -1342,6 +1343,43 @@ class TestResolveLinearState:
         mock_fetch.assert_not_awaited()
 
     @pytest.mark.asyncio
+    async def test_refuses_a_configured_id_for_a_missing_awaiting_input_column(self):
+        """A team without an 'Awaiting Input' column must not park the ticket in
+        the column the configured id happens to point at."""
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=[
+                LinearState(id="state-failed", name="Failed", type="started"),
+                LinearState(id="state-todo", name="Todo", type="unstarted"),
+            ],
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-failed", team_id="team-123"
+            )
+
+        assert state_id is None
+        assert warning is not None
+        assert "'Failed'" in warning
+        assert "no 'Awaiting Input' column" in warning
+
+    @pytest.mark.asyncio
+    async def test_keeps_an_unknown_configured_id_for_a_missing_awaiting_input_column(self):
+        """An id that is not one of the team's columns cannot be checked, so the
+        configured value is kept."""
+        with patch(
+            "demetra.services.linear.states.fetch_team_states",
+            new_callable=AsyncMock,
+            return_value=[LinearState(id="state-todo", name="Todo", type="unstarted")],
+        ):
+            state_id, warning = await resolve_state_id(
+                name="awaiting_input", configured_id="state-elsewhere", team_id="team-123"
+            )
+
+        assert state_id == "state-elsewhere"
+        assert warning is None
+
+    @pytest.mark.asyncio
     async def test_keeps_the_configured_id_when_the_columns_are_unavailable(self):
         with patch(
             "demetra.services.linear.states.fetch_team_states",
@@ -1396,6 +1434,24 @@ class TestResolveLinearState:
             await fetch_team_states("team-123")
 
         mock_request.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_fetch_team_states_refetches_an_expired_cache(self):
+        """A renamed column is picked up without restarting the process."""
+        response = {
+            "data": {
+                "team": {"id": "team-123", "states": {"nodes": [{"id": "s1", "name": "Todo", "type": "unstarted"}]}}
+            }
+        }
+
+        with patch("demetra.services.linear.graphql_request", new_callable=AsyncMock) as mock_request:
+            mock_request.return_value = response
+            await fetch_team_states("team-123")
+            fetched_at, states = linear_states._TEAM_STATES["team-123"]
+            linear_states._TEAM_STATES["team-123"] = (fetched_at - linear_states._TEAM_STATES_TTL, states)
+            await fetch_team_states("team-123")
+
+        assert mock_request.await_count == 2
 
     @pytest.mark.asyncio
     async def test_fetch_team_states_returns_empty_when_linear_fails(self):

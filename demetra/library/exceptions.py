@@ -35,9 +35,10 @@ class AutoCancelledError(DemetraError):
 
 
 class AwaitingInputError(DemetraError):
-    """The task could not be parked in Awaiting Input, so the run must fail
-    without moving the ticket: bouncing it back to TODO would re-queue it into
-    the build path with the questions still unanswered.
+    """The task could not be parked in Awaiting Input, so the run stops without
+    moving the ticket: it stays in its current column for manual recovery, and
+    the saved build plan is discarded so a later run replans instead of building
+    from the answers to questions that were never answered.
     """
 
 

@@ -208,7 +208,7 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
 
     except AwaitingInputError as e:
         print_message(f"{e}. Move the ticket to Awaiting Input manually.", style="error")
-        should_update_linear_status = False
+        failure_step, should_update_linear_status = "awaiting_input", False
         failure_message = str(e) or None
 
     except PullRequestError as e:

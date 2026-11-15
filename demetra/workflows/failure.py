@@ -42,7 +42,7 @@ async def notify_linear_failure(context: Context, body: str, comment_label: str)
         if comment_posted:
             await record_linear_comment(task_id=context.task.id, body=body, kind="failure", external_id=comment_id)
         state_id = await resolve_state(context=context, state="awaiting_input")
-        status_updated = await update_ticket_status(task_id=context.task.id, state_id=state_id)
+        status_updated = state_id is not None and await update_ticket_status(task_id=context.task.id, state_id=state_id)
     except (LinearError, EnvironmentConfigError) as e:
         print_message(
             f"Failed to update Linear after failure: {e}. Move the ticket to Awaiting Input manually.",
