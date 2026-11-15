@@ -13,6 +13,8 @@ import time
 from dataclasses import asdict
 from pathlib import Path
 
+from redis.lock import Lock
+
 from demetra.library.models import DeployState
 from demetra.services.persistence.queue import connection, queue
 from demetra.services.runtime.subprocess import run_command
@@ -37,6 +39,10 @@ RECREATE_STEP = "up"
 SETPRIV_COMMAND = "setpriv"
 
 DEPLOY_IMAGE = "mantiby/demetra:latest"
+
+IMAGE_REVISION_LABEL = "org.opencontainers.image.revision"
+
+RUNNING_API_FILTER = "label=com.docker.compose.service=api"
 
 DEPLOY_SERVICE = "deployer"
 
@@ -106,6 +112,26 @@ def summarize_check_runs(payload: dict) -> str:
     if any(run.get("conclusion") not in SUCCESSFUL_CONCLUSIONS for run in runs):
         return CI_STATUS_FAILED
     return CI_STATUS_PASSED
+
+
+def combine_check_run_pages(pages: list) -> dict:
+    """Merge the slurped pages of a paginated check-runs response into one payload.
+
+    The endpoint returns 30 runs per page, so a commit with more checks would
+    otherwise be judged on its first page alone and a failing or pending check
+    on a later page could be truncated away.
+
+    Args:
+        pages: The decoded ``gh api --paginate --slurp`` output, one mapping per page.
+
+    Returns:
+        dict: A single payload carrying the check runs of every page.
+    """
+    runs = []
+    for page in pages:
+        if isinstance(page, dict):
+            runs.extend(page.get("check_runs") or [])
+    return {"check_runs": runs}
 
 
 def should_deploy(state: DeployState, sha: str, now: float) -> bool:
@@ -184,8 +210,10 @@ def default_state_path() -> Path:
 def load_state(path: Path) -> DeployState:
     """Load the persisted deploy state.
 
-    A missing file is a fresh daemon; an unreadable file is logged and treated
-    as an empty state so a corrupt state never stops the daemon.
+    A missing file is a fresh daemon; an unreadable file or a decoded value that
+    is not a JSON object is logged and treated as an empty state so a corrupt
+    state never stops the daemon. A ``null`` or list payload would otherwise
+    escape the recovery handler as an ``AttributeError`` on every poll.
 
     Args:
         path: The JSON state file path.
@@ -196,10 +224,14 @@ def load_state(path: Path) -> DeployState:
     if not path.exists():
         return DeployState()
     try:
-        return DeployState.from_payload(json.loads(path.read_text()))
+        payload = json.loads(path.read_text())
     except (OSError, TypeError, ValueError):
         logger.exception(f"Failed to read the deploy state from {path}")
         return DeployState()
+    if not isinstance(payload, dict):
+        logger.error(f"Ignoring the deploy state in {path}: the payload is not a JSON object")
+        return DeployState()
+    return DeployState.from_payload(payload=payload)
 
 
 def save_state(path: Path, state: DeployState) -> None:
@@ -216,7 +248,7 @@ def save_state(path: Path, state: DeployState) -> None:
         logger.exception(f"Failed to write the deploy state to {path}")
 
 
-def build_deploy_steps(checkout_path: Path) -> list[tuple[str, list[str]]]:
+def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tuple[str, list[str]]]:
     """Build the ordered deploy commands for the host checkout.
 
     Mirrors the ``deploy`` target in the Makefile. The ``deployer`` service is
@@ -227,8 +259,14 @@ def build_deploy_steps(checkout_path: Path) -> list[tuple[str, list[str]]]:
     build context) so the daemon never depends on its own working directory,
     which is the image-owned module root rather than the writable checkout.
 
+    The built image is labelled with the gated commit, so the running
+    containers record which commit actually shipped even after the state file
+    is lost, and a failed deploy is never mistaken for a successful one.
+
     Args:
         checkout_path: The host checkout the daemon deploys.
+        sha: The gated commit to stamp on the built image, omitted when the
+            caller only needs the command shape (e.g. the lock TTL).
 
     Returns:
         list[tuple[str, list[str]]]: The step name and command pairs.
@@ -238,9 +276,12 @@ def build_deploy_steps(checkout_path: Path) -> list[tuple[str, list[str]]]:
     checkout = str(checkout_path)
     compose = [docker, "compose", "--project-directory", checkout, "--env-file", str(checkout_path / ".env.docker")]
     owner = checkout_owner_prefix(checkout_path=checkout_path)
+    build = [docker, "build", "--platform", "linux/amd64", "--tag", DEPLOY_IMAGE]
+    if sha:
+        build += ["--label", f"{IMAGE_REVISION_LABEL}={sha}"]
     steps = [
         (PULL_STEP, [*owner, git, "-c", f"safe.directory={checkout_path}", "pull", "--ff-only"]),
-        ("build", [docker, "build", "--platform", "linux/amd64", "--tag", DEPLOY_IMAGE, checkout]),
+        ("build", [*build, checkout]),
         ("pull_images", [*compose, "pull", "postgres", "redis", "react-build"]),
         ("migrate", [*compose, "up", "--abort-on-container-failure", "migrate", "react-build"]),
         (
@@ -258,8 +299,11 @@ def deploy_lock_timeout(checkout_path: Path) -> int:
 
     Every step is bounded by ``step_timeout``, and the recreate step first
     waits for the queue with ``drain_timeout`` while the lock is already held,
-    so the TTL is the sum of both. A shorter TTL would let the lock expire
-    mid-deploy and allow a second daemon to start a concurrent one.
+    so the TTL is the sum of both. The post-pull HEAD read is bounded by
+    ``step_timeout`` too but is not a step, so it is budgeted separately; the
+    resulting slack of one step also covers the state write. A shorter TTL
+    would let the lock expire mid-deploy and allow a second daemon to start a
+    concurrent one.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -267,7 +311,28 @@ def deploy_lock_timeout(checkout_path: Path) -> int:
     Returns:
         int: The lock TTL in seconds.
     """
-    return len(build_deploy_steps(checkout_path=checkout_path)) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
+    steps = len(build_deploy_steps(checkout_path=checkout_path))
+    return (steps + 1) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
+
+
+def acquire_deploy_lock(*, checkout_path: Path, blocking: bool) -> Lock | None:
+    """Take the shared deploy lock, the same one the manual ``make deploy`` path takes.
+
+    Serializing both paths matters because they mutate the same checkout and
+    rebuild the same image tag: a manual ``git pull`` landing between the
+    daemon's CI gate and its own pull would make the daemon build a commit
+    whose checks it never read.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+        blocking: Whether to wait for a running deploy instead of giving up.
+
+    Returns:
+        Lock | None: The acquired lock, or None when it is already held.
+    """
+    timeout = deploy_lock_timeout(checkout_path=checkout_path)
+    lock = connection.lock(DEPLOY_LOCK_NAME, timeout=timeout, blocking_timeout=timeout if blocking else 0)
+    return lock if lock.acquire(blocking=blocking) else None
 
 
 async def get_remote_master_sha(checkout_path: Path) -> str | None:
@@ -295,6 +360,10 @@ async def get_remote_master_sha(checkout_path: Path) -> str | None:
 async def get_checkout_head_sha(checkout_path: Path) -> str | None:
     """Read the commit currently checked out in the host checkout.
 
+    The read is bounded by ``step_timeout`` because it runs under the deploy
+    lock, whose TTL budgets one step for it; the default subprocess timeout
+    would let it outlive the lease.
+
     Args:
         checkout_path: The host checkout the daemon deploys.
 
@@ -304,11 +373,74 @@ async def get_checkout_head_sha(checkout_path: Path) -> str | None:
     git = str(DEPLOY["git_path"])
     command = [*checkout_owner_prefix(checkout_path=checkout_path)]
     command += [git, "-c", f"safe.directory={checkout_path}", "rev-parse", "HEAD"]
-    exit_code, stdout, stderr = await run_command(command=command, target_path=checkout_path, disable_stdio=True)
+    exit_code, stdout, stderr = await run_command(
+        command=command, target_path=checkout_path, disable_stdio=True, timeout=DEPLOY["step_timeout"]
+    )
     if exit_code != 0:
         logger.error(f"Failed to read the checked-out commit: {stderr.strip()}")
         return None
     return stdout.strip() or None
+
+
+async def get_running_revision(checkout_path: Path) -> str | None:
+    """Read the commit label of the running api image.
+
+    This is the only trustworthy record of what is actually deployed: the
+    checkout can sit at a newer commit whose build failed, and the state file
+    can be lost or reset.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+
+    Returns:
+        str | None: The label value, or None when no labelled container runs.
+    """
+    docker = str(DEPLOY["docker_path"])
+    command = [
+        docker,
+        "ps",
+        "--filter",
+        RUNNING_API_FILTER,
+        "--format",
+        f'{{{{.Label "{IMAGE_REVISION_LABEL}"}}}}',
+    ]
+    exit_code, stdout, stderr = await run_command(
+        command=command, target_path=checkout_path, disable_stdio=True, timeout=DEPLOY["step_timeout"]
+    )
+    if exit_code != 0:
+        logger.warning(f"Failed to read the running image revision: {stderr.strip()}")
+        return None
+    return stdout.strip() or None
+
+
+async def checkout_has_no_local_changes(checkout_path: Path) -> bool:
+    """Confirm the checkout holds no change that CI never checked.
+
+    ``git pull --ff-only`` preserves uncommitted tracked modifications, and an
+    untracked file in the build context is copied into the image, so a HEAD
+    comparison alone would let untested content reach the containers. Ignored
+    files (``.keys/``, ``.env*``, ``node_modules``) never show up here, so the
+    check only trips on content that would actually ship.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+
+    Returns:
+        bool: True when the working tree matches the checked-out commit.
+    """
+    git = str(DEPLOY["git_path"])
+    command = [*checkout_owner_prefix(checkout_path=checkout_path)]
+    command += [git, "-c", f"safe.directory={checkout_path}", "status", "--porcelain"]
+    exit_code, stdout, stderr = await run_command(
+        command=command, target_path=checkout_path, disable_stdio=True, timeout=DEPLOY["step_timeout"]
+    )
+    if exit_code != 0:
+        logger.error(f"Failed to read the checkout status: {stderr.strip()}")
+        return False
+    if stdout.strip():
+        logger.error(f"Checkout has changes that CI never checked, aborting the deploy: {stdout.strip()}")
+        return False
+    return True
 
 
 async def get_origin_repository(checkout_path: Path) -> str | None:
@@ -335,7 +467,8 @@ async def get_ci_status(sha: str, repository: str) -> str:
 
     A read failure is reported as ``unknown`` rather than failed: a transient
     ``gh``/API error must not be mistaken for red check runs, which would
-    record a failure for a commit that may well be green.
+    record a failure for a commit that may well be green. Every page is read,
+    so a failing check beyond the first 30 runs still blocks the deploy.
 
     Args:
         sha: The commit to inspect.
@@ -345,7 +478,13 @@ async def get_ci_status(sha: str, repository: str) -> str:
         str: ``"passed"``, ``"pending"``, ``"failed"`` or ``"unknown"`` when
             the status could not be read.
     """
-    command = [str(DEPLOY["github_path"]), "api", f"repos/{repository}/commits/{sha}/check-runs"]
+    command = [
+        str(DEPLOY["github_path"]),
+        "api",
+        "--paginate",
+        "--slurp",
+        f"repos/{repository}/commits/{sha}/check-runs",
+    ]
     exit_code, stdout, stderr = await run_command(
         command=command, target_path=DEPLOY["host_checkout"], disable_stdio=True
     )
@@ -356,6 +495,11 @@ async def get_ci_status(sha: str, repository: str) -> str:
         payload = json.loads(stdout) if stdout.strip() else {}
     except json.JSONDecodeError:
         logger.warning(f"Failed to parse the check runs for {sha}")
+        return CI_STATUS_UNKNOWN
+    if isinstance(payload, list):
+        payload = combine_check_run_pages(pages=payload)
+    if not isinstance(payload, dict):
+        logger.warning(f"Unexpected check runs payload for {sha}: {type(payload).__name__}")
         return CI_STATUS_UNKNOWN
     return summarize_check_runs(payload=payload)
 
@@ -381,6 +525,11 @@ async def wait_for_queue_drain(timeout: int) -> bool:
 async def run_deploy_step(name: str, command: list[str], checkout_path: Path) -> bool:
     """Run one deploy command and log its outcome.
 
+    A process-start error (e.g. a missing reload executable) is reported as a
+    failed step rather than raised: an exception would escape the step loop and
+    skip the deployment timestamp, so the next poll would repeat the build and
+    the migration without the minimum interval.
+
     Args:
         name: The step name used in the log lines.
         command: The command to run.
@@ -390,9 +539,13 @@ async def run_deploy_step(name: str, command: list[str], checkout_path: Path) ->
         bool: True when the command exited with a zero code.
     """
     logger.info(f"Deploy step '{name}' started: {' '.join(command)}")
-    exit_code, stdout, stderr = await run_command(
-        command=command, target_path=checkout_path, timeout=DEPLOY["step_timeout"]
-    )
+    try:
+        exit_code, stdout, stderr = await run_command(
+            command=command, target_path=checkout_path, timeout=DEPLOY["step_timeout"]
+        )
+    except OSError as e:
+        logger.error(f"Deploy step '{name}' could not be started: {e}")
+        return False
     if exit_code != 0:
         output = stderr.strip() or stdout.strip()
         logger.error(f"Deploy step '{name}' failed with exit code {exit_code}: {output[-LOG_TAIL_CHARS:]}")
@@ -402,25 +555,27 @@ async def run_deploy_step(name: str, command: list[str], checkout_path: Path) ->
 
 
 async def checkout_matches_sha(checkout_path: Path, sha: str) -> bool:
-    """Confirm the checkout still holds the commit whose CI passed.
+    """Confirm the checkout still holds the commit whose CI passed, unchanged.
 
     ``git pull --ff-only`` fast-forwards to whatever ``origin/master`` points
     to at pull time, so master can advance between the gate check and the pull.
     Building that newer commit would ship code whose CI was never checked, so
-    the deploy aborts and the next cycle gates the new commit instead.
+    the deploy aborts and the next cycle gates the new commit instead. HEAD
+    alone is not enough: the pull keeps uncommitted tracked changes, so the
+    working tree is checked too.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
         sha: The gated commit the deploy is allowed to build.
 
     Returns:
-        bool: True when the checkout is at the gated commit.
+        bool: True when the checkout is at the gated commit with a clean tree.
     """
     head_sha = await get_checkout_head_sha(checkout_path=checkout_path)
     if head_sha != sha:
         logger.error(f"Checkout is at {head_sha} instead of the gated commit {sha}, aborting the deploy")
         return False
-    return True
+    return await checkout_has_no_local_changes(checkout_path=checkout_path)
 
 
 def recreate_deployer_command(checkout_path: Path) -> list[str]:
@@ -497,6 +652,29 @@ async def recreate_deployer(checkout_path: Path) -> bool:
     return True
 
 
+async def request_deployer_recreate(state: DeployState, state_path: Path, checkout_path: Path) -> None:
+    """Recreate the deployer container, keeping the request pending until it is dispatched.
+
+    The flag is cleared before the helper starts because a successful dispatch
+    kills this process, so a flag cleared afterwards would be persisted only
+    sometimes and the next daemon would recreate itself again, forever. A
+    helper that cannot be started restores the flag, and the next poll retries
+    the recreate on its own instead of waiting for another commit.
+
+    Args:
+        state: The deploy state to update.
+        state_path: The JSON state file path.
+        checkout_path: The host checkout the daemon deploys.
+    """
+    state.pending_recreate = False
+    save_state(path=state_path, state=state)
+    if await recreate_deployer(checkout_path=checkout_path):
+        return
+    state.pending_recreate = True
+    save_state(path=state_path, state=state)
+    logger.error("Deployer container recreate failed, retrying on the next poll")
+
+
 async def run_deploy(checkout_path: Path, sha: str) -> bool:
     """Run the deploy steps in order, stopping at the first required failure.
 
@@ -518,7 +696,7 @@ async def run_deploy(checkout_path: Path, sha: str) -> bool:
     Returns:
         bool: True when every required step succeeded.
     """
-    for name, command in build_deploy_steps(checkout_path=checkout_path):
+    for name, command in build_deploy_steps(checkout_path=checkout_path, sha=sha):
         if name == RECREATE_STEP and not await wait_for_queue_drain(timeout=DEPLOY["drain_timeout"]):
             logger.error("Job queue busy again while preparing the deploy, deferring the container recreate")
             return False
@@ -544,20 +722,33 @@ async def run_deploy_cycle() -> None:
     recreated from the new image only after a successful deploy, once the state
     is persisted and the lock is released, so the replacement daemon does not
     start deployed-blind or blocked by its own lock.
+
+    The deployment identity is recovered from the running api image, not from
+    the checkout: a failed build leaves the checkout on a newer commit whose
+    containers were never recreated, and seeding that commit would skip it
+    forever. A deferred recreate is retried at the start of every cycle, so a
+    failed self-recreate is not lost once the deploy is recorded as successful.
     """
     checkout_path = DEPLOY["host_checkout"]
+    state_path = default_state_path()
+    state = load_state(path=state_path)
+
+    if state.pending_recreate:
+        logger.info("Retrying the deferred deployer container recreate")
+        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)
+
     sha = await get_remote_master_sha(checkout_path=checkout_path)
     if not sha:
         return
 
-    state_path = default_state_path()
-    state = load_state(path=state_path)
     if not state.last_deployed_sha:
-        head_sha = await get_checkout_head_sha(checkout_path=checkout_path)
-        if head_sha:
-            state.last_deployed_sha = head_sha
+        running_sha = await get_running_revision(checkout_path=checkout_path)
+        if running_sha:
+            state.last_deployed_sha = running_sha
             save_state(path=state_path, state=state)
-            logger.info(f"Seeded the deploy state from the checked-out commit {head_sha}")
+            logger.info(f"Seeded the deploy state from the running api image revision {running_sha}")
+        else:
+            logger.info("No deployed revision found, leaving origin/master eligible for a deploy")
 
     if not should_deploy(state=state, sha=sha, now=time.time()):
         logger.debug(f"No deploy due for origin/master {sha}")
@@ -601,30 +792,35 @@ async def run_deploy_cycle() -> None:
         logger.info(f"origin/master moved to {current_sha} while draining, deferring the deploy")
         return
 
-    lock = connection.lock(
-        DEPLOY_LOCK_NAME, timeout=deploy_lock_timeout(checkout_path=checkout_path), blocking_timeout=0
-    )
-    if not lock.acquire(blocking=False):
+    lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if lock is None:
         logger.info("Another deploy is already running, skipping this cycle")
         return
 
     try:
+        # Another deploy may have committed this commit between the checks above
+        # and the lock: reloading here is what makes the lock, and not the poll
+        # order, decide whether the commit still needs a deploy.
+        state = load_state(path=state_path)
+        if not should_deploy(state=state, sha=sha, now=time.time()):
+            logger.info(f"Deploy of {sha} is already recorded, skipping this cycle")
+            return
         logger.info(f"Deploying origin/master {sha}")
         succeeded = await run_deploy(checkout_path=checkout_path, sha=sha)
+        state.last_deploy_at = time.time()
+        if succeeded:
+            state.last_deployed_sha = sha
+            state.last_failed_sha = None
+            state.last_error = None
+            state.pending_recreate = True
+            logger.info(f"Deploy of {sha} finished")
+        else:
+            state.last_failed_sha = sha
+            state.last_error = "deploy failed"
+            logger.error(f"Deploy of {sha} failed, retrying after the minimum interval")
+        save_state(path=state_path, state=state)
     finally:
         lock.release()
 
-    state.last_deploy_at = time.time()
-    if succeeded:
-        state.last_deployed_sha = sha
-        state.last_failed_sha = None
-        state.last_error = None
-        logger.info(f"Deploy of {sha} finished")
-    else:
-        state.last_failed_sha = sha
-        state.last_error = "deploy failed"
-        logger.error(f"Deploy of {sha} failed, retrying after the minimum interval")
-    save_state(path=state_path, state=state)
-
-    if succeeded:
-        await recreate_deployer(checkout_path=checkout_path)
+    if state.pending_recreate:
+        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)

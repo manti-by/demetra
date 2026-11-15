@@ -110,6 +110,12 @@ services:
   worker:
     <<: *demetra-app
     command: ["python", "-m", "demetra.worker"]
+    # A workflow job runs for up to the queue default_timeout
+    # (SUBPROCESS_TIMEOUT + 60). Compose's 10s default would SIGKILL an
+    # in-flight job when the deployer force-recreates the workers right after a
+    # drain. This default covers any SUBPROCESS_TIMEOUT up to 3600; raise it
+    # together with that value.
+    stop_grace_period: ${WORKER_STOP_GRACE_PERIOD:-3660s}
     environment:
       <<: *demetra-env
       LOG_PATH: /var/log/demetra/worker.log

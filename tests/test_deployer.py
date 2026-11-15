@@ -1,4 +1,5 @@
 import json
+import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -12,15 +13,20 @@ from demetra.services.daemons.deployer import (
     CI_STATUS_UNKNOWN,
     DEPLOY_IMAGE,
     DOCKER_SOCKET,
+    IMAGE_REVISION_LABEL,
+    acquire_deploy_lock,
     build_deploy_steps,
+    checkout_has_no_local_changes,
     checkout_matches_sha,
     checkout_owner_prefix,
+    combine_check_run_pages,
     default_state_path,
     deploy_lock_timeout,
     get_checkout_head_sha,
     get_ci_status,
     get_origin_repository,
     get_remote_master_sha,
+    get_running_revision,
     is_queue_drained,
     load_state,
     parse_remote_sha,
@@ -29,6 +35,7 @@ from demetra.services.daemons.deployer import (
     recreate_deployer_command,
     run_deploy,
     run_deploy_cycle,
+    run_deploy_step,
     save_state,
     should_deploy,
     summarize_check_runs,
@@ -96,11 +103,75 @@ class TestGetCheckoutHeadSha:
         assert result == SHA
 
     @pytest.mark.asyncio
+    async def test_bounds_the_read_by_the_step_timeout(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, f"{SHA}\n", "")
+            await get_checkout_head_sha(checkout_path=Path("/tmp/checkout"))
+        assert mock_run.call_args.kwargs["timeout"] == DEPLOY["step_timeout"]
+
+    @pytest.mark.asyncio
     async def test_returns_none_on_error(self):
         with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (128, "", "fatal: not a git repository")
             result = await get_checkout_head_sha(checkout_path=Path("/tmp/checkout"))
         assert result is None
+
+
+class TestGetRunningRevision:
+    @pytest.mark.asyncio
+    async def test_reads_the_api_image_revision_label(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, f"{SHA}\n", "")
+            result = await get_running_revision(checkout_path=Path("/tmp/checkout"))
+        assert result == SHA
+        command = mock_run.call_args.kwargs["command"]
+        assert IMAGE_REVISION_LABEL in command[-1]
+        assert command[command.index("--filter") + 1] == "label=com.docker.compose.service=api"
+
+    @pytest.mark.asyncio
+    async def test_returns_none_without_a_labelled_container(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "\n", "")
+            assert await get_running_revision(checkout_path=Path("/tmp/checkout")) is None
+
+    @pytest.mark.asyncio
+    async def test_returns_none_on_error(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (1, "", "Cannot connect to the Docker daemon")
+            assert await get_running_revision(checkout_path=Path("/tmp/checkout")) is None
+
+
+class TestCheckoutHasNoLocalChanges:
+    @pytest.mark.asyncio
+    async def test_true_for_a_clean_working_tree(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "", "")
+            assert await checkout_has_no_local_changes(checkout_path=Path("/tmp/checkout")) is True
+
+    @pytest.mark.asyncio
+    async def test_false_when_a_tracked_file_is_modified(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, " M demetra/settings.py\n", "")
+            assert await checkout_has_no_local_changes(checkout_path=Path("/tmp/checkout")) is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_an_untracked_file_would_ship(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "?? demetra/patch.py\n", "")
+            assert await checkout_has_no_local_changes(checkout_path=Path("/tmp/checkout")) is False
+
+    @pytest.mark.asyncio
+    async def test_reads_the_status_without_listing_ignored_files(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "", "")
+            await checkout_has_no_local_changes(checkout_path=Path("/tmp/checkout"))
+        assert "--ignored" not in mock_run.call_args.kwargs["command"]
+
+    @pytest.mark.asyncio
+    async def test_false_when_the_status_cannot_be_read(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (128, "", "fatal: not a git repository")
+            assert await checkout_has_no_local_changes(checkout_path=Path("/tmp/checkout")) is False
 
 
 class TestGetOriginRepository:
@@ -161,6 +232,18 @@ class TestGetCiStatus:
         assert result == CI_STATUS_PASSED
 
     @pytest.mark.asyncio
+    async def test_reads_every_page_of_check_runs(self):
+        first_page = {"check_runs": [{"status": "completed", "conclusion": "success"}]}
+        second_page = {"check_runs": [{"status": "completed", "conclusion": "failure"}]}
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, json.dumps([first_page, second_page]), "")
+            result = await get_ci_status(sha=SHA, repository="manti-by/demetra")
+        assert result == CI_STATUS_FAILED
+        command = mock_run.call_args.kwargs["command"]
+        assert "--paginate" in command
+        assert "--slurp" in command
+
+    @pytest.mark.asyncio
     async def test_reports_unknown_when_the_api_call_fails(self):
         with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "HTTP 404")
@@ -173,6 +256,31 @@ class TestGetCiStatus:
             mock_run.return_value = (0, "not json", "")
             result = await get_ci_status(sha=SHA, repository="manti-by/demetra")
         assert result == CI_STATUS_UNKNOWN
+
+    @pytest.mark.asyncio
+    async def test_reports_unknown_for_a_non_object_payload(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "null", "")
+            result = await get_ci_status(sha=SHA, repository="manti-by/demetra")
+        assert result == CI_STATUS_UNKNOWN
+
+
+class TestCombineCheckRunPages:
+    def test_merges_the_runs_of_every_page(self):
+        pages = [
+            {"check_runs": [{"status": "completed", "conclusion": "success"}]},
+            {"check_runs": [{"status": "in_progress", "conclusion": None}]},
+        ]
+
+        assert combine_check_run_pages(pages=pages) == {
+            "check_runs": [
+                {"status": "completed", "conclusion": "success"},
+                {"status": "in_progress", "conclusion": None},
+            ]
+        }
+
+    def test_skips_pages_that_are_not_objects(self):
+        assert combine_check_run_pages(pages=[None, {"check_runs": []}]) == {"check_runs": []}
 
 
 class TestIsQueueDrained:
@@ -242,6 +350,28 @@ class TestDeployState:
         assert state.last_deployed_sha == SHA
         assert state.last_deploy_at == 0.0
 
+    @pytest.mark.parametrize("value", ["NaN", "Infinity", "-Infinity"])
+    def test_rejects_a_non_finite_timestamp(self, value):
+        state = DeployState.from_payload({"last_deploy_at": value})
+
+        assert state.last_deploy_at == 0.0
+
+    def test_reads_the_pending_recreate_flag(self):
+        assert DeployState.from_payload({"pending_recreate": True}).pending_recreate is True
+        assert DeployState.from_payload({}).pending_recreate is False
+
+    def test_a_non_object_payload_is_an_empty_state(self, tmp_path: Path):
+        state_path = tmp_path / "deployer-state.json"
+        state_path.write_text("null")
+
+        assert load_state(path=state_path) == DeployState()
+
+    def test_a_list_payload_is_an_empty_state(self, tmp_path: Path):
+        state_path = tmp_path / "deployer-state.json"
+        state_path.write_text("[]")
+
+        assert load_state(path=state_path) == DeployState()
+
 
 class TestDefaultStatePath:
     def test_uses_the_configured_path(self, monkeypatch):
@@ -296,6 +426,16 @@ class TestBuildDeploySteps:
         assert build[-1] == str(Path("/srv/checkout"))
         assert "." not in build
 
+    def test_labels_the_image_with_the_gated_commit(self):
+        build = dict(build_deploy_steps(checkout_path=Path("/srv/checkout"), sha=SHA))["build"]
+
+        assert build[build.index("--label") + 1] == f"{IMAGE_REVISION_LABEL}={SHA}"
+
+    def test_omits_the_label_without_a_gated_commit(self):
+        build = dict(build_deploy_steps(checkout_path=Path("/srv/checkout")))["build"]
+
+        assert "--label" not in build
+
 
 class TestCheckoutOwnerPrefix:
     def test_drops_to_the_checkout_owner_when_running_as_root(self, tmp_path: Path):
@@ -322,8 +462,31 @@ class TestDeployLockTimeout:
     def test_covers_every_step_and_the_in_lock_drain_wait(self):
         steps = build_deploy_steps(checkout_path=Path("/srv/checkout"))
 
-        expected = len(steps) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
+        expected = (len(steps) + 1) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
         assert deploy_lock_timeout(checkout_path=Path("/srv/checkout")) == expected
+
+    def test_budgets_the_post_pull_head_read(self):
+        steps = build_deploy_steps(checkout_path=Path("/srv/checkout"))
+
+        assert deploy_lock_timeout(checkout_path=Path("/srv/checkout")) > len(steps) * DEPLOY["step_timeout"]
+
+
+class TestAcquireDeployLock:
+    def test_returns_none_when_another_deploy_holds_the_lock(self):
+        with patch("demetra.services.daemons.deployer.connection") as mock_connection:
+            mock_connection.lock.return_value.acquire.return_value = False
+            assert acquire_deploy_lock(checkout_path=Path("/srv/checkout"), blocking=False) is None
+
+    def test_uses_the_deploy_lock_name_and_ttl(self):
+        with patch("demetra.services.daemons.deployer.connection") as mock_connection:
+            mock_connection.lock.return_value.acquire.return_value = True
+            lock = acquire_deploy_lock(checkout_path=Path("/srv/checkout"), blocking=True)
+
+        assert lock is mock_connection.lock.return_value
+        assert mock_connection.lock.call_args.args[0] == "demetra:deployer"
+        assert mock_connection.lock.call_args.kwargs["timeout"] == deploy_lock_timeout(
+            checkout_path=Path("/srv/checkout")
+        )
 
 
 class TestRunDeploy:
@@ -428,21 +591,71 @@ class TestRunDeploy:
 class TestCheckoutMatchesSha:
     @pytest.mark.asyncio
     async def test_true_when_the_checkout_holds_the_gated_commit(self):
-        with patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head:
+        with (
+            patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head,
+            patch(
+                "demetra.services.daemons.deployer.checkout_has_no_local_changes", new_callable=AsyncMock
+            ) as mock_clean,
+        ):
             mock_head.return_value = SHA
+            mock_clean.return_value = True
             assert await checkout_matches_sha(checkout_path=Path("/srv/checkout"), sha=SHA) is True
 
     @pytest.mark.asyncio
     async def test_false_when_master_advanced_after_the_gate(self):
-        with patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head:
+        with (
+            patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head,
+            patch(
+                "demetra.services.daemons.deployer.checkout_has_no_local_changes", new_callable=AsyncMock
+            ) as mock_clean,
+        ):
             mock_head.return_value = OTHER_SHA
+            mock_clean.return_value = True
             assert await checkout_matches_sha(checkout_path=Path("/srv/checkout"), sha=SHA) is False
 
     @pytest.mark.asyncio
     async def test_false_when_the_head_cannot_be_read(self):
-        with patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head:
+        with (
+            patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head,
+            patch(
+                "demetra.services.daemons.deployer.checkout_has_no_local_changes", new_callable=AsyncMock
+            ) as mock_clean,
+        ):
             mock_head.return_value = None
+            mock_clean.return_value = True
             assert await checkout_matches_sha(checkout_path=Path("/srv/checkout"), sha=SHA) is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_the_working_tree_carries_an_unchecked_change(self):
+        with (
+            patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head,
+            patch(
+                "demetra.services.daemons.deployer.checkout_has_no_local_changes", new_callable=AsyncMock
+            ) as mock_clean,
+        ):
+            mock_head.return_value = SHA
+            mock_clean.return_value = False
+            assert await checkout_matches_sha(checkout_path=Path("/srv/checkout"), sha=SHA) is False
+
+
+class TestRunDeployStep:
+    @pytest.mark.asyncio
+    async def test_true_on_a_zero_exit(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "ok", "")
+            assert await run_deploy_step(name="build", command=["docker"], checkout_path=Path("/srv")) is True
+
+    @pytest.mark.asyncio
+    async def test_false_on_a_non_zero_exit(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (1, "", "boom")
+            assert await run_deploy_step(name="build", command=["docker"], checkout_path=Path("/srv")) is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_the_process_cannot_start(self):
+        with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = OSError("No such file or directory")
+            assert await run_deploy_step(name="nginx_reload", command=["missing"], checkout_path=Path("/srv")) is False
 
 
 class TestRecreateDeployer:
@@ -486,11 +699,11 @@ class TestRecreateDeployer:
 
 
 class TestMakefileParity:
-    def _deploy_recipe(self) -> list[str]:
+    def _recipe(self, target: str) -> list[str]:
         makefile = (Path(__file__).resolve().parents[1] / "Makefile").read_text().splitlines()
         recipe, in_target = [], False
         for line in makefile:
-            if line.startswith("deploy:"):
+            if line.startswith(f"{target}:"):
                 in_target = True
                 continue
             if in_target and line.startswith("\t"):
@@ -499,8 +712,15 @@ class TestMakefileParity:
                 break
         return recipe
 
-    def test_recreate_step_matches_the_makefile_deploy_target(self):
-        recipe = self._deploy_recipe()
+    def test_deploy_recipe_runs_under_the_shared_deploy_lock(self):
+        recipe = self._recipe("deploy")
+
+        assert len(recipe) == 1
+        assert recipe[0].endswith("deploy-steps")
+        assert "demetra.deploy_lock" in recipe[0]
+
+    def test_recreate_step_matches_the_makefile_deploy_steps_target(self):
+        recipe = self._recipe("deploy-steps")
         makefile_up = next(command for command in recipe if "--force-recreate" in command).split()
         daemon_up = dict(build_deploy_steps(checkout_path=Path("/srv/checkout")))["up"]
 
@@ -509,8 +729,8 @@ class TestMakefileParity:
         assert daemon_up[-5:] == list(DEPLOY["compose_services"])
         assert makefile_up[makefile_up.index("--scale") + 1] == daemon_up[daemon_up.index("--scale") + 1]
 
-    def test_migrate_step_matches_the_makefile_deploy_target(self):
-        recipe = self._deploy_recipe()
+    def test_migrate_step_matches_the_makefile_deploy_steps_target(self):
+        recipe = self._recipe("deploy-steps")
         makefile_migrate = next(command for command in recipe if "--abort-on-container-failure" in command).split()
         daemon_migrate = dict(build_deploy_steps(checkout_path=Path("/srv/checkout")))["migrate"]
 
@@ -525,7 +745,7 @@ class TestRunDeployCycle:
         with (
             patch("demetra.services.daemons.deployer.default_state_path", return_value=tmp_path / "state.json"),
             patch("demetra.services.daemons.deployer.get_remote_master_sha", new_callable=AsyncMock) as mock_remote,
-            patch("demetra.services.daemons.deployer.get_checkout_head_sha", new_callable=AsyncMock) as mock_head,
+            patch("demetra.services.daemons.deployer.get_running_revision", new_callable=AsyncMock) as mock_revision,
             patch("demetra.services.daemons.deployer.get_origin_repository", new_callable=AsyncMock) as mock_repo,
             patch("demetra.services.daemons.deployer.get_ci_status", new_callable=AsyncMock) as mock_ci,
             patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
@@ -534,7 +754,7 @@ class TestRunDeployCycle:
             patch("demetra.services.daemons.deployer.connection") as mock_connection,
         ):
             mock_remote.return_value = SHA
-            mock_head.return_value = OTHER_SHA
+            mock_revision.return_value = None
             mock_repo.return_value = "manti-by/demetra"
             mock_ci.return_value = CI_STATUS_PASSED
             mock_drain.return_value = True
@@ -543,7 +763,7 @@ class TestRunDeployCycle:
             mock_connection.lock.return_value = lock
             yield {
                 "remote": mock_remote,
-                "head": mock_head,
+                "revision": mock_revision,
                 "ci": mock_ci,
                 "drain": mock_drain,
                 "deploy": mock_deploy,
@@ -598,12 +818,29 @@ class TestRunDeployCycle:
         assert cycle_mocks["deploy"].await_count == 0
 
     @pytest.mark.asyncio
-    async def test_seeds_the_state_from_the_checked_out_commit(self, cycle_mocks):
-        save_state(path=cycle_mocks["state_path"], state=DeployState())
+    async def test_seeds_the_state_from_the_running_image_revision(self, cycle_mocks):
+        cycle_mocks["revision"].return_value = OTHER_SHA
 
         await run_deploy_cycle()
 
         assert load_state(path=cycle_mocks["state_path"]).last_deployed_sha == SHA
+
+    @pytest.mark.asyncio
+    async def test_leaves_the_commit_eligible_without_a_deployed_revision(self, cycle_mocks):
+        cycle_mocks["revision"].return_value = None
+
+        await run_deploy_cycle()
+
+        cycle_mocks["deploy"].assert_awaited_once_with(checkout_path=DEPLOY["host_checkout"], sha=SHA)
+        assert load_state(path=cycle_mocks["state_path"]).last_deployed_sha == SHA
+
+    @pytest.mark.asyncio
+    async def test_does_not_seed_from_a_deployed_revision_that_is_already_current(self, cycle_mocks):
+        cycle_mocks["revision"].return_value = SHA
+
+        await run_deploy_cycle()
+
+        assert cycle_mocks["deploy"].await_count == 0
 
     @pytest.mark.asyncio
     async def test_skips_the_deploy_while_ci_is_pending(self, cycle_mocks):
@@ -689,6 +926,72 @@ class TestRunDeployCycle:
         await run_deploy_cycle()
 
         state = load_state(path=cycle_mocks["state_path"])
-        assert state.last_deployed_sha == OTHER_SHA
+        assert state.last_deployed_sha is None
         assert state.last_failed_sha == SHA
         assert state.last_error == "deploy failed"
+
+    @pytest.mark.asyncio
+    async def test_rechecks_the_state_after_acquiring_the_lock(self, cycle_mocks):
+        def _concurrent_deploy(*, timeout):
+            save_state(
+                path=cycle_mocks["state_path"], state=DeployState(last_deployed_sha=SHA, last_deploy_at=time.time())
+            )
+            return True
+
+        cycle_mocks["drain"].side_effect = _concurrent_deploy
+
+        await run_deploy_cycle()
+
+        assert cycle_mocks["deploy"].await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_records_a_pending_recreate_before_releasing_the_lock(self, cycle_mocks):
+        seen: list[bool] = []
+
+        def _check_lock(*, checkout_path):
+            seen.append(cycle_mocks["lock"].release.called)
+            return True
+
+        cycle_mocks["recreate"].side_effect = _check_lock
+
+        await run_deploy_cycle()
+
+        assert seen == [True]
+        assert load_state(path=cycle_mocks["state_path"]).pending_recreate is False
+
+    @pytest.mark.asyncio
+    async def test_clears_the_pending_recreate_before_dispatching_the_helper(self, cycle_mocks):
+        seen: list[bool] = []
+
+        def _check_state(*, checkout_path):
+            seen.append(load_state(path=cycle_mocks["state_path"]).pending_recreate)
+            return True
+
+        cycle_mocks["recreate"].side_effect = _check_state
+
+        await run_deploy_cycle()
+
+        assert seen == [False]
+
+    @pytest.mark.asyncio
+    async def test_keeps_the_recreate_pending_when_the_helper_fails(self, cycle_mocks):
+        cycle_mocks["recreate"].return_value = False
+
+        await run_deploy_cycle()
+
+        state = load_state(path=cycle_mocks["state_path"])
+        assert state.pending_recreate is True
+        assert state.last_deployed_sha == SHA
+
+    @pytest.mark.asyncio
+    async def test_retries_a_pending_recreate_without_a_new_deploy(self, cycle_mocks):
+        save_state(
+            path=cycle_mocks["state_path"],
+            state=DeployState(last_deployed_sha=SHA, pending_recreate=True),
+        )
+
+        await run_deploy_cycle()
+
+        cycle_mocks["recreate"].assert_awaited_once_with(checkout_path=DEPLOY["host_checkout"])
+        assert cycle_mocks["deploy"].await_count == 0
+        assert load_state(path=cycle_mocks["state_path"]).pending_recreate is False

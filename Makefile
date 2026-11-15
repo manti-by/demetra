@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
+.PHONY: deploy deploy-steps react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -24,6 +24,9 @@ run-mgallery-auto:
 
 
 deploy:
+	uv run python -m demetra.deploy_lock -- $(MAKE) deploy-steps
+
+deploy-steps:
 	git pull --ff-only
 	docker build --platform linux/amd64 --tag mantiby/demetra:latest .
 	docker compose --env-file .env.docker pull postgres redis react-build || true
