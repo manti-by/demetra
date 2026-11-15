@@ -65,7 +65,8 @@ RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
     && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv /usr/local/cargo /usr/local/rustup
 
 COPY configs/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+COPY configs/derive-opencode-config.py /usr/local/bin/derive-opencode-config.py
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh /usr/local/bin/derive-opencode-config.py
 
 ENV PATH="/usr/local/cargo/bin:/opt/venv/bin:$PATH"
 ENV UV_PATH="/bin/uv"

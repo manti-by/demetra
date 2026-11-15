@@ -22,13 +22,13 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `react/`: React frontend (Vite + TypeScript)
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
-- `tests/`: Comprehensive test suite (59 `test_*.py` files, 62 total with `__init__.py`/`conftest.py`)
-- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker
+- `tests/`: Comprehensive test suite (64 `test_*.py` files, 66 total with `__init__.py`/`conftest.py`)
+- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`), provider-only OpenCode config derivation (`configs/derive-opencode-config.py`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker
 - `wiki/audits/`: Dated audit directories (workflow audits, `2026-11-05-security-audit/` with numbered security findings) plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
-- `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make deploy` / `make docker-up`). The image bakes the `opencode` and `wi` binaries onto `PATH` — both are version-pinned build args (`OPENCODE_VERSION`, `WI_VERSION`), and the final stage asserts `opencode --version` matches `OPENCODE_VERSION`, so a stale cached `COPY --from=builder` fails the build instead of shipping an old binary; `wi` is the external MCP server wired into `opencode.json`, so agents can launch it in-container
+- `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make deploy` / `make docker-up`). The image bakes the `opencode` and `wi` binaries onto `PATH` — both are version-pinned build args (`OPENCODE_VERSION`, `WI_VERSION`), and the final stage asserts `opencode --version` matches `OPENCODE_VERSION`, so a stale cached `COPY --from=builder` fails the build instead of shipping an old binary; `wi` is the external MCP server wired into `opencode.json`, so agents can launch it in-container. The host provider-credential file is mounted read-only as `~/.config/opencode/providers.json`; `configs/derive-opencode-config.py` derives the global `opencode.json` from it at container start, keeping `$schema` + `provider` only so host MCP/agent sections cannot shadow the project config
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
 - `.opencode/`: OpenCode agent definitions in `agents/` (8 `*-agent.md` files: `build`, `merge`, `plan`, `rebase`, `research`, `resolve`, `review`, `validate` with `description`/`permission` frontmatter; npm manifest pins `@opencode-ai/plugin`). `.opencode/skills/` is gitignored: skills resolve as installed skills (`wiki-sync`, `wiki-consistency`, `wiki-dedup`, `wiki-archive`, `wiki-agents-file`, `code-review`, plus the release/fix skills)
-- `opencode.json`: OpenCode agent toolchain configuration (MCP servers Demetra/WI/Linear; `plugins` list is empty — the `@langchain/langsmith-opencode` plugin was removed in `67d106c`, tracing now flows via env vars, see LangSmith below)
+- `opencode.json`: OpenCode agent toolchain configuration (MCP servers Demetra/WI/Linear; `plugins` list is empty — the `@langchain/langsmith-opencode` plugin was removed in `67d106c`, tracing now flows via env vars, see LangSmith below). The Linear MCP server is authenticated with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`, fed from the environment layers; the Demetra MCP command no longer passes a cwd-relative `--env-file`
 - `wiki/`: Persistent session knowledge base (pages, `INDEX.md` catalog + `By topic` clusters, `QUESTIONS.md` open discrepancies, `postmortems/` blameless incident postmortems per `postmortems/README.md`, 4 page types per `TEMPLATE.md` — see `wiki/README.md`; `.sessions.json` maps session ids to pages, machine-maintained; `wiki/archive/` holds retired pages preserved for provenance `[[...]]` links)
 
 ## Wiki
@@ -176,7 +176,7 @@ When creating Alembic migrations:
 
 ## Environment & Configuration
 
-Environment is controlled primarily via `demetra/settings.py` and `.env`.
+Environment is controlled primarily via `demetra/settings.py` and `.env`. Agent subprocesses inherit `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME` (project → user-shared → system) but not a system `DB_PASSWORD`: the Demetra MCP server reads the encrypted project/user `DB_PASSWORD` entry and exits at startup when it is missing.
 
 ## Dependencies
 
@@ -189,7 +189,7 @@ Demetra coordinates the following external tools:
 - **OpenCode**: AI coding assistant for planning and building features; agent runs use the `--standalone` flag when the CLI advertises it — support is probed from `run --help` and cached per CLI path (`opencode_supports_standalone`, `demetra/services/agents/opencode.py:646-676`)
 - **Cursor**: AI-powered code review tool
 - **CodeRabbit**: Alternative AI code review tool
-- **Linear**: Issue tracking via GraphQL API; issues and their comments are mirrored into the local `tasks`/`messages` tables (`demetra/services/linear/mirror.py`), backfilled with `main.py --linear-sync`
+- **Linear**: Issue tracking via GraphQL API; issues and their comments are mirrored into the local `tasks`/`messages` tables (`demetra/services/linear/mirror.py`), backfilled with `main.py --linear-sync`. The Linear MCP server (`https://mcp.linear.app/mcp`) authenticates with `LINEAR_API_KEY` as a static Bearer header resolved project → user-shared → system (`SessionEnvironment.system_env`)
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **OpenRouter**: LLM API for plan extraction, lint/test error extraction (`extract_errors`, MNT-308), review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 - **WI**: project wiki search/read/list via MCP (`opencode.json` `mcp.servers.WI`, `wi` command) — the in-repo `wiki_*` MCP tools were removed in favour of it

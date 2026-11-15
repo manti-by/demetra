@@ -5,7 +5,7 @@
     "servers": {
       "Demetra": {
         "type": "local",
-        "command": ["uv", "run", "--env-file", ".env.docker", "python", "-m", "demetra.mcp_server"]
+        "command": ["uv", "run", "python", "-m", "demetra.mcp_server"]
       },
       "WI": {
         "type": "local",
@@ -14,7 +14,10 @@
       "Linear": {
         "type": "remote",
         "url": "https://mcp.linear.app/mcp",
-        "oauth": {}
+        "oauth": false,
+        "headers": {
+          "Authorization": "Bearer {env:LINEAR_API_KEY}"
+        }
       }
     }
   }

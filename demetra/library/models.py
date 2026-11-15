@@ -480,9 +480,18 @@ def settings_default(key: str) -> str | None:
         str | None: The configured default, or None when settings does not
             define the key.
     """
-    from demetra.settings import LANGSMITH, LINEAR, OPENCODE, OPENROUTER
+    from demetra.settings import DATABASE, LANGSMITH, LINEAR, OPENCODE, OPENROUTER
 
     match key:
+        case "DB_HOST":
+            return DATABASE["host"]
+        case "DB_PORT":
+            return str(DATABASE["port"])
+        case "DB_USER":
+            return DATABASE["user"]
+        case "DB_NAME":
+            return DATABASE["name"]
+
         case "OPENROUTER_API_KEY":
             return OPENROUTER["api_key"]
         case "OPENROUTER_MODEL":
@@ -501,6 +510,8 @@ def settings_default(key: str) -> str | None:
 
         case "LINEAR_TEAM_ID":
             return LINEAR["team_id"]
+        case "LINEAR_API_KEY":
+            return LINEAR["api_key"]
         case "LINEAR_DEFAULT_STATE_ID":
             return LINEAR["default_state"]
 
@@ -696,6 +707,11 @@ class SessionEnvironment:
             "LANGSMITH_API_KEY": api_key,
             "LANGSMITH_ENDPOINT": env_get_str_from(getter=self.lookup, name="LANGSMITH_ENDPOINT", default=""),
             "LANGSMITH_PROJECT": env_get_str_from(getter=self.lookup, name="LANGSMITH_PROJECT", default=""),
+            "LINEAR_API_KEY": env_get_str_from(getter=self.lookup, name="LINEAR_API_KEY", default=""),
+            "DB_HOST": env_get_str_from(getter=self.lookup, name="DB_HOST", default=""),
+            "DB_PORT": env_get_str_from(getter=self.lookup, name="DB_PORT", default=""),
+            "DB_USER": env_get_str_from(getter=self.lookup, name="DB_USER", default=""),
+            "DB_NAME": env_get_str_from(getter=self.lookup, name="DB_NAME", default=""),
         }
 
     def linear_state(self, name: str) -> str:
