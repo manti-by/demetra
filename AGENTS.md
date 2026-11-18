@@ -197,7 +197,7 @@ Demetra coordinates the following external tools:
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **OpenRouter**: LLM API for plan extraction, lint/test error extraction (`extract_errors`, MNT-308), review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 - **WI**: project wiki search/read/list via MCP (`opencode.json` `mcp.servers.WI`, `wi` command) — the in-repo `wiki_*` MCP tools were removed in favour of it
-- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`): `docker-compose.yaml` forwards host `LANGSMITH_*` into containers and `SessionEnvironment.system_env` derives `TRACE_TO_LANGSMITH` etc. in-process (`demetra/library/models.py:760`)
+- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`). Tracing is one platform-wide configuration: `docker-compose.yaml` forwards host `LANGSMITH_*` into containers with tracing opt-in (default `false`), `settings.LANGSMITH` gates tracing on a configured API key, and `SessionEnvironment.system_env` derives `LANGSMITH_*` / `TRACE_TO_LANGSMITH` from that single source — project/user layer overrides are ignored so all users and projects trace into the one shared `Demetra` project (`demetra/library/models.py:743`, `demetra/settings.py:243`)
 
 ## Security Guidelines
 

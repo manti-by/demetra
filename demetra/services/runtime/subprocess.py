@@ -44,10 +44,12 @@ def build_subprocess_env(
 
     The derived tracing vars are always present in
     :attr:`SessionEnvironment.subprocess_env` and therefore win over the OS
-    layer, so a project that opted a ``LANGSMITH_*`` key in via
-    ``OS_ENV_PROJECT_OPTINS`` would have it overridden here. That is intended:
-    the tracing flags have to stay internally consistent, and a half-configured
-    ``LANGSMITH_TRACING`` without a key is worse than tracing being off.
+    layer. They are platform-wide, sourced only from ``settings.py`` — a project
+    that opted a ``LANGSMITH_*`` key in via ``OS_ENV_PROJECT_OPTINS`` has it
+    overridden here, and project/user layer ``LANGSMITH_*`` values are ignored.
+    That is intended: all users and projects share one LangSmith project, and a
+    half-configured ``LANGSMITH_TRACING`` without a key is worse than tracing
+    being off.
 
     Args:
         environment: The resolved session environment. When omitted only the OS

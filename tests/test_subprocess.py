@@ -469,21 +469,27 @@ class TestBuildSubprocessEnv:
     def test_derived_tracing_vars_are_forwarded_without_extra_arguments(self, monkeypatch):
         monkeypatch.setattr(
             "demetra.settings.LANGSMITH",
-            {"tracing": False, "endpoint": "https://langsmith.example", "api_key": None, "project": "settings-project"},
+            {
+                "tracing": True,
+                "endpoint": "https://langsmith.example",
+                "api_key": "key-1",
+                "project": "settings-project",
+            },
         )
         environment = SessionEnvironment(
             user_environment={},
-            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
+            project_environment={"LANGSMITH_TRACING": "false", "LANGSMITH_API_KEY": "project-key"},
         )
 
         merged = build_subprocess_env(environment=environment)
 
-        # Both tracing consumers are always set, even though the project layer
-        # only carries the key the ``langsmith`` SDK reads.
+        # Both tracing consumers are set from settings; the project layer values
+        # are ignored so every subprocess uses the one platform configuration.
         assert merged["LANGSMITH_TRACING"] == "true"
         assert merged["TRACE_TO_LANGSMITH"] == "true"
         assert merged["LANGSMITH_ENDPOINT"] == "https://langsmith.example"
         assert merged["LANGSMITH_API_KEY"] == "key-1"
+        assert merged["LANGSMITH_PROJECT"] == "settings-project"
 
     def test_derived_tracing_vars_win_over_the_project_layer(self, monkeypatch):
         monkeypatch.setattr(
@@ -492,13 +498,17 @@ class TestBuildSubprocessEnv:
         )
         environment = SessionEnvironment(
             user_environment={},
-            project_environment={"LANGSMITH_TRACING": "true", "TRACE_TO_LANGSMITH": "true"},
+            project_environment={
+                "LANGSMITH_TRACING": "true",
+                "LANGSMITH_API_KEY": "project-key",
+                "TRACE_TO_LANGSMITH": "true",
+            },
         )
 
         merged = build_subprocess_env(environment=environment)
 
-        # Tracing is forced off without a key, so the derived flags win over the
-        # raw project values and no subprocess ingests with an empty key.
+        # Tracing is forced off without a platform key, so the derived flags win
+        # over the raw project values and no subprocess ingests with an empty key.
         assert merged["LANGSMITH_TRACING"] == "false"
         assert merged["TRACE_TO_LANGSMITH"] == "false"
         assert merged["LANGSMITH_API_KEY"] == ""

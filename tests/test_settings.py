@@ -418,6 +418,61 @@ class TestSettings:
         importlib.reload(settings_module)
 
 
+class TestLangSmithSettings:
+    def test_tracing_defaults_to_off(self, monkeypatch):
+        monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+        monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.LANGSMITH["tracing"] is False
+            assert settings_module.LANGSMITH["api_key"] is None
+            assert settings_module.LANGSMITH["endpoint"] == "https://api.smith.langchain.com"
+            assert settings_module.LANGSMITH["project"] == "Demetra"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_tracing_requires_an_api_key(self, monkeypatch):
+        monkeypatch.setenv("LANGSMITH_TRACING", "true")
+        monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.LANGSMITH["api_key"] is None
+            assert settings_module.LANGSMITH["tracing"] is False
+        finally:
+            monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+            importlib.reload(settings_module)
+
+    def test_tracing_on_when_key_and_flag_configured(self, monkeypatch):
+        monkeypatch.setenv("LANGSMITH_TRACING", "true")
+        monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.LANGSMITH["api_key"] == "test-key"
+            assert settings_module.LANGSMITH["tracing"] is True
+        finally:
+            monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+            monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+            importlib.reload(settings_module)
+
+
 class TestSearchStopWords:
     def test_stop_words_not_in_search_settings(self):
         assert "stop_words" not in settings.SEARCH

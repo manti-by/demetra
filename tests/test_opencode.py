@@ -256,19 +256,25 @@ class TestRunOpencodeAgentLangSmithEnv:
 
     @pytest.mark.asyncio
     async def test_environment_carries_the_tracing_vars_to_the_subprocess(self, mock_run_command_and_opencode_config):
-        environment = SessionEnvironment(
-            project_environment={"LANGSMITH_TRACING": "true", "LANGSMITH_API_KEY": "key-1"},
-            user_environment={},
-        )
-        mock_run_command_and_opencode_config.return_value = (0, "output", "")
-        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", environment=environment)
+        with patch(
+            "demetra.settings.LANGSMITH",
+            {
+                "tracing": True,
+                "endpoint": "https://api.smith.langchain.com",
+                "api_key": "key-1",
+                "project": "Demetra",
+            },
+        ):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+            mock_run_command_and_opencode_config.return_value = (0, "output", "")
+            await run_opencode_agent(Path("/test"), "task", model="m", agent="plan-agent", environment=environment)
 
-        call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
-        assert call_kwargs["environment"] is environment
-        subprocess_env = environment.subprocess_env
-        assert subprocess_env["LANGSMITH_TRACING"] == "true"
-        assert subprocess_env["TRACE_TO_LANGSMITH"] == "true"
-        assert subprocess_env["LANGSMITH_API_KEY"] == "key-1"
+            call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
+            assert call_kwargs["environment"] is environment
+            subprocess_env = environment.subprocess_env
+            assert subprocess_env["LANGSMITH_TRACING"] == "true"
+            assert subprocess_env["TRACE_TO_LANGSMITH"] == "true"
+            assert subprocess_env["LANGSMITH_API_KEY"] == "key-1"
 
 
 class TestAgentNetworkRetry:

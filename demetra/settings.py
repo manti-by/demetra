@@ -240,10 +240,12 @@ OPENROUTER: OpenRouterConfig = {
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
 }
 
+_LANGSMITH_API_KEY = env_get_str("LANGSMITH_API_KEY", None)
+
 LANGSMITH: LangSmithConfig = {
-    "tracing": env_get_bool("LANGSMITH_TRACING", False),
+    "tracing": bool(_LANGSMITH_API_KEY) and env_get_bool("LANGSMITH_TRACING", False),
     "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
-    "api_key": env_get_str("LANGSMITH_API_KEY", None),
+    "api_key": _LANGSMITH_API_KEY,
     "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
 

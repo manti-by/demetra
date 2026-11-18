@@ -743,24 +743,25 @@ class SessionEnvironment:
     def system_env(self) -> dict[str, str]:
         """Return the system env vars to forward to an agent subprocess.
 
-        Every key is resolved through the layers, so a project or user override
-        wins over the ``settings.py`` default and an empty value falls through
-        instead of raising.
+        The LangSmith tracing vars are platform-wide: they come only from the
+        ``settings.py`` defaults, never from the project or user layers, so every
+        user and project traces into the same LangSmith project. The remaining
+        keys (Linear and database) are still resolved through the env layers.
 
         Returns:
             dict[str, str]: The system env vars.
         """
-        from demetra.services.runtime.utils import env_get_bool_from, env_get_str_from
+        from demetra.services.runtime.utils import env_get_str_from
 
-        tracing = env_get_bool_from(getter=self.lookup, name="LANGSMITH_TRACING", default=False)
-        api_key = env_get_str_from(getter=self.lookup, name="LANGSMITH_API_KEY", default="")
+        tracing = settings_default("LANGSMITH_TRACING") == "true"
+        api_key = settings_default("LANGSMITH_API_KEY") or ""
         enabled = "true" if tracing and api_key else "false"
         return {
             "LANGSMITH_TRACING": enabled,
             "TRACE_TO_LANGSMITH": enabled,
             "LANGSMITH_API_KEY": api_key,
-            "LANGSMITH_ENDPOINT": env_get_str_from(getter=self.lookup, name="LANGSMITH_ENDPOINT", default=""),
-            "LANGSMITH_PROJECT": env_get_str_from(getter=self.lookup, name="LANGSMITH_PROJECT", default=""),
+            "LANGSMITH_ENDPOINT": settings_default("LANGSMITH_ENDPOINT") or "",
+            "LANGSMITH_PROJECT": settings_default("LANGSMITH_PROJECT") or "",
             "LINEAR_API_KEY": env_get_str_from(getter=self.lookup, name="LINEAR_API_KEY", default=""),
             "DB_HOST": env_get_str_from(getter=self.lookup, name="DB_HOST", default=""),
             "DB_PORT": env_get_str_from(getter=self.lookup, name="DB_PORT", default=""),
