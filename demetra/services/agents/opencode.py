@@ -715,7 +715,7 @@ async def run_opencode_agent(
         disable_stdio: Whether to suppress live subprocess output.
         project_id: Optional project id used for OS env opt-in tokens.
         environment: Optional resolved env layer forwarding LangSmith tracing
-            vars to the subprocess.
+            vars and the platform API key to the agent subprocess.
         fork: Whether to fork the continued session before running. Requires
             ``session_id``; used once for the build phase so later iterations
             resume the fork instead of re-forking the plan session.
@@ -754,6 +754,7 @@ async def run_opencode_agent(
             environment=environment,
             input_text=task,
             project_id=project_id,
+            forward_tracing=True,
         )
         retryable = retry_on_network_error and exit_code != 0 and is_network_error(stdout=stdout, stderr=stderr)
         if not retryable:

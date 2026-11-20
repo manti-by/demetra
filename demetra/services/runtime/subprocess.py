@@ -34,6 +34,7 @@ def build_subprocess_env(
     *,
     project_id: str | None = None,
     target_path: Path | None = None,
+    forward_tracing: bool = False,
 ) -> dict[str, str]:
     """Build the environment for a subprocess from the env layers.
 
@@ -44,16 +45,25 @@ def build_subprocess_env(
 
     The derived tracing vars are always present in
     :attr:`SessionEnvironment.subprocess_env` and therefore win over the OS
-    layer, so a project that opted a ``LANGSMITH_*`` key in via
-    ``OS_ENV_PROJECT_OPTINS`` would have it overridden here. That is intended:
-    the tracing flags have to stay internally consistent, and a half-configured
-    ``LANGSMITH_TRACING`` without a key is worse than tracing being off.
+    layer: ``LANGSMITH_TRACING``, ``LANGSMITH_ENDPOINT``, ``LANGSMITH_PROJECT``
+    and ``TRACE_TO_LANGSMITH``. They are platform-wide, sourced only from
+    ``settings.py`` — a project that opted one of those keys in via
+    ``OS_ENV_PROJECT_OPTINS`` has it overridden here. Other ``LANGSMITH_*`` keys
+    from the project, user or OS layers (e.g. ``LANGSMITH_WORKSPACE_ID``) are
+    not filtered and reach the child unchanged.
+
+    ``LANGSMITH_API_KEY`` is the exception: it is the shared platform
+    credential, so it is added only when ``forward_tracing`` is set. That keeps
+    it out of subprocesses running project code (git, lint, tests) and limits it
+    to the agent run that emits the traces.
 
     Args:
         environment: The resolved session environment. When omitted only the OS
             allowlist layer is used.
         project_id: Optional project id used for OS env opt-in tokens.
         target_path: The working directory; sets ``PWD`` when given.
+        forward_tracing: Whether to add the platform ``LANGSMITH_API_KEY`` for a
+            subprocess that emits traces.
 
     Returns:
         dict[str, str]: The merged environment.
@@ -62,6 +72,8 @@ def build_subprocess_env(
 
     if environment is not None:
         merged_env.update(environment.subprocess_env)
+        if forward_tracing:
+            merged_env.update(environment.tracing_env)
 
     if target_path is not None:
         merged_env["PWD"] = str(target_path)
@@ -98,6 +110,7 @@ async def run_command(
     input_text: str | None = None,
     timeout: int | None = SUBPROCESS_TIMEOUT,
     project_id: str | None = None,
+    forward_tracing: bool = False,
 ) -> tuple[int, str, str]:
     """Run a command as a subprocess and capture its output.
 
@@ -118,6 +131,8 @@ async def run_command(
             code -1 is returned.
         project_id: Optional project id whose OS opt-ins are merged into the
             subprocess environment.
+        forward_tracing: Whether to add the platform ``LANGSMITH_API_KEY`` for a
+            subprocess that emits traces.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr.
@@ -126,6 +141,7 @@ async def run_command(
         environment=environment,
         project_id=project_id,
         target_path=target_path,
+        forward_tracing=forward_tracing,
     )
     process_kwargs: dict[str, Any] = {
         "cwd": target_path,

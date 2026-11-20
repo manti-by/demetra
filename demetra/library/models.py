@@ -739,34 +739,60 @@ class SessionEnvironment:
             "base_url": base_url,
         }
 
+    def _langsmith_tracing(self) -> str:
+        """Return the platform tracing flag as forwarded to a subprocess.
+
+        Returns:
+            str: ``"true"`` only when tracing is opted in and a platform API key
+                is configured, otherwise ``"false"``.
+        """
+        tracing = settings_default("LANGSMITH_TRACING") == "true"
+        return "true" if tracing and settings_default("LANGSMITH_API_KEY") else "false"
+
     @property
     def system_env(self) -> dict[str, str]:
-        """Return the system env vars to forward to an agent subprocess.
+        """Return the non-secret system env vars to forward to a subprocess.
 
-        Every key is resolved through the layers, so a project or user override
-        wins over the ``settings.py`` default and an empty value falls through
-        instead of raising.
+        The LangSmith tracing vars are platform-wide: they come only from the
+        ``settings.py`` defaults, never from the project or user layers, so every
+        user and project traces into the configured LangSmith project. The
+        platform API key is deliberately absent here and is exposed only through
+        :attr:`tracing_env`. The remaining keys (Linear and database) are still
+        resolved through the env layers.
 
         Returns:
             dict[str, str]: The system env vars.
         """
-        from demetra.services.runtime.utils import env_get_bool_from, env_get_str_from
+        from demetra.services.runtime.utils import env_get_str_from
 
-        tracing = env_get_bool_from(getter=self.lookup, name="LANGSMITH_TRACING", default=False)
-        api_key = env_get_str_from(getter=self.lookup, name="LANGSMITH_API_KEY", default="")
-        enabled = "true" if tracing and api_key else "false"
+        enabled = self._langsmith_tracing()
         return {
             "LANGSMITH_TRACING": enabled,
             "TRACE_TO_LANGSMITH": enabled,
-            "LANGSMITH_API_KEY": api_key,
-            "LANGSMITH_ENDPOINT": env_get_str_from(getter=self.lookup, name="LANGSMITH_ENDPOINT", default=""),
-            "LANGSMITH_PROJECT": env_get_str_from(getter=self.lookup, name="LANGSMITH_PROJECT", default=""),
+            "LANGSMITH_ENDPOINT": settings_default("LANGSMITH_ENDPOINT") or "",
+            "LANGSMITH_PROJECT": settings_default("LANGSMITH_PROJECT") or "",
             "LINEAR_API_KEY": env_get_str_from(getter=self.lookup, name="LINEAR_API_KEY", default=""),
             "DB_HOST": env_get_str_from(getter=self.lookup, name="DB_HOST", default=""),
             "DB_PORT": env_get_str_from(getter=self.lookup, name="DB_PORT", default=""),
             "DB_USER": env_get_str_from(getter=self.lookup, name="DB_USER", default=""),
             "DB_NAME": env_get_str_from(getter=self.lookup, name="DB_NAME", default=""),
         }
+
+    @property
+    def tracing_env(self) -> dict[str, str]:
+        """Return the LangSmith credential for a subprocess that emits traces.
+
+        The platform API key is shared by every user and project, so it is kept
+        out of :attr:`system_env`: only the subprocess that produces traces gets
+        it, through ``forward_tracing`` in :func:`run_command`. The key is
+        omitted entirely while tracing is disabled.
+
+        Returns:
+            dict[str, str]: The platform API key, or an empty mapping.
+        """
+        if self._langsmith_tracing() != "true":
+            return {}
+        return {"LANGSMITH_API_KEY": settings_default("LANGSMITH_API_KEY") or ""}
 
     def linear_state(self, name: str) -> str:
         """Resolve a Linear state id from its state name.

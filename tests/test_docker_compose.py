@@ -6,7 +6,7 @@ import yaml
 
 COMPOSE_PATH = Path(__file__).resolve().parents[1] / "docker-compose.yaml"
 LANGSMITH_ENV_DEFAULTS: dict[str, str] = {
-    "LANGSMITH_TRACING": "true",
+    "LANGSMITH_TRACING": "false",
     "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
     "LANGSMITH_API_KEY": "",
     "LANGSMITH_PROJECT": "Demetra",
