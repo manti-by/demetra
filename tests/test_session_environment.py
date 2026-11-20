@@ -49,7 +49,6 @@ TRACING_DEFAULTS: dict[str, str] = {
     "LANGSMITH_TRACING": "false",
     "TRACE_TO_LANGSMITH": "false",
     "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
-    "LANGSMITH_API_KEY": "",
     "LANGSMITH_PROJECT": "settings-project",
     "LINEAR_API_KEY": "settings-linear-key",
     "DB_HOST": "settings-db-host",
@@ -139,7 +138,8 @@ class TestSessionEnvironmentSubprocessEnv:
             env = environment.subprocess_env
             assert env["LANGSMITH_TRACING"] == "true"
             assert env["TRACE_TO_LANGSMITH"] == "true"
-            assert env["LANGSMITH_API_KEY"] == "platform-key"
+            assert "LANGSMITH_API_KEY" not in env
+            assert environment.tracing_env["LANGSMITH_API_KEY"] == "platform-key"
 
     def test_sources_are_not_mutated_by_the_merge(self, settings_defaults):
         project_environment = {"KEY": "project-value"}
@@ -282,7 +282,6 @@ class TestSessionEnvironmentLangSmith:
             "LANGSMITH_TRACING": "false",
             "TRACE_TO_LANGSMITH": "false",
             "LANGSMITH_ENDPOINT": "https://api.smith.langchain.com",
-            "LANGSMITH_API_KEY": "",
             "LANGSMITH_PROJECT": "settings-project",
             "LINEAR_API_KEY": "settings-linear-key",
             "DB_HOST": "settings-db-host",
@@ -298,7 +297,8 @@ class TestSessionEnvironmentLangSmith:
             env = environment.system_env
             assert env["LANGSMITH_TRACING"] == "true"
             assert env["TRACE_TO_LANGSMITH"] == "true"
-            assert env["LANGSMITH_API_KEY"] == "platform-key"
+            assert "LANGSMITH_API_KEY" not in env
+            assert environment.tracing_env == {"LANGSMITH_API_KEY": "platform-key"}
 
     def test_tracing_forced_off_without_an_api_key(self, settings_defaults):
         with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "tracing": True, "api_key": None}):
@@ -307,15 +307,23 @@ class TestSessionEnvironmentLangSmith:
             env = environment.system_env
             assert env["LANGSMITH_TRACING"] == "false"
             assert env["TRACE_TO_LANGSMITH"] == "false"
+            assert environment.tracing_env == {}
+
+    def test_tracing_env_empty_when_key_configured_but_tracing_off(self, settings_defaults):
+        with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "tracing": False, "api_key": "platform-key"}):
+            environment = SessionEnvironment(project_environment={}, user_environment={})
+
+            assert environment.system_env["LANGSMITH_TRACING"] == "false"
+            assert environment.tracing_env == {}
 
     def test_platform_key_wins_over_project_and_user_layers(self, settings_defaults):
-        with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "api_key": "platform-key"}):
+        with patch("demetra.settings.LANGSMITH", {**LANGSMITH_SETTINGS, "tracing": True, "api_key": "platform-key"}):
             environment = SessionEnvironment(
                 project_environment={"LANGSMITH_API_KEY": "project-key"},
                 user_environment={"LANGSMITH_API_KEY": "user-key"},
             )
 
-            assert environment.system_env["LANGSMITH_API_KEY"] == "platform-key"
+            assert environment.tracing_env["LANGSMITH_API_KEY"] == "platform-key"
 
     def test_endpoint_and_project_come_only_from_settings(self, settings_defaults):
         environment = SessionEnvironment(
@@ -364,7 +372,7 @@ class TestSessionEnvironmentLangSmith:
         env = environment.system_env
         assert env["LANGSMITH_ENDPOINT"] == "https://api.smith.langchain.com"
         assert env["LANGSMITH_PROJECT"] == "settings-project"
-        assert env["LANGSMITH_API_KEY"] == ""
+        assert "LANGSMITH_API_KEY" not in env
         assert env["LANGSMITH_TRACING"] == "false"
         assert env["TRACE_TO_LANGSMITH"] == "false"
 

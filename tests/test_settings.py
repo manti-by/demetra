@@ -472,6 +472,80 @@ class TestLangSmithSettings:
             monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
             importlib.reload(settings_module)
 
+    def test_whitespace_only_key_counts_as_missing(self, monkeypatch):
+        monkeypatch.setenv("LANGSMITH_TRACING", "true")
+        monkeypatch.setenv("LANGSMITH_API_KEY", "   ")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.LANGSMITH["api_key"] is None
+            assert settings_module.LANGSMITH["tracing"] is False
+        finally:
+            monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+            monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+            importlib.reload(settings_module)
+
+    def test_api_key_is_stripped(self, monkeypatch):
+        monkeypatch.setenv("LANGSMITH_TRACING", "true")
+        monkeypatch.setenv("LANGSMITH_API_KEY", "  test-key  ")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.LANGSMITH["api_key"] == "test-key"
+            assert settings_module.LANGSMITH["tracing"] is True
+        finally:
+            monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+            monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+            importlib.reload(settings_module)
+
+    def test_in_process_tracing_flags_forced_off_without_a_key(self, monkeypatch):
+        monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+
+        import importlib
+        import os
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert os.environ["LANGSMITH_TRACING"] == "false"
+            assert os.environ["LANGSMITH_TRACING_V2"] == "false"
+            assert os.environ["LANGCHAIN_TRACING_V2"] == "false"
+        finally:
+            importlib.reload(settings_module)
+
+    def test_in_process_tracing_flags_left_alone_when_tracing_enabled(self, monkeypatch):
+        monkeypatch.setenv("LANGSMITH_TRACING", "true")
+        monkeypatch.setenv("LANGSMITH_API_KEY", "test-key")
+        monkeypatch.setenv("LANGSMITH_TRACING_V2", "sentinel")
+
+        import importlib
+        import os
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert os.environ["LANGSMITH_TRACING"] == "true"
+            assert os.environ["LANGSMITH_TRACING_V2"] == "sentinel"
+        finally:
+            monkeypatch.delenv("LANGSMITH_TRACING", raising=False)
+            monkeypatch.delenv("LANGSMITH_API_KEY", raising=False)
+            monkeypatch.delenv("LANGSMITH_TRACING_V2", raising=False)
+            importlib.reload(settings_module)
+
 
 class TestSearchStopWords:
     def test_stop_words_not_in_search_settings(self):

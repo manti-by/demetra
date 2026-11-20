@@ -271,10 +271,11 @@ class TestRunOpencodeAgentLangSmithEnv:
 
             call_kwargs = mock_run_command_and_opencode_config.call_args.kwargs
             assert call_kwargs["environment"] is environment
+            assert call_kwargs["forward_tracing"] is True
             subprocess_env = environment.subprocess_env
             assert subprocess_env["LANGSMITH_TRACING"] == "true"
             assert subprocess_env["TRACE_TO_LANGSMITH"] == "true"
-            assert subprocess_env["LANGSMITH_API_KEY"] == "key-1"
+            assert environment.tracing_env["LANGSMITH_API_KEY"] == "key-1"
 
 
 class TestAgentNetworkRetry:

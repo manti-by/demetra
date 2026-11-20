@@ -478,18 +478,56 @@ class TestBuildSubprocessEnv:
         )
         environment = SessionEnvironment(
             user_environment={},
-            project_environment={"LANGSMITH_TRACING": "false", "LANGSMITH_API_KEY": "project-key"},
+            project_environment={"LANGSMITH_TRACING": "false"},
         )
 
         merged = build_subprocess_env(environment=environment)
 
         # Both tracing consumers are set from settings; the project layer values
         # are ignored so every subprocess uses the one platform configuration.
+        # The shared platform key is not part of the defaults, so a subprocess
+        # running project code never sees it.
         assert merged["LANGSMITH_TRACING"] == "true"
         assert merged["TRACE_TO_LANGSMITH"] == "true"
         assert merged["LANGSMITH_ENDPOINT"] == "https://langsmith.example"
-        assert merged["LANGSMITH_API_KEY"] == "key-1"
         assert merged["LANGSMITH_PROJECT"] == "settings-project"
+        assert "LANGSMITH_API_KEY" not in merged
+
+    def test_forward_tracing_adds_the_platform_api_key(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.settings.LANGSMITH",
+            {
+                "tracing": True,
+                "endpoint": "https://langsmith.example",
+                "api_key": "key-1",
+                "project": "settings-project",
+            },
+        )
+        environment = SessionEnvironment(
+            user_environment={},
+            project_environment={"LANGSMITH_API_KEY": "project-key"},
+        )
+
+        merged = build_subprocess_env(environment=environment, forward_tracing=True)
+
+        assert merged["LANGSMITH_TRACING"] == "true"
+        assert merged["LANGSMITH_API_KEY"] == "key-1"
+
+    def test_forward_tracing_omits_the_api_key_when_tracing_is_off(self, monkeypatch):
+        monkeypatch.setattr(
+            "demetra.settings.LANGSMITH",
+            {
+                "tracing": False,
+                "endpoint": "https://langsmith.example",
+                "api_key": "key-1",
+                "project": "settings-project",
+            },
+        )
+        environment = SessionEnvironment(user_environment={}, project_environment={})
+
+        merged = build_subprocess_env(environment=environment, forward_tracing=True)
+
+        assert "LANGSMITH_API_KEY" not in merged
 
     def test_derived_tracing_vars_win_over_the_project_layer(self, monkeypatch):
         monkeypatch.setattr(
@@ -511,7 +549,6 @@ class TestBuildSubprocessEnv:
         # over the raw project values and no subprocess ingests with an empty key.
         assert merged["LANGSMITH_TRACING"] == "false"
         assert merged["TRACE_TO_LANGSMITH"] == "false"
-        assert merged["LANGSMITH_API_KEY"] == ""
 
     def test_os_layer_filtered_in_builder(self, monkeypatch):
         monkeypatch.setenv("RANDOM_HOST_VAR", "should-be-dropped")

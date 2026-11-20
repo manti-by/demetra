@@ -23,59 +23,78 @@ The implementation consolidated LangSmith configuration to come only from `setti
 
 ## Step 1 — Update settings.py
 
-**File:** demetra/settings.py:242-248
+**File:** demetra/settings.py:243-254
 
 ```python
-_LANGSMITH_API_KEY = env_get_str("LANGSMITH_API_KEY", None)
+_LANGSMITH_API_KEY = (env_get_str(name="LANGSMITH_API_KEY", default="") or "").strip()
+_LANGSMITH_TRACING = bool(_LANGSMITH_API_KEY) and env_get_bool("LANGSMITH_TRACING", False)
 
 LANGSMITH: LangSmithConfig = {
-    "tracing": bool(_LANGSMITH_API_KEY) and env_get_bool("LANGSMITH_TRACING", False),
-    "api_key": _LANGSMITH_API_KEY,
+    "tracing": _LANGSMITH_TRACING,
+    "api_key": _LANGSMITH_API_KEY or None,
     ...
 }
+
+if not _LANGSMITH_TRACING:
+    os.environ["LANGSMITH_TRACING"] = "false"
+    os.environ["LANGSMITH_TRACING_V2"] = "false"
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
 ```
 
 Changes:
 - Tracing now requires both an API key and explicit `LANGSMITH_TRACING=true`
-- Default tracing is `false` when either is missing
+- A whitespace-only key counts as missing, and stored keys are stripped
+- `langsmith`/`langchain-core` decide tracing from the process env, so the
+  in-process flags are forced off when no key is configured
 
 ## Step 2 — Update SessionEnvironment.system_env
 
-**File:** demetra/library/models.py:746-763
+**File:** demetra/library/models.py:753-800
 
 ```python
-class SessionEnvironment:
-    # LangSmith tracing vars are platform-wide: they come only from the
-    # ``settings.py`` defaults, never from the project or user layers
-    tracing = settings_default("LANGSMITH_TRACING") == "true"
-    api_key = settings_default("LANGSMITH_API_KEY") or ""
-    
+def system_env(self):
+    enabled = self._langsmith_tracing()
     return {
-        "TRACE_TO_LANGSMITH": str(tracing and bool(api_key)),
-        "LANGSMITH_API_KEY": api_key,
+        "LANGSMITH_TRACING": enabled,
+        "TRACE_TO_LANGSMITH": enabled,
         "LANGSMITH_ENDPOINT": settings_default("LANGSMITH_ENDPOINT") or "",
         "LANGSMITH_PROJECT": settings_default("LANGSMITH_PROJECT") or "",
+        ...
     }
+
+def tracing_env(self):
+    if self._langsmith_tracing() != "true":
+        return {}
+    return {"LANGSMITH_API_KEY": settings_default("LANGSMITH_API_KEY") or ""}
 ```
 
 Changes:
 - Removed layer lookups for LangSmith variables
 - All tracing configuration now comes from `settings.py` defaults
+- The shared platform key stays out of `system_env` and is exposed only through
+  `tracing_env`, so subprocesses running project code (git, lint, tests) never
+  see it
 
 ## Step 3 — Update subprocess environment building
 
-**File:** demetra/services/runtime/subprocess.py:47-53
+**File:** demetra/services/runtime/subprocess.py:32-95
 
 ```python
-# LangSmith vars are platform-wide, sourced only from ``settings.py``
-# a project that opted a ``LANGSMITH_*`` key in via ``OS_ENV_PROJECT_OPTINS`` has it
-# overridden here, and project/user layer ``LANGSMITH_*`` values are ignored.
-# That is intended: all users and projects share one LangSmith project
+def build_subprocess_env(..., forward_tracing: bool = False):
+    ...
+    if environment is not None:
+        merged_env.update(environment.subprocess_env)
+        if forward_tracing:
+            merged_env.update(environment.tracing_env)
 ```
 
 Changes:
-- Documented the platform-wide nature of LangSmith configuration
-- Confirmed project/user layer overrides are intentionally ignored
+- Documented the platform-wide nature of the derived tracing vars
+  (`LANGSMITH_TRACING`, `LANGSMITH_ENDPOINT`, `LANGSMITH_PROJECT`,
+  `TRACE_TO_LANGSMITH`) and confirmed project/user layer overrides are
+  intentionally ignored; other `LANGSMITH_*` keys are not filtered
+- `LANGSMITH_API_KEY` is merged only for the agent run that emits traces
+  (`run_opencode_agent` passes `forward_tracing=True`)
 
 ## Step 4 — Update default configuration
 
@@ -94,7 +113,7 @@ Changes:
 
 ## Test Results
 
-All 1549 tests passed, confirming the changes maintain backward compatibility while fixing the tracing configuration issues.
+All 1556 tests passed, confirming the changes maintain backward compatibility while fixing the tracing configuration issues.
 
 ## Follow-ups
 

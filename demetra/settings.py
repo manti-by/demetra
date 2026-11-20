@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from demetra.library.exceptions import SettingsError
@@ -240,14 +241,20 @@ OPENROUTER: OpenRouterConfig = {
     "base_url": validate_llm_base_url(env_get_str("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")),
 }
 
-_LANGSMITH_API_KEY = env_get_str("LANGSMITH_API_KEY", None)
+_LANGSMITH_API_KEY = (env_get_str(name="LANGSMITH_API_KEY", default="") or "").strip()
+_LANGSMITH_TRACING = bool(_LANGSMITH_API_KEY) and env_get_bool("LANGSMITH_TRACING", False)
 
 LANGSMITH: LangSmithConfig = {
-    "tracing": bool(_LANGSMITH_API_KEY) and env_get_bool("LANGSMITH_TRACING", False),
+    "tracing": _LANGSMITH_TRACING,
     "endpoint": env_get_str("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com"),
-    "api_key": _LANGSMITH_API_KEY,
+    "api_key": _LANGSMITH_API_KEY or None,
     "project": env_get_str("LANGSMITH_PROJECT", "Demetra"),
 }
+
+if not _LANGSMITH_TRACING:
+    os.environ["LANGSMITH_TRACING"] = "false"
+    os.environ["LANGSMITH_TRACING_V2"] = "false"
+    os.environ["LANGCHAIN_TRACING_V2"] = "false"
 
 SECRET_KEY = env_get_str("SECRET_KEY", None)
 
