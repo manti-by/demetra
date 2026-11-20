@@ -91,7 +91,7 @@ export function NewChatPage() {
       <Header user={user} onLogout={handleLogout} />
       <main className="chat-main">
         <div className="chat-topbar">
-          <button className="btn-secondary" onClick={() => navigate("/")}>
+          <button type="button" className="btn-secondary" onClick={() => navigate("/")}>
             Back to sessions
           </button>
         </div>
@@ -126,7 +126,7 @@ export function NewChatPage() {
                 </option>
               ))}
             </select>
-            <button className="btn-secondary" onClick={handleApplyTemplate} disabled={!selectedTemplate}>
+            <button type="button" className="btn-secondary" onClick={handleApplyTemplate} disabled={!selectedTemplate}>
               Apply
             </button>
           </div>
@@ -172,7 +172,7 @@ export function NewChatPage() {
           </label>
 
           <div className="form-actions">
-            <button className="btn-primary" onClick={handleSubmit} disabled={submitting || projects.length === 0}>
+            <button type="button" className="btn-primary" onClick={handleSubmit} disabled={submitting || projects.length === 0}>
               {submitting ? "Starting..." : "Start chat"}
             </button>
           </div>
