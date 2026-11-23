@@ -1,8 +1,8 @@
-ARG OPENCODE_VERSION=2.2.5
-ARG DOCKER_CLI_VERSION=27.3.1
-ARG DOCKER_COMPOSE_VERSION=v2.29.7
+ARG OPENCODE_VERSION=2.4.0
+ARG DOCKER_CLI_VERSION=29.9.3
+ARG DOCKER_COMPOSE_VERSION=v5.7.2
 
-FROM python:3.13.9-slim AS builder
+FROM python:3.14-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg git \
@@ -43,7 +43,7 @@ FROM oven/bun:1 AS bun
 
 FROM rust:1-slim AS rust
 
-FROM python:3.13.9-slim
+FROM python:3.14-slim
 
 ARG OPENCODE_VERSION
 ARG DOCKER_CLI_VERSION
