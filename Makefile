@@ -57,7 +57,7 @@ install:
 	uv sync --all-extras --dev
 
 update:
-	uv run uv-bump
+	uu
 	uv sync --all-extras --dev
 	uv run pre-commit autoupdate
 

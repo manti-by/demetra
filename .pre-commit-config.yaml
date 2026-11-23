@@ -13,17 +13,17 @@ repos:
     rev: v3.22.0
     hooks:
       - id: pyupgrade
-        args: [--py313-plus]
+        args: [--py314-plus]
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.3
+    rev: v0.17.6
     hooks:
       - id: ruff
         args: [--fix, --exit-non-zero-on-fix]
       - id: ruff-format
 
   - repo: https://github.com/abravalheri/validate-pyproject
-    rev: 'v0.27'
+    rev: v0.27
     hooks:
       - id: validate-pyproject
 
@@ -32,6 +32,6 @@ repos:
     hooks:
       - id: bandit
         language: python
-        language_version: python3.13
+        language_version: python3.14
         types: [python]
         args: [-c, pyproject.toml]
