@@ -3,7 +3,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Self
 
 from slugify import slugify
 
@@ -37,6 +37,27 @@ ChatMessageKind = Literal["message", "question", "plan", "failure", "research", 
 
 
 @dataclass(kw_only=True)
+class Message:
+    """A message in a task's conversation history.
+
+    Messages are the unified history of a task: chat turns for chat tasks and
+    mirrored Linear comments for Linear tasks.
+    """
+
+    id: str
+    task_id: str
+    body: str
+    created_at: str
+    parent_id: str | None = None
+    source: MessageSource = "chat"
+    external_id: str | None = None
+    author_id: str | None = None
+    author_name: str | None = None
+    is_system: bool = False
+    kind: ChatMessageKind = "message"
+
+
+@dataclass(kw_only=True)
 class Task:
     """Base entity for a unit of work handled by Demetra.
 
@@ -63,7 +84,7 @@ class Task:
     user_id: str | None = None
     created_at: str | None = None
     updated_at: str | None = None
-    messages: list["Message"] = field(default_factory=list)
+    messages: list[Message] = field(default_factory=list)
 
     @property
     def full_title(self) -> str:
@@ -128,27 +149,6 @@ class Chat(Task):
 
     kind: TaskKind = "chat"
     chat_id: int | None = None
-
-
-@dataclass(kw_only=True)
-class Message:
-    """A message in a task's conversation history.
-
-    Messages are the unified history of a task: chat turns for chat tasks and
-    mirrored Linear comments for Linear tasks.
-    """
-
-    id: str
-    task_id: str
-    body: str
-    created_at: str
-    parent_id: str | None = None
-    source: MessageSource = "chat"
-    external_id: str | None = None
-    author_id: str | None = None
-    author_name: str | None = None
-    is_system: bool = False
-    kind: ChatMessageKind = "message"
 
 
 @dataclass(kw_only=True)
@@ -271,7 +271,7 @@ class SessionExport:
     filtered by the caller's ``invoked_at`` watermark.
     """
 
-    tokens: "TokenUsage"
+    tokens: TokenUsage
     agent: str | None = None
     model: str | None = None
     cost: float | None = None
@@ -320,7 +320,7 @@ class DeployState:
     pending_recreate: bool = False
 
     @classmethod
-    def from_payload(cls, payload: dict) -> "DeployState":
+    def from_payload(cls, payload: dict) -> Self:
         """Build the state from its persisted JSON mapping.
 
         Unknown or malformed values fall back to the empty state so a state
@@ -908,18 +908,18 @@ class TokenData:
 
 
 @dataclass
-class AuthResponse:
-    token: str
-    user: "UserResponse"
-
-
-@dataclass
 class UserResponse:
     id: str
     github_username: str | None = None
     email: str | None = None
     avatar_url: str | None = None
     role: str = "user"
+
+
+@dataclass
+class AuthResponse:
+    token: str
+    user: UserResponse
 
 
 @dataclass
