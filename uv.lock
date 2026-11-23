@@ -591,7 +591,6 @@ dev = [
     { name = "pytest-asyncio" },
     { name = "pytest-cov" },
     { name = "ty" },
-    { name = "uv-bump" },
 ]
 
 [package.metadata]
@@ -635,7 +634,6 @@ dev = [
     { name = "pytest-asyncio", specifier = ">=1.5.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
     { name = "ty", specifier = ">=0.0.108" },
-    { name = "uv-bump", specifier = ">=0.6.0" },
 ]
 
 [[package]]
@@ -2593,15 +2591,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/66/ac/f6286bcfad2f321be2acd04961934a58e4a6c15ba78070a13d193cbbb9f0/uuid_utils-0.19.0-cp314-cp314t-win32.whl", hash = "sha256:9b9064d96c6fe5e43ff4486722c5c891083a7fa91ee36311286cfd833b4b5562", size = 172229, upload-time = "2026-10-26T10:54:46.925Z" },
     { url = "https://files.pythonhosted.org/packages/87/45/0df876abf12875ef82bcd8f034c0c7adc1507dd721a5942232120b6267e8/uuid_utils-0.19.0-cp314-cp314t-win_amd64.whl", hash = "sha256:eeaf6b77ed2ec9815988e10d043d1533a1ae8c6535e7fb5479fd7e2e6ad25dff", size = 178436, upload-time = "2026-10-26T10:54:48.249Z" },
     { url = "https://files.pythonhosted.org/packages/d2/ae/c9b4aaa8ee95581b444a7be681dc0ceb57a465b50b28b2f2517f5fec1c51/uuid_utils-0.19.0-cp314-cp314t-win_arm64.whl", hash = "sha256:ebb011b9010ddbd8acd4650896e87db2715f2cfc70fb194c03ebcbf4150d3844", size = 175725, upload-time = "2026-10-26T10:54:49.562Z" },
-]
-
-[[package]]
-name = "uv-bump"
-version = "0.6.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/3e/ce/27f8c01e3bc8e356b212da502e22308ac04c55ca96c9cb4f379a16061ac6/uv_bump-0.6.0.tar.gz", hash = "sha256:1a0c65538442021e38d8cbf5f7948cc3386f1b1eb607f6a414e6003d7b2fcc3b", size = 6547, upload-time = "2026-07-18T06:16:54.902Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/ed/d1/b1d7f4d02df203634235b8ae6618233046240c01ea0f77924fe0436aa112/uv_bump-0.6.0-py3-none-any.whl", hash = "sha256:c184c362e83ea531dd5b5f4213f10b7fa1549c8f0bf30640897cc3e6104bd4ba", size = 7858, upload-time = "2026-07-18T06:16:53.806Z" },
 ]
 
 [[package]]
