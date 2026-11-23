@@ -47,7 +47,6 @@ dev = [
     "pytest-cov>=7.1.0",
     "ty>=0.0.108",
     "pre-commit>=4.7.0",
-    "uv-bump>=0.6.0",
     "pdoc>=16.0.0",
 ]
 
