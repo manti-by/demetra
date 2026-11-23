@@ -1,8 +1,9 @@
 ---
-title: 'MNT-314 — Linear MCP static API key'
-date: 2026-11-15
+title: MNT-314 — Linear MCP static API key
+generated: {by: demetra, at: '2026-11-15T00:00:00Z'}
+description: 'Records the MNT-314 switch of the Linear MCP server from interactive OAuth to a static `Authorization: Bearer` header with `oauth: false`, resolving `LINEAR_API_KEY` through the session environment layers, removing the cwd-relative `--env-file`, adding DB_PASSWORD fail-fast and provider-only config derivation; 1391 tests passed and Linear connected in both root and worktree.'
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e20a2d79affe7UhwTAmInRdV2Y
 services: [agents, library, settings, tools, docker]
 branch: opencode/feature/mnt-314-authenticate-linear-mcp-with-a-static-api-key
@@ -180,9 +181,9 @@ project config. Now:
 
 ## References
 
-- Related: [[2026-10-25-mcp-db-tools-env-sql]]
-- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
-- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
-- Related: [[2026-09-28-compose-langsmith-host-env]]
+- Related: [2026-10-25-mcp-db-tools-env-sql](/pages/2026-10-25-mcp-db-tools-env-sql.md)
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
+- Related: [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
+- Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)
 - External: https://linear.app/mnt/issue/MNT-314/authenticate-linear-mcp-with-a-static-api-key
 - External: https://opencode.ai/docs/mcp-servers/

@@ -1,11 +1,12 @@
 ---
 title: BM25 ranking for the wiki and docstring MCP tools
-date: 2026-10-09
+generated: {by: demetra, at: '2026-10-09T00:00:00Z'}
+description: This records replacing the wiki and docstring MCP tools' weighted linear scoring with BM25F over cached token counts, fixing substring matches and adding IDF and length normalization while making warm searches about twenty times faster; the wiki half became historical when WI replaced it, with 982 tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_edfd46130ffe5iG0gt24tZYI1o
 services: [wiki, mcp, tools]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [bm25, search, mcp, wiki, ranking, tools, caching]
 related: [2026-08-03-wiki-mcp-tools.md, 2026-09-08-docstring-mcp-search.md, 2026-10-15-replace-wiki-mcp-tool-with-wi.md]
@@ -206,7 +207,7 @@ server), and the shared BM25 core was restructured — the three dataclasses mov
 to `demetra/tools/models.py` and both tools' cache globals became the frozen
 `Corpus` / `CorpusCache` in `demetra/tools/corpus.py` (the wiki copy is gone with
 the tool). `docstring_search` keeps BM25F. See
-[[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+[2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md).
 
 ## Follow-ups
 
@@ -220,7 +221,7 @@ the tool). `docstring_search` keeps BM25F. See
   still true in spirit but now means boosts and length norms plus `bm25_k1`, so the
   wording is worth tightening.
   - **Consistency note (2026-11-09, Consistency Agent):** partially superseded by
-    [[2026-10-15-replace-wiki-mcp-tool-with-wi]] — the six `SEARCH["wiki_*"]`
+    [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md) — the six `SEARCH["wiki_*"]`
     boost/length-norm keys were deleted when the in-repo wiki MCP tools were retired;
     only the `docstring_*` keys remain in `SEARCH` (`demetra/settings.py:78-82`), so
     AGENTS.md's SEARCH description no longer covers wiki weights.
@@ -234,8 +235,8 @@ the tool). `docstring_search` keeps BM25F. See
 - Shared engine — `demetra/tools/search.py`
 - Wiki tool — `demetra/tools/wiki.py`
 - Docstring tool — `demetra/tools/docstrings.py`
-- Related: [[2026-08-03-wiki-mcp-tools]]
-- Related: [[2026-09-08-docstring-mcp-search]]
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md)
+- Related: [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md)
 - External: Robertson & Zaragoza, *The Probabilistic Relevance Framework: BM25 and Beyond* (2009); Lucene `BM25Similarity` docs
 
 > **Consistency note (2026-11-11, Consistency Agent):** The corpus sizes quoted above have moved: the wiki now holds **113** live pages (45 archived), not 105/27. The follow-up “the 2026-08-03 and 2026-09-08 pages still describe the retired algorithm” is now addressed — both carry consistency notes pointing at BM25F and at the retirement of the in-repo wiki tool. The `SEARCH` dictionary now holds the `docstring_*` weights plus the shared limits only; the six `SEARCH["wiki_*"]` keys were deleted with the in-repo wiki tools.

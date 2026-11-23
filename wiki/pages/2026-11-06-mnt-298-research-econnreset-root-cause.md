@@ -1,8 +1,9 @@
 ---
-title: 'MNT-298 research agent ECONNRESET — local opencode server thrash'
-date: 2026-11-06
+title: MNT-298 research agent ECONNRESET — local opencode server thrash
+generated: {by: demetra, at: '2026-11-06T00:00:00Z'}
+description: Records MNT-298 tracing research-agent ECONNRESET to concurrent opencode runs thrashing one shared local managed-service registration (service.json), not DeepSeek; fixed by adding --standalone so each run uses a private server, with 84 tests passing and consistency notes resolving the retry-budget discrepancy.
 type: debug
-status: resolved
+status: stable
 session_id: ses_e4e580613ffenQ8d8seoL46RZe
 services: [agents, linear, llm]
 branch: master
@@ -23,7 +24,7 @@ CLI↔server event-stream drop, caused by concurrent `opencode run` invocations
 thrashing a single managed-service registration (`service.json`). Each new run
 "replaces" the registration and shuts down the previous server, killing the
 in-flight stream. This refines (not contradicts) the earlier
-[[2026-11-06-agent-econnreset-network-investigation]] conclusion: the resets are
+[2026-11-06-agent-econnreset-network-investigation](/pages/2026-11-06-agent-econnreset-network-investigation.md) conclusion: the resets are
 server-side, but the server in question is **opencode's own local server**, not
 `api.deepseek.com`.
 
@@ -122,7 +123,7 @@ continue" message this session also receives), whereas a headless one-shot
   registration thrash outright — no per-replica `XDG_*` isolation needed.
 - The MNT-276 retry layer was the wrong tool here: raising
   `MAX_AGENT_NETWORK_ATTEMPTS` cannot fix a local server-registration thrash.
-- Confirmed the ECONNRESET in [[2026-11-06-agent-econnreset-network-investigation]]
+- Confirmed the ECONNRESET in [2026-11-06-agent-econnreset-network-investigation](/pages/2026-11-06-agent-econnreset-network-investigation.md)
   is server-side but **local** — revise that page's "DeepSeek idle-close" theory
   as the primary mechanism (DeepSeek's ~30 s idle close may still be a secondary
   contributor, but it is not what MNT-298 hit).
@@ -198,7 +199,7 @@ Implemented the fix and verified it.
 
 ## References
 
-- Related: [[2026-11-06-agent-econnreset-network-investigation]]
-- Related: [[2026-11-03-mnt-276-econnreset-retry-for-agents]]
+- Related: [2026-11-06-agent-econnreset-network-investigation](/pages/2026-11-06-agent-econnreset-network-investigation.md)
+- Related: [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Update to the 2026-11-09 consistency note above: the “10-attempt budget vs shipped default of 5” discrepancy (**Q-003**) is **resolved** — production carried an environment-level override (`MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2`, `.env.docker:17-18`), confirmed by `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. The repository default stays 5 (`demetra/settings.py:61`); the `attempt N/10` logs and the shipped default were never in conflict. The second item in the 2026-11-09 note (the `--standalone` probe) still holds.

@@ -1,9 +1,10 @@
 ---
 title: Review findings cleanup — v1.16.7..HEAD two-axis review
-date: 2026-09-02
+generated: {by: demetra, at: '2026-09-02T00:00:00Z'}
+description: A two-axis Standards/Spec review since v1.16.7 rejected one false positive and then applied cleanup across auth, persistence, review_fixes, settings and React, extracting shared helpers like waitlisted_response and EnvSettingsModal, deleting dead MAX_REVIEW_FIXES_ATTEMPTS, adding MNT-177 tests, leaving pytest, ruff and ty green while the waitlist-notification follow-up stays open.
 type: code-review
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [auth, api, persistence, workflows, listener, watcher, react]
 branch: review-finding
 tickets: [MNT-177, MNT-188, MNT-190, MNT-192, MNT-193]
@@ -43,7 +44,7 @@ Standards/Spec review of changes since `v1.16.7` then applied findings: removed 
 
 **11. Comment hygiene (low):** watcher 4-line inline explanation → `process_tasks` docstring; `waitlist_approve`/`waitlist_remove` got missing docstrings.
 
-**12. Spec follow-ups closed:** `TestOpencodeResearchAgent` + `TestWorkflowResearch` added to `test_opencode.py`/`test_workflows.py` (see [[2026-09-01-mnt-177-research-loop]]); `AGENTS.md` stale `workflow-state-machine.html` path corrected (moved to `wiki/audits/` in `b9112e5`).
+**12. Spec follow-ups closed:** `TestOpencodeResearchAgent` + `TestWorkflowResearch` added to `test_opencode.py`/`test_workflows.py` (see [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md)); `AGENTS.md` stale `workflow-state-machine.html` path corrected (moved to `wiki/audits/` in `b9112e5`).
 
 ## Summary
 
@@ -64,7 +65,7 @@ Standards/Spec review of changes since `v1.16.7` then applied findings: removed 
 
 ## MNT-188 note
 
-Waitlist "notification" remains pluggable log-only `send_approval_email` per [[2026-08-28-mnt-188-waitlist]] — no SMTP provider in codebase, stays product decision.
+Waitlist "notification" remains pluggable log-only `send_approval_email` per [2026-08-28-mnt-188-waitlist](/pages/2026-08-28-mnt-188-waitlist.md) — no SMTP provider in codebase, stays product decision.
 
 ## Test Results
 
@@ -80,8 +81,8 @@ Waitlist "notification" remains pluggable log-only `send_approval_email` per [[2
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-08-28-mnt-188-waitlist]], [[2026-08-31-mnt-192-env-edit-button]], [[2026-09-02-mobile-template-react-frontend]]
+- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-08-28-mnt-188-waitlist](/pages/2026-08-28-mnt-188-waitlist.md), [2026-08-31-mnt-192-env-edit-button](/pages/2026-08-31-mnt-192-env-edit-button.md), [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md)
 
 > **Consistency fix (2026-09-02):** fixed `session_id:` empty YAML → `"-"`.
 
-> **Consistency note (2026-11-11, Consistency Agent):** the `_resolve_encrypted_env_value` helper extracted above coexists with `_fetch_stored_encrypted_value` (`demetra/services/persistence/database.py:2351`), which only reads the stored ciphertext — the two names are not a rename pair (see [[2026-08-31-mnt-192-env-edit-button]]). The waitlist-notification follow-up below is still open: `send_approval_email` remains a log-only stub with no SMTP provider.
+> **Consistency note (2026-11-11, Consistency Agent):** the `_resolve_encrypted_env_value` helper extracted above coexists with `_fetch_stored_encrypted_value` (`demetra/services/persistence/database.py:2351`), which only reads the stored ciphertext — the two names are not a rename pair (see [2026-08-31-mnt-192-env-edit-button](/pages/2026-08-31-mnt-192-env-edit-button.md)). The waitlist-notification follow-up below is still open: `send_approval_email` remains a log-only stub with no SMTP provider.

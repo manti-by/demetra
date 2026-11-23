@@ -27,7 +27,8 @@ def dump_frontmatter(meta: dict) -> str:
     """Serialize the frontmatter mapping to a ``---``-delimited YAML block.
 
     Uses PyYAML ``safe_dump`` so every value is quoted correctly instead of the
-    hand-rolled scalar quoting it replaces.
+    hand-rolled scalar quoting it replaces. Emits the OKF ``generated`` and
+    ``description`` fields instead of the legacy ``date`` field.
 
     Args:
         meta: The frontmatter mapping.
@@ -37,9 +38,10 @@ def dump_frontmatter(meta: dict) -> str:
     """
     ordered = {
         "title": meta.get("title") or "",
-        "date": meta.get("date") or "",
+        "generated": meta.get("generated") or service.generated_at(meta.get("date") or ""),
+        "description": meta.get("description") or "",
         "type": meta.get("type") or "",
-        "status": meta.get("status") or "",
+        "status": meta.get("status") or "stable",
         "session_id": meta.get("session_id") or "",
         "services": meta.get("services") or [],
         "branch": meta.get("branch") or "-",
@@ -140,7 +142,8 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
 
         meta = {
             "title": f"{identifier}: {title}",
-            "date": service.today(),
+            "generated": service.generated_at(service.today()),
+            "description": "",
             "type": service.PAGE_TYPE,
             "status": service.PAGE_STATUS,
             "session_id": facts["session_id"] or "",
@@ -151,6 +154,10 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             "related": related,
         }
 
+        related_links = [
+            f"- Related: [{Path(name).stem}]({service.resolve_wikilink(Path(name).stem, wiki_root=wiki_root)})"
+            for name in related
+        ]
         page_body = await service.compose_wiki_page(
             title=meta["title"],
             page_type=meta["type"],
@@ -162,9 +169,17 @@ async def write_session_wiki_page(context: Context, wiki_root: Path | None = Non
             log_tail=facts["log_tail"],
             linear_url=facts["url"] or "-",
             related=related,
+            related_links=related_links,
             task_id=context.task.id,
             environment=context.environment,
         )
+        if page_body.strip():
+            meta["description"] = await service.compose_wiki_description(
+                content=page_body, environment=context.environment
+            )
+        else:
+            service.logger.warning("Composed wiki page body is empty; falling back to the ticket description")
+            meta["description"] = facts["description"] or ""
 
         await service.write_page(path=pages_root / filename, body=service.render_page(meta=meta, body=page_body))
         await service.patch_index(meta=meta, filename=filename, index_path=index_path)

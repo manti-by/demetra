@@ -1,8 +1,9 @@
 ---
 title: Chat session list and rerun semantics
-date: '2026-11-04'
+generated: {by: demetra, at: '2026-11-04T00:00:00Z'}
+description: This page records the chat/session list redesign into three-row items with joined project names, persisted feedback-loop counters computed from session_history and surfaced via API/websocket, read-only chat descriptions, and a Re-run action that resumes the stored plan/session, with 1190 Python and 144 React tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e5d431134ffe82sdvcgjvtkTgc
 services: [react, api, persistence, vcs, workflows]
 branch: opencode/feature/chat-session-list-and-rerun
@@ -63,7 +64,7 @@ The live `previousStepRef` detection stays for instant feedback between polls.
 ## Step 4 — Read-only description and resuming Re-run
 **Description.** Removed `PATCH /api/v1/chats/{task_id}`, the `UpdateChat` model, `update_chat`, `update_session_step_if_stopped` and the FE `updateChat` client. `ChatPanel` renders `chat.description` as pre-wrapped text (`.chat-description-text`); it is set only at creation now.
 
-> **Consistency note (2026-11-09, Consistency Agent):** "renders `chat.description` as pre-wrapped text" is superseded by [[2026-11-06-ch-6-markdown-renderer]] — `ChatPanel` now renders the description through `MarkdownContent` (marked + DOMPurify) with `chat-markdown` classes (`react/src/components/ChatPanel.tsx:251-254`). A later reshuffle also moved the delete wiring into `handleDeleteSession` under `.chat-topbar-actions` (see [[2026-11-06-ch-5-delete-chat-button]]); the rest of this page stands.
+> **Consistency note (2026-11-09, Consistency Agent):** "renders `chat.description` as pre-wrapped text" is superseded by [2026-11-06-ch-6-markdown-renderer](/pages/2026-11-06-ch-6-markdown-renderer.md) — `ChatPanel` now renders the description through `MarkdownContent` (marked + DOMPurify) with `chat-markdown` classes (`react/src/components/ChatPanel.tsx:251-254`). A later reshuffle also moved the delete wiring into `handleDeleteSession` under `.chat-topbar-actions` (see [2026-11-06-ch-5-delete-chat-button](/pages/2026-11-06-ch-5-delete-chat-button.md)); the rest of this page stands.
 
 **Re-run.** New `POST /api/v1/chats/{task_id}/rerun` (FE `rerunChat`); the endpoint checks the project is still ready via `is_project_ready` before claiming. `claim_session_for_rerun` is an atomic conditional update from `failed`/`awaiting_input`: a posted plan with content keeps `build_plan`, `posted_to_linear`, `run_attempts` and `session_id` and resumes at `step='build'`; a plan without approval (never posted, or a posted flag without plan content — the plan agent stopped with open questions before the plan reached the thread) instead clears the plan, resets the posted flag and restarts at `initial` with an `initial` step row in the timeline, so the rerun cannot build without the requested answers. With the plan kept, `main.py` skips `run_plan_step` and goes straight to build (the first build invocation forks the previous opencode session once). The step change also makes the claim exclusive, and the Re-run button is now limited to `failed`/`awaiting_input`.
 
@@ -79,8 +80,8 @@ The live `previousStepRef` detection stays for instant feedback between polls.
 - `run_attempts` is deliberately not reset, so a chat that exhausted `MAX_ATTEMPTS["run"]` cannot be rerun (hard stop).
 
 ## References
-- Related: [[2026-10-12-session-state-flow-feedback-loops]]
-- Related: [[2026-11-03-ch-2-single-unified-session-view]]
-- Related: [[2026-09-24-mnt-219-session-log-autoscroll]]
+- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md)
+- Related: [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)
+- Related: [2026-09-24-mnt-219-session-log-autoscroll](/pages/2026-09-24-mnt-219-session-log-autoscroll.md)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The “Failed-run workspace” bullet above is stale for completed runs: chat sessions **always** keep their worktree and branch — `demetra/workflows/cleanup.py:172` computes `remove_worktree = not (context.is_chat or GIT["disable_worktree_removal"])`, so `is_chat` short-circuits the removal regardless of success. That is the MNT-277 behaviour recorded in [[2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions]] (and `GIT_DISABLE_WORKTREE_REMOVAL` in `.env.docker.example:69-71`). The helper quoted as `get_feedback_loops` is private now (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`).
+> **Consistency note (2026-11-11, Consistency Agent):** The “Failed-run workspace” bullet above is stale for completed runs: chat sessions **always** keep their worktree and branch — `demetra/workflows/cleanup.py:172` computes `remove_worktree = not (context.is_chat or GIT["disable_worktree_removal"])`, so `is_chat` short-circuits the removal regardless of success. That is the MNT-277 behaviour recorded in [2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions](/pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) (and `GIT_DISABLE_WORKTREE_REMOVAL` in `.env.docker.example:69-71`). The helper quoted as `get_feedback_loops` is private now (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`).

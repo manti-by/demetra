@@ -1,8 +1,9 @@
 ---
 title: 'MNT-232: Update research flow'
-date: '2026-10-05'
+generated: {by: demetra, at: '2026-10-05T00:00:00Z'}
+description: MNT-232 updated the research workflow so its created ticket is linked as related to the source, which now moves to In Review with step researched rather than Awaiting Input; after a heavy rebase and CodeRabbit triage the redundant migration was dropped and the change merged with 946 tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_ef2314203ffe3rEkhgo1cOltPV
 services: [linear, workflows/research]
 branch: mnt-232-update-research-flow
@@ -10,6 +11,7 @@ tickets: [MNT-232]
 tags: [wiki, research, linear, workflow]
 related: [2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-research-loop.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md]
 ---
+
 # MNT-232: Update research flow
 
 ## TL;DR
@@ -30,14 +32,14 @@ was needed.
 
 The research loop was built incrementally across three tickets:
 
-- [[2026-09-01-mnt-177-research-loop]] — introduced the read-only
+- [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md) — introduced the read-only
   `research-agent`, extracted the `## Research Report` section and **posted it
   as a Linear comment** on the source ticket, then moved the ticket to
   **Awaiting Input**.
-- [[2026-09-10-mnt-200-update-research-loop]] — persisted the report to a new
+- [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md) — persisted the report to a new
   `sessions.research_report` column and added the `researched` `StepType`
   (navy badge in the frontend), but no workflow wrote that step yet.
-- [[2026-09-11-mnt-203-create-related-ticket-for-research]] — replaced the
+- [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — replaced the
   comment with a dedicated research ticket created in the source project.
   `_find_existing_research_ticket` made creation idempotent by title.
 
@@ -205,8 +207,8 @@ Rebased onto `master` and triaged the CodeRabbit review.
 
 ### The merge was not a mechanical conflict
 
-The branch was cut before master landed [[2026-09-10-mnt-200-update-research-loop]]
-and [[2026-09-11-mnt-203-create-related-ticket-for-research]], which between them
+The branch was cut before master landed [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md)
+and [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md), which between them
 rewrote almost everything this branch touched. `git merge origin/master` produced
 10 conflicting files. Resolving by keeping master's structure and re-applying only
 the ticket's delta left a diff against master of **8 files, +492/−26** — versus
@@ -281,8 +283,8 @@ from a branch that has fallen behind master.
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]]
-- Related: [[2026-09-10-mnt-200-update-research-loop]]
-- Related: [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md)
+- Related: [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md)
+- Related: [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 - External: https://linear.app/mnt/issue/MNT-232/update-research-flow
 - External: https://github.com/manti-by/demetra/pull/135

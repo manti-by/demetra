@@ -1,8 +1,9 @@
 ---
 title: Unified Task model with Linear and Chat subtypes
-date: '2026-11-11'
+generated: {by: demetra, at: '2026-11-11T00:00:00Z'}
+description: Records MNT-312 unifying Linear tickets and chats under a generic Task/Message model with LinearTask and Chat subtypes, new tasks and messages tables, a --linear-sync backfill CLI and a kind discriminator; many review findings were fixed and 1315 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e3564c1b5ffeBDYG4coFDCd3Wo
 services: [persistence, linear, chat, workflows, api, react]
 branch: opencode/feature/MNT-312-unified-task-model
@@ -387,5 +388,5 @@ uv run ty check                   All checks passed!
 
 ## References
 
-- Related: [[2026-11-04-chat-session-list-and-rerun]], [[2026-11-03-ch-2-single-unified-session-view]]
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md), [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)
 - External: MNT-312 (research), MNT-311 (original ticket)

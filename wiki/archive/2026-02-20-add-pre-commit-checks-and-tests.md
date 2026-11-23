@@ -1,11 +1,12 @@
 ---
 title: Add pre-commit checks and tests
-date: 2026-02-20
+generated: {by: demetra, at: '2026-02-20T00:00:00Z'}
+description: Records MNT-21 closing the build-verification loop by running `make check` (ty + pre-commit) and `make test` (pytest) after each build and feeding failures back to the build agent, plus `.coderabbit.yaml`, pytest auto-detection and extensive tests; version bumped to 1.3.1 and later archived.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [workflows, lint]
-branch: -
+branch: '-'
 tickets: [MNT-21]
 tags: [pre-commit, pytest, lint, ruff]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add pre-commit checks and tests
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-22-feature-flag-settings-and-tests]]. See wiki/archive/ for the
+> [2026-07-22-feature-flag-settings-and-tests](/archive/2026-07-22-feature-flag-settings-and-tests.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

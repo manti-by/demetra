@@ -1,11 +1,12 @@
 ---
 title: Encrypted user settings
-date: 2026-03-09
+generated: {by: demetra, at: '2026-03-09T00:00:00Z'}
+description: Records MNT-56, which added an encrypted `keys` field to the User model, `SECRET_KEY`/`ENCRYPTION_SALT` settings and a user-update API so per-user keys are stored encrypted at rest rather than plaintext; the page was later archived and merged into the environment-encryption page.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [database, auth, api]
-branch: -
+branch: '-'
 tickets: [MNT-56]
 tags: [encryption, user-settings, api]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Encrypted user settings
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]. See wiki/archive/ for the
+> [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

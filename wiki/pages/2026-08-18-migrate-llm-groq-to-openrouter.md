@@ -1,8 +1,9 @@
 ---
 title: Migrate LLM summarization from Groq to OpenRouter
-date: 2026-08-18
+generated: {by: demetra, at: '2026-08-18T00:00:00Z'}
+description: 'Records the MNT-168 migration of all LLM summarization from Groq to OpenRouter via a single build_llm() factory and llm/openrouter.py, repointing four consumers and renaming WIKI_GROQ_BUDGET_* to WIKI_LLM_BUDGET_*; outcome: 849 tests passed, though the relocation shim, summarize_session, and langchain-groq/GROQ settings were later dropped.'
 type: implementation
-status: resolved
+status: stable
 session_id: '-'
 services: [llm, openrouter, groq, workflows, wiki, settings, review, prompts, opencode, github]
 branch: openrouter
@@ -10,6 +11,7 @@ tickets: [MNT-168, MNT-87, MNT-35, MNT-98, MNT-41, MNT-61, MNT-115]
 tags: [openrouter, groq, llm, migration, summarization, langchain, review, async, parallelism, multiagent, cursor, coderabbit, llama, parsing, testing, plan, build-plan, pr, description]
 related: [2026-06-04-review-summarization.md, 2026-06-22-github-pr-description.md, 2026-08-03-agents-md-and-wiki-consistency.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-05-25-async-review.md, 2026-02-26-create-llm-test-script.md]
 ---
+
 # Migrate LLM summarization from Groq to OpenRouter
 
 ## TL;DR
@@ -67,17 +69,17 @@ Replaces 6 `ChatGroq(...)` instantiations.
 
 ---
 
-## Source — [[2026-05-25-async-review]]
+## Source — [2026-05-25-async-review](/archive/2026-05-25-async-review.md)
 
 MNT-87/35 (2026-05-25): `run_review_agents` launches opencode/cursor/coderabbit concurrently; empty commits prevented by staged-change validation. `merge_review_results` `None` handling now via `summarize_review()` in `openrouter.py`.
 
-## Source — [[2026-06-04-review-summarization]]
+## Source — [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md)
 
 Groq llama review dedup → numbered list; now via OpenRouter.
 
-## Source — [[2026-06-22-github-pr-description]]
+## Source — [2026-06-22-github-pr-description](/archive/2026-06-22-github-pr-description.md)
 
-PR bodies were originally empty placeholders; LLM-generated descriptions shipped on 2026-06-22 (MNT-115). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py` and on LLM failure raises `PrDescriptionError` → Awaiting Input (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]). Originally decided in [[2026-06-22-github-pr-description]] on 2026-06-22.
+PR bodies were originally empty placeholders; LLM-generated descriptions shipped on 2026-06-22 (MNT-115). `generate_pr_description` now lives in `demetra/services/llm/openrouter.py` and on LLM failure raises `PrDescriptionError` → Awaiting Input (see [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)). Originally decided in [2026-06-22-github-pr-description](/archive/2026-06-22-github-pr-description.md) on 2026-06-22.
 
 ## Follow-ups
 
@@ -86,12 +88,12 @@ PR bodies were originally empty placeholders; LLM-generated descriptions shipped
 
 ## Consistency notes
 
-- (2026-08-19) Relocation shim deleted by MNT-170 (see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]); package is now plain marker.
+- (2026-08-19) Relocation shim deleted by MNT-170 (see [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)); package is now plain marker.
 - (2026-09-01) Removed circular self-link; (2026-09-02) quoted `session_id: "-"`.
 
 ## References
 
-- Related: [[2026-06-04-review-summarization]], [[2026-06-22-github-pr-description]], [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-05-25-async-review]], [[2026-02-26-create-llm-test-script]]
+- Related: [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md), [2026-06-22-github-pr-description](/archive/2026-06-22-github-pr-description.md), [2026-08-03-agents-md-and-wiki-consistency](/pages/2026-08-03-agents-md-and-wiki-consistency.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-05-25-async-review](/archive/2026-05-25-async-review.md), [2026-02-26-create-llm-test-script](/archive/2026-02-26-create-llm-test-script.md)
 - External: [MNT-168](https://linear.app/mnt/issue/MNT-168/migrate-llm-summarization-from-groq-to-openrouter)
 
 > **Consistency note (2026-11-11, Consistency Agent):** `build_llm()` is now `async` and takes an optional `environment: SessionEnvironment | None` (`demetra/services/llm/factory.py:23`). “Six functions … the other five functions are still there” undercounts: seven public functions survive in `demetra/services/llm/openrouter.py` — `extract_questions`, `summarize_review`, `extract_errors` (added by MNT-308), `process_text_with_openrouter`, `extract_plan`, `compose_wiki_page`, `generate_pr_description` — while `summarize_session` was removed. The `GROQ_*` settings block and `langchain-groq` are gone; `PLAN_OUTPUT_MAX_CHARS` is at `openrouter.py:29`.

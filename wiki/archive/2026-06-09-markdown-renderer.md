@@ -1,8 +1,9 @@
 ---
 title: Markdown renderer
-date: 2026-06-09
+generated: {by: demetra, at: '2026-06-09T00:00:00Z'}
+description: Records MNT-113 adding the `marked` dependency and a button that parses the build-plan modal's raw markdown into rendered HTML in the React app, with tests covering the render toggle; archived with reusable content merged into the consolidated ch-6 markdown-renderer page.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [react]
 branch: '-'
@@ -14,11 +15,11 @@ related: [2026-06-09-build-artifacts.md, 2026-09-02-mobile-template-react-fronte
 # Markdown renderer
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-11-06-ch-6-markdown-renderer]]. See wiki/archive/ for the original.
+> [2026-11-06-ch-6-markdown-renderer](/pages/2026-11-06-ch-6-markdown-renderer.md). See wiki/archive/ for the original.
 
 > **Consolidated 2026-09-14.** Still live in `wiki/pages/` — this is the session
 > record, not an archived page. Its reusable content was merged into
-> [[2026-09-02-mobile-template-react-frontend]], the page to read for the current state of that subsystem.
+> [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md), the page to read for the current state of that subsystem.
 > The `wiki/archive/` copy this banner used to point at was removed in
 > `70144cb` (2026-09-18), so there is no separate original.
 
@@ -30,7 +31,7 @@ Added markdown-to-HTML rendering for the build plan in the React app using the `
 
 ## Overview
 
-The build-plan modal previously displayed raw markdown text. This change renders it as HTML for readability. (The modal and the persisted plan it renders were introduced in [[2026-06-09-build-artifacts]].)
+The build-plan modal previously displayed raw markdown text. This change renders it as HTML for readability. (The modal and the persisted plan it renders were introduced in [2026-06-09-build-artifacts](/archive/2026-06-09-build-artifacts.md).)
 
 ## Step 1 — Add the `marked` dependency
 
@@ -62,5 +63,5 @@ None.
 
 ## References
 
-- Related: [[2026-06-09-build-artifacts]], [[2026-09-02-mobile-template-react-frontend]]
+- Related: [2026-06-09-build-artifacts](/archive/2026-06-09-build-artifacts.md), [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md)
 - External: [MNT-113 — Markdown renderer (Linear)](https://linear.app/mnt/issue/MNT-113)

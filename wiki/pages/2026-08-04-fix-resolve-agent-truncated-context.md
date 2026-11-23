@@ -1,8 +1,9 @@
 ---
 title: Plan loop resolve agent received truncated context
-date: 2026-08-04
+generated: {by: demetra, at: '2026-08-04T00:00:00Z'}
+description: 'Records how a silent `shlex.quote(task)[:4095]` cap in `run_opencode_agent` truncated the plan-loop resolve agent''s numbered questions (MNT-105), wasting every iteration, and how removing it after a failed `--file` attachment attempt restored full prompts, later superseded by PR #72 stdin piping.'
 type: debug
-status: resolved
+status: stable
 session_id: '-'
 services: [opencode, workflows, main, subprocess]
 branch: '-'
@@ -10,6 +11,7 @@ tickets: [MNT-79, MNT-105]
 tags: [plan-loop, resolve-agent, opencode, task-delivery, arg-max, shlex, questions, auto, cwd, worktree, context, bug]
 related: [2026-06-02-plan-loop-resolve-questions.md, 2026-07-16-session-history-tokens-null.md, 2026-08-05-post-build-validation.md, 2026-06-03-context-bloating.md, 2026-08-24-guard-empty-plan-output.md]
 ---
+
 # Plan loop resolve agent received truncated context
 
 ## TL;DR
@@ -27,7 +29,7 @@ Please provide the planning agent's open questions. The message currently includ
 
 Every plan-loop iteration lost questions and wasted an attempt.
 
-> **Status (2026-08-06):** Positional-arg delivery superseded by PR #72 (MNT-146, `78edceb`) → stdin piping (`run_command(input_text=task)`). See [[2026-08-05-post-build-validation]].
+> **Status (2026-08-06):** Positional-arg delivery superseded by PR #72 (MNT-146, `78edceb`) → stdin piping (`run_command(input_text=task)`). See [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md).
 
 ## Cause
 
@@ -53,11 +55,11 @@ Smoke (3000-char task + 5 questions): 3991 chars → 9 tokens, last arg 3993 cha
 - None. With cap removed, multi-MB prompt would hit `OSError: E2BIG` from `asyncio.create_subprocess_exec`, caught as "OS Error" in `main.py`.
 - Lesson: `--file` is attachment, always pass a real message.
 
-## Source — [[2026-06-02-plan-loop-resolve-questions]]
+## Source — [2026-06-02-plan-loop-resolve-questions](/archive/2026-06-02-plan-loop-resolve-questions.md)
 
 Plan-loop resolve agent (`.opencode/agents/resolve-agent.md`, `--plan-loop`, `MAX_PLAN_ATTEMPTS` 30) — MNT-105, 2026-06-02.
 
-## Source — [[2026-06-03-context-bloating]]
+## Source — [2026-06-03-context-bloating](/archive/2026-06-03-context-bloating.md)
 
 Agents run with worktree as `cwd`/`target_path` — fixed 2026-06-03.
 
@@ -67,7 +69,7 @@ Agents run with worktree as `cwd`/`target_path` — fixed 2026-06-03.
 
 ## References
 
-- Related: [[2026-06-02-plan-loop-resolve-questions]], [[2026-07-16-session-history-tokens-null]], [[2026-08-05-post-build-validation]], [[2026-06-03-context-bloating]], [[2026-08-24-guard-empty-plan-output]]
+- Related: [2026-06-02-plan-loop-resolve-questions](/archive/2026-06-02-plan-loop-resolve-questions.md), [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md), [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md), [2026-06-03-context-bloating](/archive/2026-06-03-context-bloating.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md)
 - External: `opencode run --help` (`--file` + positional `message`)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “`MAX_PLAN_ATTEMPTS` 30” reference is stale — the shipped default is **10** (`demetra/settings.py:49`), reset from 30 by the 2026-09-28 settings refactor (`10ea543`). Tracked as **Q-002** in `wiki/QUESTIONS.md`. The rest of the page (the silent `[:4095]` slice, the `ARG_MAX` / `MAX_ARG_STRLEN` limits, the later switch to stdin piping) still holds.

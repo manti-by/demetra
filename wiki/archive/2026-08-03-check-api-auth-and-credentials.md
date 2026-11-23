@@ -1,8 +1,9 @@
 ---
 title: Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
-date: 2026-08-03
+generated: {by: demetra, at: '2026-08-03T00:00:00Z'}
+description: 'Records MNT-156 tightening API auth: replacing hand-rolled cookie checks with Depends(get_current_user_dep), scoping session lookups by user_id to block cross-user access, fixing WebSocket close-code delivery via accept-then-close, and adding a React Origin guard for credentialed mutations; 60 auth tests pass.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: mnt-156-check-api-auth
 services: [auth, api, watcher, react, database]
 branch: mnt-156-check-api-auth
@@ -14,7 +15,7 @@ related: [2026-08-09-apply-code-review-findings.md, 2026-06-01-refactor-api.md, 
 # Check API Auth — Dependency Consolidation, Session Ownership, and Credential Hygiene
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]. See wiki/archive/ for the original.
+> [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -54,7 +55,7 @@ Paths: `4001` no token, `4003` forbidden, `4000` invalid task_id/log path, `4004
 **`react/src/services/api.ts`** — previously `credentials:'include'` on every request. Now:
 
 - `authenticatedFetch` adds `credentials:'include'` and, for mutating methods (POST/PATCH/PUT/DELETE), runs `assertTrustedOrigin(input)` (checks `target.origin == API_ORIGIN` from `VITE_API_URL`) before dispatch.
-- `authFetch` originally dropped credentials (later restored — see correction). **Correction (2026-08-19):** removing credentials broke `Set-Cookie` on cross-origin login/signup; [[2026-08-09-apply-code-review-findings]] restored `credentials:'include'` on both.
+- `authFetch` originally dropped credentials (later restored — see correction). **Correction (2026-08-19):** removing credentials broke `Set-Cookie` on cross-origin login/signup; [2026-08-09-apply-code-review-findings](/pages/2026-08-09-apply-code-review-findings.md) restored `credentials:'include'` on both.
 
 All credentialed reads/mutations go through `authenticatedFetch`. `AuthContext.tsx` logout now reuses `api.logout()` (drops inline `API_URL`).
 
@@ -73,11 +74,11 @@ All credentialed reads/mutations go through `authenticatedFetch`. `AuthContext.t
 
 60 API/auth tests, 7 watcher WS tests — all passed. `ruff`/`ty` clean. React `tsc+vite build` + 34 vitest passed.
 
-## Source — [[2026-06-01-refactor-api]]
+## Source — [2026-06-01-refactor-api](/archive/2026-06-01-refactor-api.md)
 
 Thin `demetra/api/` routers by prefix (auth/github, projects, sessions, users, watcher, webhooks) — MNT-81, 2026-06-01. This page's `Depends` consolidation threads that layout; `api/tickets.py` removed by MNT-88.
 
-## Source — [[2026-06-02-delete-session-button]]
+## Source — [2026-06-02-delete-session-button](/archive/2026-06-02-delete-session-button.md)
 
 MNT-86 (2026-06-02): sessions became deletable end to end. `DELETE /api/v1/sessions/{task_id}` (`demetra/api/sessions.py:39`) calls the user-scoped `delete_session(task_id, user_id)` (`demetra/services/persistence/database.py:2521`), which removes the `sessions` row plus its `session_history` and `agent_sessions` rows and the `LOG_DIR/sessions/<task_id>.log` file; the React log header gained a delete button next to Clear (`react/src/components/LogConsole.tsx:167-175`) and the list refreshes afterwards. The ownership check this endpoint depends on is the subject of this page.
 
@@ -97,4 +98,4 @@ MNT-86 (2026-06-02): sessions became deletable end to end. `DELETE /api/v1/sessi
 ## References
 
 - Linear: MNT-156
-- Related: [[2026-07-24-plain-auth-review-followups]], [[2026-07-23-linear-ticket-email-password-auth]], [[2026-08-06-allowlist-review-fixes]]
+- Related: [2026-07-24-plain-auth-review-followups](/archive/2026-07-24-plain-auth-review-followups.md), [2026-07-23-linear-ticket-email-password-auth](/pages/2026-07-23-linear-ticket-email-password-auth.md), [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)

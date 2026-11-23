@@ -1,8 +1,9 @@
 ---
 title: Post-build validation — plan-coverage validate-agent between build and review
-date: 2026-08-05
+generated: {by: demetra, at: '2026-08-05T00:00:00Z'}
+description: 'Records adding a read-only validate-agent between build and review that compares the staged diff against the build plan and feeds uncovered steps back to build (MNT-146), plus the stdin-piping fix for 4095-char prompt truncation, merged as PR #72 in version 1.16.0.'
 type: implementation
-status: resolved
+status: stable
 session_id: mnt-146-post-build-validation
 services: [opencode, workflows, subprocess, settings]
 branch: mnt-146-post-build-validation
@@ -10,6 +11,7 @@ tickets: [MNT-146]
 tags: [validate-agent, build-plan, coverage, review-loop, stdin]
 related: [2026-02-23-add-multiagent-code-review.md, 2026-06-04-review-summarization.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-10-12-session-state-flow-feedback-loops.md, 2026-08-24-guard-empty-plan-output.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
+
 # Post-build validation — plan-coverage validate-agent between build and review
 
 ## TL;DR
@@ -109,11 +111,11 @@ Covered: full coverage → `None`, partial → missing items, empty diff → all
 
 > **Consistency note (2026-11-09, Consistency Agent):** the TL;DR parenthetical "there is no `MAX_REVIEW_ATTEMPTS` setting" is stale at HEAD — `MAX_ATTEMPTS["review"] = env_get_int("MAX_REVIEW_ATTEMPTS", 5)` exists in `demetra/settings.py` (`:51`, added with the `MAX_ATTEMPTS` dict). The budgets/branches described in the 2026-10-26 correction above are unaffected.
 
-> **Correction (2026-10-26, Consistency Agent):** the budget in current code is `MAX_ATTEMPTS["build"]` for both `rerun_attempts` and `validate_attempts` (`demetra/workflows/build.py:98-99`), not `MAX_REVIEW_ATTEMPTS`; the auto-mode branch decrements `rerun_attempts`/`validate_attempts` (`build.py:157-158`) and requires both `review_attempts > 0 and validate_attempts > 0` (`build.py:144`). The snippet's `env=context.project.environment` was also replaced by `environment=context.environment` in the 2026-10-06 `SessionEnvironment` unification ([[2026-10-06-unify-subprocess-env-on-session-environment]]).
+> **Correction (2026-10-26, Consistency Agent):** the budget in current code is `MAX_ATTEMPTS["build"]` for both `rerun_attempts` and `validate_attempts` (`demetra/workflows/build.py:98-99`), not `MAX_REVIEW_ATTEMPTS`; the auto-mode branch decrements `rerun_attempts`/`validate_attempts` (`build.py:157-158`) and requires both `review_attempts > 0 and validate_attempts > 0` (`build.py:144`). The snippet's `env=context.project.environment` was also replaced by `environment=context.environment` in the 2026-10-06 `SessionEnvironment` unification ([2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)).
 
 ## References
 
-- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-04-review-summarization]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-12-session-state-flow-feedback-loops]], [[2026-08-24-guard-empty-plan-output]]
+- Related: [2026-02-23-add-multiagent-code-review](/archive/2026-02-23-add-multiagent-code-review.md), [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md)
 - Linear: [MNT-146](https://linear.app/mnt/issue/MNT-146/post-build-validation)
 - GitHub: [PR #72](https://github.com/manti-by/demetra/pull/72)
 

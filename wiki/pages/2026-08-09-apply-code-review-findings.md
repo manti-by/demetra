@@ -1,11 +1,12 @@
 ---
 title: Apply code-review findings — auth, transactions, validate, wiki
-date: 2026-08-09
+generated: {by: demetra, at: '2026-08-09T00:00:00Z'}
+description: Records applying seven post-refactor review findings — restoring cross-origin auth cookies, rejecting negative `env_get_int`, gating validate on the `Plan step N:` marker, making `reset_password`/`delete_project` atomic, fixing `dedup_pages` and porcelain `-z` parsing, and adding typed exceptions — with 737 tests passing in version 1.16.3.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [auth, api, database, wiki, runtime, validation, react]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [code-review, auth, cookies, exceptions, transactions, wiki, validate, env, react]
 related: [2026-08-09-wiki-fixes-and-test-optimization.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-09-apply-pr75-coderabbit-findings.md]
@@ -21,7 +22,7 @@ Applied all 7 findings from post-refactor review (`CODE_REVIEW_FINDINGS.md`, `v1
 
 ## Overview
 
-Review of the large `services/{agents,auth,…}` refactor produced 7 findings (1 HIGH, 2 MEDIUM, 4 LOW). Fixes 5–6 land in `demetra/services/wiki/maintenance.py` alongside the new `revalidation_changed_files()` from [[2026-08-09-wiki-fixes-and-test-optimization]].
+Review of the large `services/{agents,auth,…}` refactor produced 7 findings (1 HIGH, 2 MEDIUM, 4 LOW). Fixes 5–6 land in `demetra/services/wiki/maintenance.py` alongside the new `revalidation_changed_files()` from [2026-08-09-wiki-fixes-and-test-optimization](/pages/2026-08-09-wiki-fixes-and-test-optimization.md).
 
 ## Step 1 — HIGH: restore auth cookie on cross-origin requests
 
@@ -118,11 +119,11 @@ Working tree uncommitted on `master`; orchestrator handles commit/PR.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
-> **Consistency note (2026-10-08, Dedup Agent):** sibling review event the same day — [[2026-08-09-apply-pr75-coderabbit-findings]] applies the 5 CodeRabbit findings on PR #75 (including a doc correction to this page).
+> **Consistency note (2026-10-08, Dedup Agent):** sibling review event the same day — [2026-08-09-apply-pr75-coderabbit-findings](/pages/2026-08-09-apply-pr75-coderabbit-findings.md) applies the 5 CodeRabbit findings on PR #75 (including a doc correction to this page).
 
 ## References
 
 - External: [CODE_REVIEW_FINDINGS.md](../../CODE_REVIEW_FINDINGS.md) (`v1.15.4..HEAD`)
-- Related: [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-06-allowlist-review-fixes]], [[2026-08-09-wiki-fixes-and-test-optimization]], [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-09-apply-pr75-coderabbit-findings]]
+- Related: [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md), [2026-08-09-wiki-fixes-and-test-optimization](/pages/2026-08-09-wiki-fixes-and-test-optimization.md), [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-08-09-apply-pr75-coderabbit-findings](/pages/2026-08-09-apply-pr75-coderabbit-findings.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “working tree uncommitted … orchestrator handles commit/PR” note was never closed — these findings landed on `master` (the sibling pages record the merges). The `file:line` references have drifted since: `env_get_int` is at `demetra/services/runtime/utils.py:231`, `MISSING_ITEM_RE` at `demetra/workflows/validate.py:12`, `get_transaction()` at `demetra/services/persistence/database.py:162`. `RegistrationNotAllowedError` and `GitHubAccountNotAuthorizedError` were later removed from `demetra/library/exceptions.py`.

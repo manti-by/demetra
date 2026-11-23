@@ -1,11 +1,12 @@
 ---
 title: Worker opencode EACCES on home volume — entrypoint ownership fix
-date: 2026-08-19
+generated: {by: demetra, at: '2026-08-19T00:00:00Z'}
+description: 'Records the Docker worker EACCES failure creating ~/.local/share/opencode on a root-owned demetra_app_data home volume; outcome: a root docker-entrypoint.sh repairs ownership once behind a .home-ready marker (pruning secret mounts) then drops to demetra via setpriv, with USER demetra later restored and pruning by path.'
 type: debug
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [deploy, agents, runtime]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [docker, permissions, volume, opencode, entrypoint]
 related: [2026-08-20-review-gh-auth-mount-changes.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-17-docker-setup-review.md, 2026-08-10-docker-compose-deploy.md, 2026-08-24-gh-config-dir-permission-entrypoint.md]
@@ -47,7 +48,7 @@ exec setpriv --reuid=demetra --regid=demetra --init-groups "$@"
 ```
 Prunes bind-mounted secrets (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`, `.local/share/opencode/auth.json`) so host ownership untouched. `HOME` exported explicitly since entrypoint runs as root. Verified via `sh -n` and `find -prune` dry-run.
 
-> **Consistency note (2026-08-20):** prune list later extended to also skip `.config/gh/hosts.yml` — see [[2026-08-20-review-gh-auth-mount-changes]].
+> **Consistency note (2026-08-20):** prune list later extended to also skip `.config/gh/hosts.yml` — see [2026-08-20-review-gh-auth-mount-changes](/pages/2026-08-20-review-gh-auth-mount-changes.md).
 
 ## Test Results
 
@@ -63,16 +64,16 @@ Prunes bind-mounted secrets (`.ssh`, `.gnupg`, `.gitconfig`, `.git-credentials`,
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
-> **Consistency note (2026-10-08, Dedup Agent):** follow-up incident on the same entrypoint-ownership theme — [[2026-08-24-gh-config-dir-permission-entrypoint]] (un-gated repair for root-created bind-mount parents). This page's `.home-ready` gate is the prior art it builds on.
+> **Consistency note (2026-10-08, Dedup Agent):** follow-up incident on the same entrypoint-ownership theme — [2026-08-24-gh-config-dir-permission-entrypoint](/pages/2026-08-24-gh-config-dir-permission-entrypoint.md) (un-gated repair for root-created bind-mount parents). This page's `.home-ready` gate is the prior art it builds on.
 >
 > **Consistency note (2026-11-03, Consistency Agent):** "Removed `USER demetra`" above is
 > historical. `USER demetra` was re-added — `Dockerfile:71`, after `ENTRYPOINT` — and
 > `configs/docker-entrypoint.sh:6` now runs the ownership repair only when `id -u` is 0,
 > falling through to `exec "$@"` for the normal user; the `setpriv` branch is reachable only
-> with an explicit `--user 0`. See [[2026-08-24-gh-config-dir-permission-entrypoint]].
+> with an explicit `--user 0`. See [2026-08-24-gh-config-dir-permission-entrypoint](/pages/2026-08-24-gh-config-dir-permission-entrypoint.md).
 
 ## References
 
-- Related: [[2026-08-18-compose-anchors-refactor]], [[2026-08-17-docker-setup-review]], [[2026-08-10-docker-compose-deploy]], [[2026-08-24-gh-config-dir-permission-entrypoint]]
+- Related: [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md), [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-24-gh-config-dir-permission-entrypoint](/pages/2026-08-24-gh-config-dir-permission-entrypoint.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The entrypoint changed since this page: `configs/docker-entrypoint.sh` now prunes by path (`-path …/.config/gh/hosts.yml`, `-path …/.config/opencode/opencode.json`, `-path …/.local/share/opencode/auth.json`) and uses `chown -h`, so the `-name`-based prune list quoted above no longer exists. The `USER demetra` line was restored in the Dockerfile (`:77`) — the 2026-10-08 note already covers that. `make docker-deploy` has **no recipe**; use `make deploy` (or `make docker-up`).

@@ -1,8 +1,9 @@
 ---
 title: Forward LangSmith env vars from host to containers
-date: 2026-09-28
+generated: {by: demetra, at: '2026-09-28T00:00:00Z'}
+description: This records forwarding four LangSmith variables from the host into every container via the docker-compose x-demetra-env anchor using host interpolation, locked in by new mutation-verified compose tests; two tracing gaps it flagged were later closed, and the plugin was ultimately removed, leaving env-var-only tracing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_f18b1bf6dffeluPnstTNqJ32iq
 services: [deploy]
 branch: master
@@ -23,7 +24,7 @@ interpolation. Backed by a new `tests/test_docker_compose.py` (4 tests,
 mutation-verified). ~~Two gaps remain open: the vars are dropped before `opencode`
 starts by `OS_ENV_ALLOWLIST`, and the plugin never reads `LANGSMITH_TRACING`, so
 tracing does not actually turn on yet.~~ Both gaps were closed by
-[[2026-10-06-unify-subprocess-env-on-session-environment]] (see note below):
+[2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md) (see note below):
 derived vars bypass `OS_ENV_ALLOWLIST` and both flags are emitted in-process.
 
 ---
@@ -31,7 +32,7 @@ derived vars bypass `OS_ENV_ALLOWLIST` and both flags are emitted in-process.
 ## Overview
 
 The LangSmith plugin `@langchain/langsmith-opencode` was registered in
-`opencode.json` back in [[2026-07-23-agents-md-revalidation-and-docs-removal]],
+`opencode.json` back in [2026-07-23-agents-md-revalidation-and-docs-removal](/pages/2026-07-23-agents-md-revalidation-and-docs-removal.md),
 but the app containers had no way to receive a LangSmith key. `.env.docker`
 feeds every service through `env_file:`, which covers app secrets — yet a
 developer key living in the host shell or in a secret manager is not in that
@@ -65,7 +66,7 @@ x-demetra-env: &demetra-env
 ```
 
 The anchor chosen is the one introduced by
-[[2026-08-18-compose-anchors-refactor]]: it is already merged into the
+[2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md): it is already merged into the
 `environment:` block of all six services (`migrate`, `api`, `worker`,
 `watcher`, `listener`, `rq-dashboard`), so this is the single place to add an
 app-wide variable. An `environment:` block on `x-demetra-app` would have been
@@ -177,8 +178,8 @@ plugin still sees nothing.
 Options: add `LANGSMITH_API_KEY` / `LANGSMITH_TRACING` to `OS_ENV_ALLOWLIST`,
 or opt them in per project via `OS_ENV_PROJECT_OPTINS`. Either needs a test
 alongside the existing allowlist assertions in `tests/test_settings.py:224`
-(see also [[2026-08-20-fix-allowlist-tests]] and
-[[2026-08-06-allowlist-review-fixes]] for that gate's history).
+(see also [2026-08-20-fix-allowlist-tests](/pages/2026-08-20-fix-allowlist-tests.md) and
+[2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md) for that gate's history).
 
 ### Gap 2 — the plugin ignores `LANGSMITH_TRACING`
 
@@ -201,7 +202,7 @@ The only non-env way to enable it is an `.opencode/langsmith.json` with
 change plus a matching test default.
 
 > **Consistency note (2026-10-06, Consistency Agent):** both gaps are closed by
-> [[2026-10-06-unify-subprocess-env-on-session-environment]] —
+> [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md) —
 > `SessionEnvironment.system_env` (`demetra/library/models.py:482`) emits both
 > `LANGSMITH_TRACING` and `TRACE_TO_LANGSMITH` (plus key/endpoint/project), and
 > `build_subprocess_env` merges `environment.subprocess_env` *after*
@@ -225,7 +226,7 @@ change plus a matching test default.
 
 - ~~Decide on Gap 1 (`OS_ENV_ALLOWLIST` vs `OS_ENV_PROJECT_OPTINS`) and Gap 2
   (`TRACE_TO_LANGSMITH`) together~~ — resolved by
-  [[2026-10-06-unify-subprocess-env-on-session-environment]] (see note above):
+  [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md) (see note above):
   derived vars bypass the allowlist and both flags are emitted in-process.
 - Ruled out while working: an `environment:` entry on `x-demetra-app` (shadowed
   by each service's own block); a `settings.py` constant (the plugin reads the
@@ -235,13 +236,13 @@ change plus a matching test default.
 
 ## References
 
-- Related: [[2026-08-18-compose-anchors-refactor]]
-- Related: [[2026-08-10-docker-compose-deploy]]
-- Related: [[2026-08-17-docker-setup-review]]
-- Related: [[2026-08-20-fix-allowlist-tests]]
-- Related: [[2026-08-06-allowlist-review-fixes]]
-- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]]
-- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
+- Related: [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md)
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
+- Related: [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md)
+- Related: [2026-08-20-fix-allowlist-tests](/pages/2026-08-20-fix-allowlist-tests.md)
+- Related: [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)
+- Related: [2026-07-23-agents-md-revalidation-and-docs-removal](/pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - External: [@langchain/langsmith-opencode](https://github.com/langchain-ai/langsmith-opencode)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The compose defaults quoted above (`LANGSMITH_TRACING` true, `LANGSMITH_PROJECT` `Demetra`) differ from what the application now derives in-process: `SessionEnvironment.system_env` (`demetra/library/models.py:633-641`) forces tracing **off** unless `LANGSMITH_TRACING` is configured and defaults `LANGSMITH_PROJECT` to the empty string. The compose interpolation only pre-seeds the container environment; the in-process derivation wins for subprocesses. The plugin this page analyses is gone (`opencode.json` has `"plugins": []` since `67d106c`).

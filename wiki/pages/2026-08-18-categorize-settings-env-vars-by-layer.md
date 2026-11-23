@@ -1,8 +1,9 @@
 ---
 title: Categorize settings env vars by layer
-date: 2026-08-18
+generated: {by: demetra, at: '2026-08-18T00:00:00Z'}
+description: Records the MNT-170 design decision classifying every workflow env var in settings.py into project, user, or system layers — Linear states/team and OpenRouter keys to user, UV_PATH to project, OAuth/labels and tool paths to system — a classification that still holds despite later settings refactors and stale line references.
 type: investigation
-status: resolved
+status: stable
 session_id: '-'
 services: [settings, subprocess, workflows, persistence, opencode]
 branch: feature/mnt-169-removeupdate-settings
@@ -10,11 +11,12 @@ tickets: [MNT-169, MNT-170, MNT-97, MNT-18, MNT-112]
 tags: [environment, settings, project-env, user-env, layers, subprocess, timeout, project-creation, streaming, live-output]
 related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-06-10-fix-project-creation-timeouts.md, 2026-02-15-subagent-output-streaming.md]
 ---
+
 # Categorize settings env vars by layer
 
 ## TL;DR
 
-Classified every workflow env var in `demetra/settings.py` into three layers — **project** (`project_environment`), **user** (`user_environment` `scope='user'`), or **system** (stays in `settings.py`, overridable by user-shared env via OS→user→project→step merge). Plumbing exists per [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]; runtime work tracked as MNT-170. Key decisions: one Linear workspace → OAuth/labels system, `LINEAR_TEAM_ID`/states → user; `OPENROUTER_BASE_URL` system, key/model → user; `UV_PATH` → project.
+Classified every workflow env var in `demetra/settings.py` into three layers — **project** (`project_environment`), **user** (`user_environment` `scope='user'`), or **system** (stays in `settings.py`, overridable by user-shared env via OS→user→project→step merge). Plumbing exists per [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md); runtime work tracked as MNT-170. Key decisions: one Linear workspace → OAuth/labels system, `LINEAR_TEAM_ID`/states → user; `OPENROUTER_BASE_URL` system, key/model → user; `UV_PATH` → project.
 
 > **Status update (2026-08-23):** MNT-170 merged via PR #80. Steps 1–4 done — `get_linear_config_value()` (`linear/__init__.py`), OpenRouter fallback (`llm/config.py`), `_resolve_opencode_model(..., user_environment=...)` (`agents/opencode.py`), `env["UV_PATH"]` (`runtime/project.py:187`). (2026-08-28) OpenCode per-agent overrides covered in `tests/test_opencode.py:TestOpencodeEnvLayers`; `UV_PATH` test still pending.
 
@@ -51,7 +53,7 @@ Via `get_user_environments_decrypted` (`persistence/database.py:1565`), merged b
 > `demetra/settings.py` has no `GROQ` block (only `OPENROUTER` at `:214`),
 > `demetra/services/llm/groq.py` was deleted in `10ea543` (2026-09-28), and
 > `langchain-groq` is no longer a dependency. See
-> [[2026-08-18-migrate-llm-groq-to-openrouter]].
+> [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md).
 
 ## Section 3 — System (stay in `settings.py`, overridable by user-shared env)
 
@@ -101,7 +103,7 @@ App/DB/auth/logging only, stay in `settings.py`:
 >
 > **Consistency note (2026-10-08, Consistency Agent):** §§ Layer model / "Out of
 > scope" / line refs above predate `10ea543` ("Refactor settings, cleanup repo",
-> 2026-09-28) and [[2026-10-06-unify-subprocess-env-on-session-environment]]:
+> 2026-09-28) and [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md):
 > scalar `MAX_*_ATTEMPTS` are now the `MAX_ATTEMPTS` dict (`run` 3, `plan` 10,
 > `build` 10 — so `MAX_BUILD=50` above is stale, see Q-002 in
 > `wiki/QUESTIONS.md`), `WIKI_LLM_BUDGET_*` is deleted, the step/`extra`
@@ -115,9 +117,9 @@ App/DB/auth/logging only, stay in `settings.py`:
 > `process_tasks` moves the ticket to In Progress). Row corrected, and its settings line updated
 > to the current `settings.py:157`.
 
-## Source — [[2026-06-10-fix-project-creation-timeouts]]
+## Source — [2026-06-10-fix-project-creation-timeouts](/archive/2026-06-10-fix-project-creation-timeouts.md)
 
-The default subprocess timeout is `SUBPROCESS_TIMEOUT` (seconds): renamed from `SHELL_TIMEOUT_MS` (120 s, milliseconds) on 2026-06-10 (MNT-97) after the short value killed long project-creation operations (`git clone`, dependency build), with a then-default of 1800 s — since raised to `4 * 60 * 60` (4 h, `demetra/settings.py:59`). `run_command` (`demetra/services/runtime/subprocess.py`) uses it as its default timeout and OpenCode agent callers inherit it instead of passing an explicit short timeout — there is no separate agent-tool-layer timeout. Child `stdout`/`stderr` stream line-by-line through `live_stream` (MNT-18, [[2026-02-15-subagent-output-streaming]]). Originally decided in [[2026-06-10-fix-project-creation-timeouts]] on 2026-06-10.
+The default subprocess timeout is `SUBPROCESS_TIMEOUT` (seconds): renamed from `SHELL_TIMEOUT_MS` (120 s, milliseconds) on 2026-06-10 (MNT-97) after the short value killed long project-creation operations (`git clone`, dependency build), with a then-default of 1800 s — since raised to `4 * 60 * 60` (4 h, `demetra/settings.py:59`). `run_command` (`demetra/services/runtime/subprocess.py`) uses it as its default timeout and OpenCode agent callers inherit it instead of passing an explicit short timeout — there is no separate agent-tool-layer timeout. Child `stdout`/`stderr` stream line-by-line through `live_stream` (MNT-18, [2026-02-15-subagent-output-streaming](/archive/2026-02-15-subagent-output-streaming.md)). Originally decided in [2026-06-10-fix-project-creation-timeouts](/archive/2026-06-10-fix-project-creation-timeouts.md) on 2026-06-10.
 
 ## Follow-ups
 
@@ -126,7 +128,7 @@ The default subprocess timeout is `SUBPROCESS_TIMEOUT` (seconds): renamed from `
 
 ## References
 
-- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-10-06-unify-subprocess-env-on-session-environment]]
+- Related: [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md), [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers), [MNT-169](https://linear.app/mnt/issue/MNT-169/removeupdate-settings)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Every `settings.py:NNN` reference in the three tables has drifted (the file was refactored twice since), the `GROQ_*` rows are gone (`demetra/services/llm/groq.py` was deleted in the 2026-08-18 OpenRouter migration), the flat `MAX_*_ATTEMPTS` scalars are now the `MAX_ATTEMPTS` dict (`demetra/settings.py:47-55`: run 3, plan 10, build 10, review 5, merge 5, rebase 5, listener 5, research 5), the “`MAX_BUILD=50`, `REVIEW/MERGE/REBASE=10`” values quoted in the system-layer table are stale (now 10/5/5/5), and `WIKI_LLM_BUDGET_*` was replaced by the `WIKI` dict (`settings.py:86-89`: `WIKI_DIFF_HUNK_CAP` 200, `WIKI_BUILD_PLAN_CAP` 800, `WIKI_REVALIDATION_ENABLED` False). The layering classification itself still holds.

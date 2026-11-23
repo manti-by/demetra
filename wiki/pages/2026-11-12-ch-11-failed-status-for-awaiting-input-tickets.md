@@ -1,8 +1,9 @@
 ---
 title: 'CH-11: Failed status for Awaiting Input tickets'
-date: '2026-11-12'
+generated: {by: demetra, at: '2026-11-12T00:00:00Z'}
+description: Records CH-11 moving tickets needing user input to an Awaiting Input Linear state instead of Failed, via a new state-resolution service (get_team_states query), updated notification workflow and AwaitingInputError handling that avoids requeueing unanswered tickets; comprehensive tests were added.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e2c7d823cffeeyVpystxIHvf9u
 services: [library, queries, daemons/watcher, linear/__init__, linear/states, workflows, main, pyproject, conftest, test_entrypoints, test_failure, test_linear, test_more_coverage, test_workflows, uv, .sessions, INDEX, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]
 branch: ch-11-failed-status-for-awaiting-input-tickets
@@ -100,9 +101,9 @@ The implementation includes comprehensive test coverage:
 - Error handling scenarios
 - Integration tests for the complete flow
 
-## Source — [[2026-07-21-awaiting-input-status-for-session]]
+## Source — [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md)
 
-`step="awaiting_input"` is a first-class session state (MNT-140, 2026-07-21) — sessions with plan-agent questions are not `Failed`. The trigger chain comes from [[2026-02-23-plan-agent-output-triggers]] (MNT-30): `PLAN_IS_READY_STRING` auto-builds; `PLAN_HAS_QUESTIONS` posts questions as a Linear comment and moves the ticket to awaiting-input without posting the build plan. Cleanup/history preserve awaiting-input instead of overwriting it; this page extends the same contract to the ticket side. Originally decided in [[2026-07-21-awaiting-input-status-for-session]] on 2026-07-21.
+`step="awaiting_input"` is a first-class session state (MNT-140, 2026-07-21) — sessions with plan-agent questions are not `Failed`. The trigger chain comes from [2026-02-23-plan-agent-output-triggers](/archive/2026-02-23-plan-agent-output-triggers.md) (MNT-30): `PLAN_IS_READY_STRING` auto-builds; `PLAN_HAS_QUESTIONS` posts questions as a Linear comment and moves the ticket to awaiting-input without posting the build plan. Cleanup/history preserve awaiting-input instead of overwriting it; this page extends the same contract to the ticket side. Originally decided in [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md) on 2026-07-21.
 
 ## Follow-ups
 
@@ -111,6 +112,6 @@ The implementation includes comprehensive test coverage:
 ## References
 
 - External: <linear ticket URL>
-- Related: [[2026-07-21-awaiting-input-status-for-session]]
-- Related: [[2026-08-28-awaiting-input-workflow-continues-to-review]]
-- Related: [[2026-08-05-pr-creation-failure-handler]]
+- Related: [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md)
+- Related: [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md)

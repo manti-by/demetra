@@ -504,9 +504,10 @@ class TestRenderPage:
     def _meta(self) -> dict:
         return {
             "title": "MNT-147: Wiki processes",
-            "date": "2026-08-04",
+            "generated": {"by": "demetra", "at": "2026-08-04T00:00:00Z"},
+            "description": "MNT-147 records how wiki pages are processed.",
             "type": "implementation",
-            "status": "resolved",
+            "status": "stable",
             "session_id": "sess-123",
             "services": ["wiki"],
             "branch": "mnt-147-wiki-processes",
@@ -525,6 +526,10 @@ class TestRenderPage:
         assert page["meta"]["services"] == ["wiki"]
         assert page["meta"]["tickets"] == ["MNT-147"]
         assert page["meta"]["branch"] == "mnt-147-wiki-processes"
+        assert page["meta"]["generated"] == {"by": "demetra", "at": "2026-08-04T00:00:00Z"}
+        assert page["meta"]["description"] == "MNT-147 records how wiki pages are processed."
+        assert "date" not in page["meta"]
+        assert service.validate_page(body, path=tmp_path / "page.md") == []
 
     def test_backslash_in_title_escaped_and_round_trips(self, tmp_path):
         meta = self._meta()
@@ -571,7 +576,9 @@ class TestWriteSessionWikiPage:
     @pytest.fixture(autouse=True)
     def _stub_llm(self, monkeypatch):
         self.llm = AsyncMock(return_value="## TL;DR\n\nWiki pages are LLM-authored.\n")
+        self.description_llm = AsyncMock(return_value="MNT-147 records how wiki pages are authored and indexed.")
         monkeypatch.setattr(service, "compose_wiki_page", self.llm)
+        monkeypatch.setattr(service, "compose_wiki_description", self.description_llm)
 
     async def test_writes_page_and_patches_index(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
@@ -584,6 +591,12 @@ class TestWriteSessionWikiPage:
 
         page_path = wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md"
         assert page_path.is_file()
+        page = service.parse_page_file(page_path)
+        assert page is not None
+        assert page["meta"]["generated"] == {"by": "demetra", "at": "2026-08-04T00:00:00Z"}
+        assert page["meta"]["description"] == "MNT-147 records how wiki pages are authored and indexed."
+        assert page["meta"]["status"] == "stable"
+        assert service.validate_page(page_path.read_text(), path=page_path) == []
         index_text = wiki_dirs["index"].read_text()
         assert "[MNT-147: Wiki processes](pages/2026-08-04-mnt-147-wiki-processes.md)" in index_text
         # newest-first: new page above the old one
@@ -672,6 +685,19 @@ class TestWriteSessionWikiPage:
         page_text = (wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md").read_text()
         assert "Wiki pages are LLM-authored." in page_text
 
+    async def test_empty_body_uses_ticket_description_without_llm_call(self, tmp_path, wiki_dirs, monkeypatch):
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
+        monkeypatch.setattr(service, "compose_wiki_page", AsyncMock(return_value="  \n"))
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
+
+        await service.write_session_wiki_page(context=make_context(tmp_path))
+
+        self.description_llm.assert_not_awaited()
+        page = service.parse_page_file(wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md")
+        assert page is not None
+        assert page["meta"]["description"] == "Automate wiki maintenance loops."
+
     async def test_llm_receives_the_session_facts(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
         monkeypatch.setattr(service, "today", lambda: "2026-08-04")
@@ -690,6 +716,7 @@ class TestWriteSessionWikiPage:
         assert kwargs["diff_excerpt"] == FIXED_DIFF["excerpt_text"]
         assert kwargs["linear_url"] == "https://linear.app/mnt/issue/MNT-147"
         assert kwargs["related"] == []
+        assert kwargs["related_links"] == []
 
     async def test_llm_receives_sibling_pages_for_references(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
@@ -705,6 +732,24 @@ class TestWriteSessionWikiPage:
         await_args = self.llm.await_args
         assert await_args is not None
         assert await_args.kwargs["related"] == ["2026-08-01-other.md"]
+        assert await_args.kwargs["related_links"] == ["- Related: [2026-08-01-other](/pages/2026-08-01-other.md)"]
+
+    async def test_archived_sibling_link_resolves_to_archive(self, tmp_path, wiki_dirs, monkeypatch):
+        monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
+        monkeypatch.setattr(service, "today", lambda: "2026-08-04")
+        archive = service.WIKI_ROOT / "archive"
+        archive.mkdir()
+        (archive / "2026-08-01-other.md").write_text("# Archived sibling")
+        (wiki_dirs["pages"] / "2026-08-04-mnt-147-wiki-processes.md").write_text(
+            '---\ntitle: "MNT-147: Wiki processes"\ntickets: [MNT-147]\nrelated: [2026-08-01-other.md]\n---\n\nOld body'
+        )
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
+
+        await service.write_session_wiki_page(context=make_context(tmp_path))
+
+        await_args = self.llm.await_args
+        assert await_args is not None
+        assert await_args.kwargs["related_links"] == ["- Related: [2026-08-01-other](/archive/2026-08-01-other.md)"]
 
     async def test_llm_failure_raises_wiki_error_and_writes_no_page(self, tmp_path, wiki_dirs, monkeypatch):
         monkeypatch.setattr(service, "git_diff_facts", AsyncMock(return_value=FIXED_DIFF))
@@ -873,6 +918,23 @@ class TestRegenerateByTopic:
         assert "### Authentication & API security" in text
         assert "Old cluster" not in text
 
+    async def test_cluster_dates_use_each_page_filename(self, wiki_dirs):
+        def page_without_date(title: str) -> str:
+            return (
+                f"---\ntitle: {title}\ntype: implementation\nstatus: resolved\n"
+                f"services: [wiki]\nbranch: master\ntickets: []\n"
+                f"tags: [wiki]\nrelated: []\n---\n\n# {title}\n"
+            )
+
+        (wiki_dirs["pages"] / "2026-01-02-alpha.md").write_text(page_without_date("Alpha"))
+        (wiki_dirs["pages"] / "2026-03-04-zulu.md").write_text(page_without_date("Zulu"))
+        wiki_dirs["index"].write_text("# Index\n\n## Pages\n\n## By topic\n")
+
+        await service.regenerate_by_topic()
+        text = wiki_dirs["index"].read_text()
+        assert "- [Alpha](pages/2026-01-02-alpha.md) — 2026-01-02" in text
+        assert "- [Zulu](pages/2026-03-04-zulu.md) — 2026-03-04" in text
+
 
 class TestAgentsDrift:
     async def test_flags_missing_anchors(self, wiki_dirs):
@@ -971,3 +1033,120 @@ class TestRevalidateAndCommit:
     async def test_revalidation_changed_files_returns_empty_on_failure(self, monkeypatch):
         monkeypatch.setattr(service, "run_command", AsyncMock(return_value=(1, "", "boom")))
         assert await service.revalidation_changed_files() == set()
+
+
+class TestOkf:
+    @pytest.fixture
+    def bundle_root(self, tmp_path, monkeypatch):
+        root = tmp_path / "wiki"
+        (root / "pages").mkdir(parents=True, exist_ok=True)
+        (root / "archive").mkdir(exist_ok=True)
+        monkeypatch.setattr(service, "WIKI_ROOT", root)
+        monkeypatch.setattr(service, "PAGES_ROOT", root / "pages")
+        return root
+
+    def test_status_mapping(self, bundle_root):
+        assert service.okf_status({"status": "resolved"}, wiki_root=bundle_root) == "stable"
+        assert service.okf_status({"status": "reference"}, wiki_root=bundle_root) == "stable"
+        assert service.okf_status({"status": "open"}, wiki_root=bundle_root) == "draft"
+        archived = bundle_root / "archive" / "2026-08-01-old.md"
+        assert service.okf_status({"status": "resolved"}, archived, wiki_root=bundle_root) == "deprecated"
+
+    def test_generated_at_from_date_and_datetime(self):
+        assert service.generated_at("2026-08-04") == {"by": "demetra", "at": "2026-08-04T00:00:00Z"}
+        assert service.generated_at("2026-08-04T12:30:00Z") == {"by": "demetra", "at": "2026-08-04T12:30:00Z"}
+
+    def test_page_date_reads_generated_at_and_falls_back_to_filename(self):
+        assert service.okf_page_date(meta={"generated": {"at": "2026-08-05T00:00:00Z"}}) == "2026-08-05"
+        assert service.okf_page_date(meta={}, path=Path("2026-08-04-page.md")) == "2026-08-04"
+        assert service.okf_page_date(meta={}) == "0000-00-00"
+
+    def test_convert_wikilinks_resolves_archive_and_keeps_code_examples(self, bundle_root):
+        (bundle_root / "pages" / "2026-08-01-other.md").write_text("# Other")
+        (bundle_root / "archive" / "2026-08-02-archived.md").write_text("# Archived")
+        source = "\n".join(
+            [
+                "- See [[2026-08-01-other]] and [[2026-08-02-archived]].",
+                "- Inline `[[literal]]` stays.",
+                "```python",
+                "code = '[[{Path(name).stem}]]'",
+                "```",
+            ]
+        )
+        converted, unresolved = service.convert_wikilinks(source, wiki_root=bundle_root)
+        assert "[2026-08-01-other](/pages/2026-08-01-other.md)" in converted
+        assert "[2026-08-02-archived](/archive/2026-08-02-archived.md)" in converted
+        assert "`[[literal]]`" in converted
+        assert "[[{Path(name).stem}]]" in converted
+        assert unresolved == []
+
+    def test_validate_page_flags_legacy_frontmatter(self, bundle_root):
+        bare_dash = "---\ntitle: Old\nsession_id: -\n---\n\n# Old\n"
+        issues = service.validate_page(bare_dash, path=bundle_root / "pages" / "old.md")
+        assert any("frontmatter" in issue for issue in issues)
+
+        text = "---\ntitle: Old\nstatus: resolved\n---\n\n# Old\n\nSee [[2026-08-01-other]]\n"
+        issues = service.validate_page(text, path=bundle_root / "pages" / "old.md")
+        assert any("type" in issue for issue in issues)
+        assert any("status" in issue for issue in issues)
+        assert any("generated" in issue for issue in issues)
+        assert any("description" in issue for issue in issues)
+        assert any("wikilink" in issue for issue in issues)
+
+    def test_migrate_page_rewrites_legacy_page(self, bundle_root):
+        (bundle_root / "archive" / "2026-08-02-archived.md").write_text("# Archived")
+        path = bundle_root / "pages" / "2026-08-04-page.md"
+        path.write_text(
+            "---\ntitle: Legacy page\ndate: 2026-08-04\ntype: implementation\nstatus: resolved\n"
+            "session_id: -\nservices: [wiki]\nbranch: -\ntickets: [MNT-147]\ntags: [wiki]\n"
+            "related: [2026-08-02-archived.md]\n---\n\n# Legacy page\n\nSee [[2026-08-02-archived]]\n"
+        )
+        rendered = service.migrate_page(
+            text=path.read_text(), description="A concise summary.", path=path, wiki_root=bundle_root
+        )
+        path.write_text(rendered)
+        assert service.validate_page(rendered, path=path) == []
+        assert "date:" not in rendered.split("---")[1]
+        assert "status: stable" in rendered
+        assert "generated: {by: demetra, at: '2026-08-04T00:00:00Z'}" in rendered
+        assert "description: A concise summary." in rendered
+        assert "[2026-08-02-archived](/archive/2026-08-02-archived.md)" in rendered
+        assert rendered.count("# Legacy page") == 1
+
+    async def test_migrate_bundle_is_idempotent_with_injected_descriptions(self, bundle_root, monkeypatch):
+        path = bundle_root / "pages" / "2026-08-04-page.md"
+        path.write_text(
+            "---\ntitle: Legacy page\ndate: 2026-08-04\ntype: implementation\nstatus: open\n"
+            "session_id: -\nservices: []\nbranch: -\ntickets: []\ntags: []\nrelated: []\n"
+            "---\n\n# Legacy page\n\n## TL;DR\n\nA short page.\n"
+        )
+
+        async def describe(*, content, environment=None):
+            assert "A short page." in content
+            return "A concise summary."
+
+        first = await service.migrate_bundle(wiki_root=bundle_root, description_fn=describe)
+        assert first["before"]["wikilinks"] == 0
+        assert len(first["before"]["violations"]) == 1
+        assert first["migrated"] == ["2026-08-04-page.md"]
+        assert first["after"]["violations"] == {}
+
+        second = await service.migrate_bundle(wiki_root=bundle_root, description_fn=describe)
+        assert second["skipped"] == ["2026-08-04-page.md"]
+        assert second["migrated"] == []
+
+    async def test_migrate_bundle_dry_run_writes_nothing(self, bundle_root):
+        path = bundle_root / "pages" / "2026-08-04-page.md"
+        original = (
+            "---\ntitle: Legacy page\ndate: 2026-08-04\ntype: implementation\nstatus: open\n"
+            "session_id: -\nservices: []\nbranch: -\ntickets: []\ntags: []\nrelated: []\n"
+            "---\n\n# Legacy page\n\n## TL;DR\n\nA short page.\n"
+        )
+        path.write_text(original)
+
+        async def describe(*, content, environment=None):
+            return "A concise summary."
+
+        report = await service.migrate_bundle(wiki_root=bundle_root, dry_run=True, description_fn=describe)
+        assert report["migrated"] == ["2026-08-04-page.md"]
+        assert path.read_text() == original

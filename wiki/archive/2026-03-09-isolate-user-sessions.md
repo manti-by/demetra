@@ -1,11 +1,12 @@
 ---
 title: Isolate user sessions
-date: 2026-03-09
+generated: {by: demetra, at: '2026-03-09T00:00:00Z'}
+description: Records MNT-54, which replaced the shared watcher log with one append-only log file per workflow session (temp-named until the Linear ticket id resolves), scoped the websocket to the current session with UUID validation so ticket streams no longer interleave; the page was later archived and merged into the websocket-status page.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [watcher, api, logging]
-branch: -
+branch: '-'
 tickets: [MNT-54]
 tags: [logging, sessions, isolation]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Isolate user sessions
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-25-websocket-to-track-session-statuses]]. See wiki/archive/ for the
+> [2026-06-25-websocket-to-track-session-statuses](/archive/2026-06-25-websocket-to-track-session-statuses.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

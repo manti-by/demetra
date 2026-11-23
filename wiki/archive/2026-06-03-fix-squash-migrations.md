@@ -1,11 +1,12 @@
 ---
 title: Fix and squash migrations
-date: 2026-06-03
+generated: {by: demetra, at: '2026-06-03T00:00:00Z'}
+description: Under MNT-99, this records squashing the drifted Alembic migration chain into one consolidated migration and migrating the local database so `alembic upgrade` runs without errors, while modernizing env-driven DB connection config and making `projects.repository_url` required; merged into the session-attribution page and archived.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [database, alembic, settings, sqlalchemy]
-branch: "-"
+branch: '-'
 tickets: [MNT-99, MNT-51, MNT-62]
 tags: [migrations, alembic, squash, postgres, database, sqlite, sqlalchemy, core]
 related: [2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]
@@ -14,7 +15,7 @@ related: [2026-03-05-postgres-support.md, 2026-03-13-sqlalchemy-core-support.md]
 # Fix and squash migrations
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-10-16-mnt-251-session-attribution-accounting]]. See wiki/archive/ for the original.
+> [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -55,18 +56,18 @@ Acceptance: `alembic upgrade` runs without errors against the migrated database.
 
 ---
 
-## Source — [[2026-03-05-postgres-support]]
+## Source — [2026-03-05-postgres-support](/archive/2026-03-05-postgres-support.md)
 
-Originally added in [[2026-03-05-postgres-support]] on 2026-03-05 (MNT-51): the
+Originally added in [2026-03-05-postgres-support](/archive/2026-03-05-postgres-support.md) on 2026-03-05 (MNT-51): the
 database is **PostgreSQL**, migrated from SQLite. Async driver: `psycopg` (psycopg-binary).
 Connection is env-driven via `demetra/settings.py` — `DB_HOST`, `DB_USER`,
 `DB_PASSWORD`, `DB_NAME` (default `demetra`) — the "modern config patterns" Step 3 of
 this page builds on. Note the later prompt guidance to agents: task descriptions must
 end with `?`.
 
-## Source — [[2026-03-13-sqlalchemy-core-support]]
+## Source — [2026-03-13-sqlalchemy-core-support](/archive/2026-03-13-sqlalchemy-core-support.md)
 
-Originally added in [[2026-03-13-sqlalchemy-core-support]] on 2026-03-13 (MNT-62): the
+Originally added in [2026-03-13-sqlalchemy-core-support](/archive/2026-03-13-sqlalchemy-core-support.md) on 2026-03-13 (MNT-62): the
 data layer is **SQLAlchemy Core** (not the declarative ORM) — `Table`/`Column`
 metadata with explicit schema definitions. This was the project's first Alembic
 migration (raw SQL scripts were replaced by Alembic-managed migrations). Tests run

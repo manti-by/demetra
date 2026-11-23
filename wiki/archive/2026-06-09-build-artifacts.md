@@ -1,8 +1,9 @@
 ---
 title: Build artifacts
-date: 2026-06-09
+generated: {by: demetra, at: '2026-06-09T00:00:00Z'}
+description: Records MNT-108 persisting `pr_link` and `build_plan` as session artifacts through a new migration, exposed by the session API and rendered in a React artifact block with a PR link and build-plan modal; archived with reusable content merged into the Linear-link artifact page and followed by client-side markdown rendering.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [database, api, react]
 branch: '-'
@@ -14,11 +15,11 @@ related: [2026-06-09-markdown-renderer.md, 2026-06-22-linear-link-artifact.md, 2
 # Build artifacts
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-06-22-linear-link-artifact]]. See wiki/archive/ for the original.
+> [2026-06-22-linear-link-artifact](/archive/2026-06-22-linear-link-artifact.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
-Session artifacts — the PR link and the build plan — are now persisted and shown in the React app. Added `pr_link` to the `session` model with an Alembic migration; the field is populated when a PR is successfully created via `gh`. The API returns `pr_link` and `build_plan`, the frontend stores both and renders an artifact block at the top of the session log. Tests on both FE and BE. Client-side markdown rendering of the build plan followed in [[2026-06-09-markdown-renderer]].
+Session artifacts — the PR link and the build plan — are now persisted and shown in the React app. Added `pr_link` to the `session` model with an Alembic migration; the field is populated when a PR is successfully created via `gh`. The API returns `pr_link` and `build_plan`, the frontend stores both and renders an artifact block at the top of the session log. Tests on both FE and BE. Client-side markdown rendering of the build plan followed in [2026-06-09-markdown-renderer](/archive/2026-06-09-markdown-renderer.md).
 
 ---
 
@@ -61,5 +62,5 @@ None.
 
 ## References
 
-- Related: [[2026-06-09-markdown-renderer]], [[2026-06-22-linear-link-artifact]], [[2026-09-14-research-plan-artifact]]
+- Related: [2026-06-09-markdown-renderer](/archive/2026-06-09-markdown-renderer.md), [2026-06-22-linear-link-artifact](/archive/2026-06-22-linear-link-artifact.md), [2026-09-14-research-plan-artifact](/pages/2026-09-14-research-plan-artifact.md)
 - External: [MNT-108 — Build artifacts (Linear)](https://linear.app/mnt/issue/MNT-108)

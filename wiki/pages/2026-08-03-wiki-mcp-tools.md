@@ -1,8 +1,9 @@
 ---
 title: Wiki MCP Tools — Search, Read, and List Pages
-date: 2026-08-03
+generated: {by: demetra, at: '2026-08-03T00:00:00Z'}
+description: 'Records building the in-repo wiki MCP tools (wiki_search, wiki_get_page, wiki_list_pages) with frontmatter parsing and a weighted scorer, merged as PR #68 with 28 tests — later retired in favor of the external WI MCP server.'
 type: implementation
-status: resolved
+status: stable
 session_id: ses_unknown
 services: [wiki, mcp]
 branch: wiki-context-integration
@@ -19,7 +20,7 @@ Added `demetra/tools/wiki.py` exposing `wiki_search` / `wiki_get_page` / `wiki_l
 
 ## Overview
 
-Backs AGENTS.md instruction "search the wiki first via `wiki_search`" ([[2026-08-03-agents-md-and-wiki-consistency]]). On `wiki-context-integration`, merged to `master` (now at `1.15.7`).
+Backs AGENTS.md instruction "search the wiki first via `wiki_search`" ([2026-08-03-agents-md-and-wiki-consistency](/pages/2026-08-03-agents-md-and-wiki-consistency.md)). On `wiki-context-integration`, merged to `master` (now at `1.15.7`).
 
 ## Step 1 — `demetra/tools/wiki.py` (new)
 
@@ -34,7 +35,7 @@ Follows `async list_tools() -> list[Tool]` / `async call_tool(name, arguments) -
 > BM25F over cached per-field token counts in `demetra/tools/search.py`, and
 > `demetra/tools/wiki.py` carries an mtime+size fingerprint cache — the page text
 > is still the session record for how the tool was first built. See
-> [[2026-10-09-bm25-search-for-mcp-tools]].
+> [2026-10-09-bm25-search-for-mcp-tools](/pages/2026-10-09-bm25-search-for-mcp-tools.md).
 - **Resolution** (`_resolve_page`): accepts `pages/`-prefixed / extension-less names, rejects traversal outside `PAGES_ROOT`.
 - **Tools:** `wiki_search` (ranked name+title+snippets), `wiki_get_page` (full Markdown), `wiki_list_pages` (catalog, no bodies). All failures → `ToolResult(is_error=True)`.
 
@@ -61,7 +62,7 @@ The tool this page describes was **removed**. `demetra/tools/wiki.py` and
 `tests/test_wiki_tools.py` are deleted and the wiki is now served by the external
 **WI** MCP server instead (`opencode.json`); the `SEARCH` wiki weights and the
 `AGENTS_DRIFT_ANCHORS` path went with it. See
-[[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+[2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md).
 
 ## Follow-ups
 
@@ -77,7 +78,7 @@ The tool this page describes was **removed**. `demetra/tools/wiki.py` and
 
 ## References
 
-- Related: [[2026-08-03-agents-md-and-wiki-consistency]], [[2026-10-25-mcp-db-tools-env-sql]]
+- Related: [2026-08-03-agents-md-and-wiki-consistency](/pages/2026-08-03-agents-md-and-wiki-consistency.md), [2026-10-25-mcp-db-tools-env-sql](/pages/2026-10-25-mcp-db-tools-env-sql.md)
 - External: AGENTS.md Wiki section (`wiki_search`/`wiki_list_pages`/`wiki_get_page`)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The tool aggregate quoted in this page is no longer accurate in either variant: `demetra/tools/registry.py:15-19` registers **database + docstrings + logs** — there is no `proj` and no `wiki` module (`demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor, see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]). The wiki is served by the external **WI** MCP server instead of an in-repo tool. The scoring described above was replaced by BM25F in [[2026-10-09-bm25-search-for-mcp-tools]].
+> **Consistency note (2026-11-11, Consistency Agent):** The tool aggregate quoted in this page is no longer accurate in either variant: `demetra/tools/registry.py:15-19` registers **database + docstrings + logs** — there is no `proj` and no `wiki` module (`demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor, see [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)). The wiki is served by the external **WI** MCP server instead of an in-repo tool. The scoring described above was replaced by BM25F in [2026-10-09-bm25-search-for-mcp-tools](/pages/2026-10-09-bm25-search-for-mcp-tools.md).

@@ -1,11 +1,12 @@
 ---
 title: Worktree path already exists
-date: 2026-03-05
+generated: {by: demetra, at: '2026-03-05T00:00:00Z'}
+description: 'Records the MNT-47 fix to `create_worktree` so a stale worktree path no longer raises ''Worktree path already exists'': the helper now detects and removes an existing worktree reference before creating a fresh one, was later hardened for other reference types in PR #48, and ships with tests.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [workflows, git]
-branch: -
+branch: '-'
 tickets: [MNT-47]
 tags: [git, worktree, bug]
 related: []

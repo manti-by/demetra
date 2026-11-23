@@ -1,11 +1,12 @@
 ---
 title: Subagent output streaming
-date: 2026-02-15
+generated: {by: demetra, at: '2026-02-15T00:00:00Z'}
+description: Records MNT-18 streaming subagent subprocess output near-realtime line-by-line inside `run_command` via a `live_stream` helper, with a `disable_stdio` flag for silent calls while still capturing full output; covered by the MNT-21/MNT-37 modularization tests and later archived on 2026-08-18 into the fix-project-creation-timeouts page.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [opencode, subprocess]
-branch: -
+branch: '-'
 tickets: [MNT-18]
 tags: [streaming, subprocess, live-output]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Subagent output streaming
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-10-fix-project-creation-timeouts]]. See wiki/archive/ for the
+> [2026-06-10-fix-project-creation-timeouts](/archive/2026-06-10-fix-project-creation-timeouts.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

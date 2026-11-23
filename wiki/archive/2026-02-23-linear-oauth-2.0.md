@@ -1,11 +1,12 @@
 ---
 title: Linear OAuth 2.0
-date: 2026-02-23
+generated: {by: demetra, at: '2026-02-23T00:00:00Z'}
+description: MNT-34 records replacing Linear header-token auth with OAuth 2.0 for bot-owned actions, adding an authorization service for token persistence, expiry validation, auto-refresh, and dynamic API authorization, plus an --auto headless CLI mode and a review flow that returns the first result.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [linear, auth]
-branch: -
+branch: '-'
 tickets: [MNT-34]
 tags: [linear, oauth, tokens]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Linear OAuth 2.0
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-09-check-linear-ticket-text]]. See wiki/archive/ for the
+> [2026-06-09-check-linear-ticket-text](/archive/2026-06-09-check-linear-ticket-text.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

@@ -1,11 +1,12 @@
 ---
 title: Wiki edge-case fixes and slow-test optimization
-date: 2026-08-09
+generated: {by: demetra, at: '2026-08-09T00:00:00Z'}
+description: Records hardening wiki-service edge cases from the subpackage split — blank env paths, cluster scoring, last-header insertion, unreadable files, `answer_sweep` preamble — and scoping revalidation commits to changed files, then cutting the suite from ~13s to 729 passed in 4.60s.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [wiki, tests, runtime]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [wiki, tests, performance, env, index, revalidation, bug]
 related: [2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-07-mnt-147-wiki-processes-pr70-review.md, 2026-08-09-apply-code-review-findings.md]
@@ -21,11 +22,11 @@ Hardened four wiki-service edge cases from the subpackage split (blank env paths
 
 ## Overview
 
-Follow-up to [[2026-08-07-split-wiki-service-into-subpackage]]; also fixes the new `revalidation_changed_files()` seam so `commit_revalidation` stages only changed files, not the whole `wiki/` tree.
+Follow-up to [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md); also fixes the new `revalidation_changed_files()` seam so `commit_revalidation` stages only changed files, not the whole `wiki/` tree.
 
 ## Step 1 — `env_get_path` blank-value handling
 
-**File:** `demetra/services/runtime/utils.py:313-316` — empty env var resolved `Path("")` to CWD instead of returning default (distinct from `env_get_list` CI bug in [[2026-08-07-mnt-147-wiki-processes-pr70-review]]).
+**File:** `demetra/services/runtime/utils.py:313-316` — empty env var resolved `Path("")` to CWD instead of returning default (distinct from `env_get_list` CI bug in [2026-08-07-mnt-147-wiki-processes-pr70-review](/pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)).
 
 ```python
 value = os.environ.get(name)
@@ -83,6 +84,6 @@ None.
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-07-mnt-147-wiki-processes-pr70-review]], [[2026-08-09-apply-code-review-findings]]
+- Related: [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-08-07-mnt-147-wiki-processes-pr70-review](/pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md), [2026-08-09-apply-code-review-findings](/pages/2026-08-09-apply-code-review-findings.md)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The `revalidation_changed_files()` command quoted above (`git status --porcelain --untracked-files=all -- wiki/ AGENTS.md`) was superseded by the NUL-separated form used in [[2026-08-09-apply-code-review-findings]] — `["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/", "AGENTS.md"]`. The other edits on this page (empty env path handling, unreadable-page skip, last-header insertion, `answer_sweep` preamble) still hold.
+> **Consistency note (2026-11-11, Consistency Agent):** The `revalidation_changed_files()` command quoted above (`git status --porcelain --untracked-files=all -- wiki/ AGENTS.md`) was superseded by the NUL-separated form used in [2026-08-09-apply-code-review-findings](/pages/2026-08-09-apply-code-review-findings.md) — `["git", "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", "wiki/", "AGENTS.md"]`. The other edits on this page (empty env path handling, unreadable-page skip, last-header insertion, `answer_sweep` preamble) still hold.

@@ -9,6 +9,7 @@ from demetra.library.models import TokenUsage
 from demetra.services.llm.openrouter import (
     _extract_usage,
     _record_llm_call,
+    compose_wiki_description,
     compose_wiki_page,
     extract_errors,
     extract_plan,
@@ -607,6 +608,7 @@ class TestComposeWikiPage:
             "log_tail",
             "linear_url",
             "related",
+            "related_links",
             "task_id",
             "environment",
         }
@@ -660,9 +662,26 @@ class TestComposeWikiPage:
             await compose_wiki_page(**call_kwargs)
 
         rendered = mock_chain.ainvoke.call_args.kwargs["input"]["related"]
-        assert "- Related: [[2026-08-01-other]]" in rendered
-        assert "- Related: [[2026-08-02-another]]" in rendered
-        assert ".md" not in rendered
+        assert "- Related: [2026-08-01-other](/pages/2026-08-01-other.md)" in rendered
+        assert "- Related: [2026-08-02-another](/pages/2026-08-02-another.md)" in rendered
+
+    @pytest.mark.asyncio
+    async def test_compose_wiki_page_uses_pre_resolved_sibling_links(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_prompt, mock_chain = self._capturing_chain(MagicMock(content=self.VALID_BODY))
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            call_kwargs = self._call_kwargs()
+            call_kwargs["related_links"] = ["- Related: [old](/archive/2026-08-01-old.md)"]
+            await compose_wiki_page(**call_kwargs)
+
+        rendered = mock_chain.ainvoke.call_args.kwargs["input"]["related"]
+        assert rendered == "- Related: [old](/archive/2026-08-01-old.md)"
 
     @pytest.mark.asyncio
     async def test_compose_wiki_page_renders_no_siblings_as_none(self):
@@ -740,6 +759,64 @@ class TestComposeWikiPage:
 
             with pytest.raises(WikiError, match=r"missing required sections: ## References"):
                 await compose_wiki_page(**self._call_kwargs())
+
+
+class TestComposeWikiDescription:
+    @pytest.mark.asyncio
+    async def test_returns_a_single_normalized_sentence(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = MagicMock(content='  "A single sentence about the page.\n"  ')
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            result = await compose_wiki_description(content="## TL;DR\n\nSome page content.")
+
+            assert result == "A single sentence about the page."
+            assert mock_chain.ainvoke.call_args.kwargs["input"]["content"].startswith("## TL;DR")
+
+    @pytest.mark.asyncio
+    async def test_raises_wiki_error_on_failure(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.side_effect = RuntimeError("LLM unavailable")
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(WikiError, match="Failed to compose the wiki page description"):
+                await compose_wiki_description(content="Some content.")
+
+    @pytest.mark.asyncio
+    async def test_raises_wiki_error_on_empty_description(self):
+        with (
+            patch("demetra.services.llm.openrouter.build_llm") as mock_llm,
+            patch("demetra.services.llm.openrouter.ChatPromptTemplate") as mock_template,
+            patch("demetra.services.llm.openrouter.get_prompt", new_callable=AsyncMock, return_value="system prompt"),
+        ):
+            mock_chain = AsyncMock()
+            mock_chain.ainvoke.return_value = MagicMock(content="   ")
+            mock_chain.__or__.return_value = mock_chain
+            mock_prompt = MagicMock()
+            mock_prompt.__or__.return_value = mock_chain
+            mock_template.from_messages.return_value = mock_prompt
+            mock_llm.return_value = AsyncMock()
+
+            with pytest.raises(WikiError, match="empty wiki page description"):
+                await compose_wiki_description(content="Some content.")
 
 
 class TestGeneratePrDescription:

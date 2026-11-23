@@ -1,9 +1,10 @@
 ---
 title: Docker setup review — Dockerfile + docker-compose.yaml on mnt-164
-date: 2026-08-17
+generated: {by: demetra, at: '2026-08-17T00:00:00Z'}
+description: Records a review of the Dockerfile and docker-compose.yaml on `mnt-164-docker-compose` that found 20 regressions blocking boot — missing source copy, stale venv path, `WORKDIR` typo, baked-in `.keys/`, dropped healthchecks, `DB_HOST` mismatch — with findings 1–10 and 13–16 fixed and 11–12 judged incorrect.
 type: code-review
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [deploy, configs]
 branch: mnt-164-docker-compose
 tickets: [MNT-164]
@@ -17,7 +18,7 @@ related: [2026-08-18-compose-anchors-refactor.md, 2026-08-19-worker-opencode-hom
 
 Review of `mnt-164-docker-compose` found the previously-verified Docker setup regressed with multiple blockers preventing boot — missing source copy, stale venv path, `WORKDIR` typo, `.keys/` baked into image, dropped healthchecks, `DB_HOST` mismatch, `LOG_PATH` divergence, and wrong image tags. Findings 1–10,13–16 were fixed via subsequent commits; 11–12 were incorrect (see note).
 
-> **Status update (2026-08-20):** Findings 1–10 and 13–16 fixed on `master` (see [[2026-08-18-compose-anchors-refactor]], [[2026-08-19-worker-opencode-home-permissions]]). 11–12 incorrect. This is a historical record; `docker compose up` on master is no longer blocked.
+> **Status update (2026-08-20):** Findings 1–10 and 13–16 fixed on `master` (see [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)). 11–12 incorrect. This is a historical record; `docker compose up` on master is no longer blocked.
 
 ---
 
@@ -57,7 +58,7 @@ DB renamed `db`→`postgres`; `docker-compose.yaml:95,117` still `DB_HOST: db` �
 
 ### 9. `psycopg-binary` missing — Blocker
 
-Pure `psycopg==3.3.4` + slim image (no libpq) → `migrate` `ImportError: no pq wrapper available` (previously fixed in [[2026-08-10-docker-compose-deploy]]). Fix: restore `psycopg-binary==3.3.4`, `uv lock`.
+Pure `psycopg==3.3.4` + slim image (no libpq) → `migrate` `ImportError: no pq wrapper available` (previously fixed in [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)). Fix: restore `psycopg-binary==3.3.4`, `uv lock`.
 
 ### 10. `react-build` bind-mount confusion — High
 
@@ -69,7 +70,7 @@ Claimed `oven/bun:1` not found — actually a valid major tag, still used. No fi
 
 ### 12. API publish on all interfaces — Security (incorrect at review time, now valid)
 
-Claimed `--host 0.0.0.0` + `8001:8001` exposes `/docs` etc. At review time publishes were loopback-only, so not exposed. **Superseded (2026-08-23):** current compose publishes `8001:8001`/`9181:9181` on all interfaces — concern reinstated, see [[2026-08-10-docker-compose-deploy]].
+Claimed `--host 0.0.0.0` + `8001:8001` exposes `/docs` etc. At review time publishes were loopback-only, so not exposed. **Superseded (2026-08-23):** current compose publishes `8001:8001`/`9181:9181` on all interfaces — concern reinstated, see [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md).
 
 ### 13. `.env.docker.example` stale `DB_HOST=db` — High
 
@@ -93,7 +94,7 @@ Persisted `/root` (worktrees, UV venvs, session logs) gone → `down && up` wipe
 
 ### 18. `wiki/INDEX.md` merge markers — Low
 
-`<<<<<<< Updated upstream` around MNT-164 entry. Fix: resolve, keep [[2026-08-10-docker-compose-deploy]].
+`<<<<<<< Updated upstream` around MNT-164 entry. Fix: resolve, keep [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md).
 
 ### 19. `docker-deploy` pull includes invalid tag — Low
 
@@ -150,13 +151,13 @@ Persisted `/root` (worktrees, UV venvs, session logs) gone → `down && up` wipe
 
 ## Consistency note (2026-08-19)
 
-Most fixed in anchor refactor — see [[2026-08-18-compose-anchors-refactor]]. #11 (`oven/bun:1`) valid; #12 was loopback-only at review, now all-interfaces again (2026-08-23).
+Most fixed in anchor refactor — see [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md). #11 (`oven/bun:1`) valid; #12 was loopback-only at review, now all-interfaces again (2026-08-23).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-08-10-docker-compose-deploy]], [[2026-08-10-docker-compose-deploy]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-19-worker-opencode-home-permissions]]
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The open follow-up “re-run `make docker-deploy` end-to-end” should read `make deploy` — `docker-deploy` is a `.PHONY` entry with no recipe. The compose file also changed since this review: healthchecks and `DB_HOST: postgres` were added, the image is `mantiby/demetra:latest` (`:12`) and the ports are published on all interfaces (`:108`).

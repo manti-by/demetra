@@ -1,11 +1,12 @@
 ---
 title: Bake opencode agents and skills into the Docker image
-date: 2026-09-18
+generated: {by: demetra, at: '2026-09-18T00:00:00Z'}
+description: This change made the Dockerfile bake .opencode/agents and .opencode/skills into the image's global opencode config with demetra ownership and 755/644 modes while re-including them in .dockerignore (commit ceac6b9); later notes flag that skills are gitignored, so the skills COPY only works from a developer working copy.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_f4b5d623fffe8VuQZEl0Uvm3ug
 services: []
-branch: "-"
+branch: '-'
 tickets: []
 tags: [docker, opencode, agents, skills, permissions]
 related: [2026-08-17-docker-setup-review.md, 2026-08-19-worker-opencode-home-permissions.md, 2026-08-24-gh-config-dir-permission-entrypoint.md, 2026-09-14-opencode-agent-prompts-hardening.md]
@@ -51,7 +52,7 @@ RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/openco
 Why this shape:
 
 - `mkdir` first so parent dirs exist with the right owner before `COPY`.
-- `COPY --chown=demetra:demetra` so files never land root-owned (the failure mode behind [[2026-08-19-worker-opencode-home-permissions]] and [[2026-08-24-gh-config-dir-permission-entrypoint]]).
+- `COPY --chown=demetra:demetra` so files never land root-owned (the failure mode behind [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md) and [2026-08-24-gh-config-dir-permission-entrypoint](/pages/2026-08-24-gh-config-dir-permission-entrypoint.md)).
 - Explicit `chmod` normalizes whatever modes the build context carries: dirs `755`, files `644`, matching the source tree (`ls -l` showed `-rw-r--r--` / `drwxr-xr-x`).
 - Trailing `chown -R` covers parent dirs Docker creates as root during `COPY`.
 
@@ -105,9 +106,9 @@ Why this shape:
 
 ## References
 
-- Related: [[2026-08-17-docker-setup-review]]
-- Related: [[2026-08-19-worker-opencode-home-permissions]]
-- Related: [[2026-08-24-gh-config-dir-permission-entrypoint]]
-- Related: [[2026-09-14-opencode-agent-prompts-hardening]]
+- Related: [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md)
+- Related: [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)
+- Related: [2026-08-24-gh-config-dir-permission-entrypoint](/pages/2026-08-24-gh-config-dir-permission-entrypoint.md)
+- Related: [2026-09-14-opencode-agent-prompts-hardening](/pages/2026-09-14-opencode-agent-prompts-hardening.md)
 - External: https://opencode.ai/docs/agents/
 - External: https://opencode.ai/docs/skills/

@@ -1,11 +1,12 @@
 ---
 title: Session History & Token Consumption Audit (Revalidated)
-date: 2026-07-23
+generated: {by: demetra, at: '2026-07-23T00:00:00Z'}
+description: Records the revalidated 192-row session-token audit that corrected two causal claims — NULL rows were already-fixed pipe truncation, and compaction never worked because /compact was passed as a message positional — leading to the non-cumulative delta model shipped in MNT-251.
 type: investigation
-status: resolved
+status: stable
 session_id: 3eae8036-e679-4a09-be65-144e738741e0
 services: [opencode, database, workflows, settings, llm]
-branch: "-"
+branch: '-'
 tickets: [MNT-145]
 tags: [session-history, compaction, tokens, opencode-export, audit, cost]
 related: [2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
@@ -86,11 +87,11 @@ Claim that recording after `git_cleanup` caused NULLs is false — `failed` at `
 
 ## Update — 2026-10-16 15:08
 
-The delta model recommended here shipped in [[2026-10-16-mnt-251-session-attribution-accounting]] (MNT-251 Phase 2). The cumulative-counter blind spot this page identified is fixed by storing exact per-invocation deltas rather than re-inserting the running total:
+The delta model recommended here shipped in [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) (MNT-251 Phase 2). The cumulative-counter blind spot this page identified is fixed by storing exact per-invocation deltas rather than re-inserting the running total:
 
 - `agent_sessions` holds one row per `(task_id, session_id)` with the cumulative cursor; `session_history` `kind='invocation'` rows store `delta = max(0, info.tokens - cursor)`.
 - `_compute_total_tokens` sums only `kind='invocation'` rows and drops the legacy `row.length` fallback, so a resumed session no longer counts the same tokens many times.
-  - **Consistency note (2026-11-09, Consistency Agent):** superseded — `_compute_total_tokens` now also sums `kind='llm_call'` rows (added by [[2026-10-27-mnt-260-openrouter-call-history]], `demetra/api/sessions.py:118`).
+  - **Consistency note (2026-11-09, Consistency Agent):** superseded — `_compute_total_tokens` now also sums `kind='llm_call'` rows (added by [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md), `demetra/api/sessions.py:118`).
 - `context_tokens` stays a per-step snapshot (`input + cache.read`), excluded from the total — rec #2 here remains the deliberate design.
 - `info.tokens` was measured **monotonic across a `/compact`**, so no cursor reset or compaction special-casing is needed.
 
@@ -105,16 +106,16 @@ Recommendation status: **#1 done** (non-cumulative metric + delta model); **#2 o
 
 ## Consistency notes
 
-- **2026-08-19:** Plan extraction moved Groq → OpenRouter (`services/llm/openrouter.py`), legacy `groq.py` retained. See [[2026-08-18-migrate-llm-groq-to-openrouter]].
+- **2026-08-19:** Plan extraction moved Groq → OpenRouter (`services/llm/openrouter.py`), legacy `groq.py` retained. See [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md).
 - **2026-08-23/27 / 2026-09-03:** Module moves — `services/opencode.py` → `services/agents/opencode.py`, compaction caller `workflows/build.py:100`→`:102`, `usage.context` at `:428`→`:524`, `context_tokens`/`model` at `tables.py:142`→`:162-163`, `cleanup.py` catches `:110,149`→`:134,179`.
 - **2026-08-28:** Added `branch: "-"` frontmatter.
-- **2026-10-16:** Compaction was never functional — `opencode_compact_session` passed `/compact` as the *message positional*, so opencode ran a normal full-context turn instead of compacting. The "firing constantly" reading above is the cost symptom of that no-op, not a working compact; `47d428d` made the counter non-cumulative but did not make compaction work. Fixed under MNT-251 ([[2026-10-16-mnt-251-session-attribution-accounting]]): `run --session <id> --command compact` on opencode 1.x, deliberately unsupported on v2, with a test that asserts the context actually shrank. See [[2026-10-16-opencode-v2-session-token-accounting]].
+- **2026-10-16:** Compaction was never functional — `opencode_compact_session` passed `/compact` as the *message positional*, so opencode ran a normal full-context turn instead of compacting. The "firing constantly" reading above is the cost symptom of that no-op, not a working compact; `47d428d` made the counter non-cumulative but did not make compaction work. Fixed under MNT-251 ([2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md)): `run --session <id> --command compact` on opencode 1.x, deliberately unsupported on v2, with a test that asserts the context actually shrank. See [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-07-16-session-history-tokens-null]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-16-opencode-v2-session-token-accounting]]
+- Related: [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md)
 - `wiki/audits/2026-07-23-session-tokens/RESULT.md`, `BUILD_PLAN.md`
 
 > **Consistency note (2026-11-11, Consistency Agent):** `services:` still listed the removed `groq` module; `PLAN_OUTPUT_MAX_CHARS = 32_000` now lives in `demetra/services/llm/openrouter.py:29`. The audit's recommendation #3 (broad `except` in `cleanup.py`) is called “no longer a finding” in the correction block but is still listed as remaining in the Follow-ups section — the remaining broad catch is `demetra/workflows/cleanup.py:55` (`# noqa: BLE001`); recommendations #2 (cache reads in the compaction decision) and #4 (TTL cache on `opencode export`) are still open. The pre-MNT-251 `file:line` references in the body (e.g. `services/opencode.py:142`, `services/groq.py:106`, `library/tables.py:97`) have all moved — the current locations are `demetra/services/agents/opencode.py:1078`, `demetra/library/tables.py:215-237` and `demetra/services/persistence/database.py:979`.

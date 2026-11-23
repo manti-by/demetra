@@ -1,8 +1,9 @@
 ---
 title: React Frontend Layout, Template Updates, and Warp Theme CSS Refinements
-date: 2026-07-22
+generated: {by: demetra, at: '2026-07-22T00:00:00Z'}
+description: Records React frontend layout and warp-theme refinements — merging sidebar and console into one card by moving border ownership to containers, always rendering SessionArtifacts to preserve borders, adding a typography baseline and a wider build-plan modal — CSS-only with tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_075b8479fffe27O59Q22Ob4k0b
 services: [react]
 branch: mnt-142-warp-theme-for-react
@@ -42,7 +43,7 @@ Key layout in `AppContent()` (`App.tsx`):
 </main>
 ```
 
-> **Correction (2026-10-26, Consistency Agent):** the sidebar is no longer a direct child — MNT-193 wrapped it in `<div className="sidebar-slot">` for the mobile drawer (`react/src/App.tsx:179-187`), and the console now has `.console-tabs`/`.console-toolbar` (`App.tsx:188-220`). See [[2026-09-02-mobile-template-react-frontend]].
+> **Correction (2026-10-26, Consistency Agent):** the sidebar is no longer a direct child — MNT-193 wrapped it in `<div className="sidebar-slot">` for the mobile drawer (`react/src/App.tsx:179-187`), and the console now has `.console-tabs`/`.console-toolbar` (`App.tsx:188-220`). See [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md).
 
 ## 2. Layout / CSS
 
@@ -82,7 +83,7 @@ Previously returned `null` when `!session` or no links — broke `border-top`. N
 
 Added `h1`–`h3`, `code`, `pre`, `blockquote`, `hr` reset using `--font-ui`/`--font-mono` and `--color-text-*`/`--color-surface-*` tokens. Motivation: warp theme had tokens but no element styles, so rendered markdown looked unstyled.
 
-> **Status update (2026-08-27):** This block was moved from `App.css` to `react/src/index.css` the same day by [[2026-07-22-warp-theme-review-fixes-and-ops]] (commit `ed8bcc4`). Rules identical, only location changed.
+> **Status update (2026-08-27):** This block was moved from `App.css` to `react/src/index.css` the same day by [2026-07-22-warp-theme-review-fixes-and-ops](/pages/2026-07-22-warp-theme-review-fixes-and-ops.md) (commit `ed8bcc4`). Rules identical, only location changed.
 
 ## 5. Misc CSS & Tooling
 
@@ -94,15 +95,15 @@ Added `h1`–`h3`, `code`, `pre`, `blockquote`, `hr` reset using `--font-ui`/`--
 
 CSS-only, type-safe. `SessionArtifacts` early-return covered by existing render tests. All tests pass.
 
-## Source — [[2026-03-04-basic-react-app]]
+## Source — [2026-03-04-basic-react-app](/archive/2026-03-04-basic-react-app.md)
 
 React + TypeScript + Vite + Bun under `react/` (MNT-49, 2026-03-04). Dark theme tokens (grey `#2b2b2b`, green `#60843d`) refined by warp. Vitest, `make react*` targets.
 
-## Source — [[2026-03-09-user-settings-frontend]]
+## Source — [2026-03-09-user-settings-frontend](/archive/2026-03-09-user-settings-frontend.md)
 
 User-settings "keys" group editing via `PATCH /users/me` (MNT-57, 2026-03-09). Basis for `UserSettings.tsx` / `services/api.ts`.
 
-## Source — [[2026-06-01-refactor-frontend-app]]
+## Source — [2026-06-01-refactor-frontend-app](/archive/2026-06-01-refactor-frontend-app.md)
 
 Frontend dir renamed `hera` → `react/` (MNT-77, 2026-06-01). All paths in this page hang off that name.
 
@@ -116,7 +117,7 @@ Frontend dir renamed `hera` → `react/` (MNT-77, 2026-06-01). All paths in this
 > **Consistency note (2026-11-03, Consistency Agent):** the Playwright MCP listed above
 > (`@tontoko/fast-playwright-mcp`) is no longer configured — `opencode.json` defines only
 > `Demetra`, `WI` and `Linear`, and the server was removed in `e9c9702`. See
-> [[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+> [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md).
 
 ## References
 

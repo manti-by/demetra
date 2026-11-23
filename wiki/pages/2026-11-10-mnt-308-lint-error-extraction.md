@@ -1,8 +1,9 @@
 ---
 title: 'MNT-308: Lint and test erorrs'
-date: '2026-11-10'
+generated: {by: demetra, at: '2026-11-10T00:00:00Z'}
+description: Records MNT-308 adding an OpenRouter-backed extract_errors service plus a LintError exception so ruff and pytest output is cleaned into deduplicated error lists before reaching the build agent, falling back to raw output on failure; all 1245 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e3a8c92a6ffeVcW9fQN9vDVOsN
 services: [llm, workflows, quality, library, settings]
 branch: mnt-308-lint-and-test-erorrs
@@ -91,15 +92,15 @@ All 1245 tests passed successfully, including new tests for the error extraction
 - Comprehensive test coverage
 - Wiki documentation added
 
-## Source — [[2026-07-22-feature-flag-settings-and-tests]]
+## Source — [2026-07-22-feature-flag-settings-and-tests](/archive/2026-07-22-feature-flag-settings-and-tests.md)
 
-Lint/tests are opt-in feature flags (MNT-21, 2026-07-22): `FEATURES` in `demetra/settings.py` reads `IS_RUFF_ENABLED`/`IS_PYTEST_ENABLED` via `env_get_bool(..., False)` (`demetra/services/runtime/utils.py:240`), and `demetra/workflows/lint.py` requires the flag *and* the package installed before running ruff/pytest. Originally decided in [[2026-07-22-feature-flag-settings-and-tests]] on 2026-07-22.
+Lint/tests are opt-in feature flags (MNT-21, 2026-07-22): `FEATURES` in `demetra/settings.py` reads `IS_RUFF_ENABLED`/`IS_PYTEST_ENABLED` via `env_get_bool(..., False)` (`demetra/services/runtime/utils.py:240`), and `demetra/workflows/lint.py` requires the flag *and* the package installed before running ruff/pytest. Originally decided in [2026-07-22-feature-flag-settings-and-tests](/archive/2026-07-22-feature-flag-settings-and-tests.md) on 2026-07-22.
 
 ## Follow-ups
 - None
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-308/lint-and-test-erorrs
-- Related: [[2026-10-27-mnt-260-openrouter-call-history]]
-- Related: [[2026-07-22-feature-flag-settings-and-tests]]
-- Related: [[2026-08-05-post-build-validation]]
+- Related: [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md)
+- Related: [2026-07-22-feature-flag-settings-and-tests](/archive/2026-07-22-feature-flag-settings-and-tests.md)
+- Related: [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md)

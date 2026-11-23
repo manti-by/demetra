@@ -1,8 +1,9 @@
 ---
 title: 'CH-2: Single (unified) session view'
-date: '2026-11-03'
+generated: {by: demetra, at: '2026-11-03T00:00:00Z'}
+description: CH-2 unified the chat view into the session log by extracting a ChatPanel component rendered above a default-collapsed LogConsole, adding a showFlow prop to avoid a duplicated progress bar, making SessionList select in-console instead of navigating, and reducing ChatPage to a wrapper, with all tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e5eb22d6dffehbKOl21RoW8Mkp
 services: [react]
 branch: ch-2-single-unified-session-view
@@ -42,7 +43,7 @@ All tests passed after the implementation.
 
 ## References
 - External: CH-2 (chat request; no Linear ticket URL recorded)
-- Related: [[2026-10-12-session-state-flow-feedback-loops]]
-- Related: [[2026-09-24-mnt-219-session-log-autoscroll]]
+- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md)
+- Related: [2026-09-24-mnt-219-session-log-autoscroll](/pages/2026-09-24-mnt-219-session-log-autoscroll.md)
 
-> **Consistency note (2026-11-11, Consistency Agent):** `ChatPage` is no longer a thin wrapper only: it still owns the delete handler, the header and the navigation, while the delete wiring moved **into** `ChatPanel` (`handleDeleteSession`, `react/src/components/ChatPanel.tsx:174-184`) with CH-5 — see [[2026-11-06-ch-5-delete-chat-button]] and [[2026-11-04-chat-session-list-and-rerun]].
+> **Consistency note (2026-11-11, Consistency Agent):** `ChatPage` is no longer a thin wrapper only: it still owns the delete handler, the header and the navigation, while the delete wiring moved **into** `ChatPanel` (`handleDeleteSession`, `react/src/components/ChatPanel.tsx:174-184`) with CH-5 — see [2026-11-06-ch-5-delete-chat-button](/pages/2026-11-06-ch-5-delete-chat-button.md) and [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md).

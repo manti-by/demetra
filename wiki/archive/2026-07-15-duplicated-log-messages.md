@@ -1,11 +1,12 @@
 ---
 title: Duplicated log messages and missing build agent logs
-date: 2026-07-15
+generated: {by: demetra, at: '2026-07-15T00:00:00Z'}
+description: 'Records two build-workflow logging bugs: duplicated print_message lines because setup_session_logging compared a Path to a str (always false), adding a second FileHandler, and build-agent stdout discarded on success; both fixed via Path.resolve() comparison and a success print_message, with 472 tests passing.'
 type: debug
-status: resolved
+status: deprecated
 session_id: ses_094983da7ffe4Xk4LIfYPUrftI
 services: [main, tui, watcher, build]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [logging, duplication, type-bug, build-agent]
 related: [2026-07-16-simplify-session-logging-setup.md]
@@ -14,7 +15,7 @@ related: [2026-07-16-simplify-session-logging-setup.md]
 # Duplicated log messages and missing build agent logs
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+> [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -99,4 +100,4 @@ None.
 
 ## References
 
-- Related: [[2026-07-16-simplify-session-logging-setup]]
+- Related: [2026-07-16-simplify-session-logging-setup](/archive/2026-07-16-simplify-session-logging-setup.md)

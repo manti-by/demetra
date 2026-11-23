@@ -1,11 +1,12 @@
 ---
 title: Update project version
-date: 2026-06-25
+generated: {by: demetra, at: '2026-06-25T00:00:00Z'}
+description: Records MNT-116 auto-bumping `pyproject.toml` on every feature or bugfix workflow with major bumps manual; archived into the MNT-176 bump-version page after corrections showed no failure rollback exists, the epic branch was removed and the default bump axis is now patch via `is_patch=True`.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [workflows, settings]
-branch: "-"
+branch: '-'
 tickets: [MNT-116]
 tags: [version, bump, pyproject]
 related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-08-21-mnt-176-bump-version-error.md, 2026-09-08-docstring-mcp-search.md]
@@ -14,7 +15,7 @@ related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-08-21-mnt-176-bump
 # Update project version
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-21-mnt-176-bump-version-error]]. See wiki/archive/ for the original.
+> [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -40,12 +41,12 @@ Tests cover bump logic (minor bump, major preservation) and rollback on failure.
 
 ## Consistency note (2026-08-23)
 
-- Original MNT-116 (`ad2cf2a`) shipped a **major** bump for `EPIC`-labelled tickets (`is_epic_label` / `bump_project_version(..., is_epic=...)`) — the "major manual only" wording never fully matched code. [[2026-07-22-warp-theme-review-fixes-and-ops]] hardened `bump_project_version` to log+return `None` instead of raising.
-- Epic branch removed 2026-08-21 in MNT-176 ([[2026-08-21-mnt-176-bump-version-error]], `fe33701`): always bumps minor now; `is_epic_label`/`EPIC_LABEL` removed.
+- Original MNT-116 (`ad2cf2a`) shipped a **major** bump for `EPIC`-labelled tickets (`is_epic_label` / `bump_project_version(..., is_epic=...)`) — the "major manual only" wording never fully matched code. [2026-07-22-warp-theme-review-fixes-and-ops](/pages/2026-07-22-warp-theme-review-fixes-and-ops.md) hardened `bump_project_version` to log+return `None` instead of raising.
+- Epic branch removed 2026-08-21 in MNT-176 ([2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md), `fe33701`): always bumps minor now; `is_epic_label`/`EPIC_LABEL` removed.
 
 ## Consistency note (2026-09-11, Consistency Agent)
 
-- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): reworked to explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`). Default auto-bump now increments **patch** (`1.14.1 → 1.14.2`), not minor; minor-bump wording above is stale.
+- Superseded by [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md) (`dd4f152`): reworked to explicit `is_major`/`is_minor`/`is_patch` flags (default `is_patch=True`). Default auto-bump now increments **patch** (`1.14.1 → 1.14.2`), not minor; minor-bump wording above is stale.
 
 ---
 
@@ -57,7 +58,7 @@ None.
 
 ## References
 
-- Related: [[2026-07-22-warp-theme-review-fixes-and-ops]], [[2026-08-21-mnt-176-bump-version-error]], [[2026-09-08-docstring-mcp-search]]
+- Related: [2026-07-22-warp-theme-review-fixes-and-ops](/pages/2026-07-22-warp-theme-review-fixes-and-ops.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md), [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md)
 - External: [MNT-116 — Update project version (Linear)](https://linear.app/mnt/issue/MNT-116)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Two corrections. (1) The pointer “see Q-001 in `wiki/QUESTIONS.md`” is stale — Q-001 was resolved on 2026-09-11 (patch default is intentional, `demetra/services/runtime/project.py:331-332`, `is_patch=True`); the still-open question in that family is **Q-002** (`MAX_RUN_ATTEMPTS` / `MAX_PLAN_ATTEMPTS` defaults dropped by the 2026-09-28 settings refactor). (2) The body still says the bump is “rolled back on failure” and that rollback is tested — the rollback was removed in `8f42bd6`; the current call site (`demetra/workflows/build.py:234`) bumps the patch version with no rollback, and `tests/test_project.py` no longer covers a rollback path.

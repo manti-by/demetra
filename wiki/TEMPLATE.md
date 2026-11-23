@@ -1,8 +1,9 @@
 ---
 title:              # Human-readable page title (should match the H1 below)
-date: YYYY-MM-DD    # Session date — `date +%F`
+generated: {by: demetra, at: 2026-11-20T00:00:00Z}  # OKF actor + ISO 8601 UTC timestamp
+description:        # One sentence (40-50 tokens) summarizing what the page records and its outcome
 type:               # debug | investigation | code-review | implementation
-status:             # resolved | open | in-progress | reference
+status:             # stable | draft | deprecated (deprecated for archived pages)
 session_id:         # agent session id (OpenCode / Claude Code)
 services: []        # e.g. [main, auth, cache, etc]
 branch:             # feature/epic branch this relates to, or - if none
@@ -25,7 +26,7 @@ outcome / net effect. Lead with the conclusion, not the chronology.>
   Conventions for every body:
     • Anchor claims to code: put `**File:** path/to/file.py:123` above the relevant snippet.
     • Prefer short, real code snippets and file:line refs over prose.
-    • Cross-link sibling pages with [[filename-without-.md]] and add them to `related` above.
+    • Cross-link sibling pages with [filename-without-.md](/pages/filename.md) and add them to `related` above.
     • Document root causes and *why*, not just symptoms. Include what was ruled out.
 
   ── type: debug ──────────────────────────────────────────
@@ -64,5 +65,5 @@ outcome / net effect. Lead with the conclusion, not the chronology.>
 
 ## References
 
-- Related: [[<related-page-filename-without-.md>]]
+- Related: [<related-page-filename-without-.md>](/pages/<related-page-filename>.md)
 - External: <Linear / Notion / URL - or omit this line>

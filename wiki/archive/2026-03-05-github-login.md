@@ -1,11 +1,12 @@
 ---
 title: Add support for GitHub login
-date: 2026-03-05
+generated: {by: demetra, at: '2026-03-05T00:00:00Z'}
+description: 'MNT-48 records adding GitHub OAuth login to the FastAPI backend with JWT token-based sessions: login, logout and current-user endpoints plus token generation, retrieval and validation services and auth models, documented in the README, while the React frontend was deliberately deferred to MNT-50.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [auth, api, github]
-branch: -
+branch: '-'
 tickets: [MNT-48]
 tags: [auth, github, oauth, jwt]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add support for GitHub login
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-24-plain-auth-review-followups]]. See wiki/archive/ for the
+> [2026-07-24-plain-auth-review-followups](/archive/2026-07-24-plain-auth-review-followups.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

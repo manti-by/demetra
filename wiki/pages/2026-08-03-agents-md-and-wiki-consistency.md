@@ -1,8 +1,9 @@
 ---
 title: AGENTS.md Revalidation and Wiki Consistency Audit
-date: 2026-08-03
+generated: {by: demetra, at: '2026-08-03T00:00:00Z'}
+description: 'Records AGENTS.md drift fixes and a wiki INDEX "By topic" re-clustering, resolving stale "not yet committed" claims by verifying merged PRs #66/#67/#68 in master and leaving three audit recommendations open; documentation-only with no code changes.'
 type: implementation
-status: resolved
+status: stable
 session_id: ses_unknown
 services: [docs, wiki, auth, workflow, mcp]
 branch: wiki-context-integration
@@ -100,7 +101,7 @@ Verified the working tree and git history to correct outdated page statements:
 
 ---
 
-> **Consistency note (2026-08-24, Consistency Agent):** Active LLM consumers now use `demetra/services/llm/openrouter.py` (not `demetra/services/groq.py` or `demetra/services/llm/groq.py` for workflow calls); `PLAN_OUTPUT_MAX_CHARS` lives in `openrouter.py:15`. OpenCode helpers are at `demetra/services/agents/opencode.py` (not `demetra/services/opencode.py`). Compaction is invoked at `demetra/workflows/build.py:100` (not `:79` or `:96`). See [[2026-08-18-migrate-llm-groq-to-openrouter]] and [[2026-07-23-session-tokens-audit-revalidation]].
+> **Consistency note (2026-08-24, Consistency Agent):** Active LLM consumers now use `demetra/services/llm/openrouter.py` (not `demetra/services/groq.py` or `demetra/services/llm/groq.py` for workflow calls); `PLAN_OUTPUT_MAX_CHARS` lives in `openrouter.py:15`. OpenCode helpers are at `demetra/services/agents/opencode.py` (not `demetra/services/opencode.py`). Compaction is invoked at `demetra/workflows/build.py:100` (not `:79` or `:96`). See [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md) and [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md).
 
 > **Status update (2026-08-27, Consistency Agent):** Two more stale pointers from this page,
 > both superseded by the same "Refactor services" commit `04436c6` (2026-08-07): Step 1's
@@ -118,7 +119,7 @@ Verified the working tree and git history to correct outdated page statements:
   cache on `opencode export`).
 - The source-code companion to this page — the wiki MCP tools (`wiki_search`,
   `wiki_get_page`, `wiki_list_pages`) that AGENTS.md points agents to — is documented in
-  [[2026-08-03-wiki-mcp-tools]].
+  [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md).
 - ~~Commit and PR these `AGENTS.md` + wiki edits (changes are currently staged/unstaged on
   `master`).~~ **Done** — committed on `wiki-context-integration`, merged as PR #68
   (`ea754bc`, 2026-08-04).
@@ -134,16 +135,16 @@ Verified the working tree and git history to correct outdated page statements:
 > **Correction (2026-10-26, Consistency Agent):** three anchors on this page have
 > moved since. (1) `demetra/tools/wiki.py` no longer exists — the in-repo wiki
 > MCP tools were retired in favour of the external WI server
-> ([[2026-10-15-replace-wiki-mcp-tool-with-wi]]); use `demetra/tools/database.py`
+> ([2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)); use `demetra/tools/database.py`
 > for the private-helper example. (2) `demetra/services/llm/groq.py` was deleted
 > in `10ea543`; `AGENTS.md` no longer lists Groq at all. (3) Compaction was never
 > live before MNT-251 — the `/compact` text was passed as the message
 > positional, so the 2026-08-24 line numbers describe a call that did not
-> compact ([[2026-10-16-opencode-v2-session-token-accounting]]).
+> compact ([2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md)).
 
 ## References
 
-- Related: [[2026-07-23-agents-md-revalidation-and-docs-removal]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-03-wiki-mcp-tools]], [[2026-09-14-listener-readline-limit-crash]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [2026-07-23-agents-md-revalidation-and-docs-removal](/pages/2026-07-23-agents-md-revalidation-and-docs-removal.md), [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md), [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-09-14-listener-readline-limit-crash](/pages/2026-09-14-listener-readline-limit-crash.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 - External: PR #66 (`8abcd8d`), PR #67 (`bcddc00`), commit `47d428d`
 
 > **Consistency note (2026-11-11, Consistency Agent):** The 2026-08-24 note still asserts that compaction “is invoked at `demetra/workflows/build.py:100`”; that claim was retracted later — compaction was **never live before MNT-251** (`/compact` was passed as a message positional), and the caller is now `demetra/workflows/build.py:163` (version-gated, 1.x only). `PLAN_OUTPUT_MAX_CHARS = 32_000` moved from the deleted `demetra/services/groq.py` to `demetra/services/llm/openrouter.py:29`, and the `session_history` columns live at `demetra/library/tables.py:230-232`. The “master has since advanced to 1.15.7 / 1.16.0” lines are historical; the project is at `1.19.11`.

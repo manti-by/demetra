@@ -1,8 +1,9 @@
 ---
 title: 'MNT-228: Intermediate history states'
-date: '2026-09-30'
+generated: {by: demetra, at: '2026-09-30T00:00:00Z'}
+description: MNT-228 captured intermediate workflow step transitions in session history by passing session_id into update_session_step to write step-only rows, and showed localized clock times in the frontend; resolved, but the history approach was superseded by MNT-251's task_id-keyed record_session_step, while the clock change remains.
 type: implementation
-status: resolved
+status: stable
 session_id: 8a73875f-33bb-4c95-807d-570bbb05540b
 services: [persistence, workflows, api, react]
 branch: mnt-228-intermediate-history-states
@@ -10,6 +11,7 @@ tickets: [MNT-228]
 tags: [wiki, feature, backend, frontend]
 related: [2026-07-23-session-history-modal.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-27-mnt-260-openrouter-call-history.md]
 ---
+
 # MNT-228: Intermediate history states
 
 ## TL;DR
@@ -41,11 +43,11 @@ Here is the summary of the implementation plan:
 
 ## Update — 2026-10-16 15:08
 
-**Superseded by MNT-251.** The design here — pass `session_id` into `update_session_step` so it inserts a step-only history row in the same transaction — was replaced in [[2026-10-16-mnt-251-session-attribution-accounting]] because keying step rows off `sessions.session_id` left research (which never sets that column) with zero rows and produced an `awaiting_input` double-write.
+**Superseded by MNT-251.** The design here — pass `session_id` into `update_session_step` so it inserts a step-only history row in the same transaction — was replaced in [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) because keying step rows off `sessions.session_id` left research (which never sets that column) with zero rows and produced an `awaiting_input` double-write.
 
 - `update_session_step(task_id, step)` now only advances `sessions.step`; it no longer writes history.
 - Step rows come from `record_session_step(task_id, step)`, keyed by `task_id` and written with `kind='step'` — so a research-only task gets history without a session id.
-- `kind` is now explicit on every row (`'step'` vs `'invocation'`), and the UI drives tokens/attribution from it instead of null-sniffing. (MNT-260 later added a third kind, `kind='llm_call'`, for OpenRouter calls — see [[2026-10-27-mnt-260-openrouter-call-history]].)
+- `kind` is now explicit on every row (`'step'` vs `'invocation'`), and the UI drives tokens/attribution from it instead of null-sniffing. (MNT-260 later added a third kind, `kind='llm_call'`, for OpenRouter calls — see [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md).)
 
 The localized-clock-time frontend change from this page remains in effect.
 
@@ -57,10 +59,10 @@ The localized-clock-time frontend change from this page remains in effect.
 
 ## References
 
-- Related: [[2026-07-23-session-history-modal]]
-- Related: [[2026-08-25-mnt-181-total-tokens-counter]]
-- Related: [[2026-07-23-session-tokens-audit-revalidation]]
-- Related: [[2026-10-27-mnt-260-openrouter-call-history]]
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md)
+- Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md)
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md)
+- Related: [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - External: https://linear.app/mnt/issue/MNT-228/intermediate-history-states
 
 > **Consistency fix (2026-11-11, Consistency Agent):** the truncated `- **Fronte…` plan bullet was completed from the shipped frontend behaviour (localized clock times, full timestamp in the tooltip); the 2026-10-16 update's `kind` list was extended with MNT-260's third kind (`llm_call`), and the matching `related:` entry was added.

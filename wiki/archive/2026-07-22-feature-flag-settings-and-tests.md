@@ -1,11 +1,12 @@
 ---
 title: Add tests for existing feature-flag changes
-date: 2026-07-22
+generated: {by: demetra, at: '2026-07-22T00:00:00Z'}
+description: Records adding a FEATURES dict to the settings subsystem gating ruff and pytest behind IS_RUFF_ENABLED/IS_PYTEST_ENABLED (both default False), making the lint workflow honor those flags, and adding six tests for flag combinations after fixing broken existing ones; all 17 tests pass.
 type: implementation
-status: resolved
+status: deprecated
 session_id: ses_0774c35d8ffeUI6fTqrrD0UW8w
 services: [settings, workflows, lint]
-branch: "-"
+branch: '-'
 tickets: [MNT-21]
 tags: [feature-flags, testing, ruff, pytest, pre-commit, lint]
 related: [2026-02-20-add-pre-commit-checks-and-tests.md]
@@ -14,7 +15,7 @@ related: [2026-02-20-add-pre-commit-checks-and-tests.md]
 # Add tests for existing feature-flag changes
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-11-10-mnt-308-lint-error-extraction]]. See wiki/archive/ for the original.
+> [2026-11-10-mnt-308-lint-error-extraction](/pages/2026-11-10-mnt-308-lint-error-extraction.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -49,7 +50,7 @@ Existing tests expected ruff/pytest to run, but `FEATURES` defaults `False` in t
 
 All 8 feature-flag tests + 9 existing = 17 passed.
 
-## Source — [[2026-02-20-add-pre-commit-checks-and-tests]]
+## Source — [2026-02-20-add-pre-commit-checks-and-tests](/archive/2026-02-20-add-pre-commit-checks-and-tests.md)
 
 Post-build gate is `make check` (ty + ruff via pre-commit) and `make test` (pytest), fed back to build agent. `FEATURES` makes these opt-in — see AGENTS.md `is_ruff_enabled`/`is_pytest_enabled`.
 
@@ -63,5 +64,5 @@ None.
 
 ## References
 
-- Related: [[2026-02-20-add-pre-commit-checks-and-tests]]
+- Related: [2026-02-20-add-pre-commit-checks-and-tests](/archive/2026-02-20-add-pre-commit-checks-and-tests.md)
 - External: `<none>`

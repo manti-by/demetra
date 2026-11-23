@@ -1,8 +1,9 @@
 ---
 title: Fix wiki index lock not process-safe
-date: 2026-08-28
+generated: {by: demetra, at: '2026-08-28T00:00:00Z'}
+description: The wiki INDEX read-modify-write was only process-locally serialized because `flock` was taken at write time, so two RQ workers could clobber each other's appends; fixed with an `_index_lock` context manager holding `flock` across the whole operation for all four mutators, confirmed by a two-process repro and 69 passing tests.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_fbad8fd5affeytew8qRS0KDVpx
 services: [wiki]
 branch: mnt-189-release-v16-bugfixes
@@ -53,4 +54,4 @@ async def _index_lock(target: Path) -> AsyncIterator[None]:
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-25-mnt-187-wiki-pages-not-generated]]
+- Related: [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)

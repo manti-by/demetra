@@ -1,11 +1,12 @@
 ---
 title: Workflow proceeds to review after ticket moved to Awaiting Input
-date: 2026-08-28
+generated: {by: demetra, at: '2026-08-28T00:00:00Z'}
+description: 'This diagnosis records that posting questions moves a ticket to Awaiting Input only for the same run: `main.py` skips replanning on a stale persisted `build_plan` and the watcher re-enqueues every TODO poll, so resumed or duplicate runs reach build and review with questions unanswered; both guards remain unimplemented.'
 type: debug
-status: open
+status: draft
 session_id: ses_fb7885e31ffehP8M22apgonwNj
 services: [main, watcher, workflows]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [awaiting-input, linear, plan, workflow, review, build-plan, resume, duplicate-enqueue]
 related: [2026-08-28-mnt-191-ticket-status-not-changed.md, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md, 2026-08-19-build-agent-server-error-handler.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-05-pr-creation-failure-handler.md]
@@ -60,7 +61,7 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 
 - Implement `awaiting_input` replan guard + watcher enqueue dedupe.
 
-> **Status update (2026-09-01):** Both fixes still not implemented (verified: `main.py` gates only on `not build_plan`, `process_tasks` still enqueues every TODO poll unconditionally). MNT-183 (`dfd64f6`, 2026-09-01) moved `in_progress` outside `pending_ids` guard — mitigates one race trigger but ≥2 polls still double-enqueue; primary `awaiting_input` guard unchanged. See [[2026-08-28-mnt-191-ticket-status-not-changed]].
+> **Status update (2026-09-01):** Both fixes still not implemented (verified: `main.py` gates only on `not build_plan`, `process_tasks` still enqueues every TODO poll unconditionally). MNT-183 (`dfd64f6`, 2026-09-01) moved `in_progress` outside `pending_ids` guard — mitigates one race trigger but ≥2 polls still double-enqueue; primary `awaiting_input` guard unchanged. See [2026-08-28-mnt-191-ticket-status-not-changed](/pages/2026-08-28-mnt-191-ticket-status-not-changed.md).
 
 > **Consistency fix (2026-09-02):** Quoted `branch: -` → `"-"`; added `2026-08-28-mnt-191-ticket-status-not-changed.md` to `related`.
 
@@ -76,4 +77,4 @@ Fix not implemented — diagnosis only. Verify questions→TODO→new run re-run
 
 ## References
 
-- Related: [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]], [[2026-08-19-build-agent-server-error-handler]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-28-mnt-191-ticket-status-not-changed]]
+- Related: [2026-11-12-ch-11-failed-status-for-awaiting-input-tickets](/pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md), [2026-08-19-build-agent-server-error-handler](/pages/2026-08-19-build-agent-server-error-handler.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-28-mnt-191-ticket-status-not-changed](/pages/2026-08-28-mnt-191-ticket-status-not-changed.md)

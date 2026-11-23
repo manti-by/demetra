@@ -1,11 +1,12 @@
 ---
 title: Git cleanup on error
-date: 2026-02-15
+generated: {by: demetra, at: '2026-02-15T00:00:00Z'}
+description: 'Records MNT-19 adding `cleanup_workflow` so failed workflows remove the git worktree always and force-delete the branch only on error, wired into every early return and a None-guarded `finally` in `main.py`; this prevented leaked git state and was later hardened by MNT-105/PR #46.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [workflows, git]
-branch: -
+branch: '-'
 tickets: [MNT-19]
 tags: [git, worktree, cleanup, error-handling]
 related: []

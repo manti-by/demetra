@@ -1,8 +1,9 @@
 ---
 title: 'MNT-258: Tool usage stats'
-date: '2026-10-25'
+generated: {by: demetra, at: '2026-10-25T00:00:00Z'}
+description: MNT-258 added per-tool usage stats to the session-history timeline via a new session_tool_usage table keyed by tool, a tool_usage field on SessionExport, API computation exposed in history responses, and persistence through record_agent_invocation, with fork-safe per-invocation invoked_at watermarks, all passing 1054 tests.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e8d0ccb3dffeMDtvKrTwEWduUG
 services: [api, library, agents, persistence, vcs, workflows, database, migrations, react]
 branch: mnt-258-tool-usage-stats
@@ -22,7 +23,7 @@ The goal of this session was to add tool usage stats to the session history, all
 ## Step 1 — Create a new table for tool usage data
 A new table `session_tool_usage` was created to store per-tool call counts, with foreign keys referencing the `agent_sessions` table. This table will be used to accumulate tool usage data for each session.
 
-> **Consistency note (2026-11-09, Consistency Agent):** this table was re-keyed two days later by [[2026-10-25-session-history-per-invocation-rows]] — its unique constraint is now `UniqueConstraint("history_id", "tool_name", name="uq_session_tool_usage_history")` (`demetra/library/tables.py:252`); the `agent_session_id` FK column remains. The opencode code-mode MCP-tool extraction gap closed afterwards is documented in [[2026-10-25-session-history-mcp-tool-usage]].
+> **Consistency note (2026-11-09, Consistency Agent):** this table was re-keyed two days later by [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md) — its unique constraint is now `UniqueConstraint("history_id", "tool_name", name="uq_session_tool_usage_history")` (`demetra/library/tables.py:252`); the `agent_session_id` FK column remains. The opencode code-mode MCP-tool extraction gap closed afterwards is documented in [2026-10-25-session-history-mcp-tool-usage](/pages/2026-10-25-session-history-mcp-tool-usage.md).
 
 ## Step 2 — Extend the SessionExport model
 The `SessionExport` model was extended to include a `tool_usage` field, which will store the tool usage data for each session. This field will be populated with data from the `session_tool_usage` table.
@@ -44,10 +45,10 @@ The implementation was tested, and the results show that the tool usage stats ar
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-258/tool-usage-stats
-- Related: [[2026-10-16-mnt-251-session-attribution-accounting]]
-- Related: [[2026-10-16-opencode-v2-session-token-accounting]]
-- Related: [[2026-08-25-mnt-181-total-tokens-counter]]
-- Related: [[2026-07-23-session-history-modal]]
-- Related: [[2026-09-30-mnt-228-intermediate-history-states]]
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md)
+- Related: [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md)
+- Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md)
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md)
+- Related: [2026-09-30-mnt-228-intermediate-history-states](/pages/2026-09-30-mnt-228-intermediate-history-states.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The `UniqueConstraint("history_id", "tool_name")` line reference is `demetra/library/tables.py:253` (the table starts at `:243`). The per-invocation `tool_usage` payload is written by `record_agent_invocation` (`demetra/services/persistence/database.py:1125-1140`).

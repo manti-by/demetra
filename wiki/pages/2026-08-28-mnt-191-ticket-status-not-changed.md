@@ -1,11 +1,12 @@
 ---
 title: Ticket status isn't changed when watcher picks it up
-date: 2026-08-28
+generated: {by: demetra, at: '2026-08-28T00:00:00Z'}
+description: MNT-191 fixed TODO tickets staying un-moved after watcher pickup because the `in_progress` update lived only in `main.py` after setup, so setup failures re-picked them each poll; `process_tasks` now moves the ticket to In Progress on acceptance with `main.py` kept as a safety net, and 920 tests passed.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [watcher, linear, daemons]
-branch: "opencode/feature/mnt-191-ticket-status-not-changed"
+branch: opencode/feature/mnt-191-ticket-status-not-changed
 tickets: [MNT-191]
 tags: [watcher, linear, status, in-progress, todo, workflow, queue]
 related: [2026-08-05-pr-creation-failure-handler.md, 2026-07-21-rich-markuperror-and-run-attempts.md, 2026-09-16-mnt-205-revise-merged-environment.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md]
@@ -65,18 +66,18 @@ None.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
-> **Consistency note (2026-10-08, Dedup Agent):** adjacent same-day Linear-status incident — [[2026-08-28-awaiting-input-workflow-continues-to-review]] diagnoses the non-durable halt after posting plan questions (still open, diagnosis only).
+> **Consistency note (2026-10-08, Dedup Agent):** adjacent same-day Linear-status incident — [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) diagnoses the non-durable halt after posting plan questions (still open, diagnosis only).
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-07-21-rich-markuperror-and-run-attempts]], [[2026-08-28-awaiting-input-workflow-continues-to-review]]
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-07-21-rich-markuperror-and-run-attempts](/pages/2026-07-21-rich-markuperror-and-run-attempts.md), [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)
 - External: Linear ticket MNT-191
 
 > **Status update (2026-09-16, MNT-205):** `get_linear_config_value` was
 > removed. `process_tasks` now resolves the state through the watcher's
 > `resolve_linear_state` helper, which builds a `SessionEnvironment` from the
 > user-shared env and falls back to settings. See
-> [[2026-09-16-mnt-205-revise-merged-environment]].
+> [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md).
 >
 > **Correction (2026-10-26, Consistency Agent):** the helper is module-level
 > `resolve_linear_state` (`demetra/services/daemons/watcher.py:29`, called at

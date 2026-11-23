@@ -1,11 +1,12 @@
 ---
 title: Remove ticket API
-date: 2026-05-25
+generated: {by: demetra, at: '2026-05-25T00:00:00Z'}
+description: Under MNT-88, this records removal of the ticket-creation-from-text API — the `/create-ticket` AI-extraction endpoint, `demetra/api/tickets.py` and `demetra/services/ticket_provider.py` — with routers and tests updated, dropping raw-text ticket creation for the Linear-native flow; merged to master 2026-06-09.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [api]
-branch: "-"
+branch: '-'
 tickets: [MNT-88]
 tags: [api, cleanup, remove]
 related: []

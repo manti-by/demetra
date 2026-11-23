@@ -1,8 +1,9 @@
 ---
 title: Review agent models bypass the environment layers
-date: 2026-10-12
+generated: {by: demetra, at: '2026-10-12T00:00:00Z'}
+description: This records the root cause that review agents alone read OPENCODE_REVIEW_MODELS straight from settings, bypassing project and user layers because the plural key missed the _MODEL suffix rule; fixed via a settings_default case and a SessionEnvironment.review_models property, with 951 tests passing.
 type: debug
-status: resolved
+status: stable
 session_id: ses_ed007e060ffetVuRkLGHUFJgwl
 services: [workflows, library]
 branch: master
@@ -114,7 +115,7 @@ resolver API:
   (`OPENCODE["review_models"]: list[str]`). `SessionEnvironment`'s `lookup`/`get`
   are strictly `str -> str | None`, so there was no obvious target property to
   migrate to — and the migration was skipped rather than the API widened.
-- **Documentation scope.** [[2026-08-18-categorize-settings-env-vars-by-layer]]
+- **Documentation scope.** [2026-08-18-categorize-settings-env-vars-by-layer](/pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
   lists `OPENCODE_REVIEW_MODELS` as a *System* layer variable, and its migration
   step only ever said "OpenCode models → user overrides" without calling out the
   plural list.
@@ -192,8 +193,8 @@ callers (and their tests) working.
 
 ## References
 
-- Related: [[2026-09-16-mnt-205-revise-merged-environment]]
-- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
-- Related: [[2026-08-18-categorize-settings-env-vars-by-layer]]
+- Related: [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md)
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
+- Related: [2026-08-18-categorize-settings-env-vars-by-layer](/pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The `run_review_agents` signature quoted above has grown — it is now `run_review_agents(target_path, *, task_id=None, task_title=None, round_index=0, project_id=None, environment=None)` (`demetra/workflows/review.py:27-35`), and the model loop is at `review.py:61-75`. The plural `case` in `settings_default()` is at `demetra/library/models.py:450` and the `review_models` property at `:589`; the default list (`opencode-go/qwen3.7-plus`, `opencode-go/glm-5.2`, `opencode-go/kimi-k2.7-code`) is at `demetra/settings.py:174-176`.

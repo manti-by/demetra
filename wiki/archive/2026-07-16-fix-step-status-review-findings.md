@@ -1,8 +1,9 @@
 ---
 title: Fix code-review findings on step/status refactor
-date: 2026-07-16
+generated: {by: demetra, at: '2026-07-16T00:00:00Z'}
+description: 'Records four code-review findings on the sessions status-to-step migration: a drifted duplicate step enum, API status/step naming conflation, a stale hardcoded upsert_pending_session return, and two undocumented divergent ON CONFLICT clauses; all fixed with 473 tests passing and clean ruff/ty.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: e6a4e432-a337-46a5-8e3a-a027d7cb0cdd
 services: [main, api, database, workflows, linear, sessions, opencode]
 branch: '-'
@@ -10,10 +11,11 @@ tickets: [MNT-37, MNT-63, MNT-83, MNT-22]
 tags: [sessions, step, status, code-review, database, refactor, modules, workflow, user-scoping, task-status, migration, resume, isolation, research]
 related: [2026-02-23-refactor-workflow-into-modular-steps.md, 2026-04-02-link-user-tasks-sessions.md, 2026-07-16-simplify-session-logging-setup.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md, 2026-06-08-session-step-attribute.md, 2026-02-21-opencode-sessions-isolation.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md]
 ---
+
 # Fix code-review findings on step/status refactor
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-10-12-session-state-flow-feedback-loops]]. See wiki/archive/ for the original.
+> [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -48,15 +50,15 @@ Diff introduced `sessions.step` (initial/plan/build/review/lint/test/push/comple
 
 ---
 
-## Source — [[2026-02-23-refactor-workflow-into-modular-steps]]
+## Source — [2026-02-23-refactor-workflow-into-modular-steps](/archive/2026-02-23-refactor-workflow-into-modular-steps.md)
 
 MNT-37 (2026-02-23): monolithic `main.py` split into `demetra/workflows/*.py` with unified finalize/cleanup. Basis for current layout.
 
-## Source — [[2026-04-02-link-user-tasks-sessions]]
+## Source — [2026-04-02-link-user-tasks-sessions](/archive/2026-04-02-link-user-tasks-sessions.md)
 
 MNT-63 (2026-04-02): tasks/sessions user-scoped; `task_status` merged into `sessions` with `project_id`/`user_id` columns.
 
-## Source — [[2026-06-08-session-step-attribute]]
+## Source — [2026-06-08-session-step-attribute](/archive/2026-06-08-session-step-attribute.md)
 
 Session step attribute for durable resume; 14-value `StepType` at HEAD (adds `researched`).
 
@@ -64,7 +66,7 @@ Session step attribute for durable resume; 14-value `StepType` at HEAD (adds `re
 
 None.
 
-> **Updates (2026-08-18 – 2026-09-01):** `StepType` grew: `validate` (Q-001), `wiki` ([[2026-08-25-mnt-187-wiki-pages-not-generated]]), `research` ([[2026-09-01-mnt-177-research-loop]]), `awaiting_input` ([[2026-08-05-pr-creation-failure-handler]]). `demetra/services/database.py` → `demetra/services/persistence/database.py`.
+> **Updates (2026-08-18 – 2026-09-01):** `StepType` grew: `validate` (Q-001), `wiki` ([2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)), `research` ([2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md)), `awaiting_input` ([2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md)). `demetra/services/database.py` → `demetra/services/persistence/database.py`.
 
 > **Correction (2026-10-26, Consistency Agent):** `StepType` now has **14** values — `researched` is appended (`demetra/library/models.py:27`) and written by `demetra/workflows/research.py:246`. `VALID_STEPS = set(get_args(StepType))` (`demetra/api/sessions.py:20`) therefore accepts it too.
 
@@ -72,4 +74,4 @@ None.
 
 ## References
 
-- Related: [[2026-02-23-refactor-workflow-into-modular-steps]], [[2026-04-02-link-user-tasks-sessions]], [[2026-07-16-simplify-session-logging-setup]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-25-mnt-187-wiki-pages-not-generated]], [[2026-09-01-mnt-177-research-loop]], [[2026-06-08-session-step-attribute]], [[2026-02-21-opencode-sessions-isolation]], [[2026-07-21-awaiting-input-status-for-session]], [[2026-08-05-post-build-validation]]
+- Related: [2026-02-23-refactor-workflow-into-modular-steps](/archive/2026-02-23-refactor-workflow-into-modular-steps.md), [2026-04-02-link-user-tasks-sessions](/archive/2026-04-02-link-user-tasks-sessions.md), [2026-07-16-simplify-session-logging-setup](/archive/2026-07-16-simplify-session-logging-setup.md), [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md), [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-06-08-session-step-attribute](/archive/2026-06-08-session-step-attribute.md), [2026-02-21-opencode-sessions-isolation](/archive/2026-02-21-opencode-sessions-isolation.md), [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md), [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md)

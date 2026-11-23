@@ -1,11 +1,12 @@
 ---
 title: Add MCP server for the project
-date: 2026-06-01
+generated: {by: demetra, at: '2026-06-01T00:00:00Z'}
+description: Under MNT-90, this records adding the first standalone `mcp_server.py` using the `mcp` package with streamable-http transport, filesystem CRUD tools and PostgreSQL-only database tools but no auth, removing the hardcoded DB password default and bumping to 1.9.3; later rewritten for mcp 2.0 over stdio and archived.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [mcp, database]
-branch: "-"
+branch: '-'
 tickets: [MNT-90]
 tags: [mcp, streamable-http, filesystem, database]
 related: [2026-08-03-fix-mcp-server-2.0-api.md]
@@ -14,7 +15,7 @@ related: [2026-08-03-fix-mcp-server-2.0-api.md]
 # Add MCP server for the project
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-03-fix-mcp-server-2.0-api]]. See wiki/archive/ for the original.
+> [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -24,7 +25,7 @@ Added a basic MCP server as a single standalone `mcp_server.py` in the project r
 
 ## Overview
 
-Demetra gains an MCP server so agents can inspect the project and its database over the Model Context Protocol. It was later rewritten for the mcp 2.0 API — see [[2026-08-03-fix-mcp-server-2.0-api]].
+Demetra gains an MCP server so agents can inspect the project and its database over the Model Context Protocol. It was later rewritten for the mcp 2.0 API — see [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md).
 
 - Single standalone `mcp_server.py` in the project root
 - Streamable-http transport on a configurable port (env)
@@ -69,9 +70,9 @@ Removed the hardcoded DB password default so credentials come only from the envi
 
 ---
 
-> **Consistency note (2026-08-24, Consistency Agent):** The MCP server now lives at `demetra/mcp_server.py` (not a repo-root `mcp_server.py`) and runs over **stdio** (not streamable-http). See [[2026-08-03-fix-mcp-server-2.0-api]].
+> **Consistency note (2026-08-24, Consistency Agent):** The MCP server now lives at `demetra/mcp_server.py` (not a repo-root `mcp_server.py`) and runs over **stdio** (not streamable-http). See [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md).
 
 ## References
 
-- Related: [[2026-08-03-fix-mcp-server-2.0-api]]
+- Related: [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md)
 - External: https://linear.app/mnt/issue/MNT-90

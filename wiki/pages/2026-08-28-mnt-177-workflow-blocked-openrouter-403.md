@@ -1,11 +1,12 @@
 ---
 title: MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation
-date: 2026-08-28
+generated: {by: demetra, at: '2026-08-28T00:00:00Z'}
+description: MNT-177 retried six times without leaving the plan step, dominantly from OpenRouter 403 age-18+ attestation on `meta/muse-spark-1.2`, plus plan-agent truncation after auto-rejected `.env.docker.example` reads and one empty `extract_plan`; resolution was switching to `meta-llama/llama-3.3-70b-instruct` and fixing permission rejection.
 type: debug
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [workflows, llm, openrouter, opencode, linear]
-branch: "-"
+branch: '-'
 tickets: [MNT-162, MNT-177]
 tags: [openrouter, model, age-attestation, '403', plan-agent, extract-plan, permission, minimax, muse-spark]
 related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
@@ -45,7 +46,7 @@ Direct `https://openrouter.ai/api/v1/chat/completions` with prod `OPENROUTER_API
 ## Root cause
 
 1. **Model attestation:** `meta/muse-spark-1.2` requires 18+ attestation not completed on account `user_3BDI24M6TiVlok3buh8FEZD18Iz` → every summarize call 403s → `PlanError`.
-2. **Plan agent truncation:** auto-rejected `read .env.docker.example` ends run without `## Implementation Plan` header → `PlanError`. Same class as [[2026-08-24-guard-empty-plan-output]]; guard now surfaces it but opencode behavior unfixed.
+2. **Plan agent truncation:** auto-rejected `read .env.docker.example` ends run without `## Implementation Plan` header → `PlanError`. Same class as [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md); guard now surfaces it but opencode behavior unfixed.
 
 MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 07:35 run; 403 path already raises `PlanError`.
 
@@ -56,7 +57,7 @@ MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 
 
 ## Follow-ups
 
-- Plan-agent truncation on permission auto-rejection remains open (see [[2026-08-24-guard-empty-plan-output]]).
+- Plan-agent truncation on permission auto-rejection remains open (see [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md)).
 - Whether empty `extract_plan` should raise `PlanError` at `plan.py:101` remains valid hardening independent of these blockers.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
@@ -69,5 +70,5 @@ MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 
 
 ## References
 
-- Related: [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]]
+- Related: [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 - External: worker.log `/mnt/data/www/demetra/log/worker.log` (MNT-177 07:27–10:00 2026-08-28), `project_environment` table, https://openrouter.ai/settings/preferences

@@ -1,8 +1,9 @@
 ---
 title: Add SQLAlchemy Core support
-date: 2026-03-13
+generated: {by: demetra, at: '2026-03-13T00:00:00Z'}
+description: Records MNT-62, which replaced raw SQL with SQLAlchemy Core `Table`/`Column` objects, introduced Alembic migrations, and moved tests onto a real `test_`-prefixed Postgres database with transaction rollback instead of mocks (SQLAlchemy 2.0.48); the page was later archived and merged into the squash-migrations page.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [database, tests]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-06-03-fix-squash-migrations.md]
 # Add SQLAlchemy Core support
 
 > **Archived on 2026-09-28.** Useful info merged into
-> [[2026-06-03-fix-squash-migrations]]. See wiki/archive/ for the
+> [2026-06-03-fix-squash-migrations](/archive/2026-06-03-fix-squash-migrations.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

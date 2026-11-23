@@ -1,11 +1,12 @@
 ---
 title: OpenCode sessions isolation
-date: 2026-02-21
+generated: {by: demetra, at: '2026-02-21T00:00:00Z'}
+description: Research ticket MNT-22 recorded whether parallel workflows collide on OpenCode sessions and concluded they do; Demetra now passes a custom --session id per workflow, stored on the sessions table, unblocking concurrency plus later session history, compaction, and log isolation.
 type: investigation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [opencode]
-branch: -
+branch: '-'
 tickets: [MNT-22]
 tags: [sessions, isolation, research]
 related: []
@@ -14,7 +15,7 @@ related: []
 # OpenCode sessions isolation
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-08-session-step-attribute]]. See wiki/archive/ for the
+> [2026-06-08-session-step-attribute](/archive/2026-06-08-session-step-attribute.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

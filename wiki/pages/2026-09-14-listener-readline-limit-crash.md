@@ -1,11 +1,12 @@
 ---
 title: Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications
-date: 2026-09-14
+generated: {by: demetra, at: '2026-09-14T00:00:00Z'}
+description: This diagnosis found the GitHub notification listener never processed a notification because asyncio's 64KB readline limit choked on gh api /notifications' single-line JSON, producing 2792 self-sustaining poll errors; resolved 2026-11-15 by switching get_notifications and fetch_subject_body to run_command_to_file, with tests updated and an image rebuild pending.
 type: debug
-status: resolved
+status: stable
 session_id: ses_f5e6bd69bffexNX7o87koO5QLl
 services: [listener, daemons, runtime, github]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [listener, github, notifications, asyncio, readline, limit, gh, merge, rebase, infinite-loop, listener-attempts]
 related: [2026-07-16-fix-notification-mark-read.md]
@@ -79,9 +80,9 @@ Not applied this session (diagnosis only). Proposed fix, matching the existing p
 
 ---
 
-## Source — [[2026-07-16-fix-notification-mark-read]]
+## Source — [2026-07-16-fix-notification-mark-read](/archive/2026-07-16-fix-notification-mark-read.md)
 
-Listener loop-protection decisions (2026-07-16): `mark_notification_read` is gated on success — `process_merge/rebase_notification` returning `False` (no session, no `project_id`, unknown action) leaves the notification unread for retry — and a per-session attempts counter breaks the loop after N failures (`MAX_ATTEMPTS["listener"]` = 5, `demetra/settings.py`; helpers `increment_listener_attempts`/`reset_listener_attempts` in `demetra/services/persistence/database.py:1028`/`:999`). Originally decided in [[2026-07-16-fix-notification-mark-read]] on 2026-07-16.
+Listener loop-protection decisions (2026-07-16): `mark_notification_read` is gated on success — `process_merge/rebase_notification` returning `False` (no session, no `project_id`, unknown action) leaves the notification unread for retry — and a per-session attempts counter breaks the loop after N failures (`MAX_ATTEMPTS["listener"]` = 5, `demetra/settings.py`; helpers `increment_listener_attempts`/`reset_listener_attempts` in `demetra/services/persistence/database.py:1028`/`:999`). Originally decided in [2026-07-16-fix-notification-mark-read](/archive/2026-07-16-fix-notification-mark-read.md) on 2026-07-16.
 
 ## Follow-ups
 
@@ -95,5 +96,5 @@ Listener loop-protection decisions (2026-07-16): `mark_notification_read` is gat
 
 ## References
 
-- Related: [[2026-07-16-fix-notification-mark-read]]
+- Related: [2026-07-16-fix-notification-mark-read](/archive/2026-07-16-fix-notification-mark-read.md)
 - External: `demetra/listener.py`, `demetra/services/daemons/listener.py`, `demetra/services/runtime/utils.py`, `demetra/services/runtime/subprocess.py`

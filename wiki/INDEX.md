@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — Implementation of CH-13: Wiki OKF validation (2026-11-23)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — Every session-history block is a collapsible card, collapsed by default: name on the left, cost and time on the right, body as usual when open with the cost dropped from the header. `make deploy-ui` ships a frontend change by rebuilding only the React bundle through the one-shot `react-build` compose service and reloading nginx — no image rebuild, no migrations, no container restarts — under the same Redis deploy lock the daemon takes. (2026-11-15)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — The sidebar list now has three labelled blocks: Active (in progress, including `awaiting_input`, updated within 14 days or running live), Completed (`completed`/`researched`, any age) and Backlog (`failed` or stale in-progress); Active always renders with a `No active sessions` message, the other two only when non-empty. (2026-11-15)
 - [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — The Linear MCP server authenticates with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`; the key resolves project → user → system, the Demetra MCP command drops its cwd-relative `--env-file`, `DB_*` (except the encrypted `DB_PASSWORD`) are forwarded through `system_env`, the MCP server exits fast without a password, and the host credential file is derived into a provider-only global config. (2026-11-15)
@@ -109,146 +110,145 @@ _Newest first._
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — Three sessions covering the React frontend: mapped the component tree and flexbox layout, closed the sidebar–console gap into a single card (border/radius ownership moved to containers, `gap: 0`, `sid... (2026-07-22)
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — MNT-136 hit `Max run attempts reached` after three identical crashes. A review finding containing `[/^\/admin/, ...]` was passed raw to `demetra.services.tui.print_message`, where Rich parsed `[/...]`... (2026-07-21)
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — Two causes for NULL `session_history` tokens: the local DB was missing migration `a2b3c4d5e6f7` (every INSERT failed silently), and on odin prod the migration was applied but all 38 rows still had NUL... (2026-07-16)
+
 ## By topic
 
-### Workflow orchestration & agents (19 pages)
+_Topic clusters maintained by the Consistency Agent; topics with the most pages first._
 
-- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
-- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md)
-- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md)
-- [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md)
-- [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md)
-- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
-- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)
-- [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md)
-- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
-- [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md)
-- [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md)
-- [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md)
-- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)
-- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
-- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
-- [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md)
-- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)
-- [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md)
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md)
+### Workflow orchestration & agents (29 pages)
 
-### React frontend / UI (17 pages)
+- [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md) — 2026-11-10
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-10
+- [MNT-298 research agent ECONNRESET — local opencode server thrash](pages/2026-11-06-mnt-298-research-econnreset-root-cause.md) — 2026-11-06
+- [Agent ECONNRESET network errors — root cause](pages/2026-11-06-agent-econnreset-network-investigation.md) — 2026-11-06
+- [MNT-276: ECONNRESET retry for agents](pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md) — 2026-11-03
+- [MNT-258: Tool usage stats](pages/2026-10-25-mnt-258-tool-usage-stats.md) — 2026-10-25
+- [OpenCode v2 migration — CLI ground truth, the compaction no-op, and the corrected MNT-251 plan](pages/2026-10-16-opencode-v2-session-token-accounting.md) — 2026-10-16
+- [MNT-251 — Rebuild agent session attribution and token accounting for opencode v2](pages/2026-10-16-mnt-251-session-attribution-accounting.md) — 2026-10-16
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md) — 2026-10-12
+- [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md) — 2026-10-05
+- [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md) — 2026-09-18
+- [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md) — 2026-09-16
+- [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md) — 2026-09-14
+- [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md) — 2026-09-10
+- [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md) — 2026-09-08
+- [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md) — 2026-09-02
+- [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md) — 2026-09-01
+- [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — 2026-08-28
+- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — 2026-08-28
+- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md) — 2026-08-24
+- [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md) — 2026-08-20
+- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md) — 2026-08-19
+- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — 2026-08-19
+- [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md) — 2026-08-19
+- [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md) — 2026-08-18
+- [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md) — 2026-08-05
+- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md) — 2026-08-04
+- [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md) — 2026-07-23
+- [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md) — 2026-07-22
 
-- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md)
-- [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md)
-- [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md)
-- [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md)
-- [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md)
-- [Chat session list and rerun semantics](pages/2026-11-04-chat-session-list-and-rerun.md)
-- [CH-2: Single (unified) session view](pages/2026-11-03-ch-2-single-unified-session-view.md)
-- [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md)
-- [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md)
-- [Session state flow: completed chain, feedback loops, research chain](pages/2026-10-12-session-state-flow-feedback-loops.md)
-- [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md)
-- [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md)
-- [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md)
-- [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md)
-- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md)
-- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md)
-- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md)
+### React frontend / UI (15 pages)
 
-### Session history & token accounting (12 pages)
+- [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md) — 2026-11-10
+- [CH-6: Markdown renderer](pages/2026-11-06-ch-6-markdown-renderer.md) — 2026-11-06
+- [CH-5: Delete chat button](pages/2026-11-06-ch-5-delete-chat-button.md) — 2026-11-06
+- [CH-2: Single (unified) session view](pages/2026-11-03-ch-2-single-unified-session-view.md) — 2026-11-03
+- [MNT-244: Session state animation](pages/2026-10-12-session-state-animation.md) — 2026-10-12
+- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md) — 2026-09-30
+- [MNT-225: Add copy button](pages/2026-09-27-mnt-225-add-copy-button.md) — 2026-09-27
+- [MNT-219: Session log autoscroll](pages/2026-09-24-mnt-219-session-log-autoscroll.md) — 2026-09-24
+- [MNT-204: Research result modal](pages/2026-09-14-research-plan-artifact.md) — 2026-09-14
+- [MNT-193 — Mobile template for the React frontend](pages/2026-09-02-mobile-template-react-frontend.md) — 2026-09-02
+- [MNT-192 Add edit button for env settings](pages/2026-08-31-mnt-192-env-edit-button.md) — 2026-08-31
+- [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md) — 2026-08-28
+- [Loader replacement and Style Guide page](pages/2026-08-25-loader-styleguide.md) — 2026-08-25
+- [Favicon Set for the React App](pages/2026-08-03-favicon-set-and-react-html.md) — 2026-08-03
+- [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md) — 2026-07-22
 
-- [Session history — cached bundle and MCP tool usage](pages/2026-10-25-session-history-mcp-tool-usage.md)
-- [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md)
-- [Session history — session cost total and failure reasons](pages/2026-10-25-session-history-cost-and-failure-reasons.md)
-- [MNT-258: Tool usage stats](pages/2026-10-25-mnt-258-tool-usage-stats.md)
-- [MNT-245: Empty session history](pages/2026-10-16-mnt-245-empty-session-history.md)
-- [OpenCode v2 migration — CLI ground truth, the compaction no-op, and the corrected MNT-251 plan](pages/2026-10-16-opencode-v2-session-token-accounting.md)
-- [MNT-251 — Rebuild agent session attribution and token accounting for opencode v2](pages/2026-10-16-mnt-251-session-attribution-accounting.md)
-- [MNT-228: Intermediate history states](pages/2026-09-30-mnt-228-intermediate-history-states.md)
-- [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md)
-- [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md)
-- [Session History Modal](pages/2026-07-23-session-history-modal.md)
-- [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md)
+### MCP / integrations (15 pages)
 
-### MCP & wiki tooling (12 pages)
+- [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md) — 2026-10-27
+- [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md) — 2026-10-25
+- [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md) — 2026-10-15
+- [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md) — 2026-10-09
+- [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md) — 2026-10-08
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md) — 2026-09-11
+- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md) — 2026-09-08
+- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md) — 2026-08-28
+- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — 2026-08-25
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md) — 2026-08-19
+- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md) — 2026-08-09
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md) — 2026-08-07
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — 2026-08-07
+- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md) — 2026-08-03
+- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
+- [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — 2026-11-23
 
-- [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md)
-- [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)
-- [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md)
-- [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md)
-- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
-- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md)
-- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)
-- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md)
-- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
-- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
-- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
-- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
+### Sessions, status & resume (14 pages)
 
-### Deploy & infrastructure (10 pages)
+- [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — 2026-11-15
+- [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — 2026-11-15
+- [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md) — 2026-11-12
+- [Chat session list and rerun semantics](pages/2026-11-04-chat-session-list-and-rerun.md) — 2026-11-04
+- [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md) — 2026-10-25
+- [Session history — cached bundle and MCP tool usage](pages/2026-10-25-session-history-mcp-tool-usage.md) — 2026-10-25
+- [Session history — session cost total and failure reasons](pages/2026-10-25-session-history-cost-and-failure-reasons.md) — 2026-10-25
+- [MNT-245: Empty session history](pages/2026-10-16-mnt-245-empty-session-history.md) — 2026-10-16
+- [MNT-234: Isolate session context](pages/2026-10-16-mnt-234-isolate-session-context.md) — 2026-10-16
+- [Session state flow: completed chain, feedback loops, research chain](pages/2026-10-12-session-state-flow-feedback-loops.md) — 2026-10-12
+- [MNT-181: Total tokens counter](pages/2026-08-25-mnt-181-total-tokens-counter.md) — 2026-08-25
+- [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
+- [Session History Modal](pages/2026-07-23-session-history-modal.md) — 2026-07-23
+- [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — 2026-07-16
 
-- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
-- [Scaling RQ workers without recreating running containers](pages/2026-11-12-scale-workers-without-recreate.md)
-- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md)
-- [Bake opencode agents and skills into the Docker image](pages/2026-09-18-dockerfile-opencode-agents-skills.md)
-- [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md)
-- [Code review — gh CLI auth mount and entrypoint prune for compose](pages/2026-08-20-review-gh-auth-mount-changes.md)
-- [Worker opencode EACCES on home volume — entrypoint ownership fix](pages/2026-08-19-worker-opencode-home-permissions.md)
-- [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md)
-- [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md)
-- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md)
+### Linear & GitHub integrations (9 pages)
 
-### OpenCode CLI & agent integration (6 pages)
+- [MNT-314 — Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — 2026-11-15
+- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md) — 2026-11-11
+- [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — 2026-10-06
+- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md) — 2026-09-14
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md) — 2026-08-28
+- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md) — 2026-08-19
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md) — 2026-08-18
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md) — 2026-08-10
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md) — 2026-08-05
 
-- [Agent ECONNRESET network errors — root cause](pages/2026-11-06-agent-econnreset-network-investigation.md)
-- [MNT-298 research agent ECONNRESET — local opencode server thrash](pages/2026-11-06-mnt-298-research-econnreset-root-cause.md)
-- [MNT-276: ECONNRESET retry for agents](pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md)
-- [OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics](pages/2026-09-14-opencode-agent-prompts-hardening.md)
-- [OpenCode Reasoning Token History Is Zero](pages/2026-09-08-opencode-reasoning-token-zero.md)
-- [MNT-234: Isolate session context](pages/2026-10-16-mnt-234-isolate-session-context.md)
+### Deploy & infrastructure (7 pages)
+
+- [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md) — 2026-11-14
+- [Scaling RQ workers without recreating running containers](pages/2026-11-12-scale-workers-without-recreate.md) — 2026-11-12
+- [Forward LangSmith env vars from host to containers](pages/2026-09-28-compose-langsmith-host-env.md) — 2026-09-28
+- [gh config.yml permission denied in containers — un-gated entrypoint ownership repair](pages/2026-08-24-gh-config-dir-permission-entrypoint.md) — 2026-08-24
+- [Docker Compose shared-anchor refactor](pages/2026-08-18-compose-anchors-refactor.md) — 2026-08-18
+- [Docker setup review — Dockerfile + docker-compose.yaml on mnt-164](pages/2026-08-17-docker-setup-review.md) — 2026-08-17
+- [Docker Compose deploy](pages/2026-08-10-docker-compose-deploy.md) — 2026-08-10
 
 ### Authentication & API security (5 pages)
 
-- [MNT-188: Waitlist](pages/2026-08-28-mnt-188-waitlist.md)
-- [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md)
-- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
-- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md)
-- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md)
+- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md) — 2026-08-09
+- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md) — 2026-08-09
+- [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md) — 2026-08-06
+- [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — 2026-08-03
+- [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Environment, settings & subprocess (5 pages)
+### Testing & tooling (3 pages)
 
-- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md)
-- [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
-- [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md)
-- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
-- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-12
+- [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — 2026-11-10
+- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
 
-### Code review & quality (4 pages)
+### TUI & CLI (1 page)
 
-- [Review findings cleanup — v1.16.7..HEAD two-axis review](pages/2026-09-02-review-findings-cleanup.md)
-- [Apply code-review findings — auth, transactions, validate, wiki](pages/2026-08-09-apply-code-review-findings.md)
-- [Apply CodeRabbit findings — PR #75 password reset, Request fetch, env_get_int](pages/2026-08-09-apply-pr75-coderabbit-findings.md)
-- [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md)
+- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md) — 2026-07-21
 
-### Docs, release & versioning (3 pages)
+### Logging infrastructure (1 page)
 
-- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md)
-- [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
-- [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
+- [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md) — 2026-08-18
 
-### Linear & GitHub integrations (2 pages)
+### Docs, feature flags & release tooling (1 page)
 
-- [MNT-314 — Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md)
-- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
+- [MNT-176: Bump version error fix](pages/2026-08-21-mnt-176-bump-version-error.md) — 2026-08-21
 
-### LLM & prompts (2 pages)
+### Git & worktrees (1 page)
 
-- [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md)
-- [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
-
-### Testing & tooling (2 pages)
-
-- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md)
-- [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md)
-
-### TUI & CLI (1 pages)
-
-- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md)
+- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) — 2026-11-06

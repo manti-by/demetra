@@ -1,11 +1,12 @@
 ---
 title: gh config.yml permission denied in containers — un-gated entrypoint ownership repair
-date: 2026-08-24
+generated: {by: demetra, at: '2026-08-24T00:00:00Z'}
+description: Root-owned `.config/gh/` parents created by Docker for a new bind mount made `gh auth` fail with permission denied because the `.home-ready` gate never re-ran; fixed by seeding demetra-owned dirs and repairing ownership unconditionally, then guarding `setpriv`/`chown` behind `id -u` for `USER demetra`.
 type: debug
-status: resolved
+status: stable
 session_id: build-agent-2026-08-24
 services: [deploy, configs]
-branch: "-"
+branch: '-'
 tickets: [MNT-175]
 tags: [docker, compose, permissions, volume, entrypoint, gh]
 related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-20-review-gh-auth-mount-changes.md, 2026-08-18-compose-anchors-refactor.md]
@@ -23,7 +24,7 @@ related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-20-review-gh-a
 
 ## Why
 
-- `docker-compose.yaml:21` mounts `demetra_app_data` at `/home/demetra/` plus file bind mounts (`.keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml`, added in `48ef47d` MNT-175). Docker `mkdir -p`s missing parents as `root:root` inside the volume (same as `auth.json` in [[2026-08-19-worker-opencode-home-permissions]]).
+- `docker-compose.yaml:21` mounts `demetra_app_data` at `/home/demetra/` plus file bind mounts (`.keys/gh/hosts.yml:/home/demetra/.config/gh/hosts.yml`, added in `48ef47d` MNT-175). Docker `mkdir -p`s missing parents as `root:root` inside the volume (same as `auth.json` in [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)).
 - `configs/docker-entrypoint.sh` repaired ownership only once (`.home-ready` marker from earlier fix). Marker predated gh mount → root-owned `.config/gh/` never repaired. App runs as `demetra` via `setpriv` → EACCES. Any new bind mount after marker suffers same fate.
 
 ## Root cause
@@ -71,6 +72,6 @@ As `demetra` (normal compose path): skip to `exec "$@"` — no `setpriv`/`chown`
 
 ## References
 
-- Related: [[2026-08-20-review-gh-auth-mount-changes]], [[2026-08-19-worker-opencode-home-permissions]], [[2026-08-18-compose-anchors-refactor]]
+- Related: [2026-08-20-review-gh-auth-mount-changes](/pages/2026-08-20-review-gh-auth-mount-changes.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** `make docker-deploy` has **no recipe** — it is only listed in `.PHONY` (`Makefile:2`); the working targets are `deploy` (`Makefile:26-33`) and `docker-up` (`Makefile:100-101`). Worker count is 2 on the deploy path (`--scale worker=2`), 4 only via `make docker-up`. The entrypoint itself now prunes by path rather than by `-name`.

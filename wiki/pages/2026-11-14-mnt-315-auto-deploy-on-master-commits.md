@@ -1,8 +1,9 @@
 ---
 title: 'MNT-315: Auto deploy on master commits'
-date: '2026-11-14'
+generated: {by: demetra, at: '2026-11-14T00:00:00Z'}
+description: Records the MNT-315 implementation of an auto-deploy daemon in `demetra/deployer.py` that polls `origin/master`, verifies CI checks and waits for the RQ queue to drain before deploying from a privileged container with persistent state and safe self-updates; all 1428 tests passed, with MNT-316 filed to merge the watchers.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e25708f3cffeIdPEZjNp0Mwatw
 services: [.env.docker, AGENTS, Dockerfile, Makefile, README, deployer.py, library, daemons/deployer, settings, docker-compose, pyproject, test_deployer, test_docker_compose, test_dockerfile, test_entrypoints, uv, INDEX, 2026-11-14-mnt-315-auto-deploy-on-master-commits]
 branch: mnt-315-auto-deploy-on-master-commits
@@ -109,6 +110,6 @@ Manual verification confirmed:
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-315/auto-deploy-on-master-commits
-- Related: [[2026-08-10-docker-compose-deploy]]
-- Related: [[2026-08-10-docker-compose-deploy]]
-- Related: [[2026-09-28-compose-langsmith-host-env]]
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
+- Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)

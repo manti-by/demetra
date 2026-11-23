@@ -1,8 +1,9 @@
 ---
-title: 'Agent ECONNRESET network errors — root cause'
-date: 2026-11-06
+title: Agent ECONNRESET network errors — root cause
+generated: {by: demetra, at: '2026-11-06T00:00:00Z'}
+description: Records the investigation into mid-stream ECONNRESET failures across CH-1–CH-4 agents, concluding the resets were server-side LLM-provider idle connection closes, not ISP, Docker, MTU or free tier; the MNT-276 retry was kept and IPv6 disabled, with later notes refining the cause.
 type: debug
-status: resolved
+status: stable
 session_id: ses_e4fc54fc9ffe57ihg20tF1IUDs
 services: [agents, deploy, llm]
 branch: master
@@ -47,7 +48,7 @@ the first hint this was not a local-network problem.
 
 Git history and the wiki show the retry layer already exists:
 
-- [[2026-11-03-mnt-276-econnreset-retry-for-agents]] — `run_opencode_agent`
+- [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md) — `run_opencode_agent`
   retries transient network failures (`ECONNRESET`, `socket hang up`,
   `ETIMEDOUT`) with exponential backoff (5 attempts), raising `AgentNetworkError`
   on exhaustion.
@@ -127,7 +128,7 @@ outages at those moments.
 
 > **Consistency note (2026-11-06, Consistency Agent):** the root cause above is
 > superseded for the research-agent ECONNRESET family by
-> [[2026-11-06-mnt-298-research-econnreset-root-cause]]: the resetting server there was
+> [2026-11-06-mnt-298-research-econnreset-root-cause](/pages/2026-11-06-mnt-298-research-econnreset-root-cause.md): the resetting server there was
 > opencode's own local managed-service server (concurrent `opencode run` invocations
 > thrashing one `service.json` registration), fixed with `--standalone` — not
 > `api.deepseek.com` idle closes. The provider-side idle-close findings in this page
@@ -135,6 +136,6 @@ outages at those moments.
 
 ## References
 
-- Related: [[2026-11-03-mnt-276-econnreset-retry-for-agents]]
+- Related: [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The “exhausted 5 retries” phrasing reflects the shipped default; production ran with the environment override `MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2` (`.env.docker:17-18`), and the incident postmortem confirms the override was live during this window. The “fix is to raise its budget” recommendation was applied operationally through that override; the retry layer itself is described in [[2026-11-03-mnt-276-econnreset-retry-for-agents]]. The model ids quoted above (`deepseek/deepseek-flash`, `openrouter/minimax/minimax-m3`, `openrouter/z-ai/glm-5.3`, `meta-llama/llama-3.3-70b-instruct`) are **per-user `project_environment` overrides**, not repository defaults — the shipped defaults are `opencode-go/deepseek-v4-flash` (plan/build), `opencode-go/minimax-m3` (research) and `openai/gpt-oss-120b` (OpenRouter LLM calls) at `demetra/settings.py:169-176` and `:221`. The IPv6/sysctl and DNS changes are still present in `docker-compose.yaml:15-17`, `:33-37`.
+> **Consistency note (2026-11-11, Consistency Agent):** The “exhausted 5 retries” phrasing reflects the shipped default; production ran with the environment override `MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2` (`.env.docker:17-18`), and the incident postmortem confirms the override was live during this window. The “fix is to raise its budget” recommendation was applied operationally through that override; the retry layer itself is described in [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md). The model ids quoted above (`deepseek/deepseek-flash`, `openrouter/minimax/minimax-m3`, `openrouter/z-ai/glm-5.3`, `meta-llama/llama-3.3-70b-instruct`) are **per-user `project_environment` overrides**, not repository defaults — the shipped defaults are `opencode-go/deepseek-v4-flash` (plan/build), `opencode-go/minimax-m3` (research) and `openai/gpt-oss-120b` (OpenRouter LLM calls) at `demetra/settings.py:169-176` and `:221`. The IPv6/sysctl and DNS changes are still present in `docker-compose.yaml:15-17`, `:33-37`.

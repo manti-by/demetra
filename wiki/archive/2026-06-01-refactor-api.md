@@ -1,8 +1,9 @@
 ---
 title: Refactor API
-date: 2026-06-01
+generated: {by: demetra, at: '2026-06-01T00:00:00Z'}
+description: Under MNT-81, this records splitting the monolithic `demetra/api.py` into a `demetra/api/` package of per-prefix routers (auth/github, projects, sessions, users, watcher, webhooks) that once reused `@app` decorators but now use `APIRouter`, adding tests while carrying OAuth, project CRUD, ticket creation, session filtering, websocket logs and API keys; archived.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [api]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-07-16-fix-step-status-review-findings.md, 2026-08-03-check-api-au
 # Refactor API
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-03-check-api-auth-and-credentials]]. See wiki/archive/ for the original.
+> [2026-08-03-check-api-auth-and-credentials](/archive/2026-08-03-check-api-auth-and-credentials.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -56,7 +57,7 @@ Missing API tests were added across the new router files.
 
 - None.
 
-> **Consistency note (2026-08-24, Consistency Agent):** Session list filtering uses the `step` query parameter (not `status`) since [[2026-07-16-fix-step-status-review-findings]].
+> **Consistency note (2026-08-24, Consistency Agent):** Session list filtering uses the `step` query parameter (not `status`) since [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

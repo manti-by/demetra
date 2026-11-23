@@ -1,11 +1,12 @@
 ---
 title: Create LLM test script
-date: 2026-02-26
+generated: {by: demetra, at: '2026-02-26T00:00:00Z'}
+description: MNT-41 records a research benchmark script, not production code, that uses LangChain with Groq to run every LLM against every output parser for extracting questions from markdown, writing output/<llm-name>_<parser>.md per combination and empirically informing the later question-extraction (MNT-61) and plan-summarization (MNT-98) chains.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [groq, prompts]
-branch: -
+branch: '-'
 tickets: [MNT-41]
 tags: [llm, groq, parsing, testing]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Create LLM test script
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-04-review-summarization]]. See wiki/archive/ for the
+> [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

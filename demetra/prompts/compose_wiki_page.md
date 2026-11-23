@@ -13,7 +13,7 @@ summary, git diff excerpt and log tail, write the page body in Markdown.
 - Return Markdown only: no fences around the whole page, no preamble, no commentary.
 - Every session ends with a `## Follow-ups` section (`- None` when nothing is open)
   and a `## References` section: `- External: <linear ticket URL>` plus one
-  `- Related: [[<page-filename-without-.md>]]` line per sibling page.
+  `- Related: [<page-filename-without-.md>](/pages/<page-filename>.md)` line per sibling page.
 - The `Sibling pages to cross-link` block in the input is the authoritative list: reproduce
   every entry verbatim as a `- Related:` line and invent none. If it reads `- None`, the
   session has no siblings and the `## References` section carries only the External line.
@@ -52,5 +52,5 @@ Then the body sections the given page type calls for:
   screen readers and do not reflow on mobile. Render tabular data as a flat bullet
   list (`- **<key>** — <value>`) or as H3-headed card sections when each row has
   several sub-points. Code blocks and bullet lists of links are not tables.
-- Cross-link sibling pages inline with `[[filename-without-.md]]`.
+- Cross-link sibling pages inline with `[filename-without-.md](/pages/filename.md)`.
 - Keep the whole page under roughly 150 lines; it is a summary, not a transcript.

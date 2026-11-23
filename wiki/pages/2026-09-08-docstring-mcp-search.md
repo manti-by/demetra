@@ -1,9 +1,10 @@
 ---
-title: "MNT-171: Docstring MCP search"
-date: 2026-09-08
+title: 'MNT-171: Docstring MCP search'
+generated: {by: demetra, at: '2026-09-08T00:00:00Z'}
+description: 'MNT-171 added docstring_search, docstring_get and docstring_list MCP tools backed by an AST-built, fingerprint-cached index and a shared SEARCH config (PR #120); the branch also reworked bump_project_version to explicit major/minor/patch with patch default, leaving its docstring and build.py caller stale, with 45 tests passing.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [mcp, settings, tools, runtime]
 branch: delta/feature/docstring-mcp-search
 tickets: [MNT-171]
@@ -31,14 +32,14 @@ MCP server now exposes `docstring_search`/`docstring_get`/`docstring_list` — r
 
 Shared `SEARCH` dict: query/result limits, snippet limits, tokenization rules, stop words, wiki + docstring ranking weights (`docstring_name_weight`, `docstring_path_weight`). Both tools tokenize via `demetra/tools/search.py:6` (`tokenize` extracted from wiki tool), so they cannot drift. Wiki scoring in `demetra/tools/wiki.py` reads same dict.
 
-> **Correction (2026-10-26, Consistency Agent):** `demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor — the wiki tool is now the external WI MCP server and `SEARCH` holds only the `docstring_*` boosts (`demetra/settings.py:65-80`). `FunctionCollector` is public; the registry aggregates `database`+`docstrings`+`logs`. See [[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+> **Correction (2026-10-26, Consistency Agent):** `demetra/tools/wiki.py` was deleted in the 2026-10-15 tools refactor — the wiki tool is now the external WI MCP server and `SEARCH` holds only the `docstring_*` boosts (`demetra/settings.py:65-80`). `FunctionCollector` is public; the registry aggregates `database`+`docstrings`+`logs`. See [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md).
 
 > **Superseded (2026-10-09, Consistency Agent):** the `*_weight` keys named above are
 > gone. `SEARCH` now carries `bm25_k1` plus per-field `*_boost` / `*_length_norm`
 > pairs (`docstring_name_boost`, `docstring_path_boost`, `docstring_text_boost`,
 > …), and both tools rank via `score_document` in `demetra/tools/search.py`. The
 > line stands as the session record for how the shared `SEARCH` dict was first
-> introduced. See [[2026-10-09-bm25-search-for-mcp-tools]].
+> introduced. See [2026-10-09-bm25-search-for-mcp-tools](/pages/2026-10-09-bm25-search-for-mcp-tools.md).
 
 ## Review fixes (2026-09-11) — `demetra/tools/docstrings.py:278`, `demetra/settings.py:62`
 
@@ -48,7 +49,7 @@ Shared `SEARCH` dict: query/result limits, snippet limits, tokenization rules, s
 
 ## Version bump rework (2026-09-11) — `demetra/services/runtime/project.py:328,331`
 
-`bump_project_version` changed from fixed minor-only to explicit axis: `is_major`/`is_minor`/`is_patch` (default `is_patch=True`, so default now increments patch not minor). More significant flag clears lower ones (`is_major → major+1.0.0`, `is_minor → major.minor+1.0`). Renamed `_VERSION_PATTERN` → `PROJECT_VERSION_PATTERN`. Supersedes all-minor contract in [[2026-08-21-mnt-176-bump-version-error]] (`1.14.1 → 1.14.2` vs `→ 1.15.0`).
+`bump_project_version` changed from fixed minor-only to explicit axis: `is_major`/`is_minor`/`is_patch` (default `is_patch=True`, so default now increments patch not minor). More significant flag clears lower ones (`is_major → major+1.0.0`, `is_minor → major.minor+1.0`). Renamed `_VERSION_PATTERN` → `PROJECT_VERSION_PATTERN`. Supersedes all-minor contract in [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md) (`1.14.1 → 1.14.2` vs `→ 1.15.0`).
 
 Two consumers **not** updated:
 
@@ -74,7 +75,7 @@ Two consumers **not** updated:
 
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-21-mnt-176-bump-version-error]], [[2026-08-21-mnt-176-bump-version-error]]
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md)
 - External: [PR #120](https://github.com/manti-by/demetra/pull/120)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The 2026-10-08 note above says the `SEARCH` dict “holds only the `docstring_*` boosts” — it also carries the shared search limits (`default_limit` 5, `max_results` 20, `max_query_length` 500, `max_snippets` 3, `snippet_length` 200, `bm25_k1` 1.2) at `demetra/settings.py:69-84`. The bump-axis follow-up is closed (**Q-001**): the default axis is patch, and `demetra/services/runtime/project.py:335-338` still carries the stale “bumps the minor version” docstring.

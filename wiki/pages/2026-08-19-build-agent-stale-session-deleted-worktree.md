@@ -1,8 +1,9 @@
 ---
 title: Build agent UnknownError — stale opencode session bound to deleted worktree
-date: 2026-08-19
+generated: {by: demetra, at: '2026-08-19T00:00:00Z'}
+description: 'Records that MNT-151''s recurrent UnknownError after raising the spending limit was caused by a stale sessions.session_id bound to a worktree deleted by cleanup, not env vars; outcome: nulling session_id unblocked the retry, and MNT-251 later made history resolve by task_id so stale sessions can''t 500 the build.'
 type: debug
-status: resolved
+status: stable
 session_id: ses_fe66890faffe4nIU8hRlC6JC1H
 services: [main, workflows, agents, opencode]
 branch: master
@@ -40,13 +41,13 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 ## Known follow-up (not fixed this session)
 
 - Systemic fix: clear `sessions.session_id` when cleanup deletes worktree, or catch `UnknownError` in `opencode_build_agent` and retry once without `--session`. Other rows (`ses_013d53a7...`, etc.) have same latent risk.
-- Earlier 12:49 attribution to spending limit ([[2026-08-19-build-agent-server-error-handler]]) was incomplete — stale session produces identical signature.
+- Earlier 12:49 attribution to spending limit ([2026-08-19-build-agent-server-error-handler](/pages/2026-08-19-build-agent-server-error-handler.md)) was incomplete — stale session produces identical signature.
 
 ## Follow-ups
 
 - Decide on systemic fix (clear on cleanup vs retry without `--session`) and implement.
 
-> **Resolved (2026-10-16, MNT-251):** the systemic fix shipped in [[2026-10-16-mnt-251-session-attribution-accounting]], and it takes the *resolve-differently* path rather than "clear the pointer". Two changes close this incident:
+> **Resolved (2026-10-16, MNT-251):** the systemic fix shipped in [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md), and it takes the *resolve-differently* path rather than "clear the pointer". Two changes close this incident:
 >
 > 1. `cleanup_workflow` now calls `invalidate_agent_sessions(task_id)` after worktree removal (the invalidation lives in the workflow, not `services/vcs/git.py`, to keep the layering clean). The task's `agent_sessions` primary marker is cleared so a superseded session is never resolved as live.
 > 2. History now resolves through `session_history`/`agent_sessions` **by `task_id`**, not through the immutable `sessions.session_id` pointer. That was the contradiction this page's follow-up did not foresee: both writers used `COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`, so the column could never be replaced or cleared, and once the worktree was deleted the task's history 404'd and "View History" disappeared permanently. Making the pointer display-only sidesteps the immutability entirely.
@@ -63,13 +64,13 @@ Demetra persists `sessions.session_id` but cleanup deletes its worktree. Opencod
 
 ## References
 
-- Related: [[2026-08-19-build-agent-server-error-handler]], [[2026-08-18-test-db-isolation-logging]]
+- Related: [2026-08-19-build-agent-server-error-handler](/pages/2026-08-19-build-agent-server-error-handler.md), [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md)
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
 
 > **Status update (2026-09-16, MNT-205):** The model resolution path described
 > here (`_resolve_opencode_model`) was replaced by
 > `context.environment.opencode_build_model` on the shared
 > `SessionEnvironment` resolver. See
-> [[2026-09-16-mnt-205-revise-merged-environment]].
+> [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md).
 
 > **Consistency note (2026-11-11, Consistency Agent):** The systemic-fix follow-up was closed by MNT-251, but by a third path: `invalidate_agent_sessions(task_id)` clears the pointer and history is resolved **by `task_id`** rather than by `sessions.session_id`, so a stale `--session` can no longer 500 the build. The residual risk noted below it (a stale `--session` on the first build after a worktree deletion) was addressed by the same change.

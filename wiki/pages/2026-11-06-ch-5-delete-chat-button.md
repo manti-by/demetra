@@ -1,8 +1,9 @@
 ---
 title: 'CH-5: Delete chat button'
-date: '2026-11-06'
+generated: {by: demetra, at: '2026-11-06T00:00:00Z'}
+description: Records CH-5 adding a Delete button to the React chat session UI (ChatPanel and ChatPage), wired to deleteSession with a real handler plus frontend tests; all 1203 tests passed, and a later note corrects stale CSS class and handler names.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e4f736c64ffeYQq2KL14RQEQQL
 services: [react]
 branch: ch-5-delete-chat-button
@@ -91,7 +92,7 @@ All 1203 tests passed successfully, including the new frontend tests for the del
 
 ## References
 - External: CH-5 (chat request; no Linear ticket URL recorded)
-- Related: [[2026-11-03-ch-2-single-unified-session-view]]
-- Related: [[2026-11-04-chat-session-list-and-rerun]]
+- Related: [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The button snippet above is stale in two details: the container class is now `chat-topbar-actions` (not `topbar-actions`) and the click handler is `handleDeleteSession(taskId)` with in-flight de-duplication (`react/src/components/ChatPanel.tsx:174-184`, button block `:198-216`).

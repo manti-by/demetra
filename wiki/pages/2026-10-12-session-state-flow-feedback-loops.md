@@ -1,8 +1,9 @@
 ---
 title: 'Session state flow: completed chain, feedback loops, research chain'
-date: 2026-10-12
+generated: {by: demetra, at: '2026-10-12T00:00:00Z'}
+description: This records iterating on SessionStateFlow so completed finishes the whole chain, curved feedback arrows became measured node-anchored brackets with pending, active and passed states, and the research chain was corrected to initial→research→researched ending In Review; with centring, scaling and style-guide coverage, 105 React tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_ecf670f97ffe0sa9KB2TJeV1Hd
 services: [react, api, workflows]
 branch: master
@@ -16,7 +17,7 @@ related: [2026-10-12-session-state-animation.md, 2026-06-25-websocket-to-track-s
 ## TL;DR
 
 Iterated on the `SessionStateFlow` component added in
-[[2026-10-12-session-state-animation]]: the `completed` step now completes every node so the
+[2026-10-12-session-state-animation](/pages/2026-10-12-session-state-animation.md): the `completed` step now completes every node so the
 GitHub node stops blinking; the free-floating curved feedback arrows were replaced with
 measured square brackets anchored to the nodes they connect (`review → build`,
 `test → build`) that read dashed / blinking / plain depending on whether the loop was
@@ -271,13 +272,13 @@ verifies state logic but not geometry.
     geometry incl. the narrow-span radius clamp
   - `BUILD_FEEDBACK` asserts both loops target `build` and the lane order
 
-## Source — [[2026-06-25-websocket-to-track-session-statuses]]
+## Source — [2026-06-25-websocket-to-track-session-statuses](/archive/2026-06-25-websocket-to-track-session-statuses.md)
 
-The websocket feed this component renders is typed JSON, not raw text: `{"type":"log"}` log lines and `{"type":"status"}` transitions (MNT-101, 2026-06-25), deduplicated to emit only on actual change. Since MNT-244 the status payload carries the full `SessionState` dataclass (`{"type":"status","data":asdict(state)}` — `step`, `name`, `is_research`, `is_chat`, `feedback_loops`); handlers `send_log`/`send_status`/`send_deleted` live in `demetra/api/watcher.py`. Originally decided in [[2026-06-25-websocket-to-track-session-statuses]].
+The websocket feed this component renders is typed JSON, not raw text: `{"type":"log"}` log lines and `{"type":"status"}` transitions (MNT-101, 2026-06-25), deduplicated to emit only on actual change. Since MNT-244 the status payload carries the full `SessionState` dataclass (`{"type":"status","data":asdict(state)}` — `step`, `name`, `is_research`, `is_chat`, `feedback_loops`); handlers `send_log`/`send_status`/`send_deleted` live in `demetra/api/watcher.py`. Originally decided in [2026-06-25-websocket-to-track-session-statuses](/archive/2026-06-25-websocket-to-track-session-statuses.md).
 
-## Source — [[2026-07-16-fix-step-status-review-findings]]
+## Source — [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md)
 
-Durable decisions from the step/status refactor review (2026-07-16): the step vocabulary is unified — `VALID_STEPS = set(get_args(StepType))` (`demetra/api/sessions.py:20`) instead of a drifted duplicate enum — and the two upsert `ON CONFLICT` clauses are deliberately divergent: `upsert_pending_session` preserves the existing step (`step = sessions.step`, never regress an in-progress step to `"initial"`), while `save_session` always advances (`step = EXCLUDED.step`). Originally recorded in [[2026-07-16-fix-step-status-review-findings]].
+Durable decisions from the step/status refactor review (2026-07-16): the step vocabulary is unified — `VALID_STEPS = set(get_args(StepType))` (`demetra/api/sessions.py:20`) instead of a drifted duplicate enum — and the two upsert `ON CONFLICT` clauses are deliberately divergent: `upsert_pending_session` preserves the existing step (`step = sessions.step`, never regress an in-progress step to `"initial"`), while `save_session` always advances (`step = EXCLUDED.step`). Originally recorded in [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md).
 
 ## Follow-ups
 
@@ -290,8 +291,8 @@ Durable decisions from the step/status refactor review (2026-07-16): the step vo
 
 ## References
 
-- Related: [[2026-10-12-session-state-animation]]
-- Related: [[2026-06-25-websocket-to-track-session-statuses]]
-- Related: [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+- Related: [2026-10-12-session-state-animation](/pages/2026-10-12-session-state-animation.md)
+- Related: [2026-06-25-websocket-to-track-session-statuses](/archive/2026-06-25-websocket-to-track-session-statuses.md)
+- Related: [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 
-> **Consistency note (2026-11-11, Consistency Agent):** Two claims above were superseded on 2026-11-04. (1) The feedback-loop counters are no longer in-memory only — they are derived from `session_history` and persisted (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`), and `resolveLoopState(taken, finished)` replaced the earlier `resolveLoopState(flow, feedback, taken, step)` signature (`react/src/components/SessionStateFlow.tsx:120`); see [[2026-11-04-chat-session-list-and-rerun]]. (2) The centring is **not** done with `margin-inline: auto` — `react/src/App.css:519-523` has no such rule; the track uses `width: max-content` inside a centred wrapper. The `services:` frontmatter was a file dump (`SessionStateFlow`, `App.css`, `StyleGuide`) and is now `[react]`.
+> **Consistency note (2026-11-11, Consistency Agent):** Two claims above were superseded on 2026-11-04. (1) The feedback-loop counters are no longer in-memory only — they are derived from `session_history` and persisted (`_get_feedback_loops`, `demetra/services/persistence/database.py:780`), and `resolveLoopState(taken, finished)` replaced the earlier `resolveLoopState(flow, feedback, taken, step)` signature (`react/src/components/SessionStateFlow.tsx:120`); see [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md). (2) The centring is **not** done with `margin-inline: auto` — `react/src/App.css:519-523` has no such rule; the track uses `width: max-content` inside a centred wrapper. The `services:` frontmatter was a file dump (`SessionStateFlow`, `App.css`, `StyleGuide`) and is now `[react]`.

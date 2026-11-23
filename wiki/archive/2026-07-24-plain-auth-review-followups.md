@@ -1,8 +1,9 @@
 ---
 title: Plain Password Auth Implementation and Review Follow-ups
-date: 2026-07-24
+generated: {by: demetra, at: '2026-07-24T00:00:00Z'}
+description: Records MNT-148 implementing bcrypt password auth (signup/login/logout) with JWT cookies and a React form, then two CodeRabbit review passes hardening it with cookie-only tokens, email normalization, a --resetpass CLI, a DB backfill migration, a11y fixes, and 17 new tests.
 type: implementation
-status: resolved
+status: deprecated
 session_id: mnt-148-plain-auth
 services: [auth, api, database, react]
 branch: mnt-148-plain-auth
@@ -14,7 +15,7 @@ related: [2026-03-05-github-login.md, 2026-08-03-auth-hardening-and-deps-bump.md
 # Plain Password Auth Implementation and Review Follow-ups
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-03-auth-hardening-and-deps-bump]]. See wiki/archive/ for the original.
+> [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -73,11 +74,11 @@ Rejects empty / <8 char / >72-byte passwords.
 - `tests/test_auth_password_api.py` (8) — signup/login/logout mocked.
 - `tests/test_auth.py` — extended.
 
-## Source — [[2026-03-05-github-login]]
+## Source — [2026-03-05-github-login](/archive/2026-03-05-github-login.md)
 
-GitHub OAuth on FastAPI (`login`/`logout`/`current-user`, `services/auth.py` JWT) — MNT-48, 2026-03-05. MNT-148 added password path beside it; later [[2026-08-03-auth-hardening-and-deps-bump]] replaced passlib with direct bcrypt.
+GitHub OAuth on FastAPI (`login`/`logout`/`current-user`, `services/auth.py` JWT) — MNT-48, 2026-03-05. MNT-148 added password path beside it; later [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md) replaced passlib with direct bcrypt.
 
-## Source — [[2026-03-05-github-login-react-app]]
+## Source — [2026-03-05-github-login-react-app](/archive/2026-03-05-github-login-react-app.md)
 
 React wiring of GitHub button via `AuthContext` — MNT-50, 2026-03-05. Origin of Header/AuthContext refined in Step 5.
 
@@ -91,4 +92,4 @@ React wiring of GitHub button via `AuthContext` — MNT-50, 2026-03-05. Origin o
 ## References
 
 - Linear: MNT-148
-- Related: [[2026-07-22-react-frontend-template-warp]], [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-06-allowlist-review-fixes]]
+- Related: [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md), [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md), [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)

@@ -1,11 +1,12 @@
 ---
 title: LLM-authored wiki pages and normalized frontmatter
-date: 2026-10-08
+generated: {by: demetra, at: '2026-10-08T00:00:00Z'}
+description: This records replacing the deterministic wiki render scaffold and the should_use_llm budget gate with an unconditional LLM call that authors every session page via compose_wiki_page, while keeping frontmatter in code; 93 pages were normalized to inline YAML lists and 947 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_ee2ccebb3ffeZ1p6NUf0IS2y4j
 services: [wiki, llm, settings, tests]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [wiki, llm, openrouter, frontmatter, cleanup]
 related: [2026-08-19-wiki-should-use-llm-rename.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md]
@@ -142,7 +143,7 @@ A throwaway script rewrote only those four keys inside the leading `---` block: 
 were frontmatter-only edits. It also stripped the
 column-alignment padding that seven pages had copied from `TEMPLATE.md`, joined one wrapped
 flow list, and quoted `403` in
-[[2026-08-28-mnt-177-workflow-blocked-openrouter-403]] — that tag was parsing as an `int`,
+[2026-08-28-mnt-177-workflow-blocked-openrouter-403](/pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — that tag was parsing as an `int`,
 which breaks tag string-matching in `wiki_search`.
 
 Six pages were not frontmatter-only: their now-dead scaffold sections were also dropped from the
@@ -204,11 +205,11 @@ Replaced tests:
 ## References
 
 - External: -
-- Related: [[2026-08-19-wiki-should-use-llm-rename]] — renamed the very gate this change deletes
-- Related: [[2026-08-25-mnt-187-wiki-pages-not-generated]] — where the typed `WikiError`
+- Related: [2026-08-19-wiki-should-use-llm-rename](/pages/2026-08-19-wiki-should-use-llm-rename.md) — renamed the very gate this change deletes
+- Related: [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) — where the typed `WikiError`
   contract that `compose_wiki_page` now raises into was established
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]] — the `facts.py` / `render.py`
+- Related: [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md) — the `facts.py` / `render.py`
   layout this change edits
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]] — quoted as the `'403'` tag-quoting example
+- Related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403](/pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md) — quoted as the `'403'` tag-quoting example
 
 > **Consistency note (2026-11-11, Consistency Agent):** `compose_wiki_page` now takes thirteen keyword-only parameters (plus `environment`) and lives at `demetra/services/llm/openrouter.py:456` (the `template_input` literal at `:505-516`); `render_page` is at `demetra/services/wiki/render.py:60` and calls it at `:154`/`:169`. The “93 files under `wiki/pages` changed” count is historical — there are now 113 live pages. `PAGE_TYPE` is still hardcoded to `implementation` (`demetra/services/wiki/__init__.py:68`).

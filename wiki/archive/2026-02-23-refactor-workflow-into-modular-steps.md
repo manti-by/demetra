@@ -1,11 +1,12 @@
 ---
 title: Refactor workflow into modular steps
-date: 2026-02-23
+generated: {by: demetra, at: '2026-02-23T00:00:00Z'}
+description: MNT-37 records refactoring the monolithic main.py supervisor into modular demetra/workflows steps—worktree helper, integrated plan agent, lint/test runner, and unified finalize (commit/push, PR, cleanup)—consolidating error handling without changing behavior; the basis of today's layout, with integration and unit tests passing after modularization.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [main, workflows]
-branch: -
+branch: '-'
 tickets: [MNT-37]
 tags: [refactor, modules, workflow]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Refactor workflow into modular steps
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the
+> [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

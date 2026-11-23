@@ -1,11 +1,12 @@
 ---
 title: OpenCode Reasoning Token History Is Zero
-date: 2026-09-08
+generated: {by: demetra, at: '2026-09-08T00:00:00Z'}
+description: This investigation traced zero reasoning-token history to upstream OpenCode reading the obsolete usage.reasoningTokens field rather than any Demetra persistence layer; the resolution is upgrading the CLI (pinned to 2.2.5 in the Dockerfile) and checking a reasoning model's raw export, since existing zero rows cannot be corrected.
 type: investigation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [opencode, database, api]
-branch: "master"
+branch: master
 tickets: []
 tags: [opencode, session-history, reasoning-tokens]
 related: [2026-07-23-session-tokens-audit-revalidation.md]
@@ -51,7 +52,7 @@ If `.reasoning` is zero there, Demetra correctly stores zero. Existing history r
 
 ## References
 
-- Related: [[2026-07-23-session-tokens-audit-revalidation]]
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md)
 - External: https://github.com/anomalyco/opencode/commit/a915fe74be24d4df9caf4c5b0e0f60133367b00d
 
 > **Consistency note (2026-11-11, Consistency Agent):** The follow-up “confirm deployed OpenCode version” is answered by the image pin: the Dockerfile builds `OPENCODE_VERSION=2.2.5` and asserts `opencode --version` matches at build time (`Dockerfile:1`, `:43`). The zero-reasoning-token behaviour itself is upstream (OpenCode's export no longer emits `usage.reasoningTokens`); the `info.tokens.reasoning` path Demetra reads is at `demetra/services/agents/opencode.py:1063`.

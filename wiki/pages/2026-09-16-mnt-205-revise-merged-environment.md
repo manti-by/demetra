@@ -1,8 +1,9 @@
 ---
 title: 'MNT-205 — Revise merged environment: context.environment resolver'
-date: 2026-09-16
+generated: {by: demetra, at: '2026-09-16T00:00:00Z'}
+description: MNT-205 introduced a single SessionEnvironment resolver exposed as Context.environment that looks up workflow keys through project, user-shared and settings layers, raising EnvironmentConfigError when absent, and deleted the duplicate linear and llm config resolvers; all tests passed and the wiki pages were updated.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_f55832b3effeWJy0LClcVV2V83
 services: [library, workflows, settings]
 branch: mnt-205-revise-merged-environment
@@ -10,6 +11,7 @@ tickets: [MNT-205]
 tags: [wiki, backend, feature]
 related: [2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-08-18-categorize-settings-env-vars-by-layer.md]
 ---
+
 # MNT-205 — Revise merged environment: context.environment resolver
 
 ## TL;DR
@@ -48,7 +50,7 @@ The implementation plan involves standardizing the methods for resolving agent m
 
 ## References
 
-- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]], [[2026-08-18-categorize-settings-env-vars-by-layer]]
+- Related: [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md), [2026-08-18-categorize-settings-env-vars-by-layer](/pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
 - External: https://linear.app/mnt/issue/MNT-205/revise-merged-environment
 
 > **Consistency fix (2026-09-28, Consistency Agent):** `related:` was empty and `services:` was a ~150-entry dump of filenames/wiki slugs from the wiki generator (since trimmed to subsystem tags). The `Changed files`/`Stat` sections were a whole-tree diff, not this ticket's changeset: they correctly included the ticket's real deletions (`demetra/services/linear/config.py`, `demetra/services/llm/config.py`, both deleted in `68e53b7` and folded into the resolver) but also swept in unrelated churn — e.g. `wiki/pages/2026-09-10-mnt-200-update-research-loop.md`, `2026-09-11-mnt-203-create-related-ticket-for-research.md` and `2026-09-14-research-plan-artifact.md` shown as deleted although all three exist on HEAD, plus the never-committed duplicate `2026-09-16-mnt-205-context-environment.md`. Those sections have since been removed from this page, so no per-file counts remain below; the ticket's substance is the `SessionEnvironment` resolver in the TL;DR/Overview.

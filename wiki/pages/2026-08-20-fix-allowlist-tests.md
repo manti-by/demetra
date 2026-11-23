@@ -1,11 +1,12 @@
 ---
 title: Fix allowlist tests after MNT-173 default-on refactor
-date: 2026-08-20
+generated: {by: demetra, at: '2026-08-20T00:00:00Z'}
+description: 'Records the test fixes after MNT-173 flipped the auth allowlist gate to default-on (fail-closed): updating fixtures and auth tests to patch IS_ALLOWLIST_ENABLED in the allowlist namespace and use allowlist_disabled where needed; outcome: 883 tests passed and the staged source change shipped in PR #86.'
 type: implementation
-status: resolved
+status: stable
 session_id: ses_fe1248211ffeLvd40e4OnV1uVR
 services: [auth, settings, tests]
-branch: "-"
+branch: '-'
 tickets: [MNT-173]
 tags: [allowlist, auth, settings, tests, feature-flag]
 related: [2026-08-06-allowlist-review-fixes.md, 2026-08-18-test-db-isolation-logging.md]
@@ -50,7 +51,7 @@ Frontmatter `branch: -` quoted to `"-"` for valid YAML.
 
 ## References
 
-- Related: [[2026-08-06-allowlist-review-fixes]], [[2026-08-18-test-db-isolation-logging]]
+- Related: [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md), [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md)
 - External: [MNT-173 — Allowlist does not work](https://linear.app/mnt/issue/MNT-173)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “merged form reads `env_get_bool(..., True)` with no spell-tolerant parser” claim is imprecise: `demetra/settings.py:95-96` still defines `ALLOWLIST_TRUTHY_VALUES` / `ALLOWLIST_FALSY_VALUES`. The setting itself moved to `demetra/settings.py:98` (`IS_ALLOWLIST_ENABLED`), and `ALLOWLIST_ENABLED` no longer exists anywhere.

@@ -1,8 +1,9 @@
 ---
 title: Build agent server error — root cause and Awaiting Input handler
-date: 2026-08-19
+generated: {by: demetra, at: '2026-08-19T00:00:00Z'}
+description: 'Records the MNT-151 investigation of build failures ~4s after starting the BUILD agent with UnknownError err_..., attributed to the workspace $30 spending limit blocking paid models; outcome: BuildError now routes to Awaiting Input with a build_failed template — though the same signature later proved to be a stale session.'
 type: debug
-status: resolved
+status: stable
 session_id: ses_fe690f0deffe9Sisjgy3YfHCGl
 services: [main, workflows, agents, linear]
 branch: master
@@ -15,7 +16,7 @@ related: [2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-08-05-p
 
 ## TL;DR
 
-MNT-151 builds failed ~4s after "Running BUILD agent" with `UnknownError: Unexpected server error (err_...)` exit 1. Initially traced to the $30/month spending limit on workspace `wrk_01KE576G79X6RZGNHBTA39CPSM` blocking paid model `opencode-go/deepseek-v4-flash`, but the same signature also occurs on stale-session retries (worktree deleted by cleanup) — see [[2026-08-19-build-agent-stale-session-deleted-worktree]]. Fixed by routing `BuildError` to `Awaiting Input` with a `build_failed` Linear comment instead of silently reverting to TODO.
+MNT-151 builds failed ~4s after "Running BUILD agent" with `UnknownError: Unexpected server error (err_...)` exit 1. Initially traced to the $30/month spending limit on workspace `wrk_01KE576G79X6RZGNHBTA39CPSM` blocking paid model `opencode-go/deepseek-v4-flash`, but the same signature also occurs on stale-session retries (worktree deleted by cleanup) — see [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md). Fixed by routing `BuildError` to `Awaiting Input` with a `build_failed` Linear comment instead of silently reverting to TODO.
 
 ## Symptom
 
@@ -48,7 +49,7 @@ Gateway returns generic `UnknownError: Unexpected server error (err_...)` for pa
 
 ## Consistency note (2026-08-19)
 
-Same `UnknownError` also occurs when `--session` resumes a deleted-worktree session — see [[2026-08-19-build-agent-stale-session-deleted-worktree]]. Before retrying MNT-151, clear stale session (`sessions.session_id = NULL`, keep `build_plan`) or start fresh.
+Same `UnknownError` also occurs when `--session` resumes a deleted-worktree session — see [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md). Before retrying MNT-151, clear stale session (`sessions.session_id = NULL`, keep `build_plan`) or start fresh.
 
 ## Known follow-up (not fixed this session)
 
@@ -66,7 +67,7 @@ Before re-running MNT-151 clear stale session as above, then address limit: rais
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-build-agent-stale-session-deleted-worktree]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]]
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-11-12-ch-11-failed-status-for-awaiting-input-tickets](/pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
 - External: [MNT-151](https://linear.app/mnt/issue/MNT-151/switch-to-redis-remove-kafka)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The “optional systemic fix” follow-up (detect `UnknownError`/spending-limit/stale-session and retry without `--session`) was closed by MNT-251, although it took a third path rather than either option proposed here — sessions are invalidated via `invalidate_agent_sessions(task_id)` and history is resolved by `task_id` instead of the `sessions.session_id` pointer (see [[2026-10-16-mnt-251-session-attribution-accounting]] and [[2026-08-19-build-agent-stale-session-deleted-worktree]]). The `main.py` handler moved to `main.py:216` (`except BuildError`).
+> **Consistency note (2026-11-11, Consistency Agent):** The “optional systemic fix” follow-up (detect `UnknownError`/spending-limit/stale-session and retry without `--session`) was closed by MNT-251, although it took a third path rather than either option proposed here — sessions are invalidated via `invalidate_agent_sessions(task_id)` and history is resolved by `task_id` instead of the `sessions.session_id` pointer (see [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) and [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)). The `main.py` handler moved to `main.py:216` (`except BuildError`).

@@ -1,11 +1,12 @@
 ---
 title: Add a build plan to linear task
-date: 2026-02-21
+generated: {by: demetra, at: '2026-02-21T00:00:00Z'}
+description: Records MNT-29 adding an async Linear `post_comment` service that posts the extracted build plan to the ticket right after the plan step, with tests; a later `posted_to_linear` flag from MNT-39 prevented double-posting when plans are reused, and the page was archived.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [linear, workflows]
-branch: -
+branch: '-'
 tickets: [MNT-29]
 tags: [linear, comment, build-plan]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add a build plan to linear task
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-16-fix-empty-build-plan-loop]]. See wiki/archive/ for the
+> [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

@@ -1,8 +1,9 @@
 ---
 title: Task plan summarization
-date: 2026-03-11
+generated: {by: demetra, at: '2026-03-11T00:00:00Z'}
+description: 'Records MNT-61 (superseding MNT-20), which replaced fragile marker-trimming plan extraction with an LLM-summarized plan: `extract_plan` moved to the Groq service and runs a LangChain chain over plan output plus task description and comments, keeping legacy constants only for validation; the page was later archived and merged into review-summarization.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [groq, opencode, workflows]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-06-04-review-summarization.md, 2026-07-16-fix-empty-build-plan-lo
 # Task plan summarization
 
 > **Archived on 2026-09-28.** Useful info merged into
-> [[2026-06-04-review-summarization]]. See wiki/archive/ for the
+> [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR
@@ -36,7 +37,7 @@ The build step previously received a raw, messy plan scraped from agent output. 
 
 **File:** `demetra/services/opencode.py`
 
-The first approach added a plan-cleanup middleware step: `extract_plan()` searched for `PLAN_HEADER_STRING` / `PLAN_IS_READY_STRING` / `PLAN_HAS_QUESTIONS`, trimmed the surrounding agent chatter, and returned the clean plan body. It was called from `main.py` before the build step so the cleaned plan fed user-facing console messages, the Linear post, and the build prompt. Empty plans (no ready marker found) halted further processing — see [[2026-07-16-fix-empty-build-plan-loop]]. Tests in `tests/test_opencode.py` covered stored-plan reuse and empty-plan detection.
+The first approach added a plan-cleanup middleware step: `extract_plan()` searched for `PLAN_HEADER_STRING` / `PLAN_IS_READY_STRING` / `PLAN_HAS_QUESTIONS`, trimmed the surrounding agent chatter, and returned the clean plan body. It was called from `main.py` before the build step so the cleaned plan fed user-facing console messages, the Linear post, and the build prompt. Empty plans (no ready marker found) halted further processing — see [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md). Tests in `tests/test_opencode.py` covered stored-plan reuse and empty-plan detection.
 
 ## Step 2 — Move `extract_plan`
 
@@ -66,5 +67,5 @@ Tests were added for the summarized plan extraction.
 
 ## References
 
-- Related: [[2026-06-04-review-summarization]], [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md), [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md)
 - External: https://linear.app/mnt/issue/MNT-61, MNT-20

@@ -465,6 +465,7 @@ async def compose_wiki_page(
     log_tail: str,
     linear_url: str,
     related: list[str],
+    related_links: list[str] | None = None,
     task_id: str | None = None,
     environment: SessionEnvironment | None = None,
 ) -> str:
@@ -490,6 +491,8 @@ async def compose_wiki_page(
         related: Filenames of sibling wiki pages to cross-link in the References
             section. Required by the output contract, so it must be supplied
             even when empty.
+        related_links: Optional pre-rendered ``- Related:`` lines, used when the
+            caller has resolved which siblings live in the archive.
         task_id: Optional task id used to record the call in the session history.
         environment: Optional resolved env layer configuring the LLM via
             ``OPENROUTER_MODEL`` and ``OPENROUTER_API_KEY``.
@@ -501,7 +504,11 @@ async def compose_wiki_page(
         WikiError: When the LLM call fails, returns no usable body, or returns a
             body that does not carry every ``WIKI_REQUIRED_SECTIONS`` heading.
     """
-    related_links = "\n".join(f"- Related: [[{Path(name).stem}]]" for name in related) or "- None"
+    related_block = (
+        "\n".join(related_links)
+        if related_links is not None
+        else "\n".join(f"- Related: [{Path(name).stem}](/pages/{Path(name).stem}.md)" for name in related)
+    ) or "- None"
     template_input = {
         "title": title,
         "page_type": page_type,
@@ -512,7 +519,7 @@ async def compose_wiki_page(
         "diff_excerpt": diff_excerpt,
         "log_tail": log_tail,
         "linear_url": linear_url,
-        "related": related_links,
+        "related": related_block,
     }
     try:
         llm = await build_llm(temperature=0.3, max_tokens=4096, environment=environment)
@@ -548,6 +555,39 @@ async def compose_wiki_page(
         logger.error("compose_wiki_page body is missing required sections: %s", ", ".join(missing))
         raise WikiError(f"LLM returned a wiki page body missing required sections: {', '.join(missing)}")
     return body
+
+
+async def compose_wiki_description(*, content: str, environment: SessionEnvironment | None = None) -> str:
+    """Author the one-line description stored in a wiki page's OKF frontmatter.
+
+    Args:
+        content: The page body to summarize.
+        environment: Optional resolved env layer configuring the LLM.
+
+    Returns:
+        str: A single summary sentence without quotes, fences or a prefix.
+
+    Raises:
+        WikiError: When the LLM call fails or returns no usable sentence.
+    """
+    try:
+        llm = await build_llm(temperature=0.0, max_tokens=128, environment=environment)
+        prompt = ChatPromptTemplate.from_messages(
+            messages=[
+                ("system", await get_prompt(name="wiki_description")),
+                ("human", "Page content:\n{content}"),
+            ]
+        )
+        result = await (prompt | llm).ainvoke(input={"content": content})
+    except Exception:
+        logger.exception("LLM call failed in compose_wiki_description")
+        raise WikiError("Failed to compose the wiki page description") from None
+
+    description = " ".join(str(result.content).strip().strip("\"'").split())
+    if not description:
+        logger.error("compose_wiki_description returned an empty description")
+        raise WikiError("LLM returned an empty wiki page description")
+    return description
 
 
 async def generate_pr_description(

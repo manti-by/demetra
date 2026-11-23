@@ -1,8 +1,9 @@
 ---
 title: 'MNT-147 Wiki processes PR #70 — branch check and CI failure root cause'
-date: 2026-08-07
+generated: {by: demetra, at: '2026-08-07T00:00:00Z'}
+description: 'Records that PR #70''s unstable CI (MNT-147) stemmed from `env_get_list` returning an empty list instead of its default when the env var was unset, yielding no review agents, and that the fix plus a master merge made it MERGEABLE and landed as `cbd5b0e`.'
 type: code-review
-status: resolved
+status: stable
 session_id: opencode
 services: [wiki, settings, utils, workflows]
 branch: mnt-147-wiki-processes
@@ -10,6 +11,7 @@ tickets: [MNT-147, MNT-155]
 tags: [wiki, code-review, env, ci, regression]
 related: [2026-08-03-wiki-mcp-tools.md, 2026-08-05-post-build-validation.md, 2026-08-06-allowlist-review-fixes.md, 2026-08-19-wiki-should-use-llm-rename.md]
 ---
+
 # MNT-147 Wiki processes PR #70 — branch check and CI failure root cause
 
 ## TL;DR
@@ -85,6 +87,6 @@ Impacted (`demetra/settings.py`):
 
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-05-post-build-validation]], [[2026-08-06-allowlist-review-fixes]]
-- See also: [[2026-08-19-wiki-should-use-llm-rename]] — later wiki-service naming work (`budget_exceeded` → `should_use_llm`).
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md), [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)
+- See also: [2026-08-19-wiki-should-use-llm-rename](/pages/2026-08-19-wiki-should-use-llm-rename.md) — later wiki-service naming work (`budget_exceeded` → `should_use_llm`).
 - External: https://github.com/manti-by/demetra/pull/70, [MNT-147](https://linear.app/mnt/issue/MNT-147)

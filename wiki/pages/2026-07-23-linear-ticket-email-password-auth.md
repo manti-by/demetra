@@ -1,8 +1,9 @@
 ---
 title: Linear Ticket for Email/Password Authentication
-date: 2026-07-23
+generated: {by: demetra, at: '2026-07-23T00:00:00Z'}
+description: Records the end-to-end investigation of the GitHub-only auth flow and creation of Linear ticket MNT-148 for email/password authentication, locking in bcrypt hashing, signup-and-login-only scope and a single shared users table with file:line refs; no code changed.
 type: investigation
-status: resolved
+status: stable
 session_id: ses_unknown
 services: [auth, linear]
 branch: mnt-148-plain-auth
@@ -37,14 +38,14 @@ Same `users` table, same JWT + `auth_token` cookie, same `/api/v1/github/me` sha
 
 ## Decisions (all recommended defaults)
 
-1. **Hashing** → `bcrypt` via `passlib[bcrypt]` (later changed to direct `bcrypt` — see [[2026-08-03-auth-hardening-and-deps-bump]])
+1. **Hashing** → `bcrypt` via `passlib[bcrypt]` (later changed to direct `bcrypt` — see [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md))
 2. **Scope** → signup + login only (no reset/verification)
 3. **Account model** → single `users` table, `github_id` nullable, shared email, same JWT/cookie
 4. **Team** → `M2` (picked after listing Vention + M2)
 
 Explicitly excludes reset, verification, linking, rate limiting.
 
-> **Status update (2026-08-27):** Password reset was excluded above but an admin `--resetpass` CLI shipped under MNT-148 anyway (see [[2026-08-03-auth-hardening-and-deps-bump]] Step 4) — operator CLI, not self-service forgot-password.
+> **Status update (2026-08-27):** Password reset was excluded above but an admin `--resetpass` CLI shipped under MNT-148 anyway (see [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md) Step 4) — operator CLI, not self-service forgot-password.
 
 ## Linear API calls
 

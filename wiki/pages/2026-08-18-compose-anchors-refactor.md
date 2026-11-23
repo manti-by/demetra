@@ -1,9 +1,10 @@
 ---
 title: Docker Compose shared-anchor refactor
-date: 2026-08-18
+generated: {by: demetra, at: '2026-08-18T00:00:00Z'}
+description: 'Records a DRY refactor of docker-compose.yaml introducing three YAML anchors to deduplicate ~20 repeated lines across six services, cutting 197 to 179 lines with identical rendered config verified by diffing docker compose config output; outcome: landed on master, though API binding and worker replica details later drifted.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [deploy]
 branch: master
 tickets: []
@@ -21,7 +22,7 @@ DRY refactor of `docker-compose.yaml`: six `mantiby/demetra:latest` services rep
 
 ## Overview
 
-Long-hand compose caused [[2026-08-17-docker-setup-review]] findings 6–7 (`watcher`/`listener` stale `db` host, divergent `LOG_PATH` crashes). Anchors make the shared contract single-source.
+Long-hand compose caused [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md) findings 6–7 (`watcher`/`listener` stale `db` host, divergent `LOG_PATH` crashes). Anchors make the shared contract single-source.
 
 ## Step 1 — Shared anchors
 
@@ -77,7 +78,7 @@ api:
 
 ## Consistency note (2026-08-23)
 
-At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `master` uses `--host 0.0.0.0` + all-interface `8001:8001`/`9181:9181` (see [[2026-08-17-docker-setup-review]] #12).
+At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `master` uses `--host 0.0.0.0` + all-interface `8001:8001`/`9181:9181` (see [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md) #12).
 
 ## Follow-ups
 
@@ -95,7 +96,7 @@ At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `mast
 
 ## References
 
-- Related: [[2026-08-10-docker-compose-deploy]], [[2026-08-17-docker-setup-review]]
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md)
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Two details changed after this refactor: the api service now binds `0.0.0.0` and publishes `8001:8001` on all interfaces (`docker-compose.yaml:98-108`), and `worker.deploy.replicas` is **2** (`docker-compose.yaml:117`; `make deploy` scales 2, `make docker-up` scales 4). The three anchor names (`x-demetra-env`, `x-demetra-base`, `x-demetra-app`) and the `mantiby/demetra:latest` image still hold.

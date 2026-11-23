@@ -1,8 +1,9 @@
 ---
 title: OpenCode agent system prompts — permission hardening, injection guards, and merge/rebase semantics
-date: 2026-09-14
+generated: {by: demetra, at: '2026-09-14T00:00:00Z'}
+description: This hardened the seven .opencode agent prompts with enforced permission frontmatter, fixed merge-agent's inverted ours/theirs mapping for rebase, added prompt-injection guards and AGENTS.md-based toolchain language to plan/build, then split merge-agent into dedicated merge- and rebase-agent prompts with opencode_rebase_agent wiring; 54 tests passed, ruff/ty clean.
 type: implementation
-status: resolved
+status: stable
 session_id: 65ae8372-3a47-42de-acc9-bfb4791b4510
 services: [agents]
 branch: wiki-updates
@@ -21,7 +22,7 @@ Hardened all 7 `.opencode/agents/*.md` prompts (only `research-agent.md` had `de
 
 ## Overview
 
-Agents loaded via `opencode run --agent <name>` (`demetra/services/agents/opencode.py:366`). Six files had no frontmatter — `description` required, `permission` is enforcement, so "read-only"/"don't commit" prose was unenforced. Failure mode already observed: plan agent lost output after permission auto-reject (see [[2026-08-24-guard-empty-plan-output]]). Four initial fixes + later split:
+Agents loaded via `opencode run --agent <name>` (`demetra/services/agents/opencode.py:366`). Six files had no frontmatter — `description` required, `permission` is enforcement, so "read-only"/"don't commit" prose was unenforced. Failure mode already observed: plan agent lost output after permission auto-reject (see [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md)). Four initial fixes + later split:
 
 1. `description`+`permission` on 6 agents
 2. `merge-agent.md` ours/theirs rewrite
@@ -119,7 +120,7 @@ logger.error(f"Conflict resolution via rebase-agent failed: ...")
 Intentionally deferred (user scoped to items 1–4):
 
 - Deduplicate rules stated in both system prompt (`.opencode/agents/*.md`) and task prompt (`demetra/prompts/*_agent.md`) — exact-string contracts in two places.
-- Replace `review`/`validate` "silence=success" with explicit sentinel (e.g. `NO_FINDINGS`) — brittle, caused prior near-incident [[2026-08-24-guard-empty-plan-output]].
+- Replace `review`/`validate` "silence=success" with explicit sentinel (e.g. `NO_FINDINGS`) — brittle, caused prior near-incident [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md).
 - Pin `temperature`/`top_p` on classifier agents (validate, review) for determinism.
 - Wire wiki lookups into `plan-agent.md` explicitly (only `research-agent.md` does).
 - Design: BMAD/AWS AI-DLC gate planning on human approval; Demetra auto-resolves via `resolve-agent` (`PLAN_HAS_QUESTIONS`/`PLAN_IS_READY_STRING` in `opencode.py:12-14`) and gates at PR review — worth conscious sign-off.
@@ -128,7 +129,7 @@ Intentionally deferred (user scoped to items 1–4):
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-08-24-guard-empty-plan-output]]
+- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md)
 - External: [BMAD-METHOD](https://github.com/bmad-code-org/bmad-method), [AWS AI-DLC](https://awslabs.github.io/aidlc-workflows/guide/00-introduction/), [OpenCode agent config](https://opencode.ai/docs/agents/)
 
-> **Consistency note (2026-11-11, Consistency Agent):** The agent count is now **8** (`.opencode/agents/`: build, merge, plan, rebase, research, resolve, review, validate) — `AGENTS.md` and [[2026-09-18-dockerfile-opencode-agents-skills]] agree on 8. The follow-up “wire wiki lookups into `plan-agent.md`” is stale in its premise: the in-repo wiki MCP tool was retired in favour of the external **WI** MCP server (see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]), so agents reach the wiki through WI, not through a `wiki_search` tool.
+> **Consistency note (2026-11-11, Consistency Agent):** The agent count is now **8** (`.opencode/agents/`: build, merge, plan, rebase, research, resolve, review, validate) — `AGENTS.md` and [2026-09-18-dockerfile-opencode-agents-skills](/pages/2026-09-18-dockerfile-opencode-agents-skills.md) agree on 8. The follow-up “wire wiki lookups into `plan-agent.md`” is stale in its premise: the in-repo wiki MCP tool was retired in favour of the external **WI** MCP server (see [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)), so agents reach the wiki through WI, not through a `wiki_search` tool.

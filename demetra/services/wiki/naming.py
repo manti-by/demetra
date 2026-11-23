@@ -11,7 +11,7 @@ def today() -> str:
     """Return the current UTC date in ``YYYY-MM-DD`` form.
 
     Returns:
-        str: The current date used for the wiki page filename and frontmatter.
+        str: The current date used for the wiki page filename and ``generated.at``.
     """
     return datetime.now(UTC).strftime("%Y-%m-%d")
 

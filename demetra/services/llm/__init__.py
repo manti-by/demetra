@@ -1,5 +1,6 @@
 from demetra.services.llm.factory import build_llm
 from demetra.services.llm.openrouter import (
+    compose_wiki_description,
     compose_wiki_page,
     extract_errors,
     extract_plan,
@@ -15,6 +16,7 @@ from demetra.settings import OPENROUTER
 __all__ = [
     "OPENROUTER",
     "build_llm",
+    "compose_wiki_description",
     "compose_wiki_page",
     "extract_errors",
     "extract_plan",

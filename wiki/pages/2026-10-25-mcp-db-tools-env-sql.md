@@ -1,11 +1,12 @@
 ---
 title: Fix the MCP database tools — missing env and broken SQL
-date: 2026-10-25
+generated: {by: demetra, at: '2026-10-25T00:00:00Z'}
+description: This page records fixing every Demetra MCP database tool returning 'Database operation failed', caused by missing DB_* env in the MCP child, FROM quote_ident($1) treating a scalar function as a table, and $2 placeholder offsets, resolved via --env-file, inline identifier quoting and renumbered filters, with 1054 tests passing.
 type: debug
-status: resolved
+status: stable
 session_id: ses_e8b4cf16affeyLVQTq6NG6fUqQ
 services: [mcp, tools, database, deploy, tests]
-branch: "-"
+branch: '-'
 tickets: [MNT-90]
 tags: [mcp, database, asyncpg, environment, docker, uv-env-file, sql-injection, bandit, tooling, upgrade, streamable-http]
 related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-06-01-add-mcp-server.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
@@ -84,9 +85,9 @@ Three independent defects stacked behind one opaque error string:
 
 ---
 
-## Source — [[2026-08-03-fix-mcp-server-2.0-api]]
+## Source — [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md)
 
-The MCP server targets the mcp 2.0 low-level API (MNT-90, 2026-08-03): constructor callbacks instead of decorators — `Server(APP_NAME, version=VERSION, on_list_tools=..., on_call_tool=...)` returning `ListToolsResult`/`CallToolResult` — because 2.0 removed `@server.list_tools()`/`@server.call_tool()`. Per-system dispatchers return the shared `ToolResult` (`content` + `is_error`) and validation/unknown/backend errors forward as `is_error=True`. Originally decided in [[2026-08-03-fix-mcp-server-2.0-api]] on 2026-08-03.
+The MCP server targets the mcp 2.0 low-level API (MNT-90, 2026-08-03): constructor callbacks instead of decorators — `Server(APP_NAME, version=VERSION, on_list_tools=..., on_call_tool=...)` returning `ListToolsResult`/`CallToolResult` — because 2.0 removed `@server.list_tools()`/`@server.call_tool()`. Per-system dispatchers return the shared `ToolResult` (`content` + `is_error`) and validation/unknown/backend errors forward as `is_error=True`. Originally decided in [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md) on 2026-08-03.
 
 ## Follow-ups
 
@@ -96,5 +97,5 @@ The MCP server targets the mcp 2.0 low-level API (MNT-90, 2026-08-03): construct
 
 ## References
 
-- Related: [[2026-10-15-replace-wiki-mcp-tool-with-wi]], [[2026-08-03-fix-mcp-server-2.0-api]], [[2026-06-01-add-mcp-server]], [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
+- Related: [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md), [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md), [2026-06-01-add-mcp-server](/archive/2026-06-01-add-mcp-server.md), [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
 - Source paths: `opencode.json`, `demetra/tools/database.py`, `demetra/settings.py`, `tests/test_tools_database.py`, `pyproject.toml`

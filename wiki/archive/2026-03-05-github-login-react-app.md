@@ -1,11 +1,12 @@
 ---
 title: GitHub login for React app
-date: 2026-03-05
+generated: {by: demetra, at: '2026-03-05T00:00:00Z'}
+description: 'MNT-50 records the React client side of GitHub login added after MNT-48: a sign-in button wired to the FastAPI auth endpoints, a loading indicator during auth checks, conditional rendering of a greeting versus a sign-in prompt, and hover styling, with tests for loading and rendering.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [react, auth]
-branch: -
+branch: '-'
 tickets: [MNT-50]
 tags: [auth, github, react, login]
 related: []
@@ -14,7 +15,7 @@ related: []
 # GitHub login for React app
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-24-plain-auth-review-followups]]. See wiki/archive/ for the
+> [2026-07-24-plain-auth-review-followups](/archive/2026-07-24-plain-auth-review-followups.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

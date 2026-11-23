@@ -1,8 +1,9 @@
 ---
 title: 'MNT-276: ECONNRESET retry for agents'
-date: '2026-11-03'
+generated: {by: demetra, at: '2026-11-03T00:00:00Z'}
+description: MNT-276 added exponential-backoff retries for transient agent network errors like ECONNRESET in run_opencode_agent up to MAX_AGENT_NETWORK_ATTEMPTS, raising AgentNetworkError on exhaustion so main.py posts an agent_network_failed comment and moves the ticket to Awaiting Input without failing it, with 273 tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e5ed4a18cffeuswBCPXVvJ69Jx
 services: [agents, workflows, runtime, templates, settings, library, main]
 branch: mnt-276-econnreset-retry-for-agents
@@ -132,11 +133,11 @@ modules after the merge; `ruff`, `ty` and `bandit` clean.
 
 ## References
 
-- Related: [[2026-07-21-rich-markuperror-and-run-attempts]] — earlier agent-failure handling where a
+- Related: [2026-07-21-rich-markuperror-and-run-attempts](/pages/2026-07-21-rich-markuperror-and-run-attempts.md) — earlier agent-failure handling where a
   crash consumed the run budget and the workflow died with empty stderr
-- Related: [[2026-08-19-build-agent-server-error-handler]] — the generic `UnknownError` →
+- Related: [2026-08-19-build-agent-server-error-handler](/pages/2026-08-19-build-agent-server-error-handler.md) — the generic `UnknownError` →
   `Awaiting Input` handler this specialised path complements
-- See also: [[2026-11-06-agent-econnreset-network-investigation]] and [[2026-11-06-mnt-298-research-econnreset-root-cause]] — the follow-up investigation and root-cause session for these transient network failures.
+- See also: [2026-11-06-agent-econnreset-network-investigation](/pages/2026-11-06-agent-econnreset-network-investigation.md) and [2026-11-06-mnt-298-research-econnreset-root-cause](/pages/2026-11-06-mnt-298-research-econnreset-root-cause.md) — the follow-up investigation and root-cause session for these transient network failures.
 - External: https://linear.app/mnt/issue/MNT-276/econnreset-retry-for-agents
 
 > **Consistency note (2026-11-11, Consistency Agent):** The shipped defaults quoted above (`MAX_AGENT_NETWORK_ATTEMPTS = 5`, `AGENT_NETWORK_BACKOFF_BASE = 1.0`) are correct for the repository (`demetra/settings.py:61-62`), but **production ran with an environment override of 10 / 2** during the November 2026 incident window — see `.env.docker:17-18` (gitignored) and `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. That is why the incident logs quote `attempt N/10` instead of `N/5`; **Q-003** in `wiki/QUESTIONS.md` is resolved by that evidence.
