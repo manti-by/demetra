@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md) — Implementation of CH-15: Worktree management (2026-11-23)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — Every session-history block is a collapsible card, collapsed by default: name on the left, cost and time on the right, body as usual when open with the cost dropped from the header. `make deploy-ui` ships a frontend change by rebuilding only the React bundle through the one-shot `react-build` compose service and reloading nginx — no image rebuild, no migrations, no container restarts — under the same Redis deploy lock the daemon takes. (2026-11-15)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — The sidebar list now has three labelled blocks: Active (in progress, including `awaiting_input`, updated within 14 days or running live), Completed (`completed`/`researched`, any age) and Backlog (`failed` or stale in-progress); Active always renders with a `No active sessions` message, the other two only when non-empty. (2026-11-15)
 - [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — The Linear MCP server authenticates with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`; the key resolves project → user → system, the Demetra MCP command drops its cwd-relative `--env-file`, `DB_*` (except the encrypted `DB_PASSWORD`) are forwarded through `system_env`, the MCP server exits fast without a password, and the host credential file is derived into a provider-only global config. (2026-11-15)
@@ -111,7 +112,7 @@ _Newest first._
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — Two causes for NULL `session_history` tokens: the local DB was missing migration `a2b3c4d5e6f7` (every INSERT failed silently), and on odin prod the migration was applied but all 38 rows still had NUL... (2026-07-16)
 ## By topic
 
-### Workflow orchestration & agents (19 pages)
+### Workflow orchestration & agents (20 pages)
 
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md)
@@ -120,6 +121,7 @@ _Newest first._
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md)
 - [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
 - [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)
+- [CH-15: Worktree management — one cleanup policy for chat and Linear sessions](pages/2026-11-19-ch-15-worktree-management.md)
 - [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md)
 - [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md)
@@ -182,6 +184,7 @@ _Newest first._
 - [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
+- [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md) — 2026-11-23
 
 ### Deploy & infrastructure (10 pages)
 

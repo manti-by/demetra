@@ -27,7 +27,16 @@ from demetra.library.models import (
 )
 from demetra.services.agents.opencode import RESEARCH_HEADER_STRING
 from demetra.services.linear.states import LinearState
-from demetra.services.vcs.git import git_cleanup, git_worktree_create
+from demetra.services.vcs.git import (
+    git_add_all,
+    git_branch_delete,
+    git_checkout,
+    git_cleanup,
+    git_pull,
+    git_worktree_create,
+    git_worktree_drop,
+    git_worktree_has_operation,
+)
 from demetra.workflows.build import check_and_compact_context, run_build_step
 from demetra.workflows.cleanup import (
     PullRequestError,
@@ -85,6 +94,39 @@ class TestWorkflowSetup:
     def mock_git_worktree_create(self):
         with patch("demetra.workflows.setup.git_worktree_create", new_callable=AsyncMock) as m:
             yield m
+
+    @pytest.fixture
+    def setup_data(self, faker):
+        return (
+            {
+                "id": str(uuid4()),
+                "user_id": str(uuid4()),
+                "linear_project_id": str(uuid4()),
+                "name": "demetra",
+                "state": "active",
+                "repository_url": "https://github.com/test/demetra",
+                "repository_name": "demetra",
+                "repository_owner": "test",
+                "local_path": f"/tmp/{faker.slug()}",
+                "created_at": datetime.now().isoformat(),
+                "updated_at": datetime.now().isoformat(),
+            },
+            {
+                "id": str(uuid4()),
+                "identifier": "MNT-123",
+                "title": faker.sentence(),
+                "description": faker.text(),
+                "priority": "1",
+                "created_at": datetime.now().isoformat(),
+            },
+        )
+
+    def mock_setup_task(self, mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data):
+        mock_search.return_value = [project_data]
+        mock_env.return_value = {}
+        mock_user_env.return_value = {}
+        mock_task.return_value = LinearTask(**task_data)
+        mock_sess.return_value = None
 
     @pytest.fixture
     def mock_setup_deps(
@@ -154,6 +196,154 @@ class TestWorkflowSetup:
 
         assert result is not None
         assert result.project.name == "demetra"
+
+    @pytest.mark.asyncio
+    async def test_setup_workflow_reuses_existing_worktree_without_pull(self, mock_setup_deps, setup_data, tmp_path):
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
+        project_data, task_data = setup_data
+        self.mock_setup_task(mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data)
+        worktree_path = tmp_path / "existing"
+
+        with (
+            patch("demetra.workflows.setup.get_worktree_path", return_value=worktree_path),
+            patch("demetra.workflows.setup.git_worktree_exists", return_value=True),
+            patch("demetra.workflows.setup.git_worktree_has_operation", new_callable=AsyncMock, return_value=False),
+        ):
+            result = await setup_workflow("demetra", auto_mode=False)
+
+        assert result is not None
+        assert result.worktree_path == worktree_path
+        mock_pull.assert_not_awaited()
+        mock_wt.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_setup_workflow_recreates_worktree_with_unfinished_operation(
+        self, mock_setup_deps, setup_data, tmp_path
+    ):
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
+        project_data, task_data = setup_data
+        self.mock_setup_task(mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data)
+        created = tmp_path / "created"
+        mock_wt.return_value = created
+
+        with (
+            patch("demetra.workflows.setup.get_worktree_path", return_value=tmp_path / "existing"),
+            patch("demetra.workflows.setup.git_worktree_exists", return_value=True),
+            patch("demetra.workflows.setup.git_worktree_has_operation", new_callable=AsyncMock, return_value=True),
+        ):
+            result = await setup_workflow("demetra", auto_mode=False)
+
+        assert result is not None
+        assert result.worktree_path == created
+        mock_pull.assert_awaited_once()
+        mock_wt.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_setup_workflow_pulls_and_creates_when_worktree_missing(self, mock_setup_deps, setup_data, tmp_path):
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
+        project_data, task_data = setup_data
+        self.mock_setup_task(mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data)
+        created = tmp_path / "created"
+        mock_wt.return_value = created
+
+        with (
+            patch("demetra.workflows.setup.get_worktree_path", return_value=tmp_path / "missing"),
+            patch("demetra.workflows.setup.git_worktree_exists", return_value=False),
+        ):
+            result = await setup_workflow("demetra", auto_mode=False)
+
+        assert result is not None
+        assert result.worktree_path == created
+        mock_pull.assert_awaited_once()
+        mock_wt.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_setup_workflow_drops_and_recreates_when_cleanup_enabled(self, mock_setup_deps, setup_data, tmp_path):
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
+        project_data, task_data = setup_data
+        self.mock_setup_task(mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data)
+        created = tmp_path / "created"
+        mock_wt.return_value = created
+
+        with (
+            patch.dict("demetra.workflows.setup.FEATURES", {"is_worktree_cleanup_enabled": True}),
+            patch("demetra.workflows.setup.get_worktree_path", return_value=tmp_path / "existing"),
+            patch("demetra.workflows.setup.git_worktree_exists", return_value=True),
+            patch("demetra.workflows.setup.git_worktree_drop", new_callable=AsyncMock) as mock_drop,
+        ):
+            result = await setup_workflow("demetra", auto_mode=False)
+
+        assert result is not None
+        assert result.worktree_path == created
+        mock_drop.assert_awaited_once()
+        mock_pull.assert_awaited_once()
+        mock_wt.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_setup_research_task_always_pulls(self, mock_setup_deps, setup_data, tmp_path):
+        (
+            mock_search,
+            mock_env,
+            mock_user_env,
+            _mock_venv,
+            mock_task,
+            mock_sess,
+            mock_pull,
+            mock_wt,
+        ) = mock_setup_deps
+        project_data, task_data = setup_data
+        self.mock_setup_task(mock_search, mock_env, mock_user_env, mock_task, mock_sess, project_data, task_data)
+
+        with (
+            patch("demetra.workflows.setup.is_research_task", return_value=True),
+            patch("demetra.workflows.setup.get_worktree_path", return_value=tmp_path / "existing"),
+            patch("demetra.workflows.setup.git_worktree_exists", return_value=True),
+            patch("demetra.workflows.setup.git_worktree_drop", new_callable=AsyncMock) as mock_drop,
+        ):
+            result = await setup_workflow("demetra", auto_mode=False)
+
+        assert result is not None
+        assert result.is_research is True
+        assert result.worktree_path == project_data["local_path"]
+        mock_pull.assert_awaited_once()
+        mock_drop.assert_not_awaited()
+        mock_wt.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_setup_workflow_project_not_found(self, mock_search_projects):
@@ -2912,10 +3102,11 @@ class TestWorkflowCleanup:
         mock_invalidate.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_cleanup_workflow_removes_worktree_for_linear_session(self, faker):
+    async def test_cleanup_workflow_removes_worktree_when_cleanup_enabled(self, faker):
         context = self.make_context(faker)
 
         with (
+            patch.dict("demetra.workflows.cleanup.FEATURES", {"is_worktree_cleanup_enabled": True}),
             patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
             patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
             patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
@@ -2930,11 +3121,29 @@ class TestWorkflowCleanup:
         mock_invalidate.assert_awaited_once_with(task_id=context.task.id)
 
     @pytest.mark.asyncio
+    async def test_cleanup_workflow_keeps_linear_worktree_by_default(self, faker):
+        context = self.make_context(faker)
+
+        with (
+            patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock) as mock_invalidate,
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_cleanup.assert_awaited_once_with(context=context, is_success=True, remove_worktree=False)
+        mock_remove.assert_not_awaited()
+        mock_delete.assert_not_awaited()
+        mock_invalidate.assert_not_awaited()
+
+    @pytest.mark.asyncio
     async def test_cleanup_workflow_keeps_worktree_when_removal_disabled(self, faker):
         context = self.make_context(faker)
 
         with (
-            patch.dict("demetra.workflows.cleanup.GIT", {"disable_worktree_removal": True}),
+            patch.dict("demetra.workflows.cleanup.FEATURES", {"is_worktree_cleanup_enabled": False}),
             patch("demetra.workflows.cleanup.git_cleanup", new_callable=AsyncMock, wraps=git_cleanup) as mock_cleanup,
             patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
             patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
@@ -2962,7 +3171,7 @@ class TestWorkflowCleanup:
         mock_delete.assert_not_awaited()
 
     @pytest.mark.asyncio
-    async def test_git_worktree_create_reuses_existing_worktree(self, faker, tmp_path):
+    async def test_git_worktree_drop_removes_worktree_and_branch(self, faker, tmp_path):
         project = Project(
             id=str(uuid4()),
             user_id=str(uuid4()),
@@ -2982,12 +3191,140 @@ class TestWorkflowCleanup:
 
         with (
             patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
-            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_exists", new_callable=AsyncMock, return_value=True),
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
         ):
-            result = await git_worktree_create(project=project, branch_name="feature", reuse_existing=True)
+            await git_worktree_drop(project=project, branch_name="feature")
+
+        mock_remove.assert_awaited_once_with(
+            target_path=project.local_path,
+            worktree_path=worktree_path,
+            force=True,
+            environment=None,
+            project_id=project.id,
+        )
+        mock_delete.assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_has_operation_detects_merge_and_rebase_state(self, faker, tmp_path):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        worktree_path = tmp_path / project.repository_owner / project.repository_name / "feature"
+        worktree_path.mkdir(parents=True)
+        (worktree_path / ".git").write_text(f"gitdir: {tmp_path / 'gitdir'}")
+        git_dir = tmp_path / "gitdir"
+        git_dir.mkdir()
+
+        with (
+            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(0, str(git_dir), "")),
+        ):
+            assert await git_worktree_has_operation(project=project, branch_name="feature") is False
+
+            for marker in ("MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD"):
+                (git_dir / marker).write_text("state")
+                assert await git_worktree_has_operation(project=project, branch_name="feature") is True
+                (git_dir / marker).unlink()
+            for marker in ("rebase-merge", "rebase-apply"):
+                (git_dir / marker).mkdir()
+                assert await git_worktree_has_operation(project=project, branch_name="feature") is True
+                (git_dir / marker).rmdir()
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_has_operation_treats_unreadable_git_dir_as_unsafe(self, faker, tmp_path):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        worktree_path = tmp_path / project.repository_owner / project.repository_name / "feature"
+        worktree_path.mkdir(parents=True)
+        (worktree_path / ".git").write_text("gitdir: /tmp/worktree-git")
+
+        with (
+            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(1, "", "not a repo")),
+        ):
+            assert await git_worktree_has_operation(project=project, branch_name="feature") is True
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_create_recreates_existing_worktree(self, faker, tmp_path):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+        worktree_path = tmp_path / project.repository_owner / project.repository_name / "feature"
+        worktree_path.mkdir(parents=True)
+        (worktree_path / ".git").write_text("gitdir: /tmp/worktree-git")
+
+        with (
+            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.services.vcs.git.git_branch_exists", new_callable=AsyncMock, return_value=False),
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(0, "", "")) as mock_run,
+        ):
+            result = await git_worktree_create(project=project, branch_name="feature")
 
         assert result == worktree_path
-        mock_run.assert_not_awaited()
+        mock_remove.assert_awaited_once()
+        call_args = mock_run.await_args
+        assert call_args is not None
+        assert call_args.kwargs["command"][1:5] == ["worktree", "add", "-b", "feature"]
+
+    @pytest.mark.asyncio
+    async def test_git_worktree_create_force_deletes_orphan_branch(self, faker, tmp_path):
+        project = Project(
+            id=str(uuid4()),
+            user_id=str(uuid4()),
+            linear_project_id=None,
+            name="demetra",
+            state="active",
+            repository_url="https://github.com/test/demetra",
+            repository_name="demetra",
+            repository_owner="test",
+            local_path=Path(f"/tmp/{faker.slug()}"),
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+        )
+
+        with (
+            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+            patch("demetra.services.vcs.git.git_branch_exists", new_callable=AsyncMock, return_value=True),
+            patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(0, "", "")),
+        ):
+            await git_worktree_create(project=project, branch_name="feature")
+
+        mock_delete.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_git_cleanup_reports_failed_worktree_removal(self, faker):
@@ -3025,6 +3362,64 @@ class TestWorkflowCleanup:
             side_effect=RuntimeError("worktree busy"),
         ):
             assert await git_cleanup(context=context, is_success=True) is False
+
+
+class TestGitCommandFailures:
+    @pytest.mark.asyncio
+    async def test_git_add_all_raises_when_staging_fails(self, tmp_path):
+        with (
+            patch(
+                "demetra.services.vcs.git.run_command",
+                new_callable=AsyncMock,
+                side_effect=[(1, "", "permission denied"), (0, "", "")],
+            ),
+            pytest.raises(RuntimeError, match="Failed to stage changes"),
+        ):
+            await git_add_all(target_path=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_git_add_all_raises_when_inspecting_staged_changes_fails(self, tmp_path):
+        with (
+            patch(
+                "demetra.services.vcs.git.run_command",
+                new_callable=AsyncMock,
+                side_effect=[(0, "", ""), (1, "", "bad revision")],
+            ),
+            pytest.raises(RuntimeError, match="Failed to inspect staged changes"),
+        ):
+            await git_add_all(target_path=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_git_pull_raises_on_failure(self, tmp_path):
+        with (
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(1, "", "no remote")),
+            pytest.raises(RuntimeError, match="Pull failed"),
+        ):
+            await git_pull(target_path=tmp_path)
+
+    @pytest.mark.asyncio
+    async def test_git_branch_delete_raises_on_failure(self, tmp_path):
+        with (
+            patch(
+                "demetra.services.vcs.git.run_command",
+                new_callable=AsyncMock,
+                return_value=(1, "", "branch is checked out"),
+            ),
+            pytest.raises(RuntimeError, match="Failed to delete branch feature"),
+        ):
+            await git_branch_delete(target_path=tmp_path, branch_name="feature")
+
+    @pytest.mark.asyncio
+    async def test_git_checkout_raises_on_failure(self, tmp_path):
+        with (
+            patch(
+                "demetra.services.vcs.git.run_command",
+                new_callable=AsyncMock,
+                return_value=(1, "", "pathspec did not match"),
+            ),
+            pytest.raises(RuntimeError, match="Checkout failed"),
+        ):
+            await git_checkout(target_path=tmp_path, branch_name="feature")
 
 
 class TestMainBumpVersion:

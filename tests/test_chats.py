@@ -1170,6 +1170,22 @@ class TestChatCleanup:
         assert (await _session_for(task_id=chat.id)).step == "completed"
 
     @pytest.mark.asyncio
+    async def test_cleanup_enabled_removes_chat_worktree(self, chat: Chat, project: dict):
+        await update_session_step(task_id=chat.id, step="build")
+        context = _chat_context(chat=chat, project=project)
+
+        with (
+            patch.dict("demetra.workflows.cleanup.FEATURES", {"is_worktree_cleanup_enabled": True}),
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+            patch("demetra.workflows.cleanup.invalidate_agent_sessions", new_callable=AsyncMock),
+            patch("demetra.workflows.cleanup.linear_cleanup", new_callable=AsyncMock),
+        ):
+            await cleanup_workflow(context=context, is_success=True, should_update_linear_status=True)
+
+        mock_remove.assert_awaited_once()
+        assert (await _session_for(task_id=chat.id)).step == "completed"
+
+    @pytest.mark.asyncio
     async def test_failed_worktree_removal_publishes_failed_step(self, chat: Chat, project: dict):
         await update_session_step(task_id=chat.id, step="build")
         context = _chat_context(chat=chat, project=project)
