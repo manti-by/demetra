@@ -18,6 +18,8 @@
   "ses_093670774ffeRqtTEflrkIDv8O": "2026-09-14-listener-readline-limit-crash.md",
   "ses_094983da7ffe4Xk4LIfYPUrftI": "2026-08-18-test-db-isolation-logging.md",
   "ses_8f3a2b1c-20260825": "2026-08-25-loader-styleguide.md",
+  "ses_df094d738ffesVpDYe3Bhnbxly": "2026-11-25-deploy-deadlock-container-cleanup.md",
+  "ses_e14d62ce4ffe3y0E5hTt9mu9PL": "2026-11-17-langsmith-403-multipart-ingest.md",
   "ses_e1f6a316fffeH9qGy1hJrzbrI8": "2026-11-15-session-history-blocks-and-ui-deploy.md",
   "ses_e1fda1d84ffe8DTiZYxz45gjjo": "2026-11-15-session-list-three-sections.md",
   "ses_e20a2d79affe7UhwTAmInRdV2Y": "2026-11-15-mnt-314-linear-mcp-static-api-key.md",
@@ -53,6 +55,5 @@
   "ses_unknown": "2026-08-03-wiki-mcp-tools.md",
   "ses_worktree_20260722": "2026-07-22-warp-theme-review-fixes-and-ops.md",
   "sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3": "2026-09-02-mobile-template-react-frontend.md",
-  "ses_e14d62ce4ffe3y0E5hTt9mu9PL": "2026-11-17-langsmith-403-multipart-ingest.md",
   "sess_6664750b-7e75-4d94-b0da-7cb892b4bbbc": "2026-11-23-docker-image-size-optimization.md"
 }
