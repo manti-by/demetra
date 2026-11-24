@@ -1,8 +1,9 @@
 ---
 title: 'MNT-320: Build forks an empty session id — "--fork requires --continue or --session"'
-date: '2026-11-24'
+generated: {by: demetra, at: '2026-11-24T00:00:00Z'}
+description: MNT-320 fixed builds forking an empty session id, which the OpenCode CLI rejected with "--fork requires --continue or --session" — empty ids are now normalised to NULL across the model, workflow, agent and database layers, with a migration backfilling existing rows.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_df4e93215ffeb0Mmg5dv05kCwc
 services: [library, agents/opencode, persistence/database, workflows, b0c1d2e3f4a5_normalize_empty_session_ids, pyproject, conftest, test_database, test_migrations, test_models, test_opencode, test_workflows, uv]
 branch: mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session

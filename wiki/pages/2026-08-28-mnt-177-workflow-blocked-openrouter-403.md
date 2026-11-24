@@ -9,7 +9,7 @@ services: [workflows, llm, openrouter, opencode, linear]
 branch: '-'
 tickets: [MNT-162, MNT-177]
 tags: [openrouter, model, age-attestation, '403', plan-agent, extract-plan, permission, minimax, muse-spark]
-related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-01-mnt-177-research-loop.md]
 ---
 
 # MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation
@@ -70,5 +70,5 @@ MNT-162 hardening (empty `extract_plan` → `PlanError`) covers only the single 
 
 ## References
 
-- Related: [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+- Related: [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md) — the research-loop work this unblocked on the same ticket
 - External: worker.log `/mnt/data/www/demetra/log/worker.log` (MNT-177 07:27–10:00 2026-08-28), `project_environment` table, https://openrouter.ai/settings/preferences

@@ -100,3 +100,5 @@ At refactor time `api` used `--host 127.0.0.1` + loopback publish; current `mast
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Two details changed after this refactor: the api service now binds `0.0.0.0` and publishes `8001:8001` on all interfaces (`docker-compose.yaml:98-108`), and `worker.deploy.replicas` is **2** (`docker-compose.yaml:117`; `make deploy` scales 2, `make docker-up` scales 4). The three anchor names (`x-demetra-env`, `x-demetra-base`, `x-demetra-app`) and the `mantiby/demetra:latest` image still hold.
+
+> **Consistency note (2026-11-24, Consistency Agent):** the worker counts in the two notes above are stale. Since `1a53faf` (2026-11-14) both make targets scale to 4 (`Makefile:34`, `:129`) and the compose default is `replicas: 4` (`docker-compose.yaml:125`); the api binding and anchor names are unchanged.

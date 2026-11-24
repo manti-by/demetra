@@ -9,7 +9,7 @@ services: [persistence, workflows, api, react]
 branch: '-'
 tickets: [MNT-245, MNT-251, MNT-246, MNT-228, MNT-181]
 tags: [session-history, empty-rows, tokens, research, validate, review, cumulative]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-27-mnt-260-openrouter-call-history.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-10-16-mnt-234-isolate-session-context.md]
 ---
 
 # MNT-245: Empty session history
@@ -57,6 +57,7 @@ The "empty card" symptom was structural, not a data-loss accident: those steps w
 - Related: [2026-09-30-mnt-228-intermediate-history-states](/pages/2026-09-30-mnt-228-intermediate-history-states.md) — the step-row writer this supersedes
 - Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) — the total this re-points at `kind='invocation'`
 - Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) — the endpoint and the follow-up this closes
+- Related: [2026-10-16-mnt-234-isolate-session-context](/pages/2026-10-16-mnt-234-isolate-session-context.md) — sibling MNT-251 investigation from the same day, covering the session-attribution side
 - External: https://linear.app/mnt/issue/MNT-245
 
 > **Consistency note (2026-11-11, Consistency Agent):** `record_session_step_history` no longer exists — it was renamed to `record_session_step` (`demetra/services/persistence/database.py:979`); the four call sites quoted above are now `build.py:128`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The totals bullet was later widened by MNT-260 to include `kind='llm_call'` rows (`demetra/api/sessions.py:118`), as the 2026-11-09 note records.

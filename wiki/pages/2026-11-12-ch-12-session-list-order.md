@@ -9,7 +9,7 @@ services: [api, persistence/database, persistence/queue, pyproject, App, App.tes
 branch: ch-12-session-list-order
 tickets: [CH-12]
 tags: [wiki, feature, frontend, backend]
-related: [2026-11-04-chat-session-list-and-rerun.md, 2026-10-12-session-state-flow-feedback-loops.md]
+related: [2026-11-04-chat-session-list-and-rerun.md, 2026-10-12-session-state-flow-feedback-loops.md, 2026-11-15-session-list-three-sections.md]
 ---
 
 # CH-12: Session list order
@@ -102,3 +102,4 @@ All 1345 tests passed successfully. Key test coverage includes:
 - External: <linear ticket URL>
 - Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
 - Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md)
+- Related: [2026-11-15-session-list-three-sections](/pages/2026-11-15-session-list-three-sections.md) — supersedes the two-group split introduced here with Active/Completed/Backlog sections

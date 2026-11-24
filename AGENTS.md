@@ -23,7 +23,7 @@ Demetra is an autonomous coding platform that coordinates multiple AI coding age
 - `migrations/`: Alembic database migrations
 - `alembic.ini`: Alembic configuration (drives the migration commands)
 - `tests/`: Comprehensive test suite (67 `test_*.py` files, 69 total with `__init__.py`/`conftest.py`)
-- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`), provider-only OpenCode config derivation (`configs/derive-opencode-config.py`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker
+- `configs/`: Docker entrypoint (`configs/docker-entrypoint.sh`), provider-only OpenCode config derivation (`configs/derive-opencode-config.py`) and nginx config (`configs/nginx.conf`, `configs/proxy.params`) — `bootstrap.sh` and the systemd units (`configs/services/*.service`) were removed in `f5904d5` (2026-09-11) when `make deploy` moved to Docker; a standalone `configs/deployer.service` was added in `583d19c` (2026-11-24) for running the deployer under systemd on the host, while the Docker path uses the compose `deployer` service
 - `wiki/audits/`: Dated audit directories (workflow audits, `2026-11-05-security-audit/` with numbered security findings) plus `workflow-state-machine.html` interactive Mermaid diagram (static asset)
 - `Dockerfile`, `docker-compose.yaml`, `.dockerignore`: containerized deploy (api/worker/watcher/listener/rq-dashboard + one-shot React build; see `make deploy` / `make docker-up`). The image bakes the `opencode` and `wi` binaries onto `PATH` — both are version-pinned build args (`OPENCODE_VERSION`, `WI_VERSION`), and the final stage asserts `opencode --version` matches `OPENCODE_VERSION`, so a stale cached `COPY --from=builder` fails the build instead of shipping an old binary; `wi` is the external MCP server wired into `opencode.json`, so agents can launch it in-container. The host provider-credential file is mounted read-only as `~/.config/opencode/providers.json`; `configs/derive-opencode-config.py` derives the global `opencode.json` from it at container start, keeping `$schema` + `provider` only so host MCP/agent sections cannot shadow the project config. The Rust toolchain (`/usr/local/cargo`, `/usr/local/rustup` from `rust:1-slim`), the C toolchain (`gcc g++ make libc6-dev pkg-config`) and `bun` are required runtime dependencies even though Demetra itself never calls them: agents build and test the target projects Demetra manages (Rust, native-extension and JS projects) inside the container, so do not drop them to shrink the image. The runtime image carries no dev dependencies or `tests/`; `make docker-test` (`docker-compose.test.yaml`) bind-mounts the repo, installs the dev group into `/opt/venv` of a throwaway container and runs migrations + `pytest` against a disposable Postgres
 - `.github/workflows/`: GitHub Actions CI (`checks.yml`)
@@ -79,11 +79,11 @@ This project adheres strictly to the Git Flow branching model. AI agents must fo
 # Install dependencies (including dev extras)
 uv sync --all-extras --dev
 
-# Upgrade dependencies and pre-commit hooks
-uv run uv-bump
-uv sync --all-extras --dev
-uv run pre-commit autoupdate
+# Upgrade dependencies and pre-commit hooks (Makefile:59-61)
+make update                          # uu + uv sync --all-extras --dev + pre-commit autoupdate
 ```
+
+`uu` is an external CLI, not a project dev dependency; the old `uv-bump` dev dependency was removed in `9625097`.
 
 ### Running Modules
 
@@ -101,18 +101,18 @@ Prerequisites: Docker Compose v2 (the `docker-up` target passes `--scale worker=
 
 ```bash
 cp .env.docker.example .env.docker   # then fill in real values
-make check-compose                   # validate docker-compose.yaml (docker compose config -q)
+make check-compose                   # validate docker-compose.yaml (docker compose --env-file .env.docker config -q)
 make deploy                          # git pull + build + pull infra + migrate/react one-shots + up long-running (scale 4) + nginx reload
 make deploy-ui                       # git pull + react one-shot build + nginx reload (frontend only)
 # pure-Docker path (no git pull / nginx reload):
-make docker-build && make docker-up  # build image + up with 4 workers (Makefile:109-110); `postgres`/`redis`/`oven/bun` pulled automatically
+make docker-build && make docker-up  # build image + up with 4 workers (Makefile:119-129); `postgres`/`redis`/`oven/bun` pulled automatically
 ```
 
 `make deploy-ui` ships frontend-only changes: it pulls, rebuilds the React bundle through the one-shot `react-build` service and reloads nginx, leaving the image, the migrations and the running containers untouched — a UI change goes live without restarting the API or interrupting the running workflows. It takes the same Redis deploy lock as `make deploy` (`demetra/deploy_lock.py`), so it cannot overlap the deploy daemon, which rebuilds the same bundle.
 
 ## Language & Environment
 
-- Python >=3.13.9, <3.14.0 (see `pyproject.toml`)
+- Python >=3.14.10, <3.15.0 (see `pyproject.toml:6`; the Dockerfile builds on `python:3.14-slim`)
 - Follow PEP 8 style guidelines, with Ruff enforcing style and linting (120 char line length)
 - Use type hints for public functions and complex code paths
 - Use only f-strings for string formatting (never use `.format()` or `%` formatting; sole exceptions: prompt-template substitution in `demetra/services/llm/prompt.py` and message-template substitution in `demetra/services/runtime/template.py`)
@@ -197,7 +197,7 @@ Demetra coordinates the following external tools:
 - **GitHub**: PR creation and notification-driven merge/rebase/`fix review findings` triggers (`demetra/listener.py` → `demetra/services/daemons/listener.py` → `demetra/workflows/review_fixes.py`)
 - **OpenRouter**: LLM API for plan extraction, lint/test error extraction (`extract_errors`, MNT-308), review and wiki summarisation, and PR description generation (`demetra/services/llm/openrouter.py`)
 - **WI**: project wiki search/read/list via MCP (`opencode.json` `mcp.servers.WI`, `wi` command) — the in-repo `wiki_*` MCP tools were removed in favour of it
-- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`). Tracing is one platform-wide configuration: `docker-compose.yaml` forwards host `LANGSMITH_*` into containers with tracing opt-in (default `false`), and `settings.LANGSMITH` gates tracing on a configured API key (a whitespace-only key counts as missing) and forces in-process tracing off when there is none. `SessionEnvironment.system_env` derives the same flags from that single source — project/user layer overrides are ignored — so all sessions share the configured platform project, `LANGSMITH_PROJECT` (default `Demetra`); the platform API key must be authorized for that project. The shared key itself is kept out of `system_env`: only the agent run that emits traces receives it, via `SessionEnvironment.tracing_env` and `forward_tracing=True` (`demetra/library/models.py:753`, `demetra/services/runtime/subprocess.py:32`, `demetra/settings.py:247`)
+- **LangSmith**: tracing via environment variables, not an OpenCode plugin (`plugins: []` since `67d106c`). Tracing is one platform-wide configuration: `docker-compose.yaml` forwards host `LANGSMITH_*` into containers with tracing opt-in (default `false`), and `settings.LANGSMITH` gates tracing on a configured API key (a whitespace-only key counts as missing) and forces in-process tracing off when there is none. `SessionEnvironment.system_env` derives the same flags from that single source — project/user layer overrides are ignored — so all sessions share the configured platform project, `LANGSMITH_PROJECT` (default `Demetra`); the platform API key must be authorized for that project. The shared key itself is kept out of `system_env`: only the agent run that emits traces receives it, via `SessionEnvironment.tracing_env` and `forward_tracing=True` (`demetra/library/models.py:782`, `demetra/services/runtime/subprocess.py:32`, `demetra/settings.py:247`)
 
 ## Security Guidelines
 

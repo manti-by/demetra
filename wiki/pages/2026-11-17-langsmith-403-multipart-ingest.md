@@ -1,14 +1,15 @@
 ---
 title: LangSmith 403 multipart ingest — root cause and fix
-date: 2026-11-17
+generated: {by: demetra, at: '2026-11-17T00:00:00Z'}
+description: The LangSmithError multipart-ingest flood was a 403 on /runs/multipart because compose forced LANGSMITH_TRACING=true while the forwarded key is unauthorized; tracing is now one opt-in platform-wide config gated on a configured key and read only from settings.py.
 type: debug
-status: resolved
+status: stable
 session_id: ses_e14d62ce4ffe3y0E5hTt9mu9PL
 services: [settings, library, runtime, deploy, llm]
 branch: ch-14-langsmitherror
 tickets: []
 tags: [langsmith, docker, compose, tracing, 403, environment, credentials]
-related: [2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-11-15-mnt-314-linear-mcp-static-api-key.md]
+related: [2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-11-15-mnt-314-linear-mcp-static-api-key.md, 2026-11-18-ch-14-langsmitherror.md]
 ---
 
 # LangSmith 403 multipart ingest — root cause and fix
@@ -74,7 +75,8 @@ The warnings appeared around agent invocations (plan/build agents, LLM calls) bu
 
 ## References
 
-- Related: [[2026-09-28-compose-langsmith-host-env]]
-- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]]
-- Related: [[2026-11-15-mnt-314-linear-mcp-static-api-key]]
+- Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
+- Related: [2026-11-15-mnt-314-linear-mcp-static-api-key](/pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md)
+- Related: [2026-11-18-ch-14-langsmitherror](/pages/2026-11-18-ch-14-langsmitherror.md) — implementation write-up of the fix described here (same branch)
 - Code: `demetra/library/models.py:743`, `demetra/settings.py:243`, `demetra/services/runtime/subprocess.py:45`, `docker-compose.yaml:6`

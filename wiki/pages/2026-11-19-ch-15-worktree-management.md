@@ -1,8 +1,9 @@
 ---
 title: 'CH-15: Worktree management'
-date: '2026-11-23'
+generated: {by: demetra, at: '2026-11-19T00:00:00Z'}
+description: CH-15 replaced the chat-only GIT_DISABLE_WORKTREE_REMOVAL switch with one WORKTREE_CLEANUP feature flag for chat and Linear sessions alike — enabled drops the worktree, pulls master and starts fresh, research always pulls master, and setup otherwise reuses the existing path.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_df59e4802ffeUhHtbo2EE5qpr2
 services: [.env.docker, .pre-commit-config, AGENTS, Dockerfile, Makefile, library, agents/opencode, runtime/subprocess, runtime/utils, vcs/__init__, vcs/git, settings, workflows, docker-compose.test, docker-compose, pyproject, ChatPanel, SessionList, NewChatPage, test_chats, test_docker_compose, test_opencode, test_session_environment, test_settings, test_subprocess, test_workflows, uv, .sessions, INDEX, 2026-11-04-chat-session-list-and-rerun, 2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions, 2026-11-17-langsmith-403-multipart-ingest, 2026-11-18-ch-14-langsmitherror, 2026-11-19-ch-15-worktree-management, 2026-11-23-docker-image-size-optimization]
 branch: ch-15-worktree-management
@@ -100,5 +101,5 @@ The implementation was verified through:
 ## References
 
 - External: -
-- Related: [[2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions]]
-- Related: [[2026-11-04-chat-session-list-and-rerun]]
+- Related: [2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions](/pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)

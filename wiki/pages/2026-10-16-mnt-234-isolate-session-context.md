@@ -9,7 +9,7 @@ services: [agents, workflows, persistence]
 branch: '-'
 tickets: [MNT-234, MNT-251, MNT-246, MNT-151]
 tags: [sessions, session-context, plan-loop, fork, stale-session, isolation]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-10-16-mnt-245-empty-session-history.md]
 ---
 
 # MNT-234: Isolate session context
@@ -55,4 +55,5 @@ The ticket's premise ("almost all agents share the same session") was wrong in c
 - Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) — the implementation that fixed the two defects
 - Related: [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md) — the v2 ground truth that corrected this report
 - Related: [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — the incident this report misattributed to MNT-151
+- Related: [2026-10-16-mnt-245-empty-session-history](/pages/2026-10-16-mnt-245-empty-session-history.md) — sibling MNT-251 investigation from the same day, covering the history/token side
 - External: https://linear.app/mnt/issue/MNT-234

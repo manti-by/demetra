@@ -1,8 +1,9 @@
 ---
 title: Docker image size optimization
-date: 2026-11-23
+generated: {by: demetra, at: '2026-11-23T00:00:00Z'}
+description: mantiby/demetra:latest shrank from 1.01 GB to 708 MB by replacing a recursive chown that duplicated /opt/venv and the Rust toolchain with COPY --chown, slimming the C toolchain and switching to vim-tiny, keeping Rust, C and bun for target builds; the container suite passed 1556 tests.
 type: investigation
-status: resolved
+status: stable
 session_id: sess_6664750b-7e75-4d94-b0da-7cb892b4bbbc
 services: [Dockerfile, docker-compose, docker-entrypoint]
 branch: opencode/feature/optimize-docker-image-size
@@ -15,7 +16,15 @@ related: [2026-09-18-dockerfile-opencode-agents-skills.md, 2026-08-17-docker-set
 
 ## TL;DR
 
-`mantiby/demetra:latest` is 1.01 GB. The goal is to shrink it while keeping the test suite green when run inside the container. So far this session only did the analysis: the final stage ships a full Rust toolchain, `build-essential`, bun, the Docker CLI and compose, and it re-owns `/opt/venv`, cargo and rustup with a recursive `chown -R` that duplicates those trees in a second layer. A first set of uncommitted `Dockerfile` edits now sits on `master` (made outside this session). Nothing has been built or tested yet.
+`mantiby/demetra:latest` went from 1.01 GB compressed to 708 MB: the recursive
+`chown -R` that stored `/opt/venv` and the Rust toolchain twice is gone
+(replaced by `COPY --chown`), `build-essential` became an explicit
+`gcc g++ make libc6-dev pkg-config` set, and `vim` became `vim-tiny`. The Rust
+toolchain, the C toolchain and bun stay because agents build target projects
+inside the container, dev dependencies stay out of the runtime image, and
+`make docker-test` (a throwaway `docker-compose.test.yaml`) passed 1556 tests.
+The analysis below is the state before the change; the measured results are in
+the 2026-11-23 16:45 update.
 
 ---
 
@@ -40,6 +49,11 @@ The biggest wins in the final stage, all still open, are:
 - The local checkout was 37 commits behind `origin/master` when the session started. Upstream had added the Docker CLI/compose binaries, the deployer source copy to `/opt/demetra/src`, and `configs/derive-opencode-config.py`, so it was fast-forwarded before any analysis.
 
 ## Uncommitted edits on master (not from this session)
+
+> **Consistency note (2026-11-24, Consistency Agent):** these edits are no longer
+> uncommitted, and the "Current Dockerfile" section above describes the
+> pre-change state. The edits below shipped and are the change measured in the
+> 2026-11-23 16:45 update (708 MB, 1556 tests passing).
 
 These edits appeared in the working tree on `master` between the analysis and this sync. They have not been built or tested:
 
@@ -71,4 +85,4 @@ Decisions: the Rust toolchain, the C toolchain and bun stay, because agents buil
 
 ## References
 
-- Related: [[2026-09-18-dockerfile-opencode-agents-skills]], [[2026-08-17-docker-setup-review]], [[2026-08-10-docker-compose-deploy]], [[2026-11-14-mnt-315-auto-deploy-on-master-commits]]
+- Related: [2026-09-18-dockerfile-opencode-agents-skills](/pages/2026-09-18-dockerfile-opencode-agents-skills.md), [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md), [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-11-14-mnt-315-auto-deploy-on-master-commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
