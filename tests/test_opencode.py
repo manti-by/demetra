@@ -4,12 +4,26 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.library.exceptions import AgentNetworkError
+from demetra.library.exceptions import (
+    AgentBudgetRetryError,
+    AgentCompactionError,
+    AgentContextOverflowError,
+    AgentNetworkError,
+    AgentPermissionError,
+    AgentProviderError,
+    AgentQuotaError,
+    AgentRateLimitError,
+    BuildError,
+    PlanError,
+)
 from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
+    agent_failure_error,
     capture_agent_session,
+    classify_agent_error,
     extract_research_report,
+    format_agent_error,
     get_opencode_session_export,
     get_opencode_session_id,
     get_opencode_session_length,
@@ -26,6 +40,7 @@ from demetra.services.agents.opencode import (
     opencode_supports_compaction,
     opencode_supports_standalone,
     opencode_validate_agent,
+    redact_provider_text,
     reset_opencode_cli_state,
     run_opencode_agent,
 )
@@ -148,7 +163,7 @@ class TestOpencodeService:
             agent="plan-agent",
             project_id=None,
             environment=None,
-            retry_on_network_error=True,
+            retry_on_classified_failure=True,
         )
         assert result == "plan result"
 
@@ -231,7 +246,7 @@ class TestOpencodeService:
             agent="resolve-agent",
             project_id=None,
             environment=None,
-            retry_on_network_error=True,
+            retry_on_classified_failure=True,
         )
         assert result == "resolve result"
 
@@ -327,7 +342,7 @@ class TestAgentNetworkRetry:
         mock_run_command.return_value = (0, "built", "")
 
         result = await run_opencode_agent(
-            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_classified_failure=True
         )
 
         assert result == (0, "built", "")
@@ -340,7 +355,7 @@ class TestAgentNetworkRetry:
         mock_run_command.side_effect = [(1, "", "read ECONNRESET"), (0, "built", "")]
 
         result = await run_opencode_agent(
-            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_classified_failure=True
         )
 
         assert result == (0, "built", "")
@@ -353,7 +368,9 @@ class TestAgentNetworkRetry:
         mock_run_command.return_value = (1, "", "read ECONNRESET")
 
         with pytest.raises(AgentNetworkError) as exc_info:
-            await run_opencode_agent(Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True)
+            await run_opencode_agent(
+                Path("/test"), "task", model="m", agent="build-agent", retry_on_classified_failure=True
+            )
 
         assert mock_run_command.await_count == 3
         assert [call.args[0] for call in mock_sleep.await_args_list] == [1.0, 2.0]
@@ -374,7 +391,9 @@ class TestAgentNetworkRetry:
         )
 
         with pytest.raises(AgentNetworkError) as exc_info:
-            await run_opencode_agent(Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True)
+            await run_opencode_agent(
+                Path("/test"), "task", model="m", agent="build-agent", retry_on_classified_failure=True
+            )
 
         assert exc_info.value.stderr == "read ECONNRESET"
         assert "ECONNRESET" in str(exc_info.value)
@@ -397,7 +416,7 @@ class TestAgentNetworkRetry:
                 session_id="sess-plan",
                 task_title="Title",
                 fork=True,
-                retry_on_network_error=True,
+                retry_on_classified_failure=True,
             )
 
         first_command = mock_run_command.await_args_list[0].kwargs["command"]
@@ -449,7 +468,7 @@ class TestAgentNetworkRetry:
                     session_id="sess-plan",
                     task_title="Title",
                     fork=True,
-                    retry_on_network_error=True,
+                    retry_on_classified_failure=True,
                 )
 
         mock_run_command.assert_awaited_once()
@@ -473,7 +492,7 @@ class TestAgentNetworkRetry:
                 model="m",
                 agent="plan-agent",
                 task_title="Title",
-                retry_on_network_error=True,
+                retry_on_classified_failure=True,
             )
 
         second_command = mock_run_command.await_args_list[1].kwargs["command"]
@@ -509,7 +528,7 @@ class TestAgentNetworkRetry:
         mock_run_command.return_value = (1, "", "Unexpected server error")
 
         result = await run_opencode_agent(
-            Path("/test"), "task", model="m", agent="build-agent", retry_on_network_error=True
+            Path("/test"), "task", model="m", agent="build-agent", retry_on_classified_failure=True
         )
 
         assert result == (1, "", "Unexpected server error")
@@ -544,7 +563,7 @@ class TestOpencodeValidateAgent:
             agent="validate-agent",
             project_id=None,
             environment=None,
-            retry_on_network_error=True,
+            retry_on_classified_failure=True,
         )
         assert result == "validate result"
 
@@ -1461,7 +1480,7 @@ class TestOpencodeResearchAgent:
             agent="research-agent",
             project_id=None,
             environment=None,
-            retry_on_network_error=True,
+            retry_on_classified_failure=True,
         )
         assert result == (0, "output", "")
 
@@ -1549,3 +1568,214 @@ class TestEmptySessionId:
         mock_run_command_and_opencode_config.return_value = (0, json.dumps(sessions), "")
 
         assert await get_opencode_sessions(Path("/test")) == sessions
+
+
+class TestAgentFailureClassification:
+    """Provider stderr maps onto typed errors, with specific signatures winning
+    over broad ones and credentials stripped from every rendered text."""
+
+    @pytest.fixture
+    def failure_retry_env(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run_command,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "test-model"}),
+            patch("demetra.services.agents.opencode.MAX_AGENT_NETWORK_ATTEMPTS", 5),
+            patch("demetra.services.agents.opencode.MAX_AGENT_FAILURE_ATTEMPTS", 3),
+            patch("demetra.services.agents.opencode.AGENT_NETWORK_BACKOFF_BASE", 1.0),
+            patch("demetra.services.agents.opencode.asyncio.sleep", new_callable=AsyncMock) as mock_sleep,
+        ):
+            yield mock_run_command, mock_sleep
+
+    @pytest.mark.parametrize(
+        "stderr, code, error_class, retryable",
+        [
+            ("Your workspace has reached its monthly spending limit of $30", "quota_exhausted", AgentQuotaError, False),
+            (
+                "This request requires more credits; reduce max_tokens and retry",
+                "budget_retry",
+                AgentBudgetRetryError,
+                True,
+            ),
+            ("RATE_LIMIT_EXCEEDED: too many requests", "rate_limited", AgentRateLimitError, True),
+            ("PERMISSION_DENIED: 403 Forbidden for model", "permission_denied", AgentPermissionError, False),
+            (
+                "CONTEXT_LENGTH exceeded: maximum context length is 8192",
+                "context_overflow",
+                AgentContextOverflowError,
+                False,
+            ),
+            ("compaction unavailable in this OpenCode build", "compaction_unavailable", AgentCompactionError, False),
+            ("read ECONNRESET while fetching", "network_error", AgentNetworkError, True),
+            ("UnknownError: Unexpected server error (err_123)", "unknown_server_error", AgentProviderError, False),
+        ],
+    )
+    def test_classifies_stderr_signatures(self, stderr, code, error_class, retryable):
+        classification = classify_agent_error(stdout="", stderr=stderr)
+
+        assert classification is not None
+        assert classification.code == code
+        assert classification.error_class is error_class
+        assert classification.retryable is retryable
+
+    def test_budget_rejection_wins_over_plain_credit_exhaustion(self):
+        stderr = "insufficient credits for this request: reduce max_tokens and retry"
+
+        classification = classify_agent_error(stdout="", stderr=stderr)
+
+        assert classification is not None
+        assert classification.code == "budget_retry"
+        assert classification.error_class is AgentBudgetRetryError
+
+    def test_structured_type_and_retry_after_ms_are_read(self):
+        stdout = json.dumps(
+            {
+                "type": "error",
+                "error": {
+                    "type": "InsufficientCredits",
+                    "message": "This request requires more credits",
+                    "metadata": {"limit_source": "in-flight"},
+                    "retryAfterMs": 250,
+                },
+            }
+        )
+
+        classification = classify_agent_error(stdout=stdout, stderr="")
+
+        assert classification is not None
+        assert classification.code == "budget_retry"
+        assert classification.retry_after_ms == 250
+        assert classification.retryable is True
+
+    def test_structured_quota_without_in_flight_source_is_not_retryable(self):
+        stdout = json.dumps(
+            {
+                "type": "error",
+                "error": {"type": "InsufficientCredits", "message": "monthly spending limit reached"},
+            }
+        )
+
+        classification = classify_agent_error(stdout=stdout, stderr="")
+
+        assert classification is not None
+        assert classification.code == "quota_exhausted"
+        assert classification.retryable is False
+
+    def test_structured_unknown_error_is_not_retried(self):
+        stdout = json.dumps({"type": "error", "error": {"type": "UnknownError", "message": "Unexpected server error"}})
+
+        classification = classify_agent_error(stdout=stdout, stderr="")
+
+        assert classification is not None
+        assert classification.code == "unknown_server_error"
+        assert classification.error_class is AgentProviderError
+        assert classification.retryable is False
+
+    @pytest.mark.parametrize(
+        "stdout, stderr",
+        [
+            ("", ""),
+            ("", "Unexpected failure with no known signature"),
+            ("", "error: econnreset while rendering a code sample"),
+            ('{"type": "text", "text": "rate limit is handled in opencode.py"}', ""),
+        ],
+    )
+    def test_unclassified_output_returns_none(self, stdout, stderr):
+        assert classify_agent_error(stdout=stdout, stderr=stderr) is None
+
+    def test_redacts_credential_urls_and_key_identifiers(self):
+        text = "open https://openrouter.ai/keys/sk-or-v1-abcdef123456 with sk-proj-abcdefghijklmnop"
+
+        redacted = redact_provider_text(text)
+
+        assert "sk-or-v1-" not in redacted
+        assert "sk-proj-abcdefghijklmnop" not in redacted
+        assert "[redacted-url]" in redacted
+        assert "[redacted-key]" in redacted
+
+    def test_classified_error_carries_redacted_stderr_and_code(self):
+        error = agent_failure_error(
+            agent="plan-agent",
+            exit_code=1,
+            stdout="",
+            stderr="insufficient credits; key sk-proj-abcdefghijklmnop",
+            fallback=PlanError,
+        )
+
+        assert isinstance(error, AgentQuotaError)
+        assert error.code == "quota_exhausted"
+        assert "sk-proj-abcdefghijklmnop" not in error.stderr
+        assert "[redacted-key]" in error.stderr
+        assert "quota_exhausted" in str(error)
+
+    def test_unclassified_error_uses_flat_fallback(self):
+        error = agent_failure_error(
+            agent="build-agent",
+            exit_code=1,
+            stdout="",
+            stderr="some unclassified failure",
+            fallback=BuildError,
+        )
+
+        assert type(error) is BuildError
+        assert str(error) == "Build agent failed (exit 1): some unclassified failure"
+        assert agent_failure_error(agent="build-agent", exit_code=1, stdout="", stderr="unclassified") is None
+
+    def test_format_agent_error_redacts_provider_output(self):
+        result = format_agent_error(
+            exit_code=1,
+            stdout="",
+            stderr="failed with key sk-proj-abcdefghijklmnop at https://openrouter.ai/keys/sk-or-v1-abcdef123456",
+        )
+
+        assert "sk-proj-abcdefghijklmnop" not in result
+        assert "sk-or-v1-abcdef123456" not in result
+
+    @pytest.mark.asyncio
+    async def test_retryable_class_exhausts_separate_budget_and_raises_mapped_error(self, failure_retry_env):
+        mock_run_command, mock_sleep = failure_retry_env
+        mock_run_command.return_value = (1, "", "RATE_LIMIT_EXCEEDED: too many requests")
+
+        with pytest.raises(AgentRateLimitError) as exc_info:
+            await run_opencode_agent(
+                Path("/test"), "task", model="m", agent="plan-agent", retry_on_classified_failure=True
+            )
+
+        assert mock_run_command.await_count == 3
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1.0, 2.0]
+        assert exc_info.value.code == "rate_limited"
+        assert exc_info.value.agent == "plan-agent"
+
+    @pytest.mark.asyncio
+    async def test_network_and_failure_budgets_are_independent(self, failure_retry_env):
+        mock_run_command, mock_sleep = failure_retry_env
+        mock_run_command.side_effect = [
+            (1, "", "read ECONNRESET"),
+            (1, "", "RATE_LIMIT_EXCEEDED: too many requests"),
+            (1, "", "read ECONNRESET"),
+            (1, "", "RATE_LIMIT_EXCEEDED: too many requests"),
+            (1, "", "read ECONNRESET"),
+        ]
+
+        with (
+            patch("demetra.services.agents.opencode.MAX_AGENT_NETWORK_ATTEMPTS", 3),
+            pytest.raises(AgentNetworkError),
+        ):
+            await run_opencode_agent(
+                Path("/test"), "task", model="m", agent="plan-agent", retry_on_classified_failure=True
+            )
+
+        assert mock_run_command.await_count == 5
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [1.0, 1.0, 2.0, 2.0]
+
+    @pytest.mark.asyncio
+    async def test_non_retryable_class_does_not_enter_retry_loop(self, failure_retry_env):
+        mock_run_command, mock_sleep = failure_retry_env
+        mock_run_command.return_value = (1, "", "UnknownError: Unexpected server error")
+
+        result = await run_opencode_agent(
+            Path("/test"), "task", model="m", agent="plan-agent", retry_on_classified_failure=True
+        )
+
+        assert result == (1, "", "UnknownError: Unexpected server error")
+        mock_run_command.assert_awaited_once()
+        mock_sleep.assert_not_awaited()

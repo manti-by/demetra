@@ -12,6 +12,7 @@ from demetra.library.exceptions import (
 from demetra.library.models import Context
 from demetra.services.agents.opencode import (
     PLAN_HEADER_STRING,
+    agent_failure_error,
     capture_agent_session,
     opencode_plan_agent,
 )
@@ -107,7 +108,8 @@ async def run_plan_step(context: Context) -> str | None:
         str | None: The finalized build plan, or None when the plan is empty.
 
     Raises:
-        PlanError: When the plan agent exits with an error.
+        AgentFailureError: When the plan agent's output matches a known failure signature.
+        PlanError: When the plan agent exits with an unclassified error.
         AutoCancelledError: When the workflow stops awaiting user input, either
             because auto mode posted questions to Linear or because plan
             summarization failed.
@@ -129,8 +131,12 @@ async def run_plan_step(context: Context) -> str | None:
             environment=context.environment,
         )
         if exit_code != 0:
-            raise PlanError(
-                f"Plan agent failed (exit {exit_code}): {(stderr or '').strip() or (stdout or '').strip() or 'unknown error'}"
+            raise agent_failure_error(
+                agent="plan-agent",
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                fallback=PlanError,
             )
 
         # Each plan run is its own session; capture it (resolving the id from the

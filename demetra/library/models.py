@@ -7,7 +7,7 @@ from typing import Literal, Self
 
 from slugify import slugify
 
-from demetra.library.exceptions import EnvironmentConfigError
+from demetra.library.exceptions import AgentFailureError, EnvironmentConfigError
 from demetra.library.types import FeedbackLoops, OpenRouterConfig, WaitlistStatus
 
 
@@ -34,6 +34,16 @@ TaskKind = Literal["linear", "chat"]
 MessageSource = Literal["chat", "linear"]
 
 ChatMessageKind = Literal["message", "question", "plan", "failure", "research", "status", "comment"]
+
+
+@dataclass(frozen=True, kw_only=True)
+class AgentFailure:
+    """Result of classifying a non-zero agent exit against known signatures."""
+
+    code: str
+    error_class: type[AgentFailureError]
+    retryable: bool
+    retry_after_ms: int | None = None
 
 
 @dataclass(kw_only=True)

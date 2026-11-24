@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-agent-failure-classification.md) — Implementation of MNT-318: Classify agent failures into typed Demetra errors (2026-11-24)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — Implementation of MNT-320: Build forks an empty session id — "--fork requires --continue or --session" (2026-11-24)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — `mantiby/demetra:latest` shrank from 1.01 GB to 708 MB by replacing a `chown -R` (which stored the venv and Rust toolchain twice) with `COPY --chown`, installing a slimmer C toolchain and using `vim-tiny`. Rust, C and bun stay for target-project builds. `make docker-test` installs dev dependencies into a throwaway container and runs the suite: 1556 passed. (2026-11-23)
 - [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — Implementation of CH-14: LangSmithError (2026-11-18)
@@ -235,6 +236,7 @@ _Newest first._
 - [Session History & Token Consumption Audit (Revalidated)](pages/2026-07-23-session-tokens-audit-revalidation.md) — 2026-07-23
 - [Session History Modal](pages/2026-07-23-session-history-modal.md) — 2026-07-23
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — 2026-07-16
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-agent-failure-classification.md) — 2026-11-24
 
 ### Linear & GitHub integrations (9 pages)
 

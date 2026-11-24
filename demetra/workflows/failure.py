@@ -1,4 +1,5 @@
 from demetra.library.exceptions import (
+    AgentFailureError,
     AgentNetworkError,
     BuildError,
     DemetraError,
@@ -117,6 +118,35 @@ async def process_agent_network_failure(context: Context, error: AgentNetworkErr
     print_message(f"Agent network failure: {error}", style="error")
     body = await get_template("agent_network_failed", agent_name=error.agent, error=error.stderr)
     await notify_linear_failure(context=context, body=body, comment_label="agent-network-failure")
+
+
+async def process_agent_failure(context: Context, error: AgentFailureError) -> None:
+    """Handle a classified agent failure: notify Linear and set recovery state.
+
+    The error carries a redacted stderr, a typed code and a template chosen by
+    the classifier, so the comment explains the actual cause instead of showing
+    raw provider output. Every classified failure parks the ticket in Awaiting
+    Input; a retryable one also tells the human when a re-run is safe.
+
+    Args:
+        context: The workflow context.
+        error: The classified agent failure.
+    """
+    print_message(f"Agent failure ({error.code}): {error}", style="error")
+    if error.retryable:
+        retry_hint = "Retrying is safe once the condition clears."
+        if error.retry_after_ms is not None:
+            retry_hint = f"Wait at least {error.retry_after_ms} ms before retrying."
+    else:
+        retry_hint = "Retrying will not help until the underlying condition is fixed."
+    body = await get_template(
+        error.template,
+        agent_name=error.agent,
+        error=error.stderr,
+        code=error.code,
+        retry_hint=retry_hint,
+    )
+    await notify_linear_failure(context=context, body=body, comment_label="agent-failure")
 
 
 async def process_wiki_failure(context: Context, error: WikiError) -> None:

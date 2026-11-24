@@ -127,6 +127,7 @@ class TestMainReplanning:
             patch("main.commit_and_push", new_callable=AsyncMock) as mock_commit_and_push,
             patch("main.process_pr_failure", new_callable=AsyncMock) as mock_process_pr_failure,
             patch("main.process_build_failure", new_callable=AsyncMock) as mock_process_build_failure,
+            patch("main.process_agent_failure", new_callable=AsyncMock) as mock_process_agent_failure,
             patch("main.process_agent_network_failure", new_callable=AsyncMock) as mock_process_agent_network_failure,
             patch("main.process_wiki_failure", new_callable=AsyncMock) as mock_process_wiki_failure,
             patch("main.cleanup_workflow", new_callable=AsyncMock) as mock_cleanup_workflow,
@@ -143,6 +144,7 @@ class TestMainReplanning:
                 "commit_and_push": mock_commit_and_push,
                 "process_pr_failure": mock_process_pr_failure,
                 "process_build_failure": mock_process_build_failure,
+                "process_agent_failure": mock_process_agent_failure,
                 "process_agent_network_failure": mock_process_agent_network_failure,
                 "process_wiki_failure": mock_process_wiki_failure,
                 "cleanup_workflow": mock_cleanup_workflow,
@@ -330,6 +332,33 @@ class TestMainReplanning:
             should_update_linear_status=False,
             failure_step="awaiting_input",
             failure_message="Agent 'build-agent' failed with a network error: read ECONNRESET",
+        )
+        mock_main_deps["process_agent_failure"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_main_delegates_classified_agent_failure_to_failure_step(self, mock_main_deps):
+        from main import main
+
+        from demetra.library.exceptions import AgentQuotaError
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+        error = AgentQuotaError(agent="build-agent", stderr="credits exhausted")
+        mock_main_deps["run_build_step"].side_effect = error
+
+        await main(project_name="demetra", auto_mode=True)
+
+        mock_main_deps["process_agent_failure"].assert_awaited_once()
+        call_kwargs = mock_main_deps["process_agent_failure"].call_args.kwargs
+        assert call_kwargs["context"] is context
+        assert call_kwargs["error"] is error
+        mock_main_deps["process_agent_network_failure"].assert_not_awaited()
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+            failure_message=str(error),
         )
 
     @pytest.mark.asyncio

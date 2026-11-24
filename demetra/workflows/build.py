@@ -3,6 +3,7 @@ import time
 from demetra.library.exceptions import BuildError, InfiniteLoopError
 from demetra.library.models import Context
 from demetra.services.agents.opencode import (
+    agent_failure_error,
     capture_agent_session,
     get_opencode_session_tokens,
     opencode_build_agent,
@@ -102,7 +103,10 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         context: The workflow context.
 
     Raises:
-        BuildError: When the build or validate agent exits with an error.
+        AgentFailureError: When a build or validate agent's output matches a
+            known failure signature.
+        BuildError: When the build or validate agent exits with an unclassified
+            error.
         InfiniteLoopError: When the attempt budget is exhausted.
     """
     current_task: str = build_plan
@@ -139,8 +143,12 @@ async def run_build_step(build_plan: str, context: Context) -> None:
             fork=fork,
         )
         if exit_code != 0:
-            raise BuildError(
-                f"Build agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
+            raise agent_failure_error(
+                agent="build-agent",
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                fallback=BuildError,
             )
 
         history = await capture_agent_session(
