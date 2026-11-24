@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "0.1.0"
+version = "0.1.1"
 agent = "opencode"
 description = "Manage agent skills"
 readme = "README.md"

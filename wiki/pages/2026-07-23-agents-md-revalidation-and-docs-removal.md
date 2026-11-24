@@ -9,7 +9,7 @@ services: [docs, opencode, settings]
 branch: '-'
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
-related: [2026-11-10-mnt-308-lint-error-extraction.md, 2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
+related: [2026-11-10-mnt-308-lint-error-extraction.md, 2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-08-03-agents-md-and-wiki-consistency.md]
 ---
 
 # AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command
@@ -66,6 +66,7 @@ Docs-only; no test/lint impact.
 ## References
 
 - Related: [2026-11-10-mnt-308-lint-error-extraction](/pages/2026-11-10-mnt-308-lint-error-extraction.md)
+- Related: [2026-08-03-agents-md-and-wiki-consistency](/pages/2026-08-03-agents-md-and-wiki-consistency.md) — the next AGENTS.md revalidation pass, which re-clustered the wiki index
 - External: [LangSmith OpenCode plugin](https://github.com/langchain-ai/langsmith-opencode)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “removed resolved Q-002 (ANSI stripping dedup done)” note refers to an **older** question numbering: that entry no longer exists under any number, and today's `wiki/QUESTIONS.md` uses Q-002 for the `MAX_RUN_ATTEMPTS`/`MAX_PLAN_ATTEMPTS` discrepancy and Q-003 for the agent network-retry budget. The `.opencode/skills/` directory is gitignored (`.gitignore:23`), so `wiki-agents-file/SKILL.md` is a local install, not a tracked file.

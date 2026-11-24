@@ -75,3 +75,5 @@ As `demetra` (normal compose path): skip to `exec "$@"` — no `setpriv`/`chown`
 - Related: [2026-08-20-review-gh-auth-mount-changes](/pages/2026-08-20-review-gh-auth-mount-changes.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** `make docker-deploy` has **no recipe** — it is only listed in `.PHONY` (`Makefile:2`); the working targets are `deploy` (`Makefile:26-33`) and `docker-up` (`Makefile:100-101`). Worker count is 2 on the deploy path (`--scale worker=2`), 4 only via `make docker-up`. The entrypoint itself now prunes by path rather than by `-name`.
+
+> **Consistency note (2026-11-24, Consistency Agent):** the worker counts above are stale. Since `1a53faf` (2026-11-14) `make deploy` also runs `--scale worker=4` (`Makefile:34`) and `docker-compose.yaml:125` declares `replicas: 4`, so both paths run 4 workers; `make docker-up` (`Makefile:129`) is still the no-rebuild 4-worker path.

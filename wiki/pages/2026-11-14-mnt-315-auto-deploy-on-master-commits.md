@@ -72,10 +72,12 @@ DEPLOY_HOST_CHECKOUT=/home/manti/www/demetra
 DEPLOYER_POLL_INTERVAL=60
 DEPLOY_MIN_INTERVAL=300
 DEPLOY_DRAIN_TIMEOUT=3600
-DEPLOY_STEP_TIMEOUT=3600
+DEPLOY_STEP_TIMEOUT=15000
 DEPLOY_STATE_PATH=/var/lib/demetra/deployer-state.json
 DEPLOY_NGINX_RELOAD_COMMAND=nsenter -t 1 -m -p -- service nginx reload
 ```
+
+> **Consistency note (2026-11-24, Consistency Agent):** `DEPLOY_STEP_TIMEOUT` shipped as **15000** (`.env.docker.example:83`, `demetra/settings.py:221`), not the 3600 shown above — every deploy step, including the `up` that force-recreates the workers, has to outlive `WORKER_STOP_GRACE_PERIOD` (default `14460s`, sized from the 4-hour `SUBPROCESS_TIMEOUT`), so 3600 would let the deployer kill its own `up`. The other values are right.
 
 ## Step 4 — Core Logic
 
@@ -110,6 +112,5 @@ Manual verification confirmed:
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-315/auto-deploy-on-master-commits
-- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
 - Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
 - Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)

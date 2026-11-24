@@ -1,14 +1,15 @@
 ---
 title: 'CH-14: LangSmithError'
-date: '2026-11-18'
+generated: {by: demetra, at: '2026-11-18T00:00:00Z'}
+description: CH-14 standardised LangSmith tracing end to end — configuration now comes only from settings.py, tracing is off by default and needs both an API key and LANGSMITH_TRACING=true, and every container and subprocess traces into the single shared Demetra project.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e123b266affe6rM5I3Bfz3Rygi
 services: [.env.docker, AGENTS, library, runtime/subprocess, settings, docker-compose, pyproject, test_docker_compose, test_opencode, test_session_environment, test_settings, test_subprocess, uv, .sessions, INDEX, 2026-11-17-langsmith-403-multipart-ingest]
 branch: ch-14-langsmitherror
 tickets: [CH-14]
 tags: [wiki, infrastructure, bug]
-related: []
+related: [2026-11-17-langsmith-403-multipart-ingest.md, 2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
 
 # CH-14: LangSmithError
@@ -120,4 +121,7 @@ All 1556 tests passed, confirming the changes maintain backward compatibility wh
 - None
 
 ## References
+- Related: [2026-11-17-langsmith-403-multipart-ingest](/pages/2026-11-17-langsmith-403-multipart-ingest.md) — the root-cause diagnosis of the 403 flood this session fixes (same branch)
+- Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md) — the host→container forwarding these defaults build on
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md) — introduced `SessionEnvironment.system_env` / `tracing_env`
 - External: <linear ticket URL>

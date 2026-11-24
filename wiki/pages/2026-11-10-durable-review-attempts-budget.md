@@ -100,10 +100,13 @@ connection = Redis.from_url(url=REDIS_URL)
 queue = Queue(connection=connection, default_timeout=SUBPROCESS_TIMEOUT + 60)  # Overhead for RQ itself
 ```
 
-`SUBPROCESS_TIMEOUT` defaults to 1800s but is env-configurable; with the old
+`SUBPROCESS_TIMEOUT` defaulted to 1800s at the time of this change (and is
+env-configurable); with the old
 hardcoded `default_timeout=3600`, raising it past ~3540s would make RQ kill a
 workflow job mid-run while the subprocess wrapper was still inside its legal
 budget. The `+60` covers RQ's own bookkeeping overhead.
+
+> **Consistency note (2026-11-24, Consistency Agent):** the 1800 s default quoted above is stale. Commit `1a53faf` (2026-11-14) raised `SUBPROCESS_TIMEOUT` to `4 * 60 * 60` (4 h, `demetra/settings.py:59`), so the RQ `default_timeout` is now 14460 s and the old 3600 s hardcode would have killed jobs after an hour.
 
 ## Test Results
 
