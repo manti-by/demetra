@@ -152,6 +152,7 @@ services:
       HOME: /home/demetra
       LOG_PATH: /var/log/demetra/deployer.log
       DEPLOY_HOST_CHECKOUT: ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
+      DOCKER_PATH: /usr/local/bin/docker
     volumes:
       - demetra_deployer_data:/var/lib/demetra/
       - .keys/.ssh:/home/demetra/.ssh
