@@ -1,8 +1,9 @@
 ---
-title: "Context bloating \u2014 agents scan repo root instead of worktree"
-date: 2026-06-03
+title: Context bloating — agents scan repo root instead of worktree
+generated: {by: demetra, at: '2026-06-03T00:00:00Z'}
+description: Under MNT-105, this records a context-bloating bug where plan-loop runs made the OpenCode plan agent scan the supervisor repo root instead of the isolated worktree; the root cause was subprocesses not inheriting the worktree as cwd, fixed by setting the target directory for all agents (plan, build, review, resolve) and bumping to 1.11.7; archived.
 type: debug
-status: resolved
+status: deprecated
 session_id: '-'
 services: [subprocess, opencode, workflows]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-07-16-fix-empty-build-plan-loop.md, 2026-08-04-fix-resolve-agent-
 # Context bloating — agents scan repo root instead of worktree
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-04-fix-resolve-agent-truncated-context]]. See wiki/archive/ for the original.
+> [2026-08-04-fix-resolve-agent-truncated-context](/pages/2026-08-04-fix-resolve-agent-truncated-context.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -45,7 +46,7 @@ Underlying agents did not inherit the isolated worktree as their working directo
 - OpenCode agent instructions were refined for accuracy and consistency so agent behaviour matches the new directory contract.
 - Version bumped to 1.11.7.
 
-The directory-handling work here relates to the worktree-mismatch handling documented in [[2026-07-16-fix-empty-build-plan-loop]].
+The directory-handling work here relates to the worktree-mismatch handling documented in [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md).
 
 ---
 
@@ -57,5 +58,5 @@ None.
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]], [[2026-08-04-fix-resolve-agent-truncated-context]]
+- Related: [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md), [2026-08-04-fix-resolve-agent-truncated-context](/pages/2026-08-04-fix-resolve-agent-truncated-context.md)
 - External: [MNT-105 — Context bloating (Linear)](https://linear.app/mnt/issue/MNT-105)

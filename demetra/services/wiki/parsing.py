@@ -1,4 +1,3 @@
-import re
 from pathlib import Path
 
 import yaml
@@ -91,7 +90,7 @@ def existing_page_for_ticket(ticket_identifier: str, pages_root: Path | None = N
 
 
 def page_date(path: Path) -> str:
-    """Return the frontmatter ``date`` of a page, defaulting to its filename date.
+    """Return a page's effective date from its OKF ``generated.at`` field.
 
     Args:
         path: The page path.
@@ -101,9 +100,6 @@ def page_date(path: Path) -> str:
     """
     try:
         meta = service.parse_frontmatter(path.read_text(encoding="utf-8"))
-        if meta.get("date"):
-            return str(meta["date"])
     except (OSError, yaml.YAMLError):
-        pass
-    match = re.match(r"(\d{4}-\d{2}-\d{2})", path.name)
-    return match.group(1) if match else "0000-00-00"
+        meta = {}
+    return service.okf_page_date(meta=meta, path=path)

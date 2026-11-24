@@ -1,9 +1,10 @@
 ---
 title: Docker Compose deploy
-date: 2026-08-10
+generated: {by: demetra, at: '2026-08-10T00:00:00Z'}
+description: Records adding a parallel `docker-compose.yaml` stack — Postgres, Redis, api, four workers, watcher, listener, rq-dashboard and a one-shot React build on `mantiby/demetra` — driven by `make docker-*` targets and validated live (MNT-164), later superseded by the 2026-08-18 anchor refactor.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [deploy, configs, runtime, daemons]
 branch: feature/mnt-164-docker-compose
 tickets: [MNT-164, MNT-40, MNT-119]
@@ -67,13 +68,13 @@ Runtime deviations from plan:
 
 ---
 
-## Source — [[2026-03-02-process-manager]]
+## Source — [2026-03-02-process-manager](/archive/2026-03-02-process-manager.md)
 
 MNT-40 (2026-03-02): `watcher` polls Linear TODO every 5 min, spawns `main.py` up to `num_cpu−1`, tracks `sessions` `pending→processed/failed`. Compose `watcher`/`worker` are containerized continuation; original shipped systemd units in `configs/`.
 
-## Source — [[2026-07-07-project-deploy-script]]
+## Source — [2026-07-07-project-deploy-script](/archive/2026-07-07-project-deploy-script.md)
 
-The retired systemd path this compose stack replaced: `Makefile` `deploy` (`git pull --ff-only` → `uv sync` → `alembic upgrade head` → bun build → `systemctl restart demetra-*` → nginx reload) plus `configs/bootstrap.sh` first-time setup with systemd units and `.env`-fed auth (MNT-119, 2026-07-07). Removed in `f5904d5` (2026-09-11); `configs/` now holds only `docker-entrypoint.sh`, `nginx.conf` and `proxy.params`, and `make deploy` runs this Docker Compose stack. Originally decided in [[2026-07-07-project-deploy-script]] on 2026-07-07.
+The retired systemd path this compose stack replaced: `Makefile` `deploy` (`git pull --ff-only` → `uv sync` → `alembic upgrade head` → bun build → `systemctl restart demetra-*` → nginx reload) plus `configs/bootstrap.sh` first-time setup with systemd units and `.env`-fed auth (MNT-119, 2026-07-07). Removed in `f5904d5` (2026-09-11); `configs/` now holds only `docker-entrypoint.sh`, `nginx.conf` and `proxy.params`, and `make deploy` runs this Docker Compose stack. Originally decided in [2026-07-07-project-deploy-script](/archive/2026-07-07-project-deploy-script.md) on 2026-07-07.
 
 ## Follow-ups
 
@@ -81,7 +82,7 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 
 ## Consistency notes
 
-- (2026-08-19) Refactored onto anchors — see [[2026-08-18-compose-anchors-refactor]]. Changes: `postgres:18`, volumes `demetra_postgres_data` (was `demetra_db_data`), no `demetra_react_dist`, app mount `/home/demetra/`, per-service `/var/log/demetra/<svc>.log` via bind, `migrate` mounts `.:/srv/demetra/src/`, `react-build` `/srv/demetra/src/`, `--host 0.0.0.0` with `8001:8001`/`9181:9181` all-interfaces, nginx `location / → 127.0.0.1:3000`.
+- (2026-08-19) Refactored onto anchors — see [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md). Changes: `postgres:18`, volumes `demetra_postgres_data` (was `demetra_db_data`), no `demetra_react_dist`, app mount `/home/demetra/`, per-service `/var/log/demetra/<svc>.log` via bind, `migrate` mounts `.:/srv/demetra/src/`, `react-build` `/srv/demetra/src/`, `--host 0.0.0.0` with `8001:8001`/`9181:9181` all-interfaces, nginx `location / → 127.0.0.1:3000`.
 - (2026-08-24) `deploy.replicas` removed; 4 workers via `Makefile:103,123` `--scale worker=4`.
 - (2026-09-14) `/rq/` 404: `proxy_pass` lacked trailing slash, dashboard serves on `/`. Fixed `rq-dashboard --url-prefix /rq` (`e2509f1`); nginx unchanged.
 
@@ -104,7 +105,7 @@ Host nginx still serves `react/dist` from `/home/manti/www/demetra/react/dist`; 
 
 ## References
 
-- Related: [[2026-07-07-project-deploy-script]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-17-docker-setup-review]]
+- Related: [2026-07-07-project-deploy-script](/archive/2026-07-07-project-deploy-script.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md)
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Several compose facts drifted: the database image is `postgres:18` (**not** `postgres:18-alpine`) and Redis is `redis:7` (`docker-compose.yaml:48`, `:68`); the volumes are `demetra_postgres_data`, `demetra_redis_data` and `demetra_app_data` — there is no `demetra_react_dist`; `DB_HOST` is `postgres`, not `db`; the api service publishes `8001:8001` on all interfaces (`:108`) instead of a loopback mapping; and `worker.deploy.replicas` is **2** (`:117`, `make deploy` scales 2, `make docker-up` scales 4). The `docker-deploy` Makefile target named above is only a `.PHONY` entry with no recipe — the working targets are `deploy` (`Makefile:26-33`) and `docker-up` (`Makefile:100-101`).

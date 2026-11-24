@@ -1,11 +1,12 @@
 ---
 title: Scaling RQ workers without recreating running containers
-date: 2026-11-12
+generated: {by: demetra, at: '2026-11-12T00:00:00Z'}
+description: Records a live verification that `docker compose up -d --scale worker=4 --no-recreate worker` adds RQ workers to the Docker Compose stack without restarting running containers, with no downtime but a non-durable change; it notes `make deploy` briefly reset the count to 2 until commit 1a53faf aligned all targets to 4.
 type: investigation
-status: resolved
+status: stable
 session_id: ses_e3017eff4ffe4Z3l3PlPgwbyhL
 services: [deploy, configs, runtime, daemons]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [docker, compose, workers, scale, no-recreate, operations, rq]
 related: [2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md]
@@ -205,4 +206,4 @@ wrapped in a Make target.
 
 ## References
 
-- Related: [[2026-08-10-docker-compose-deploy]], [[2026-08-18-compose-anchors-refactor]]
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md)

@@ -1,19 +1,21 @@
 ---
 title: Websocket to track session statuses
-date: 2026-06-25
+generated: {by: demetra, at: '2026-06-25T00:00:00Z'}
+description: Records MNT-101 rebuilding the session-log websocket from raw text into typed JSON `log`/`status` envelopes with status deduplication and history tailing; archived into the session-state flow page after the status payload grew to the full `SessionState` dataclass and session ids became Linear task ids.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [api, react, workflows, sessions]
-branch: "-"
+branch: '-'
 tickets: [MNT-101, MNT-54]
 tags: [websocket, json, status, react, logs, streaming, sessions, isolation]
 related: [2026-07-16-fix-step-status-review-findings.md, 2026-03-09-isolate-user-sessions.md]
 ---
+
 # Websocket to track session statuses
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-10-12-session-state-flow-feedback-loops]]. See wiki/archive/ for the original.
+> [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -29,7 +31,7 @@ Raw-text streaming gave the frontend no way to tell a log line from a status tra
 
 - **Raw-text streaming (MNT-53)** (`demetra/api.py`): FastAPI websocket tails the session log and forwards lines; dropped clients don't crash the endpoint.
 - **Typed JSON** (`api` websocket): messages are `{"type":"log","data":{"text":"..."}}` and `{"type":"status","data":{"name":"...","status":"..."}}`.
-  > **Update (2026-08-27):** status payload key is now `step` not `status` — `{"type":"status","data":{"step":step,"name":name}}` (`demetra/api/watcher.py:30-38`), tracking the `status`→`step` column rename (e.g. [[2026-07-16-fix-step-status-review-findings]]). Envelope shape unchanged.
+  > **Update (2026-08-27):** status payload key is now `step` not `status` — `{"type":"status","data":{"step":step,"name":name}}` (`demetra/api/watcher.py:30-38`), tracking the `status`→`step` column rename (e.g. [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md)). Envelope shape unchanged.
 - **Frontend** (`react`): parses JSON — `log` appends text, `status` updates name/status styling.
 - **Workflow** (`workflows`): emits status only when step or name actually changes; viewers load recent history and keep tailing.
 
@@ -39,9 +41,9 @@ Tests for message shape and sidebar/session rendering on both frame types.
 
 ---
 
-## Source — [[2026-03-09-isolate-user-sessions]]
+## Source — [2026-03-09-isolate-user-sessions](/archive/2026-03-09-isolate-user-sessions.md)
 
-Per-session log files added in [[2026-03-09-isolate-user-sessions]] (MNT-54, 2026-03-09): each run writes to a temp file then renames to the task id under `LOG_PATH/sessions`. The MNT-101 websocket tails exactly this layout; dedup rule keeps `Session` updates minimal. Session ids are UUIDs.
+Per-session log files added in [2026-03-09-isolate-user-sessions](/archive/2026-03-09-isolate-user-sessions.md) (MNT-54, 2026-03-09): each run writes to a temp file then renames to the task id under `LOG_PATH/sessions`. The MNT-101 websocket tails exactly this layout; dedup rule keeps `Session` updates minimal. Session ids are UUIDs.
 
 ## Follow-ups
 

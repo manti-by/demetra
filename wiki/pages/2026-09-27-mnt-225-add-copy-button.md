@@ -1,8 +1,9 @@
 ---
 title: 'MNT-225: Add copy button'
-date: '2026-09-27'
+generated: {by: demetra, at: '2026-09-27T00:00:00Z'}
+description: MNT-225 added a Copy button to the build-plan modal footer in the React SessionArtifacts component, using the clipboard API with feature detection and a 1.5-second 'Copied!' confirmation; the session resolved with tests passing and components plus wiki updated.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_f1dd57f7dffeGEATu4YXakfdTP
 services: [react]
 branch: mnt-225-add-copy-button
@@ -10,6 +11,7 @@ tickets: [MNT-225]
 tags: [wiki, feature, frontend]
 related: [2026-06-09-build-artifacts.md, 2026-11-06-ch-6-markdown-renderer.md]
 ---
+
 # MNT-225: Add copy button
 
 ## TL;DR
@@ -51,7 +53,7 @@ The plan is to add a "Copy" button to the existing build-plan modal footer in `S
 
 ## References
 
-- Related: [[2026-06-09-build-artifacts]], [[2026-11-06-ch-6-markdown-renderer]]
+- Related: [2026-06-09-build-artifacts](/archive/2026-06-09-build-artifacts.md), [2026-11-06-ch-6-markdown-renderer](/pages/2026-11-06-ch-6-markdown-renderer.md)
 - External: https://linear.app/mnt/issue/MNT-225/add-copy-button
 
 > **Consistency fix (2026-09-28, Consistency Agent):** mirrored `related:` into the body; trimmed the ~150-entry `services:` filename dump to subsystem tags.

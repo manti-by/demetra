@@ -1,11 +1,12 @@
 ---
 title: Guard empty plan agent output
-date: 2026-08-24
+generated: {by: demetra, at: '2026-08-24T00:00:00Z'}
+description: Plan agent permission auto-rejection produced empty stdout with exit 0, so `extract_plan` hallucinated a fake plan that bypassed the empty check; fixed in `plan.py` by raising `PlanError` on empty or header-missing output, posting an error comment and moving the ticket to Awaiting Input, with 42 tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_fcc17abbaffe7m4bui291JEEZ3
 services: [workflows, opencode, llm, linear, database, main]
-branch: "-"
+branch: '-'
 tickets: [MNT-29, MNT-39]
 tags: [plan-agent, plan-step, empty-output, guard, error-handling, extract-plan, workflow, linear, session-management, database]
 related: [2026-09-14-opencode-agent-prompts-hardening.md, 2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-07-16-fix-empty-build-plan-loop.md, 2026-08-05-post-build-validation.md]
@@ -43,19 +44,19 @@ except PlanError as e:
 - Updated 2 existing plan tests to include header in mock output
 - `uv run pytest tests/test_workflows.py -q` — **42 passed**; `ruff check` / `ty check` clean
 
-## Source — [[2026-07-16-fix-empty-build-plan-loop]]
+## Source — [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md)
 
-Two durable decisions from the empty-plan infinite-loop fix (2026-07-16): the replan gate keys on the plan, not the step — `if not context.session or not context.session.build_plan` (a `step='failed'` session with an empty plan must replan, not stall forever) — and Linear API responses are validated as dicts (`demetra/services/linear/graphql.py`), raising `LinearError` on `null`/list payloads instead of crashing callers downstream. Originally decided in [[2026-07-16-fix-empty-build-plan-loop]] on 2026-07-16.
+Two durable decisions from the empty-plan infinite-loop fix (2026-07-16): the replan gate keys on the plan, not the step — `if not context.session or not context.session.build_plan` (a `step='failed'` session with an empty plan must replan, not stall forever) — and Linear API responses are validated as dicts (`demetra/services/linear/graphql.py`), raising `LinearError` on `null`/list payloads instead of crashing callers downstream. Originally decided in [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md) on 2026-07-16.
 
 ## Follow-ups
 
 - Auto-rejection with exit 0 not fixed — guard makes it a handled failure. Consider granting read to `.env.docker.example`-style files or failing non-zero on permission denial.
-- **2026-09-14:** 6 agents now declare explicit `permission` blocks — see [[2026-09-14-opencode-agent-prompts-hardening]] (machine-enforced scope, not a fix for auto-rejection).
-- **2026-08-28 MNT-177 recurred:** same `read (.env.docker.example); auto-rejecting` truncation plus unrelated `OPENROUTER_MODEL=meta/muse-spark-1.2` → OpenRouter 403 (18+ attestation) in 3/6 runs — see [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]].
+- **2026-09-14:** 6 agents now declare explicit `permission` blocks — see [2026-09-14-opencode-agent-prompts-hardening](/pages/2026-09-14-opencode-agent-prompts-hardening.md) (machine-enforced scope, not a fix for auto-rejection).
+- **2026-08-28 MNT-177 recurred:** same `read (.env.docker.example); auto-rejecting` truncation plus unrelated `OPENROUTER_MODEL=meta/muse-spark-1.2` → OpenRouter 403 (18+ attestation) in 3/6 runs — see [2026-08-28-mnt-177-workflow-blocked-openrouter-403](/pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]], [[2026-08-05-post-build-validation]], [[2026-09-14-opencode-agent-prompts-hardening]]
+- Related: [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md), [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md), [2026-09-14-opencode-agent-prompts-hardening](/pages/2026-09-14-opencode-agent-prompts-hardening.md)
 - External: session log `7bfff9b1-8696-43ef-be47-46e5dac0e81f.log` (MNT-166), `demetra/workflows/plan.py`, `demetra/services/llm/openrouter.py`

@@ -1,9 +1,10 @@
 ---
 title: Allowlist CodeRabbit Review Fixes and CI Test Fix
-date: 2026-08-06
+generated: {by: demetra, at: '2026-08-06T00:00:00Z'}
+description: 'Records applying all actionable CodeRabbit findings on the MNT-155 allowlist PR #71 — de-prefixed functions, settings-based flag, admin bypass hardened to immutable GitHub ID, validated and dry-run-aware seeding — plus a CI constraint fix, leaving the suite green at 619 passed.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [main, auth, database, settings, tests]
 branch: mnt-155-add-allow-list-for-registration-and-github-login
 tickets: [MNT-155]
@@ -75,7 +76,7 @@ sqlalchemy.exc.IntegrityError: violates check constraint "ck_users_has_auth"
 
 ## Consistency note (2026-08-23)
 
-MNT-173 (PR #86) superseded Step 2 naming: gate now reads `IS_ALLOWLIST_ENABLED` default **on** (fail-closed); module moved to `demetra/services/auth/allowlist.py`. See [[2026-08-20-fix-allowlist-tests]].
+MNT-173 (PR #86) superseded Step 2 naming: gate now reads `IS_ALLOWLIST_ENABLED` default **on** (fail-closed); module moved to `demetra/services/auth/allowlist.py`. See [2026-08-20-fix-allowlist-tests](/pages/2026-08-20-fix-allowlist-tests.md).
 
 ## Follow-ups
 
@@ -86,7 +87,7 @@ MNT-173 (PR #86) superseded Step 2 naming: gate now reads `IS_ALLOWLIST_ENABLED`
 
 ## References
 
-- Related: [[2026-08-03-auth-hardening-and-deps-bump]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-09-apply-code-review-findings]], [[2026-08-20-fix-allowlist-tests]]
+- Related: [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-09-apply-code-review-findings](/pages/2026-08-09-apply-code-review-findings.md), [2026-08-20-fix-allowlist-tests](/pages/2026-08-20-fix-allowlist-tests.md)
 - External: PR #71 https://github.com/manti-by/demetra/pull/71
 
-> **Consistency note (2026-11-11, Consistency Agent):** The patch targets quoted above are dead paths: `demetra/services/allowlist.py` no longer exists and the symbol is `IS_ALLOWLIST_ENABLED` (not `ALLOWLIST_ENABLED`). Current target is `demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED` (`demetra/services/auth/allowlist.py:22` imports it; the gates are at `:77` and `:108`) — see [[2026-08-20-fix-allowlist-tests]].
+> **Consistency note (2026-11-11, Consistency Agent):** The patch targets quoted above are dead paths: `demetra/services/allowlist.py` no longer exists and the symbol is `IS_ALLOWLIST_ENABLED` (not `ALLOWLIST_ENABLED`). Current target is `demetra.services.auth.allowlist.IS_ALLOWLIST_ENABLED` (`demetra/services/auth/allowlist.py:22` imports it; the gates are at `:77` and `:108`) — see [2026-08-20-fix-allowlist-tests](/pages/2026-08-20-fix-allowlist-tests.md).

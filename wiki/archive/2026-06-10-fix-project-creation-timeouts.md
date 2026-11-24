@@ -1,11 +1,12 @@
 ---
 title: Fix Project creation timeouts
-date: 2026-06-10
+generated: {by: demetra, at: '2026-06-10T00:00:00Z'}
+description: Records MNT-97 and MNT-112 fixing project-creation timeouts whose root cause was the short `SHELL_TIMEOUT_MS` applied to OpenCode subprocesses, killing clone and build; the fix removed caller timeouts and renamed the setting `SUBPROCESS_TIMEOUT` (seconds, default 1800) and tightened provisioning error handling; archived into the settings-layer categorization page.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [subprocess, opencode, settings]
-branch: "-"
+branch: '-'
 tickets: [MNT-97, MNT-18]
 tags: [timeout, subprocess, project-creation, bug, shell-tool, streaming, live-output]
 related: [2026-02-15-subagent-output-streaming.md]
@@ -14,7 +15,7 @@ related: [2026-02-15-subagent-output-streaming.md]
 # Fix Project creation timeouts
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-18-categorize-settings-env-vars-by-layer]]. See wiki/archive/ for the original.
+> [2026-08-18-categorize-settings-env-vars-by-layer](/pages/2026-08-18-categorize-settings-env-vars-by-layer.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -66,9 +67,9 @@ Tests cover the termination path and the timeout-status return value (MNT-112) p
 
 ---
 
-## Source — [[2026-02-15-subagent-output-streaming]]
+## Source — [2026-02-15-subagent-output-streaming](/archive/2026-02-15-subagent-output-streaming.md)
 
-Originally added in [[2026-02-15-subagent-output-streaming]] on 2026-02-15 (MNT-18):
+Originally added in [2026-02-15-subagent-output-streaming](/archive/2026-02-15-subagent-output-streaming.md) on 2026-02-15 (MNT-18):
 `run_command` in `demetra/services/subprocess.py` streams child `stdout`/`stderr`
 **line-by-line** to the console near-realtime instead of buffering until exit, via a
 `live_stream` helper in `demetra/services/utils.py`. A `disable_stdio` flag turns live

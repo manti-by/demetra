@@ -1,8 +1,9 @@
 ---
 title: Refactor frontend app
-date: 2026-06-01
+generated: {by: demetra, at: '2026-06-01T00:00:00Z'}
+description: Under MNT-77, this records renaming the early `hera` frontend scaffold to `react/` across the directory, Makefile and docs, while the same PR tightened GitHub auth validation, removed legacy FastAPI docs and bumped to 1.10.0; its content was merged into the React template page and archived.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [react]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-07-22-react-frontend-template-warp.md]
 # Refactor frontend app
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-07-22-react-frontend-template-warp]]. See wiki/archive/ for the original.
+> [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -58,5 +59,5 @@ In the same PR:
 
 ## References
 
-- Related: [[2026-07-22-react-frontend-template-warp]]
+- Related: [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md)
 - External: https://linear.app/mnt/issue/MNT-77

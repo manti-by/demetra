@@ -1,11 +1,12 @@
 ---
 title: OpenCode v2 migration — CLI ground truth, the compaction no-op, and the corrected MNT-251 plan
-date: 2026-10-16
+generated: {by: demetra, at: '2026-10-16T00:00:00Z'}
+description: This spike recorded opencode v2 CLI ground truth, correcting the false 'accounting silently dead' claim (production ran 1.18.30), documenting landmines like removed --dir/export commands, a new messages shape and fork token resets, and exposing compaction as a long-standing no-op, then rewrote MNT-251 as a two-phase implementation target.
 type: investigation
-status: reference
+status: stable
 session_id: ses_ebbe29029ffeah3TJhfQdO7HzB
 services: [agents, persistence, workflows, api]
-branch: "-"
+branch: '-'
 tickets: [MNT-251, MNT-246, MNT-241, MNT-245, MNT-234]
 tags: [opencode, cli-v2, tokens, sessions, accounting, compaction, session-history]
 related: [2026-07-16-session-history-tokens-null.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md, 2026-07-23-session-tokens-audit-revalidation.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
@@ -203,7 +204,7 @@ Combined with §d.7's "`_compute_total_tokens` sums only `kind='invocation'`", t
 
 ### The immutable pointer contradicts the stale-session fix
 
-**File:** `demetra/services/persistence/database.py:211` and `:469` — both writers use `session_id = COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`, so the column can never be replaced or cleared (NEW-10). §d.5's retry-without-`--session` yields a **new** primary id that can never be written back, while `api/sessions.py:70` resolves exactly that column and `SessionArtifacts.tsx:135` gates on `!!session.session_id`. After one worktree deletion the task's history 404s and "View History" disappears permanently — the [[2026-08-19-build-agent-stale-session-deleted-worktree]] incident survives the redesign. v2's `--session` semantics ("or to create if it does not exist") make the pointer-replaceable option cheaper.
+**File:** `demetra/services/persistence/database.py:211` and `:469` — both writers use `session_id = COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`, so the column can never be replaced or cleared (NEW-10). §d.5's retry-without-`--session` yields a **new** primary id that can never be written back, while `api/sessions.py:70` resolves exactly that column and `SessionArtifacts.tsx:135` gates on `!!session.session_id`. After one worktree deletion the task's history 404s and "View History" disappears permanently — the [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) incident survives the redesign. v2's `--session` semantics ("or to create if it does not exist") make the pointer-replaceable option cheaper.
 
 ### Invalidation belongs in the workflow, not the VCS service
 
@@ -328,14 +329,14 @@ Tracked one session across three exports using a free model (`opencode/deepseek-
 
 ## References
 
-- Related: [[2026-07-16-session-history-tokens-null]] (the original 64 KB PIPE truncation fix — now known to be subcommand-specific on v2)
-- Related: [[2026-08-19-build-agent-stale-session-deleted-worktree]] (the systemic follow-up MNT-251 Phase 2 step 8 must close)
-- Related: [[2026-07-23-session-tokens-audit-revalidation]] (cumulative-vs-delta; cache ~96% of tokens)
-- Related: [[2026-09-30-mnt-228-intermediate-history-states]] (the two-writer rule `plan.py:47` violates)
-- Related: [[2026-08-25-mnt-181-total-tokens-counter]] (`_compute_total_tokens` semantics this changes)
-- Related: [[2026-07-23-session-history-modal]] (history endpoint; the `SELECT DISTINCT step` follow-up MNT-245 closed)
-- Related: [[2026-10-16-mnt-251-session-attribution-accounting]] (`CONTEXT_COMPACTION_THRESHOLD`; currently dead code in production)
-- Related: [[2026-10-06-unify-subprocess-env-on-session-environment]] (`run_command` / `build_subprocess_env` plumbing)
+- Related: [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md) (the original 64 KB PIPE truncation fix — now known to be subcommand-specific on v2)
+- Related: [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) (the systemic follow-up MNT-251 Phase 2 step 8 must close)
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md) (cumulative-vs-delta; cache ~96% of tokens)
+- Related: [2026-09-30-mnt-228-intermediate-history-states](/pages/2026-09-30-mnt-228-intermediate-history-states.md) (the two-writer rule `plan.py:47` violates)
+- Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) (`_compute_total_tokens` semantics this changes)
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) (history endpoint; the `SELECT DISTINCT step` follow-up MNT-245 closed)
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) (`CONTEXT_COMPACTION_THRESHOLD`; currently dead code in production)
+- Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md) (`run_command` / `build_subprocess_env` plumbing)
 - External: https://linear.app/mnt/issue/MNT-251 — implementation target, carries the full Phase 0 measurements and corrected build plan
 - External: https://linear.app/mnt/issue/MNT-246 — 1.18.35 research record, annotated with the v2 corrections
 - External: https://linear.app/mnt/issue/MNT-241 — epic

@@ -1,8 +1,9 @@
 ---
-title: 'Collapsible session history blocks and a frontend-only deploy target'
-date: '2026-11-15'
+title: Collapsible session history blocks and a frontend-only deploy target
+generated: {by: demetra, at: '2026-11-15T00:00:00Z'}
+description: Records finishing a half-applied React `SessionHistory` change that made timeline blocks collapsible by default with name, cost and time headers, fixing undeclared `isOpen` state and a non-async test; it also added a `make deploy-ui` target rebuilding only the React bundle and reloading nginx, with 29 tests and tsc passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e1f6a316fffeH9qGy1hJrzbrI8
 services: [SessionHistory, App.css, StyleGuide, Makefile, deployer]
 branch: master
@@ -259,6 +260,6 @@ toolchain has to be driven through `bun` directly
 
 ## References
 
-- Related: [[2026-10-25-session-history-cost-and-failure-reasons]]
-- Related: [[2026-10-25-session-history-per-invocation-rows]]
-- Related: [[2026-11-14-mnt-315-auto-deploy-on-master-commits]]
+- Related: [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md)
+- Related: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md)
+- Related: [2026-11-14-mnt-315-auto-deploy-on-master-commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)

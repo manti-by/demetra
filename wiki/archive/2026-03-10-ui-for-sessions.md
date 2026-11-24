@@ -1,11 +1,12 @@
 ---
 title: UI for sessions
-date: 2026-03-10
+generated: {by: demetra, at: '2026-03-10T00:00:00Z'}
+description: 'Records MNT-59, the first interactive sessions UI: a collapsible icon-only sidebar lists sessions from `/api/v1/sessions` (including statusless pending ones) and a LogConsole reconnects the websocket per selected `task_id` to stream that session''s log; the page was later archived and merged into the task-title session-listing page.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [react, api]
-branch: -
+branch: '-'
 tickets: [MNT-59]
 tags: [react, sessions, sidebar, websocket]
 related: []
@@ -14,7 +15,7 @@ related: []
 # UI for sessions
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-05-22-task-title-session-listing]]. See wiki/archive/ for the
+> [2026-05-22-task-title-session-listing](/archive/2026-05-22-task-title-session-listing.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

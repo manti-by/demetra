@@ -1,8 +1,9 @@
 ---
 title: Project model and space
-date: 2026-03-31
+generated: {by: demetra, at: '2026-03-31T00:00:00Z'}
+description: Records MNT-75, which moved projects from a settings dict to a per-user `Project` model with a migration and user-scoped CRUD APIs that provision a checked-out repo and a Postgres role/database (path corrected to a project-id suffix), plus a React list; the page was later archived and merged into the project-environment page.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [database, api, react]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-04-02-link-user-tasks-sessions.md, 2026-06-08-project-environment
 # Project model and space
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-06-08-project-environment]]. See wiki/archive/ for the original.
+> [2026-06-08-project-environment](/archive/2026-06-08-project-environment.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -40,7 +41,7 @@ Added the `Project` model linked to the user, and a migration that moves project
 
 ## Step 2 — CRUD APIs
 
-Added project CRUD endpoints, all scoped to the authenticated user. Default auth, exception handling, and logging are applied to the new APIs. Task/session user-scoping built on top of this model is recorded in [[2026-04-02-link-user-tasks-sessions]].
+Added project CRUD endpoints, all scoped to the authenticated user. Default auth, exception handling, and logging are applied to the new APIs. Task/session user-scoping built on top of this model is recorded in [2026-04-02-link-user-tasks-sessions](/archive/2026-04-02-link-user-tasks-sessions.md).
 
 ## Step 3 — Provisioning on add
 
@@ -70,5 +71,5 @@ Tests were added for the project model, CRUD API, and provisioning.
 
 ## References
 
-- Related: [[2026-04-02-link-user-tasks-sessions]], [[2026-06-08-project-environment]]
+- Related: [2026-04-02-link-user-tasks-sessions](/archive/2026-04-02-link-user-tasks-sessions.md), [2026-06-08-project-environment](/archive/2026-06-08-project-environment.md)
 - External: https://linear.app/mnt/issue/MNT-75

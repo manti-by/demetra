@@ -1,8 +1,9 @@
 ---
 title: Unify subprocess env on SessionEnvironment
-date: 2026-10-06
+generated: {by: demetra, at: '2026-10-06T00:00:00Z'}
+description: This records removing the legacy env dict threaded through roughly fifty helpers so every subprocess layer takes a SessionEnvironment, with one subprocess_env merge point assembling user, project and derived LangSmith layers; it fixed review agents missing env, passed 936 tests, but widened the emitted credential surface.
 type: implementation
-status: resolved
+status: stable
 session_id: '-'
 services: [subprocess, vcs, agents, quality, wiki, workflows]
 branch: '-'
@@ -31,7 +32,7 @@ project/user layers and no tracing vars.
 Two mechanisms existed side by side:
 
 1. **`context.environment`** — the `SessionEnvironment` resolver from
-   [[2026-09-16-mnt-205-revise-merged-environment]] (project → user → settings), used for
+   [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md) (project → user → settings), used for
    agent models, Linear settings, OpenRouter config and LangSmith tracing.
 2. **`env: dict[str, str] | None`** — a raw dict passed down `run_command` → git / gh /
    quality / wiki helpers, assembled by callers as `context.project.environment`. Workflows
@@ -273,9 +274,9 @@ Coverage changes:
 
 ## References
 
-- Related: [[2026-09-16-mnt-205-revise-merged-environment]]
-- Related: [[2026-08-10-process-environment-3-layers-encryption-uv-venv]]
-- Related: [[2026-09-28-compose-langsmith-host-env]]
-- Related: [[2026-08-18-categorize-settings-env-vars-by-layer]]
+- Related: [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md)
+- Related: [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
+- Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)
+- Related: [2026-08-18-categorize-settings-env-vars-by-layer](/pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The `demetra/library/models.py` line references in this page have drifted: `SessionEnvironment` is at `:473`, `lookup` at `:490`, `subprocess_env` at `:529`, `openrouter_config` at `:601`, `system_env` at `:621`, `linear_state` at `:648`. The five-layer precedence, the removal of the legacy `env` channel and the credential-surface follow-ups (always emitting `LANGSMITH_API_KEY`, forcing `LANGSMITH_TRACING=false` / `LANGSMITH_PROJECT` into the child env) still hold — `system_env` forces both tracing flags off unless a key is configured and defaults `LANGSMITH_PROJECT` to the empty string.

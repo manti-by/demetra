@@ -1,8 +1,9 @@
 ---
 title: 'CH-12: Session list order'
-date: '2026-11-12'
+generated: {by: demetra, at: '2026-11-12T00:00:00Z'}
+description: Records CH-12 ordering the session list so active sessions appear above a separator, with live-session detection from RQ's StartedJobRegistry, a new GET /live endpoint and blinking frontend indicators; group ordering and graceful Redis degradation were tested and all 1345 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e2ef57585ffeVMuauaIDrGcws1
 services: [api, persistence/database, persistence/queue, pyproject, App, App.test, SessionList.test, SessionList, SessionSidebar.test, StyleGuide, api.test, test_queue, test_session_logging, uv, .sessions, INDEX, 2026-11-12-ch-12-session-list-order]
 branch: ch-12-session-list-order
@@ -99,5 +100,5 @@ All 1345 tests passed successfully. Key test coverage includes:
 
 ## References
 - External: <linear ticket URL>
-- Related: [[2026-11-04-chat-session-list-and-rerun]]
-- Related: [[2026-10-12-session-state-flow-feedback-loops]]
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
+- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md)

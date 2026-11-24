@@ -1,11 +1,12 @@
 ---
-title: "MNT-245: Empty session history"
-date: 2026-10-16
+title: 'MNT-245: Empty session history'
+generated: {by: demetra, at: '2026-10-16T00:00:00Z'}
+description: MNT-245 investigated why validate, review and research steps showed empty cards in the session-history timeline; root cause was two independent step/token writers plus throwaway unpersisted sessions, all resolved by MNT-251's distinct step/invocation kinds and exact-delta invocation rows for every agent step.
 type: investigation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [persistence, workflows, api, react]
-branch: "-"
+branch: '-'
 tickets: [MNT-245, MNT-251, MNT-246, MNT-228, MNT-181]
 tags: [session-history, empty-rows, tokens, research, validate, review, cumulative]
 related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-09-30-mnt-228-intermediate-history-states.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-23-session-history-modal.md, 2026-10-27-mnt-260-openrouter-call-history.md]
@@ -15,13 +16,13 @@ related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-openc
 
 ## TL;DR
 
-Research into why `validate`, `review` and `research` steps render as empty cards in the session-history timeline. Root cause: two independent writers — `update_session_step` writes a guaranteed-empty step row on every transition, while token rows come from a separate path that only `plan`/`build`/`completed`/`failed` ever called — and validate/review/research run in throwaway sessions that are never persisted. All of it is fixed by [[2026-10-16-mnt-251-session-attribution-accounting]]: step rows and invocation rows are now distinct `kind`s, every agent step records an exact-delta invocation row, and totals sum only `kind='invocation'`.
+Research into why `validate`, `review` and `research` steps render as empty cards in the session-history timeline. Root cause: two independent writers — `update_session_step` writes a guaranteed-empty step row on every transition, while token rows come from a separate path that only `plan`/`build`/`completed`/`failed` ever called — and validate/review/research run in throwaway sessions that are never persisted. All of it is fixed by [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md): step rows and invocation rows are now distinct `kind`s, every agent step records an exact-delta invocation row, and totals sum only `kind='invocation'`.
 
 ---
 
 ## Net effect
 
-The "empty card" symptom was structural, not a data-loss accident: those steps were *incapable* of carrying token data because they ran in unpersisted sessions and had no recording call. It also closed the long-open follow-up in [[2026-07-23-session-history-modal]] (`SELECT DISTINCT step FROM session_history`).
+The "empty card" symptom was structural, not a data-loss accident: those steps were *incapable* of carrying token data because they ran in unpersisted sessions and had no recording call. It also closed the long-open follow-up in [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) (`SELECT DISTINCT step FROM session_history`).
 
 ## Root causes
 
@@ -42,7 +43,7 @@ The "empty card" symptom was structural, not a data-loss accident: those steps w
 - Every agent step — including research, resolve, merge, rebase, review_fixes and review per `(round, model)` — records an invocation row.
 - `_compute_total_tokens` sums only `kind='invocation'`; the legacy `row.length` fallback is dropped.
 
-> **Consistency note (2026-11-09, Consistency Agent):** that totals bullet is superseded — [[2026-10-27-mnt-260-openrouter-call-history]] widened `_compute_total_tokens` to also count `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`. The kind split documented here is unchanged.
+> **Consistency note (2026-11-09, Consistency Agent):** that totals bullet is superseded — [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md) widened `_compute_total_tokens` to also count `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`. The kind split documented here is unchanged.
 - React renders from the explicit `kind` field instead of null-sniffing.
 
 ## Follow-ups
@@ -51,11 +52,11 @@ The "empty card" symptom was structural, not a data-loss accident: those steps w
 
 ## References
 
-- Related: [[2026-10-16-mnt-251-session-attribution-accounting]] — the implementation
-- Related: [[2026-10-16-opencode-v2-session-token-accounting]] — the v2 ground truth that corrected the inflation claim
-- Related: [[2026-09-30-mnt-228-intermediate-history-states]] — the step-row writer this supersedes
-- Related: [[2026-08-25-mnt-181-total-tokens-counter]] — the total this re-points at `kind='invocation'`
-- Related: [[2026-07-23-session-history-modal]] — the endpoint and the follow-up this closes
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) — the implementation
+- Related: [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md) — the v2 ground truth that corrected the inflation claim
+- Related: [2026-09-30-mnt-228-intermediate-history-states](/pages/2026-09-30-mnt-228-intermediate-history-states.md) — the step-row writer this supersedes
+- Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) — the total this re-points at `kind='invocation'`
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) — the endpoint and the follow-up this closes
 - External: https://linear.app/mnt/issue/MNT-245
 
 > **Consistency note (2026-11-11, Consistency Agent):** `record_session_step_history` no longer exists — it was renamed to `record_session_step` (`demetra/services/persistence/database.py:979`); the four call sites quoted above are now `build.py:128`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The totals bullet was later widened by MNT-260 to include `kind='llm_call'` rows (`demetra/api/sessions.py:118`), as the 2026-11-09 note records.

@@ -1,8 +1,9 @@
 ---
-title: 'Session list split into active, completed and backlog sections'
-date: '2026-11-15'
+title: Session list split into active, completed and backlog sections
+generated: {by: demetra, at: '2026-11-15T00:00:00Z'}
+description: Records the React `SessionList` sidebar being split from two blocks into Active, Completed and Backlog sections via a shared `sectionOf` classifier using last activity from `updated_at` and a live-task override; Active always renders, others when non-empty, with 181 tests and tsc passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e1fda1d84ffe8DTiZYxz45gjjo
 services: [SessionList, App.css, StyleGuide, SessionList.test]
 branch: master
@@ -182,5 +183,5 @@ new model:
 
 ## References
 
-- Related: [[2026-11-12-ch-12-session-list-order]]
-- Related: [[2026-11-04-chat-session-list-and-rerun]]
+- Related: [2026-11-12-ch-12-session-list-order](/pages/2026-11-12-ch-12-session-list-order.md)
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)

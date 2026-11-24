@@ -1,11 +1,12 @@
 ---
 title: Resolve ANSI Color Escape Codes in Logs
-date: 2026-07-20
+generated: {by: demetra, at: '2026-07-20T00:00:00Z'}
+description: Records raw ANSI color escape sequences polluting session and console logs; fixed by adding an AnsiStrippingFilter with a strip regex at source in live_stream and registering it on console, file, and dynamic session logging handlers, leaving no escapes in output.
 type: debug
-status: resolved
+status: deprecated
 session_id: ses_080257f1affen6vKaLZQEZglVY
 services: [main]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [logs, filtering, ansi, coloring-issues]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Resolve ANSI Color Escape Codes in Logs
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+> [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

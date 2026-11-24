@@ -1,11 +1,12 @@
 ---
 title: Postgres Support
-date: 2026-03-05
+generated: {by: demetra, at: '2026-03-05T00:00:00Z'}
+description: MNT-51 records replacing SQLite with PostgreSQL via an async psycopg-binary client, rewriting all queries and moving connection parameters to env-driven settings (DB_HOST, DB_USER, DB_PASSWORD, DB_NAME defaulting to demetra), with updated docs, bumped pre-commit hooks, and prompt guidance requiring trailing question marks.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [database, settings]
-branch: -
+branch: '-'
 tickets: [MNT-51]
 tags: [database, postgres, sqlite, migration]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Postgres Support
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-06-03-fix-squash-migrations]]. See wiki/archive/ for the
+> [2026-06-03-fix-squash-migrations](/archive/2026-06-03-fix-squash-migrations.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

@@ -3,7 +3,7 @@ import re
 
 from demetra.library.exceptions import WikiError
 from demetra.library.models import Context, Task
-from demetra.services.llm.openrouter import compose_wiki_page
+from demetra.services.llm.openrouter import compose_wiki_description, compose_wiki_page
 from demetra.services.runtime.subprocess import run_command
 from demetra.services.wiki.facts import (
     collect_session_facts,
@@ -40,6 +40,20 @@ from demetra.services.wiki.maintenance import (
     similarity,
 )
 from demetra.services.wiki.naming import infer_services, infer_tags, session_filename, today
+from demetra.services.wiki.okf import (
+    convert_wikilinks,
+    generated_at,
+    migrate_bundle,
+    migrate_page,
+    okf_cli,
+    okf_date,
+    okf_page_date,
+    okf_status,
+    parse_okf_page,
+    resolve_wikilink,
+    validate_bundle,
+    validate_page,
+)
 from demetra.services.wiki.parsing import existing_page_for_ticket, page_date, parse_frontmatter, parse_page_file
 from demetra.services.wiki.render import (
     dump_frontmatter,
@@ -66,7 +80,7 @@ BARE_DASH_RE = re.compile(r"^(\s*[A-Za-z_][\w]*\s*:\s*)-$", re.MULTILINE)
 PAGE_LINK_RE = re.compile(r"\]\(pages/([^)]+)\)")
 
 PAGE_TYPE = "implementation"
-PAGE_STATUS = "resolved"
+PAGE_STATUS = "stable"
 
 LOG_TAIL_LINES = 200
 
@@ -142,11 +156,14 @@ __all__ = [
     "cluster_for",
     "collect_session_facts",
     "commit_revalidation",
+    "compose_wiki_description",
     "compose_wiki_page",
+    "convert_wikilinks",
     "dedup_pages",
     "dump_frontmatter",
     "existing_page_for_ticket",
     "find_topic_cluster",
+    "generated_at",
     "git_default_branch",
     "git_diff_excerpt",
     "git_diff_facts",
@@ -157,10 +174,17 @@ __all__ = [
     "insert_cluster_entry",
     "insert_pages_entry",
     "merge_page_content",
+    "migrate_bundle",
+    "migrate_page",
+    "okf_cli",
+    "okf_date",
+    "okf_page_date",
+    "okf_status",
     "on_default_branch",
     "page_date",
     "page_tokens",
     "parse_frontmatter",
+    "parse_okf_page",
     "parse_page_file",
     "patch_index",
     "pick_survivor",
@@ -168,6 +192,7 @@ __all__ = [
     "read_index",
     "regenerate_by_topic",
     "render_page",
+    "resolve_wikilink",
     "revalidate_wiki_and_agents",
     "revalidation_changed_files",
     "run_command",
@@ -177,6 +202,8 @@ __all__ = [
     "similarity",
     "today",
     "truncate",
+    "validate_bundle",
+    "validate_page",
     "write_index",
     "write_page",
     "write_session_wiki_page",

@@ -1,9 +1,10 @@
 ---
 title: Wiki pages not generated — move wiki step before commit
-date: 2026-08-25
+generated: {by: demetra, at: '2026-08-25T00:00:00Z'}
+description: MNT-187 fixed wiki pages never reaching the repo because they were written in `main.py`'s `finally` after commit against the main checkout; generation moved into `commit_and_push` targeting the worktree with working-tree diffs and a typed `WikiError`, later made best-effort by MNT-189 so commits proceed.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [main, workflows, wiki, cleanup]
 branch: mnt-187-wiki-pages-not-generated
 tickets: [MNT-187]
@@ -67,5 +68,5 @@ Helpers now accept optional target so main flow writes to worktree while merge/r
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-07-split-wiki-service-into-subpackage]]
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md)
 - External: [MNT-187](https://linear.app/mnt/issue/MNT-187/wiki-pages-not-generated)

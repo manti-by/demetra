@@ -1,11 +1,12 @@
 ---
 title: Add context compaction
-date: 2026-07-07
+generated: {by: demetra, at: '2026-07-07T00:00:00Z'}
+description: Records MNT-122 adding `session_history` length tracking and threshold-triggered OpenCode `/compact` compaction; archived into the MNT-251 attribution page after discovery that `/compact` was delivered as a prompt and never shrank context, so compaction was fixed for 1.x with `--command compact` and explicitly skipped on v2.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [opencode, database, workflows, settings]
-branch: "-"
+branch: '-'
 tickets: [MNT-122]
 tags: [context, compaction, session-history, tokens]
 related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-history-modal.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
@@ -14,11 +15,11 @@ related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-07-23-session-hi
 # Add context compaction
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-10-16-mnt-251-session-attribution-accounting]]. See wiki/archive/ for the original.
+> [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
-Added automatic context-length tracking and compaction for OpenCode sessions. `session_history` records length after each step; when it exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000) the session is compacted via `/compact`. Later disabled in MNT-145 due to cumulative `length` (see [[2026-07-23-session-tokens-audit-revalidation]]), then re-enabled.
+Added automatic context-length tracking and compaction for OpenCode sessions. `session_history` records length after each step; when it exceeds `CONTEXT_COMPACTION_THRESHOLD` (default 100_000) the session is compacted via `/compact`. Later disabled in MNT-145 due to cumulative `length` (see [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md)), then re-enabled.
 
 ---
 
@@ -26,7 +27,7 @@ Added automatic context-length tracking and compaction for OpenCode sessions. `s
 
 Long sessions drift past usable context windows, degrading plan/build quality. This tracks length after every step and compacts over threshold.
 
-> **Update (2026-08-04):** MNT-145 disable was reversed — `5f8e428` commented out the `build.py` caller, `47d428d` (2026-07-23) re-enabled it via non-cumulative `context_tokens`. Compaction is live (`demetra/workflows/build.py:100`). See [[2026-07-23-session-tokens-audit-revalidation]].
+> **Update (2026-08-04):** MNT-145 disable was reversed — `5f8e428` commented out the `build.py` caller, `47d428d` (2026-07-23) re-enabled it via non-cumulative `context_tokens`. Compaction is live (`demetra/workflows/build.py:100`). See [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md).
 
 ## Changes
 
@@ -41,7 +42,7 @@ Tests for history recording, length measurement, and compaction triggering.
 
 ## Known follow-up
 
-Compaction disabled in MNT-145 (cumulative `length`) — see [[2026-07-23-session-tokens-audit-revalidation]]; re-enabled as above.
+Compaction disabled in MNT-145 (cumulative `length`) — see [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md); re-enabled as above.
 
 ---
 
@@ -52,7 +53,7 @@ Compaction disabled in MNT-145 (cumulative `length`) — see [[2026-07-23-sessio
 - **1.x:** `opencode_compact_session` now runs `run --session <id> --command compact` (the documented slash-command mechanism), and `check_and_compact_context` re-exports the session and warns when the measured context did **not** decrease.
 - **v2:** `run` has no `--command` flag, so there is no CLI compaction path; `opencode_supports_compaction` returns False and the workflow skips it with a warning naming the fork-once build session as the only context bound. A deliberate removal, not a third silent no-op.
 
-`check_and_compact_context` also now receives the `context_tokens` snapshot instead of re-deriving the gauge from the cumulative `length`. See [[2026-10-16-mnt-251-session-attribution-accounting]] and the v2 ground truth in [[2026-10-16-opencode-v2-session-token-accounting]].
+`check_and_compact_context` also now receives the `context_tokens` snapshot instead of re-deriving the gauge from the cumulative `length`. See [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) and the v2 ground truth in [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md).
 
 ---
 
@@ -64,5 +65,5 @@ None.
 
 ## References
 
-- Related: [[2026-07-23-session-tokens-audit-revalidation]] · [[2026-07-23-session-history-modal]]
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md) · [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md)
 - External: [MNT-122 — Add context compaction (Linear)](https://linear.app/mnt/issue/MNT-122)

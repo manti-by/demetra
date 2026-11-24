@@ -1,11 +1,12 @@
 ---
 title: Fix notification mark-as-read and add infinite-loop protection
-date: 2026-07-16
+generated: {by: demetra, at: '2026-07-16T00:00:00Z'}
+description: 'Records two listener bugs: notifications marked read even when enqueue failed, and no retry limit causing endless polling; fixed by gating mark-as-read on the handler''s boolean return and adding a listener_attempts column/budget (default 5) in sessions, with 489 tests passing.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: ses_093670774ffeRqtTEflrkIDv8O
 services: [listener]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [notifications, bug-fix, merge, rebase, listener-attempts, infinite-loop]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Fix notification mark-as-read and add infinite-loop protection
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-09-14-listener-readline-limit-crash]]. See wiki/archive/ for the original.
+> [2026-09-14-listener-readline-limit-crash](/pages/2026-09-14-listener-readline-limit-crash.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

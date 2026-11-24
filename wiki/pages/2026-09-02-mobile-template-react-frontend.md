@@ -1,8 +1,9 @@
 ---
 title: MNT-193 — Mobile template for the React frontend
-date: 2026-09-02
+generated: {by: demetra, at: '2026-09-02T00:00:00Z'}
+description: 'MNT-193 delivered a mobile-responsive React frontend template for the 768px breakpoint, with a searchable bottom-sheet session drawer, scrollable console tabs, 44px touch targets and no horizontal overflow; PR #117 merged with Cursor-review Escape and inert drawer accessibility fixes and all 61 tests passing.'
 type: implementation
-status: resolved
+status: stable
 session_id: sess_3c168c00-25c9-41f5-b4bb-f0c70d0e67a3
 services: [react-frontend, react]
 branch: demetra/feature/mnt-193-mobile-template
@@ -85,7 +86,7 @@ const consoleInert = sidebarOpen ? { inert: "" } : {};
 
 React 18 has no boolean `inert` prop (React 19) and `@types/react@18` doesn't type it — passed via JSX spread `inert=""` (presence matters). `Header` got `inert?: boolean` prop to avoid wrapper div breaking `position:sticky`.
 
-## Source — [[2026-06-02-truncate-session-name]]
+## Source — [2026-06-02-truncate-session-name](/archive/2026-06-02-truncate-session-name.md)
 
 MNT-92 (2026-06-02): long task titles in the session list stretched the sidebar and pushed `LogConsole` below it. The fix bounds the title and truncates it with an ellipsis, reusing the fixed-width meta pattern; today `.session-plan` and `.session-name` share `max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap` (`react/src/App.css:1264-1271`). Keep that pairing when touching the sidebar.
 
@@ -98,10 +99,10 @@ MNT-92 (2026-06-02): long task titles in the session list stretched the sidebar 
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
-> **Consistency note (2026-11-09, Consistency Agent):** two item-level statements above no longer hold on HEAD. (1) `.session-dot.step-<step>` was removed by the 2026-11-04 session-list redesign ([[2026-11-04-chat-session-list-and-rerun]]) — no `session-dot` remains in `react/src`. (2) The `.session-plan` / `.session-name` `max-width: 120px` pairing quoted in the MNT-92 note has been replaced by `.session-title` truncation (`react/src/App.css:1187`); the mobile-drawer layout itself is unchanged.
+> **Consistency note (2026-11-09, Consistency Agent):** two item-level statements above no longer hold on HEAD. (1) `.session-dot.step-<step>` was removed by the 2026-11-04 session-list redesign ([2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)) — no `session-dot` remains in `react/src`. (2) The `.session-plan` / `.session-name` `max-width: 120px` pairing quoted in the MNT-92 note has been replaced by `.session-title` truncation (`react/src/App.css:1187`); the mobile-drawer layout itself is unchanged.
 
 ## References
 
-- Related: [[2026-07-22-react-frontend-template-warp]], [[2026-08-25-loader-styleguide]]
-- Source: Session truncation CSS [[2026-06-02-truncate-session-name]]; markdown via `marked ^15.0.12` [[2026-11-06-ch-6-markdown-renderer]]
+- Related: [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md), [2026-08-25-loader-styleguide](/pages/2026-08-25-loader-styleguide.md)
+- Source: Session truncation CSS [2026-06-02-truncate-session-name](/archive/2026-06-02-truncate-session-name.md); markdown via `marked ^15.0.12` [2026-11-06-ch-6-markdown-renderer](/pages/2026-11-06-ch-6-markdown-renderer.md)
 - External: [MNT-193](https://linear.app/mnt/issue/MNT-193/add-mobile-template-for-fe-app), [MNT-174](https://linear.app/mnt/issue/MNT-174/mobile-template), [PR #117](https://github.com/manti-by/demetra/pull/117)

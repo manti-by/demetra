@@ -1,8 +1,9 @@
 ---
 title: 'MNT-203: Create related ticket for research'
-date: 2026-09-11
+generated: {by: demetra, at: '2026-09-11T00:00:00Z'}
+description: MNT-203 changed the research workflow to create a related Linear ticket inheriting project, priority, PRD state and Feature plus Backend/Frontend labels instead of commenting on the source ticket, adding linear_project_id, LinearConfig label IDs and a create_research_ticket helper; its reverted-scaffolding note was later shown branch-local.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_f6ef2a998ffefbAQfDD0V9gPcN
 services: [api, react, library, settings, tools, workflows]
 branch: mnt-203-create-related-ticket-for-research
@@ -10,6 +11,7 @@ tickets: [MNT-203]
 tags: [wiki, feature]
 related: [2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-research-loop.md, 2026-09-14-research-plan-artifact.md]
 ---
+
 # MNT-203: Create related ticket for research
 
 ## TL;DR
@@ -33,11 +35,11 @@ Create related ticket in same project/priority/state, with `Feature` label plus 
 
 ## Follow-ups
 
-> **Consistency fix (2026-09-18, Consistency Agent):** Supersedes 2026-09-15 note. HEAD retains `research_report` (`a3b4c5…`, `tables.py:35`); "reverted scaffolding" was branch-local (MNT-203 diff vs MNT-200). `research_plan`/`8023ece…` from [[2026-09-14-research-plan-artifact]] is not in HEAD — see that page's 2026-09-18 fix.
+> **Consistency fix (2026-09-18, Consistency Agent):** Supersedes 2026-09-15 note. HEAD retains `research_report` (`a3b4c5…`, `tables.py:35`); "reverted scaffolding" was branch-local (MNT-203 diff vs MNT-200). `research_plan`/`8023ece…` from [2026-09-14-research-plan-artifact](/pages/2026-09-14-research-plan-artifact.md) is not in HEAD — see that page's 2026-09-18 fix.
 
 ## References
 
-- Related: [[2026-09-01-mnt-177-research-loop]], [[2026-09-10-mnt-200-update-research-loop]]
+- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md)
 - External: https://linear.app/mnt/issue/MNT-203/create-related-ticket-for-research
 
 > **Consistency note (2026-11-11, Consistency Agent):** The file references in the Overview were mangled by the page generator (“`create_research_ticket` 118/1”, “`demetra/workflows/research.py` (133/30)”). The helper lives in `demetra/services/linear/mutations.py` and the call site in `demetra/workflows/research.py`; the “reverted scaffolding” phrasing is branch-local (corrected by the 2026-09-18 note below).

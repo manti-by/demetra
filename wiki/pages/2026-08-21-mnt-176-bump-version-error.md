@@ -1,9 +1,10 @@
 ---
-title: "MNT-176: Bump version error fix"
-date: 2026-08-21
+title: 'MNT-176: Bump version error fix'
+generated: {by: demetra, at: '2026-08-21T00:00:00Z'}
+description: 'Records the MNT-176 fix where bump_project_version wrongly bumped major for Epic-labeled tickets; outcome: the is_epic parameter and major-bump branch were removed so every workflow bumps minor with major preserved, shipped and later superseded by explicit is_major/is_minor/is_patch flags defaulting to a patch bump.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [workflows, settings]
 branch: mnt-176-bump-version-error
 tickets: [MNT-176, MNT-116]
@@ -15,7 +16,7 @@ related: [2026-09-08-docstring-mcp-search.md, 2026-06-25-update-project-version.
 
 ## TL;DR
 
-`bump_project_version` incorrectly bumped major for Epic-labeled tickets (`1.x.y → 2.0.0`); rule is major is manual-only. Removed `is_epic` param and major-bump branch — now always bumps minor (preserves major) — deleted `EPIC_LABEL`/`is_epic_label`, updated call site and tests. Contract later superseded by [[2026-09-08-docstring-mcp-search]] (explicit `is_major`/`is_minor`/`is_patch` flags, default patch).
+`bump_project_version` incorrectly bumped major for Epic-labeled tickets (`1.x.y → 2.0.0`); rule is major is manual-only. Removed `is_epic` param and major-bump branch — now always bumps minor (preserves major) — deleted `EPIC_LABEL`/`is_epic_label`, updated call site and tests. Contract later superseded by [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md) (explicit `is_major`/`is_minor`/`is_patch` flags, default patch).
 
 ## Overview
 
@@ -49,9 +50,9 @@ Deleted `EPIC_LABEL` and `is_epic_label(labels)`. Docstring updated: minor bumpe
 
 `pytest tests/test_project.py tests/test_workflows.py tests/test_more_edge_cases.py` pass; `ruff check .` and `ty check` clean.
 
-## Source — [[2026-06-25-update-project-version]]
+## Source — [2026-06-25-update-project-version](/archive/2026-06-25-update-project-version.md)
 
-Auto-bump of `pyproject.toml` on every feature/bugfix run originated 2026-06-25 (MNT-116); major bumps are manual-only (this page removed the Epic major-bump branch). Current contract: `bump_project_version` runs inside the build loop (`demetra/workflows/build.py:234`) with no rollback (`8f42bd6` removed the revert block) and defaults to `is_patch=True` ([[2026-09-08-docstring-mcp-search]]; Q-001 resolved 2026-09-11). Originally decided in [[2026-06-25-update-project-version]] on 2026-06-25.
+Auto-bump of `pyproject.toml` on every feature/bugfix run originated 2026-06-25 (MNT-116); major bumps are manual-only (this page removed the Epic major-bump branch). Current contract: `bump_project_version` runs inside the build loop (`demetra/workflows/build.py:234`) with no rollback (`8f42bd6` removed the revert block) and defaults to `is_patch=True` ([2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md); Q-001 resolved 2026-09-11). Originally decided in [2026-06-25-update-project-version](/archive/2026-06-25-update-project-version.md) on 2026-06-25.
 
 ## Follow-ups
 
@@ -63,13 +64,13 @@ Auto-bump of `pyproject.toml` on every feature/bugfix run originated 2026-06-25 
 
 ## Consistency note (2026-09-11, Consistency Agent)
 
-- Superseded by [[2026-09-08-docstring-mcp-search]] (`dd4f152`): `bump_project_version` now takes `is_major`/`is_minor`/`is_patch` (default `is_patch=True` → patch, not minor). Always-minor contract above is stale.
+- Superseded by [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md) (`dd4f152`): `bump_project_version` now takes `is_major`/`is_minor`/`is_patch` (default `is_patch=True` → patch, not minor). Always-minor contract above is stale.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-06-25-update-project-version]], [[2026-09-08-docstring-mcp-search]]
+- Related: [2026-06-25-update-project-version](/archive/2026-06-25-update-project-version.md), [2026-09-08-docstring-mcp-search](/pages/2026-09-08-docstring-mcp-search.md)
 - External: [MNT-176 — Bump version error (Linear)](https://linear.app/mnt/issue/MNT-176)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The body above still describes a minor bump; since the 2026-09-08 rework `bump_project_version(target_path, is_major=False, is_minor=False, is_patch=True)` defaults to a **patch** bump (`demetra/services/runtime/project.py:331-332`) and the build workflow calls it with no flag (`demetra/workflows/build.py:234`), so the auto-bump increments the patch component. This is the resolved **Q-001**; the `is_epic` rule removed here is still gone.

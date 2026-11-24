@@ -1,8 +1,9 @@
 ---
 title: MNT-177 research loop — research agent, workflow and settings
-date: 2026-09-01
+generated: {by: demetra, at: '2026-09-01T00:00:00Z'}
+description: MNT-177 introduced the Research loop where tickets labeled `Research` run a read-only `research-agent` that short-circuits plan/build, with `MAX_ATTEMPTS['research']`, a research model and research-labels setting; the flow was later reworked to persist `sessions.research_report`, create a related ticket and end In Review at `step='researched'`.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_mnt177_20260901
 services: [workflows, agents, opencode, linear, settings, prompts]
 branch: mnt-177-research-loop
@@ -10,13 +11,14 @@ tickets: [MNT-177]
 tags: [research, research-agent, research-report, research-labels, opencode, workflow, awaiting-input]
 related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403.md, 2026-08-24-guard-empty-plan-output.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-09-02-review-findings-cleanup.md, 2026-09-14-opencode-agent-prompts-hardening.md, 2026-09-10-mnt-200-update-research-loop.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md, 2026-10-05-mnt-232-update-research-flow.md]
 ---
+
 # MNT-177 research loop — research agent, workflow and settings
 
 ## TL;DR
 
 Added Research loop: tickets with `Research` label run a read-only `research-agent` (wiki + web validation) that extracts `## Research Report` and hands it to the research workflow. Branch short-circuits the normal plan→build pipeline in `main.py`. Added `MAX_RESEARCH_ATTEMPTS=5` (now `MAX_ATTEMPTS["research"]`), `OPENCODE["research_model"]`, `LINEAR["research_labels"]`, `research` StepType. 920 tests, ruff/ty/bandit green.
 
-> **Updated (2026-11-11, Consistency Agent):** the TL;DR above described the first generation of the loop. The flow has since been reworked twice — the research report is persisted to `sessions.research_report`, the workflow creates a **related** Linear ticket instead of commenting on the source, the source ticket ends in **In Review** with `step="researched"`, and the retry budget is `MAX_ATTEMPTS["research"]`. See the 2026-09-15 / 2026-10-06 / 2026-10-08 update blocks below and [[2026-10-05-mnt-232-update-research-flow]].
+> **Updated (2026-11-11, Consistency Agent):** the TL;DR above described the first generation of the loop. The flow has since been reworked twice — the research report is persisted to `sessions.research_report`, the workflow creates a **related** Linear ticket instead of commenting on the source, the source ticket ends in **In Review** with `step="researched"`, and the retry budget is `MAX_ATTEMPTS["research"]`. See the 2026-09-15 / 2026-10-06 / 2026-10-08 update blocks below and [2026-10-05-mnt-232-update-research-flow](/pages/2026-10-05-mnt-232-update-research-flow.md).
 
 ---
 
@@ -57,7 +59,7 @@ if is_research_ticket(context=context):
 ## Deviations
 
 - **Frontend:** plan listed BE files only — React untouched; research settings env-only.
-- **Tests:** `TestOpencodeResearchAgent` / `TestWorkflowResearch` landed next day in [[2026-09-02-review-findings-cleanup]].
+- **Tests:** `TestOpencodeResearchAgent` / `TestWorkflowResearch` landed next day in [2026-09-02-review-findings-cleanup](/pages/2026-09-02-review-findings-cleanup.md).
 
 ## Test Results
 
@@ -69,13 +71,13 @@ if is_research_ticket(context=context):
 - Decide if React should surface research settings or env-only suffices.
 - Consider reusing `research` step in session history aggregation.
 
-> **2026-09-14:** `research-agent.md` was only agent with `description`/`permission` until [[2026-09-14-opencode-agent-prompts-hardening]] brought other six to same standard.
+> **2026-09-14:** `research-agent.md` was only agent with `description`/`permission` until [2026-09-14-opencode-agent-prompts-hardening](/pages/2026-09-14-opencode-agent-prompts-hardening.md) brought other six to same standard.
 > **Consistency note (2026-09-02):** `opencode_research_agent` gained `project_id` param and label check split into `is_research_task(linear_task)` / `is_research_ticket(context)` (`demetra/workflows/research.py`).
 
-> **Consistency note (2026-09-15, Consistency Agent):** Post-research step `awaiting_input` superseded by [[2026-09-10-mnt-200-update-research-loop]] — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
+> **Consistency note (2026-09-15, Consistency Agent):** Post-research step `awaiting_input` superseded by [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md) — now `researched` (`sessions.research_report` persisted, navy badge). Earlier `awaiting_input` wording above is stale, verified against `demetra/library/models.py:26` `StepType` and `demetra/workflows/research.py`.
 >
 > **Consistency note (2026-10-06, Consistency Agent):** the 2026-09-15 note above is
-> itself superseded by [[2026-09-11-mnt-203-create-related-ticket-for-research]]
+> itself superseded by [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 > (`14d0d02`, MNT-203): the research flow no longer posts the report as a Linear
 > comment — it persists `sessions.research_report`, creates a *related* ticket
 > (`_create_research_ticket`), and moves the source ticket back to
@@ -85,7 +87,7 @@ if is_research_ticket(context=context):
 > `step="research"` (`:92`) and `step="awaiting_input"` (`:199`).
 >
 > **Consistency note (2026-10-08, Consistency Agent):** the 2026-10-06 note
-> above is itself superseded by [[2026-10-05-mnt-232-update-research-flow]]
+> above is itself superseded by [2026-10-05-mnt-232-update-research-flow](/pages/2026-10-05-mnt-232-update-research-flow.md)
 > (PR #135, merged): the research flow now creates and links a related ticket
 > and ends in **In Review** with `step="researched"`
 > (`demetra/workflows/research.py:205-231`, writer at `:230`). The
@@ -94,7 +96,7 @@ if is_research_ticket(context=context):
 
 ## References
 
-- Related: [[2026-08-28-mnt-177-workflow-blocked-openrouter-403]], [[2026-08-24-guard-empty-plan-output]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-09-02-review-findings-cleanup]], [[2026-09-14-opencode-agent-prompts-hardening]], [[2026-09-10-mnt-200-update-research-loop]], [[2026-09-11-mnt-203-create-related-ticket-for-research]], [[2026-10-05-mnt-232-update-research-flow]]
+- Related: [2026-08-28-mnt-177-workflow-blocked-openrouter-403](/pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-09-02-review-findings-cleanup](/pages/2026-09-02-review-findings-cleanup.md), [2026-09-14-opencode-agent-prompts-hardening](/pages/2026-09-14-opencode-agent-prompts-hardening.md), [2026-09-10-mnt-200-update-research-loop](/pages/2026-09-10-mnt-200-update-research-loop.md), [2026-09-11-mnt-203-create-related-ticket-for-research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md), [2026-10-05-mnt-232-update-research-flow](/pages/2026-10-05-mnt-232-update-research-flow.md)
 - External: [MNT-177 — Research loop](https://linear.app/mnt/issue/MNT-177/research-loop)
 
 > **Consistency fix (2026-09-02):** added `2026-09-02-review-findings-cleanup.md` to `related`.

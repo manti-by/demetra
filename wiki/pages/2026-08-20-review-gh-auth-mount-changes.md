@@ -1,11 +1,12 @@
 ---
 title: Code review — gh CLI auth mount and entrypoint prune for compose
-date: 2026-08-20
+generated: {by: demetra, at: '2026-08-20T00:00:00Z'}
+description: 'Records a code review of Docker gh auth mounting and entrypoint pruning that found one critical bug — a missing -o between two -path clauses caused implicit AND, silently disabling the prune of hosts.yml and auth.json; outcome: fixed before merge in PR #83, with the compose mount itself judged consistent.'
 type: code-review
-status: resolved
+status: stable
 session_id: ses_fe1f1413cffe0nPjQ3DdiuD5IG
 services: [deploy, configs]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [docker, compose, review, entrypoint, security]
 related: [2026-08-19-worker-opencode-home-permissions.md, 2026-08-18-compose-anchors-refactor.md, 2026-08-17-docker-setup-review.md]
@@ -27,7 +28,7 @@ Reviewed working-tree changes adding `gh` auth to Docker: bind mount `.keys/gh/h
    -path /home/demetra/.local/share/opencode/auth.json \
    -o -name .ssh -o -name .gnupg -o -name .gitconfig -o -name .git-credentials \) -prune \
 ```
-Adjacent `find` expressions without operator are implicit AND; one file cannot match two full paths → always false. Both `hosts.yml` and `auth.json` not pruned (regression of [[2026-08-19-worker-opencode-home-permissions]]); recursive `chown` would walk into bind mounts and try to change host file ownership.
+Adjacent `find` expressions without operator are implicit AND; one file cannot match two full paths → always false. Both `hosts.yml` and `auth.json` not pruned (regression of [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)); recursive `chown` would walk into bind mounts and try to change host file ownership.
 
 Fix — add `-o`:
 ```sh
@@ -56,4 +57,4 @@ Fixed in `configs/docker-entrypoint.sh` before merge to `master` (PR #83). Curre
 
 ## References
 
-- Related: [[2026-08-19-worker-opencode-home-permissions]], [[2026-08-18-compose-anchors-refactor]], [[2026-08-17-docker-setup-review]]
+- Related: [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-17-docker-setup-review](/pages/2026-08-17-docker-setup-review.md)

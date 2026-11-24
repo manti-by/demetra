@@ -1,8 +1,9 @@
 ---
 title: 'MNT-277: Do not remove git worktree for sessions'
-date: '2026-11-06'
+generated: {by: demetra, at: '2026-11-06T00:00:00Z'}
+description: Records MNT-277 adding a GIT_DISABLE_WORKTREE_REMOVAL flag that preserves git worktrees and branches for all session types, moving the policy from the VCS service into the cleanup workflow; chat sessions already keep theirs, and all 1210 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e4ea43174ffeYjDE3I2j0qhRvE
 services: [library, workflows, settings, vcs]
 branch: mnt-277-do-not-remove-git-worktree-for-sessions

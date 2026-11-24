@@ -1,8 +1,9 @@
 ---
 title: Truncate session name
-date: 2026-06-02
+generated: {by: demetra, at: '2026-06-02T00:00:00Z'}
+description: 'Under MNT-92, this records a React layout fix where long session names stretched the sidebar and pushed the log console below the list; constraining the session-item title with CSS truncation modelled on `.session-plan` (120px) restored the side-by-side layout, shipped within the MNT-84/MNT-59 session-list rework after PRs #43 and #44 closed; archived.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [react]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-09-02-mobile-template-react-frontend.md]
 # Truncate session name
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-09-02-mobile-template-react-frontend]]. See wiki/archive/ for the original.
+> [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

@@ -1,11 +1,12 @@
 ---
 title: Loader replacement and Style Guide page
-date: 2026-08-25
+generated: {by: demetra, at: '2026-08-25T00:00:00Z'}
+description: 'The React frontend replaced all backend-waiting spinners with a reusable `Loader` component rendering `loader.svg` (olive #788860), and added an anonymous `/styleguide` page linked from the burger menu cataloging UI primitives, tokens and composites, verified by a passing build and 49 frontend tests.'
 type: implementation
-status: resolved
+status: stable
 session_id: ses_8f3a2b1c-20260825
 services: [react]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [loader, styleguide, frontend, burger-menu]
 related: [2026-07-22-warp-theme-review-fixes-and-ops.md, 2026-07-23-session-history-modal.md, 2026-07-22-react-frontend-template-warp.md]
@@ -66,5 +67,5 @@ Tests: `SessionHistory.test.tsx:82` (`querySelector('.loading-spinner')` → `ge
 
 ## References
 
-- Related: [[2026-07-22-warp-theme-review-fixes-and-ops]], [[2026-07-23-session-history-modal]], [[2026-07-22-react-frontend-template-warp]]
+- Related: [2026-07-22-warp-theme-review-fixes-and-ops](/pages/2026-07-22-warp-theme-review-fixes-and-ops.md), [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md), [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md)
 - External: `react/public/loader.svg` (`fill='#788860'`)

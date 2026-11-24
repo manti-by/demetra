@@ -1,11 +1,12 @@
 ---
 title: Async review
-date: 2026-05-25
+generated: {by: demetra, at: '2026-05-25T00:00:00Z'}
+description: Records MNT-87, which made `run_review_agents` run review agents in parallel to cut latency and hardened `merge_review_results` for `None` output, fixed mocks, blocked empty commits and styled the session delete button; the merge helper was later removed in favour of concatenation plus LLM summarization, and the page archived.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [workflows, review]
-branch: "-"
+branch: '-'
 tickets: [MNT-87, MNT-35]
 tags: [review, async, parallelism, multiagent, cursor, coderabbit]
 related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-button.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-06-04-review-summarization.md]
@@ -14,7 +15,7 @@ related: [2026-02-23-add-multiagent-code-review.md, 2026-06-02-delete-session-bu
 # Async review
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-18-migrate-llm-groq-to-openrouter]]. See wiki/archive/ for the original.
+> [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -47,7 +48,7 @@ Added staged-change validation so the workflow never creates a commit when there
 
 ## Step 4 — Test mocks and styling
 
-Fixed the review test mocks to match the parallel execution, and added the session delete button styling shared with MNT-86 ([[2026-06-02-delete-session-button]]).
+Fixed the review test mocks to match the parallel execution, and added the session delete button styling shared with MNT-86 ([2026-06-02-delete-session-button](/archive/2026-06-02-delete-session-button.md)).
 
 ## Test Results
 
@@ -55,9 +56,9 @@ Review tests were updated and pass with the parallel execution model.
 
 ---
 
-## Source — [[2026-02-23-add-multiagent-code-review]]
+## Source — [2026-02-23-add-multiagent-code-review](/archive/2026-02-23-add-multiagent-code-review.md)
 
-Originally added in [[2026-02-23-add-multiagent-code-review]] on 2026-02-23 (MNT-35):
+Originally added in [2026-02-23-add-multiagent-code-review](/archive/2026-02-23-add-multiagent-code-review.md) on 2026-02-23 (MNT-35):
 the review stage runs **three agents — opencode, cursor, and coderabbit** — and
 consolidates their output into one set of comments. The consolidated comments go back
 to the build agent for another iteration; if there are none, the workflow proceeds to
@@ -71,9 +72,9 @@ config controls tool permissions per role (plan/build/review).
 
 ## Consistency note (2026-08-19)
 
-- `merge_review_results` has been fully removed from the codebase. The review pipeline now concatenates agent outputs and passes them to `summarize_review()` in `demetra/services/llm/openrouter.py` (migrated from Groq, see [[2026-08-18-migrate-llm-groq-to-openrouter]]). The concatenation-then-summarize design was introduced in [[2026-06-04-review-summarization]].
+- `merge_review_results` has been fully removed from the codebase. The review pipeline now concatenates agent outputs and passes them to `summarize_review()` in `demetra/services/llm/openrouter.py` (migrated from Groq, see [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)). The concatenation-then-summarize design was introduced in [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md).
 
 ## References
 
-- Related: [[2026-02-23-add-multiagent-code-review]], [[2026-06-02-delete-session-button]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-06-04-review-summarization]]
+- Related: [2026-02-23-add-multiagent-code-review](/archive/2026-02-23-add-multiagent-code-review.md), [2026-06-02-delete-session-button](/archive/2026-06-02-delete-session-button.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-06-04-review-summarization](/archive/2026-06-04-review-summarization.md)
 - External: https://linear.app/mnt/issue/MNT-87

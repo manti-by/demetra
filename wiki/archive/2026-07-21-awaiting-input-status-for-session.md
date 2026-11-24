@@ -1,11 +1,12 @@
 ---
 title: Awaiting Input status for session
-date: 2026-07-21
+generated: {by: demetra, at: '2026-07-21T00:00:00Z'}
+description: 'Records MNT-140: sessions whose plan agent posted clarifying questions no longer flip to Failed but enter an Awaiting Input state (step=''awaiting_input''); workflows record custom failure states and cleanup/history preserve that state rather than overwriting it, with tests covering the transition.'
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [sessions, workflows, linear, main]
-branch: "-"
+branch: '-'
 tickets: [MNT-140, MNT-30]
 tags: [awaiting-input, session-status, linear, plan, triggers, auto-mode, questions]
 related: [2026-08-05-pr-creation-failure-handler.md, 2026-02-23-plan-agent-output-triggers.md]
@@ -14,7 +15,7 @@ related: [2026-08-05-pr-creation-failure-handler.md, 2026-02-23-plan-agent-outpu
 # Awaiting Input status for session
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]]. See wiki/archive/ for the original.
+> [2026-11-12-ch-11-failed-status-for-awaiting-input-tickets](/pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -28,7 +29,7 @@ When the plan agent posted clarifying questions and moved the Linear ticket to `
 
 ## Changes
 
-- **Session state**: added `Awaiting Input` distinct from `Failed` (`step="awaiting_input"` in `StepType`, see [[2026-08-05-pr-creation-failure-handler]]).
+- **Session state**: added `Awaiting Input` distinct from `Failed` (`step="awaiting_input"` in `StepType`, see [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md)).
 - **Set after questions** (`workflows`): after posting questions to Linear and moving the ticket, session is set to `Awaiting Input`.
 - **Custom failure states + cleanup**: workflows record custom states; tasks in `Awaiting Input` keep it through cleanup/history updates.
 
@@ -38,7 +39,7 @@ Tests cover new state, transition after posting questions, and preservation thro
 
 ---
 
-## Source — [[2026-02-23-plan-agent-output-triggers]]
+## Source — [2026-02-23-plan-agent-output-triggers](/archive/2026-02-23-plan-agent-output-triggers.md)
 
 MNT-30 (2026-02-23): plan output markers drive workflow — `PLAN_IS_READY_STRING` auto-builds with no input; `PLAN_HAS_QUESTIONS` extracts questions, posts as Linear comment, moves ticket to awaiting-input without posting the build plan. `--auto` runs headless; interactive loop waits for input. MNT-140 made awaiting-input a first-class `Session` state.
 
@@ -50,5 +51,5 @@ None.
 
 ## References
 
-- Related: [[2026-02-23-plan-agent-output-triggers]], [[2026-08-05-pr-creation-failure-handler]]
+- Related: [2026-02-23-plan-agent-output-triggers](/archive/2026-02-23-plan-agent-output-triggers.md), [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md)
 - External: [MNT-140 — Awaiting Input status for session (Linear)](https://linear.app/mnt/issue/MNT-140)

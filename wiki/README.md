@@ -55,12 +55,17 @@ Every page declares a `type` in its frontmatter. The template lists the recommen
 
 ## Frontmatter
 
-Every page starts with YAML frontmatter (see `TEMPLATE.md`). This is what makes the wiki
+`wiki/pages/` and `wiki/archive/` form a single [Open Knowledge Format](https://github.com/GoogleCloudPlatform/open-knowledge-format)
+bundle. Every page starts with YAML frontmatter (see `TEMPLATE.md`), which makes the wiki
 machine-queryable — you can grep for a ticket, a service, or a tag across all pages.
 
-- `title`, `date`, `type`, `status`, `session_id` - always set.
+- `title`, `generated`, `description`, `type`, `status`, `session_id` - always set; `generated` is
+  `{by: demetra, at: <ISO 8601 UTC timestamp>}` and replaces the old `date` field.
+- `status` uses the OKF lifecycle values `stable`, `draft` or `deprecated`; pages in
+  `wiki/archive/` are `deprecated`.
 - `services`, `branch`, `tickets`, `tags` - set what applies; leave empty (`[]` / `-`) otherwise.
-- `related` - filenames of pages this one links to. Keep it in sync with the `[[...]]` links in the body.
+- `related` - filenames of pages this one links to. Keep it in sync with the standard markdown
+  links in the body.
 
 Formatting is fixed so pages diff cleanly against each other and against what
 `demetra/services/wiki/render.py` writes:
@@ -76,6 +81,12 @@ Formatting is fixed so pages diff cleanly against each other and against what
 
 ## Cross-linking
 
-Link related pages inline with `[[filename-without-.md]]` (e.g. `[[2026-07-09-otel-ssl-cert-debug]]`)
-and mirror them in the `related:` frontmatter list. Cross-links are what turn a folder of notes
-into a knowledge graph - always link back to prior pages on the same subsystem.
+Link related pages inline with an absolute bundle-relative markdown link
+(`[2026-07-09-otel-ssl-cert-debug](/pages/2026-07-09-otel-ssl-cert-debug.md)`). Pages that now live
+in `wiki/archive/` use `/archive/<filename>.md` instead. Mirror the targets in the `related:`
+frontmatter list. Cross-links are what turn a folder of notes into a knowledge graph - always link
+back to prior pages on the same subsystem.
+
+The one-time validator/migrator is `uv run python -m demetra.services.wiki.okf --dry-run` (drop
+`--dry-run` to write). It reports pages that fail OKF validation and rewrites them through
+`dump_frontmatter`, so hand-written pages should match that serializer's shape.

@@ -1,11 +1,12 @@
 ---
 title: Add user setting to the frontend app
-date: 2026-03-09
+generated: {by: demetra, at: '2026-03-09T00:00:00Z'}
+description: 'Records MNT-57, the React frontend companion to MNT-56: a user-settings component with a `keys` group lets users add key/value pairs and PATCHes them as a data dictionary to the user-update API, giving a UI for stored API keys; the page was later archived and merged into the React template page.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [react, api]
-branch: -
+branch: '-'
 tickets: [MNT-57]
 tags: [react, user-settings, keys]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add user setting to the frontend app
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-22-react-frontend-template-warp]]. See wiki/archive/ for the
+> [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

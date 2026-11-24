@@ -1,11 +1,12 @@
 ---
 title: Create GitHub PR
-date: 2026-02-21
+generated: {by: demetra, at: '2026-02-21T00:00:00Z'}
+description: Records MNT-31 automating GitHub PR creation after `git push` via a `create_pull_request` service wrapping the `gh` CLI keyed off the branch name, with a configurable `GH_PATH` defaulting to `/usr/bin/gh`; the URL is printed and the run proceeds to In Review, with tests and later archival.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [github, workflows]
-branch: -
+branch: '-'
 tickets: [MNT-31]
 tags: [github, pr, gh]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Create GitHub PR
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-08-05-pr-creation-failure-handler]]. See wiki/archive/ for the
+> [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

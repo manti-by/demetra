@@ -1,11 +1,12 @@
 ---
 title: Split wiki service into a subpackage
-date: 2026-08-07
+generated: {by: demetra, at: '2026-08-07T00:00:00Z'}
+description: Records the behavior-preserving split (MNT-81/MNT-104) of the 1,254-line `demetra/services/wiki.py` into a `wiki/` subpackage of six submodules behind a facade `__init__.py` re-exporting 55 symbols, with call-time state resolution preserving monkeypatch seams with no caller changes and all 728 tests passing.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [wiki]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [wiki, refactor, subpackage, facade]
 related: [2026-08-19-wiki-should-use-llm-rename.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-08-03-wiki-mcp-tools.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-10-08-llm-authored-wiki-pages.md]
@@ -29,7 +30,7 @@ Follows `demetra/api/` split pattern. Collided-name packages (`auth`, `linear`, 
 
 - `parsing.py` — `parse_page_file`, `parse_frontmatter`, `existing_page_for_ticket`, `page_date`
 - `naming.py` — `today`, `session_filename`, `infer_services`, `infer_tags`
-- `facts.py` — `session_log_tail`, `git_default_branch`, `git_diff_facts`, `should_use_llm` (was `budget_exceeded`, see [[2026-08-19-wiki-should-use-llm-rename]]), `collect_session_facts`
+- `facts.py` — `session_log_tail`, `git_default_branch`, `git_diff_facts`, `should_use_llm` (was `budget_exceeded`, see [2026-08-19-wiki-should-use-llm-rename](/pages/2026-08-19-wiki-should-use-llm-rename.md)), `collect_session_facts`
 - `index.py` — `index_entry`, `read_index`, `write_index`, `insert_pages_entry`, `prune_index_pages`, `find_topic_cluster`, `insert_cluster_entry`, `patch_index`, `cluster_for`, `regenerate_by_topic`
 - `render.py` — `truncate`, `dump_frontmatter`, `render_wiki_page`, `write_page`, `write_session_wiki_page`
 - `maintenance.py` — `page_tokens`, `similarity`, `answer_sweep`, `has_answer`, `dedup_pages`, `pick_survivor`, `merge_page_content`, `check_agents_drift`, `revalidate_wiki_and_agents`, `on_default_branch`, `commit_revalidation`, `run_wiki_revalidation`
@@ -64,17 +65,17 @@ Safe circular import: `service.<NAME>` only dereferenced inside function bodies.
 
 None — behavior-preserving. Other flat services candidates for same treatment.
 
-> **Consistency note (2026-08-27):** MNT-187 wiki-write move + `WikiError` contract superseded by PR #106 — `commit_and_push` now logs and continues after commit/push/PR, surfacing `WikiError` only to gate ticket status — see [[2026-08-25-mnt-187-wiki-pages-not-generated]].
+> **Consistency note (2026-08-27):** MNT-187 wiki-write move + `WikiError` contract superseded by PR #106 — `commit_and_push` now logs and continues after commit/push/PR, surfacing `WikiError` only to gate ticket status — see [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
 > **Consistency note (2026-10-08, Consistency Agent):** the submodule/facade
-> layout above predates [[2026-10-08-llm-authored-wiki-pages]] —
+> layout above predates [2026-10-08-llm-authored-wiki-pages](/pages/2026-10-08-llm-authored-wiki-pages.md) —
 > `facts.py: should_use_llm`, `render.py: render_wiki_page` and facade
 > `summarize_session` are removed; the facade now exposes `render_page` /
 > `compose_wiki_page`. Preserved as the split record.
 
 ## References
 
-- Related: [[2026-08-03-wiki-mcp-tools]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]], [[2026-08-25-mnt-187-wiki-pages-not-generated]], [[2026-10-08-llm-authored-wiki-pages]]
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md), [2026-10-08-llm-authored-wiki-pages](/pages/2026-10-08-llm-authored-wiki-pages.md)
 - External: https://linear.app/mnt/issue/MNT-81, https://linear.app/mnt/issue/MNT-104

@@ -1,11 +1,12 @@
 ---
 title: Plan agent output triggers
-date: 2026-02-23
+generated: {by: demetra, at: '2026-02-23T00:00:00Z'}
+description: 'MNT-30 records turning plan-agent output markers into workflow triggers: PLAN_IS_READY_STRING auto-starts the build, while PLAN_HAS_QUESTIONS extracts questions, posts them to Linear, and parks the ticket in awaiting-input without posting the plan, with --auto for headless runs and tests for both branches.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [main, workflows, linear]
-branch: -
+branch: '-'
 tickets: [MNT-30]
 tags: [plan, triggers, auto-mode, questions]
 related: [2026-07-16-fix-empty-build-plan-loop]
@@ -14,12 +15,12 @@ related: [2026-07-16-fix-empty-build-plan-loop]
 # Plan agent output triggers
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-21-awaiting-input-status-for-session]]. See wiki/archive/ for the
+> [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR
 
-After the empty-state check, the workflow inspects the extracted plan to decide what happens next: `PLAN_IS_READY_STRING` triggers an automatic build with no user input; `PLAN_HAS_QUESTIONS` extracts the questions, posts them to Linear, and moves the ticket to an awaiting-input state. A `--auto` flag runs this headless. When questions are present, the build plan is not posted to Linear. See also [[2026-07-16-fix-empty-build-plan-loop]].
+After the empty-state check, the workflow inspects the extracted plan to decide what happens next: `PLAN_IS_READY_STRING` triggers an automatic build with no user input; `PLAN_HAS_QUESTIONS` extracts the questions, posts them to Linear, and moves the ticket to an awaiting-input state. A `--auto` flag runs this headless. When questions are present, the build plan is not posted to Linear. See also [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md).
 
 ---
 
@@ -58,5 +59,5 @@ None.
 
 ## References
 
-- Related: [[2026-07-16-fix-empty-build-plan-loop]]
+- Related: [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md)
 - External: https://linear.app/mnt/issue/MNT-30

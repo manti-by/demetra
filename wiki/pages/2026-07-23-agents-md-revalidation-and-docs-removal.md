@@ -1,11 +1,12 @@
 ---
 title: AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command
-date: 2026-07-23
+generated: {by: demetra, at: '2026-07-23T00:00:00Z'}
+description: Records the AGENTS.md revalidation — four corrections to the playbook plus deletion of the redundant 391-line DOCS.md — and the new update-agents-file command (now a skill) for automating maintenance, though the registered LangSmith plugin was later removed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_unknown
 services: [docs, opencode, settings]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [agents-md, documentation, opencode-commands, langsmith, feature-flags]
 related: [2026-11-10-mnt-308-lint-error-extraction.md, 2026-09-28-compose-langsmith-host-env.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
@@ -25,7 +26,7 @@ Revalidated `AGENTS.md` against code/wiki/git-log (4 fixes), deleted redundant `
 
 1. Project description: "coding workflow orchestration tool" → "autonomous coding platform"
 2. MCP pattern: `create_<system>_tools(mcp)` factory → `list_tools()`/`call_tool(name, arguments)` async modules via `demetra/tools/__init__.py`
-3. Feature flags: new section for `FEATURES` dict (`is_ruff_enabled`/`is_pytest_enabled`) from [[2026-11-10-mnt-308-lint-error-extraction]]
+3. Feature flags: new section for `FEATURES` dict (`is_ruff_enabled`/`is_pytest_enabled`) from [2026-11-10-mnt-308-lint-error-extraction](/pages/2026-11-10-mnt-308-lint-error-extraction.md)
 4. Dependencies: added `langsmith` (already in `pyproject.toml`)
 
 ## Step 3 — DOCS.md deletion (391 lines)
@@ -40,7 +41,7 @@ Description updated to match AGENTS.md; link `DOCS.md` → `wiki/INDEX.md`.
 
 Added `"plugin": ["@langchain/langsmith-opencode"]` for session tracing.
 
-> **Consistency note (2026-11-09, Consistency Agent):** that plugin was later removed (`67d106c`) — `opencode.json` now declares `"plugins": []`, and tracing flows via `LANGSMITH_*` / `TRACE_TO_LANGSMITH` environment variables (host→container forwarding in `docker-compose.yaml`, in-process emission in `SessionEnvironment.system_env`, see [[2026-09-28-compose-langsmith-host-env]] and [[2026-10-06-unify-subprocess-env-on-session-environment]]).
+> **Consistency note (2026-11-09, Consistency Agent):** that plugin was later removed (`67d106c`) — `opencode.json` now declares `"plugins": []`, and tracing flows via `LANGSMITH_*` / `TRACE_TO_LANGSMITH` environment variables (host→container forwarding in `docker-compose.yaml`, in-process emission in `SessionEnvironment.system_env`, see [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md) and [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)).
 
 ## Step 6 — Wiki housekeeping
 
@@ -64,7 +65,7 @@ Docs-only; no test/lint impact.
 
 ## References
 
-- Related: [[2026-11-10-mnt-308-lint-error-extraction]]
+- Related: [2026-11-10-mnt-308-lint-error-extraction](/pages/2026-11-10-mnt-308-lint-error-extraction.md)
 - External: [LangSmith OpenCode plugin](https://github.com/langchain-ai/langsmith-opencode)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “removed resolved Q-002 (ANSI stripping dedup done)” note refers to an **older** question numbering: that entry no longer exists under any number, and today's `wiki/QUESTIONS.md` uses Q-002 for the `MAX_RUN_ATTEMPTS`/`MAX_PLAN_ATTEMPTS` discrepancy and Q-003 for the agent network-retry budget. The `.opencode/skills/` directory is gitignored (`.gitignore:23`), so `wiki-agents-file/SKILL.md` is a local install, not a tracked file.

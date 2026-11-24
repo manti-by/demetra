@@ -1,8 +1,9 @@
 ---
 title: Add Plan loop to resolve questions
-date: 2026-06-02
+generated: {by: demetra, at: '2026-06-02T00:00:00Z'}
+description: Under MNT-79, this records automating the plan question round-trip with a resolve agent that inspects the repo and answers the plan agent's questions in auto mode instead of posting to Linear, adding `.opencode/agents/resolve-agent.md` and a `--plan-loop` flag looping both agents with a settings-capped attempt limit (originally 30, now 10); archived.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [workflows, opencode, main]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-08-04-fix-resolve-agent-truncated-context.md]
 # Add Plan loop to resolve questions
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-04-fix-resolve-agent-truncated-context]]. See wiki/archive/ for the original.
+> [2026-08-04-fix-resolve-agent-truncated-context](/pages/2026-08-04-fix-resolve-agent-truncated-context.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

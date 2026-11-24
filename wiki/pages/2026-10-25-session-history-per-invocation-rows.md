@@ -1,8 +1,9 @@
 ---
 title: Session history — one row per agent invocation
-date: 2026-10-25
+generated: {by: demetra, at: '2026-10-25T00:00:00Z'}
+description: This page records fixing duplicated validate cards in the session-history timeline, root-caused to record_agent_invocation upserting per (task_id, session_id, step) and collapsing resumed build iterations, so invocations now always insert distinct rows and tool usage is keyed by (history_id, tool_name), also restoring missing lint/test rows, with 1054 tests passing.
 type: debug
-status: resolved
+status: stable
 session_id: ses_e8b0f709dffe9wHRWc1gmo1Lp5
 services: [persistence, api, react, workflows]
 branch: opencode/feature/session-history-per-invocation-rows
@@ -161,9 +162,9 @@ enabling them is required for those rows to appear in the latest sessions.
 
 ## References
 
-- Related: [[2026-10-16-mnt-251-session-attribution-accounting]], [[2026-10-25-mnt-258-tool-usage-stats]],
-  [[2026-10-16-mnt-234-isolate-session-context]], [[2026-10-16-mnt-245-empty-session-history]],
-  [[2026-10-25-session-history-cost-and-failure-reasons]]
-- See also: [[2026-10-25-session-history-mcp-tool-usage]] — sibling session-history extension (cached bundle + MCP tool usage).
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md), [2026-10-25-mnt-258-tool-usage-stats](/pages/2026-10-25-mnt-258-tool-usage-stats.md),
+  [2026-10-16-mnt-234-isolate-session-context](/pages/2026-10-16-mnt-234-isolate-session-context.md), [2026-10-16-mnt-245-empty-session-history](/pages/2026-10-16-mnt-245-empty-session-history.md),
+  [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md)
+- See also: [2026-10-25-session-history-mcp-tool-usage](/pages/2026-10-25-session-history-mcp-tool-usage.md) — sibling session-history extension (cached bundle + MCP tool usage).
 
-> **Consistency note (2026-11-11, Consistency Agent):** Two supersessions. (1) “`_compute_total_tokens` … sums only `kind='invocation'` rows” — MNT-260 widened it to `invocation` + `llm_call` (`demetra/api/sessions.py:118`), see [[2026-10-27-mnt-260-openrouter-call-history]]. (2) The accumulate-onto-one-row design this page replaced was itself rebuilt by MNT-251 — `record_agent_invocation` now inserts one row per invocation (`demetra/services/persistence/database.py:1125`); the current call sites are `build.py:130`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The `session_id` field was left empty by the wiki writer; it now carries the `"-"` placeholder (the true session id is unrecoverable — see **Q-004** in `wiki/QUESTIONS.md`).
+> **Consistency note (2026-11-11, Consistency Agent):** Two supersessions. (1) “`_compute_total_tokens` … sums only `kind='invocation'` rows” — MNT-260 widened it to `invocation` + `llm_call` (`demetra/api/sessions.py:118`), see [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md). (2) The accumulate-onto-one-row design this page replaced was itself rebuilt by MNT-251 — `record_agent_invocation` now inserts one row per invocation (`demetra/services/persistence/database.py:1125`); the current call sites are `build.py:130`, `cleanup.py:49/71/124/170/189` and `lint.py:80/99`. The `session_id` field was left empty by the wiki writer; it now carries the `"-"` placeholder (the true session id is unrecoverable — see **Q-004** in `wiki/QUESTIONS.md`).

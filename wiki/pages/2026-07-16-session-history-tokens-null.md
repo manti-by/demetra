@@ -1,11 +1,12 @@
 ---
 title: Session history tokens always NULL — pipe truncation in opencode export
-date: 2026-07-16
+generated: {by: demetra, at: '2026-07-16T00:00:00Z'}
+description: Records why all session_history token columns were NULL — a missing local migration plus opencode export truncating at 64 KB through a pipe — resolved with the run_command_to_file temp-file redirect, verified on odin with 489 tests passing.
 type: debug
-status: resolved
+status: stable
 session_id: ses_0936687abffekKL1uBAPkCWbGU
 services: [database, alembic, opencode]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [session-history, pipe-truncation, opencode-export, debugging]
 related: [2026-07-23-session-tokens-audit-revalidation.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md]
@@ -52,7 +53,7 @@ Verified on odin after patching: `TokenUsage(input=262843, output=21617, reasoni
 
 **The 64 KB story is subcommand-specific, not a uniform cap.** Re-probed on opencode v2.0.30: `session list --format json -n 500` piped **140,107 bytes byte-identical** to the file redirect and parsed cleanly, while `session export <id>` piped **393,216 bytes** (exactly 6 × 65,536) vs **437,195** to a file, with the piped bytes invalid JSON. So the fix here is still correct and still mandatory for export, but the failure class is not "every opencode command truncates at 64 KB".
 
-**The export command itself changed on v2.** `opencode export <id>` moved to `opencode session export <id>`; `get_opencode_session_export` is now version-aware (cached `opencode --version` major) and falls back to trying both forms when the probe fails, while staying **file-backed** (`run_command_to_file`). See [[2026-10-16-mnt-251-session-attribution-accounting]] and the v2 ground truth in [[2026-10-16-opencode-v2-session-token-accounting]].
+**The export command itself changed on v2.** `opencode export <id>` moved to `opencode session export <id>`; `get_opencode_session_export` is now version-aware (cached `opencode --version` major) and falls back to trying both forms when the probe fails, while staying **file-backed** (`run_command_to_file`). See [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) and the v2 ground truth in [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md).
 
 ---
 
@@ -62,10 +63,10 @@ Deploy via git pull to odin.
 
 > **Consistency note (2026-08-27):** `demetra/services/subprocess.py` → `demetra/services/runtime/subprocess.py`, `demetra/services/opencode.py` → `demetra/services/agents/opencode.py:355`; fix still in effect.
 >
-> **Consistency note (2026-10-08, Dedup Agent):** this fix is re-audited as a solved sub-claim in [[2026-07-23-session-tokens-audit-revalidation]] (192-row DB analysis; "truncation confirmed… Solved; no action").
+> **Consistency note (2026-10-08, Dedup Agent):** this fix is re-audited as a solved sub-claim in [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md) (192-row DB analysis; "truncation confirmed… Solved; no action").
 
 ## References
 
-- Related: [[2026-07-23-session-tokens-audit-revalidation]]
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Two corrections. (1) The consistency note's “`demetra/services/agents/opencode.py:355`” is the wrong line — `get_opencode_session_tokens` is at `demetra/services/agents/opencode.py:1078` (`get_opencode_session_export` at `:986`). (2) The “Deploy via git pull to odin” follow-up is an operational action for the deployment host, not a code change; the underlying fix is in place.

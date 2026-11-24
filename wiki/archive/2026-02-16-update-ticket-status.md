@@ -1,11 +1,12 @@
 ---
 title: Update ticket status
-date: 2026-02-16
+generated: {by: demetra, at: '2026-02-16T00:00:00Z'}
+description: Records MNT-23 adding Linear services `get_ticket_states` and `update_ticket_status` so `main.py` moves a ticket to In Progress before planning and In Review after the GitHub push, with API failures handled gracefully; verified in Linear, version bumped to 1.2.2, and later archived into the PR-creation-failure-handler page.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [linear, workflows]
-branch: -
+branch: '-'
 tickets: [MNT-23]
 tags: [linear, status, workflow]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Update ticket status
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-08-05-pr-creation-failure-handler]]. See wiki/archive/ for the
+> [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

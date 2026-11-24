@@ -1,11 +1,12 @@
 ---
 title: Save build plan to a database
-date: 2026-02-23
+generated: {by: demetra, at: '2026-02-23T00:00:00Z'}
+description: 'MNT-39 records persisting the build plan to the database via new sessions.build_plan and posted_to_linear columns, making plans durable across runs: upsert_pending_session saves plans, setup skips re-planning when one exists, and posted_to_linear blocks duplicate Linear posts, with tests for each behavior.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [database, sessions, workflows]
-branch: -
+branch: '-'
 tickets: [MNT-39]
 tags: [database, build-plan, persistence]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Save build plan to a database
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-16-fix-empty-build-plan-loop]]. See wiki/archive/ for the
+> [2026-07-16-fix-empty-build-plan-loop](/archive/2026-07-16-fix-empty-build-plan-loop.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

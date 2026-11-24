@@ -1,11 +1,12 @@
 ---
 title: Add basic React app
-date: 2026-03-04
+generated: {by: demetra, at: '2026-03-04T00:00:00Z'}
+description: MNT-49 records scaffolding the React/TypeScript frontend under react/ with Vite and bun—a single H1 page in the grey/green/dark-green/black theme—plus Makefile targets, gitignore and README updates, Vitest and testing-library tests, and a systemd service hosting the app, establishing the build pipeline before feature work.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [react]
-branch: -
+branch: '-'
 tickets: [MNT-49]
 tags: [react, vite, bun, frontend]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add basic React app
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-22-react-frontend-template-warp]]. See wiki/archive/ for the
+> [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

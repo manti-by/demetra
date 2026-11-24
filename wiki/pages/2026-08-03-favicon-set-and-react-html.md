@@ -1,11 +1,12 @@
 ---
 title: Favicon Set for the React App
-date: 2026-08-03
+generated: {by: demetra, at: '2026-08-03T00:00:00Z'}
+description: Records generating the React favicon set and PWA manifest from media/logo.svg — sharp replaced cairosvg after missing system cairo, and favicon.ico was hand-assembled from PNGs — then wiring it into react/index.html, verified via file and vite build.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [react]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [frontend, favicon, icons, branding, react, vite]
 related: [2026-07-22-react-frontend-template-warp.md]
@@ -81,6 +82,6 @@ Removed `_favicon-*.png` temps from failed cairosvg attempt. `favicon-build` tem
 
 ## References
 
-- [[2026-07-22-react-frontend-template-warp]] — warp theme / React context
+- [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md) — warp theme / React context
 - `media/logo.svg` — source (1-line SVG, `#25292e` + white path)
 - `react/index.html` · `react/public/` (Vite static root at `/`)

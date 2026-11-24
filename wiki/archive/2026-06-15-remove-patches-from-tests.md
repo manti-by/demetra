@@ -1,11 +1,12 @@
 ---
 title: Remove patches from tests where possible
-date: 2026-06-15
+generated: {by: demetra, at: '2026-06-15T00:00:00Z'}
+description: Records MNT-106 replacing patched database mocks with fixtures and real local service calls while adding Docker build targets, filtering trivial review findings and documenting import-at-top; archived into the test-DB-isolation page after a later note showed the ARM64 targets were dropped.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [tests, database]
-branch: "-"
+branch: '-'
 tickets: [MNT-106]
 tags: [tests, fixtures, refactor, docker]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Remove patches from tests where possible
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+> [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

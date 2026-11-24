@@ -1,11 +1,12 @@
 ---
 title: Add multiagent code review
-date: 2026-02-23
+generated: {by: demetra, at: '2026-02-23T00:00:00Z'}
+description: MNT-35 records replacing the single-reviewer model with three agents—opencode, cursor, and coderabbit—whose consolidated comments feed back to the build loop or proceed to lint, with build and review split into separate modules and role-based tool permissions, verified across both branches.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [workflows, review]
-branch: -
+branch: '-'
 tickets: [MNT-35]
 tags: [review, multiagent, cursor, coderabbit]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add multiagent code review
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-05-25-async-review]]. See wiki/archive/ for the
+> [2026-05-25-async-review](/archive/2026-05-25-async-review.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

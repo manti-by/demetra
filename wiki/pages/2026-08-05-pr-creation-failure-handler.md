@@ -1,8 +1,9 @@
 ---
 title: PR creation failure moves ticket to Awaiting Input
-date: 2026-08-05
+generated: {by: demetra, at: '2026-08-05T00:00:00Z'}
+description: Records how `gh pr create` failures after a successful push once reverted the ticket to TODO with no Linear trace, and the dedicated `PullRequestError` handler that posts a comment and moves the ticket to Awaiting Input, later extracted to `demetra/workflows/failure.py`.
 type: implementation
-status: resolved
+status: stable
 session_id: '-'
 services: [main, workflows, linear, github]
 branch: '-'
@@ -10,6 +11,7 @@ tickets: [MNT-23, MNT-31]
 tags: [pr, pull-request, error-handling, awaiting-input, linear, status, workflow, github, gh]
 related: [2026-02-16-update-ticket-status.md, 2026-02-21-create-github-pr.md, 2026-08-24-guard-empty-plan-output.md, 2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md]
 ---
+
 # PR creation failure moves ticket to Awaiting Input
 
 ## TL;DR
@@ -55,11 +57,11 @@ except PullRequestError as e:
 
 ---
 
-## Source — [[2026-02-16-update-ticket-status]]
+## Source — [2026-02-16-update-ticket-status](/archive/2026-02-16-update-ticket-status.md)
 
 MNT-23 (2026-02-16): `update_ticket_status` / `get_ticket_states` via GraphQL; `main.py` moves to `In Progress` before plan and `In Review` after push. Failures surfaced not raised.
 
-## Source — [[2026-02-21-create-github-pr]]
+## Source — [2026-02-21-create-github-pr](/archive/2026-02-21-create-github-pr.md)
 
 MNT-31 (2026-02-21): `create_pull_request` via `gh` CLI (`demetra/services/github.py`) returns `(exit_code, stdout, stderr)`; `GH_PATH` configurable. PR URL printed, then `In Review` update.
 
@@ -69,10 +71,10 @@ None.
 
 ## Consistency note (2026-08-19)
 
-Handler extracted to `demetra/workflows/failure.py:process_pr_failure()`. Comment bodies now via `get_template()` (`pr_creation_failed`/`review_failed`); state lookup via `get_linear_config_value(name="awaiting_input")`. `ReviewError` follows identical path — see [[2026-08-19-split-auth-linear-services-and-review-failure-handling]].
+Handler extracted to `demetra/workflows/failure.py:process_pr_failure()`. Comment bodies now via `get_template()` (`pr_creation_failed`/`review_failed`); state lookup via `get_linear_config_value(name="awaiting_input")`. `ReviewError` follows identical path — see [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md).
 
 > **Correction (2026-10-26, Consistency Agent):** `get_linear_config_value` no longer exists — MNT-205 replaced it with `context.environment.linear_state("awaiting_input")` (`demetra/workflows/failure.py:28`). The Linear read itself is unchanged; only the resolver moved.
 
 ## References
 
-- Related: [[2026-02-16-update-ticket-status]], [[2026-02-21-create-github-pr]], [[2026-08-24-guard-empty-plan-output]], [[2026-11-12-ch-11-failed-status-for-awaiting-input-tickets]], [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
+- Related: [2026-02-16-update-ticket-status](/archive/2026-02-16-update-ticket-status.md), [2026-02-21-create-github-pr](/archive/2026-02-21-create-github-pr.md), [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md), [2026-11-12-ch-11-failed-status-for-awaiting-input-tickets](/pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)

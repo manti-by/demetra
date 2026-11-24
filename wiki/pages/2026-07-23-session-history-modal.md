@@ -1,11 +1,12 @@
 ---
 title: Session History Modal
-date: 2026-07-23
+generated: {by: demetra, at: '2026-07-23T00:00:00Z'}
+description: Records adding a View History modal that shows session_history rows as a token-breakdown timeline, backed by a thin GET history endpoint (later re-keyed by task_id under MNT-251) across nine files, with 480 pytest and 33 vitest tests passing.
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [api, sessions, react]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [frontend, modal, session-history, react, api]
 related: [2026-08-25-mnt-181-total-tokens-counter.md, 2026-07-22-react-frontend-template-warp.md, 2026-07-16-session-history-tokens-null.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md]
@@ -84,23 +85,23 @@ No new CSS variables.
 
 ## Update — 2026-10-16 15:08
 
-**History now resolves by `task_id`, not by `sessions.session_id`.** MNT-251 ([[2026-10-16-mnt-251-session-attribution-accounting]]) re-keyed the endpoint because the `session_id` pointer is immutable (`COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`) and would 404 the history permanently after a worktree deletion:
+**History now resolves by `task_id`, not by `sessions.session_id`.** MNT-251 ([2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md)) re-keyed the endpoint because the `session_id` pointer is immutable (`COALESCE(NULLIF(EXCLUDED.session_id,''), sessions.session_id)`) and would 404 the history permanently after a worktree deletion:
 
 - `GET /{task_id}/history` uses `get_session_history(task_id)` ordered by `created_at, id`; the `session_id` pointer is display-only.
 - `SessionHistoryEntry` gains `task_id`, `kind`, `agent_session_id`, `cost`, `agent`; the frontend drives rendering from `kind` instead of null-sniffing token fields.
 - `hasHistory` is widened so a task with history still shows "View History" when its pointer is stale.
 
-The `SELECT DISTINCT step FROM session_history` follow-up below is **closed** by [[2026-10-16-mnt-245-empty-session-history]] — see that page for the empty-row root causes.
+The `SELECT DISTINCT step FROM session_history` follow-up below is **closed** by [2026-10-16-mnt-245-empty-session-history](/pages/2026-10-16-mnt-245-empty-session-history.md) — see that page for the empty-row root causes.
 
 ---
 
 ## Follow-ups
 
 - Add Escape handler to history modal.
-- ~~Add `title={created_at}` on `<time>`~~ Done in MNT-181 — see [[2026-08-25-mnt-181-total-tokens-counter]].
-- ~~Verify `record_session_history` coverage: `SELECT DISTINCT step FROM session_history`~~ Done in MNT-245 — see [[2026-10-16-mnt-245-empty-session-history]].
+- ~~Add `title={created_at}` on `<time>`~~ Done in MNT-181 — see [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md).
+- ~~Verify `record_session_history` coverage: `SELECT DISTINCT step FROM session_history`~~ Done in MNT-245 — see [2026-10-16-mnt-245-empty-session-history](/pages/2026-10-16-mnt-245-empty-session-history.md).
 
-> **Consistency note (2026-08-25):** MNT-181 (PR #101) changed endpoint to `{"total":{…},"history":[…]}`, added Total Tokens summary, `context_tokens`/`model` fields. DB helpers → `demetra/services/persistence/database.py`. See [[2026-08-25-mnt-181-total-tokens-counter]].
+> **Consistency note (2026-08-25):** MNT-181 (PR #101) changed endpoint to `{"total":{…},"history":[…]}`, added Total Tokens summary, `context_tokens`/`model` fields. DB helpers → `demetra/services/persistence/database.py`. See [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md).
 
 > **Status update (2026-08-27):** Auth now `user: UserResponse = Depends(get_current_user_dep)` not raw `auth_token` Cookie; `get_session_id_by_task_id(task_id, user_id)` scopes by user (MNT-156). Behavior unchanged.
 
@@ -108,9 +109,9 @@ The `SELECT DISTINCT step FROM session_history` follow-up below is **closed** by
 
 ## References
 
-- [[2026-07-22-react-frontend-template-warp]] — warp CSS variables
-- [[2026-07-16-session-history-tokens-null]] — why tokens can be null
-- [[2026-08-25-mnt-181-total-tokens-counter]] — total tokens + response-shape change
+- [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md) — warp CSS variables
+- [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md) — why tokens can be null
+- [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) — total tokens + response-shape change
 - `demetra/services/database.py:535` — `get_session_history` · `demetra/library/tables.py:97` — `session_history` · `react/src/components/SessionArtifacts.tsx:111-134` — build-plan modal pattern
 
 > **Consistency note (2026-11-11, Consistency Agent):** The endpoint now returns `{"total", "tool_usage", "history"}` keyed by `task_id` directly (no `task_id` → `session_id` resolution), and the response grew the `tool_usage` block in MNT-258 — neither is mentioned in the body above. The “absolute time on hover” open question was implemented by MNT-181; the component has since grown from 112 to ~266 lines and `react/src/App.css` now carries ~28 `.session-history-*` rules.

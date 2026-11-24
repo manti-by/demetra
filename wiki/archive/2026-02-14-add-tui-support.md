@@ -1,11 +1,12 @@
 ---
 title: Add TUI support
-date: 2026-02-14
+generated: {by: demetra, at: '2026-02-14T00:00:00Z'}
+description: Records MNT-17 choosing a Rich-based TUI over a full TUI library, adding a `print_message` service that replaced bare `print()` and refactoring `main.py` into an interactive plan/build/review loop with `--auto` and `--project-name` flags; verification was manual with automated coverage added later, and the page was archived into the Rich markup/run-attempts page.
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [tui, main]
-branch: -
+branch: '-'
 tickets: [MNT-17]
 tags: [tui, cli, textual, investigation]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add TUI support
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-07-21-rich-markuperror-and-run-attempts]]. See wiki/archive/ for the
+> [2026-07-21-rich-markuperror-and-run-attempts](/pages/2026-07-21-rich-markuperror-and-run-attempts.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

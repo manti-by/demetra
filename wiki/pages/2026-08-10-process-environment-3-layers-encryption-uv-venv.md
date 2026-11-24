@@ -1,8 +1,9 @@
 ---
 title: Process environment — 3 layers, encryption, UV venv, env file upload
-date: 2026-08-10
+generated: {by: demetra, at: '2026-08-10T00:00:00Z'}
+description: Records extending per-project environment into layered OS-allowlist → user-shared → project → step merging (MNT-161), Fernet encryption and masking of sensitive values, per-project UV venv bootstrapping, and a Shared environment UI with `.env` upload, later unified onto `SessionEnvironment`.
 type: implementation
-status: resolved
+status: stable
 session_id: '-'
 services: [database, subprocess, workflows, api, react]
 branch: mnt-161-process-environment-3-layers-encryption-uv-venv-env-file-upload
@@ -10,6 +11,7 @@ tickets: [MNT-161, MNT-56, MNT-110, MNT-75]
 tags: [environment, encryption, venv, subprocess, api, user-settings, keys, per-project, projects, provisioning, postgres]
 related: [2026-03-09-encrypted-user-settings.md, 2026-06-08-project-environment.md, 2026-03-31-project-model-and-space.md, 2026-10-06-unify-subprocess-env-on-session-environment.md]
 ---
+
 # Process environment — 3 layers, encryption, UV venv, env file upload
 
 ## TL;DR
@@ -20,7 +22,7 @@ Extended per-project env into three layers — OS (allowlisted) → user-shared 
 
 ## Overview
 
-Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ` + one project dict. Now three layers merged in one place (`build_subprocess_env`), with step overrides on top. (Revisited by [[2026-10-06-unify-subprocess-env-on-session-environment]], which replaced the raw `env` dict with `SessionEnvironment`.)
+Previously ([2026-06-08-project-environment](/archive/2026-06-08-project-environment.md)) every subprocess got `os.environ` + one project dict. Now three layers merged in one place (`build_subprocess_env`), with step overrides on top. (Revisited by [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md), which replaced the raw `env` dict with `SessionEnvironment`.)
 
 ## Step 1 — Three layers in settings
 
@@ -48,7 +50,7 @@ Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ
 
 `filter_os_env(project_id)` → allowlist + per-project opt-ins. `build_subprocess_env(extra, *, project_id, user_environment, project_environment, target_path)` merges OS→user→project→step; `PWD` always set from `target_path` (overwrites any layer). All `run_command`/`run_command_to_file` call it. Workflow call sites pre-merge user env under project env; `project_id` threaded through git/gh for consistent opt-ins.
 
-> **Superseded (2026-10-06, [[2026-10-06-unify-subprocess-env-on-session-environment]]):** the signature above is gone. `build_subprocess_env(environment, *, project_id, target_path)` now takes a `SessionEnvironment` and merges OS → `SessionEnvironment.subprocess_env` (user-shared → project → derived LangSmith vars); the `user_environment`/`project_environment`/`extra` parameters are gone and workflow call sites no longer pre-merge user env under project env. See that page for the current layer order.
+> **Superseded (2026-10-06, [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)):** the signature above is gone. `build_subprocess_env(environment, *, project_id, target_path)` now takes a `SessionEnvironment` and merges OS → `SessionEnvironment.subprocess_env` (user-shared → project → derived LangSmith vars); the `user_environment`/`project_environment`/`extra` parameters are gone and workflow call sites no longer pre-merge user env under project env. See that page for the current layer order.
 
 ## Step 5 — Per-project UV venv
 
@@ -70,11 +72,11 @@ Previously ([[2026-06-08-project-environment]]) every subprocess got `os.environ
 
 ---
 
-## Source — [[2026-03-09-encrypted-user-settings]]
+## Source — [2026-03-09-encrypted-user-settings](/archive/2026-03-09-encrypted-user-settings.md)
 
 MNT-56 (2026-03-09): `User.keys` encrypted via `SECRET_KEY`/`ENCRYPTION_SALT`; origin of env encryption and user-shared concept.
 
-## Source — [[2026-06-08-project-environment]]
+## Source — [2026-06-08-project-environment](/archive/2026-06-08-project-environment.md)
 
 MNT-110: `project_id/key/value` → `Project.environment` passed to subprocesses.
 
@@ -84,5 +86,5 @@ MNT-110: `project_id/key/value` → `Project.environment` passed to subprocesses
 
 ## References
 
-- Related: [[2026-03-09-encrypted-user-settings]], [[2026-06-08-project-environment]], [[2026-03-31-project-model-and-space]], [[2026-10-06-unify-subprocess-env-on-session-environment]]
+- Related: [2026-03-09-encrypted-user-settings](/archive/2026-03-09-encrypted-user-settings.md), [2026-06-08-project-environment](/archive/2026-06-08-project-environment.md), [2026-03-31-project-model-and-space](/archive/2026-03-31-project-model-and-space.md), [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - External: [MNT-161](https://linear.app/mnt/issue/MNT-161)

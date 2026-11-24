@@ -1,11 +1,12 @@
 ---
 title: Fix empty build plan infinite loop
-date: 2026-07-16
+generated: {by: demetra, at: '2026-07-16T00:00:00Z'}
+description: Records a build-workflow infinite-loop stall where a failed run left step='failed' with empty build_plan, skipping replanning; fixed by replanning when build_plan is empty, raising LinearError on non-dict payloads, and enabling fallback session IDs, with 472 tests and 9 new tests passing.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [main, graphql, opencode, linear, workflows, database, sessions]
-branch: "-"
+branch: '-'
 tickets: [MNT-29, MNT-39]
 tags: [workflow, session-management, error-handling, testing, linear, comment, build-plan, database, persistence]
 related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-plan-to-database.md, 2026-08-05-pr-creation-failure-handler.md]
@@ -14,7 +15,7 @@ related: [2026-02-21-add-build-plan-to-linear-task.md, 2026-02-23-save-build-pla
 # Fix empty build plan infinite loop
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-24-guard-empty-plan-output]]. See wiki/archive/ for the original.
+> [2026-08-24-guard-empty-plan-output](/pages/2026-08-24-guard-empty-plan-output.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -68,11 +69,11 @@ Uncommented `fallback_session_id` assignment on worktree mismatch; moved warning
 
 ---
 
-## Source — [[2026-02-21-add-build-plan-to-linear-task]]
+## Source — [2026-02-21-add-build-plan-to-linear-task](/archive/2026-02-21-add-build-plan-to-linear-task.md)
 
 MNT-29 (2026-02-21): extracted build plan posted as Linear comment via `post_comment(ticket_id, comment_text)` right after planning; `posted_to_linear` flag (MNT-39) prevents double-post.
 
-## Source — [[2026-02-23-save-build-plan-to-database]]
+## Source — [2026-02-23-save-build-plan-to-database](/archive/2026-02-23-save-build-plan-to-database.md)
 
 MNT-39 (2026-02-23): `sessions` gained `build_plan`/`posted_to_linear`; `save_session` persists plan, `upsert_pending_session` inits `build_plan=""`. Setup skips planning when plan exists. This page's `not build_plan` gate is its successor.
 
@@ -91,4 +92,4 @@ None.
 
 ## References
 
-- Related: [[2026-08-05-pr-creation-failure-handler]]
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md)

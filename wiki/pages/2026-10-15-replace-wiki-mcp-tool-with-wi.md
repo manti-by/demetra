@@ -1,8 +1,9 @@
 ---
 title: Replace the wiki MCP tool with WI and refactor demetra/tools
-date: 2026-10-15
+generated: {by: demetra, at: '2026-10-15T00:00:00Z'}
+description: This records retiring the in-repo wiki MCP tool in favour of the external WI server and restructuring demetra/tools around shared models, config, corpus and utils plus a MODULES/HANDLERS registry, with projects.py renamed logs.py and close_db_pool wired in; nine tools remain and 980 tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_ec053c1f0ffemU261xSI0EnbNh
 services: [mcp, tools]
 branch: master
@@ -204,7 +205,7 @@ Follow-up pass on the same session, closing the doc and bookkeeping loose ends:
 - Reference layout — https://github.com/manti-by/odin/tree/master/mcp_server
 - Registry — `demetra/tools/registry.py`
 - Corpus cache — `demetra/tools/corpus.py`
-- Related: [[2026-08-03-wiki-mcp-tools]]
-- Related: [[2026-10-09-bm25-search-for-mcp-tools]]
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md)
+- Related: [2026-10-09-bm25-search-for-mcp-tools](/pages/2026-10-09-bm25-search-for-mcp-tools.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “verified in-image as `opencode v2.0.30` … the CLI layer still calls the V1 `opencode export <id>` spellings, so those call sites need a follow-up pass” follow-up has been done: the agent layer is version-aware (`OPENCODE_V2_MAJOR` at `demetra/services/agents/opencode.py:42`, `_export_command` at `:979`), `run --dir` was dropped, and the image now pins `OPENCODE_VERSION=2.2.5`. The remaining open item is unchanged: the database tool still uses a `SENSITIVE_COLUMNS` denylist instead of an allow-list.

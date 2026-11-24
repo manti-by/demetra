@@ -1,8 +1,9 @@
 ---
 title: 'CH-10: PR description for Chat sessions'
-date: '2026-11-10'
+generated: {by: demetra, at: '2026-11-10T00:00:00Z'}
+description: Records CH-10 stripping markdown code fences from chat-session PR descriptions via a new _unwrap_pr_body helper in cleanup and an updated generate_pr_description prompt, matching Linear sessions; five new tests were added, all 1261 tests passed and a wiki page was generated.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e36937245ffeLWPWLZ9Mqq8QwW
 services: [.env.docker, AGENTS, Dockerfile, docker-entrypoint, prompts, workflows, docker-compose, pyproject, test_workflows, uv, INDEX, QUESTIONS, 2026-08-18-test-db-isolation-logging, 2026-08-18-migrate-llm-groq-to-openrouter, 2026-08-21-mnt-176-bump-version-error, 2026-10-12-session-state-flow-feedback-loops, 2026-08-10-docker-compose-deploy, 2026-09-14-listener-readline-limit-crash, 2026-07-16-session-history-tokens-null, 2026-07-21-rich-markuperror-and-run-attempts, 2026-07-22-react-frontend-template-warp, 2026-07-23-agents-md-revalidation-and-docs-removal, 2026-07-23-linear-ticket-email-password-auth, 2026-07-23-session-history-modal, 2026-07-23-session-tokens-audit-revalidation, 2026-08-03-agents-md-and-wiki-consistency, 2026-08-03-auth-hardening-and-deps-bump, 2026-08-03-wiki-mcp-tools, 2026-08-04-fix-resolve-agent-truncated-context, 2026-08-05-post-build-validation, 2026-08-06-allowlist-review-fixes, 2026-08-09-apply-code-review-findings, 2026-08-09-apply-pr75-coderabbit-findings, 2026-08-09-wiki-fixes-and-test-optimization, 2026-08-17-docker-setup-review, 2026-08-18-categorize-settings-env-vars-by-layer, 2026-08-18-compose-anchors-refactor, 2026-08-19-build-agent-server-error-handler, 2026-08-19-build-agent-stale-session-deleted-worktree, 2026-08-19-split-auth-linear-services-and-review-failure-handling, 2026-08-19-worker-opencode-home-permissions, 2026-08-20-fix-allowlist-tests, 2026-08-24-gh-config-dir-permission-entrypoint, 2026-08-25-mnt-181-total-tokens-counter, 2026-08-31-mnt-192-env-edit-button, 2026-09-01-mnt-177-research-loop, 2026-09-02-review-findings-cleanup, 2026-09-08-docstring-mcp-search, 2026-09-08-opencode-reasoning-token-zero, 2026-09-11-mnt-203-create-related-ticket-for-research, 2026-09-14-opencode-agent-prompts-hardening, 2026-09-14-research-plan-artifact, 2026-09-16-mnt-205-revise-merged-environment, 2026-09-24-mnt-219-session-log-autoscroll, 2026-09-27-mnt-225-add-copy-button, 2026-09-28-compose-langsmith-host-env, 2026-09-30-mnt-228-intermediate-history-states, 2026-10-06-unify-subprocess-env-on-session-environment, 2026-10-08-llm-authored-wiki-pages, 2026-10-09-bm25-search-for-mcp-tools, 2026-10-12-review-models-env-resolution, 2026-10-12-session-state-animation, 2026-10-15-replace-wiki-mcp-tool-with-wi, 2026-10-16-mnt-245-empty-session-history, 2026-10-16-mnt-251-session-attribution-accounting, 2026-10-16-opencode-v2-session-token-accounting, 2026-10-25-mnt-258-tool-usage-stats, 2026-10-25-session-history-cost-and-failure-reasons, 2026-10-25-session-history-mcp-tool-usage, 2026-10-25-session-history-per-invocation-rows, 2026-10-27-mnt-260-openrouter-call-history, 2026-11-03-ch-2-single-unified-session-view, 2026-11-03-mnt-276-econnreset-retry-for-agents, 2026-11-04-chat-session-list-and-rerun, 2026-11-06-agent-econnreset-network-investigation, 2026-11-06-ch-5-delete-chat-button, 2026-11-06-mnt-298-research-econnreset-root-cause, 2026-11-10-ch-10-pr-description-for-chat-sessions, 2026-11-10-mnt-308-lint-error-extraction, 2026-11-10-mnt-309-chat-template]
 branch: ch-10-pr-description-for-chat-sessions
@@ -89,6 +90,6 @@ The changes were committed and a wiki page was generated to document the impleme
 
 ## References
 - External: -
-- Related: [[2026-08-18-migrate-llm-groq-to-openrouter]]
-- Related: [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]
-- Related: [[2026-11-04-chat-session-list-and-rerun]]
+- Related: [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+- Related: [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)

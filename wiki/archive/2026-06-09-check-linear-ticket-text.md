@@ -1,11 +1,12 @@
 ---
 title: Check Linear ticket text
-date: 2026-06-09
+generated: {by: demetra, at: '2026-06-09T00:00:00Z'}
+description: Records MNT-103 validating `LinearTicket.text` output against the Linear GraphQL API and shipping a renderer with state filtering, branch names, labels and nested replies; archived after review showed only comment bodies actually survive into `LinearTask.comments`, merged into the auth/Linear split page.
 type: investigation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [linear, graphql, auth]
-branch: "-"
+branch: '-'
 tickets: [MNT-103, MNT-34, MNT-60]
 tags: [linear, comments, research, oauth, tokens, graphql]
 related: [2026-02-23-linear-oauth-2.0.md, 2026-03-11-separate-linear-comments.md]
@@ -14,7 +15,7 @@ related: [2026-02-23-linear-oauth-2.0.md, 2026-03-11-separate-linear-comments.md
 # Check Linear ticket text
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-19-split-auth-linear-services-and-review-failure-handling]]. See wiki/archive/ for the original.
+> [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -54,9 +55,9 @@ None — the research outcome was applied directly in the same PR.
 
 ---
 
-## Source — [[2026-02-23-linear-oauth-2.0]]
+## Source — [2026-02-23-linear-oauth-2.0](/archive/2026-02-23-linear-oauth-2.0.md)
 
-Originally added in [[2026-02-23-linear-oauth-2.0]] on 2026-02-23 (MNT-34): the Linear
+Originally added in [2026-02-23-linear-oauth-2.0](/archive/2026-02-23-linear-oauth-2.0.md) on 2026-02-23 (MNT-34): the Linear
 integration authenticates via **OAuth 2.0** (replacing a static header token) so
 comments/updates are posted on behalf of a bot. The OAuth service handles token
 persistence between runs, expiry validation before each use, and auto-refresh, and
@@ -64,9 +65,9 @@ every Linear API call is authorized dynamically through it. Credentials are
 env-configurable: `LINEAR_CLIENT_ID` / `LINEAR_CLIENT_SECRET` in `demetra/settings.py`.
 `--auto` CLI mode was added here.
 
-## Source — [[2026-03-11-separate-linear-comments]]
+## Source — [2026-03-11-separate-linear-comments](/archive/2026-03-11-separate-linear-comments.md)
 
-Originally added in [[2026-03-11-separate-linear-comments]] on 2026-03-11 (MNT-60): a
+Originally added in [2026-03-11-separate-linear-comments](/archive/2026-03-11-separate-linear-comments.md) on 2026-03-11 (MNT-60): a
 `comments` field is bound to the Linear task model and synced via GraphQL (the sync
 never deletes comments — it only reflects what Linear holds). `LinearTask.text`
 includes the task's comments so downstream summarization and plan steps have the full
@@ -80,5 +81,5 @@ None.
 
 ## References
 
-- Related: [[2026-02-23-linear-oauth-2.0]], [[2026-03-11-separate-linear-comments]]
+- Related: [2026-02-23-linear-oauth-2.0](/archive/2026-02-23-linear-oauth-2.0.md), [2026-03-11-separate-linear-comments](/archive/2026-03-11-separate-linear-comments.md)
 - External: [MNT-103 — Check Linear ticket text (Linear)](https://linear.app/mnt/issue/MNT-103)

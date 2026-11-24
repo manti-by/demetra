@@ -1,8 +1,9 @@
 ---
 title: Use task title for session listing
-date: 2026-05-22
+generated: {by: demetra, at: '2026-05-22T00:00:00Z'}
+description: Records MNT-84, which made the sessions list show the task title (custom name with truncated-id fallback) instead of opaque ids, added a status-filterable sessions API (later renamed `step`), improved auth error messaging and reorganized routers under MNT-81; the page was later archived and merged into the total-tokens-counter page.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [api, react]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-03-10-ui-for-sessions.md, 2026-07-16-fix-step-status-review-findi
 # Use task title for session listing
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-25-mnt-181-total-tokens-counter]]. See wiki/archive/ for the original.
+> [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -54,9 +55,9 @@ Tests were updated for the new name field and status filtering.
 
 ---
 
-## Source — [[2026-03-10-ui-for-sessions]]
+## Source — [2026-03-10-ui-for-sessions](/archive/2026-03-10-ui-for-sessions.md)
 
-Originally added in [[2026-03-10-ui-for-sessions]] on 2026-03-10 (MNT-59): the session
+Originally added in [2026-03-10-ui-for-sessions](/archive/2026-03-10-ui-for-sessions.md) on 2026-03-10 (MNT-59): the session
 list UI came together here — a collapsible sidebar that minimizes to an icon, the
 session list fed by `GET /api/v1/sessions` (including `pending` statuses from the
 watcher/process-manager), and a `LogConsole` component that opens a websocket per
@@ -67,7 +68,7 @@ watcher/process-manager), and a `LogConsole` component that opens a websocket pe
 
 - None.
 
-> **Consistency note (2026-08-24, Consistency Agent):** The sessions list filter was renamed from `status` to `step` during the step/status refactor — see [[2026-07-16-fix-step-status-review-findings]]. Current API: `GET /api/v1/sessions?step=...`.
+> **Consistency note (2026-08-24, Consistency Agent):** The sessions list filter was renamed from `status` to `step` during the step/status refactor — see [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md). Current API: `GET /api/v1/sessions?step=...`.
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 

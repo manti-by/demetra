@@ -1,8 +1,9 @@
 ---
 title: Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette
-date: 2026-07-22
+generated: {by: demetra, at: '2026-07-22T00:00:00Z'}
+description: Records MNT-142 Warp-theme post-merge cleanup and ops updates — review fixes across seven React components, hardening bump_project_version to log-and-return-None, adding a Makefile signing key and a green-accent palette — all committed in ed8bcc4 with 500+ tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_worktree_20260722
 services: [react, build, config]
 branch: master
@@ -64,7 +65,7 @@ Post-merge cleanup for MNT-142 Warp theme plus infra updates: applied review fee
 
 ## Test Results
 
-`test_project.py` 4 passed (note: `test_major_version_epic` later replaced by `test_major_version_preserved` per [[2026-08-21-mnt-176-bump-version-error]]). Full suite 500+ passed; ruff/ty clean.
+`test_project.py` 4 passed (note: `test_major_version_epic` later replaced by `test_major_version_preserved` per [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md)). Full suite 500+ passed; ruff/ty clean.
 
 > **Consistency note (2026-08-24):** `demetra/services/project.py` → `demetra/services/runtime/project.py`.
 
@@ -78,9 +79,9 @@ Post-merge cleanup for MNT-142 Warp theme plus infra updates: applied review fee
 >
 > **Consistency note (2026-11-03, Consistency Agent):** the `fast-playwright-mcp` pin above
 > (and the "verify the pin in CI" follow-up) is obsolete — the Playwright MCP server was removed
-> from `opencode.json` in `e9c9702`; see [[2026-10-15-replace-wiki-mcp-tool-with-wi]].
+> from `opencode.json` in `e9c9702`; see [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md).
 
 ## References
 
-- Related: [[2026-07-22-react-frontend-template-warp]], [[2026-11-10-mnt-308-lint-error-extraction]]
+- Related: [2026-07-22-react-frontend-template-warp](/pages/2026-07-22-react-frontend-template-warp.md), [2026-11-10-mnt-308-lint-error-extraction](/pages/2026-11-10-mnt-308-lint-error-extraction.md)
 - External: MNT-142

@@ -1,8 +1,9 @@
 ---
 title: MNT-251 — Rebuild agent session attribution and token accounting for opencode v2
-date: 2026-10-16
+generated: {by: demetra, at: '2026-10-16T00:00:00Z'}
+description: MNT-251 rebuilt agent session attribution and token accounting for opencode v2 with a version-aware CLI, a working compaction guard, an agent_sessions cursor plus exact-delta invocation rows resolved by task_id, and API/UI changes, shipping with 1022 backend and 107 frontend tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_ebb87d8cfffePjoAvLThMh0EBJ
 services: [agents, persistence, workflows, api, library, vcs, react, database, alembic, settings, sqlalchemy, opencode]
 branch: opencode/feature/mnt-251-agent-session-attribution
@@ -21,7 +22,7 @@ Implemented the full MNT-251 build plan in one branch: Phase 1 makes the opencod
 
 ## Overview
 
-The spike page [[2026-10-16-opencode-v2-session-token-accounting]] is the v2 ground truth this build follows; this page records the implementation. Two problems were fixed together because repairing the export path without the delta model just restores MNT-246's 6.4× over-report, and migrating to v2 without the delta model bakes it in.
+The spike page [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md) is the v2 ground truth this build follows; this page records the implementation. Two problems were fixed together because repairing the export path without the delta model just restores MNT-246's 6.4× over-report, and migrating to v2 without the delta model bakes it in.
 
 - **Phase 1 (independently shippable):** v2 CLI compatibility + the compaction no-op that has never worked on either version.
 - **Phase 2 (data model):** per-invocation sessions and exact token deltas, migrations, API/UI, tests.
@@ -49,7 +50,7 @@ def _export_command(major: int, session_id: str) -> list[str]:
 ```
 
 - `get_opencode_major_version` caches the parsed major per CLI path; when the version is unknown, `get_opencode_session_export` tries the v2 form then the v1 form so a failed probe cannot silently disable accounting.
-- Export stays **file-backed** (`run_command_to_file`): `session export` through a pipe truncates at a 64 KB multiple and yields invalid JSON ([[2026-07-16-session-history-tokens-null]]).
+- Export stays **file-backed** (`run_command_to_file`): `session export` through a pipe truncates at a 64 KB multiple and yields invalid JSON ([2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md)).
 - `opencode_supports_compaction` returns `major is None or major < 2`.
 - `opencode_compact_session` returns `(1, "", "compaction is not supported by this opencode version (no 'run --command')")` on v2 and `run --session <id> --command compact` on 1.x.
 
@@ -135,26 +136,26 @@ CodeRabbit flagged four issues on PR #143; all four are fixed on the branch:
 - `verify_opencode_cli` moved inside the `try` in `main.py` so `OpenCodeCLIError` is caught by the `DemetraError` handler and `cleanup_workflow` still removes the worktree and resets the ticket.
 - The migration downgrade deletes `session_id IS NULL` step rows before restoring `NOT NULL`, so rollback no longer fails partway through.
 
-## Source — [[2026-06-03-fix-squash-migrations]]
+## Source — [2026-06-03-fix-squash-migrations](/archive/2026-06-03-fix-squash-migrations.md)
 
-MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consolidated baseline so `alembic upgrade` stopped erroring; the existing local database was migrated onto it, DB connection init moved to env-driven settings, and `projects.repository_url` became required. The durable choices behind it: PostgreSQL via `psycopg` (not SQLite) and **SQLAlchemy Core** `Table`/`Column` metadata rather than the declarative ORM — originally adopted in [[2026-03-05-postgres-support]] and [[2026-03-13-sqlalchemy-core-support]] (both archived). New revisions still follow the `add_`/`alter_`/`drop_` naming rule in `AGENTS.md`, and the tests run against `test_demetra`.
+MNT-99 (2026-06-03): the drifted Alembic chain was squashed into a single consolidated baseline so `alembic upgrade` stopped erroring; the existing local database was migrated onto it, DB connection init moved to env-driven settings, and `projects.repository_url` became required. The durable choices behind it: PostgreSQL via `psycopg` (not SQLite) and **SQLAlchemy Core** `Table`/`Column` metadata rather than the declarative ORM — originally adopted in [2026-03-05-postgres-support](/archive/2026-03-05-postgres-support.md) and [2026-03-13-sqlalchemy-core-support](/archive/2026-03-13-sqlalchemy-core-support.md) (both archived). New revisions still follow the `add_`/`alter_`/`drop_` naming rule in `AGENTS.md`, and the tests run against `test_demetra`.
 
 > **Consistency note (2026-11-03, Consistency Agent):** two claims in this plan
 > were superseded after the build shipped. (1) Step 4 (line 91) and the
 > "accumulates onto the shared row" review fix describe the original upsert
-> design; since [[2026-10-25-session-history-per-invocation-rows]],
+> design; since [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md),
 > `record_agent_invocation` inserts a **distinct** `kind='invocation'` row per
 > invocation and `agent_sessions` holds only the cumulative cursor, so resumed
 > build iterations no longer collapse into the first row (see the docstring at
 > `demetra/services/persistence/database.py:942`). (2)
 > `_compute_total_tokens` now sums both `kind='invocation'` and `kind='llm_call'`
 > rows (`demetra/api/sessions.py:116`), not invocation rows alone — added by
-> [[2026-10-27-mnt-260-openrouter-call-history]]. The `row.length` fallback is
+> [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md). The `row.length` fallback is
 > still gone.
 
-## Source — [[2026-07-07-add-context-compaction]]
+## Source — [2026-07-07-add-context-compaction](/archive/2026-07-07-add-context-compaction.md)
 
-Context compaction originated 2026-07-07 (MNT-122): `session_history` records context length after each step and `CONTEXT_COMPACTION_THRESHOLD` (default 100_000 tokens) triggers compaction via `check_and_compact_context`. It silently no-op'd for three months (`/compact` was passed as the message positional) — this page's `run --command compact` fix on 1.x and the deliberate v2 removal are the correction, and the re-export-and-warn guard exists so a failed compaction can never pass unnoticed again. Originally decided in [[2026-07-07-add-context-compaction]] on 2026-07-07.
+Context compaction originated 2026-07-07 (MNT-122): `session_history` records context length after each step and `CONTEXT_COMPACTION_THRESHOLD` (default 100_000 tokens) triggers compaction via `check_and_compact_context`. It silently no-op'd for three months (`/compact` was passed as the message positional) — this page's `run --command compact` fix on 1.x and the deliberate v2 removal are the correction, and the re-export-and-warn guard exists so a failed compaction can never pass unnoticed again. Originally decided in [2026-07-07-add-context-compaction](/archive/2026-07-07-add-context-compaction.md) on 2026-07-07.
 
 ## Follow-ups
 
@@ -164,14 +165,14 @@ Context compaction originated 2026-07-07 (MNT-122): `session_history` records co
 
 ## References
 
-- Related: [[2026-10-16-opencode-v2-session-token-accounting]] — the v2 ground truth and Phase 0 measurements this build follows
-- Related: [[2026-07-07-add-context-compaction]] — compaction was recorded as "live" while it was a no-op; corrected here
-- Related: [[2026-07-16-session-history-tokens-null]] — the file-backed export this build keeps
-- Related: [[2026-08-19-build-agent-stale-session-deleted-worktree]] — the stale-pointer incident this build closes
-- Related: [[2026-07-23-session-tokens-audit-revalidation]] — cumulative-vs-delta and cache-inclusive totals
-- Related: [[2026-09-30-mnt-228-intermediate-history-states]] — the two-writer step-row rule this build supersedes
-- Related: [[2026-08-25-mnt-181-total-tokens-counter]] — the total this build re-points at `kind='invocation'`
-- Related: [[2026-07-23-session-history-modal]] — the history endpoint this build re-keys by `task_id`
+- Related: [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md) — the v2 ground truth and Phase 0 measurements this build follows
+- Related: [2026-07-07-add-context-compaction](/archive/2026-07-07-add-context-compaction.md) — compaction was recorded as "live" while it was a no-op; corrected here
+- Related: [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md) — the file-backed export this build keeps
+- Related: [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md) — the stale-pointer incident this build closes
+- Related: [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md) — cumulative-vs-delta and cache-inclusive totals
+- Related: [2026-09-30-mnt-228-intermediate-history-states](/pages/2026-09-30-mnt-228-intermediate-history-states.md) — the two-writer step-row rule this build supersedes
+- Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) — the total this build re-points at `kind='invocation'`
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) — the history endpoint this build re-keys by `task_id`
 - External: https://linear.app/mnt/issue/MNT-251
 
 > **Consistency note (2026-11-11, Consistency Agent):** Three corrections. (1) “The opencode version stays unpinned (`Dockerfile:14` floats on `opencode.ai/v2/install`)” is obsolete — the image pins `OPENCODE_VERSION=2.2.5` (`Dockerfile:1`, install `:16-17`) and asserts `opencode --version` at build time (`:43`). (2) “`_compute_total_tokens` sums only `kind='invocation'` rows” was widened by MNT-260 to `invocation` + `llm_call` (`demetra/api/sessions.py:118`). (3) The test counts differ between the TL;DR (1020) and the Test Results (1022) — both are historical. `record_agent_invocation` now lives at `demetra/services/persistence/database.py:1125` and `_export_command` at `demetra/services/agents/opencode.py:979` (`OPENCODE_V2_MAJOR` at `:42`).

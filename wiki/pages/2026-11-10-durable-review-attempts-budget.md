@@ -1,8 +1,9 @@
 ---
 title: Durable review-round budget in sessions.review_attempts
-date: 2026-11-10
+generated: {by: demetra, at: '2026-11-10T00:00:00Z'}
+description: Records making the build step's review-round budget durable in a new sessions.review_attempts column (migration e8f9a0b1c2d3) so restarts cannot reset it, and deriving RQ's default_timeout from SUBPROCESS_TIMEOUT; six new tests passed with ruff and ty clean.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e3b031b40ffeslB7Om1aqmIcTt
 services: [persistence, workflows, queue]
 branch: opencode/feature/durable-review-attempts-budget
@@ -72,7 +73,7 @@ migrations/versions/e8f9a0b1c2d3_add_sessions_review_attempts_column.py
 
 - `increment_review_attempts(task_id)` — `SET review_attempts = review_attempts + 1 ... RETURNING review_attempts`; returns the new count (0 when the session is missing). Called when a round's comments are actually applied, so restarts resume the stored count.
 - `reset_review_attempts(task_id)` — zeroes the column; called when a round's comments were deliberately skipped (manual mode) or a fresh lifecycle renews the budget.
-- `reset_run_attempts` now also zeroes `review_attempts` in the same statement — moving an exhausted task back to `TODO` grants a fresh lifecycle, which includes a fresh review budget (matches the 2026-11-09 partial fix in [[2026-08-28-awaiting-input-workflow-continues-to-review]]).
+- `reset_run_attempts` now also zeroes `review_attempts` in the same statement — moving an exhausted task back to `TODO` grants a fresh lifecycle, which includes a fresh review budget (matches the 2026-11-09 partial fix in [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)).
 - `claim_session_for_resume` clears `review_attempts` alongside `run_attempts`, `posted_to_linear` and the build plan when a chat session is re-run from `initial`.
 
 ## Step 3 — Build-loop wiring
@@ -126,6 +127,6 @@ budget. The `+60` covers RQ's own bookkeeping overhead.
 
 ## References
 
-- Related: [[2026-08-28-awaiting-input-workflow-continues-to-review]] — run-attempt reset on re-acceptance, whose statement now also renews the review budget
-- Related: [[2026-11-03-mnt-276-econnreset-retry-for-agents]] — the other restart-resume path (agent network retries resume the opencode session; the review budget now survives the same kind of re-entry)
-- Related: [[2026-10-12-session-state-flow-feedback-loops]] — the review → build feedback loop this budget bounds
+- Related: [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md) — run-attempt reset on re-acceptance, whose statement now also renews the review budget
+- Related: [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md) — the other restart-resume path (agent network retries resume the opencode session; the review budget now survives the same kind of re-entry)
+- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md) — the review → build feedback loop this budget bounds

@@ -94,7 +94,7 @@ def index_entry(meta: dict, filename: str) -> str:
     Returns:
         str: A bullet line like ``- [Title](pages/file.md) — summary``.
     """
-    summary = f"Implementation of {meta['title']} ({meta['date']})"
+    summary = f"Implementation of {meta['title']} ({service.okf_page_date(meta=meta)})"
     return f"- [{meta['title']}](pages/{filename}) — {summary}"
 
 
@@ -324,7 +324,7 @@ async def patch_index(meta: dict, filename: str, index_path: Path | None = None)
             await _regenerate_by_topic_unlocked(index_path=target, pages_root=target.parent / "pages")
             updated = await service.read_index(index_path=target)
         cluster = service.find_topic_cluster(contents=updated, meta=meta)
-        cluster_entry = f"- [{meta['title']}](pages/{filename}) — {meta['date']}"
+        cluster_entry = f"- [{meta['title']}](pages/{filename}) — {service.okf_page_date(meta=meta)}"
         updated = service.insert_cluster_entry(contents=updated, cluster_header=cluster, entry=cluster_entry)
         await _write_index_unlocked(contents=updated, target=target)
 
@@ -404,7 +404,10 @@ async def _regenerate_by_topic_unlocked(index_path: Path | None, pages_root: Pat
         lines.append("")
         for page in sorted(pages, key=lambda item: item["name"], reverse=True):
             title = str(page["meta"].get("title") or page["name"])
-            lines.append(f"- [{title}](pages/{page['name']}) — {page['meta'].get('date') or ''}")
+            lines.append(
+                f"- [{title}](pages/{page['name']}) — "
+                f"{service.okf_page_date(meta=page['meta'], path=pages_target / page['name'])}"
+            )
         lines.append("")
 
     contents = await service.read_index(index_path=index_path)

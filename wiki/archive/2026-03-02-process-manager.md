@@ -1,11 +1,12 @@
 ---
 title: Process manager
-date: 2026-03-02
+generated: {by: demetra, at: '2026-03-02T00:00:00Z'}
+description: 'MNT-40 records turning Demetra into a supervised daemon: watcher.py polls the Linear TODO column every five minutes, spawns up to num_cpu−1 workflow subprocesses per task, adds a sessions.status column, and marks tasks processed only on success, returning failed tickets to TODO, with a systemd unit.'
 type: implementation
-status: resolved
-session_id: -
+status: deprecated
+session_id: '-'
 services: [watcher, main]
-branch: -
+branch: '-'
 tickets: [MNT-40]
 tags: [daemon, systemd, polling, parallelism]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Process manager
 
 > **Archived on 2026-08-18.** Useful info merged into
-> [[2026-08-10-docker-compose-deploy]]. See wiki/archive/ for the
+> [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md). See wiki/archive/ for the
 > original.
 
 ## TL;DR

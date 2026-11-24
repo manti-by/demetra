@@ -1,9 +1,10 @@
 ---
 title: Fix MCP Server for the mcp 2.0 API
-date: 2026-08-03
+generated: {by: demetra, at: '2026-08-03T00:00:00Z'}
+description: Records fixing the MCP server after mcp 2.0 removed low-level Server decorators, which crashed import with an AttributeError; rewrote mcp_server.py to use on_list_tools/on_call_tool constructor callbacks returning ListToolsResult/CallToolResult with ToolResult is_error forwarding, verified over stdio with the full suite.
 type: debug
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [mcp, database]
 branch: master
 tickets: [MNT-90]
@@ -14,11 +15,11 @@ related: [2026-08-03-auth-hardening-and-deps-bump.md, 2026-06-01-add-mcp-server.
 # Fix MCP Server for the mcp 2.0 API
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-10-25-mcp-db-tools-env-sql]]. See wiki/archive/ for the original.
+> [2026-10-25-mcp-db-tools-env-sql](/pages/2026-10-25-mcp-db-tools-env-sql.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
-`mcp 2.0.0` (pulled by `uv-bump` in [[2026-08-03-auth-hardening-and-deps-bump]]) removed `@server.list_tools()`/`@server.call_tool()` decorators from low-level `Server`. `uv run python -m demetra.mcp_server` crashed at import with `AttributeError: 'Server' has no attribute 'list_tools'`. Rewrote `demetra/mcp_server.py` to use constructor callbacks `on_list_tools`/`on_call_tool` returning `ListToolsResult`/`CallToolResult`, and `ToolResult(is_error)` forwarding. Verified over stdio + full suite.
+`mcp 2.0.0` (pulled by `uv-bump` in [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md)) removed `@server.list_tools()`/`@server.call_tool()` decorators from low-level `Server`. `uv run python -m demetra.mcp_server` crashed at import with `AttributeError: 'Server' has no attribute 'list_tools'`. Rewrote `demetra/mcp_server.py` to use constructor callbacks `on_list_tools`/`on_call_tool` returning `ListToolsResult`/`CallToolResult`, and `ToolResult(is_error)` forwarding. Verified over stdio + full suite.
 
 ## Symptom
 
@@ -65,12 +66,12 @@ Per-system dispatchers (`tools/database.py`, `tools/logs.py` after the 2026-10-1
 
 None. High-level `MCPServer` with `@server.tool()` exists in 2.0 but no migration needed — dynamic dispatcher maps cleanly to low-level callbacks.
 
-## Source — [[2026-06-01-add-mcp-server]]
+## Source — [2026-06-01-add-mcp-server](/archive/2026-06-01-add-mcp-server.md)
 
-First MCP server as repo-root `mcp_server.py` over streamable-http with filesystem+Postgres tools (MNT-90, 2026-06-01). Durable decisions: DB creds from env only, tool surface is DB/project introspection (filesystem tools deleted `e173d7f` 2026-06-02). Now at `demetra/mcp_server.py` over stdio, registry `tools/registry.py` aggregates `database`+`docstrings`+`logs` via `ToolResult` (the `wiki` module and `projects.py` are gone — see [[2026-10-15-replace-wiki-mcp-tool-with-wi]]).
+First MCP server as repo-root `mcp_server.py` over streamable-http with filesystem+Postgres tools (MNT-90, 2026-06-01). Durable decisions: DB creds from env only, tool surface is DB/project introspection (filesystem tools deleted `e173d7f` 2026-06-02). Now at `demetra/mcp_server.py` over stdio, registry `tools/registry.py` aggregates `database`+`docstrings`+`logs` via `ToolResult` (the `wiki` module and `projects.py` are gone — see [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)).
 
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 
 ## References
 
-- Related: [[2026-08-03-auth-hardening-and-deps-bump]]
+- Related: [2026-08-03-auth-hardening-and-deps-bump](/pages/2026-08-03-auth-hardening-and-deps-bump.md)

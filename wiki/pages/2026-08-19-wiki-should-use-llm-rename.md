@@ -1,8 +1,9 @@
 ---
 title: Rename wiki budget_exceeded to should_use_llm
-date: 2026-08-19
+generated: {by: demetra, at: '2026-08-19T00:00:00Z'}
+description: 'Records the purely nominal wiki rename of budget_exceeded() to should_use_llm() so the predicate reads as a significance threshold rather than a cost ceiling, leaving the WIKI_LLM_BUDGET_* env vars untouched; outcome: 64 wiki tests passed, later fully superseded when all pages became LLM-authored by compose_wiki_page.'
 type: implementation
-status: resolved
+status: stable
 session_id: opencode
 services: [wiki]
 branch: master
@@ -41,12 +42,12 @@ Wiki pages are deterministic scaffold (`render_wiki_page`); LLM generates only T
 > **Consistency fix (2026-09-18, Consistency Agent):** Mirrored body links into `related:` frontmatter.
 >
 > **Consistency note (2026-10-08, Consistency Agent):** Superseded by
-> [[2026-10-08-llm-authored-wiki-pages]] — `should_use_llm`,
+> [2026-10-08-llm-authored-wiki-pages](/pages/2026-10-08-llm-authored-wiki-pages.md) — `should_use_llm`,
 > `WIKI_LLM_BUDGET_*`, `render_wiki_page` and `summarize_session` are deleted;
 > every session page is now authored by `compose_wiki_page`. Kept as the
 > session record.
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-10-08-llm-authored-wiki-pages]]
-- See also: [[2026-08-07-mnt-147-wiki-processes-pr70-review]] — earlier wiki-service session (PR #70 CI regression in `env_get_list`).
+- Related: [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-10-08-llm-authored-wiki-pages](/pages/2026-10-08-llm-authored-wiki-pages.md)
+- See also: [2026-08-07-mnt-147-wiki-processes-pr70-review](/pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md) — earlier wiki-service session (PR #70 CI regression in `env_get_list`).

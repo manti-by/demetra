@@ -1,9 +1,10 @@
 ---
 title: Split auth/linear services into subpackages + review-failure handling
-date: 2026-08-19
+generated: {by: demetra, at: '2026-08-19T00:00:00Z'}
+description: 'Records the MNT-170 follow-up splitting the auth/linear monolithic facades into per-concern submodules and deleting the sys.meta_path relocation shim, plus making summarize_review/generate_pr_description raise typed ReviewError/PrDescriptionError to Awaiting Input; outcome: 83 + 72 tests passed and the shim is gone, though later refactors moved config resolution into SessionEnvironment.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [auth, linear, tools, llm, workflows, graphql]
 branch: feature/mnt-170-migrate-workflow-env-vars-to-projectuser-env-layers
 tickets: [MNT-170, MNT-103, MNT-34, MNT-60]
@@ -43,7 +44,7 @@ Same `import demetra.services.linear as service` pattern.
 
 ## Relocation shim removal
 
-`demetra/services/__init__.py` — deleted `_RelocatedFinder`/`_RelocatedLoader` (`sys.meta_path`) that served legacy flat imports (`demetra.services.git`, `demetra.services.groq`). Now a plain marker package. Completes migration begun in [[2026-08-07-split-wiki-service-into-subpackage]] and the `vcs`/`agents`/`llm`/`persistence` splits.
+`demetra/services/__init__.py` — deleted `_RelocatedFinder`/`_RelocatedLoader` (`sys.meta_path`) that served legacy flat imports (`demetra.services.git`, `demetra.services.groq`). Now a plain marker package. Completes migration begun in [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md) and the `vcs`/`agents`/`llm`/`persistence` splits.
 
 ## Tools registry
 
@@ -58,7 +59,7 @@ Previously `summarize_review` → `[]` and `generate_pr_description` → `""` on
 - `demetra/workflows/cleanup.py` — `commit_and_push` catches `PrDescriptionError` → re-raises `PullRequestError`
 - `demetra/workflows/failure.py` — `process_pr_failure` generalized from `PullRequestError`-only to `DemetraError`; `ReviewError` posts `review_failed` template (`review-failure` label), else `pr_creation_failed` (`PR-creation-failure` label); both move to `Awaiting Input`
 - `demetra/templates/review_failed.md` — new template
-- `main.py` — added `except ReviewError` → `process_pr_failure` with `awaiting_input` (mirrors [[2026-08-05-pr-creation-failure-handler]])
+- `main.py` — added `except ReviewError` → `process_pr_failure` with `awaiting_input` (mirrors [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md))
 
 ## Test Results
 
@@ -71,11 +72,11 @@ New coverage: `test_openrouter` (ReviewError/PrDescriptionError on LLM failure),
 
 ## Consistency note (2026-08-23)
 
-Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render.py:57` still present. Allowlist now at `demetra/services/auth/allowlist.py` (see [[2026-08-06-allowlist-review-fixes]]).
+Merged to `master` via PR #80. `render.py` TODO at `demetra/services/wiki/render.py:57` still present. Allowlist now at `demetra/services/auth/allowlist.py` (see [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)).
 
-> **Correction (2026-10-26, Consistency Agent):** the `render.py` TODO was removed with the deterministic wiki scaffold in `8ef18b1` (`Drop deterministic wiki creation`, 2026-10-09) — no `TODO` remains under `demetra/services/wiki/`. See [[2026-10-08-llm-authored-wiki-pages]].
+> **Correction (2026-10-26, Consistency Agent):** the `render.py` TODO was removed with the deterministic wiki scaffold in `8ef18b1` (`Drop deterministic wiki creation`, 2026-10-09) — no `TODO` remains under `demetra/services/wiki/`. See [2026-10-08-llm-authored-wiki-pages](/pages/2026-10-08-llm-authored-wiki-pages.md).
 
-## Source — [[2026-06-09-check-linear-ticket-text]]
+## Source — [2026-06-09-check-linear-ticket-text](/archive/2026-06-09-check-linear-ticket-text.md)
 
 MNT-103 (2026-06-09): validated the GraphQL shape behind `LinearTask.text` and shipped the renderer it supported (state filter, branch/labels on the issue list, richer comment rendering). The durable contract is narrower than that rendering: `LinearTask.comments` is a `list[str]` of comment **bodies** — `extract_comments` (`demetra/services/linear/tasks.py:30-45`) uses `resolvedAt` only to skip resolved threads and drops timestamps/authors, while the query still selects them (`demetra/queries/get_all_issues.gql:29,32-34`). Plan questions are still posted one comment per question.
 
@@ -88,13 +89,13 @@ MNT-103 (2026-06-09): validated the GraphQL shape behind `LinearTask.text` and s
 
 ## References
 
-- Related: [[2026-08-07-split-wiki-service-into-subpackage]], [[2026-08-18-migrate-llm-groq-to-openrouter]], [[2026-08-05-pr-creation-failure-handler]], [[2026-08-06-allowlist-review-fixes]]
+- Related: [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md), [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)
 - External: [MNT-170](https://linear.app/mnt/issue/MNT-170/migrate-workflow-env-vars-to-projectuser-env-layers)
 
 > **Status update (2026-09-16, MNT-205):** `demetra/services/linear/config.py`
 > (`get_linear_config_value`) and `demetra/services/llm/config.py`
 > (`get_openrouter_config`) were deleted; resolution moved to
 > `SessionEnvironment` / `context.environment`. See
-> [[2026-09-16-mnt-205-revise-merged-environment]].
+> [2026-09-16-mnt-205-revise-merged-environment](/pages/2026-09-16-mnt-205-revise-merged-environment.md).
 
 > **Consistency note (2026-11-11, Consistency Agent):** `demetra/services/linear/config.py` was deleted (its `get_linear_config_value` was replaced by `SessionEnvironment.linear_state`); the `linear/` package is now `graphql.py`, `mutations.py`, `oauth.py`, `tasks.py`. The `auth/` package likewise grew `allowlist.py`, `copy.py`, `passwords.py` and `waitlist.py` beyond the three modules listed above.

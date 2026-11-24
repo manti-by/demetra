@@ -1,11 +1,12 @@
 ---
 title: Simplify setup_session_logging
-date: 2026-07-16
+generated: {by: demetra, at: '2026-07-16T00:00:00Z'}
+description: 'Records a behavior-preserving refactor of setup_session_logging after the dedup fix: dropped the unused logger parameter across three call sites, collapsed two handler loops into one lookup, and removed dead formatter fallbacks, shrinking 36 to 27 lines with 472 tests passing.'
 type: implementation
-status: resolved
+status: deprecated
 session_id: 3829832e-7a27-42ce-8897-f46a971a95a4
 services: [main, merge, rebase]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [logging, refactoring, cleanup]
 related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-review-findings.md]
@@ -14,17 +15,17 @@ related: [2026-07-15-duplicated-log-messages.md, 2026-07-16-fix-step-status-revi
 # Simplify setup_session_logging
 
 > **Archived on 2026-11-15.** Useful info merged into
-> [[2026-08-18-test-db-isolation-logging]]. See wiki/archive/ for the original.
+> [2026-08-18-test-db-isolation-logging](/pages/2026-08-18-test-db-isolation-logging.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
-Behavior-preserving refactor of `setup_session_logging()` (`demetra/services/utils.py`) after the dedup fix in [[2026-07-15-duplicated-log-messages]]: dropped unused `logger` param (3 call sites), collapsed two handler loops into one `next(...)` lookup, removed dead formatter fallbacks, and anchored the dedup early-return with a comment. 36→27 lines; 472 tests, `ruff`/`ty` clean.
+Behavior-preserving refactor of `setup_session_logging()` (`demetra/services/utils.py`) after the dedup fix in [2026-07-15-duplicated-log-messages](/archive/2026-07-15-duplicated-log-messages.md): dropped unused `logger` param (3 call sites), collapsed two handler loops into one `next(...)` lookup, removed dead formatter fallbacks, and anchored the dedup early-return with a comment. 36→27 lines; 472 tests, `ruff`/`ty` clean.
 
 ---
 
 ## Overview
 
-Two cases: (1) **Subprocess** (`LOG_PATH=sessions/<task>.log`) — root already targets session log, just reuse its handler for `stream_logger` and return (adding another would duplicate, see [[2026-07-15-duplicated-log-messages]]). (2) **In-process** (merge/rebase, `LOG_PATH=demetra.log`) — build new `FileHandler`, swap it onto root and `stream_logger`.
+Two cases: (1) **Subprocess** (`LOG_PATH=sessions/<task>.log`) — root already targets session log, just reuse its handler for `stream_logger` and return (adding another would duplicate, see [2026-07-15-duplicated-log-messages](/archive/2026-07-15-duplicated-log-messages.md)). (2) **In-process** (merge/rebase, `LOG_PATH=demetra.log`) — build new `FileHandler`, swap it onto root and `stream_logger`.
 
 ## Changes
 
@@ -48,5 +49,5 @@ None.
 
 ## References
 
-- Related: [[2026-07-15-duplicated-log-messages]]
-- Related: [[2026-07-16-fix-step-status-review-findings]]
+- Related: [2026-07-15-duplicated-log-messages](/archive/2026-07-15-duplicated-log-messages.md)
+- Related: [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md)

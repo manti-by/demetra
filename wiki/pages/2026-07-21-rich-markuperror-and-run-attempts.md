@@ -1,11 +1,12 @@
 ---
 title: Rich MarkupError kills workflow subprocess and run_attempts counter overcounts
-date: 2026-07-21
+generated: {by: demetra, at: '2026-07-21T00:00:00Z'}
+description: Records MNT-136's twin failures — a Rich MarkupError from unescaped `[/...]` review findings in print_message killing the subprocess, and watcher run_attempts overcounting every invocation — resolved by escaping markup and incrementing only on failure, with 500 tests passing.
 type: debug
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [watcher, tui, main, database, workflows, linear]
-branch: "-"
+branch: '-'
 tickets: [MNT-136, MNT-17, MNT-100]
 tags: [rich, markup, tui, watcher, run-attempts, error-handling, agents, cli, textual, investigation, guard, sessions, linear]
 related: [2026-02-14-add-tui-support.md, 2026-06-08-max-run-attempts-for-a-ticket.md]
@@ -74,7 +75,7 @@ Prefix literals (`"● "`, `"→ "`) are constants and not escaped. `logger` cal
 
 **500 passed.** `ruff`, `ty`, `bandit`, `pre-commit` clean.
 
-## Source — [[2026-02-14-add-tui-support]]
+## Source — [2026-02-14-add-tui-support](/archive/2026-02-14-add-tui-support.md)
 
 Rich-based CLI TUI via `demetra/services/tui.py:print_message` as single output path, replacing `print()`. `main.py` plan→build→review loop with `--auto` / `--project-name` flags.
 
@@ -87,7 +88,7 @@ In `manti-by/odin` repo, not `demetra`:
 
 > **Consistency note (2026-08-24):** `demetra/services/tui.py` → `demetra/services/runtime/tui.py`; `demetra/services/utils.py` → `demetra/services/runtime/utils.py`.
 
-> **Status update (2026-08-27):** `demetra/services/watcher.py` → `demetra/services/daemons/watcher.py` (commit `04436c6`). Behavior unchanged: `increment_run_attempts` only after failure, pre-check on `session.run_attempts`, cap is `5` (see [[2026-06-08-max-run-attempts-for-a-ticket]]).
+> **Status update (2026-08-27):** `demetra/services/watcher.py` → `demetra/services/daemons/watcher.py` (commit `04436c6`). Behavior unchanged: `increment_run_attempts` only after failure, pre-check on `session.run_attempts`, cap is `5` (see [2026-06-08-max-run-attempts-for-a-ticket](/archive/2026-06-08-max-run-attempts-for-a-ticket.md)).
 
 > **Open discrepancy (2026-10-26, Consistency Agent):** the cap is **3** again in current code — `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)` (`demetra/settings.py:47`), reset from `5` by the `10ea543` settings refactor. Tracked as **Q-002** in `wiki/QUESTIONS.md`; everything else in this page still holds.
 
@@ -95,7 +96,7 @@ In `manti-by/odin` repo, not `demetra`:
 
 - The three items listed under “Known follow-up (not fixed here)” above are still open — they live in the `manti-by/odin` repo, not in `demetra`. The third one (surface the effective `MAX_RUN_ATTEMPTS` in the watcher startup log) is the subject of **Q-002** in `wiki/QUESTIONS.md`: the shipped default is 3 again (`demetra/settings.py:48`), so the “default 5” wording above is stale.
 
-## Source — [[2026-06-08-max-run-attempts-for-a-ticket]]
+## Source — [2026-06-08-max-run-attempts-for-a-ticket](/archive/2026-06-08-max-run-attempts-for-a-ticket.md)
 
 `run_attempts` + `MAX_RUN_ATTEMPTS` (5) guards infinite runs; incremented only on failure → Awaiting Input. Originally decided 2026-06-08.
 
@@ -103,7 +104,7 @@ In `manti-by/odin` repo, not `demetra`:
 
 ## References
 
-- Related: [[2026-02-14-add-tui-support]], [[2026-06-08-max-run-attempts-for-a-ticket]]
+- Related: [2026-02-14-add-tui-support](/archive/2026-02-14-add-tui-support.md), [2026-06-08-max-run-attempts-for-a-ticket](/archive/2026-06-08-max-run-attempts-for-a-ticket.md)
 - External: [MNT-136](https://linear.app/mnt/issue/MNT-136) · Session log: `/var/log/demetra/sessions/4c32355e-55bf-478f-8cd6-832bacafe6f9.log` · Watcher log: `/var/log/demetra/demetra.log:390177`
 
 > **Consistency note (2026-11-11, Consistency Agent):** The two occurrences of “`MAX_RUN_ATTEMPTS` (5)” in the body are stale: the shipped default is **3** (`demetra/settings.py:48`, `MAX_ATTEMPTS["run"] = env_get_int("MAX_RUN_ATTEMPTS", 3)`). The 2026-10-26 discrepancy banner already tracks this as **Q-002** (the 5 → 3 reset in the 2026-09-28 settings refactor has no recorded intent); the body text was written when the default was still 5.

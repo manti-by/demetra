@@ -1,8 +1,9 @@
 ---
 title: 'CH-6: Markdown renderer'
-date: '2026-11-06'
+generated: {by: demetra, at: '2026-11-06T00:00:00Z'}
+description: Records CH-6 introducing a shared MarkdownContent React component using marked plus DOMPurify sanitization to render markdown in chat blocks and build/research modals while keeping failure and status messages plain; new CSS and tests were added and all frontend tests passed.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e4f46534effeBppQxjkS76DkdH
 services: [react]
 branch: ch-6-markdown-renderer
@@ -90,13 +91,13 @@ CSS styles were added to ensure proper rendering of markdown content in chat blo
 ## Test Results
 All frontend tests were updated to account for the new markdown rendering behavior. The changes passed all existing tests, and new tests were added to verify the correct rendering of markdown content in chat blocks.
 
-## Source — [[2026-06-09-markdown-renderer]]
+## Source — [2026-06-09-markdown-renderer](/archive/2026-06-09-markdown-renderer.md)
 
-Markdown rendering in the React app originated 2026-06-09 (MNT-113): the `marked` library (^15.0.12, `react/package.json`) renders the build-plan modal's raw markdown to HTML behind a toggle button. This page's renderer reuses that same library for chat blocks. Originally decided in [[2026-06-09-markdown-renderer]] on 2026-06-09.
+Markdown rendering in the React app originated 2026-06-09 (MNT-113): the `marked` library (^15.0.12, `react/package.json`) renders the build-plan modal's raw markdown to HTML behind a toggle button. This page's renderer reuses that same library for chat blocks. Originally decided in [2026-06-09-markdown-renderer](/archive/2026-06-09-markdown-renderer.md) on 2026-06-09.
 
 ## Follow-ups
 - None
 
 ## References
-- Related: [[2026-06-09-markdown-renderer]]
-- Related: [[2026-11-03-ch-2-single-unified-session-view]]
+- Related: [2026-06-09-markdown-renderer](/archive/2026-06-09-markdown-renderer.md)
+- Related: [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)

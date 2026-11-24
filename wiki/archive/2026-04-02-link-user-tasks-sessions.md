@@ -1,8 +1,9 @@
 ---
 title: Link user, tasks and sessions
-date: 2026-04-02
+generated: {by: demetra, at: '2026-04-02T00:00:00Z'}
+description: Records MNT-63, which enforced multi-user isolation by linking every task and session to the logged-in user, filtering tasks by the user's projects, merging `task_status` into `sessions` with new `project_id`/`user_id` columns and improved upserts and status lifecycle via a migration; the page was later archived and merged into the step-status page.
 type: implementation
-status: resolved
+status: deprecated
 session_id: '-'
 services: [database, linear, sessions]
 branch: '-'
@@ -14,7 +15,7 @@ related: [2026-03-31-project-model-and-space.md, 2026-07-16-fix-step-status-revi
 # Link user, tasks and sessions
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the original.
+> [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -37,7 +38,7 @@ Multi-user isolation was the driver: before this change, tasks/sessions were not
 
 **File:** `demetra/services/database.py`, `demetra/services/linear.py`
 
-Every retrieved task and session is now linked to the authenticated user. Linear task retrieval is filtered to projects linked to that user, so no user sees another user's tasks. The per-user `Project` model this builds on is recorded in [[2026-03-31-project-model-and-space]].
+Every retrieved task and session is now linked to the authenticated user. Linear task retrieval is filtered to projects linked to that user, so no user sees another user's tasks. The per-user `Project` model this builds on is recorded in [2026-03-31-project-model-and-space](/archive/2026-03-31-project-model-and-space.md).
 
 ## Step 2 — Merge task-status into sessions
 
@@ -61,5 +62,5 @@ Tests were updated and added for the user-scoped retrieval and merged status lif
 
 ## References
 
-- Related: [[2026-03-31-project-model-and-space]], [[2026-07-16-fix-step-status-review-findings]]
+- Related: [2026-03-31-project-model-and-space](/archive/2026-03-31-project-model-and-space.md), [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md)
 - External: https://linear.app/mnt/issue/MNT-63

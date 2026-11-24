@@ -1,9 +1,10 @@
 ---
-title: "MNT-181: Total tokens counter"
-date: 2026-08-25
+title: 'MNT-181: Total tokens counter'
+generated: {by: demetra, at: '2026-08-25T00:00:00Z'}
+description: 'MNT-181 added a session-wide Total Tokens breakdown to the history modal by returning `{total, history}` from the session-history endpoint via `_compute_total_tokens`, with a frontend totals grid; later updates restricted the sum to invocation then LLM-call rows and added cost, merged as PR #101.'
 type: implementation
-status: resolved
-session_id: "-"
+status: stable
+session_id: '-'
 services: [api, sessions, react]
 branch: mnt-181-total-tokens-counter
 tickets: [MNT-181, MNT-84, MNT-59]
@@ -26,7 +27,7 @@ Added a session-wide **Total Tokens** summary to the history modal. `GET /api/v1
 | UI | `TotalTokensBlock` in `SessionHistory.tsx`; `.session-history-totals*` CSS in `App.css` |
 | Tests | 4 API tests; extended `SessionHistory.test.tsx`/`SessionArtifacts.test.tsx` |
 
-Extends [[2026-07-23-session-history-modal]].
+Extends [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md).
 
 ## Backend
 
@@ -35,7 +36,7 @@ Extends [[2026-07-23-session-history-modal]].
 rows = await get_session_history(session_id=session_id)
 return {"total": _compute_total_tokens(rows=rows), "history": [_serialize_history_row(row=r) for r in rows]}
 ```
-Rules: sum `input_tokens`/`output_tokens`/`reasoning_tokens`/`cache_read_tokens`/`cache_write_tokens` (`None`→0); `context_tokens` excluded (per-step snapshot, see [[2026-07-23-session-tokens-audit-revalidation]]); `length` grand total from summed token fields when present, else sum `row.length`. `_serialize_history_row` also exposes `context_tokens`/`model`.
+Rules: sum `input_tokens`/`output_tokens`/`reasoning_tokens`/`cache_read_tokens`/`cache_write_tokens` (`None`→0); `context_tokens` excluded (per-step snapshot, see [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md)); `length` grand total from summed token fields when present, else sum `row.length`. `_serialize_history_row` also exposes `context_tokens`/`model`.
 
 ## Frontend API
 
@@ -53,20 +54,20 @@ Rules: sum `input_tokens`/`output_tokens`/`reasoning_tokens`/`cache_read_tokens`
 
 Backend `tests/test_api.py:TestSessionHistoryEndpoint`: `test_returns_total_and_history`, `test_total_treats_null_tokens_as_zero`, `test_total_for_empty_history_is_all_zeros`, `test_total_sums_length_independently`. Frontend: `SessionHistory.test.tsx` (totals block), `SessionArtifacts.test.tsx` (mock `{ total, history }`).
 
-## Source — [[2026-05-22-task-title-session-listing]]
+## Source — [2026-05-22-task-title-session-listing](/archive/2026-05-22-task-title-session-listing.md)
 
-Session list title fallback (`task_title`/`custom name` → truncated `session_id`, `GET /api/v1/sessions?step=...` see [[2026-10-12-session-state-flow-feedback-loops]]) — still in effect.
+Session list title fallback (`task_title`/`custom name` → truncated `session_id`, `GET /api/v1/sessions?step=...` see [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md)) — still in effect.
 
 ## Update — 2026-10-16 15:08
 
-**`_compute_total_tokens` now sums only `kind='invocation'` rows.** MNT-251 ([[2026-10-16-mnt-251-session-attribution-accounting]]) introduced explicit row kinds, so the total no longer needs the `row.length` fallback for all-NULL rows and no longer risks counting a cumulative snapshot many times:
+**`_compute_total_tokens` now sums only `kind='invocation'` rows.** MNT-251 ([2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md)) introduced explicit row kinds, so the total no longer needs the `row.length` fallback for all-NULL rows and no longer risks counting a cumulative snapshot many times:
 
 - `kind='invocation'` rows carry exact per-invocation deltas and are summed; `kind='step'` rows are informational milestones with no tokens and are ignored.
 - The legacy `row.length` fallback is dropped; `length` is derived from the summed token fields.
 - The old test `test_total_sums_length_independently` was replaced by `test_total_ignores_step_rows` and `test_total_sums_only_invocation_rows`.
 - The endpoint also resolves history by `task_id` (via `get_session_history(task_id)`), not by the display-only `sessions.session_id` pointer, so totals survive a worktree deletion.
 
-> **Consistency note (2026-11-09, Consistency Agent):** "sums only `kind='invocation'` rows" is superseded — [[2026-10-27-mnt-260-openrouter-call-history]] extended `_compute_total_tokens` to include `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`.
+> **Consistency note (2026-11-09, Consistency Agent):** "sums only `kind='invocation'` rows" is superseded — [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md) extended `_compute_total_tokens` to include `kind='llm_call'` rows (tokens and `total["cost"]`), per `demetra/api/sessions.py:118`.
 
 ---
 
@@ -86,7 +87,7 @@ Session list title fallback (`task_title`/`custom name` → truncated `session_i
 
 ## References
 
-- Related: [[2026-07-23-session-history-modal]], [[2026-07-16-session-history-tokens-null]], [[2026-07-23-session-tokens-audit-revalidation]], [[2026-10-25-session-history-cost-and-failure-reasons]] — extended the `total` block with `cost` and added failure reasons
+- Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md), [2026-07-16-session-history-tokens-null](/pages/2026-07-16-session-history-tokens-null.md), [2026-07-23-session-tokens-audit-revalidation](/pages/2026-07-23-session-tokens-audit-revalidation.md), [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md) — extended the `total` block with `cost` and added failure reasons
 - External: https://github.com/manti-by/demetra/pull/101, [MNT-181](https://linear.app/mnt/issue/MNT-181)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The “falls back to `row.length` for all-NULL rows” clause in the TL;DR and the Backend section was dropped by MNT-251 — `_compute_total_tokens` now sums only `kind='invocation'` rows (`demetra/api/sessions.py:118`), and the endpoint resolves history by `task_id`. The `total` block also carries `cost` since the 2026-10-25 session-history work.

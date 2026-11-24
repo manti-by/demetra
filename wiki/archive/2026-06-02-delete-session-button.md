@@ -1,11 +1,12 @@
 ---
 title: Add delete button for a session
-date: 2026-06-02
+generated: {by: demetra, at: '2026-06-02T00:00:00Z'}
+description: Under MNT-86, this records adding a delete button beside the clear control in the session log header that calls an API endpoint removing the session and all its database records and log files, with automatic list refresh and hover styling, superseding earlier attempts; merged into the API-auth page and archived.
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [api, react, database]
-branch: "-"
+branch: '-'
 tickets: [MNT-86]
 tags: [sessions, delete, api, react]
 related: []
@@ -14,7 +15,7 @@ related: []
 # Add delete button for a session
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-08-03-check-api-auth-and-credentials]]. See wiki/archive/ for the original.
+> [2026-08-03-check-api-auth-and-credentials](/archive/2026-08-03-check-api-auth-and-credentials.md). See wiki/archive/ for the original.
 
 ## TL;DR
 

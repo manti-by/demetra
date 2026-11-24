@@ -1,11 +1,12 @@
 ---
 title: Session history — cached bundle and MCP tool usage
-date: 2026-10-25
+generated: {by: demetra, at: '2026-10-25T00:00:00Z'}
+description: This page records diagnosing a missing Total Cost as a stale browser bundle and fixing Tool Usage omitting wiki/MCP calls, because opencode v2 code mode nests them in execute's state.metadata.toolCalls, so _extract_tool_usage now counts nested WI.* and Demetra.* tools, with 1041 backend plus 21 frontend tests passing.
 type: implementation
-status: resolved
+status: stable
 session_id: ses_e8b5aa148ffeyIlCo1dEIlSawZ
 services: [api, agents, persistence, react, tests]
-branch: "-"
+branch: '-'
 tickets: []
 tags: [session-history, tool-usage, mcp, opencode, code-mode, frontend, cost]
 related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-mnt-258-tool-usage-stats.md, 2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-opencode-v2-session-token-accounting.md, 2026-10-25-session-history-per-invocation-rows.md]
@@ -32,7 +33,7 @@ pass.
 ## Overview
 
 Two follow-ups from the "Session history" modal shipped earlier today
-([[2026-10-25-session-history-cost-and-failure-reasons]]): one about the
+([2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md)): one about the
 `Total Cost` cell and one about the Tool Usage block missing wiki calls. The
 first needed diagnosis only; the second needed a code change in the opencode
 export parser plus tests at the persistence and React layers.
@@ -153,14 +154,14 @@ now yields `WI.wiki_list_pages: 1`, `WI.wiki_search: 1` alongside `execute: 2`.
 
 ## References
 
-- Related: [[2026-10-25-session-history-cost-and-failure-reasons]] — shipped the
+- Related: [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md) — shipped the
   `total.cost` cell and the step failure reasons this session verified live.
-- Related: [[2026-10-25-mnt-258-tool-usage-stats]] — created the
+- Related: [2026-10-25-mnt-258-tool-usage-stats](/pages/2026-10-25-mnt-258-tool-usage-stats.md) — created the
   `session_tool_usage` table and the Tool Usage block whose extraction gap this
   session closed.
-- Related: [[2026-10-16-mnt-251-session-attribution-accounting]] — the
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md) — the
   `kind='invocation'` rows and `invoked_at` watermark the nested calls inherit.
-- Related: [[2026-10-16-opencode-v2-session-token-accounting]] — the opencode v2
+- Related: [2026-10-16-opencode-v2-session-token-accounting](/pages/2026-10-16-opencode-v2-session-token-accounting.md) — the opencode v2
   export shapes (`content`, `state.time`, `state.metadata`) this parser reads.
-- See also: [[2026-10-25-session-history-per-invocation-rows]] — the invocation-row schema these nested calls are recorded against.
+- See also: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md) — the invocation-row schema these nested calls are recorded against.
 - External: user-reported inline; no Linear ticket.

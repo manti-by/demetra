@@ -1,11 +1,12 @@
 ---
 title: Plan step completion attribute
-date: 2026-06-08
+generated: {by: demetra, at: '2026-06-08T00:00:00Z'}
+description: 'Records MNT-83 adding a `step` attribute to the `Session` model for durable workflow resume via migration and PR #37; archived after review showed resume still gates on `build_plan`, with the defect tracked separately and StepType later expanded to 14 values.'
 type: implementation
-status: resolved
-session_id: "-"
+status: deprecated
+session_id: '-'
 services: [database, sessions, workflows, opencode]
-branch: "-"
+branch: '-'
 tickets: [MNT-83, MNT-22]
 tags: [step, sessions, migration, resume, isolation, research]
 related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-review-findings.md, 2026-07-21-awaiting-input-status-for-session.md, 2026-08-05-post-build-validation.md, 2026-08-25-mnt-187-wiki-pages-not-generated.md, 2026-09-01-mnt-177-research-loop.md, 2026-08-28-awaiting-input-workflow-continues-to-review.md]
@@ -14,7 +15,7 @@ related: [2026-02-21-opencode-sessions-isolation.md, 2026-07-16-fix-step-status-
 # Plan step completion attribute
 
 > **Archived on 2026-10-26.** Useful info merged into
-> [[2026-07-16-fix-step-status-review-findings]]. See wiki/archive/ for the original.
+> [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md). See wiki/archive/ for the original.
 
 ## TL;DR
 
@@ -53,9 +54,9 @@ Tests were added for the step field and resume behavior.
 
 ---
 
-## Source — [[2026-02-21-opencode-sessions-isolation]]
+## Source — [2026-02-21-opencode-sessions-isolation](/archive/2026-02-21-opencode-sessions-isolation.md)
 
-Originally researched in [[2026-02-21-opencode-sessions-isolation]] on 2026-02-21
+Originally researched in [2026-02-21-opencode-sessions-isolation](/archive/2026-02-21-opencode-sessions-isolation.md) on 2026-02-21
 (MNT-22): OpenCode's `run` accepts a custom `--session` / session id, giving
 deterministic control over which session each workflow step uses. Demetra generates
 one id per workflow run, passes it to every `opencode run` invocation (plan, build,
@@ -70,20 +71,20 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 > **Update (2026-08-19):** The current `StepType` enum in `demetra/library/models.py` has
 > 11 values: `initial`, `plan`, `build`, `validate`, `review`, `lint`, `test`, `push`,
 > `completed`, `failed`, `awaiting_input`. `validate` was added for the post-build
-> validate-agent (see [[2026-08-05-post-build-validation]]); `awaiting_input` was added
-> for the Awaiting Input state (see [[2026-07-21-awaiting-input-status-for-session]]).
+> validate-agent (see [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md)); `awaiting_input` was added
+> for the Awaiting Input state (see [2026-07-21-awaiting-input-status-for-session](/archive/2026-07-21-awaiting-input-status-for-session.md)).
 > The step vocabulary documented in this page is the historical snapshot from the MNT-83 era.
 
 > **Status update (2026-08-27, Consistency Agent):** `StepType` now has **12** values —
 > a `"wiki"` step was inserted between `test` and `push`, added in
-> [[2026-08-25-mnt-187-wiki-pages-not-generated]] for the wiki-page-write session step.
+> [2026-08-25-mnt-187-wiki-pages-not-generated](/pages/2026-08-25-mnt-187-wiki-pages-not-generated.md) for the wiki-page-write session step.
 > Current order: `initial, plan, build, validate, review, lint, test, wiki, push,
 > completed, failed, awaiting_input`. The 2026-08-19 update above is superseded on this
 > one count.
 
 > **Status update (2026-09-01, Consistency Agent):** `StepType` now has **13** values —
 > a `"research"` step was inserted between `plan` and `build`, added in
-> [[2026-09-01-mnt-177-research-loop]] for the research-agent step. Current order:
+> [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md) for the research-agent step. Current order:
 > `initial, plan, research, build, validate, review, lint, test, wiki, push,
 > completed, failed, awaiting_input`. The 2026-08-27 update above is superseded on this
 > one count.
@@ -94,12 +95,12 @@ enabled per-session state: session history, compaction, and log isolation (MNT-5
 > (2) The resume path never checks `step`: `main.py:138` gates only on
 > `if not context.session or not context.session.build_plan:`, so an interrupted
 > questions run resumes with its stale plan. That defect is tracked in
-> [[2026-08-28-awaiting-input-workflow-continues-to-review]]; the "checks `step`
+> [2026-08-28-awaiting-input-workflow-continues-to-review](/pages/2026-08-28-awaiting-input-workflow-continues-to-review.md); the "checks `step`
 > instead of `build_plan`" lines in the TL;DR and Step section are wrong.
 
 ## References
 
-- Related: [[2026-07-16-fix-step-status-review-findings]] — later review of the same `sessions.step` subsystem
+- Related: [2026-07-16-fix-step-status-review-findings](/archive/2026-07-16-fix-step-status-review-findings.md) — later review of the same `sessions.step` subsystem
 - External: https://linear.app/mnt/issue/MNT-83
 
 > **Consistency fix (2026-09-02):** added `2026-09-01-mnt-177-research-loop.md` to `related` to mirror body link.
