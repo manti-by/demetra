@@ -283,6 +283,26 @@ class TestRecordLLMCall:
         assert history[0].cache_write_tokens == 0
 
     @pytest.mark.asyncio
+    async def test_records_the_computed_cost_and_rate_snapshot(self):
+        task_id = _unique_task_id()
+        price = {"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.0}
+
+        entry = await record_llm_call(
+            task_id=task_id,
+            step="summarize_plan",
+            model="deepseek/deepseek-flash",
+            usage=TokenUsage(input=1000, output=100),
+            cost=0.00042,
+            price=price,
+        )
+
+        assert entry.cost == pytest.approx(0.00042)
+        assert entry.price == price
+        history = await get_session_history(task_id=task_id)
+        assert history[0].cost == pytest.approx(0.00042)
+        assert history[0].price == price
+
+    @pytest.mark.asyncio
     async def test_records_a_call_without_usage_or_message(self):
         task_id = _unique_task_id()
 
@@ -459,18 +479,32 @@ class TestRecordAgentInvocation:
         ]
 
     @pytest.mark.asyncio
-    async def test_cost_delta_is_recorded(self):
+    async def test_cost_delta_and_rate_snapshot_are_recorded(self):
         task_id = _unique_task_id()
         session_id = _unique_session_id()
+        price = {"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.0}
         await record_agent_invocation(
-            task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=100), cost=0.25
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=100),
+            cost=0.25,
+            price=price,
         )
 
         entry = await record_agent_invocation(
-            task_id=task_id, step="build", session_id=session_id, usage=TokenUsage(input=200), cost=0.40
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=200),
+            cost=0.40,
+            price=price,
         )
 
         assert entry.cost == pytest.approx(0.15)
+        history = await get_session_history(task_id=task_id)
+        assert [row.cost for row in history] == [pytest.approx(0.25), pytest.approx(0.15)]
+        assert [row.price for row in history] == [price, price]
 
     @pytest.mark.asyncio
     async def test_primary_records_session_pointer_and_clears_previous(self):

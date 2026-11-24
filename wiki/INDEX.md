@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — Implementation of MNT-321: External providers prices (2026-11-24)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — MNT-320 fixed builds forking an empty session id, which the OpenCode CLI rejected with "--fork requires --continue or --session" — empty ids are now normalised to NULL across the model, workflow, agent and database layers, with a migration backfilling existing rows. (2026-11-24)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — mantiby/demetra:latest shrank from 1.01 GB to 708 MB by replacing a recursive chown that duplicated /opt/venv and the Rust toolchain with COPY --chown, slimming the C toolchain and switching to vim-tiny, keeping Rust, C and bun for target builds; the container suite passed 1556 tests. (2026-11-23)
 - [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — CH-13 added an Open Knowledge Format validator/migrator for the wiki bundle — it converts wikilinks to bundle-relative markdown links, replaces date with generated.at, maps status onto draft/stable/deprecated and LLM-authors descriptions, run as a one-time script in demetra/services/wiki/okf.py. (2026-11-23)
@@ -166,8 +167,9 @@ _Newest first._
 - [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md)
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md)
 
-### Session history, tokens & costs (15 pages)
+### Session history, tokens & costs (16 pages)
 
+- [MNT-321: External provider prices](pages/2026-11-24-mnt-321-external-providers-prices.md)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md)
 - [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md)
@@ -199,6 +201,7 @@ _Newest first._
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
 
 ### Deploy & infrastructure (11 pages)
 

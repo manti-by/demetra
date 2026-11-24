@@ -133,7 +133,9 @@ def _compute_total_tokens(rows: list[SessionHistory]) -> dict:
         rows: The session history records to sum.
 
     Returns:
-        dict: The session-wide totals for every counter field, plus the summed ``cost``.
+        dict: The session-wide totals for every counter field, plus the summed
+            ``cost``. That cost covers vendor-reported OpenCode invocations and
+            price-derived external-provider invocations and LLM calls.
     """
     total = {
         "length": 0,
@@ -217,6 +219,7 @@ def _serialize_history_row(row: SessionHistory) -> dict:
         "cache_write_tokens": row.cache_write_tokens,
         "context_tokens": row.context_tokens,
         "cost": row.cost,
+        "price": row.price,
         "model": row.model,
         "agent": row.agent,
         "tool_usage": [

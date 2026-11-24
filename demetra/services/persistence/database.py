@@ -1658,6 +1658,8 @@ async def record_llm_call(
     step: str,
     model: str | None = None,
     usage: TokenUsage | None = None,
+    cost: float | None = None,
+    price: dict[str, float] | None = None,
     message: str | None = None,
 ) -> SessionHistory:
     """Record one OpenRouter LLM call as a ``kind='llm_call'`` history row.
@@ -1666,13 +1668,17 @@ async def record_llm_call(
     token usage, so there is no cumulative cursor to diff against and no
     ``agent_sessions`` row to attribute it to. ``step`` carries the prompt name
     (e.g. ``summarize_plan``) so the call keeps its timeline position, and
-    ``message`` carries the failure reason for a failed call.
+    ``message`` carries the failure reason for a failed call. ``cost`` is
+    derived from the usage and the rate snapshot in ``price`` when a price is
+    published for the model; both stay NULL otherwise.
 
     Args:
         task_id: The Linear task identifier.
         step: The prompt name the call ran for.
         model: The OpenRouter model serving the call, or None when unresolved.
         usage: The token usage reported by the response, or None.
+        cost: The computed USD cost of the call, or None.
+        price: The per-million-token rates used to compute ``cost``, or None.
         message: Optional failure reason recorded with the row.
 
     Returns:
@@ -1695,6 +1701,8 @@ async def record_llm_call(
                 cache_read_tokens=usage.cache_read if usage is not None else None,
                 cache_write_tokens=usage.cache_write if usage is not None else None,
                 context_tokens=usage.context if usage is not None else None,
+                cost=cost,
+                price=price,
                 model=model,
                 agent="openrouter",
                 message=message,
@@ -1716,6 +1724,8 @@ async def record_llm_call(
         cache_read_tokens=usage.cache_read if usage is not None else None,
         cache_write_tokens=usage.cache_write if usage is not None else None,
         context_tokens=usage.context if usage is not None else None,
+        cost=cost,
+        price=price,
         model=model,
         agent="openrouter",
         message=message,
@@ -1732,6 +1742,7 @@ async def record_agent_invocation(
     agent: str | None = None,
     model: str | None = None,
     cost: float | None = None,
+    price: dict[str, float] | None = None,
     outcome: str | None = None,
     fork_of: str | None = None,
     is_primary: bool = False,
@@ -1763,7 +1774,10 @@ async def record_agent_invocation(
         usage: The cumulative token usage from the export, or None.
         agent: The agent reported by ``info.agent``.
         model: The serialized model reported by ``info.model``.
-        cost: The cumulative session cost reported by ``info.cost``.
+        cost: The cumulative session cost reported by ``info.cost`` or derived
+            from a published rate card; only its delta is stored.
+        price: The per-million-token rates used to derive ``cost`` for a vendor
+            without its own reported cost, or None when OpenCode supplied it.
         outcome: The session outcome reported by ``info.outcome``.
         fork_of: The parent session id when this session was forked, for
             lineage only — it never feeds the delta.
@@ -1912,6 +1926,7 @@ async def record_agent_invocation(
                 length=length,
                 context_tokens=context_tokens,
                 cost=delta_cost,
+                price=price,
                 agent=agent,
                 model=model,
                 created_at=now,
@@ -1963,6 +1978,7 @@ async def record_agent_invocation(
         cache_write_tokens=delta["cache_write_tokens"],
         context_tokens=context_tokens,
         cost=delta_cost,
+        price=price,
         model=model,
         agent=agent,
         created_at=now.isoformat(),
@@ -2120,6 +2136,7 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             cache_write_tokens=row.cache_write_tokens,
             context_tokens=row.context_tokens,
             cost=row.cost,
+            price=row.price,
             model=row.model,
             agent=row.agent,
             message=row.message,

@@ -270,6 +270,14 @@ function SessionHistoryCard({ item }: SessionHistoryCardProps) {
               <dd>${entry.cost.toFixed(4)}</dd>
             </div>
           )}
+          {entry.price != null && (
+            <div>
+              <dt>Price / 1M</dt>
+              <dd>
+                in ${entry.price.input.toFixed(2)} · out ${entry.price.output.toFixed(2)}
+              </dd>
+            </div>
+          )}
           {entry.length != null && (
             <div>
               <dt>Total</dt>

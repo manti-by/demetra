@@ -248,6 +248,21 @@ describe('SessionHistory', () => {
     expect(screen.getByText('provider/model')).toBeInTheDocument();
   });
 
+  it('renders the rate snapshot when present', async () => {
+    const entry = {
+      ...mockEntries[0],
+      price: { input: 0.3, output: 1.2, cache_read: 0.06, cache_write: 0 },
+    };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+    await expandAll();
+
+    expect(screen.getByText('Price / 1M')).toBeInTheDocument();
+    expect(screen.getByText('in $0.30 · out $1.20')).toBeInTheDocument();
+  });
+
   it('renders failure reason context for a failed step entry', async () => {
     const failedEntry: SessionHistoryEntry = {
       ...mockEntries[2],

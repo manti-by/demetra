@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from demetra.library.exceptions import LintError, PlanError, WikiError
-from demetra.library.models import TokenUsage
+from demetra.library.models import ModelPrice, TokenUsage
 from demetra.services.llm.openrouter import (
     _extract_usage,
     _record_llm_call,
@@ -910,8 +910,31 @@ class TestRecordLLMCall:
             step="summarize_review",
             model="openai/gpt-oss-120b",
             usage=TokenUsage(input=300, output=100),
+            cost=None,
+            price=None,
             message=None,
         )
+
+    @pytest.mark.asyncio
+    async def test_records_the_price_derived_cost(self):
+        message = MagicMock(
+            response_metadata={"token_usage": {"prompt_tokens": 1_000_000, "completion_tokens": 100_000}}
+        )
+        price = ModelPrice(
+            provider="openrouter", source="test", input=0.3, output=1.2, cache_read=0.06, cache_write=0.3
+        )
+
+        with (
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,
+            patch("demetra.services.llm.openrouter.resolve_llm_model", return_value="minimax/minimax-m3"),
+            patch("demetra.services.llm.openrouter.get_price", new_callable=AsyncMock, return_value=price),
+        ):
+            await _record_llm_call(task_id="TASK-1", step="summarize_review", message=message)
+
+        assert mock_record.await_args is not None
+        kwargs = mock_record.await_args.kwargs
+        assert kwargs["cost"] == pytest.approx(0.42)
+        assert kwargs["price"] == {"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.3}
 
     @pytest.mark.asyncio
     async def test_records_the_failure_reason_without_usage(self):
@@ -926,6 +949,8 @@ class TestRecordLLMCall:
             step="summarize_review",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="LLM unavailable",
         )
 
@@ -980,6 +1005,8 @@ class TestOpenRouterSessionCalls:
             step="summarize_plan",
             model="openai/gpt-oss-120b",
             usage=TokenUsage(input=300, output=100),
+            cost=None,
+            price=None,
             message=None,
         )
 
@@ -1026,6 +1053,8 @@ class TestOpenRouterSessionCalls:
             step="summarize_plan",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="LLM unavailable",
         )
 
@@ -1054,6 +1083,8 @@ class TestOpenRouterSessionCalls:
             step="summarize_review",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message=None,
         )
 
@@ -1081,6 +1112,8 @@ class TestOpenRouterSessionCalls:
             step="extract_errors",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message=None,
         )
 
@@ -1108,6 +1141,8 @@ class TestOpenRouterSessionCalls:
             step="extract_errors",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="LLM unavailable",
         )
 
@@ -1138,6 +1173,8 @@ class TestOpenRouterSessionCalls:
             step="extract_errors",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="The error extraction was truncated by the token limit",
         )
 
@@ -1169,6 +1206,8 @@ class TestOpenRouterSessionCalls:
             step="analyze_ticket",
             model="openai/gpt-oss-120b",
             usage=TokenUsage(input=20, output=5),
+            cost=None,
+            price=None,
             message="bad json",
         )
 
@@ -1189,6 +1228,8 @@ class TestOpenRouterSessionCalls:
             step="extract_questions",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="LLM unavailable",
         )
 
@@ -1222,6 +1263,8 @@ class TestOpenRouterSessionCalls:
             step="extract_questions",
             model="openai/gpt-oss-120b",
             usage=TokenUsage(input=40, output=10),
+            cost=None,
+            price=None,
             message="unparsable list",
         )
 
@@ -1242,6 +1285,8 @@ class TestOpenRouterSessionCalls:
             step="summarize_review",
             model="openai/gpt-oss-120b",
             usage=None,
+            cost=None,
+            price=None,
             message="LLM unavailable",
         )
 
@@ -1275,5 +1320,7 @@ class TestOpenRouterSessionCalls:
             step="summarize_review",
             model="openai/gpt-oss-120b",
             usage=TokenUsage(input=60, output=15),
+            cost=None,
+            price=None,
             message="unparsable list",
         )

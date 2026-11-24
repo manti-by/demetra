@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.library.exceptions import AgentNetworkError
-from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
+from demetra.library.models import ModelPrice, SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
     capture_agent_session,
@@ -1206,11 +1206,33 @@ class TestCaptureAgentSession:
             agent="build",
             model="provider/model",
             cost=0.5,
+            price=None,
             outcome="completed",
             fork_of=None,
             is_primary=False,
             tool_usage={},
         )
+
+    @pytest.mark.asyncio
+    async def test_external_provider_cost_is_derived_from_the_rate_card(
+        self, mock_get_session_id, mock_get_export, mock_record_invocation
+    ):
+        mock_get_export.return_value = SessionExport(
+            tokens=TokenUsage(input=1_000_000, output=100_000),
+            agent="build",
+            model="deepseek/deepseek-v4-flash",
+        )
+        price = ModelPrice(provider="deepseek", source="test", input=0.3, output=1.2, cache_read=0.006)
+
+        with patch(
+            "demetra.services.agents.opencode.get_price", new_callable=AsyncMock, return_value=price
+        ) as mock_get_price:
+            await capture_agent_session(task_id="TASK-2", step="build", target_path=Path("/p"), session_id="ses_2")
+
+        mock_get_price.assert_awaited_once_with(model="deepseek/deepseek-v4-flash")
+        kwargs = mock_record_invocation.await_args.kwargs
+        assert kwargs["cost"] == pytest.approx(0.42)
+        assert kwargs["price"] == {"input": 0.3, "output": 1.2, "cache_read": 0.006, "cache_write": 0.0}
 
     @pytest.mark.asyncio
     async def test_forwards_invocation_watermark_and_tool_usage(

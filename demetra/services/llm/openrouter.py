@@ -20,6 +20,7 @@ from demetra.services.llm.factory import build_llm, resolve_llm_model
 from demetra.services.llm.parser import NumberedListOutputParser
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.persistence.database import record_llm_call
+from demetra.services.pricing import calculate_cost, get_price, price_to_dict
 from demetra.services.runtime.utils import non_negative_int
 
 
@@ -127,11 +128,16 @@ async def _record_llm_call(
         return
 
     try:
+        model = resolve_llm_model(environment)
+        usage = _extract_usage(message) if message is not None else None
+        price = await get_price(model=model, default_provider="openrouter")
         await record_llm_call(
             task_id=task_id,
             step=step,
-            model=resolve_llm_model(environment),
-            usage=_extract_usage(message) if message is not None else None,
+            model=model,
+            usage=usage,
+            cost=calculate_cost(usage=usage, price=price) if usage is not None and price is not None else None,
+            price=price_to_dict(price) if price is not None else None,
             message=error,
         )
     except (EnvironmentConfigError, OSError, RuntimeError, SQLAlchemyError):
