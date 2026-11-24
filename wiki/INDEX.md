@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — Implementation of MNT-320: Build forks an empty session id — "--fork requires --continue or --session" (2026-11-24)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — `mantiby/demetra:latest` shrank from 1.01 GB to 708 MB by replacing a `chown -R` (which stored the venv and Rust toolchain twice) with `COPY --chown`, installing a slimmer C toolchain and using `vim-tiny`. Rust, C and bun stay for target-project builds. `make docker-test` installs dev dependencies into a throwaway container and runs the suite: 1556 passed. (2026-11-23)
 - [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — Implementation of CH-14: LangSmithError (2026-11-18)
 - [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md) — The `Failed to send compressed multipart ingest: langsmith.utils.LangSmithError` flood was a 403 on `/runs/multipart`: compose forced `LANGSMITH_TRACING=true` and the forwarded `lsv2_pt_` key is unauthorized. LangSmith is now one platform-wide config — opt-in tracing gated on a configured key, `system_env` reads only `settings.py` so all users/projects share the single `Demetra` project; key rotation is an ops follow-up. (2026-11-17)
@@ -187,6 +188,7 @@ _Newest first._
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
 - [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — 2026-11-18
+- [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — 2026-11-24
 
 ### Deploy & infrastructure (10 pages)
 

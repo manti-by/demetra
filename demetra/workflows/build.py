@@ -127,7 +127,7 @@ async def run_build_step(build_plan: str, context: Context) -> None:
         await update_session_step(task_id=context.task.id, step="build")
         await record_session_step(task_id=context.task.id, step="build", repeat=True)
 
-        fork = is_first_build and context.session_id is not None
+        fork = is_first_build and bool(context.session_id)
         invoked_at = int(time.time() * 1000)
         exit_code, stdout, stderr = await opencode_build_agent(
             target_path=context.worktree_path,

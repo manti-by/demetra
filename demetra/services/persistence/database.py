@@ -762,7 +762,7 @@ async def upsert_pending_session(
 
     Args:
         task_id: The task identifier.
-        session_id: The opencode session id, or None while still pending.
+        session_id: The opencode session id; a falsy id is stored as NULL.
         project_id: Optional project id the session belongs to.
         user_id: Optional user id the session belongs to.
         name: Optional display name for the session.
@@ -806,7 +806,7 @@ async def upsert_pending_session(
             {
                 "task_id": task_id,
                 "name": name if name else "",
-                "session_id": session_id if session_id is not None else "",
+                "session_id": session_id or None,
                 "build_plan": "",
                 "posted_to_linear": False,
                 "step": "initial",
@@ -1160,7 +1160,7 @@ async def save_session(
         task_id: The task identifier.
         build_plan: The build plan markdown to store.
         name: Optional display name for the session.
-        session_id: Optional opencode session id.
+        session_id: Optional opencode session id; an empty id is stored as NULL.
         linear_link: Optional link to the Linear issue.
         kind: The task kind, ``"linear"`` or ``"chat"``.
 
@@ -1196,7 +1196,7 @@ async def save_session(
             {
                 "task_id": task_id,
                 "name": name if name else "",
-                "session_id": session_id if session_id else "",
+                "session_id": session_id or None,
                 "build_plan": build_plan,
                 "posted_to_linear": False,
                 "step": "plan",

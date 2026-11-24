@@ -1437,6 +1437,65 @@ class TestWorkflowBuild:
         assert isinstance(mock_capture.call_args.kwargs["invoked_at"], int)
 
     @pytest.mark.asyncio
+    async def test_run_build_step_starts_fresh_when_stored_session_id_is_empty(
+        self,
+        faker,
+        mock_build_agent,
+        mock_run_review_agents,
+        mock_run_validate_agent,
+        mock_run_lint_and_test,
+        mock_user_input,
+        mock_bump_version,
+    ):
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="TASK-1",
+                session_id="",
+                build_plan="plan",
+                posted_to_linear=False,
+                step="build",
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+        mock_build_agent.return_value = (0, "", "")
+        mock_run_validate_agent.return_value = None
+        mock_run_review_agents.return_value = None
+        mock_run_lint_and_test.return_value = (False, None)
+        mock_user_input.return_value = ("1", None)
+
+        await run_build_step("test build plan", context)
+
+        assert mock_build_agent.await_count == 1
+        call_kwargs = mock_build_agent.await_args.kwargs
+        assert call_kwargs["session_id"] is None
+        assert call_kwargs["fork"] is False
+
+    @pytest.mark.asyncio
     async def test_run_build_step_feeds_missing_items_back_to_build_agent(
         self,
         faker,

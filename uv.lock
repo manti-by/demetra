@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.14.10, <3.15.0"
 
 [[package]]
@@ -549,7 +549,7 @@ wheels = [
 
 [[package]]
 name = "demetra"
-version = "1.20.4"
+version = "1.20.5"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },

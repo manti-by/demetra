@@ -4,10 +4,12 @@ from typing import get_args
 from faker import Faker
 
 from demetra.library.models import (
+    Context,
     Environment,
     LinearTask,
     Message,
     Project,
+    Session,
     SessionHistory,
     StepType,
     is_sensitive_key,
@@ -212,6 +214,64 @@ class TestProjectEnvironment:
 
         assert env1 is env2
         assert env1 == {"KEY": "value1"}
+
+
+class TestContextSessionId:
+    def _context(self, session: Session | None) -> Context:
+        return Context(
+            project=Project(
+                id="project-1",
+                user_id="user-1",
+                linear_project_id="linear-project-1",
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path("/tmp/demetra"),
+                created_at="2026-01-01T00:00:00Z",
+                updated_at="2026-01-01T00:00:00Z",
+            ),
+            auto_mode=False,
+            task=LinearTask(
+                id="task-1",
+                identifier="MNT-123",
+                title="Test task",
+                description="description",
+                priority=1,
+                created_at="2026-01-01T00:00:00Z",
+            ),
+            branch_name="feature/test",
+            worktree_path=Path("/tmp/worktree"),
+            session=session,
+        )
+
+    def test_empty_session_id_is_treated_as_absent(self):
+        session = Session(
+            task_id="task-1",
+            session_id="",
+            build_plan="plan",
+            posted_to_linear=False,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+
+        assert self._context(session).session_id is None
+
+    def test_non_empty_session_id_is_returned(self):
+        session = Session(
+            task_id="task-1",
+            session_id="ses_abc123",
+            build_plan="plan",
+            posted_to_linear=False,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+        )
+
+        assert self._context(session).session_id == "ses_abc123"
+
+    def test_missing_session_is_absent(self):
+        assert self._context(None).session_id is None
 
 
 class TestStepType:

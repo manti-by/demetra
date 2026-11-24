@@ -710,7 +710,8 @@ async def run_opencode_agent(
         task: The task prompt for the agent.
         model: The model to use.
         agent: The agent name, e.g. ``"plan-agent"``.
-        session_id: Optional session id to continue.
+        session_id: Optional session id to continue; an empty id is treated
+            as absent, so no ``--session`` or ``--fork`` is passed.
         task_title: Optional session title.
         disable_stdio: Whether to suppress live subprocess output.
         project_id: Optional project id used for OS env opt-in tokens.
@@ -731,6 +732,7 @@ async def run_opencode_agent(
     Raises:
         AgentNetworkError: When the retry budget is exhausted by network errors.
     """
+    session_id = session_id or None
     attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
     resumed_session_id: str | None = None
     standalone = await opencode_supports_standalone(target_path=target_path, environment=environment)
@@ -740,7 +742,7 @@ async def run_opencode_agent(
         if standalone:
             command.append("--standalone")
         command.extend(["--model", model, "--agent", agent])
-        if continued_session_id is not None:
+        if continued_session_id:
             command.extend(["--session", continued_session_id])
             if fork and attempt == 0:
                 command.append("--fork")
@@ -801,13 +803,26 @@ async def get_opencode_sessions(
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
-        list[dict[str, str]]: The parsed session list.
+        list[dict[str, str]]: The parsed session list, or an empty list when
+            the CLI output is empty, malformed or not a list.
     """
     command = [str(OPENCODE["path"]), "session", "list", "--format", "json"]
-    _, result, _ = await run_command(
+    exit_code, result, stderr = await run_command(
         command=command, target_path=target_path, disable_stdio=True, environment=environment
     )
-    return json.loads(result)
+    try:
+        sessions = json.loads(result)
+    except (json.JSONDecodeError, ValueError):
+        logger.error(
+            "opencode session list returned malformed JSON (exit %s): %s",
+            exit_code,
+            format_agent_error(exit_code=exit_code, stdout=result, stderr=stderr),
+        )
+        return []
+    if not isinstance(sessions, list):
+        logger.error("opencode session list returned an unusable shape (exit %s)", exit_code)
+        return []
+    return sessions
 
 
 async def get_opencode_session_id(
@@ -911,7 +926,7 @@ async def capture_agent_session(
 
     try:
         resolved = session_id
-        if resolved is None or forked:
+        if not resolved or forked:
             if not task_title:
                 return None
             resolved = await get_opencode_session_id(

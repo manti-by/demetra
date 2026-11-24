@@ -26,6 +26,7 @@ from demetra.services.persistence.database import (
     record_session_step,
     reset_review_attempts,
     reset_run_attempts,
+    save_session,
     update_session_is_research,
     update_session_step,
     upsert_pending_session,
@@ -1035,3 +1036,40 @@ class TestUpdateSessionIsResearch:
 
         assert session.is_research is True
         assert session.step == "initial"
+
+
+class TestSessionIdNormalization:
+    async def _fetch_raw_session_id(self, task_id: str) -> str | None:
+        async with get_connection() as connection:
+            result = await connection.execute(
+                text("SELECT session_id FROM sessions WHERE task_id = :task_id"), {"task_id": task_id}
+            )
+            return result.scalar_one()
+
+    @pytest.mark.asyncio
+    async def test_upsert_pending_session_stores_null_for_empty_id(self):
+        task_id = _unique_task_id()
+
+        session = await upsert_pending_session(task_id=task_id, session_id="")
+
+        assert session.session_id is None
+        assert await self._fetch_raw_session_id(task_id) is None
+
+    @pytest.mark.asyncio
+    async def test_save_session_stores_null_for_empty_id(self):
+        task_id = _unique_task_id()
+
+        session = await save_session(task_id=task_id, build_plan="plan", session_id="")
+
+        assert session.session_id is None
+        assert await self._fetch_raw_session_id(task_id) is None
+
+    @pytest.mark.asyncio
+    async def test_real_session_id_still_round_trips(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+
+        session = await save_session(task_id=task_id, build_plan="plan", session_id=session_id)
+
+        assert session.session_id == session_id
+        assert await self._fetch_raw_session_id(task_id) == session_id
