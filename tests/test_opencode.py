@@ -14,6 +14,7 @@ from demetra.services.agents.opencode import (
     get_opencode_session_id,
     get_opencode_session_length,
     get_opencode_session_tokens,
+    get_opencode_sessions,
     is_network_error,
     opencode_build_agent,
     opencode_compact_session,
@@ -1495,3 +1496,56 @@ class TestOpencodeResearchAgent:
     @pytest.mark.asyncio
     async def test_extract_research_report_keeps_output_without_header(self):
         assert await extract_research_report(research_output="raw output") == "raw output"
+
+
+class TestEmptySessionId:
+    @pytest.fixture
+    def mock_run_command_and_opencode_config(self):
+        with (
+            patch("demetra.services.agents.opencode.run_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.agents.opencode.OPENCODE", {"path": Path("/bin/opencode"), "model": "m"}),
+        ):
+            yield mock_run
+
+    @pytest.mark.asyncio
+    async def test_empty_session_id_omits_session_and_fork(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
+
+        await run_opencode_agent(
+            Path("/test"),
+            "task",
+            model="m",
+            agent="build-agent",
+            session_id="",
+            task_title="Title",
+            fork=True,
+        )
+
+        command = mock_run_command_and_opencode_config.await_args.kwargs["command"]
+        assert "--session" not in command
+        assert "--fork" not in command
+        assert "--title" in command
+
+    @pytest.mark.asyncio
+    async def test_empty_session_id_omits_session_without_fork(self, mock_run_command_and_opencode_config):
+        mock_run_command_and_opencode_config.return_value = (0, "output", "")
+
+        await run_opencode_agent(Path("/test"), "task", model="m", agent="plan", session_id="")
+
+        command = mock_run_command_and_opencode_config.await_args.kwargs["command"]
+        assert "--session" not in command
+        assert "" not in command
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("stdout", ["", "not json", '{"id": "ses_1"}'])
+    async def test_get_opencode_sessions_tolerates_bad_output(self, mock_run_command_and_opencode_config, stdout):
+        mock_run_command_and_opencode_config.return_value = (0, stdout, "")
+
+        assert await get_opencode_sessions(Path("/test")) == []
+
+    @pytest.mark.asyncio
+    async def test_get_opencode_sessions_parses_valid_output(self, mock_run_command_and_opencode_config):
+        sessions = [{"id": "ses_1", "title": "Title", "updated": 1, "directory": "/test"}]
+        mock_run_command_and_opencode_config.return_value = (0, json.dumps(sessions), "")
+
+        assert await get_opencode_sessions(Path("/test")) == sessions

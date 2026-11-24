@@ -864,11 +864,16 @@ class Context:
     def session_id(self) -> str | None:
         """Return the linked session id when a session is present.
 
+        An empty stored id is treated as absent, so a session that was saved
+        without a successful attribution never looks like a resumable session.
+
         Returns:
             str | None: The session id, or None when the context has no
-                session.
+                session or the stored id is empty.
         """
-        return self.session.session_id if self.session is not None else None
+        if self.session is None:
+            return None
+        return self.session.session_id or None
 
     @property
     def build_plan(self) -> str | None:

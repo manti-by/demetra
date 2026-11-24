@@ -2,6 +2,9 @@ import sqlalchemy as sa
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
 
+from migrations.versions.b0c1d2e3f4a5_normalize_empty_session_ids import (
+    upgrade as normalize_session_ids,
+)
 from migrations.versions.e5f6a7b8c9d0_seed_linear_defaults_into_user_environment import (
     _linear_default_rows,
     downgrade,
@@ -67,3 +70,31 @@ def test_downgrade_removes_every_seeded_key():
         ).fetchall()
 
     assert remaining == []
+
+
+class TestNormalizeEmptySessionIds:
+    @staticmethod
+    def _seed_sessions(connection) -> None:
+        connection.execute(sa.text("CREATE TABLE sessions (task_id TEXT PRIMARY KEY, session_id TEXT)"))
+        connection.execute(
+            sa.text(
+                "INSERT INTO sessions (task_id, session_id) VALUES ('empty', ''), ('real', 'ses_1'), ('null', NULL)"
+            )
+        )
+
+    def test_upgrade_normalizes_only_empty_session_ids(self):
+        engine = sa.create_engine("sqlite://")
+        with engine.begin() as connection:
+            self._seed_sessions(connection)
+
+            ctx = MigrationContext.configure(connection)
+            with Operations.context(ctx):
+                normalize_session_ids()
+
+            rows = connection.execute(sa.text("SELECT task_id, session_id FROM sessions ORDER BY task_id")).fetchall()
+
+        assert [(row.task_id, row.session_id) for row in rows] == [
+            ("empty", None),
+            ("null", None),
+            ("real", "ses_1"),
+        ]

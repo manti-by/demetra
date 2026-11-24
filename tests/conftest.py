@@ -52,6 +52,8 @@ def _select_test_db_host() -> None:
     every test during fixture setup.
     """
     if os.environ.get("DB_HOST"):
+        if os.environ["DB_HOST"] == "postgres" and not DATABASE["password"]:
+            DATABASE["password"] = "demetra"
         return
     try:
         port = int(os.environ.get("DB_PORT", "5432"))
