@@ -130,7 +130,8 @@ async def _record_llm_call(
     try:
         model = resolve_llm_model(environment)
         usage = _extract_usage(message) if message is not None else None
-        price = await get_price(model=model, default_provider="openrouter")
+        lookup_model = model if model.lower().startswith("openrouter/") else f"openrouter/{model}"
+        price = await get_price(model=lookup_model)
         await record_llm_call(
             task_id=task_id,
             step=step,

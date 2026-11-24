@@ -263,6 +263,20 @@ describe('SessionHistory', () => {
     expect(screen.getByText('in $0.30 · out $1.20')).toBeInTheDocument();
   });
 
+  it('preserves small nonzero rates instead of rounding them to zero', async () => {
+    const entry = {
+      ...mockEntries[0],
+      price: { input: 0.004, output: 0.000012 },
+    };
+
+    render(
+      <SessionHistory entries={[entry]} total={mockTotal} toolUsage={mockToolUsage} isOpen={true} onClose={vi.fn()} isLoading={false} error={null} />
+    );
+    await expandAll();
+
+    expect(screen.getByText('in $0.004 · out $0.000012')).toBeInTheDocument();
+  });
+
   it('renders failure reason context for a failed step entry', async () => {
     const failedEntry: SessionHistoryEntry = {
       ...mockEntries[2],

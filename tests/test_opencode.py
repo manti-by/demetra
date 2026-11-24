@@ -1207,6 +1207,7 @@ class TestCaptureAgentSession:
             model="provider/model",
             cost=0.5,
             price=None,
+            rate_card=None,
             outcome="completed",
             fork_of=None,
             is_primary=False,
@@ -1231,7 +1232,8 @@ class TestCaptureAgentSession:
 
         mock_get_price.assert_awaited_once_with(model="deepseek/deepseek-v4-flash")
         kwargs = mock_record_invocation.await_args.kwargs
-        assert kwargs["cost"] == pytest.approx(0.42)
+        assert kwargs["cost"] is None
+        assert kwargs["rate_card"] == price
         assert kwargs["price"] == {"input": 0.3, "output": 1.2, "cache_read": 0.006, "cache_write": 0.0}
 
     @pytest.mark.asyncio

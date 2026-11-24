@@ -100,7 +100,8 @@ def resolve_provider(model: str, *, default_provider: Provider | None = None) ->
 
 
 def _model_id(model: str) -> str:
-    """Strip a known provider prefix, leaving the vendor's model id."""
+    """Strip an OpenCode variant suffix and a known provider prefix, leaving the vendor's model id."""
+    model = model.split("#", 1)[0]
     if "/" not in model:
         return model
     prefix, rest = model.split("/", 1)

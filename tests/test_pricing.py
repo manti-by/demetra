@@ -31,6 +31,16 @@ class TestResolveProvider:
         assert pricing.resolve_provider(model="deepseek/deepseek-flash", default_provider="openrouter") == "deepseek"
 
 
+class TestModelId:
+    def test_variant_suffix_is_stripped_before_the_prefix(self):
+        assert pricing._model_id("deepseek/deepseek-v4-pro#high") == "deepseek-v4-pro"
+        assert pricing._model_id("openrouter/deepseek/deepseek-chat#low") == "deepseek/deepseek-chat"
+
+    def test_identifiers_without_a_suffix_are_unchanged(self):
+        assert pricing._model_id("deepseek/deepseek-v4-pro") == "deepseek-v4-pro"
+        assert pricing._model_id("plain-model") == "plain-model"
+
+
 class TestCalculateCost:
     def test_each_counter_is_billed_at_its_own_rate(self):
         usage = TokenUsage(input=1_000_000, output=500_000, reasoning=200_000, cache_read=300_000, cache_write=100_000)
@@ -100,6 +110,19 @@ class TestGetPrice:
 
     async def test_unknown_static_model_has_no_rate(self):
         assert await pricing.get_price(model="minimax/unknown-model") is None
+
+    async def test_variant_suffix_still_resolves_a_static_rate(self):
+        price = await pricing.get_price(model="deepseek/deepseek-v4-pro#high")
+
+        assert price is not None
+        assert price.input == 1.32
+
+    async def test_qualified_openrouter_lookup_keeps_the_author_prefix(self):
+        rates = {"deepseek/deepseek-v4.1-flash-1017": ModelPrice(provider="openrouter", source="test", input=0.3)}
+        with patch.object(pricing, "_fetch_openrouter_prices", new_callable=AsyncMock, return_value=rates):
+            price = await pricing.get_price(model="openrouter/deepseek/deepseek-v4.1-flash-1017")
+
+        assert price == rates["deepseek/deepseek-v4.1-flash-1017"]
 
 
 class TestFetchOpenrouterPrices:

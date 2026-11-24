@@ -19,6 +19,7 @@ from demetra.library.models import (
     LinearTask,
     Message,
     MessageSource,
+    ModelPrice,
     Session,
     SessionHistory,
     SessionState,
@@ -47,6 +48,7 @@ from demetra.library.tables import (
     waitlist_entries,
 )
 from demetra.library.types import FeedbackLoops
+from demetra.services.pricing import calculate_cost
 from demetra.settings import DATABASE
 
 
@@ -1743,6 +1745,7 @@ async def record_agent_invocation(
     model: str | None = None,
     cost: float | None = None,
     price: dict[str, float] | None = None,
+    rate_card: ModelPrice | None = None,
     outcome: str | None = None,
     fork_of: str | None = None,
     is_primary: bool = False,
@@ -1774,10 +1777,13 @@ async def record_agent_invocation(
         usage: The cumulative token usage from the export, or None.
         agent: The agent reported by ``info.agent``.
         model: The serialized model reported by ``info.model``.
-        cost: The cumulative session cost reported by ``info.cost`` or derived
-            from a published rate card; only its delta is stored.
-        price: The per-million-token rates used to derive ``cost`` for a vendor
-            without its own reported cost, or None when OpenCode supplied it.
+        cost: The cumulative session cost reported by ``info.cost``; its delta
+            is stored only when no ``rate_card`` is supplied. The value always
+            advances the cost cursor on the vendor-reported basis.
+        price: The per-million-token rates persisted on the history row, or
+            None when no published rate was found.
+        rate_card: The rate card used to price this invocation's token delta at
+            the current rate, or None to fall back to the reported cost delta.
         outcome: The session outcome reported by ``info.outcome``.
         fork_of: The parent session id when this session was forked, for
             lineage only — it never feeds the delta.
@@ -1849,9 +1855,21 @@ async def record_agent_invocation(
                 "cursor_cost": None,
             }
             if cost is not None:
-                previous_cost = cursor.cursor_cost if cursor is not None else None
-                delta_cost = max(0.0, cost - (previous_cost or 0.0))
                 new_cursor["cursor_cost"] = cost
+                if rate_card is None:
+                    previous_cost = cursor.cursor_cost if cursor is not None else None
+                    delta_cost = max(0.0, cost - (previous_cost or 0.0))
+            if rate_card is not None:
+                delta_cost = calculate_cost(
+                    usage=TokenUsage(
+                        input=delta["input_tokens"] or 0,
+                        output=delta["output_tokens"] or 0,
+                        reasoning=delta["reasoning_tokens"] or 0,
+                        cache_read=delta["cache_read_tokens"] or 0,
+                        cache_write=delta["cache_write_tokens"] or 0,
+                    ),
+                    price=rate_card,
+                )
 
         is_new = agent_session_id is None
         if agent_session_id is None:

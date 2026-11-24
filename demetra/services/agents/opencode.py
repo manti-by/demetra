@@ -10,7 +10,7 @@ from demetra.library.exceptions import AgentNetworkError, OpenCodeCLIError
 from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.persistence.database import record_agent_invocation
-from demetra.services.pricing import calculate_cost, get_price, price_to_dict, resolve_provider
+from demetra.services.pricing import get_price, price_to_dict, resolve_provider
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import non_negative_int
@@ -949,8 +949,6 @@ async def capture_agent_session(
             provider = resolve_provider(model=model)
             if provider is not None and provider != "opencode":
                 price = await get_price(model=model)
-                if price is not None:
-                    cost = calculate_cost(usage=export.tokens, price=price)
         history = await record_agent_invocation(
             task_id=task_id,
             step=step,
@@ -960,6 +958,7 @@ async def capture_agent_session(
             model=model,
             cost=cost,
             price=price_to_dict(price) if price is not None else None,
+            rate_card=price,
             outcome=export.outcome if export is not None else None,
             fork_of=session_id if forked else None,
             is_primary=is_primary,

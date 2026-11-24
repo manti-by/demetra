@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from sqlalchemy import text
 
-from demetra.library.models import TokenUsage, ToolUsage
+from demetra.library.models import ModelPrice, TokenUsage, ToolUsage
 from demetra.services.persistence.database import (
     _get_feedback_loops,
     create_session,
@@ -505,6 +505,110 @@ class TestRecordAgentInvocation:
         history = await get_session_history(task_id=task_id)
         assert [row.cost for row in history] == [pytest.approx(0.25), pytest.approx(0.15)]
         assert [row.price for row in history] == [price, price]
+
+    @pytest.mark.asyncio
+    async def test_priced_delta_is_calculated_at_the_current_rate(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        cheap = ModelPrice(provider="deepseek", source="test", input=1.0, output=1.0)
+        expensive = ModelPrice(provider="deepseek", source="test", input=2.0, output=2.0)
+
+        first = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=1_000_000),
+            cost=1.0,
+            rate_card=cheap,
+        )
+        second = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=2_000_000),
+            cost=4.0,
+            rate_card=expensive,
+        )
+
+        assert first.cost == pytest.approx(1.0)
+        assert second.cost == pytest.approx(2.0)
+        history = await get_session_history(task_id=task_id)
+        assert [row.cost for row in history] == [pytest.approx(1.0), pytest.approx(2.0)]
+
+    @pytest.mark.asyncio
+    async def test_rate_decrease_still_charges_the_added_tokens(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        expensive = ModelPrice(provider="deepseek", source="test", input=2.0, output=2.0)
+        cheap = ModelPrice(provider="deepseek", source="test", input=1.0, output=1.0)
+
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=1_000_000),
+            cost=2.0,
+            rate_card=expensive,
+        )
+        second = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=2_000_000),
+            cost=2.0,
+            rate_card=cheap,
+        )
+
+        assert second.cost == pytest.approx(1.0)
+
+    @pytest.mark.asyncio
+    async def test_vendor_cursor_is_not_subtracted_from_a_later_priced_total(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        price = ModelPrice(provider="deepseek", source="test", input=2.0, output=2.0)
+
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=1_000_000),
+            cost=1.0,
+        )
+        priced = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=2_000_000),
+            cost=2.5,
+            rate_card=price,
+        )
+
+        assert priced.cost == pytest.approx(2.0)
+        assert (await _fetch_agent_sessions(task_id))[session_id]["cursor_cost"] == 2.5
+
+    @pytest.mark.asyncio
+    async def test_vendor_cursor_keeps_one_basis_when_a_price_lookup_fails(self):
+        task_id = _unique_task_id()
+        session_id = _unique_session_id()
+        priced = ModelPrice(provider="deepseek", source="test", input=1.0, output=1.0)
+
+        await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=1_000_000),
+            cost=1.0,
+            rate_card=priced,
+        )
+        unpriced = await record_agent_invocation(
+            task_id=task_id,
+            step="build",
+            session_id=session_id,
+            usage=TokenUsage(input=2_000_000),
+            cost=2.5,
+        )
+
+        assert unpriced.cost == pytest.approx(1.5)
 
     @pytest.mark.asyncio
     async def test_primary_records_session_pointer_and_clears_previous(self):

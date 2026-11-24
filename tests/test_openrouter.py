@@ -937,6 +937,38 @@ class TestRecordLLMCall:
         assert kwargs["price"] == {"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.3}
 
     @pytest.mark.asyncio
+    async def test_direct_calls_are_looked_up_as_openrouter_models(self):
+        with (
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock),
+            patch(
+                "demetra.services.llm.openrouter.resolve_llm_model",
+                return_value="deepseek/deepseek-v4.1-flash-1017",
+            ),
+            patch(
+                "demetra.services.llm.openrouter.get_price", new_callable=AsyncMock, return_value=None
+            ) as mock_get_price,
+        ):
+            await _record_llm_call(task_id="TASK-1", step="summarize_review")
+
+        mock_get_price.assert_awaited_once_with(model="openrouter/deepseek/deepseek-v4.1-flash-1017")
+
+    @pytest.mark.asyncio
+    async def test_existing_openrouter_prefix_is_not_doubled(self):
+        with (
+            patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock),
+            patch(
+                "demetra.services.llm.openrouter.resolve_llm_model",
+                return_value="openrouter/deepseek/deepseek-chat",
+            ),
+            patch(
+                "demetra.services.llm.openrouter.get_price", new_callable=AsyncMock, return_value=None
+            ) as mock_get_price,
+        ):
+            await _record_llm_call(task_id="TASK-1", step="summarize_review")
+
+        mock_get_price.assert_awaited_once_with(model="openrouter/deepseek/deepseek-chat")
+
+    @pytest.mark.asyncio
     async def test_records_the_failure_reason_without_usage(self):
         with (
             patch("demetra.services.llm.openrouter.record_llm_call", new_callable=AsyncMock) as mock_record,

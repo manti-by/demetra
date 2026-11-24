@@ -51,6 +51,11 @@ function formatDuration(ms: number): string {
   return `${seconds}s`;
 }
 
+function formatRate(rate: number): string {
+  const trimmed = rate.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
+  return (trimmed.split(".")[1]?.length ?? 0) < 2 ? Number(trimmed).toFixed(2) : trimmed;
+}
+
 interface HistoryDisplayItem {
   /** The row carrying the tokens when merged, otherwise the row itself. */
   entry: SessionHistoryEntry;
@@ -274,7 +279,7 @@ function SessionHistoryCard({ item }: SessionHistoryCardProps) {
             <div>
               <dt>Price / 1M</dt>
               <dd>
-                in ${entry.price.input.toFixed(2)} · out ${entry.price.output.toFixed(2)}
+                in ${formatRate(entry.price.input)} · out ${formatRate(entry.price.output)}
               </dd>
             </div>
           )}
