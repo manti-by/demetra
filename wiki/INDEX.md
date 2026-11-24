@@ -114,7 +114,7 @@ _Newest first._
 - [Session history tokens always NULL — pipe truncation in opencode export](pages/2026-07-16-session-history-tokens-null.md) — Two causes for NULL `session_history` tokens: the local DB was missing migration `a2b3c4d5e6f7` (every INSERT failed silently), and on odin prod the migration was applied but all 38 rows still had NUL... (2026-07-16)
 ## By topic
 
-### Workflow orchestration & agents (19 pages)
+### Workflow orchestration & agents (20 pages)
 
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md)
@@ -123,6 +123,7 @@ _Newest first._
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md)
 - [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
 - [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)
+- [CH-15: Worktree management — one cleanup policy for chat and Linear sessions](pages/2026-11-19-ch-15-worktree-management.md)
 - [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md)
 - [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 - [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md)

@@ -14,7 +14,7 @@ from demetra.services.runtime.tui import print_message
 from demetra.services.vcs.git import git_add_all, git_cleanup, git_commit, git_push
 from demetra.services.vcs.github import create_pull_request, extract_pr_link
 from demetra.services.wiki import write_session_wiki_page
-from demetra.settings import GIT
+from demetra.settings import FEATURES
 
 
 PR_BODY_FENCE_LANGUAGES = ("", "markdown", "md")
@@ -190,13 +190,13 @@ async def cleanup_workflow(
 
     On failure the session step is advanced and a ``kind='step'`` history row is
     recorded under ``failure_step``, carrying ``failure_message`` as the reason
-    context shown in session history. Chat sessions keep their worktree and
-    branch, and the ``GIT_DISABLE_WORKTREE_REMOVAL`` flag keeps them for every
-    session, so a rerun continues the same code; otherwise the worktree is
-    removed. When requested, the Linear ticket is moved according to the
-    outcome. Removing the worktree invalidates any primary agent session marker
-    (history still resolves by ``task_id``, so nothing is hidden); a preserved
-    worktree keeps its marker, because the session is still resolvable.
+    context shown in session history. The worktree and branch are kept by
+    default so a rerun continues the same code; with ``WORKTREE_CLEANUP``
+    enabled the worktree is removed instead. When requested, the Linear ticket
+    is moved according to the outcome. Removing the worktree invalidates any
+    primary agent session marker (history still resolves by ``task_id``, so
+    nothing is hidden); a preserved worktree keeps its marker, because the
+    session is still resolvable.
 
     Chat-mode terminal steps are published only after the worktree cleanup, so a
     resume request can never start a new run while the previous one is still
@@ -216,7 +216,7 @@ async def cleanup_workflow(
         await update_session_step(task_id=context.task.id, step=failure_step)
         await record_session_step(task_id=context.task.id, step=failure_step, message=failure_message)
 
-    remove_worktree = not (context.is_chat or GIT["disable_worktree_removal"])
+    remove_worktree = FEATURES["is_worktree_cleanup_enabled"]
     worktree_cleaned = False
     cleanup_succeeded = False
     try:

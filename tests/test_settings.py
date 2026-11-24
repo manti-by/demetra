@@ -110,8 +110,8 @@ class TestSettings:
     def test_git_worktree_path_default(self):
         assert ".demetra/worktrees" in str(settings.GIT["worktree_path"])
 
-    def test_git_disable_worktree_removal_defaults_false(self, monkeypatch):
-        monkeypatch.delenv("GIT_DISABLE_WORKTREE_REMOVAL", raising=False)
+    def test_worktree_cleanup_defaults_false(self, monkeypatch):
+        monkeypatch.delenv("WORKTREE_CLEANUP", raising=False)
 
         import importlib
 
@@ -120,12 +120,12 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.GIT["disable_worktree_removal"] is False
+            assert settings_module.FEATURES["is_worktree_cleanup_enabled"] is False
         finally:
             importlib.reload(settings_module)
 
-    def test_git_disable_worktree_removal_env_override(self, monkeypatch):
-        monkeypatch.setenv("GIT_DISABLE_WORKTREE_REMOVAL", "true")
+    def test_worktree_cleanup_env_override(self, monkeypatch):
+        monkeypatch.setenv("WORKTREE_CLEANUP", "true")
 
         import importlib
 
@@ -134,9 +134,9 @@ class TestSettings:
         importlib.reload(settings_module)
 
         try:
-            assert settings_module.GIT["disable_worktree_removal"] is True
+            assert settings_module.FEATURES["is_worktree_cleanup_enabled"] is True
         finally:
-            monkeypatch.delenv("GIT_DISABLE_WORKTREE_REMOVAL", raising=False)
+            monkeypatch.delenv("WORKTREE_CLEANUP", raising=False)
             importlib.reload(settings_module)
 
     def test_settings_can_be_overridden_via_env(self, monkeypatch):

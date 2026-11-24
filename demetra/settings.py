@@ -67,6 +67,7 @@ AGENT_NETWORK_BACKOFF_BASE = env_get_float("AGENT_NETWORK_BACKOFF_BASE", 1.0)
 FEATURES: dict = {
     "is_ruff_enabled": env_get_bool("IS_RUFF_ENABLED", False),
     "is_pytest_enabled": env_get_bool("IS_PYTEST_ENABLED", False),
+    "is_worktree_cleanup_enabled": env_get_bool("WORKTREE_CLEANUP", False),
 }
 
 SEARCH: dict = {
@@ -195,7 +196,6 @@ UV: PathConfig = {
 GIT: GitConfig = {
     "path": env_get_path("GIT_PATH", Path("/usr/bin/git")),
     "worktree_path": env_get_path("GIT_WORKTREE_PATH", HOME_PATH / ".demetra/worktrees/"),
-    "disable_worktree_removal": env_get_bool("GIT_DISABLE_WORKTREE_REMOVAL", False),
 }
 
 GITHUB: GitHubConfig = {
