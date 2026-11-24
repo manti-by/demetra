@@ -8,7 +8,9 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md) — Implementation of CH-15: Worktree management (2026-11-23)
+- [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — `mantiby/demetra:latest` shrank from 1.01 GB to 708 MB by replacing a `chown -R` (which stored the venv and Rust toolchain twice) with `COPY --chown`, installing a slimmer C toolchain and using `vim-tiny`. Rust, C and bun stay for target-project builds. `make docker-test` installs dev dependencies into a throwaway container and runs the suite: 1556 passed. (2026-11-23)
+- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — Implementation of CH-14: LangSmithError (2026-11-18)
+- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md) — The `Failed to send compressed multipart ingest: langsmith.utils.LangSmithError` flood was a 403 on `/runs/multipart`: compose forced `LANGSMITH_TRACING=true` and the forwarded `lsv2_pt_` key is unauthorized. LangSmith is now one platform-wide config — opt-in tracing gated on a configured key, `system_env` reads only `settings.py` so all users/projects share the single `Demetra` project; key rotation is an ops follow-up. (2026-11-17)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — Every session-history block is a collapsible card, collapsed by default: name on the left, cost and time on the right, body as usual when open with the cost dropped from the header. `make deploy-ui` ships a frontend change by rebuilding only the React bundle through the one-shot `react-build` compose service and reloading nginx — no image rebuild, no migrations, no container restarts — under the same Redis deploy lock the daemon takes. (2026-11-15)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — The sidebar list now has three labelled blocks: Active (in progress, including `awaiting_input`, updated within 14 days or running live), Completed (`completed`/`researched`, any age) and Backlog (`failed` or stale in-progress); Active always renders with a `No active sessions` message, the other two only when non-empty. (2026-11-15)
 - [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — The Linear MCP server authenticates with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`; the key resolves project → user → system, the Demetra MCP command drops its cwd-relative `--env-file`, `DB_*` (except the encrypted `DB_PASSWORD`) are forwarded through `system_env`, the MCP server exits fast without a password, and the host credential file is derived into a provider-only global config. (2026-11-15)
@@ -184,7 +186,7 @@ _Newest first._
 - [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
 - [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
-- [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md) — 2026-11-23
+- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — 2026-11-18
 
 ### Deploy & infrastructure (10 pages)
 
@@ -216,8 +218,9 @@ _Newest first._
 - [Allowlist CodeRabbit Review Fixes and CI Test Fix](pages/2026-08-06-allowlist-review-fixes.md)
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md)
 
-### Environment, settings & subprocess (5 pages)
+### Environment, settings & subprocess (6 pages)
 
+- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md)
 - [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md)
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md)

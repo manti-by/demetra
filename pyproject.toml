@@ -1,9 +1,9 @@
 [project]
 name = "demetra"
-version = "1.20.3"
+version = "1.20.4"
 readme = "README.md"
 description = "Autonomous coding platform"
-requires-python = ">=3.13.9,<3.14.0"
+requires-python = ">=3.14.10,<3.15.0"
 license = "AGPL-3.0"
 license-files = ["LICENSE"]
 authors = [{ name = "Alexander Chaika", email = "manti.by@gmail.com" }]
@@ -40,14 +40,13 @@ dependencies = [
 dev = [
     "bandit>=1.9.4",
     "debugpy>=1.8.22",
-    "faker>=40.54.0",
-    "ipython>=9.18.1",
+    "faker>=40.63.0",
+    "ipython>=9.19.1",
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
     "pytest-cov>=7.1.0",
-    "ty>=0.0.104",
+    "ty>=0.0.108",
     "pre-commit>=4.7.0",
-    "uv-bump>=0.6.0",
     "pdoc>=16.0.0",
 ]
 

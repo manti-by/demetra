@@ -123,7 +123,7 @@ async def log_stream(stream: asyncio.StreamReader, logger_callable: Callable) ->
 
 
 async def is_package_installed(
-    target_path: Path, package_name: str, environment: "SessionEnvironment | None" = None
+    target_path: Path, package_name: str, environment: SessionEnvironment | None = None
 ) -> bool:
     """Check whether a package is installed in the project's environment.
 

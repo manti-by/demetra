@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps react docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
+.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps react docker-test docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -57,7 +57,7 @@ install:
 	uv sync --all-extras --dev
 
 update:
-	uv run uv-bump
+	uu
 	uv sync --all-extras --dev
 	uv run pre-commit autoupdate
 
@@ -118,6 +118,12 @@ react-test:
 
 docker-build:
 	docker build --platform linux/amd64 -t mantiby/demetra:latest .
+
+docker-test:
+	docker compose --file docker-compose.test.yaml run --rm tests; \
+	status=$$?; \
+	docker compose --file docker-compose.test.yaml down --volumes --remove-orphans; \
+	exit $$status
 
 docker-up:
 	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard deployer

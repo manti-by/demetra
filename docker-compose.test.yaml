@@ -1,0 +1,37 @@
+name: demetra-test
+
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_DB: demetra
+      POSTGRES_USER: demetra
+      POSTGRES_PASSWORD: demetra
+    tmpfs:
+      - /var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", 'pg_isready -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"']
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  tests:
+    image: ${DEMETRA_IMAGE:-mantiby/demetra:latest}
+    command:
+      [
+        "sh",
+        "-c",
+        "uv sync --frozen --group dev && alembic upgrade head && pytest tests/"
+      ]
+    environment:
+      DB_HOST: postgres
+      DB_PASSWORD: demetra
+      LOG_PATH: /tmp/demetra.log
+      UV_PROJECT_ENVIRONMENT: /opt/venv
+      UV_CACHE_DIR: /tmp/uv-cache
+      UV_LINK_MODE: copy
+    volumes:
+      - .:/srv/demetra/src/
+    depends_on:
+      postgres:
+        condition: service_healthy

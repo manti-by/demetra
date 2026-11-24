@@ -1,8 +1,8 @@
-ARG OPENCODE_VERSION=2.2.5
-ARG DOCKER_CLI_VERSION=27.3.1
-ARG DOCKER_COMPOSE_VERSION=v2.29.7
+ARG OPENCODE_VERSION=2.4.0
+ARG DOCKER_CLI_VERSION=29.9.3
+ARG DOCKER_COMPOSE_VERSION=v5.7.2
 
-FROM python:3.13.9-slim AS builder
+FROM python:3.14-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates gnupg git \
@@ -43,15 +43,18 @@ FROM oven/bun:1 AS bun
 
 FROM rust:1-slim AS rust
 
-FROM python:3.13.9-slim
+FROM python:3.14-slim
 
 ARG OPENCODE_VERSION
 ARG DOCKER_CLI_VERSION
 ARG DOCKER_COMPOSE_VERSION
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    git vim gnupg openssh-client build-essential pkg-config \
-    && rm -rf /var/lib/apt/lists/*
+    git vim-tiny gnupg openssh-client gcc g++ make libc6-dev pkg-config \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/bin/vim.tiny /usr/local/bin/vim
+
+RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
 COPY --from=builder /root/.opencode/bin/opencode /usr/local/bin/opencode
 RUN opencode --version | grep -qF "${OPENCODE_VERSION}"
@@ -59,15 +62,13 @@ COPY --from=builder /usr/local/bin/wi /usr/local/bin/wi
 COPY --from=builder /usr/bin/gh /usr/bin/gh
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 COPY --from=builder /bin/uv /bin/uvx /bin/
-COPY --from=builder /opt/venv /opt/venv
-COPY --from=rust /usr/local/cargo /usr/local/cargo
-COPY --from=rust /usr/local/rustup /usr/local/rustup
+COPY --from=builder --chown=demetra:demetra /opt/venv /opt/venv
+COPY --from=rust --chown=demetra:demetra /usr/local/cargo /usr/local/cargo
+COPY --from=rust --chown=demetra:demetra /usr/local/rustup /usr/local/rustup
 COPY --from=builder /tmp/docker/docker /usr/local/bin/docker
 COPY --from=builder /tmp/docker-cli-plugins /usr/local/lib/docker/cli-plugins
 RUN docker --version | grep -qF "${DOCKER_CLI_VERSION}" \
     && docker compose version | grep -qF "${DOCKER_COMPOSE_VERSION}"
-
-RUN useradd -m -s /bin/bash -d /home/demetra demetra
 
 RUN mkdir -p /home/demetra/.config/gh /home/demetra/.config/opencode/agents /home/demetra/.config/opencode/skills /home/demetra/.local/share/opencode \
     && chown -R demetra:demetra /home/demetra
@@ -80,7 +81,7 @@ RUN chmod 755 /home/demetra/.config/opencode/agents /home/demetra/.config/openco
     && chown -R demetra:demetra /home/demetra/.config/opencode
 
 RUN mkdir -p /srv/demetra/src/ /var/log/demetra/ \
-    && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/ /opt/venv /usr/local/cargo /usr/local/rustup
+    && chown -R demetra:demetra /srv/demetra/src/ /var/log/demetra/
 
 COPY demetra/ /opt/demetra/src/demetra/
 RUN chmod -R go-w /opt/demetra/src
