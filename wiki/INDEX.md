@@ -115,9 +115,28 @@ _Newest first._
 
 ## By topic
 
-_Topic clusters maintained by the Consistency Agent; topics with the most pages first._
+### Workflow orchestration & agents (20 pages)
 
-### Workflow orchestration & agents (29 pages)
+- [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
+- [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md)
+- [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md)
+- [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md)
+- [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md)
+- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
+- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)
+- [CH-15: Worktree management — one cleanup policy for chat and Linear sessions](pages/2026-11-19-ch-15-worktree-management.md)
+- [MNT-232: Update research flow](pages/2026-10-05-mnt-232-update-research-flow.md)
+- [MNT-203: Create related ticket for research](pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
+- [MNT-200: Update research loop](pages/2026-09-10-mnt-200-update-research-loop.md)
+- [MNT-177 research loop — research agent, workflow and settings](pages/2026-09-01-mnt-177-research-loop.md)
+- [MNT-177 workflow blocked — OpenRouter 403 age attestation + plan agent truncation](pages/2026-08-28-mnt-177-workflow-blocked-openrouter-403.md)
+- [Workflow proceeds to review after ticket moved to Awaiting Input](pages/2026-08-28-awaiting-input-workflow-continues-to-review.md)
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
+- [Guard empty plan agent output](pages/2026-08-24-guard-empty-plan-output.md)
+- [Build agent server error — root cause and Awaiting Input handler](pages/2026-08-19-build-agent-server-error-handler.md)
+- [Build agent UnknownError — stale opencode session bound to deleted worktree](pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)
+- [Post-build validation — plan-coverage validate-agent between build and review](pages/2026-08-05-post-build-validation.md)
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md)
 
 - [Durable review-round budget in sessions.review_attempts](pages/2026-11-10-durable-review-attempts-budget.md) — 2026-11-10
 - [CH-10: PR description for Chat sessions](pages/2026-11-10-ch-10-pr-description-for-chat-sessions.md) — 2026-11-10

@@ -64,7 +64,6 @@ class OpenCodeConfig(PathConfig):
 
 class GitConfig(PathConfig):
     worktree_path: Path
-    disable_worktree_removal: bool
 
 
 class DeployConfig(TypedDict):

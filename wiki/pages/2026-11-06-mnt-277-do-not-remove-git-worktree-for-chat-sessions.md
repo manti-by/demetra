@@ -9,7 +9,7 @@ services: [library, workflows, settings, vcs]
 branch: mnt-277-do-not-remove-git-worktree-for-sessions
 tickets: [MNT-277]
 tags: [wiki, feature, backend]
-related: [2026-11-04-chat-session-list-and-rerun.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md]
+related: [2026-11-19-ch-15-worktree-management.md, 2026-11-04-chat-session-list-and-rerun.md, 2026-08-19-build-agent-stale-session-deleted-worktree.md]
 ---
 
 # MNT-277: Do not remove git worktree for sessions
@@ -80,5 +80,6 @@ All 1210 tests passed, including new test cases verifying the worktree preservat
 ## References
 
 - External: https://linear.app/mnt/issue/MNT-277/do-not-remove-git-worktree-for-sessions
-- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
-- Related: [2026-08-19-build-agent-stale-session-deleted-worktree](/pages/2026-08-19-build-agent-stale-session-deleted-worktree.md)
+- Related: [[2026-11-04-chat-session-list-and-rerun]]
+- Related: [[2026-08-19-build-agent-stale-session-deleted-worktree]]
+- Superseded by [[2026-11-19-ch-15-worktree-management]] — the chat/Linear split and `GIT_DISABLE_WORKTREE_REMOVAL` were replaced by the single `WORKTREE_CLEANUP` flag.
