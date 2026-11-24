@@ -1049,12 +1049,25 @@ class TestOkf:
         assert service.okf_status({"status": "resolved"}, wiki_root=bundle_root) == "stable"
         assert service.okf_status({"status": "reference"}, wiki_root=bundle_root) == "stable"
         assert service.okf_status({"status": "open"}, wiki_root=bundle_root) == "draft"
+        assert service.okf_status({"status": "in-progress"}, wiki_root=bundle_root) == "draft"
+        assert service.okf_status({"status": "draft"}, wiki_root=bundle_root) == "draft"
+        assert service.okf_status({"status": "stable"}, wiki_root=bundle_root) == "stable"
+        assert service.okf_status({"status": "deprecated"}, wiki_root=bundle_root) == "deprecated"
         archived = bundle_root / "archive" / "2026-08-01-old.md"
         assert service.okf_status({"status": "resolved"}, archived, wiki_root=bundle_root) == "deprecated"
+        assert service.okf_status({"status": "draft"}, archived, wiki_root=bundle_root) == "deprecated"
 
     def test_generated_at_from_date_and_datetime(self):
         assert service.generated_at("2026-08-04") == {"by": "demetra", "at": "2026-08-04T00:00:00Z"}
         assert service.generated_at("2026-08-04T12:30:00Z") == {"by": "demetra", "at": "2026-08-04T12:30:00Z"}
+
+    def test_generated_at_preserves_valid_existing_at(self):
+        existing = {"by": "demetra", "at": "2026-08-05T12:30:00Z"}
+        assert service.generated_at("", existing=existing) == existing
+        assert service.generated_at("2026-08-04", existing={"at": "bad"}) == {
+            "by": "demetra",
+            "at": "2026-08-04T00:00:00Z",
+        }
 
     def test_page_date_reads_generated_at_and_falls_back_to_filename(self):
         assert service.okf_page_date(meta={"generated": {"at": "2026-08-05T00:00:00Z"}}) == "2026-08-05"
@@ -1079,6 +1092,32 @@ class TestOkf:
         assert "`[[literal]]`" in converted
         assert "[[{Path(name).stem}]]" in converted
         assert unresolved == []
+
+    def test_convert_wikilinks_preserves_multi_backtick_code(self, bundle_root):
+        source = "Use ``[[topic]]`` and ```[[other]]``` and `[[single]]`."
+        converted, unresolved = service.convert_wikilinks(source, wiki_root=bundle_root)
+        assert converted == source
+        assert unresolved == []
+
+    def test_convert_wikilinks_requires_matching_closing_fence(self, bundle_root):
+        source = "````python\n```\n[[topic]]\n````\n\n[[other]]\n"
+        converted, _ = service.convert_wikilinks(source, wiki_root=bundle_root)
+        assert "````python\n```\n[[topic]]\n````\n" in converted
+        assert "[other](/pages/other.md)" in converted
+
+        source = "```python\n``` rust\n[[topic]]\n```\n"
+        converted, _ = service.convert_wikilinks(source, wiki_root=bundle_root)
+        assert "[[topic]]" in converted
+
+    def test_validate_page_rejects_unsupported_wikilinks_outside_code(self, bundle_root):
+        head = (
+            "---\ntype: note\nstatus: stable\n"
+            "generated: {by: demetra, at: '2026-08-04T00:00:00Z'}\n"
+            "description: A summary.\n---\n\n"
+        )
+        assert any("wikilink" in issue for issue in service.validate_page(head + "See [[topic#section]].\n"))
+        assert any("wikilink" in issue for issue in service.validate_page(head + "See [[topic|label]].\n"))
+        assert service.validate_page(head + "See ``[[topic#section]]``.\n") == []
 
     def test_validate_page_flags_legacy_frontmatter(self, bundle_root):
         bare_dash = "---\ntitle: Old\nsession_id: -\n---\n\n# Old\n"
@@ -1112,6 +1151,62 @@ class TestOkf:
         assert "description: A concise summary." in rendered
         assert "[2026-08-02-archived](/archive/2026-08-02-archived.md)" in rendered
         assert rendered.count("# Legacy page") == 1
+
+    def test_migrate_page_preserves_existing_generated_at(self, bundle_root):
+        path = bundle_root / "pages" / "2026-08-04-page.md"
+        text = (
+            "---\ntitle: Page\ntype: implementation\nstatus: stable\n"
+            "generated: {by: demetra, at: '2026-08-05T12:00:00Z'}\n"
+            "session_id: -\nservices: []\nbranch: -\ntickets: []\ntags: []\nrelated: []\n"
+            "---\n\n# Page\n"
+        )
+        path.write_text(text)
+        rendered = service.migrate_page(text=text, description="A concise summary.", path=path, wiki_root=bundle_root)
+        assert "at: '2026-08-05T12:00:00Z'" in rendered
+        assert service.validate_page(rendered, path=path) == []
+
+    async def test_migrate_bundle_limit_skips_conformant_pages(self, bundle_root):
+        (bundle_root / "pages" / "2026-01-01-good.md").write_text(
+            "---\ntype: note\nstatus: stable\n"
+            "generated: {by: demetra, at: '2026-01-01T00:00:00Z'}\ndescription: d\n---\n\n# Good\n"
+        )
+        (bundle_root / "pages" / "2026-01-02-bad.md").write_text(
+            "---\ntitle: Bad\ndate: 2026-01-02\ntype: note\nstatus: open\n---\n\n# Bad\n"
+        )
+
+        async def describe(*, content, environment=None):
+            return "A concise summary."
+
+        first = await service.migrate_bundle(wiki_root=bundle_root, limit=1, description_fn=describe)
+        assert first["migrated"] == ["2026-01-02-bad.md"]
+        assert first["skipped"] == ["2026-01-01-good.md"]
+        second = await service.migrate_bundle(wiki_root=bundle_root, limit=1, description_fn=describe)
+        assert second["migrated"] == []
+        assert second["after"]["violations"] == {}
+
+    async def test_migrate_bundle_dry_run_keeps_violations(self, bundle_root):
+        path = bundle_root / "pages" / "2026-08-04-page.md"
+        path.write_text("---\ntitle: Legacy\ndate: 2026-08-04\ntype: note\nstatus: open\n---\n\n# Legacy\n")
+
+        async def describe(*, content, environment=None):
+            return "A concise summary."
+
+        report = await service.migrate_bundle(wiki_root=bundle_root, dry_run=True, description_fn=describe)
+        assert report["migrated"] == ["2026-08-04-page.md"]
+        assert report["before"]["violations"]
+        assert report["after"] == report["before"]
+
+    def test_okf_cli_dry_run_returns_failure_for_invalid_pages(self, bundle_root, monkeypatch):
+        (bundle_root / "pages" / "2026-08-04-page.md").write_text(
+            "---\ntitle: Legacy\ndate: 2026-08-04\ntype: note\nstatus: open\n---\n\n# Legacy\n"
+        )
+
+        async def describe(*, content, environment=None):
+            return "A concise summary."
+
+        monkeypatch.setattr(service, "compose_wiki_description", describe)
+        monkeypatch.setattr("demetra.services.wiki.okf.print_message", lambda *args, **kwargs: None)
+        assert service.okf_cli(dry_run=True) == 1
 
     async def test_migrate_bundle_is_idempotent_with_injected_descriptions(self, bundle_root, monkeypatch):
         path = bundle_root / "pages" / "2026-08-04-page.md"

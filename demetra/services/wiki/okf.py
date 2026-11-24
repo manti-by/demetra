@@ -27,8 +27,8 @@ OKF_DEFAULT_CONCURRENCY = 4
 OKF_DATE_RE = re.compile(r"(\d{4}-\d{2}-\d{2})")
 OKF_DATETIME_RE = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})\Z")
 WIKILINK_RE = re.compile(r"\[\[([^\[\]\n]+)\]\]")
-INLINE_CODE_RE = re.compile(r"(`[^`\n]*`)")
-FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})")
+INLINE_CODE_RE = re.compile(r"(`+)(.*?)\1")
+FENCE_RE = re.compile(r"^\s{0,3}(`{3,}|~{3,})(.*)")
 RESERVED_NAMES = ("index.md", "log.md")
 
 DescriptionFn = Callable[..., Awaitable[str]]
@@ -83,16 +83,21 @@ def okf_page_date(meta: dict, path: Path | None = None) -> str:
     return fallback or "0000-00-00"
 
 
-def generated_at(value: object = "", path: Path | None = None) -> dict[str, str]:
-    """Build the OKF ``generated`` mapping from a date or datetime.
+def generated_at(value: object = "", path: Path | None = None, *, existing: object = None) -> dict[str, str]:
+    """Build the OKF ``generated`` mapping from existing metadata or a legacy date.
 
     Args:
         value: The legacy ``date`` value or an ISO 8601 datetime.
         path: Optional page path supplying a date-prefixed filename fallback.
+        existing: Existing ``generated`` mapping whose valid ``at`` is preserved.
 
     Returns:
         dict[str, str]: The ``by`` / ``at`` actor mapping.
     """
+    if isinstance(existing, dict):
+        existing_at = okf_datetime_text(existing.get("at"))
+        if OKF_DATETIME_RE.fullmatch(existing_at):
+            return {"by": OKF_GENERATED_BY, "at": existing_at}
     text = okf_datetime_text(value)
     if OKF_DATETIME_RE.fullmatch(text):
         return {"by": OKF_GENERATED_BY, "at": text}
@@ -124,7 +129,10 @@ def okf_status(meta: dict, path: Path | None = None, *, wiki_root: Path | None =
             pass
         else:
             return "deprecated"
-    return OKF_STATUS_MAP.get(str(meta.get("status") or "").casefold(), "stable")
+    status = str(meta.get("status") or "").casefold()
+    if status in OKF_STATUSES:
+        return status
+    return OKF_STATUS_MAP.get(status, "stable")
 
 
 def resolve_wikilink(stem: str, *, wiki_root: Path | None = None) -> str:
@@ -144,6 +152,65 @@ def resolve_wikilink(stem: str, *, wiki_root: Path | None = None) -> str:
     return f"/pages/{name}"
 
 
+def _closes_fence(match: re.Match[str], opener: tuple[str, int]) -> bool:
+    """Check whether a fence line validly closes an opened fenced code block.
+
+    Args:
+        match: A ``FENCE_RE`` match for the candidate closing line.
+        opener: The opening delimiter character and its run length.
+
+    Returns:
+        bool: True when the delimiter matches and the closing syntax is valid.
+    """
+    run = match.group(1)
+    char, length = opener
+    return run[0] == char and len(run) >= length and not match.group(2).strip()
+
+
+def _scan_wikilinks(text: str, replace: Callable[[re.Match[str]], str] | None = None) -> tuple[str, list[str]]:
+    """Convert or collect wikilinks outside fenced blocks and inline code.
+
+    Args:
+        text: The markdown text to scan.
+        replace: Optional substitution applied to wikilinks outside code.
+
+    Returns:
+        tuple[str, list[str]]: The rebuilt text and wikilinks found outside code.
+    """
+    found: list[str] = []
+    lines: list[str] = []
+    fence: tuple[str, int] | None = None
+    for line in text.splitlines(keepends=True):
+        fence_match = FENCE_RE.match(line)
+        if fence is None:
+            if fence_match:
+                run = fence_match.group(1)
+                fence = (run[0], len(run))
+                lines.append(line)
+                continue
+        elif fence_match:
+            if _closes_fence(fence_match, fence):
+                fence = None
+            lines.append(line)
+            continue
+        else:
+            lines.append(line)
+            continue
+        position = 0
+        parts: list[str] = []
+        for span in INLINE_CODE_RE.finditer(line):
+            segment = line[position : span.start()]
+            found.extend(WIKILINK_RE.findall(segment))
+            parts.append(WIKILINK_RE.sub(replace, segment) if replace is not None else segment)
+            parts.append(span.group(0))
+            position = span.end()
+        segment = line[position:]
+        found.extend(WIKILINK_RE.findall(segment))
+        parts.append(WIKILINK_RE.sub(replace, segment) if replace is not None else segment)
+        lines.append("".join(parts))
+    return "".join(lines), found
+
+
 def convert_wikilinks(text: str, *, wiki_root: Path | None = None) -> tuple[str, list[str]]:
     """Convert ``[[stem]]`` links to standard OKF markdown links.
 
@@ -159,8 +226,6 @@ def convert_wikilinks(text: str, *, wiki_root: Path | None = None) -> tuple[str,
     """
     pages_root, archive_root = _roots(wiki_root=wiki_root)
     unresolved: list[str] = []
-    fence: str | None = None
-    lines: list[str] = []
 
     def replace(match: re.Match[str]) -> str:
         stem = match.group(1).strip()
@@ -171,24 +236,8 @@ def convert_wikilinks(text: str, *, wiki_root: Path | None = None) -> tuple[str,
             unresolved.append(stem)
         return f"[{stem}]({resolve_wikilink(stem, wiki_root=wiki_root)})"
 
-    for line in text.splitlines(keepends=True):
-        fence_match = FENCE_RE.match(line)
-        if fence_match:
-            marker = fence_match.group(1)[0]
-            if fence is None:
-                fence = marker
-            elif marker == fence:
-                fence = None
-            lines.append(line)
-            continue
-        if fence is not None:
-            lines.append(line)
-            continue
-        segments = INLINE_CODE_RE.split(line)
-        for index in range(0, len(segments), 2):
-            segments[index] = WIKILINK_RE.sub(replace, segments[index])
-        lines.append("".join(segments))
-    return "".join(lines), unresolved
+    converted, _ = _scan_wikilinks(text, replace=replace)
+    return converted, unresolved
 
 
 def parse_okf_page(text: str) -> dict | None:
@@ -242,8 +291,7 @@ def validate_page(text: str, *, path: Path | None = None, require_okf: bool = Tr
         issues.append("missing or empty description")
     match = service.FRONTMATTER_RE.match(text)
     body = text[match.end() :] if match else text
-    converted, _ = convert_wikilinks(body)
-    if len(WIKILINK_RE.findall(body)) > len(WIKILINK_RE.findall(converted)):
+    if _scan_wikilinks(body)[1]:
         issues.append("unconverted wikilinks in body")
     return issues
 
@@ -280,7 +328,7 @@ def migrate_page(*, text: str, description: str, path: Path, wiki_root: Path | N
     body = text[match.end() :] if match else text
     new_meta = {
         "title": meta.get("title") or "",
-        "generated": generated_at(meta.get("date") or "", path),
+        "generated": generated_at(meta.get("date") or "", path, existing=meta.get("generated")),
         "description": description,
         "type": meta.get("type") or "",
         "status": okf_status(meta, path, wiki_root=wiki_root),
@@ -349,12 +397,20 @@ async def migrate_bundle(
     root = wiki_root if wiki_root is not None else service.WIKI_ROOT
     before = validate_bundle(wiki_root=root)
     generate = description_fn if description_fn is not None else service.compose_wiki_description
-    paths = [path for folder in ("pages", "archive") for path in sorted((root / folder).glob("*.md"))]
-    if limit is not None:
-        paths = paths[:limit]
+    all_paths = [path for folder in ("pages", "archive") for path in sorted((root / folder).glob("*.md"))]
+    skipped: list[str] = []
+    candidates: list[Path] = []
+    for path in all_paths:
+        try:
+            if not validate_page(path.read_text(encoding="utf-8"), path=path):
+                skipped.append(path.name)
+                continue
+        except (OSError, yaml.YAMLError, ValueError):
+            pass
+        candidates.append(path)
+    paths = candidates[:limit] if limit is not None else candidates
 
     migrated: list[str] = []
-    skipped: list[str] = []
     failed: dict[str, str] = {}
     semaphore = asyncio.Semaphore(max(1, concurrency))
 
@@ -362,9 +418,6 @@ async def migrate_bundle(
         async with semaphore:
             try:
                 text = path.read_text(encoding="utf-8")
-                if not validate_page(text, path=path):
-                    skipped.append(path.name)
-                    return
                 match = service.FRONTMATTER_RE.match(text)
                 body = text[match.end() :] if match else text
                 description = await generate(content=body[:OKF_DESCRIPTION_INPUT_CAP], environment=environment)
@@ -376,7 +429,7 @@ async def migrate_bundle(
                 failed[path.name] = str(error)
 
     await asyncio.gather(*(one(path) for path in paths))
-    after = {"files": before["files"], "wikilinks": 0, "violations": {}} if dry_run else validate_bundle(wiki_root=root)
+    after = before if dry_run else validate_bundle(wiki_root=root)
     return {"before": before, "after": after, "migrated": migrated, "skipped": skipped, "failed": failed}
 
 
