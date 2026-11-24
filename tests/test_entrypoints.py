@@ -6,8 +6,14 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import AutoCancelledError, PullRequestError
+from demetra.library.exceptions import (
+    AutoCancelledError,
+    EnvironmentConfigError,
+    LinearError,
+    PullRequestError,
+)
 from demetra.library.models import Context, LinearTask, Project, Session
 from demetra.settings import DEFAULT_USER_ID, WATCHER_POLL_INTERVAL
 from demetra.worker import connection
@@ -353,6 +359,41 @@ class TestMainReplanning:
         assert call_kwargs["context"] is context
         assert call_kwargs["error"] is error
         mock_main_deps["process_agent_network_failure"].assert_not_awaited()
+        mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
+            context=context,
+            is_success=False,
+            should_update_linear_status=False,
+            failure_step="awaiting_input",
+            failure_message=str(error),
+        )
+
+    @pytest.mark.parametrize(
+        "report_error",
+        [
+            OSError("template file missing"),
+            KeyError("retry_hint"),
+            LinearError("Linear API error"),
+            EnvironmentConfigError("state id missing"),
+            SQLAlchemyError("database is down"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_main_keeps_terminal_state_when_agent_failure_reporting_fails(self, mock_main_deps, report_error):
+        from main import main
+
+        from demetra.library.exceptions import AgentQuotaError
+
+        context = _build_context(step="build", build_plan="existing build plan")
+        mock_main_deps["setup_workflow"].return_value = context
+        error = AgentQuotaError(agent="build-agent", stderr="credits exhausted")
+        mock_main_deps["run_build_step"].side_effect = error
+        mock_main_deps["process_agent_failure"].side_effect = report_error
+
+        with patch("main.print_message") as mock_print_message:
+            result = await main(project_name="demetra", auto_mode=True)
+
+        assert result == 0
+        assert any("Failed to report agent failure" in call.args[0] for call in mock_print_message.call_args_list)
         mock_main_deps["cleanup_workflow"].assert_awaited_once_with(
             context=context,
             is_success=False,

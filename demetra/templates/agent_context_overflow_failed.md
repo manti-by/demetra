@@ -13,7 +13,6 @@ changes were rolled back.
 ### What to do
 
 Reduce the context passed to the agent (a smaller task description or fewer
-comments), or compact the resumed session earlier, then move the ticket back to
-`In Progress` to re-run.
+comments), or compact the resumed session earlier. {recovery}
 
 {retry_hint}

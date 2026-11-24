@@ -2,7 +2,8 @@
 
 The `{agent_name}` agent was rejected because the provider's credits or token
 budget are exhausted (`{code}`). Retrying inside this run cannot help, so the
-workflow stopped and the changes were rolled back.
+workflow stopped and the agent's edits remain in the worktree and branch. When
+`WORKTREE_CLEANUP` is enabled, cleanup removes the worktree and branch instead.
 
 ### Error
 

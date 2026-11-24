@@ -1,8 +1,10 @@
 ## Agent rate limited
 
 The `{agent_name}` agent was throttled by the model provider (`{code}`).
-Demetra retried with exponential backoff until the retry budget was exhausted,
-then stopped and rolled the changes back.
+Demetra stopped the run after a provider rate limit, retrying with exponential
+backoff only when the retry budget allowed it. The agent's edits remain in the
+worktree and branch; when `WORKTREE_CLEANUP` is enabled, cleanup removes them
+instead.
 
 ### Error
 

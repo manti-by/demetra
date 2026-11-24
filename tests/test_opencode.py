@@ -1779,3 +1779,97 @@ class TestAgentFailureClassification:
         assert result == (1, "", "UnknownError: Unexpected server error")
         mock_run_command.assert_awaited_once()
         mock_sleep.assert_not_awaited()
+
+    def test_max_tokens_in_a_context_overflow_is_not_a_budget_rejection(self):
+        stderr = "maximum context length exceeded; requested max_tokens=4096"
+
+        classification = classify_agent_error(stdout="", stderr=stderr)
+
+        assert classification is not None
+        assert classification.code == "context_overflow"
+        assert classification.error_class is AgentContextOverflowError
+        assert classification.retryable is False
+
+    def test_reducing_max_tokens_still_marks_a_budget_rejection(self):
+        classification = classify_agent_error(stdout="", stderr="insufficient credits: reduce max_tokens and retry")
+
+        assert classification is not None
+        assert classification.code == "budget_retry"
+        assert classification.retryable is True
+
+    @pytest.mark.parametrize(
+        "text, secret",
+        [
+            ("HTTP 403: Authorization: Bearer opaque-provider-credential", "opaque-provider-credential"),
+            ("HTTP 401: Authorization: Basic dXNlcjpwYXNzd29yZA==", "dXNlcjpwYXNzd29yZA=="),
+            ('{"error": "bad", "api_key": "super-secret-value"}', "super-secret-value"),
+            ("invalid token='literal-secret-value' for model", "literal-secret-value"),
+            ("open https://user:password@provider.example.com/v1/models", "password@provider.example.com"),
+        ],
+    )
+    def test_redacts_authorization_values_quoted_fields_and_url_userinfo(self, text, secret):
+        assert secret not in redact_provider_text(text)
+
+    def test_structured_unknown_error_with_network_evidence_is_retried(self):
+        stdout = json.dumps({"type": "error", "error": {"type": "UnknownError", "message": "ECONNRESET"}})
+
+        classification = classify_agent_error(stdout=stdout, stderr="")
+
+        assert classification is not None
+        assert classification.code == "network_error"
+        assert classification.error_class is AgentNetworkError
+        assert classification.retryable is True
+
+    def test_structured_unknown_error_without_evidence_stays_a_provider_error(self):
+        stdout = json.dumps({"type": "error", "error": {"type": "UnknownError", "message": "something odd"}})
+
+        classification = classify_agent_error(stdout=stdout, stderr="")
+
+        assert classification is not None
+        assert classification.code == "unknown_server_error"
+        assert classification.error_class is AgentProviderError
+        assert classification.retryable is False
+
+    @pytest.mark.asyncio
+    async def test_unknown_error_with_network_evidence_retries_the_run(self, failure_retry_env):
+        mock_run_command, _ = failure_retry_env
+        stdout = json.dumps({"type": "error", "error": {"type": "UnknownError", "message": "ECONNRESET"}})
+        mock_run_command.side_effect = [(1, stdout, ""), (0, "done", "")]
+
+        result = await run_opencode_agent(
+            Path("/test"), "task", model="m", agent="plan-agent", retry_on_classified_failure=True
+        )
+
+        assert result == (0, "done", "")
+        assert mock_run_command.await_count == 2
+
+    def test_unclassified_error_keeps_the_redacted_stdout_detail(self):
+        error = agent_failure_error(
+            agent="build-agent",
+            exit_code=1,
+            stdout="Requested model is unavailable with key sk-proj-abcdefghijklmnop",
+            stderr="",
+            fallback=BuildError,
+        )
+
+        assert "Requested model is unavailable" in str(error)
+        assert "unknown error" not in str(error)
+        assert "sk-proj-abcdefghijklmnop" not in str(error)
+
+    @pytest.mark.asyncio
+    async def test_retry_waits_for_the_provider_retry_after_delay(self, failure_retry_env):
+        mock_run_command, mock_sleep = failure_retry_env
+        stdout = json.dumps(
+            {
+                "type": "error",
+                "error": {"type": "RateLimit", "message": "rate limit reached", "retryAfterMs": 5000},
+            }
+        )
+        mock_run_command.return_value = (1, stdout, "")
+
+        with pytest.raises(AgentRateLimitError):
+            await run_opencode_agent(
+                Path("/test"), "task", model="m", agent="plan-agent", retry_on_classified_failure=True
+            )
+
+        assert [call.args[0] for call in mock_sleep.await_args_list] == [5.0, 5.0]

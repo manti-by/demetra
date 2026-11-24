@@ -14,7 +14,6 @@ back.
 ### What to do
 
 Use an OpenCode version that supports session compaction, or reduce the context
-passed to the agent (a smaller build plan or a fresh session), then move the
-ticket back to `In Progress` to re-run.
+passed to the agent (a smaller build plan or a fresh session). {recovery}
 
 {retry_hint}

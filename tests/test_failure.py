@@ -21,7 +21,7 @@ from demetra.library.exceptions import (
     ReviewError,
     WikiError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment
+from demetra.library.models import Chat, Context, LinearTask, Project, Session, SessionEnvironment
 from demetra.services.linear.states import LinearState
 from demetra.settings import LINEAR
 from demetra.workflows.failure import (
@@ -71,6 +71,18 @@ def build_context() -> Context:
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
     )
+
+
+def build_chat_context() -> Context:
+    context = build_context()
+    context.task = Chat(
+        id="CH-1",
+        identifier="CH-1",
+        title="Chat task",
+        description="desc",
+        created_at=datetime.now().isoformat(),
+    )
+    return context
 
 
 class TestRunFailureStep:
@@ -321,3 +333,31 @@ class TestRunFailureStep:
 
         assert "Wait at least 500 ms before retrying" in retryable_body
         assert "Retrying will not help" in terminal_body
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            AgentBudgetRetryError(agent="plan-agent", stderr="budget rejected"),
+            AgentCompactionError(agent="build-agent", stderr="compaction unavailable"),
+            AgentContextOverflowError(agent="validate-agent", stderr="context overflow"),
+            AgentPermissionError(agent="build-agent", stderr="permission denied"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_chat_failure_recovery_does_not_mention_a_linear_ticket(self, error):
+        with patch("demetra.workflows.failure.notify_message", new_callable=AsyncMock, return_value=True) as notify:
+            await process_agent_failure(context=build_chat_context(), error=error)
+
+        assert notify.await_args is not None
+        body = notify.await_args.kwargs["body"]
+        assert "In Progress" not in body
+        assert "Send another message in this chat to re-run." in body
+
+    @pytest.mark.asyncio
+    async def test_linear_failure_recovery_keeps_the_ticket_instructions(self, mock_linear_deps):
+        error = AgentContextOverflowError(agent="validate-agent", stderr="context overflow")
+
+        await process_agent_failure(context=build_context(), error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Move the ticket back to `In Progress` to re-run." in body

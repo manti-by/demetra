@@ -14,7 +14,6 @@ rolled the changes back.
 ### What to do
 
 Reduce the request size (for example a lower `max_tokens` or a smaller prompt)
-or raise the provider's per-request budget, then move the ticket back to
-`In Progress` to re-run.
+or raise the provider's per-request budget. {recovery}
 
 {retry_hint}

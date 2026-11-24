@@ -139,12 +139,18 @@ async def process_agent_failure(context: Context, error: AgentFailureError) -> N
             retry_hint = f"Wait at least {error.retry_after_ms} ms before retrying."
     else:
         retry_hint = "Retrying will not help until the underlying condition is fixed."
+    recovery = (
+        "Send another message in this chat to re-run."
+        if context.is_chat
+        else "Move the ticket back to `In Progress` to re-run."
+    )
     body = await get_template(
         error.template,
         agent_name=error.agent,
         error=error.stderr,
         code=error.code,
         retry_hint=retry_hint,
+        recovery=recovery,
     )
     await notify_linear_failure(context=context, body=body, comment_label="agent-failure")
 

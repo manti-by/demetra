@@ -3,6 +3,8 @@ import asyncio
 import logging.config
 import sys
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from demetra.library.exceptions import (
     AgentFailureError,
     AgentNetworkError,
@@ -239,9 +241,12 @@ async def main(project_name: str, auto_mode: bool = True, plan_loop: bool = Fals
         failure_message = str(e) or None
 
     except AgentFailureError as e:
-        await process_agent_failure(context=context, error=e)
         failure_step, should_update_linear_status = "awaiting_input", False
         failure_message = str(e) or None
+        try:
+            await process_agent_failure(context=context, error=e)
+        except (OSError, KeyError, LinearError, EnvironmentConfigError, SQLAlchemyError) as report_error:
+            print_message(f"Failed to report agent failure: {report_error}", style="error")
 
     except DemetraError as e:
         print_message(f"Workflow error: {e}", style="error")

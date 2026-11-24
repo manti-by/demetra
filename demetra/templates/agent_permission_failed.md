@@ -13,6 +13,6 @@ stopped and the changes were rolled back.
 ### What to do
 
 Check that the provider credentials are valid and grant access to the configured
-model, then move the ticket back to `In Progress` to re-run.
+model. {recovery}
 
 {retry_hint}

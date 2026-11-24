@@ -90,7 +90,7 @@ NETWORK_ERROR_MARKERS: tuple[str, ...] = (
 AGENT_FAILURE_SIGNATURES: tuple[tuple[str, tuple[str, ...], type[AgentFailureError], bool], ...] = (
     (
         "budget_retry",
-        ("requires more credits", "can only afford", "max_tokens", "retry with fewer tokens"),
+        ("requires more credits", "can only afford", "reduce max_tokens", "retry with fewer tokens"),
         AgentBudgetRetryError,
         True,
     ),
@@ -158,5 +158,4 @@ AGENT_FAILURE_TYPE_CODES: dict[str, str] = {
     "ContextLengthExceeded": "context_overflow",
     "ContextOverflow": "context_overflow",
     "CompactionUnavailable": "compaction_unavailable",
-    "UnknownError": "unknown_server_error",
 }

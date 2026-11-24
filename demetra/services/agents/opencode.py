@@ -45,6 +45,12 @@ _SENSITIVE_URL_RE = re.compile(
     re.IGNORECASE,
 )
 _KEY_IDENTIFIER_RE = re.compile(r"\b(?:sk-or-v1-|sk-|lsv2_(?:pt|sk|pk)_|ghp_|github_pat_)[A-Za-z0-9_\-]{6,}\b")
+_URL_USERINFO_RE = re.compile(r"(\bhttps?://)[^/\s:@]+:[^/\s@]+@")
+_CREDENTIAL_FIELD_RE = re.compile(
+    r"(?i)([\"']?(?:authorization|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|auth[_-]?token|"
+    r"token|secret|password|passwd|credential)[\"']?\s*[:=]\s*)([\"'])([^\"']*)([\"'])",
+)
+_AUTHORIZATION_RE = re.compile(r"(?i)\b(bearer|basic)\s+([^\s\"'<>,;]+)")
 
 # opencode 2.x moved `export <id>` under `session export <id>` and removed
 # `run --dir`; both are handled by version-aware command construction.
@@ -282,19 +288,24 @@ def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict
 
 
 def redact_provider_text(text: str) -> str:
-    """Remove credential-bearing URLs and key identifiers from provider output.
+    """Remove credentials from provider output before it reaches a human.
 
     Provider stderr can echo a billing or key-management URL containing an API
-    key, or the key itself. Only rendered error text passes through here, so a
-    successful agent answer is never altered.
+    key, an Authorization header with an arbitrary Bearer/Basic credential, a
+    quoted credential field, URL user information or the key itself. Only
+    rendered error text passes through here, so a successful agent answer is
+    never altered.
 
     Args:
         text: Raw provider output destined for an error message or comment.
 
     Returns:
-        str: The same text with sensitive URLs and key identifiers replaced.
+        str: The same text with sensitive URLs, credentials and keys replaced.
     """
     redacted = _SENSITIVE_URL_RE.sub("[redacted-url]", text or "")
+    redacted = _URL_USERINFO_RE.sub(r"\1[redacted]@", redacted)
+    redacted = _CREDENTIAL_FIELD_RE.sub(r"\1\2[redacted]\4", redacted)
+    redacted = _AUTHORIZATION_RE.sub(r"\1 [redacted]", redacted)
     return _KEY_IDENTIFIER_RE.sub("[redacted-key]", redacted)
 
 
@@ -335,7 +346,8 @@ def classify_agent_error(stdout: str, stderr: str) -> AgentFailure | None:
     raw stdout also carries the agent's own answer. Structured ``error.type``
     and ``error.metadata.limit_source`` win over text markers, and an in-flight
     budget rejection wins over plain credit exhaustion, so a specific signature
-    is never swallowed by a broader one.
+    is never swallowed by a broader one. ``UnknownError`` is a generic fallback:
+    specific text evidence (a transient network code, for example) still wins.
 
     Args:
         stdout: The captured stdout of the run.
@@ -352,14 +364,17 @@ def classify_agent_error(stdout: str, stderr: str) -> AgentFailure | None:
     limit_source = str(metadata.get("limit_source") or "") if isinstance(metadata, dict) else ""
     retry_after_ms = non_negative_int(error.get("retryAfterMs"))
 
+    generic_unknown = error_type == "UnknownError"
     code: str | None = None
     if limit_source.casefold().replace("-", "_").replace(" ", "_") == "in_flight":
         code = "budget_retry"
-    elif error_type:
+    elif error_type and not generic_unknown:
         code = AGENT_FAILURE_TYPE_CODES.get(error_type)
 
     for name, markers, error_class, retryable in AGENT_FAILURE_SIGNATURES:
         if code == name or (code is None and any(marker in text for marker in markers)):
+            return AgentFailure(code=name, error_class=error_class, retryable=retryable, retry_after_ms=retry_after_ms)
+        if generic_unknown and name == "unknown_server_error":
             return AgentFailure(code=name, error_class=error_class, retryable=retryable, retry_after_ms=retry_after_ms)
     return None
 
@@ -414,7 +429,9 @@ def agent_failure_error(
         no fallback was given.
     """
     classification = classify_agent_error(stdout=stdout, stderr=stderr)
-    detail = redact_provider_text((stderr or "").strip() or _extract_ndjson_error(stdout) or "unknown error")
+    detail = redact_provider_text(
+        (stderr or "").strip() or _extract_ndjson_error(stdout) or (stdout or "").strip() or "unknown error"
+    )
     if classification is not None:
         return classification.error_class(
             agent=agent,
@@ -941,7 +958,9 @@ async def run_opencode_agent(
             network_retries += 1
         else:
             failure_retries += 1
-        delay = AGENT_NETWORK_BACKOFF_BASE * 2**used_retries
+        backoff = AGENT_NETWORK_BACKOFF_BASE * 2**used_retries
+        provider_delay = classification.retry_after_ms / 1000 if classification.retry_after_ms is not None else 0.0
+        delay = max(backoff, provider_delay)
         kind = "network error" if is_network else classification.code
         print_message(
             f"Agent {agent} hit a retryable {kind} (attempt {used_retries + 1}/{max_retries}); retrying in {delay:g}s",
