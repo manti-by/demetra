@@ -3243,7 +3243,7 @@ class TestWorkflowCleanup:
                 (git_dir / marker).rmdir()
 
     @pytest.mark.asyncio
-    async def test_git_worktree_has_operation_treats_unreadable_git_dir_as_unsafe(self, faker, tmp_path):
+    async def test_git_worktree_has_operation_propagates_inspection_failure(self, faker, tmp_path):
         project = Project(
             id=str(uuid4()),
             user_id=str(uuid4()),
@@ -3261,11 +3261,21 @@ class TestWorkflowCleanup:
         worktree_path.mkdir(parents=True)
         (worktree_path / ".git").write_text("gitdir: /tmp/worktree-git")
 
-        with (
-            patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
-            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(1, "", "not a repo")),
+        for exit_code, stdout, stderr in (
+            (-1, "", "Command timed out"),
+            (1, "", "not a repo"),
+            (0, "", ""),
         ):
-            assert await git_worktree_has_operation(project=project, branch_name="feature") is True
+            with (
+                patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
+                patch(
+                    "demetra.services.vcs.git.run_command",
+                    new_callable=AsyncMock,
+                    return_value=(exit_code, stdout, stderr),
+                ),
+            ):
+                with pytest.raises(RuntimeError, match="Failed to inspect worktree git directory"):
+                    await git_worktree_has_operation(project=project, branch_name="feature")
 
     @pytest.mark.asyncio
     async def test_git_worktree_create_recreates_existing_worktree(self, faker, tmp_path):
@@ -3301,7 +3311,7 @@ class TestWorkflowCleanup:
         assert call_args.kwargs["command"][1:5] == ["worktree", "add", "-b", "feature"]
 
     @pytest.mark.asyncio
-    async def test_git_worktree_create_force_deletes_orphan_branch(self, faker, tmp_path):
+    async def test_git_worktree_create_checks_out_existing_branch(self, faker, tmp_path):
         project = Project(
             id=str(uuid4()),
             user_id=str(uuid4()),
@@ -3315,16 +3325,21 @@ class TestWorkflowCleanup:
             created_at=datetime.now().isoformat(),
             updated_at=datetime.now().isoformat(),
         )
+        worktree_path = tmp_path / project.repository_owner / project.repository_name / "feature"
 
         with (
             patch.dict("demetra.services.vcs.git.GIT", {"worktree_path": tmp_path}),
             patch("demetra.services.vcs.git.git_branch_exists", new_callable=AsyncMock, return_value=True),
             patch("demetra.services.vcs.git.git_branch_delete", new_callable=AsyncMock) as mock_delete,
-            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(0, "", "")),
+            patch("demetra.services.vcs.git.run_command", new_callable=AsyncMock, return_value=(0, "", "")) as mock_run,
         ):
-            await git_worktree_create(project=project, branch_name="feature")
+            result = await git_worktree_create(project=project, branch_name="feature")
 
-        mock_delete.assert_awaited_once()
+        assert result == worktree_path
+        mock_delete.assert_not_awaited()
+        call_args = mock_run.await_args
+        assert call_args is not None
+        assert call_args.kwargs["command"][1:] == ["worktree", "add", str(worktree_path), "feature"]
 
     @pytest.mark.asyncio
     async def test_git_cleanup_reports_failed_worktree_removal(self, faker):

@@ -70,9 +70,9 @@ async def git_worktree_has_operation(
 
     A failed merge or rebase workflow leaves ``MERGE_HEAD`` or rebase state in
     its worktree when its own forced cleanup fails. Such a worktree cannot be
-    reused: the next run would start inside the unresolved operation. A
-    worktree whose git directory cannot be resolved is unsafe for the same
-    reason.
+    reused: the next run would start inside the unresolved operation. When the
+    git directory cannot be resolved the inspection error is raised, so setup
+    stops instead of dropping a worktree that may hold uncommitted changes.
 
     Args:
         project: The project the worktree belongs to.
@@ -80,23 +80,25 @@ async def git_worktree_has_operation(
         environment: The resolved session environment forwarded to the subprocess.
 
     Returns:
-        bool: True when the worktree must not be reused as-is.
+        bool: True when an unfinished operation is confirmed in the worktree.
+
+    Raises:
+        RuntimeError: When the git directory cannot be resolved.
     """
     worktree_path = get_worktree_path(project=project, branch_name=branch_name)
     if not worktree_path.exists():
         return False
-    try:
-        exit_code, stdout, _ = await run_command(
-            command=[str(GIT["path"]), "rev-parse", "--absolute-git-dir"],
-            target_path=worktree_path,
-            disable_stdio=True,
-            environment=environment,
-            project_id=project.id,
-        )
-    except OSError:
-        return True
-    if exit_code != 0 or not stdout.strip():
-        return True
+    exit_code, stdout, stderr = await run_command(
+        command=[str(GIT["path"]), "rev-parse", "--absolute-git-dir"],
+        target_path=worktree_path,
+        disable_stdio=True,
+        environment=environment,
+        project_id=project.id,
+    )
+    if exit_code != 0:
+        raise RuntimeError(f"Failed to inspect worktree git directory: {stderr.strip() or 'unknown error'}")
+    if not stdout.strip():
+        raise RuntimeError("Failed to inspect worktree git directory: empty output")
     git_dir = Path(stdout.strip())
     return any((git_dir / marker).exists() for marker in GIT_OPERATION_MARKERS)
 
@@ -131,9 +133,10 @@ async def git_worktree_create(
     """Create a git worktree for a branch, replacing any existing worktree.
 
     When ``create_branch`` is False, the branch is force-created from the
-    remote tracking branch before the worktree is added. Otherwise any local
-    branch left over from a previous run is force-deleted first, so the
-    worktree always starts from the current checkout.
+    remote tracking branch before the worktree is added. Otherwise an existing
+    local branch is checked out as-is so its commits survive; a new branch is
+    created with ``-b`` only when no local branch exists. Cleanup-enabled setup
+    drops the branch explicitly before calling this, so that path starts fresh.
 
     Args:
         project: The project to operate on.
@@ -155,10 +158,9 @@ async def git_worktree_create(
 
     if create_branch:
         if await git_branch_exists(target_path=project.local_path, branch_name=branch_name, environment=environment):
-            await git_branch_delete(
-                target_path=project.local_path, branch_name=branch_name, environment=environment, project_id=project.id
-            )
-        command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
+            command = [str(GIT["path"]), "worktree", "add", str(worktree_path), branch_name]
+        else:
+            command = [str(GIT["path"]), "worktree", "add", "-b", branch_name, str(worktree_path)]
     else:
         branch_cmd = [str(GIT["path"]), "branch", "--force", branch_name, f"origin/{branch_name}"]
         branch_exit, _, branch_err = await run_command(
