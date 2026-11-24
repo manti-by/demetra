@@ -270,14 +270,14 @@ export function SessionList({
       </div>
       {tags.length > 0 && (
         <div className="session-tag-filter">
-          <button
+          <button type="button"
             className={`session-tag-filter-btn${activeTag === null ? " active" : ""}`}
             onClick={() => setActiveTag(null)}
           >
             All
           </button>
           {tags.map((tag) => (
-            <button
+            <button type="button"
               key={tag}
               className={`session-tag-filter-btn${activeTag === tag ? " active" : ""}`}
               onClick={() =>

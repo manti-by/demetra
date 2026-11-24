@@ -8,7 +8,9 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — Implementation of CH-13: Wiki OKF validation (2026-11-23)
+- [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — `mantiby/demetra:latest` shrank from 1.01 GB to 708 MB by replacing a `chown -R` (which stored the venv and Rust toolchain twice) with `COPY --chown`, installing a slimmer C toolchain and using `vim-tiny`. Rust, C and bun stay for target-project builds. `make docker-test` installs dev dependencies into a throwaway container and runs the suite: 1556 passed. (2026-11-23)
+- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — Implementation of CH-14: LangSmithError (2026-11-18)
+- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md) — The `Failed to send compressed multipart ingest: langsmith.utils.LangSmithError` flood was a 403 on `/runs/multipart`: compose forced `LANGSMITH_TRACING=true` and the forwarded `lsv2_pt_` key is unauthorized. LangSmith is now one platform-wide config — opt-in tracing gated on a configured key, `system_env` reads only `settings.py` so all users/projects share the single `Demetra` project; key rotation is an ops follow-up. (2026-11-17)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — Every session-history block is a collapsible card, collapsed by default: name on the left, cost and time on the right, body as usual when open with the cost dropped from the header. `make deploy-ui` ships a frontend change by rebuilding only the React bundle through the one-shot `react-build` compose service and reloading nginx — no image rebuild, no migrations, no container restarts — under the same Redis deploy lock the daemon takes. (2026-11-15)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — The sidebar list now has three labelled blocks: Active (in progress, including `awaiting_input`, updated within 14 days or running live), Completed (`completed`/`researched`, any age) and Backlog (`failed` or stale in-progress); Active always renders with a `No active sessions` message, the other two only when non-empty. (2026-11-15)
 - [MNT-314: Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — The Linear MCP server authenticates with a static `Authorization: Bearer {env:LINEAR_API_KEY}` header and `oauth: false`; the key resolves project → user → system, the Demetra MCP command drops its cwd-relative `--env-file`, `DB_*` (except the encrypted `DB_PASSWORD`) are forwarded through `system_env`, the MCP server exits fast without a password, and the host credential file is derived into a provider-only global config. (2026-11-15)
@@ -184,7 +186,19 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md) — 2026-08-03
 - [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — 2026-11-23
 
-### Sessions, status & resume (14 pages)
+- [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md)
+- [Replace the wiki MCP tool with WI and refactor demetra/tools](pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md)
+- [BM25 ranking for the wiki and docstring MCP tools](pages/2026-10-09-bm25-search-for-mcp-tools.md)
+- [LLM-authored wiki pages and normalized frontmatter](pages/2026-10-08-llm-authored-wiki-pages.md)
+- [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
+- [Fix wiki index lock not process-safe](pages/2026-08-28-fix-index-lock-concurrency.md)
+- [Wiki pages not generated — move wiki step before commit](pages/2026-08-25-mnt-187-wiki-pages-not-generated.md)
+- [Rename wiki budget_exceeded to should_use_llm](pages/2026-08-19-wiki-should-use-llm-rename.md)
+- [Wiki edge-case fixes and slow-test optimization](pages/2026-08-09-wiki-fixes-and-test-optimization.md)
+- [Split wiki service into a subpackage](pages/2026-08-07-split-wiki-service-into-subpackage.md)
+- [MNT-147 Wiki processes PR #70 — branch check and CI failure root cause](pages/2026-08-07-mnt-147-wiki-processes-pr70-review.md)
+- [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
+- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — 2026-11-18
 
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — 2026-11-15
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — 2026-11-15
@@ -231,11 +245,14 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md) — 2026-08-03
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md) — 2026-07-23
 
-### Testing & tooling (3 pages)
+### Environment, settings & subprocess (6 pages)
 
-- [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md) — 2026-11-12
-- [MNT-308: Lint and test erorrs](pages/2026-11-10-mnt-308-lint-error-extraction.md) — 2026-11-10
-- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md) — 2026-08-20
+- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md)
+- [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md)
+- [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
+- [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md)
+- [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
+- [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
 
 ### TUI & CLI (1 page)
 
@@ -251,4 +268,14 @@ _Topic clusters maintained by the Consistency Agent; topics with the most pages 
 
 ### Git & worktrees (1 page)
 
-- [MNT-277: Do not remove git worktree for sessions](pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md) — 2026-11-06
+- [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md)
+- [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+
+### Testing & tooling (2 pages)
+
+- [Fix allowlist tests after MNT-173 default-on refactor](pages/2026-08-20-fix-allowlist-tests.md)
+- [Test DB isolation and console-only logging](pages/2026-08-18-test-db-isolation-logging.md)
+
+### TUI & CLI (1 pages)
+
+- [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md)

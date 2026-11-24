@@ -198,17 +198,18 @@ export function ChatPanel({
         {(onShowLogsToggle || canRerun || onDeleteSession) && (
           <div className="chat-topbar-actions">
             {onShowLogsToggle && (
-              <button className="btn-secondary" onClick={onShowLogsToggle}>
+              <button type="button" className="btn-secondary" onClick={onShowLogsToggle}>
                 {showLogs ? "Hide logs" : "Show logs"}
               </button>
             )}
             {canRerun && (
-              <button className="btn-primary" onClick={handleRerun}>
+              <button type="button" className="btn-primary" onClick={handleRerun}>
                 Re-run
               </button>
             )}
             {onDeleteSession && (
               <button
+                type="button"
                 className="btn-secondary chat-delete-btn"
                 onClick={() => handleDeleteSession(taskId)}
               >
@@ -273,6 +274,7 @@ export function ChatPanel({
                 rows={3}
               />
               <button
+                  type="button"
                 className="btn-primary"
                 onClick={handleSend}
                 disabled={sending || !draft.trim()}
