@@ -19,6 +19,7 @@ from demetra.library.models import (
     LinearTask,
     Message,
     MessageSource,
+    ModelPrice,
     Session,
     SessionHistory,
     SessionState,
@@ -47,6 +48,7 @@ from demetra.library.tables import (
     waitlist_entries,
 )
 from demetra.library.types import FeedbackLoops
+from demetra.services.pricing import calculate_cost
 from demetra.settings import DATABASE
 
 
@@ -1658,6 +1660,8 @@ async def record_llm_call(
     step: str,
     model: str | None = None,
     usage: TokenUsage | None = None,
+    cost: float | None = None,
+    price: dict[str, float] | None = None,
     message: str | None = None,
 ) -> SessionHistory:
     """Record one OpenRouter LLM call as a ``kind='llm_call'`` history row.
@@ -1666,13 +1670,17 @@ async def record_llm_call(
     token usage, so there is no cumulative cursor to diff against and no
     ``agent_sessions`` row to attribute it to. ``step`` carries the prompt name
     (e.g. ``summarize_plan``) so the call keeps its timeline position, and
-    ``message`` carries the failure reason for a failed call.
+    ``message`` carries the failure reason for a failed call. ``cost`` is
+    derived from the usage and the rate snapshot in ``price`` when a price is
+    published for the model; both stay NULL otherwise.
 
     Args:
         task_id: The Linear task identifier.
         step: The prompt name the call ran for.
         model: The OpenRouter model serving the call, or None when unresolved.
         usage: The token usage reported by the response, or None.
+        cost: The computed USD cost of the call, or None.
+        price: The per-million-token rates used to compute ``cost``, or None.
         message: Optional failure reason recorded with the row.
 
     Returns:
@@ -1695,6 +1703,8 @@ async def record_llm_call(
                 cache_read_tokens=usage.cache_read if usage is not None else None,
                 cache_write_tokens=usage.cache_write if usage is not None else None,
                 context_tokens=usage.context if usage is not None else None,
+                cost=cost,
+                price=price,
                 model=model,
                 agent="openrouter",
                 message=message,
@@ -1716,6 +1726,8 @@ async def record_llm_call(
         cache_read_tokens=usage.cache_read if usage is not None else None,
         cache_write_tokens=usage.cache_write if usage is not None else None,
         context_tokens=usage.context if usage is not None else None,
+        cost=cost,
+        price=price,
         model=model,
         agent="openrouter",
         message=message,
@@ -1732,6 +1744,8 @@ async def record_agent_invocation(
     agent: str | None = None,
     model: str | None = None,
     cost: float | None = None,
+    price: dict[str, float] | None = None,
+    rate_card: ModelPrice | None = None,
     outcome: str | None = None,
     fork_of: str | None = None,
     is_primary: bool = False,
@@ -1763,7 +1777,13 @@ async def record_agent_invocation(
         usage: The cumulative token usage from the export, or None.
         agent: The agent reported by ``info.agent``.
         model: The serialized model reported by ``info.model``.
-        cost: The cumulative session cost reported by ``info.cost``.
+        cost: The cumulative session cost reported by ``info.cost``; its delta
+            is stored only when no ``rate_card`` is supplied. The value always
+            advances the cost cursor on the vendor-reported basis.
+        price: The per-million-token rates persisted on the history row, or
+            None when no published rate was found.
+        rate_card: The rate card used to price this invocation's token delta at
+            the current rate, or None to fall back to the reported cost delta.
         outcome: The session outcome reported by ``info.outcome``.
         fork_of: The parent session id when this session was forked, for
             lineage only — it never feeds the delta.
@@ -1835,9 +1855,21 @@ async def record_agent_invocation(
                 "cursor_cost": None,
             }
             if cost is not None:
-                previous_cost = cursor.cursor_cost if cursor is not None else None
-                delta_cost = max(0.0, cost - (previous_cost or 0.0))
                 new_cursor["cursor_cost"] = cost
+                if rate_card is None:
+                    previous_cost = cursor.cursor_cost if cursor is not None else None
+                    delta_cost = max(0.0, cost - (previous_cost or 0.0))
+            if rate_card is not None:
+                delta_cost = calculate_cost(
+                    usage=TokenUsage(
+                        input=delta["input_tokens"] or 0,
+                        output=delta["output_tokens"] or 0,
+                        reasoning=delta["reasoning_tokens"] or 0,
+                        cache_read=delta["cache_read_tokens"] or 0,
+                        cache_write=delta["cache_write_tokens"] or 0,
+                    ),
+                    price=rate_card,
+                )
 
         is_new = agent_session_id is None
         if agent_session_id is None:
@@ -1912,6 +1944,7 @@ async def record_agent_invocation(
                 length=length,
                 context_tokens=context_tokens,
                 cost=delta_cost,
+                price=price,
                 agent=agent,
                 model=model,
                 created_at=now,
@@ -1963,6 +1996,7 @@ async def record_agent_invocation(
         cache_write_tokens=delta["cache_write_tokens"],
         context_tokens=context_tokens,
         cost=delta_cost,
+        price=price,
         model=model,
         agent=agent,
         created_at=now.isoformat(),
@@ -2120,6 +2154,7 @@ async def get_session_history(task_id: str) -> list[SessionHistory]:
             cache_write_tokens=row.cache_write_tokens,
             context_tokens=row.context_tokens,
             cost=row.cost,
+            price=row.price,
             model=row.model,
             agent=row.agent,
             message=row.message,

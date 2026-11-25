@@ -1144,6 +1144,7 @@ class TestSessionHistoryEndpoint:
                     ToolUsage(name="read", calls=1, succeeded=1, duration_ms=5),
                 ],
                 cost=0.05,
+                price={"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.0},
             ),
             SessionHistory(
                 id="h2",
@@ -1197,6 +1198,12 @@ class TestSessionHistoryEndpoint:
             assert data["history"][0]["step"] == "plan"
             assert data["history"][0]["input_tokens"] == 500
             assert data["history"][0]["output_tokens"] == 300
+            assert data["history"][0]["price"] == {
+                "input": 0.3,
+                "output": 1.2,
+                "cache_read": 0.06,
+                "cache_write": 0.0,
+            }
             assert data["history"][0]["tool_usage"] == [
                 {"name": "bash", "calls": 3, "succeeded": 2, "failed": 1, "duration_ms": 70},
                 {"name": "read", "calls": 1, "succeeded": 1, "failed": 0, "duration_ms": 5},
@@ -1429,6 +1436,8 @@ class TestSessionHistoryEndpoint:
                 length=400,
                 input_tokens=300,
                 output_tokens=100,
+                cost=0.00042,
+                price={"input": 0.3, "output": 1.2, "cache_read": 0.06, "cache_write": 0.0},
                 model="openai/gpt-oss-120b",
                 agent="openrouter",
             ),
@@ -1453,6 +1462,7 @@ class TestSessionHistoryEndpoint:
             assert data["total"]["length"] == 1100
             assert data["total"]["input_tokens"] == 800
             assert data["total"]["output_tokens"] == 300
+            assert data["total"]["cost"] == pytest.approx(0.00042)
             assert data["history"][1]["kind"] == "llm_call"
             assert data["history"][1]["step"] == "summarize_plan"
             assert data["history"][1]["model"] == "openai/gpt-oss-120b"

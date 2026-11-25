@@ -217,6 +217,22 @@ class TokenUsage:
 
 
 @dataclass
+class ModelPrice:
+    """USD price per one million tokens for one model of one provider.
+
+    The four rates are kept disjoint: ``input`` excludes cached prompt tokens
+    and ``output`` excludes reasoning tokens, matching :class:`TokenUsage`.
+    """
+
+    provider: str
+    source: str
+    input: float = 0.0
+    output: float = 0.0
+    cache_read: float = 0.0
+    cache_write: float = 0.0
+
+
+@dataclass
 class ToolUsage:
     name: str
     calls: int = 0
@@ -242,6 +258,7 @@ class SessionHistory:
     cache_write_tokens: int | None = None
     context_tokens: int | None = None
     cost: float | None = None
+    price: dict[str, float] | None = None
     model: str | None = None
     agent: str | None = None
     tool_usage: list[ToolUsage] = field(default_factory=list)

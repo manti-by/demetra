@@ -138,6 +138,21 @@ def stub_linear_team_states(monkeypatch):
         yield fetch_team_states
 
 
+@pytest.fixture(autouse=True)
+def stub_pricing_fetch():
+    """Keep the suite off the live OpenRouter price endpoint by default.
+
+    Tests that exercise the rate-card fetch patch the module helper locally;
+    every other call sees an empty rate card and leaves cost/price unset.
+    """
+    from demetra.services import pricing
+
+    pricing._openrouter_cache.clear()
+    with patch.object(pricing, "_fetch_openrouter_prices", new_callable=AsyncMock, return_value={}):
+        yield
+    pricing._openrouter_cache.clear()
+
+
 @pytest.fixture(scope="session", autouse=True)
 def fast_bcrypt():
     original_gensalt = bcrypt.gensalt

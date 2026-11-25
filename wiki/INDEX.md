@@ -167,8 +167,9 @@ _Newest first._
 - [Warp Theme Review Fixes, Infrastructure Updates, and Green Accent Palette](pages/2026-07-22-warp-theme-review-fixes-and-ops.md)
 - [React Frontend Layout, Template Updates, and Warp Theme CSS Refinements](pages/2026-07-22-react-frontend-template-warp.md)
 
-### Session history, tokens & costs (15 pages)
+### Session history, tokens & costs (16 pages)
 
+- [MNT-321: External provider prices](pages/2026-11-24-mnt-321-external-providers-prices.md)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md)
 - [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md)
@@ -200,6 +201,7 @@ _Newest first._
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
 
 ### Deploy & infrastructure (11 pages)
 
