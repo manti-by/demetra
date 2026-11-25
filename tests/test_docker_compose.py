@@ -11,7 +11,8 @@ LANGSMITH_ENV_DEFAULTS: dict[str, str] = {
     "LANGSMITH_API_KEY": "",
     "LANGSMITH_PROJECT": "Demetra",
 }
-OPENCODE_SERVICES = ("api", "worker", "watcher", "listener")
+OPENCODE_SERVICES = ("api", "worker-blue", "worker-green", "watcher", "listener")
+WORKER_SERVICES = ("worker-blue", "worker-green")
 
 
 def _load_compose() -> dict[str, Any]:
@@ -106,3 +107,59 @@ class TestDockerComposeDeployerService:
 
     def test_redis_is_not_published_to_the_host(self):
         assert "ports" not in _load_compose()["services"]["redis"]
+
+
+class TestDockerComposeWorkerSlots:
+    def test_both_generations_come_from_the_shared_worker_anchor(self):
+        compose = _load_compose()
+        anchor = compose["x-demetra-worker"]
+
+        assert "worker" not in compose["services"]
+        for service in WORKER_SERVICES:
+            definition = compose["services"][service]
+            assert definition["image"] == anchor["image"]
+            assert definition["command"] == anchor["command"]
+            assert definition["stop_grace_period"] == anchor["stop_grace_period"]
+            assert definition["deploy"]["replicas"] == 4
+
+    def test_slot_logs_use_the_worker_log(self):
+        compose = _load_compose()
+
+        assert compose["services"]["worker-blue"]["environment"]["LOG_PATH"] == "/var/log/demetra/worker.log"
+        assert compose["services"]["worker-green"]["environment"]["LOG_PATH"] == "/var/log/demetra/worker.log"
+
+    def test_slot_services_wait_for_the_migration(self):
+        compose = _load_compose()
+
+        for service in WORKER_SERVICES:
+            assert compose["services"][service]["depends_on"]["migrate"]["condition"] == (
+                "service_completed_successfully"
+            )
+
+
+class TestDockerComposeWorkerSwapService:
+    def test_runs_the_manual_swap_entrypoint_from_the_built_image(self):
+        service = _load_compose()["services"]["worker-swap"]
+
+        assert service["image"] == "mantiby/demetra:latest"
+        assert service["command"][:3] == ["python", "-m", "demetra.worker_swap"]
+        assert service["command"][3] == "--checkout"
+        assert service["command"][4] == "${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}"
+
+    def test_shares_the_deployer_state_and_the_host_docker_socket(self):
+        service = _load_compose()["services"]["worker-swap"]
+
+        assert "demetra_deployer_data:/var/lib/demetra/" in service["volumes"]
+        assert "/var/run/docker.sock:/var/run/docker.sock" in service["volumes"]
+        assert service["environment"]["DEPLOY_STATE_PATH"] == (
+            "${DEPLOY_STATE_PATH:-/var/lib/demetra/deployer-state.json}"
+        )
+        assert service["environment"]["DOCKER_PATH"] == "/usr/local/bin/docker"
+
+    def test_is_a_root_one_shot_that_does_not_replace_the_deployer(self):
+        service = _load_compose()["services"]["worker-swap"]
+
+        assert service["user"] == "root"
+        assert service["entrypoint"] == ""
+        assert service["restart"] == "no"
+        assert "deployer" not in service["command"]

@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps react docker-test docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
+.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps worker-swap react docker-test docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -31,8 +31,15 @@ deploy-steps:
 	docker build --platform linux/amd64 --tag mantiby/demetra:latest .
 	docker compose --env-file .env.docker pull postgres redis react-build || true
 	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
-	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=4 api worker watcher listener rq-dashboard deployer
+	docker compose --env-file .env.docker up --detach --force-recreate --no-deps api watcher listener rq-dashboard deployer
+	$(MAKE) worker-swap
 	sudo service nginx reload
+
+
+# Start the staging generation on the image just built and signal the live one
+# exactly once. Runs inside the deploy lock alongside the other deploy steps.
+worker-swap:
+	docker compose --env-file .env.docker run --rm worker-swap
 
 
 # Frontend-only deploy: rebuild the React bundle and reload nginx. The image,
@@ -126,7 +133,7 @@ docker-test:
 	exit $$status
 
 docker-up:
-	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard deployer
+	docker compose --env-file .env.docker up -d --scale worker-blue=4 --scale worker-green=0 api worker-blue worker-green watcher listener rq-dashboard deployer
 
 docker-down:
 	docker compose --env-file .env.docker down

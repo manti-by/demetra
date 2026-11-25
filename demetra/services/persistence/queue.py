@@ -3,9 +3,10 @@ import logging
 from redis import Redis
 from redis.exceptions import RedisError
 from rq import Queue
+from rq.exceptions import NoSuchJobError
 from rq.job import Job
 from rq.registry import StartedJobRegistry
-from rq.utils import current_timestamp
+from rq.utils import as_text, current_timestamp
 
 from demetra.settings import REDIS_URL, SUBPROCESS_TIMEOUT
 
@@ -68,3 +69,61 @@ def get_live_task_ids() -> list[str]:
         if isinstance(task_id, str) and task_id:
             task_ids.append(task_id)
     return task_ids
+
+
+def requeue_abandoned_jobs() -> list[str]:
+    """Requeue started jobs whose worker heartbeat has expired.
+
+    A worker killed by the deploy watchdog leaves its job in the started-job
+    registry with a stale expiry. RQ's own ``cleanup()`` would move such jobs to
+    the failed registry, so the entries are requeued here instead: the workflow
+    runs again on a fresh worker rather than being lost.
+
+    ``StartedJobRegistry.requeue()`` cannot be used here: in rq 2.10 the
+    registry stores ``{job_id}:{execution_id}`` members and that helper removes
+    only the bare job id, so it always raises ``InvalidJobOperation``.
+    ``remove_executions()`` is no better: it resolves members through the
+    execution registry, whose entries outlive the started score, so it misses
+    the very member that needs removing and can raise while the entry is
+    expiring. The raw expired members read from the started registry itself are
+    removed once their job has been enqueued again.
+
+    Returns:
+        list[str]: The ids that were requeued.
+    """
+    try:
+        registry = StartedJobRegistry(queue=queue, connection=connection)
+        now = current_timestamp()
+        raw_members = connection.zrangebyscore(registry.key, 0, now)
+    except (RedisError, OSError, ValueError) as e:
+        logger.warning(f"Failed to read the abandoned jobs: {e}")
+        return []
+    entries: list[tuple[str | bytes, str]] = []
+    for member in raw_members:
+        if not isinstance(member, (str, bytes)):
+            continue
+        try:
+            entries.append((member, registry.parse_job_id(entry=as_text(member))))
+        except ValueError:
+            logger.warning(f"Ignoring an unparseable started-job registry entry: {member!r}")
+    requeued: list[str] = []
+    removed_members: list[str | bytes] = []
+    for member, job_id in entries:
+        try:
+            job = Job.fetch(id=job_id, connection=connection)
+            job.started_at = None
+            job.ended_at = None
+            job._exc_info = ""
+            job.save()
+            queue.enqueue_job(job)
+        except NoSuchJobError:
+            removed_members.append(member)
+            continue
+        except ValueError as e:
+            logger.warning(f"Failed to requeue the abandoned job {job_id}: {e}")
+            continue
+        requeued.append(job_id)
+        removed_members.append(member)
+    if removed_members:
+        connection.zrem(registry.key, *removed_members)
+    return requeued

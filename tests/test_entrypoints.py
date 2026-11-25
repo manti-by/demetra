@@ -41,6 +41,19 @@ class TestWorker:
         assert connection is not None
 
 
+class TestWorkerSwapEntrypoint:
+    def test_requires_the_host_checkout(self):
+        from demetra.worker_swap import parse_arguments
+
+        with pytest.raises(SystemExit):
+            parse_arguments(arguments=[])
+
+    def test_parses_the_host_checkout(self):
+        from demetra.worker_swap import parse_arguments
+
+        assert parse_arguments(arguments=["--checkout", "/srv/checkout"]) == Path("/srv/checkout")
+
+
 class TestMainEntrypoint:
     def test_main_argparser_accepts_plan_loop(self):
         from main import parser

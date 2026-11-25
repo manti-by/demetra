@@ -1,9 +1,11 @@
 from types import SimpleNamespace
-from unittest.mock import ANY, patch
+from unittest.mock import ANY, MagicMock, patch
 
 from redis.exceptions import RedisError
+from rq.exceptions import NoSuchJobError
+from rq.registry import StartedJobRegistry
 
-from demetra.services.persistence.queue import get_live_task_ids
+from demetra.services.persistence.queue import get_live_task_ids, requeue_abandoned_jobs
 
 
 class TestGetLiveTaskIds:
@@ -106,3 +108,91 @@ class TestGetLiveTaskIds:
             side_effect=RedisError("connection refused"),
         ):
             assert get_live_task_ids() == []
+
+
+class TestRequeueAbandonedJobs:
+    @staticmethod
+    def _registry_and_connection(registry_class, connection_class, members: list[str]):
+        registry = registry_class.return_value
+        registry.key = "rq:registry:started"
+        registry.parse_job_id.side_effect = StartedJobRegistry.parse_job_id
+        connection_class.zrangebyscore.return_value = members
+        return registry, connection_class
+
+    def test_removes_the_raw_members_it_read_after_enqueueing_each_job(self):
+        jobs = {"job-1": MagicMock(), "job-2": MagicMock()}
+
+        def _fetch(**kwargs):
+            return jobs[kwargs["id"]]
+
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.connection") as connection_mock,
+            patch("demetra.services.persistence.queue.Job.fetch", side_effect=_fetch) as mock_fetch,
+            patch("demetra.services.persistence.queue.queue.enqueue_job") as mock_enqueue,
+        ):
+            registry, connection = self._registry_and_connection(
+                registry_class, connection_mock, ["job-1:exec-1", "job-2:exec-2"]
+            )
+
+            assert requeue_abandoned_jobs() == ["job-1", "job-2"]
+
+        assert [call.kwargs["id"] for call in mock_fetch.call_args_list] == ["job-1", "job-2"]
+        assert [call.args[0] for call in mock_enqueue.call_args_list] == [jobs["job-1"], jobs["job-2"]]
+        connection.zrem.assert_called_once_with(registry.key, "job-1:exec-1", "job-2:exec-2")
+        registry.remove_executions.assert_not_called()
+        registry.requeue.assert_not_called()
+        for job in jobs.values():
+            assert job.started_at is None
+            assert job.ended_at is None
+            job.save.assert_called_once_with()
+
+    def test_removes_a_stale_member_even_when_the_job_no_longer_exists(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.connection") as connection_mock,
+            patch("demetra.services.persistence.queue.Job.fetch", side_effect=NoSuchJobError("gone")),
+            patch("demetra.services.persistence.queue.queue.enqueue_job") as mock_enqueue,
+        ):
+            registry, connection = self._registry_and_connection(registry_class, connection_mock, ["job-1:exec-1"])
+
+            assert requeue_abandoned_jobs() == []
+
+        connection.zrem.assert_called_once_with(registry.key, "job-1:exec-1")
+        mock_enqueue.assert_not_called()
+
+    def test_ignores_an_unparseable_registry_member(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.connection") as connection_mock,
+            patch("demetra.services.persistence.queue.Job.fetch") as mock_fetch,
+        ):
+            registry, connection = self._registry_and_connection(
+                registry_class, connection_mock, ["job-1:exec-1:extra"]
+            )
+            registry.parse_job_id.side_effect = ValueError("bad composite key")
+
+            assert requeue_abandoned_jobs() == []
+
+        mock_fetch.assert_not_called()
+        connection.zrem.assert_not_called()
+
+    def test_does_not_remove_a_member_whose_requeue_failed(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.connection") as connection_mock,
+            patch("demetra.services.persistence.queue.Job.fetch", return_value=MagicMock()),
+            patch("demetra.services.persistence.queue.queue.enqueue_job", side_effect=ValueError("no queue")),
+        ):
+            _, connection = self._registry_and_connection(registry_class, connection_mock, ["job-1:exec-1"])
+
+            assert requeue_abandoned_jobs() == []
+
+        connection.zrem.assert_not_called()
+
+    def test_returns_an_empty_list_when_the_broker_is_unreachable(self):
+        with patch(
+            "demetra.services.persistence.queue.StartedJobRegistry",
+            side_effect=RedisError("connection refused"),
+        ):
+            assert requeue_abandoned_jobs() == []

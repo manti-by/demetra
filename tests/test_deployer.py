@@ -28,7 +28,6 @@ from demetra.services.daemons.deployer import (
     get_origin_repository,
     get_remote_master_sha,
     get_running_revision,
-    is_queue_drained,
     load_state,
     parse_remote_sha,
     parse_repository_slug,
@@ -40,20 +39,13 @@ from demetra.services.daemons.deployer import (
     save_state,
     should_deploy,
     summarize_check_runs,
-    wait_for_queue_drain,
 )
+from demetra.services.daemons.worker_swap import SWAP_STEP_BUDGET
 from demetra.settings import DEPLOY
 
 
 SHA = "a" * 40
 OTHER_SHA = "b" * 40
-
-
-def _mock_queue(*, waiting: int = 0, started: list | None = None) -> MagicMock:
-    mock_queue = MagicMock()
-    mock_queue.count = waiting
-    mock_queue.started_job_registry.get_job_ids.return_value = started or []
-    return mock_queue
 
 
 class TestParseRemoteSha:
@@ -296,35 +288,6 @@ class TestCombineCheckRunPages:
         assert combine_check_run_pages(pages=[None, {"check_runs": []}]) == {"check_runs": []}
 
 
-class TestIsQueueDrained:
-    def test_false_with_a_waiting_job(self):
-        with patch("demetra.services.daemons.deployer.queue", _mock_queue(waiting=1)):
-            assert is_queue_drained() is False
-
-    def test_false_with_a_running_job(self):
-        with patch("demetra.services.daemons.deployer.queue", _mock_queue(started=["job-1"])):
-            assert is_queue_drained() is False
-
-    def test_true_without_waiting_or_running_jobs(self):
-        with patch("demetra.services.daemons.deployer.queue", _mock_queue()):
-            assert is_queue_drained() is True
-
-
-class TestWaitForQueueDrain:
-    @pytest.mark.asyncio
-    async def test_returns_true_when_the_queue_drains(self):
-        with patch("demetra.services.daemons.deployer.is_queue_drained", return_value=True):
-            assert await wait_for_queue_drain(timeout=10) is True
-
-    @pytest.mark.asyncio
-    async def test_returns_false_on_timeout(self):
-        with (
-            patch("demetra.services.daemons.deployer.is_queue_drained", return_value=False),
-            patch("demetra.services.daemons.deployer.asyncio.sleep", new_callable=AsyncMock),
-        ):
-            assert await wait_for_queue_drain(timeout=0) is False
-
-
 class TestShouldDeploy:
     def test_false_for_the_deployed_commit(self):
         state = DeployState(last_deployed_sha=SHA)
@@ -347,6 +310,24 @@ class TestDeployState:
         save_state(path=state_path, state=state)
 
         assert load_state(path=state_path) == state
+
+    def test_writes_state_atomically_without_leaving_temporary_files(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+
+        save_state(path=state_path, state=DeployState(worker_slot="green"))
+
+        assert load_state(path=state_path).worker_slot == "green"
+        assert list(tmp_path.glob(".*.tmp")) == []
+
+    def test_a_failed_write_leaves_the_previous_state_intact(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        save_state(path=state_path, state=DeployState(worker_slot="blue"))
+
+        with patch("demetra.services.daemons.deploy_support.Path.write_text", side_effect=OSError("disk full")):
+            save_state(path=state_path, state=DeployState(worker_slot="green"))
+
+        assert load_state(path=state_path).worker_slot == "blue"
+        assert list(tmp_path.glob(".*.tmp")) == []
 
     def test_missing_file_is_an_empty_state(self, tmp_path: Path):
         assert load_state(path=tmp_path / "missing.json") == DeployState()
@@ -372,6 +353,33 @@ class TestDeployState:
     def test_reads_the_pending_recreate_flag(self):
         assert DeployState.from_payload({"pending_recreate": True}).pending_recreate is True
         assert DeployState.from_payload({}).pending_recreate is False
+
+    def test_defaults_to_the_blue_generation_with_no_draining_containers(self):
+        state = DeployState.from_payload({})
+
+        assert state.worker_slot == "blue"
+        assert state.draining_workers == {}
+
+    def test_round_trips_the_live_generation_and_draining_containers(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        state = DeployState(worker_slot="green", draining_workers={"container-1": 123.5, "container-2": 456.5})
+
+        save_state(path=state_path, state=state)
+
+        loaded = load_state(path=state_path)
+        assert loaded.worker_slot == "green"
+        assert loaded.draining_workers == {"container-1": 123.5, "container-2": 456.5}
+
+    def test_rejects_an_unknown_generation_and_malformed_drain_entries(self):
+        state = DeployState.from_payload(
+            {
+                "worker_slot": "red",
+                "draining_workers": {"container-1": 123.5, "container-2": "NaN", "container-3": None},
+            }
+        )
+
+        assert state.worker_slot == "blue"
+        assert state.draining_workers == {"container-1": 123.5}
 
     def test_a_non_object_payload_is_an_empty_state(self, tmp_path: Path):
         state_path = tmp_path / "deployer-state.json"
@@ -414,12 +422,15 @@ class TestBuildDeploySteps:
         assert pull[-2:] == ["pull", "--ff-only"]
         assert any(arg == f"safe.directory={Path('/srv/checkout')}" for arg in pull)
 
-    def test_up_force_recreates_the_app_services_without_the_deployer(self):
+    def test_up_force_recreates_only_the_non_worker_services(self):
         up = dict(build_deploy_steps(checkout_path=Path("/srv/checkout")))["up"]
 
         assert "--force-recreate" in up
-        assert "--scale" in up
-        assert list(DEPLOY["compose_services"]) == up[-5:]
+        assert "--no-deps" in up
+        assert "--scale" not in up
+        assert list(DEPLOY["compose_services"]) == up[-4:]
+        assert "worker-blue" not in up
+        assert "worker-green" not in up
         assert "deployer" not in up
 
     def test_uses_the_checkout_env_file(self):
@@ -472,10 +483,10 @@ class TestCheckoutOwnerPrefix:
 
 
 class TestDeployLockTimeout:
-    def test_covers_every_step_and_the_in_lock_drain_wait(self):
+    def test_covers_every_step_and_the_worker_swap_commands(self):
         steps = build_deploy_steps(checkout_path=Path("/srv/checkout"))
 
-        expected = (len(steps) + 1) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
+        expected = (len(steps) + 1 + SWAP_STEP_BUDGET) * DEPLOY["step_timeout"]
         assert deploy_lock_timeout(checkout_path=Path("/srv/checkout")) == expected
 
     def test_budgets_the_post_pull_head_read(self):
@@ -503,97 +514,104 @@ class TestAcquireDeployLock:
 
 
 class TestRunDeploy:
-    @pytest.mark.asyncio
-    async def test_runs_every_step_in_order(self):
+    @pytest.fixture
+    def deploy_mocks(self, tmp_path: Path):
         with (
             patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
             patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
+            patch("demetra.services.daemons.deployer.swap_workers", new_callable=AsyncMock) as mock_swap,
         ):
             mock_step.return_value = True
             mock_match.return_value = True
-            mock_drain.return_value = True
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+            mock_swap.return_value = True
+            yield {
+                "step": mock_step,
+                "match": mock_match,
+                "swap": mock_swap,
+                "state_path": tmp_path / "state.json",
+                "state": DeployState(),
+            }
+
+    async def _run(self, mocks: dict) -> bool:
+        return await run_deploy(
+            checkout_path=Path("/srv/checkout"), sha=SHA, state_path=mocks["state_path"], state=mocks["state"]
+        )
+
+    @pytest.mark.asyncio
+    async def test_runs_every_step_in_order(self, deploy_mocks):
+        result = await self._run(mocks=deploy_mocks)
 
         assert result is True
-        names = [call.kwargs["name"] for call in mock_step.await_args_list]
+        names = [call.kwargs["name"] for call in deploy_mocks["step"].await_args_list]
         assert names == [name for name, _ in build_deploy_steps(checkout_path=Path("/srv/checkout"))]
 
     @pytest.mark.asyncio
-    async def test_stops_at_the_first_required_failure(self):
-        with (
-            patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
-            patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
-        ):
-            mock_step.side_effect = [True, False]
-            mock_match.return_value = True
-            mock_drain.return_value = True
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+    async def test_swaps_workers_after_the_migration_and_before_the_other_services(self, deploy_mocks):
+        events: list[str] = []
 
-        assert result is False
-        assert mock_step.await_count == 2
+        async def _step(*, name, command, checkout_path):
+            events.append(name)
+            return True
+
+        async def _swap(*, checkout_path, state_path, state):
+            events.append("swap")
+            return True
+
+        deploy_mocks["step"].side_effect = _step
+        deploy_mocks["swap"].side_effect = _swap
+
+        await self._run(mocks=deploy_mocks)
+
+        assert events == ["pull", "build", "pull_images", "migrate", "swap", "up", "nginx_reload"]
+        deploy_mocks["swap"].assert_awaited_once_with(
+            checkout_path=Path("/srv/checkout"), state_path=deploy_mocks["state_path"], state=deploy_mocks["state"]
+        )
 
     @pytest.mark.asyncio
-    async def test_continues_after_a_failed_image_pull(self):
-        with (
-            patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
-            patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
-        ):
-            mock_step.side_effect = [True, True, False, True, True, True]
-            mock_match.return_value = True
-            mock_drain.return_value = True
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+    async def test_stops_at_the_first_required_failure(self, deploy_mocks):
+        deploy_mocks["step"].side_effect = [True, False]
+
+        result = await self._run(mocks=deploy_mocks)
+
+        assert result is False
+        assert deploy_mocks["step"].await_count == 2
+        deploy_mocks["swap"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_continues_after_a_failed_image_pull(self, deploy_mocks):
+        deploy_mocks["step"].side_effect = [True, True, False, True, True, True]
+
+        result = await self._run(mocks=deploy_mocks)
 
         assert result is True
-        assert mock_step.await_count == 6
+        assert deploy_mocks["step"].await_count == 6
 
     @pytest.mark.asyncio
-    async def test_continues_after_a_failed_nginx_reload(self):
-        with (
-            patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
-            patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
-        ):
-            mock_step.side_effect = [True, True, True, True, True, False]
-            mock_match.return_value = True
-            mock_drain.return_value = True
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+    async def test_continues_after_a_failed_nginx_reload(self, deploy_mocks):
+        deploy_mocks["step"].side_effect = [True, True, True, True, True, False]
+
+        result = await self._run(mocks=deploy_mocks)
 
         assert result is True
-        assert mock_step.await_count == 6
+        assert deploy_mocks["step"].await_count == 6
 
     @pytest.mark.asyncio
-    async def test_aborts_before_building_when_the_pull_checked_out_another_commit(self):
-        with (
-            patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
-            patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
-        ):
-            mock_step.return_value = True
-            mock_match.return_value = False
-            mock_drain.return_value = True
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+    async def test_aborts_before_building_when_the_pull_checked_out_another_commit(self, deploy_mocks):
+        deploy_mocks["match"].return_value = False
+
+        result = await self._run(mocks=deploy_mocks)
 
         assert result is False
-        assert mock_step.await_count == 1
+        assert deploy_mocks["step"].await_count == 1
 
     @pytest.mark.asyncio
-    async def test_defers_the_recreate_when_a_job_started_during_the_build(self):
-        with (
-            patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
-            patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
-        ):
-            mock_step.return_value = True
-            mock_match.return_value = True
-            mock_drain.return_value = False
-            result = await run_deploy(checkout_path=Path("/srv/checkout"), sha=SHA)
+    async def test_aborts_when_the_worker_swap_fails(self, deploy_mocks):
+        deploy_mocks["swap"].return_value = False
+
+        result = await self._run(mocks=deploy_mocks)
 
         assert result is False
-        assert mock_step.await_count == 4
-        assert [call.kwargs["name"] for call in mock_step.await_args_list] == [
+        assert [call.kwargs["name"] for call in deploy_mocks["step"].await_args_list] == [
             "pull",
             "build",
             "pull_images",
@@ -737,10 +755,18 @@ class TestMakefileParity:
         makefile_up = next(command for command in recipe if "--force-recreate" in command).split()
         daemon_up = dict(build_deploy_steps(checkout_path=Path("/srv/checkout")))["up"]
 
-        assert makefile_up[-6:-1] == list(DEPLOY["compose_services"])
-        assert makefile_up[-1] == "deployer"
-        assert daemon_up[-5:] == list(DEPLOY["compose_services"])
-        assert makefile_up[makefile_up.index("--scale") + 1] == daemon_up[daemon_up.index("--scale") + 1]
+        assert makefile_up[-5:] == [*DEPLOY["compose_services"], "deployer"]
+        assert daemon_up[-4:] == list(DEPLOY["compose_services"])
+        assert "--no-deps" in makefile_up
+        assert "--scale" not in makefile_up
+
+    def test_manual_deploy_runs_the_same_worker_swap(self):
+        recipe = self._recipe("deploy-steps")
+
+        assert "$(MAKE) worker-swap" in recipe
+        swap_recipe = self._recipe("worker-swap")
+        assert len(swap_recipe) == 1
+        assert "run --rm worker-swap" in swap_recipe[0]
 
     def test_migrate_step_matches_the_makefile_deploy_steps_target(self):
         recipe = self._recipe("deploy-steps")
@@ -761,7 +787,7 @@ class TestRunDeployCycle:
             patch("demetra.services.daemons.deployer.get_running_revision", new_callable=AsyncMock) as mock_revision,
             patch("demetra.services.daemons.deployer.get_origin_repository", new_callable=AsyncMock) as mock_repo,
             patch("demetra.services.daemons.deployer.get_ci_status", new_callable=AsyncMock) as mock_ci,
-            patch("demetra.services.daemons.deployer.wait_for_queue_drain", new_callable=AsyncMock) as mock_drain,
+            patch("demetra.services.daemons.deployer.maintain_workers", new_callable=AsyncMock) as mock_maintain,
             patch("demetra.services.daemons.deployer.run_deploy", new_callable=AsyncMock) as mock_deploy,
             patch("demetra.services.daemons.deployer.recreate_deployer", new_callable=AsyncMock) as mock_recreate,
             patch("demetra.services.daemons.deployer.connection") as mock_connection,
@@ -770,7 +796,6 @@ class TestRunDeployCycle:
             mock_revision.return_value = None
             mock_repo.return_value = "manti-by/demetra"
             mock_ci.return_value = CI_STATUS_PASSED
-            mock_drain.return_value = True
             mock_deploy.return_value = True
             mock_recreate.return_value = True
             mock_connection.lock.return_value = lock
@@ -778,7 +803,7 @@ class TestRunDeployCycle:
                 "remote": mock_remote,
                 "revision": mock_revision,
                 "ci": mock_ci,
-                "drain": mock_drain,
+                "maintain": mock_maintain,
                 "deploy": mock_deploy,
                 "recreate": mock_recreate,
                 "lock": lock,
@@ -786,13 +811,31 @@ class TestRunDeployCycle:
                 "state_path": tmp_path / "state.json",
             }
 
+    def _assert_deployed(self, mocks: dict, *, sha: str) -> None:
+        call = mocks["deploy"].await_args
+        assert call.kwargs["checkout_path"] == DEPLOY["host_checkout"]
+        assert call.kwargs["sha"] == sha
+        assert call.kwargs["state_path"] == mocks["state_path"]
+        assert isinstance(call.kwargs["state"], DeployState)
+
     @pytest.mark.asyncio
     async def test_deploys_a_new_commit_once(self, cycle_mocks):
         await run_deploy_cycle()
 
         assert cycle_mocks["deploy"].await_count == 1
-        cycle_mocks["deploy"].assert_awaited_once_with(checkout_path=DEPLOY["host_checkout"], sha=SHA)
+        self._assert_deployed(mocks=cycle_mocks, sha=SHA)
         assert load_state(path=cycle_mocks["state_path"]).last_deployed_sha == SHA
+
+    @pytest.mark.asyncio
+    async def test_reaps_workers_every_cycle_even_without_a_deploy(self, cycle_mocks):
+        save_state(path=cycle_mocks["state_path"], state=DeployState(last_deployed_sha=SHA))
+
+        await run_deploy_cycle()
+
+        cycle_mocks["maintain"].assert_awaited_once_with(
+            checkout_path=DEPLOY["host_checkout"], state_path=cycle_mocks["state_path"]
+        )
+        assert cycle_mocks["deploy"].await_count == 0
 
     @pytest.mark.asyncio
     async def test_holds_a_lock_covering_the_whole_deploy(self, cycle_mocks):
@@ -844,7 +887,7 @@ class TestRunDeployCycle:
 
         await run_deploy_cycle()
 
-        cycle_mocks["deploy"].assert_awaited_once_with(checkout_path=DEPLOY["host_checkout"], sha=SHA)
+        self._assert_deployed(mocks=cycle_mocks, sha=SHA)
         assert load_state(path=cycle_mocks["state_path"]).last_deployed_sha == SHA
 
     @pytest.mark.asyncio
@@ -909,15 +952,25 @@ class TestRunDeployCycle:
         assert state.last_error is None
 
     @pytest.mark.asyncio
-    async def test_skips_the_deploy_while_a_job_is_running(self, cycle_mocks):
-        cycle_mocks["drain"].return_value = False
+    async def test_deploys_without_waiting_for_the_queue_to_drain(self, cycle_mocks):
+        events: list[str] = []
+
+        async def _maintain(*, checkout_path, state_path):
+            events.append("maintain")
+
+        async def _deploy(*, checkout_path, sha, state_path, state):
+            events.append("deploy")
+            return True
+
+        cycle_mocks["maintain"].side_effect = _maintain
+        cycle_mocks["deploy"].side_effect = _deploy
 
         await run_deploy_cycle()
 
-        assert cycle_mocks["deploy"].await_count == 0
+        assert events == ["maintain", "deploy"]
 
     @pytest.mark.asyncio
-    async def test_defers_the_deploy_when_master_moved_during_the_drain(self, cycle_mocks):
+    async def test_defers_the_deploy_when_master_moved_while_checking_ci(self, cycle_mocks):
         cycle_mocks["remote"].side_effect = [SHA, OTHER_SHA]
 
         await run_deploy_cycle()
@@ -945,13 +998,13 @@ class TestRunDeployCycle:
 
     @pytest.mark.asyncio
     async def test_rechecks_the_state_after_acquiring_the_lock(self, cycle_mocks):
-        def _concurrent_deploy(*, timeout):
+        def _concurrent_deploy(*, checkout_path):
             save_state(
                 path=cycle_mocks["state_path"], state=DeployState(last_deployed_sha=SHA, last_deploy_at=time.time())
             )
-            return True
+            return SHA
 
-        cycle_mocks["drain"].side_effect = _concurrent_deploy
+        cycle_mocks["remote"].side_effect = _concurrent_deploy
 
         await run_deploy_cycle()
 
