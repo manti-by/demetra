@@ -4,7 +4,7 @@ from pathlib import Path
 
 from demetra.library.exceptions import BuildError
 from demetra.library.models import SessionEnvironment
-from demetra.services.agents.opencode import capture_agent_session, opencode_validate_agent
+from demetra.services.agents.opencode import agent_failure_error, capture_agent_session, opencode_validate_agent
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS_CASE
 
@@ -41,7 +41,9 @@ async def run_validate_agent(
             fully covered.
 
     Raises:
-        BuildError: When the validate agent exits with a non-zero exit code.
+        AgentFailureError: When the validate agent's output matches a known
+            failure signature.
+        BuildError: When the validate agent exits with an unclassified error.
     """
     print_message(message="Running VALIDATE agent", style="heading")
 
@@ -54,8 +56,12 @@ async def run_validate_agent(
         environment=environment,
     )
     if exit_code != 0:
-        raise BuildError(
-            f"Validate agent failed (exit {exit_code}): {stderr.strip() or stdout.strip() or 'unknown error'}"
+        raise agent_failure_error(
+            agent="validate-agent",
+            exit_code=exit_code,
+            stdout=stdout,
+            stderr=stderr,
+            fallback=BuildError,
         )
 
     await capture_agent_session(

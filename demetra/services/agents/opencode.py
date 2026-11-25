@@ -3,18 +3,32 @@ import json
 import logging
 import re
 from pathlib import Path
+from typing import NoReturn, overload
 
 from sqlalchemy.exc import SQLAlchemyError
 
-from demetra.library.exceptions import AgentNetworkError, OpenCodeCLIError
-from demetra.library.models import SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
+from demetra.library.constants import AGENT_FAILURE_SIGNATURES, AGENT_FAILURE_TYPE_CODES, NETWORK_ERROR_MARKERS
+from demetra.library.exceptions import DemetraError, OpenCodeCLIError
+from demetra.library.models import (
+    AgentFailure,
+    SessionEnvironment,
+    SessionExport,
+    SessionHistory,
+    TokenUsage,
+    ToolUsage,
+)
 from demetra.services.llm.prompt import get_prompt
 from demetra.services.persistence.database import record_agent_invocation
 from demetra.services.pricing import get_price, price_to_dict, resolve_provider
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import non_negative_int
-from demetra.settings import AGENT_NETWORK_BACKOFF_BASE, MAX_AGENT_NETWORK_ATTEMPTS, OPENCODE
+from demetra.settings import (
+    AGENT_NETWORK_BACKOFF_BASE,
+    MAX_AGENT_FAILURE_ATTEMPTS,
+    MAX_AGENT_NETWORK_ATTEMPTS,
+    OPENCODE,
+)
 
 
 logger = logging.getLogger(__name__)
@@ -25,18 +39,19 @@ PLAN_HAS_QUESTIONS = "Please check my questions above."
 
 RESEARCH_HEADER_STRING = "## Research Report"
 
-# Node/undici failures that mean the network dropped the request (``ECONNRESET``
-# on a reset connection, ``EAI_AGAIN`` on DNS) rather than the agent failing to
-# do its work. Matched case-sensitively so a lowercase mention inside a code
-# sample never marks a successful run as transient.
-NETWORK_ERROR_MARKERS = (
-    "ECONNRESET",
-    "ECONNREFUSED",
-    "ETIMEDOUT",
-    "ENOTFOUND",
-    "EAI_AGAIN",
-    "socket hang up",
+# Credential-bearing URLs and key identifiers echoed by providers must never
+# reach a Linear comment, a template or a persisted failure message.
+_SENSITIVE_URL_RE = re.compile(
+    r"https?://[^\s\"'<>]*?(?:[?&](?:api[_-]?key|key|token|access_token|secret|password)=|/(?:keys?|api[_-]?keys?)/)[^\s\"'<>]*",
+    re.IGNORECASE,
 )
+_KEY_IDENTIFIER_RE = re.compile(r"\b(?:sk-or-v1-|sk-|lsv2_(?:pt|sk|pk)_|ghp_|github_pat_)[A-Za-z0-9_\-]{6,}\b")
+_URL_USERINFO_RE = re.compile(r"(\bhttps?://)[^/\s:@]+:[^/\s@]+@")
+_CREDENTIAL_FIELD_RE = re.compile(
+    r"(?i)([\"']?(?:authorization|api[_-]?key|apikey|access[_-]?token|refresh[_-]?token|auth[_-]?token|"
+    r"token|secret|password|passwd|credential)[\"']?\s*[:=]\s*)([\"'])([^\"']*)([\"'])",
+)
+_AUTHORIZATION_RE = re.compile(r"(?i)\b(bearer|basic)\s+([^\s\"'<>,;]+)")
 
 # opencode 2.x moved `export <id>` under `session export <id>` and removed
 # `run --dir`; both are handled by version-aware command construction.
@@ -273,13 +288,31 @@ def _extract_tool_usage(messages: object, invoked_at: int | None = None) -> dict
     return usage
 
 
-def _extract_ndjson_error(stdout: str) -> str | None:
-    """Return the ``error.message`` from a ``--format json`` NDJSON stream.
+def redact_provider_text(text: str) -> str:
+    """Remove credentials from provider output before it reaches a human.
 
-    opencode 2.x moves agent errors from stderr to a structured stdout event
-    under ``--format json``; this recovers a readable message from it.
+    Provider stderr can echo a billing or key-management URL containing an API
+    key, an Authorization header with an arbitrary Bearer/Basic credential, a
+    quoted credential field, URL user information or the key itself. Only
+    rendered error text passes through here, so a successful agent answer is
+    never altered.
+
+    Args:
+        text: Raw provider output destined for an error message or comment.
+
+    Returns:
+        str: The same text with sensitive URLs, credentials and keys replaced.
     """
-    for line in stdout.splitlines():
+    redacted = _SENSITIVE_URL_RE.sub("[redacted-url]", text or "")
+    redacted = _URL_USERINFO_RE.sub(r"\1[redacted]@", redacted)
+    redacted = _CREDENTIAL_FIELD_RE.sub(r"\1\2[redacted]\4", redacted)
+    redacted = _AUTHORIZATION_RE.sub(r"\1 [redacted]", redacted)
+    return _KEY_IDENTIFIER_RE.sub("[redacted-key]", redacted)
+
+
+def _extract_error_event(stdout: str) -> dict | None:
+    """Return the ``error`` mapping of the first ``--format json`` error event."""
+    for line in (stdout or "").splitlines():
         stripped = line.strip()
         if not stripped.startswith("{"):
             continue
@@ -290,25 +323,155 @@ def _extract_ndjson_error(stdout: str) -> str | None:
         if not isinstance(event, dict) or event.get("type") != "error":
             continue
         error = event.get("error")
-        if isinstance(error, dict) and error.get("message"):
-            return str(error["message"])
+        if isinstance(error, dict):
+            return error
     return None
 
 
+def _extract_ndjson_error(stdout: str) -> str | None:
+    """Return the ``error.message`` from a ``--format json`` NDJSON stream.
+
+    opencode 2.x moves agent errors from stderr to a structured stdout event
+    under ``--format json``; this recovers a readable message from it.
+    """
+    error = _extract_error_event(stdout)
+    if error is None or not error.get("message"):
+        return None
+    return str(error["message"])
+
+
+def classify_agent_error(stdout: str, stderr: str) -> AgentFailure | None:
+    """Map a failed run's output onto a typed agent failure.
+
+    Only stderr and the structured ``--format json`` error event are scanned;
+    raw stdout also carries the agent's own answer. Structured ``error.type``
+    and ``error.metadata.limit_source`` win over text markers, and an in-flight
+    budget rejection wins over plain credit exhaustion, so a specific signature
+    is never swallowed by a broader one. ``UnknownError`` is a generic fallback:
+    specific text evidence (a transient network code, for example) still wins.
+
+    Args:
+        stdout: The captured stdout of the run.
+        stderr: The captured stderr of the run.
+
+    Returns:
+        AgentFailure | None: The matched class and retry decision, or None when
+        the output does not match a known signature.
+    """
+    error = _extract_error_event(stdout) or {}
+    text = redact_provider_text(f"{stderr or ''}\n{_extract_ndjson_error(stdout) or ''}")
+    error_type = str(error.get("type") or "")
+    metadata = error.get("metadata")
+    limit_source = str(metadata.get("limit_source") or "") if isinstance(metadata, dict) else ""
+    retry_after_ms = non_negative_int(error.get("retryAfterMs"))
+
+    generic_unknown = error_type == "UnknownError"
+    code: str | None = None
+    if limit_source.casefold().replace("-", "_").replace(" ", "_") == "in_flight":
+        code = "budget_retry"
+    elif error_type and not generic_unknown:
+        code = AGENT_FAILURE_TYPE_CODES.get(error_type)
+
+    for name, markers, error_class, retryable in AGENT_FAILURE_SIGNATURES:
+        if code == name or (code is None and any(marker in text for marker in markers)):
+            return AgentFailure(code=name, error_class=error_class, retryable=retryable, retry_after_ms=retry_after_ms)
+        if generic_unknown and name == "unknown_server_error":
+            return AgentFailure(code=name, error_class=error_class, retryable=retryable, retry_after_ms=retry_after_ms)
+    return None
+
+
+@overload
+def agent_failure_error(
+    agent: str,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    *,
+    fallback: type[DemetraError],
+) -> DemetraError: ...
+
+
+@overload
+def agent_failure_error(
+    agent: str,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    *,
+    fallback: None = None,
+) -> DemetraError | None: ...
+
+
+def agent_failure_error(
+    agent: str,
+    exit_code: int,
+    stdout: str,
+    stderr: str,
+    *,
+    fallback: type[DemetraError] | None = None,
+) -> DemetraError | None:
+    """Build a ready-to-raise error for a non-zero agent exit.
+
+    A matched signature produces a redacted typed exception carrying its code
+    and retry hint; an unmatched one falls back to the caller's flat error type
+    with the same wording as before, so generic paths are unchanged. ``None`` is
+    returned only when no fallback was supplied, for callers that retry on their
+    own (the research step).
+
+    Args:
+        agent: Agent name, e.g. ``"plan-agent"``.
+        exit_code: The non-zero exit code of the run.
+        stdout: The captured stdout of the run.
+        stderr: The captured stderr of the run.
+        fallback: Flat error type for an unclassified exit, if any.
+
+    Returns:
+        DemetraError | None: The error to raise, or None when unclassified and
+        no fallback was given.
+    """
+    classification = classify_agent_error(stdout=stdout, stderr=stderr)
+    detail = redact_provider_text(
+        (stderr or "").strip() or _extract_ndjson_error(stdout) or (stdout or "").strip() or "unknown error"
+    )
+    if classification is not None:
+        return classification.error_class(
+            agent=agent,
+            stderr=detail,
+            code=classification.code,
+            retry_after_ms=classification.retry_after_ms,
+        )
+    if fallback is None:
+        return None
+    label = agent.removesuffix("-agent").capitalize() or "Agent"
+    return fallback(f"{label} agent failed (exit {exit_code}): {detail}")
+
+
+def _raise_exhausted_failure(agent: str, classification: AgentFailure, stdout: str, stderr: str) -> NoReturn:
+    """Raise the terminal error for a retryable class whose budget is spent."""
+    detail = redact_provider_text(stderr.strip() or _extract_ndjson_error(stdout) or "")
+    raise classification.error_class(
+        agent=agent,
+        stderr=detail,
+        code=classification.code,
+        retry_after_ms=classification.retry_after_ms,
+    )
+
+
 def format_agent_error(exit_code: int, stdout: str, stderr: str) -> str:
-    """Build a readable agent-failure message from an opencode run's streams.
+    """Build a readable, redacted agent-failure message from a run's streams.
 
     Handles both the default format (error on stderr, empty stdout) and the json
     format (structured error event on stdout, empty stderr) so operators and
-    Linear comments never receive a raw NDJSON blob or a bare "unknown error".
+    Linear comments never receive a raw NDJSON blob, a bare "unknown error" or
+    an embedded credential.
     """
-    stderr_text = (stderr or "").strip()
+    stderr_text = redact_provider_text((stderr or "").strip())
     if stderr_text:
         return stderr_text
 
     stdout_text = (stdout or "").strip()
     if stdout_text:
-        return _extract_ndjson_error(stdout_text) or stdout_text
+        return redact_provider_text(_extract_ndjson_error(stdout_text) or stdout_text)
 
     return f"opencode exited with code {exit_code} without output"
 
@@ -371,7 +534,7 @@ async def opencode_plan_agent(
         agent="plan-agent",
         project_id=project_id,
         environment=environment,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -409,7 +572,7 @@ async def opencode_build_agent(
         project_id=project_id,
         environment=environment,
         fork=fork,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -443,7 +606,7 @@ async def opencode_review_agent(
         agent="review-agent",
         project_id=project_id,
         environment=environment,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -479,7 +642,7 @@ async def opencode_validate_agent(
         agent="validate-agent",
         project_id=project_id,
         environment=environment,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -605,7 +768,7 @@ async def opencode_resolve_agent(
         agent="resolve-agent",
         project_id=project_id,
         environment=environment,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -640,7 +803,7 @@ async def opencode_research_agent(
         agent="research-agent",
         project_id=project_id,
         environment=environment,
-        retry_on_network_error=True,
+        retry_on_classified_failure=True,
     )
 
 
@@ -690,7 +853,7 @@ async def run_opencode_agent(
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
     fork: bool = False,
-    retry_on_network_error: bool = False,
+    retry_on_classified_failure: bool = False,
 ) -> tuple[int, str, str]:
     """Run an opencode agent with the given model, task and session options.
 
@@ -721,23 +884,27 @@ async def run_opencode_agent(
         fork: Whether to fork the continued session before running. Requires
             ``session_id``; used once for the build phase so later iterations
             resume the fork instead of re-forking the plan session.
-        retry_on_network_error: Whether to retry a run whose output shows a
-            transient network failure, backing off exponentially between
-            attempts. A retry resumes the session the failed attempt created
-            (or forked), so partial work continues instead of being repeated
-            in a fresh session.
+        retry_on_classified_failure: Whether to retry a run whose output matches a
+            retryable failure class (transient network errors, rate limits and
+            in-flight budget rejections), backing off exponentially between
+            attempts. Network retries and other classified retries have
+            separate budgets. A retry resumes the session the failed attempt
+            created (or forked), so partial work continues instead of being
+            repeated in a fresh session.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
 
     Raises:
-        AgentNetworkError: When the retry budget is exhausted by network errors.
+        AgentFailureError: When a retryable failure class exhausts its budget.
     """
     session_id = session_id or None
-    attempts = max(MAX_AGENT_NETWORK_ATTEMPTS, 1) if retry_on_network_error else 1
+    network_retries = 0
+    failure_retries = 0
     resumed_session_id: str | None = None
+    attempt = 0
     standalone = await opencode_supports_standalone(target_path=target_path, environment=environment)
-    for attempt in range(attempts):
+    while True:
         continued_session_id = resumed_session_id if resumed_session_id is not None else session_id
         command = [str(OPENCODE["path"]), "run"]
         if standalone:
@@ -759,11 +926,15 @@ async def run_opencode_agent(
             project_id=project_id,
             forward_tracing=True,
         )
-        retryable = retry_on_network_error and exit_code != 0 and is_network_error(stdout=stdout, stderr=stderr)
-        if not retryable:
+        classification = classify_agent_error(stdout=stdout, stderr=stderr) if exit_code != 0 else None
+        if not retry_on_classified_failure or classification is None or not classification.retryable:
             return exit_code, stdout, stderr
-        if attempt == attempts - 1:
-            break
+
+        is_network = classification.code == "network_error"
+        used_retries = network_retries if is_network else failure_retries
+        max_retries = MAX_AGENT_NETWORK_ATTEMPTS if is_network else MAX_AGENT_FAILURE_ATTEMPTS
+        if used_retries + 1 >= max_retries:
+            _raise_exhausted_failure(agent=agent, classification=classification, stdout=stdout, stderr=stderr)
 
         if resumed_session_id is None and task_title is not None and (fork or session_id is None):
             try:
@@ -782,16 +953,22 @@ async def run_opencode_agent(
                 f"Agent {agent} could not locate its forked session; not retrying against the parent session",
                 style="warning",
             )
-            break
+            _raise_exhausted_failure(agent=agent, classification=classification, stdout=stdout, stderr=stderr)
 
-        delay = AGENT_NETWORK_BACKOFF_BASE * 2**attempt
+        if is_network:
+            network_retries += 1
+        else:
+            failure_retries += 1
+        backoff = AGENT_NETWORK_BACKOFF_BASE * 2**used_retries
+        provider_delay = classification.retry_after_ms / 1000 if classification.retry_after_ms is not None else 0.0
+        delay = max(backoff, provider_delay)
+        kind = "network error" if is_network else classification.code
         print_message(
-            f"Agent {agent} hit a network error (attempt {attempt + 1}/{attempts}); retrying in {delay:g}s",
+            f"Agent {agent} hit a retryable {kind} (attempt {used_retries + 1}/{max_retries}); retrying in {delay:g}s",
             style="warning",
         )
         await asyncio.sleep(delay)
-
-    raise AgentNetworkError(agent=agent, stderr=stderr.strip() or _extract_ndjson_error(stdout) or "")
+        attempt += 1
 
 
 async def get_opencode_sessions(

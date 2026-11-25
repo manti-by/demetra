@@ -7,17 +7,25 @@ import pytest
 from sqlalchemy.exc import SQLAlchemyError
 
 from demetra.library.exceptions import (
+    AgentBudgetRetryError,
+    AgentCompactionError,
+    AgentContextOverflowError,
     AgentNetworkError,
+    AgentPermissionError,
+    AgentProviderError,
+    AgentQuotaError,
+    AgentRateLimitError,
     BuildError,
     LinearError,
     PullRequestError,
     ReviewError,
     WikiError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session, SessionEnvironment
+from demetra.library.models import Chat, Context, LinearTask, Project, Session, SessionEnvironment
 from demetra.services.linear.states import LinearState
 from demetra.settings import LINEAR
 from demetra.workflows.failure import (
+    process_agent_failure,
     process_agent_network_failure,
     process_build_failure,
     process_pr_failure,
@@ -63,6 +71,18 @@ def build_context() -> Context:
         worktree_path=Path("/tmp/worktree/mnt-128-create-bare-react-application"),
         session=session,
     )
+
+
+def build_chat_context() -> Context:
+    context = build_context()
+    context.task = Chat(
+        id="CH-1",
+        identifier="CH-1",
+        title="Chat task",
+        description="desc",
+        created_at=datetime.now().isoformat(),
+    )
+    return context
 
 
 class TestRunFailureStep:
@@ -259,3 +279,85 @@ class TestRunFailureStep:
 
         messages = [call.args[0] for call in mock_print_message.call_args_list]
         assert any("Failed to post PR-creation-failure comment" in message for message in messages)
+
+    @pytest.mark.parametrize(
+        "error, heading",
+        [
+            (AgentQuotaError(agent="plan-agent", stderr="credits exhausted"), "Agent credits exhausted"),
+            (AgentBudgetRetryError(agent="plan-agent", stderr="budget rejected"), "Agent budget rejection"),
+            (AgentRateLimitError(agent="build-agent", stderr="rate limit"), "Agent rate limited"),
+            (AgentPermissionError(agent="build-agent", stderr="permission denied"), "Agent permission denied"),
+            (AgentContextOverflowError(agent="validate-agent", stderr="context overflow"), "Agent context overflow"),
+            (AgentProviderError(agent="research-agent", stderr="server error"), "Agent provider error"),
+            (
+                AgentCompactionError(agent="build-agent", stderr="compaction unavailable"),
+                "Agent compaction unavailable",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_posts_classified_agent_failure_comment(self, mock_linear_deps, error, heading):
+        context = build_context()
+
+        await process_agent_failure(context=context, error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert heading in body
+        assert error.agent in body
+        assert error.code in body
+        assert error.stderr in body
+        assert "{retry_hint}" not in body
+        mock_linear_deps["update_ticket_status"].assert_awaited_once_with(
+            task_id=context.task.id,
+            state_id=LINEAR["states"]["awaiting_input"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_classified_error_comment_keeps_redacted_text(self, mock_linear_deps):
+        error = AgentQuotaError(agent="plan-agent", stderr="credits exhausted for [redacted-key]")
+
+        await process_agent_failure(context=build_context(), error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "[redacted-key]" in body
+
+    @pytest.mark.asyncio
+    async def test_retryable_and_non_retryable_hints(self, mock_linear_deps):
+        retryable = AgentRateLimitError(agent="plan-agent", stderr="rate limit", retry_after_ms=500)
+        terminal = AgentQuotaError(agent="plan-agent", stderr="credits exhausted")
+
+        await process_agent_failure(context=build_context(), error=retryable)
+        retryable_body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        await process_agent_failure(context=build_context(), error=terminal)
+        terminal_body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+
+        assert "Wait at least 500 ms before retrying" in retryable_body
+        assert "Retrying will not help" in terminal_body
+
+    @pytest.mark.parametrize(
+        "error",
+        [
+            AgentBudgetRetryError(agent="plan-agent", stderr="budget rejected"),
+            AgentCompactionError(agent="build-agent", stderr="compaction unavailable"),
+            AgentContextOverflowError(agent="validate-agent", stderr="context overflow"),
+            AgentPermissionError(agent="build-agent", stderr="permission denied"),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_chat_failure_recovery_does_not_mention_a_linear_ticket(self, error):
+        with patch("demetra.workflows.failure.notify_message", new_callable=AsyncMock, return_value=True) as notify:
+            await process_agent_failure(context=build_chat_context(), error=error)
+
+        assert notify.await_args is not None
+        body = notify.await_args.kwargs["body"]
+        assert "In Progress" not in body
+        assert "Send another message in this chat to re-run." in body
+
+    @pytest.mark.asyncio
+    async def test_linear_failure_recovery_keeps_the_ticket_instructions(self, mock_linear_deps):
+        error = AgentContextOverflowError(agent="validate-agent", stderr="context overflow")
+
+        await process_agent_failure(context=build_context(), error=error)
+
+        body = mock_linear_deps["post_comment"].await_args.kwargs["body"]
+        assert "Move the ticket back to `In Progress` to re-run." in body

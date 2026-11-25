@@ -5,8 +5,11 @@ from demetra.library.exceptions import EnvironmentConfigError, LinearConfigError
 from demetra.library.models import Context, LinearTask, Task
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
+    agent_failure_error,
     capture_agent_session,
+    classify_agent_error,
     extract_research_report,
+    format_agent_error,
     opencode_research_agent,
 )
 from demetra.services.linear import create_issue_relation, create_research_ticket, update_ticket_status
@@ -117,7 +120,19 @@ async def _run_research_agent(context: Context) -> str | None:
         )
 
         if exit_code != 0:
-            print_message(f"Research agent failed (exit {exit_code}): {(stderr or stdout).strip()}", style="error")
+            if classify_agent_error(stdout=stdout, stderr=stderr) is not None:
+                failure = agent_failure_error(
+                    agent="research-agent",
+                    exit_code=exit_code,
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+                if failure is not None:
+                    raise failure
+            print_message(
+                f"Research agent failed (exit {exit_code}): {format_agent_error(exit_code, stdout, stderr)}",
+                style="error",
+            )
             attempts -= 1
             continue
 
@@ -269,6 +284,8 @@ async def run_research_step(context: Context) -> str | None:
             could be produced after all attempts.
 
     Raises:
+        AgentFailureError: When the research agent's output matches a known
+            failure signature.
         LinearConfigError: When the research ticket prerequisites are missing
             or Linear permanently rejects the ticket.
         LinearError: When the research ticket could not be created, or the

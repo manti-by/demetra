@@ -7,6 +7,9 @@ from uuid import uuid4
 import pytest
 
 from demetra.library.exceptions import (
+    AgentProviderError,
+    AgentQuotaError,
+    AgentRateLimitError,
     AutoCancelledError,
     AwaitingInputError,
     EnvironmentConfigError,
@@ -49,6 +52,7 @@ from demetra.workflows.research import is_research_ticket, run_research_step
 from demetra.workflows.resolve import run_resolve_step
 from demetra.workflows.review import run_review_agents
 from demetra.workflows.setup import setup_workflow
+from demetra.workflows.validate import run_validate_agent
 
 
 class TestWorkflowSetup:
@@ -4017,3 +4021,120 @@ class TestWorkflowResearch:
 
         assert is_research_ticket(context=research_context) is True
         assert is_research_ticket(context=other_context) is False
+
+
+class TestAgentFailureRouting:
+    """Every agent step turns a classified non-zero exit into the same typed error."""
+
+    def _make_context(self, faker) -> Context:
+        return Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            task=LinearTask(
+                id=str(uuid4()),
+                identifier="MNT-123",
+                title=faker.sentence(),
+                description=faker.text(),
+                priority=1,
+                created_at=datetime.now().isoformat(),
+            ),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=None,
+        )
+
+    @pytest.mark.asyncio
+    async def test_plan_step_raises_classified_error_with_redacted_text(self, faker):
+        context = self._make_context(faker)
+        with (
+            patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock),
+        ):
+            mock_agent.return_value = (1, "", "credits exhausted; key sk-proj-abcdefghijklmnop")
+
+            with pytest.raises(AgentQuotaError) as exc_info:
+                await run_plan_step(context=context)
+
+        assert exc_info.value.code == "quota_exhausted"
+        assert "sk-proj-abcdefghijklmnop" not in str(exc_info.value)
+        assert "[redacted-key]" in str(exc_info.value)
+
+    @pytest.mark.asyncio
+    async def test_plan_step_keeps_flat_error_for_unclassified_exit(self, faker):
+        context = self._make_context(faker)
+        with (
+            patch("demetra.workflows.plan.opencode_plan_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.workflows.plan.update_session_step", new_callable=AsyncMock),
+        ):
+            mock_agent.return_value = (1, "", "an unclassified failure")
+
+            with pytest.raises(PlanError) as exc_info:
+                await run_plan_step(context=context)
+
+        assert str(exc_info.value) == "Plan agent failed (exit 1): an unclassified failure"
+
+    @pytest.mark.asyncio
+    async def test_build_step_raises_classified_error(self, faker):
+        context = self._make_context(faker)
+        context.session = Session(
+            task_id=context.task.id,
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at=datetime.now().isoformat(),
+            updated_at=datetime.now().isoformat(),
+            step="build",
+        )
+        with (
+            patch("demetra.workflows.build.opencode_build_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.workflows.build.update_session_step", new_callable=AsyncMock),
+            patch("demetra.workflows.build.record_session_step", new_callable=AsyncMock),
+        ):
+            mock_agent.return_value = (1, "", "UnknownError: Unexpected server error")
+
+            with pytest.raises(AgentProviderError) as exc_info:
+                await run_build_step(build_plan="plan", context=context)
+
+        assert exc_info.value.code == "unknown_server_error"
+        assert exc_info.value.retryable is False
+
+    @pytest.mark.asyncio
+    async def test_validate_step_raises_classified_error(self, faker):
+        with patch("demetra.workflows.validate.opencode_validate_agent", new_callable=AsyncMock) as mock_agent:
+            mock_agent.return_value = (1, "", "RATE_LIMIT_EXCEEDED: too many requests")
+
+            with pytest.raises(AgentRateLimitError) as exc_info:
+                await run_validate_agent(
+                    target_path=Path(f"/tmp/{faker.slug()}"),
+                    build_plan="plan",
+                )
+
+        assert exc_info.value.code == "rate_limited"
+        assert exc_info.value.agent == "validate-agent"
+
+    @pytest.mark.asyncio
+    async def test_research_step_raises_classified_error_without_retry(self, faker):
+        context = self._make_context(faker)
+        with (
+            patch("demetra.workflows.research.opencode_research_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.workflows.research.update_session_step", new_callable=AsyncMock),
+            patch("demetra.workflows.research._validate_research_ticket_prerequisites", new_callable=AsyncMock),
+        ):
+            mock_agent.return_value = (1, "", "credits exhausted; key sk-proj-abcdefghijklmnop")
+
+            with pytest.raises(AgentQuotaError) as exc_info:
+                await run_research_step(context=context)
+
+        assert mock_agent.await_count == 1
+        assert "sk-proj-abcdefghijklmnop" not in str(exc_info.value)
