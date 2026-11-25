@@ -265,6 +265,7 @@ session_history = Table(
     Column(name="cache_write_tokens", type_=Integer(), nullable=True),
     Column(name="context_tokens", type_=Integer(), nullable=True),
     Column(name="cost", type_=Float(), nullable=True),
+    Column(name="price", type_=JSONB(), nullable=True),
     Column(name="model", type_=String(), nullable=True),
     Column(name="agent", type_=String(), nullable=True),
     Column(name="message", type_=Text(), nullable=True),

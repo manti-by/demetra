@@ -364,6 +364,7 @@ export interface SessionHistoryEntry {
   cache_write_tokens: number | null;
   context_tokens: number | null;
   cost: number | null;
+  price?: Record<string, number> | null;
   model: string | null;
   agent: string | null;
   tool_usage?: SessionToolUsage[];
