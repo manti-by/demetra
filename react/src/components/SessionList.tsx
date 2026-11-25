@@ -48,6 +48,7 @@ const sectionOf = (
   liveTaskIds: Set<string>,
 ): SessionSection => {
   if (isCompletedStep(session.step)) return "completed";
+  if (session.step === "failed") return "backlog";
   if (!liveTaskIds.has(session.task_id) && isStaleSession(session, now)) {
     return "backlog";
   }

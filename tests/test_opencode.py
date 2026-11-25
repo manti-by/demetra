@@ -4,7 +4,18 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.library.exceptions import AgentNetworkError
+from demetra.library.exceptions import (
+    AgentBudgetRetryError,
+    AgentCompactionError,
+    AgentContextOverflowError,
+    AgentNetworkError,
+    AgentPermissionError,
+    AgentProviderError,
+    AgentQuotaError,
+    AgentRateLimitError,
+    BuildError,
+    PlanError,
+)
 from demetra.library.models import ModelPrice, SessionEnvironment, SessionExport, SessionHistory, TokenUsage, ToolUsage
 from demetra.services.agents.opencode import (
     RESEARCH_HEADER_STRING,
