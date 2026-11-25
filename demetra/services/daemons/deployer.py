@@ -9,6 +9,8 @@ import logging
 import os
 import shlex
 import time
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from redis.lock import Lock
@@ -228,11 +230,11 @@ def deploy_lock_timeout(checkout_path: Path) -> int:
     """Return a lock TTL that covers a whole multi-step deploy.
 
     Every step is bounded by ``step_timeout``, and so is every command of the
-    worker swap and maintenance that run under the same lock. The post-pull
-    HEAD read is bounded by ``step_timeout`` too but is not a step, so it is
-    budgeted separately; the resulting slack also covers the state writes. A
-    shorter TTL would let the lock expire mid-deploy and allow a second daemon
-    to start a concurrent one.
+    worker swap and maintenance that run under the same lock. ``SWAP_STEP_BUDGET``
+    is the worst-case command count of a swap, including its legacy-listing and
+    partial-failure branches, plus the checkout reads that are not steps; the
+    resulting slack also covers the state writes. A shorter TTL would let the
+    lock expire mid-deploy and allow a second daemon to start a concurrent one.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -262,6 +264,54 @@ def acquire_deploy_lock(*, checkout_path: Path, blocking: bool) -> Lock | None:
     timeout = deploy_lock_timeout(checkout_path=checkout_path)
     lock = connection.lock(DEPLOY_LOCK_NAME, timeout=timeout, blocking_timeout=timeout if blocking else 0)
     return lock if lock.acquire(blocking=blocking) else None
+
+
+def update_deploy_state(*, checkout_path: Path, state_path: Path, update: Callable[[DeployState], None]) -> None:
+    """Reload, mutate and save the shared deploy state under the deploy lock.
+
+    The deploy cycle reads the state before its CI gate, which is not covered by
+    any lock. Saving that retained snapshot later could undo a swap another
+    daemon completed while the gate was awaited. Taking the lease around the
+    whole read-modify-write and reloading inside it keeps the live slot, the
+    drain markers and the deployed sha intact whichever daemon writes first. A
+    cycle that cannot take the lease skips the update and re-evaluates on its
+    next poll.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+        state_path: The JSON deploy state file path.
+        update: The mutation applied to the freshly loaded state.
+    """
+    lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if lock is None:
+        logger.warning("Another deploy holds the lock, deferring the state update to the next cycle")
+        return
+    try:
+        state = load_state(path=state_path)
+        update(state)
+        save_state(path=state_path, state=state)
+    finally:
+        lock.release()
+
+
+def seed_last_deployed_sha(state: DeployState, *, sha: str) -> None:
+    """Record a deployed revision recovered from the running image, once."""
+    if not state.last_deployed_sha:
+        state.last_deployed_sha = sha
+
+
+def record_ci_failure(state: DeployState, *, sha: str, failure: str) -> None:
+    """Record a failed CI gate for a commit, replacing any previous error."""
+    if state.last_failed_sha != sha or state.last_error != failure:
+        state.last_failed_sha = sha
+        state.last_error = failure
+
+
+def clear_ci_failure(state: DeployState, *, sha: str) -> None:
+    """Drop the failure marker of a commit whose checks turned green."""
+    if state.last_failed_sha == sha:
+        state.last_failed_sha = None
+        state.last_error = None
 
 
 async def get_remote_master_sha(checkout_path: Path) -> str | None:
@@ -577,27 +627,36 @@ async def recreate_deployer(checkout_path: Path) -> bool:
     return True
 
 
-async def request_deployer_recreate(state: DeployState, state_path: Path, checkout_path: Path) -> None:
-    """Recreate the deployer container, keeping the request pending until it is dispatched.
+async def request_deployer_recreate(*, state_path: Path, checkout_path: Path) -> None:
+    """Recreate the deployer, keeping the request pending until it is dispatched.
 
     The flag is cleared before the helper starts because a successful dispatch
     kills this process, so a flag cleared afterwards would be persisted only
     sometimes and the next daemon would recreate itself again, forever. A
     helper that cannot be started restores the flag, and the next poll retries
-    the recreate on its own instead of waiting for another commit.
+    the recreate on its own instead of waiting for another commit. The whole
+    read-modify-write runs under the deploy lock, so a concurrent swap's state
+    is never overwritten by this flag update.
 
     Args:
-        state: The deploy state to update.
         state_path: The JSON state file path.
         checkout_path: The host checkout the daemon deploys.
     """
-    state.pending_recreate = False
-    save_state(path=state_path, state=state)
-    if await recreate_deployer(checkout_path=checkout_path):
+    lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if lock is None:
+        logger.warning("Another deploy holds the lock, deferring the deployer recreate to the next cycle")
         return
-    state.pending_recreate = True
-    save_state(path=state_path, state=state)
-    logger.error("Deployer container recreate failed, retrying on the next poll")
+    try:
+        state = load_state(path=state_path)
+        state.pending_recreate = False
+        save_state(path=state_path, state=state)
+        if await recreate_deployer(checkout_path=checkout_path):
+            return
+        state.pending_recreate = True
+        save_state(path=state_path, state=state)
+        logger.error("Deployer container recreate failed, retrying on the next poll")
+    finally:
+        lock.release()
 
 
 async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: DeployState) -> bool:
@@ -659,6 +718,9 @@ async def run_deploy_cycle() -> None:
     containers were never recreated, and seeding that commit would skip it
     forever. A deferred recreate is retried at the start of every cycle, so a
     failed self-recreate is not lost once the deploy is recorded as successful.
+    Every state write made before the deploy gate takes the deploy lock and
+    reloads the state inside it, so a swap completed by another daemon while
+    this cycle waited on CI is never overwritten by a retained snapshot.
     """
     checkout_path = DEPLOY["host_checkout"]
     state_path = default_state_path()
@@ -674,7 +736,7 @@ async def run_deploy_cycle() -> None:
 
     if state.pending_recreate:
         logger.info("Retrying the deferred deployer container recreate")
-        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)
+        await request_deployer_recreate(state_path=state_path, checkout_path=checkout_path)
 
     sha = await get_remote_master_sha(checkout_path=checkout_path)
     if not sha:
@@ -683,8 +745,11 @@ async def run_deploy_cycle() -> None:
     if not state.last_deployed_sha:
         running_sha = await get_running_revision(checkout_path=checkout_path)
         if running_sha:
-            state.last_deployed_sha = running_sha
-            save_state(path=state_path, state=state)
+            update_deploy_state(
+                checkout_path=checkout_path,
+                state_path=state_path,
+                update=partial(seed_last_deployed_sha, sha=running_sha),
+            )
             logger.info(f"Seeded the deploy state from the running api image revision {running_sha}")
         else:
             logger.info("No deployed revision found, leaving origin/master eligible for a deploy")
@@ -709,9 +774,11 @@ async def run_deploy_cycle() -> None:
         failure = f"CI checks {ci_status}"
         if state.last_failed_sha != sha or state.last_error != failure:
             logger.error(f"CI checks for {sha} failed, not deploying")
-            state.last_failed_sha = sha
-            state.last_error = failure
-            save_state(path=state_path, state=state)
+        update_deploy_state(
+            checkout_path=checkout_path,
+            state_path=state_path,
+            update=partial(record_ci_failure, sha=sha, failure=failure),
+        )
         return
     if ci_status != CI_STATUS_PASSED:
         logger.info(f"CI checks for {sha} are {ci_status}, not deploying yet")
@@ -719,9 +786,11 @@ async def run_deploy_cycle() -> None:
     if state.last_failed_sha == sha:
         # A re-run turned this commit green: drop the stale failure marker so
         # the deduplication above cannot swallow a later, different failure.
-        state.last_failed_sha = None
-        state.last_error = None
-        save_state(path=state_path, state=state)
+        update_deploy_state(
+            checkout_path=checkout_path,
+            state_path=state_path,
+            update=partial(clear_ci_failure, sha=sha),
+        )
 
     current_sha = await get_remote_master_sha(checkout_path=checkout_path)
     if current_sha != sha:
@@ -759,4 +828,4 @@ async def run_deploy_cycle() -> None:
         lock.release()
 
     if state.pending_recreate:
-        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)
+        await request_deployer_recreate(state_path=state_path, checkout_path=checkout_path)

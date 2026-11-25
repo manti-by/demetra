@@ -163,3 +163,12 @@ class TestDockerComposeWorkerSwapService:
         assert service["entrypoint"] == ""
         assert service["restart"] == "no"
         assert "deployer" not in service["command"]
+
+    def test_bootstrap_one_shot_runs_the_slot_aware_entrypoint(self):
+        swap = _load_compose()["services"]["worker-swap"]
+        bootstrap = _load_compose()["services"]["worker-bootstrap"]
+
+        assert bootstrap["command"][:3] == ["python", "-m", "demetra.worker_swap"]
+        assert bootstrap["command"][-1] == "--bootstrap"
+        for key in ("image", "entrypoint", "user", "restart", "volumes", "depends_on"):
+            assert bootstrap[key] == swap[key]

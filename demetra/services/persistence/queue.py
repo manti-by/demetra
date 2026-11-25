@@ -3,8 +3,8 @@ import logging
 from redis import Redis
 from redis.exceptions import RedisError
 from rq import Queue
-from rq.exceptions import NoSuchJobError
-from rq.job import Job
+from rq.exceptions import InvalidJobOperation, NoSuchJobError
+from rq.job import Job, JobStatus
 from rq.registry import StartedJobRegistry
 from rq.utils import as_text, current_timestamp
 
@@ -88,6 +88,13 @@ def requeue_abandoned_jobs() -> list[str]:
     expiring. The raw expired members read from the started registry itself are
     removed once their job has been enqueued again.
 
+    A job that is no longer ``started``, or that has a fresh registry member
+    from a worker that picked it up again, has already been moved on: its stale
+    member is removed without queueing the workflow a second time. That makes a
+    recovery whose registry removal failed safe to retry. A failed enqueue
+    leaves its own member in place so it can be retried, and does not abort the
+    members processed before it.
+
     Returns:
         list[str]: The ids that were requeued.
     """
@@ -95,6 +102,7 @@ def requeue_abandoned_jobs() -> list[str]:
         registry = StartedJobRegistry(queue=queue, connection=connection)
         now = current_timestamp()
         raw_members = connection.zrangebyscore(registry.key, 0, now)
+        active_members = connection.zrangebyscore(registry.key, now, "+inf")
     except (RedisError, OSError, ValueError) as e:
         logger.warning(f"Failed to read the abandoned jobs: {e}")
         return []
@@ -106,11 +114,22 @@ def requeue_abandoned_jobs() -> list[str]:
             entries.append((member, registry.parse_job_id(entry=as_text(member))))
         except ValueError:
             logger.warning(f"Ignoring an unparseable started-job registry entry: {member!r}")
+    active_job_ids: set[str] = set()
+    for member in active_members:
+        if not isinstance(member, (str, bytes)):
+            continue
+        try:
+            active_job_ids.add(registry.parse_job_id(entry=as_text(member)))
+        except ValueError:
+            continue
     requeued: list[str] = []
     removed_members: list[str | bytes] = []
     for member, job_id in entries:
         try:
             job = Job.fetch(id=job_id, connection=connection)
+            if job.get_status() != JobStatus.STARTED or job_id in active_job_ids:
+                removed_members.append(member)
+                continue
             job.started_at = None
             job.ended_at = None
             job._exc_info = ""
@@ -119,7 +138,7 @@ def requeue_abandoned_jobs() -> list[str]:
         except NoSuchJobError:
             removed_members.append(member)
             continue
-        except ValueError as e:
+        except (InvalidJobOperation, ValueError, RedisError, OSError) as e:
             logger.warning(f"Failed to requeue the abandoned job {job_id}: {e}")
             continue
         requeued.append(job_id)

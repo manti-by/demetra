@@ -14,7 +14,7 @@ from demetra.library.exceptions import (
     LinearError,
     PullRequestError,
 )
-from demetra.library.models import Context, LinearTask, Project, Session
+from demetra.library.models import Context, DeployState, LinearTask, Project, Session
 from demetra.settings import DEFAULT_USER_ID, WATCHER_POLL_INTERVAL
 from demetra.worker import connection
 
@@ -51,7 +51,32 @@ class TestWorkerSwapEntrypoint:
     def test_parses_the_host_checkout(self):
         from demetra.worker_swap import parse_arguments
 
-        assert parse_arguments(arguments=["--checkout", "/srv/checkout"]) == Path("/srv/checkout")
+        assert parse_arguments(arguments=["--checkout", "/srv/checkout"]) == (Path("/srv/checkout"), False)
+
+    def test_parses_the_bootstrap_flag(self):
+        from demetra.worker_swap import parse_arguments
+
+        assert parse_arguments(arguments=["--checkout", "/srv/checkout", "--bootstrap"]) == (
+            Path("/srv/checkout"),
+            True,
+        )
+
+    @pytest.mark.asyncio
+    async def test_checkpoints_signalled_workers_when_the_swap_fails(self):
+        from demetra.worker_swap import main
+
+        state_path = Path("/srv/checkout/state.json")
+        state = DeployState(worker_slot="blue", draining_workers={"c1": 1.0})
+        with (
+            patch("demetra.worker_swap.parse_arguments", return_value=(Path("/srv/checkout"), False)),
+            patch("demetra.worker_swap.default_state_path", return_value=state_path),
+            patch("demetra.worker_swap.load_state", return_value=state),
+            patch("demetra.worker_swap.swap_workers", new_callable=AsyncMock, return_value=False),
+            patch("demetra.worker_swap.save_state") as mock_save,
+        ):
+            assert await main() == 1
+
+        mock_save.assert_called_once_with(path=state_path, state=state)
 
 
 class TestMainEntrypoint:

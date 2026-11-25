@@ -10,6 +10,7 @@ import logging
 import time
 from pathlib import Path
 
+from demetra.library.exceptions import DeployStateError
 from demetra.library.models import DeployState
 from demetra.library.types import WorkerSlot
 from demetra.services.daemons.deploy_support import compose_command, load_state, save_state
@@ -31,7 +32,11 @@ WORKER_REPLICAS = 4
 
 KILL_GRACE = 60
 
-SWAP_STEP_BUDGET = 16
+# Worst-case timeout-bounded commands under one deploy lease: retirement
+# (2N+2), reaping (4), staging start (1), live and legacy lists (2), one batch
+# restart disable (1), N signals, and two checkout reads. Every other branch
+# that holds the lease, including maintenance, issues fewer commands.
+SWAP_STEP_BUDGET = 3 * WORKER_REPLICAS + 12
 
 LOG_TAIL_CHARS = 2000
 
@@ -200,6 +205,30 @@ async def list_container_ids(checkout_path: Path, service: str, *, exited: bool 
     return output.split() if succeeded else None
 
 
+def _persist_checkpoint(path: Path, state: DeployState) -> bool:
+    """Persist a worker lifecycle checkpoint, reporting a failed state write.
+
+    A failed checkpoint is not swallowed: the caller aborts its operation, so
+    the deploy is not recorded as successful with an obsolete state file. The
+    drain markers stay on the passed state, which the deploy cycle saves before
+    it releases the lease, so a retry reloads what was already signalled before
+    it sends another TERM.
+
+    Args:
+        path: The JSON deploy state file path.
+        state: The state to checkpoint.
+
+    Returns:
+        bool: True when the checkpoint was persisted.
+    """
+    try:
+        save_state(path=path, state=state)
+    except DeployStateError as e:
+        logger.error(f"Worker lifecycle checkpoint failed, aborting: {e}")
+        return False
+    return True
+
+
 async def reap_service(
     checkout_path: Path, service: str, state: DeployState, *, live_service: str, scale_down: bool = True
 ) -> bool:
@@ -243,12 +272,14 @@ async def reap_service(
 async def retire_staging_workers(checkout_path: Path, service: str, state: DeployState) -> bool:
     """Free a staging slot that still holds workers from an earlier generation.
 
-    A workflow can outlive several deploys. Keeping those containers would make
-    Compose reuse them instead of starting the new image, so they are force
-    stopped and removed here; the job they held is requeued by :func:`maintain_workers`
-    once its started-registry entry expires. This only happens when a staging
-    slot is still occupied — a workflow on the current live generation finishes
-    normally and is reaped on a later cycle.
+    Containers already recorded in ``state.draining_workers`` are left alone:
+    they are draining the workflow they held before the swap, and a second TERM
+    would trigger RQ's cold shutdown and lose that work. The slot stays occupied
+    until they exit or the watchdog escalates them, so the swap is deferred.
+    Other running containers come from an older generation that was never
+    signalled; they are force stopped and removed so Compose creates the new
+    image instead of reusing them, and their jobs are requeued later by
+    :func:`maintain_workers`.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -263,6 +294,10 @@ async def retire_staging_workers(checkout_path: Path, service: str, state: Deplo
         return False
     if not running_ids:
         return True
+    draining_ids = [container_id for container_id in running_ids if container_id in state.draining_workers]
+    if draining_ids:
+        logger.info(f"Keeping draining workers {draining_ids} in {service}, deferring the slot reuse")
+        return False
     now = time.time()
     for container_id in running_ids:
         succeeded, _ = await run_swap_command(
@@ -296,9 +331,12 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
     retired after the workflow finishes and a container already draining never
     receives RQ's second, cold-shutdown signal. Each id is persisted as soon
     as its TERM succeeds, so a partial batch failure cannot re-signal a
-    container that already switched RQ to the cold-shutdown handler. On a
-    stack that still runs the legacy single ``worker`` service, those are the live
-    generation and are signalled once as well.
+    container that already switched RQ to the cold-shutdown handler. A failed
+    checkpoint aborts the swap rather than reporting success with an obsolete
+    state, and the marker it recorded stays on the state for the deploy cycle's
+    final save, so a retry reconciles the containers already signalled. On a
+    stack that still runs the legacy single ``worker`` service, those are the
+    live generation and are signalled once as well.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -350,12 +388,44 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
             if not succeeded:
                 return False
             state.draining_workers[container_id] = time.time()
-            save_state(path=state_path, state=state)
+            if not _persist_checkpoint(path=state_path, state=state):
+                return False
 
     state.worker_slot = staging_slot
-    save_state(path=state_path, state=state)
+    if not _persist_checkpoint(path=state_path, state=state):
+        return False
     logger.info(f"Worker generation {staging_slot} is live; {len(container_ids)} container(s) are draining")
     return True
+
+
+async def bootstrap_workers(checkout_path: Path, state_path: Path, state: DeployState) -> bool:
+    """Scale both generations to match the live slot already in the state.
+
+    A fresh stack has no state file and uses the default blue slot; an existing
+    state keeps whichever generation a previous swap made live. The caller holds
+    the deploy lock, just as it does for a swap, so `docker-up` cannot change a
+    slot while a swap is in flight. The checkpoint records the slot even on a
+    fresh stack, so later swaps start from the same generation.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+        state_path: The JSON deploy state file path.
+        state: The deploy state whose live slot selects the replica counts.
+
+    Returns:
+        bool: True when both generations were scaled and the state was saved.
+    """
+    for slot in WORKER_SLOTS:
+        replicas = WORKER_REPLICAS if slot == state.worker_slot else 0
+        succeeded, _ = await run_swap_command(
+            checkout_path=checkout_path,
+            command=start_service_command(
+                checkout_path=checkout_path, service=worker_service(slot=slot), replicas=replicas
+            ),
+        )
+        if not succeeded:
+            return False
+    return _persist_checkpoint(path=state_path, state=state)
 
 
 async def escalate_draining_workers(checkout_path: Path, state: DeployState) -> list[str]:

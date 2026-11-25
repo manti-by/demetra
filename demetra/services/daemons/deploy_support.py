@@ -6,6 +6,7 @@ from dataclasses import asdict
 from pathlib import Path
 from uuid import uuid4
 
+from demetra.library.exceptions import DeployStateError
 from demetra.library.models import DeployState
 from demetra.settings import DEPLOY
 
@@ -57,29 +58,35 @@ def load_state(path: Path) -> DeployState:
 
 
 def save_state(path: Path, state: DeployState) -> None:
-    """Persist the deploy state atomically, logging instead of failing the cycle.
+    """Persist the deploy state atomically, reporting a failed checkpoint.
 
     The state file is load-bearing: it holds the live worker generation and the
     ids already signalled for draining. Writing it in place could leave a
     truncated file after a crash or a full disk, which would reset the state and
     make a later swap retire the live generation. A unique temp file in the
-    same directory is renamed over the target only once it is complete.
+    same directory is renamed over the target only once it is complete. A
+    failure is raised rather than logged away, so a lifecycle caller never
+    reports a swap or a deploy as complete while its checkpoint is missing.
 
     Args:
         path: The JSON state file path.
         state: The state to write.
+
+    Raises:
+        DeployStateError: The state could not be persisted.
     """
     temp_path = path.with_name(f".{path.name}.{uuid4().hex}.tmp")
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
         temp_path.write_text(json.dumps(asdict(state), indent=2))
         temp_path.replace(path)
-    except OSError:
+    except OSError as e:
         logger.exception(f"Failed to write the deploy state to {path}")
         try:
             temp_path.unlink(missing_ok=True)
         except OSError:
             logger.exception(f"Failed to remove the temporary state file {temp_path}")
+        raise DeployStateError(f"Failed to write the deploy state to {path}: {e}") from e
 
 
 def compose_command(checkout_path: Path) -> list[str]:

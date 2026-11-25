@@ -3,11 +3,14 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
+from demetra.library.exceptions import DeployStateError
 from demetra.library.models import DeployState
 from demetra.services.daemons.worker_swap import (
     LEGACY_WORKER_SERVICE,
+    SWAP_STEP_BUDGET,
     WORKER_REPLICAS,
     WORKER_SLOTS,
+    bootstrap_workers,
     disable_restart_command,
     escalate_draining_workers,
     list_container_ids,
@@ -37,6 +40,23 @@ class TestSlotHelpers:
 
     def test_worker_service_names_each_generation(self):
         assert [worker_service(slot=slot) for slot in WORKER_SLOTS] == ["worker-blue", "worker-green"]
+
+
+class TestStepBudget:
+    def test_covers_every_command_of_the_longest_swap_path(self):
+        retirement = 2 * WORKER_REPLICAS + 2
+        reaping = 4
+        staging_start = 1
+        container_lists = 2
+        restart_disable = 1
+        signals = WORKER_REPLICAS
+        checkout_reads = 2
+
+        worst_case = retirement + reaping + staging_start + container_lists + restart_disable + signals + checkout_reads
+
+        maintenance = 3 * reaping + 2 * WORKER_REPLICAS
+        assert SWAP_STEP_BUDGET >= worst_case
+        assert SWAP_STEP_BUDGET >= maintenance
 
 
 class TestSwapCommands:
@@ -259,8 +279,27 @@ class TestReapService:
 
 class TestRetireStagingWorkers:
     @pytest.mark.asyncio
-    async def test_force_stops_and_removes_a_staging_slot_that_is_still_occupied(self):
+    async def test_preserves_a_draining_container_in_the_staging_slot(self):
         state = DeployState(draining_workers={"c1": 10.0})
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock, return_value=(True, "")
+            ) as mock_run,
+        ):
+            assert await retire_staging_workers(checkout_path=CHECKOUT, service="worker-green", state=state) is False
+
+        mock_run.assert_not_awaited()
+        assert state.draining_workers == {"c1": 10.0}
+
+    @pytest.mark.asyncio
+    async def test_force_stops_and_removes_a_staging_container_that_is_not_draining(self):
+        state = DeployState()
 
         with (
             patch(
@@ -441,6 +480,29 @@ class TestSwapWorkers:
         ]
 
     @pytest.mark.asyncio
+    async def test_aborts_on_a_failed_signal_checkpoint_but_keeps_its_marker(self, swap_mocks):
+        state = DeployState(worker_slot="blue")
+        self._set_running(mocks=swap_mocks, containers={"worker-blue": ["c1"]})
+        swap_mocks["save"].side_effect = DeployStateError("disk full")
+
+        assert await swap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is False
+
+        assert state.worker_slot == "blue"
+        assert state.draining_workers == {"c1": 1000.0}
+        swap_mocks["save"].assert_called_once_with(path=STATE_PATH, state=state)
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_the_final_slot_checkpoint_fails(self, swap_mocks):
+        state = DeployState(worker_slot="blue")
+        self._set_running(mocks=swap_mocks, containers={"worker-blue": ["c1"]})
+        swap_mocks["save"].side_effect = [None, DeployStateError("disk full")]
+
+        assert await swap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is False
+
+        assert swap_mocks["save"].call_count == 2
+        assert state.worker_slot == "green"
+
+    @pytest.mark.asyncio
     async def test_aborts_when_the_staging_slot_cannot_be_retired(self, swap_mocks):
         state = DeployState(worker_slot="blue")
         swap_mocks["retire"].return_value = False
@@ -474,6 +536,69 @@ class TestSwapWorkers:
 
         assert state.worker_slot == "blue"
         swap_mocks["save"].assert_not_called()
+
+
+class TestBootstrapWorkers:
+    @pytest.mark.asyncio
+    async def test_scales_the_recorded_live_generation_to_four(self):
+        state = DeployState(worker_slot="green")
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, ""),
+            ) as mock_run,
+            patch("demetra.services.daemons.worker_swap.save_state") as mock_save,
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is True
+
+        commands = [call.kwargs["command"] for call in mock_run.await_args_list]
+        assert "worker-blue=0" in commands[0]
+        assert "worker-green=4" in commands[1]
+        mock_save.assert_called_once_with(path=STATE_PATH, state=state)
+
+    @pytest.mark.asyncio
+    async def test_a_fresh_state_boots_blue(self):
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, ""),
+            ) as mock_run,
+            patch("demetra.services.daemons.worker_swap.save_state"),
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=DeployState()) is True
+
+        commands = [call.kwargs["command"] for call in mock_run.await_args_list]
+        assert "worker-blue=4" in commands[0]
+        assert "worker-green=0" in commands[1]
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_a_slot_cannot_be_scaled(self):
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(False, ""),
+            ),
+            patch("demetra.services.daemons.worker_swap.save_state") as mock_save,
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=DeployState()) is False
+
+        mock_save.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_reports_a_failed_state_checkpoint(self):
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, ""),
+            ),
+            patch("demetra.services.daemons.worker_swap.save_state", side_effect=DeployStateError("disk full")),
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=DeployState()) is False
 
 
 class TestEscalateDrainingWorkers:

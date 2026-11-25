@@ -58,6 +58,26 @@ x-demetra-worker: &demetra-worker
   deploy:
     replicas: 4
 
+x-demetra-worker-one-shot: &demetra-worker-one-shot
+  <<: *demetra-base
+  entrypoint: ""
+  user: root
+  restart: "no"
+  working_dir: /opt/demetra/src
+  environment:
+    <<: *demetra-env
+    LOG_PATH: /var/log/demetra/worker-swap.log
+    DEPLOY_STATE_PATH: ${DEPLOY_STATE_PATH:-/var/lib/demetra/deployer-state.json}
+    DOCKER_PATH: /usr/local/bin/docker
+  volumes:
+    - demetra_deployer_data:/var/lib/demetra/
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /var/log/demetra/:/var/log/demetra/
+    - ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}:${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
+  depends_on:
+    redis:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:18
@@ -172,25 +192,20 @@ services:
         condition: service_healthy
 
   worker-swap:
-    <<: *demetra-base
+    <<: *demetra-worker-one-shot
     command: ["python", "-m", "demetra.worker_swap", "--checkout", "${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}"]
-    entrypoint: ""
-    user: root
-    restart: "no"
-    working_dir: /opt/demetra/src
-    environment:
-      <<: *demetra-env
-      LOG_PATH: /var/log/demetra/worker-swap.log
-      DEPLOY_STATE_PATH: ${DEPLOY_STATE_PATH:-/var/lib/demetra/deployer-state.json}
-      DOCKER_PATH: /usr/local/bin/docker
-    volumes:
-      - demetra_deployer_data:/var/lib/demetra/
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /var/log/demetra/:/var/log/demetra/
-      - ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}:${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
-    depends_on:
-      redis:
-        condition: service_healthy
+
+  worker-bootstrap:
+    <<: *demetra-worker-one-shot
+    command:
+      [
+        "python",
+        "-m",
+        "demetra.worker_swap",
+        "--checkout",
+        "${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}",
+        "--bootstrap",
+      ]
 
   rq-dashboard:
     <<: *demetra-base

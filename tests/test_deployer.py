@@ -1,10 +1,12 @@
 import json
 import time
+from functools import partial
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from demetra.library.exceptions import DeployStateError
 from demetra.library.models import DeployState
 from demetra.services.daemons.deployer import (
     CI_STATUS_FAILED,
@@ -20,6 +22,7 @@ from demetra.services.daemons.deployer import (
     checkout_has_no_local_changes,
     checkout_matches_sha,
     checkout_owner_prefix,
+    clear_ci_failure,
     combine_check_run_pages,
     default_state_path,
     deploy_lock_timeout,
@@ -31,6 +34,7 @@ from demetra.services.daemons.deployer import (
     load_state,
     parse_remote_sha,
     parse_repository_slug,
+    record_ci_failure,
     recreate_deployer,
     recreate_deployer_command,
     run_deploy,
@@ -39,6 +43,7 @@ from demetra.services.daemons.deployer import (
     save_state,
     should_deploy,
     summarize_check_runs,
+    update_deploy_state,
 )
 from demetra.services.daemons.worker_swap import SWAP_STEP_BUDGET
 from demetra.settings import DEPLOY
@@ -319,11 +324,14 @@ class TestDeployState:
         assert load_state(path=state_path).worker_slot == "green"
         assert list(tmp_path.glob(".*.tmp")) == []
 
-    def test_a_failed_write_leaves_the_previous_state_intact(self, tmp_path: Path):
+    def test_a_failed_write_leaves_the_previous_state_intact_and_reports_the_failure(self, tmp_path: Path):
         state_path = tmp_path / "state.json"
         save_state(path=state_path, state=DeployState(worker_slot="blue"))
 
-        with patch("demetra.services.daemons.deploy_support.Path.write_text", side_effect=OSError("disk full")):
+        with (
+            patch("demetra.services.daemons.deploy_support.Path.write_text", side_effect=OSError("disk full")),
+            pytest.raises(DeployStateError),
+        ):
             save_state(path=state_path, state=DeployState(worker_slot="green"))
 
         assert load_state(path=state_path).worker_slot == "blue"
@@ -511,6 +519,54 @@ class TestAcquireDeployLock:
         assert mock_connection.lock.call_args.kwargs["timeout"] == deploy_lock_timeout(
             checkout_path=Path("/srv/checkout")
         )
+
+
+class TestUpdateDeployState:
+    def test_reloads_the_shared_state_before_applying_the_mutation(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        save_state(
+            path=state_path,
+            state=DeployState(last_deployed_sha=SHA, worker_slot="green", draining_workers={"c1": 1.0}),
+        )
+        lock = MagicMock()
+
+        with patch("demetra.services.daemons.deployer.acquire_deploy_lock", return_value=lock) as mock_acquire:
+            update_deploy_state(
+                checkout_path=Path("/srv/checkout"),
+                state_path=state_path,
+                update=partial(record_ci_failure, sha=OTHER_SHA, failure="CI checks failed"),
+            )
+
+        mock_acquire.assert_called_once_with(checkout_path=Path("/srv/checkout"), blocking=False)
+        lock.release.assert_called_once_with()
+        state = load_state(path=state_path)
+        assert state.last_deployed_sha == SHA
+        assert state.worker_slot == "green"
+        assert state.draining_workers == {"c1": 1.0}
+        assert state.last_failed_sha == OTHER_SHA
+
+    def test_skips_the_write_when_another_deploy_holds_the_lock(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        save_state(path=state_path, state=DeployState(worker_slot="green"))
+
+        with patch("demetra.services.daemons.deployer.acquire_deploy_lock", return_value=None):
+            update_deploy_state(
+                checkout_path=Path("/srv/checkout"),
+                state_path=state_path,
+                update=partial(clear_ci_failure, sha=SHA),
+            )
+
+        assert load_state(path=state_path).worker_slot == "green"
+
+    def test_clears_only_the_failure_of_the_green_commit(self):
+        state = DeployState(last_failed_sha=SHA, last_error="CI checks failed")
+        clear_ci_failure(state, sha=OTHER_SHA)
+
+        assert state.last_failed_sha == SHA
+        clear_ci_failure(state, sha=SHA)
+
+        assert state.last_failed_sha is None
+        assert state.last_error is None
 
 
 class TestRunDeploy:
@@ -763,10 +819,28 @@ class TestMakefileParity:
     def test_manual_deploy_runs_the_same_worker_swap(self):
         recipe = self._recipe("deploy-steps")
 
-        assert "$(MAKE) worker-swap" in recipe
-        swap_recipe = self._recipe("worker-swap")
-        assert len(swap_recipe) == 1
-        assert "run --rm worker-swap" in swap_recipe[0]
+        assert "$(MAKE) worker-swap-steps" in recipe
+        swap_steps = self._recipe("worker-swap-steps")
+        assert len(swap_steps) == 1
+        assert "run --rm worker-swap" in swap_steps[0]
+
+    def test_standalone_swap_takes_the_shared_deploy_lock(self):
+        recipe = self._recipe("worker-swap")
+
+        assert len(recipe) == 1
+        assert "demetra.deploy_lock" in recipe[0]
+        assert "$(MAKE) worker-swap-steps" in recipe[0]
+
+    def test_docker_up_scales_the_persisted_slot_under_the_deploy_lock(self):
+        recipe = self._recipe("docker-up")
+
+        assert "--scale" not in " ".join(recipe)
+        assert "worker-blue" not in " ".join(recipe)
+        assert "$(MAKE) worker-bootstrap" in recipe
+        bootstrap = self._recipe("worker-bootstrap")
+        assert "demetra.deploy_lock" in bootstrap[0]
+        assert "$(MAKE) worker-bootstrap-steps" in bootstrap[0]
+        assert "run --rm worker-bootstrap" in self._recipe("worker-bootstrap-steps")[0]
 
     def test_migrate_step_matches_the_makefile_deploy_steps_target(self):
         recipe = self._recipe("deploy-steps")
@@ -1008,6 +1082,26 @@ class TestRunDeployCycle:
 
         await run_deploy_cycle()
 
+        assert cycle_mocks["deploy"].await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_preserves_a_swap_completed_while_ci_was_awaited(self, cycle_mocks):
+        def _other_daemon_swaps(*, sha, repository):
+            save_state(
+                path=cycle_mocks["state_path"],
+                state=DeployState(last_deployed_sha=OTHER_SHA, worker_slot="green", draining_workers={"c1": 1.0}),
+            )
+            return CI_STATUS_FAILED
+
+        cycle_mocks["ci"].side_effect = _other_daemon_swaps
+
+        await run_deploy_cycle()
+
+        state = load_state(path=cycle_mocks["state_path"])
+        assert state.worker_slot == "green"
+        assert state.draining_workers == {"c1": 1.0}
+        assert state.last_deployed_sha == OTHER_SHA
+        assert state.last_failed_sha == SHA
         assert cycle_mocks["deploy"].await_count == 0
 
     @pytest.mark.asyncio
