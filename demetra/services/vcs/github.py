@@ -2,12 +2,14 @@ import hashlib
 import hmac
 import json
 import logging
+import re
 from pathlib import Path
 from urllib.parse import urlparse
 
 import aiohttp
 
 from demetra.library import MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
+from demetra.library.constants import CODERABBIT_AUTHOR_LOGINS
 from demetra.library.models import SessionEnvironment
 from demetra.services.persistence.database import get_session_by_pr_link
 from demetra.services.persistence.queue import queue
@@ -16,6 +18,28 @@ from demetra.settings import GITHUB
 
 
 logger = logging.getLogger(__name__)
+
+REVIEW_THREAD_ID_PATTERN = re.compile(r"^[A-Za-z0-9_=-]+$")
+
+RESOLVE_REVIEW_THREAD_QUERY = (
+    "mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id isResolved}}}"
+)
+
+
+def _thread_comments(thread: dict) -> list[dict]:
+    """Return the comment nodes of a review thread as plain dicts.
+
+    Args:
+        thread: A review thread from the GitHub GraphQL API.
+
+    Returns:
+        list[dict]: The comment nodes, or an empty list when absent.
+    """
+    comments = thread.get("comments", {})
+    nodes = comments.get("nodes", []) if isinstance(comments, dict) else comments
+    if not isinstance(nodes, list):
+        return []
+    return [comment for comment in nodes if isinstance(comment, dict)]
 
 
 def verify_signature(payload_body: bytes, signature_header: str | None) -> bool:
@@ -144,7 +168,7 @@ async def get_unresolved_review_threads(
         "query($owner:String!,$name:String!,$pr:Int!){"
         "repository(owner:$owner,name:$name){"
         "pullRequest(number:$pr){"
-        "reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved isOutdated path line comments(first:100){pageInfo{hasNextPage} nodes{body path diffHunk line originalLine author{login} createdAt}}}"
+        "reviewThreads(first:100){pageInfo{hasNextPage} nodes{id isResolved isOutdated path line comments(first:100){pageInfo{hasNextPage} nodes{id body path diffHunk line originalLine author{login} createdAt}}}"
         "} latestReviews(first:100){pageInfo{hasNextPage} nodes{body author{login} createdAt state}}"
         "}}}"
     )
@@ -226,6 +250,115 @@ async def get_unresolved_review_threads(
         logger.warning(f"Failed to process general reviews for PR #{pr_number}", exc_info=True)
 
     return unresolved
+
+
+async def get_coderabbit_comments(
+    pr_number: int,
+    full_name: str,
+    target_path: Path,
+    environment: SessionEnvironment | None = None,
+    project_id: str | None = None,
+) -> list[dict]:
+    """Collect every unresolved CodeRabbit comment on a pull request.
+
+    Reuses the unresolved-thread query so a single listener notification can be
+    turned into one batch of comments instead of one workflow per comment.
+
+    Args:
+        pr_number: The pull request number.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+        target_path: Directory to run the GitHub CLI in.
+        environment: The resolved session environment forwarded to the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        list[dict]: One record per CodeRabbit comment with its thread id, body,
+            path, line, diff hunk and author login.
+
+    Raises:
+        RuntimeError: When the review threads cannot be fetched.
+    """
+    threads = await get_unresolved_review_threads(
+        pr_number=pr_number,
+        full_name=full_name,
+        target_path=target_path,
+        environment=environment,
+        project_id=project_id,
+    )
+
+    comments: list[dict] = []
+    for thread in threads:
+        thread_id = thread.get("id")
+        for comment in _thread_comments(thread=thread):
+            author = comment.get("author")
+            login = author.get("login", "") if isinstance(author, dict) else ""
+            if login.casefold() not in CODERABBIT_AUTHOR_LOGINS:
+                continue
+            comments.append(
+                {
+                    "thread_id": str(thread_id or ""),
+                    "comment_id": str(comment.get("id") or ""),
+                    "body": (comment.get("body") or "").strip(),
+                    "path": thread.get("path") or comment.get("path") or "",
+                    "line": comment.get("line") or thread.get("line"),
+                    "diff_hunk": (comment.get("diffHunk") or "").strip(),
+                    "author": login,
+                }
+            )
+    return comments
+
+
+async def resolve_review_threads(
+    thread_ids: list[str],
+    target_path: Path,
+    environment: SessionEnvironment | None = None,
+    project_id: str | None = None,
+) -> int:
+    """Resolve review threads on GitHub after their findings were pushed.
+
+    The GraphQL mutation resolves one thread per call, so a malformed id only
+    skips that thread instead of failing the whole batch.
+
+    Args:
+        thread_ids: The GitHub node ids of the threads to resolve.
+        target_path: Directory to run the GitHub CLI in.
+        environment: The resolved session environment forwarded to the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        int: The number of threads GitHub confirmed as resolved.
+    """
+    resolved = 0
+    for thread_id in thread_ids:
+        if not isinstance(thread_id, str) or not REVIEW_THREAD_ID_PATTERN.fullmatch(thread_id):
+            logger.warning(f"Skipping invalid review thread id: {thread_id!r}")
+            continue
+        command = [
+            str(GITHUB["path"]),
+            "api",
+            "graphql",
+            "-f",
+            f"query={RESOLVE_REVIEW_THREAD_QUERY}",
+            "-f",
+            f"threadId={thread_id}",
+        ]
+        exit_code, stdout, stderr = await run_command(
+            command=command, target_path=target_path, environment=environment, project_id=project_id, disable_stdio=True
+        )
+        if exit_code != 0:
+            logger.error(f"Failed to resolve review thread {thread_id}: {stderr.strip()[:500]}")
+            continue
+        try:
+            data = json.loads(stdout)
+            thread = data["data"]["resolveReviewThread"]["thread"]
+        except (json.JSONDecodeError, KeyError, TypeError) as e:
+            logger.error(f"Failed to parse resolve thread response for {thread_id}: {e}")
+            continue
+        if thread.get("isResolved"):
+            resolved += 1
+        else:
+            logger.warning(f"GitHub did not resolve review thread {thread_id}")
+    return resolved
 
 
 async def create_pull_request(

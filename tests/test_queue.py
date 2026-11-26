@@ -5,9 +5,12 @@ from redis.exceptions import RedisError
 
 from demetra.services.persistence.queue import (
     WORKFLOW_JOB_PATH,
+    clear_pending_comments,
     enqueue_workflow,
     get_live_task_ids,
+    load_pending_comments,
     requeue_abandoned_jobs,
+    save_pending_comments,
 )
 
 
@@ -120,6 +123,54 @@ class TestGetLiveTaskIds:
             side_effect=RedisError("connection refused"),
         ):
             assert get_live_task_ids() == []
+
+
+class TestPendingComments:
+    PAYLOAD = {"pr_number": 42, "full_name": "owner/repo", "comments": [{"thread_id": "THREAD_1"}]}
+
+    def test_save_is_conditional_and_expires(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.set.return_value = True
+            assert save_pending_comments("CH-1", self.PAYLOAD) is True
+            assert mock_connection.set.call_args.kwargs["nx"] is True
+            assert mock_connection.set.call_args.kwargs["ex"] > 0
+            assert "CH-1" in mock_connection.set.call_args.kwargs["name"]
+
+            mock_connection.set.return_value = None
+            assert save_pending_comments("CH-1", self.PAYLOAD) is False
+
+    def test_save_returns_none_on_redis_error(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.set.side_effect = RedisError("connection refused")
+            assert save_pending_comments("CH-1", self.PAYLOAD) is None
+
+    def test_load_round_trips_payload(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.set.return_value = True
+            save_pending_comments("CH-1", self.PAYLOAD)
+            mock_connection.get.return_value = mock_connection.set.call_args.kwargs["value"]
+            assert load_pending_comments("CH-1") == self.PAYLOAD
+
+    def test_load_returns_none_for_missing_corrupt_or_broken_payloads(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.get.return_value = None
+            assert load_pending_comments("CH-1") is None
+            mock_connection.get.return_value = "not json"
+            assert load_pending_comments("CH-1") is None
+            mock_connection.get.return_value = b'["not", "a", "dict"]'
+            assert load_pending_comments("CH-1") is None
+            mock_connection.get.side_effect = RedisError("connection refused")
+            assert load_pending_comments("CH-1") is None
+
+    def test_clear_deletes_the_key(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            clear_pending_comments("CH-1")
+            mock_connection.delete.assert_called_once_with("demetra:pending-comments:CH-1")
+
+    def test_clear_ignores_redis_errors(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.delete.side_effect = RedisError("connection refused")
+            clear_pending_comments("CH-1")
 
 
 class TestRequeueAbandonedJobs:

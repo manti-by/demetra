@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-324: Comments listener](pages/2026-11-26-mnt-324-comments-listener.md) — Implementation of MNT-324: Comments listener (2026-11-26)
 - [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-blue-green-worker-deploy-research.md) — Implementation of MNT-323: Swap RQ workers between two generations on deploy (2026-11-25)
 - [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Deploys now start the staging worker generation on the new image and signal the live one once so RQ finishes its workflow, instead of waiting for the queue to drain; drained containers are reaped on a later cycle, a watchdog requeues jobs whose workflow outlived the timeout, and the manual deploy path runs the same swap through a one-shot Compose service. (2026-11-25)
 - [Blue-green worker deployment research for the home Ubuntu server](pages/2026-11-25-blue-green-worker-deploy-research.md) — Compares a two-slot Compose blue/green worker swap inside the existing deploy daemon, Docker Swarm mode and third-party rolling-deploy helpers against the current drain-the-queue-then-force-recreate path, and recommends the two-slot swap because RQ already drains the running job on the first SIGTERM, so the deploy no longer has to wait for a workflow to finish. (2026-11-25)
@@ -206,6 +207,7 @@ _Newest first._
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
 - [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
 - [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-blue-green-worker-deploy-research.md) — 2026-11-25
+- [MNT-324: Comments listener](pages/2026-11-26-mnt-324-comments-listener.md) — 2026-11-26
 
 ### Deploy & infrastructure (11 pages)
 
@@ -249,8 +251,9 @@ _Newest first._
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 
-### Linear, GitHub & task intake (4 pages)
+### Linear, GitHub & task intake (5 pages)
 
+- [MNT-324: CodeRabbit comments listener and one-batch comments workflow](pages/2026-11-26-mnt-324-comments-listener.md)
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
