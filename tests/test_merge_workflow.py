@@ -3,7 +3,8 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from demetra.library.models import Session
+from demetra.library.exceptions import BuildError
+from demetra.library.models import Session, SessionEnvironment
 from demetra.workflows.merge import run_merge_workflow
 
 
@@ -49,6 +50,8 @@ def base_mocks():
         patch("demetra.workflows.merge.perform_git_merge", new_callable=AsyncMock) as mock_perform_merge,
         patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
         patch("demetra.workflows.merge.resolve_task_by_id", new_callable=AsyncMock) as mock_get_task,
+        patch("demetra.workflows.merge.run_ci_loop", new_callable=AsyncMock) as mock_ci_loop,
+        patch("demetra.workflows.merge.update_session_step", new_callable=AsyncMock) as mock_update_step,
     ):
         mock_get_session.return_value = SESSION
         mock_get_project.return_value = PROJECT_DATA
@@ -57,6 +60,7 @@ def base_mocks():
         mock_fetch.return_value = None
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
         mock_get_task.return_value = None
+        mock_ci_loop.return_value = True
         yield {
             "mock_get_session": mock_get_session,
             "mock_get_project": mock_get_project,
@@ -70,6 +74,8 @@ def base_mocks():
             "mock_perform_merge": mock_perform_merge,
             "mock_write_page": mock_write_page,
             "mock_get_task": mock_get_task,
+            "mock_ci_loop": mock_ci_loop,
+            "mock_update_step": mock_update_step,
         }
 
 
@@ -90,6 +96,60 @@ class TestRunMergeWorkflow:
         base_mocks["mock_fetch"].assert_awaited_once()
         base_mocks["mock_wt_create"].assert_awaited_once()
         base_mocks["mock_perform_merge"].assert_awaited_once()
+        base_mocks["mock_wt_remove"].assert_awaited_once()
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "completed",
+        ]
+        base_mocks["mock_ci_loop"].assert_awaited_once()
+        call = base_mocks["mock_ci_loop"].await_args.kwargs
+        assert call["task_id"] == "TASK-123"
+        assert call["project_id"] == "proj-1"
+        assert call["branch_name"] == "feature/branch"
+        assert call["task_title"] == "owner/repo #42 - merge"
+        assert call["session_id"] is None
+        assert isinstance(call["environment"], SessionEnvironment)
+
+    @pytest.mark.asyncio
+    async def test_merge_returns_ci_failure_after_wiki_page_write(self, base_mocks):
+        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
+        base_mocks["mock_perform_merge"].return_value = True
+        base_mocks["mock_ci_loop"].return_value = False
+        base_mocks["mock_get_task"].return_value = "task"
+
+        result = await run_merge_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
+
+        assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
+        base_mocks["mock_write_page"].assert_awaited_once()
+        base_mocks["mock_wt_remove"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_merge_ci_agent_failure_returns_false(self, base_mocks):
+        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
+        base_mocks["mock_perform_merge"].return_value = True
+        base_mocks["mock_ci_loop"].side_effect = BuildError("build agent failed")
+
+        result = await run_merge_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
+
+        assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -134,6 +194,45 @@ class TestRunMergeWorkflow:
         )
 
         assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_project_lookup_failure_persists_failed_step(self, base_mocks):
+        base_mocks["mock_get_project"].side_effect = RuntimeError("database down")
+
+        result = await run_merge_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
+
+        assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
+        base_mocks["mock_wt_remove"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_project_setup_failure_persists_failed_step_before_raising(self, base_mocks):
+        base_mocks["mock_get_env"].side_effect = ValueError("bad environment")
+
+        with pytest.raises(ValueError, match="bad environment"):
+            await run_merge_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+            )
+
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
 
     @pytest.mark.asyncio
     async def test_merge_perform_merge_fails(self, base_mocks):
@@ -148,6 +247,10 @@ class TestRunMergeWorkflow:
         )
 
         assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio

@@ -122,8 +122,9 @@ _Newest first._
 
 ## By topic
 
-### Workflow orchestration & agents (23 pages)
+### Workflow orchestration & agents (24 pages)
 
+- [MNT-322: Run CI after merge and rebase](pages/2026-11-26-mnt-322-run-ci-after-merge.md)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md)
 - [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md)
 - [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
