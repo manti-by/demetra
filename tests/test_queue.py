@@ -11,6 +11,7 @@ from demetra.services.persistence.queue import (
     load_pending_comments,
     requeue_abandoned_jobs,
     save_pending_comments,
+    update_pending_comments,
 )
 
 
@@ -162,15 +163,40 @@ class TestPendingComments:
             mock_connection.get.side_effect = RedisError("connection refused")
             assert load_pending_comments("CH-1") is None
 
-    def test_clear_deletes_the_key(self):
+    def test_clear_deletes_only_the_loaded_batch(self):
         with patch("demetra.services.persistence.queue.connection") as mock_connection:
-            clear_pending_comments("CH-1")
-            mock_connection.delete.assert_called_once_with("demetra:pending-comments:CH-1")
+            clear_pending_comments("CH-1", self.PAYLOAD)
+            args = mock_connection.eval.call_args.args
+            assert args[1:] == (
+                1,
+                "demetra:pending-comments:CH-1",
+                '{"comments": [{"thread_id": "THREAD_1"}], "full_name": "owner/repo", "pr_number": 42}',
+            )
+            assert "redis.call('GET', KEYS[1])" in args[0]
 
     def test_clear_ignores_redis_errors(self):
         with patch("demetra.services.persistence.queue.connection") as mock_connection:
-            mock_connection.delete.side_effect = RedisError("connection refused")
-            clear_pending_comments("CH-1")
+            mock_connection.eval.side_effect = RedisError("connection refused")
+            clear_pending_comments("CH-1", self.PAYLOAD)
+
+    def test_update_replaces_only_the_loaded_batch(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.eval.return_value = "OK"
+            updated = update_pending_comments("CH-1", self.PAYLOAD, {"attempt": 1})
+            assert updated == {**self.PAYLOAD, "attempt": 1}
+            args = mock_connection.eval.call_args.args
+            assert args[3] == '{"comments": [{"thread_id": "THREAD_1"}], "full_name": "owner/repo", "pr_number": 42}'
+            assert '"attempt": 1' in args[4]
+
+    def test_update_returns_none_when_the_batch_changed(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.eval.return_value = 0
+            assert update_pending_comments("CH-1", self.PAYLOAD, {"attempt": 1}) is None
+
+    def test_update_returns_none_on_redis_error(self):
+        with patch("demetra.services.persistence.queue.connection") as mock_connection:
+            mock_connection.eval.side_effect = OSError("connection refused")
+            assert update_pending_comments("CH-1", self.PAYLOAD, {"attempt": 1}) is None
 
 
 class TestRequeueAbandonedJobs:

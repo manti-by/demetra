@@ -22,6 +22,20 @@ WORKFLOW_RETRIES = 1
 
 PENDING_COMMENTS_KEY_PREFIX = "demetra:pending-comments:"
 
+_COMPARE_AND_DELETE_SCRIPT = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+    return redis.call('DEL', KEYS[1])
+end
+return 0
+"""
+
+_COMPARE_AND_SET_SCRIPT = """
+if redis.call('GET', KEYS[1]) == ARGV[1] then
+    return redis.call('SET', KEYS[1], ARGV[2], 'KEEPTTL')
+end
+return 0
+"""
+
 
 def _pending_comments_key(task_id: str) -> str:
     """Return the Redis key holding the pending CodeRabbit batch of a task.
@@ -33,6 +47,18 @@ def _pending_comments_key(task_id: str) -> str:
         str: The namespaced Redis key.
     """
     return f"{PENDING_COMMENTS_KEY_PREFIX}{task_id}"
+
+
+def _serialize_pending_comments(comments: dict) -> str:
+    """Serialize a batch deterministically so its bytes identify that batch.
+
+    Args:
+        comments: The batch payload.
+
+    Returns:
+        str: The canonical JSON representation of the payload.
+    """
+    return json.dumps(comments, sort_keys=True)
 
 
 def save_pending_comments(task_id: str, comments: dict) -> bool | None:
@@ -51,7 +77,10 @@ def save_pending_comments(task_id: str, comments: dict) -> bool | None:
     """
     try:
         saved = connection.set(
-            name=_pending_comments_key(task_id), value=json.dumps(comments), nx=True, ex=PENDING_COMMENTS_TTL
+            name=_pending_comments_key(task_id),
+            value=_serialize_pending_comments(comments),
+            nx=True,
+            ex=PENDING_COMMENTS_TTL,
         )
     except (RedisError, OSError, TypeError) as e:
         logger.warning(f"Failed to save pending comments for {task_id}: {e}")
@@ -101,16 +130,52 @@ def load_pending_comments(task_id: str) -> dict | None:
     return payload
 
 
-def clear_pending_comments(task_id: str) -> None:
-    """Remove the pending CodeRabbit batch of a task.
+def clear_pending_comments(task_id: str, comments: dict) -> None:
+    """Remove a pending batch only while it is still the batch this run loaded.
+
+    The comparison and deletion run in one Lua script, so a newer batch saved
+    after this run loaded its own cannot be deleted by this run's cleanup.
 
     Args:
         task_id: The task identifier.
+        comments: The batch payload this run loaded.
     """
     try:
-        connection.delete(_pending_comments_key(task_id))
+        connection.eval(
+            _COMPARE_AND_DELETE_SCRIPT,
+            1,
+            _pending_comments_key(task_id),
+            _serialize_pending_comments(comments),
+        )
     except (RedisError, OSError) as e:
         logger.warning(f"Failed to clear pending comments for {task_id}: {e}")
+
+
+def update_pending_comments(task_id: str, comments: dict, updates: dict) -> dict | None:
+    """Replace the stored batch only while it is still the batch this run loaded.
+
+    Args:
+        task_id: The task identifier.
+        comments: The batch payload this run loaded.
+        updates: Fields to merge into the batch.
+
+    Returns:
+        dict | None: The updated batch when the replacement succeeded, None
+            when the key changed or the broker was unreachable.
+    """
+    updated = {**comments, **updates}
+    try:
+        result = connection.eval(
+            _COMPARE_AND_SET_SCRIPT,
+            1,
+            _pending_comments_key(task_id),
+            _serialize_pending_comments(comments),
+            _serialize_pending_comments(updated),
+        )
+    except (RedisError, OSError) as e:
+        logger.warning(f"Failed to update pending comments for {task_id}: {e}")
+        return None
+    return updated if result else None
 
 
 def enqueue_workflow(*, project_name: str, task_id: str) -> Job:

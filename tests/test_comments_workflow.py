@@ -49,9 +49,13 @@ COMMENTS: list[dict] = [
 ]
 
 PAYLOAD = {
+    "batch_id": "batch-1",
+    "task_id": "TASK-123",
+    "project_id": "proj-1",
     "pr_number": 42,
     "full_name": "owner/repo",
     "comments": COMMENTS,
+    "attempt": 0,
 }
 
 
@@ -81,6 +85,7 @@ def base_mocks():
         "update_session_step": (AsyncMock, None),
         "record_session_step": (AsyncMock, None),
         "clear_pending_comments": (None, None),
+        "update_pending_comments": (None, {**PAYLOAD, "attempt": 1}),
         "reset_listener_attempts": (AsyncMock, None),
     }
     with ExitStack() as stack:
@@ -103,7 +108,7 @@ def base_mocks():
         mocks["mock_summarize_findings"].return_value = "1. first finding\n2. second finding"
         mocks["mock_resolve_task_by_id"].return_value = TASK
         mocks["mock_git_add_all"].return_value = True
-        mocks["mock_resolve_pending_comments"].return_value = True
+        mocks["mock_resolve_pending_comments"].return_value = []
         aliases = {
             "mock_load": "mock_load_pending_comments",
             "mock_get_project": "mock_get_project_by_id_system",
@@ -120,6 +125,7 @@ def base_mocks():
             "mock_step": "mock_update_session_step",
             "mock_record": "mock_record_session_step",
             "mock_clear": "mock_clear_pending_comments",
+            "mock_update": "mock_update_pending_comments",
             "mock_reset_attempts": "mock_reset_listener_attempts",
         }
         for alias, original in aliases.items():
@@ -143,43 +149,41 @@ class TestFormatCommentsForSummary:
 
 class TestResolvePendingComments:
     @pytest.mark.asyncio
-    async def test_returns_false_without_a_batch(self):
+    async def test_returns_no_unresolved_threads_without_a_batch(self):
         with (
-            patch("demetra.services.comments.load_pending_comments", return_value=None),
             patch("demetra.services.comments.resolve_review_threads", new_callable=AsyncMock) as mock_resolve,
+            patch("demetra.services.comments.clear_pending_comments") as mock_clear,
         ):
-            assert await resolve_pending_comments("TASK-123", Path("/tmp/repo")) is False
+            assert await resolve_pending_comments({"task_id": "TASK-123", "comments": []}, Path("/tmp/repo")) == []
         mock_resolve.assert_not_awaited()
+        mock_clear.assert_called_once()
 
     @pytest.mark.asyncio
-    async def test_resolves_every_thread_and_clears_the_batch(self):
+    async def test_resolves_every_thread_and_clears_the_loaded_batch(self):
         with (
-            patch("demetra.services.comments.load_pending_comments", return_value=PAYLOAD),
             patch(
                 "demetra.services.comments.resolve_review_threads", new_callable=AsyncMock, return_value=2
             ) as mock_resolve,
             patch("demetra.services.comments.clear_pending_comments") as mock_clear,
         ):
-            assert await resolve_pending_comments("TASK-123", Path("/tmp/repo"), project_id="proj-1") is True
+            assert await resolve_pending_comments(PAYLOAD, Path("/tmp/repo"), project_id="proj-1") == []
             resolve_call = mock_resolve.await_args
             assert resolve_call is not None
             assert resolve_call.kwargs["thread_ids"] == ["THREAD_1", "THREAD_2"]
-            mock_clear.assert_called_once_with(task_id="TASK-123")
+            mock_clear.assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
     @pytest.mark.asyncio
     async def test_partial_resolution_keeps_the_batch(self):
         with (
-            patch("demetra.services.comments.load_pending_comments", return_value=PAYLOAD),
             patch("demetra.services.comments.resolve_review_threads", new_callable=AsyncMock, return_value=1),
             patch("demetra.services.comments.clear_pending_comments") as mock_clear,
         ):
-            assert await resolve_pending_comments("TASK-123", Path("/tmp/repo")) is False
+            assert await resolve_pending_comments(PAYLOAD, Path("/tmp/repo")) == ["THREAD_1", "THREAD_2"]
         mock_clear.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_failure_keeps_the_batch(self):
         with (
-            patch("demetra.services.comments.load_pending_comments", return_value=PAYLOAD),
             patch(
                 "demetra.services.comments.resolve_review_threads",
                 new_callable=AsyncMock,
@@ -187,19 +191,19 @@ class TestResolvePendingComments:
             ),
             patch("demetra.services.comments.clear_pending_comments") as mock_clear,
         ):
-            assert await resolve_pending_comments("TASK-123", Path("/tmp/repo")) is False
+            assert await resolve_pending_comments(PAYLOAD, Path("/tmp/repo")) == ["THREAD_1", "THREAD_2"]
         mock_clear.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_batch_without_thread_ids_is_cleared(self):
         with (
-            patch("demetra.services.comments.load_pending_comments", return_value={"comments": [{"body": "note"}]}),
             patch("demetra.services.comments.resolve_review_threads", new_callable=AsyncMock) as mock_resolve,
             patch("demetra.services.comments.clear_pending_comments") as mock_clear,
         ):
-            assert await resolve_pending_comments("TASK-123", Path("/tmp/repo")) is True
+            batch = {"task_id": "TASK-123", "comments": [{"body": "note"}]}
+            assert await resolve_pending_comments(batch, Path("/tmp/repo")) == []
         mock_resolve.assert_not_awaited()
-        mock_clear.assert_called_once()
+        mock_clear.assert_called_once_with(task_id="TASK-123", comments=batch)
 
 
 class TestRunCommentsWorkflow:
@@ -250,7 +254,7 @@ class TestRunCommentsWorkflow:
         assert result is True
         base_mocks["mock_push"].assert_not_awaited()
         base_mocks["mock_resolve"].assert_not_awaited()
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
     @pytest.mark.asyncio
     async def test_records_failure_when_build_raises(self, base_mocks):
@@ -264,7 +268,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_push"].assert_not_awaited()
         base_mocks["mock_step"].assert_awaited_with(task_id="TASK-123", step="failed")
         base_mocks["mock_remove"].assert_awaited_once()
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
         base_mocks["mock_reset_attempts"].assert_awaited_once_with(task_id="TASK-123")
 
     @pytest.mark.asyncio
@@ -286,7 +290,7 @@ class TestRunCommentsWorkflow:
         assert result is False
         base_mocks["mock_step"].assert_awaited_with(task_id="TASK-123", step="failed")
         base_mocks["mock_record"].assert_awaited_once()
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
         base_mocks["mock_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -300,7 +304,7 @@ class TestRunCommentsWorkflow:
         assert result is False
         base_mocks["mock_build"].assert_not_awaited()
         base_mocks["mock_step"].assert_awaited_with(task_id="TASK-123", step="failed")
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
     @pytest.mark.asyncio
     async def test_returns_false_when_session_or_batch_is_missing(self, base_mocks):
@@ -316,7 +320,7 @@ class TestRunCommentsWorkflow:
             await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
             is False
         )
-        assert base_mocks["mock_clear"].call_count == 2
+        assert base_mocks["mock_clear"].call_count == 1
 
     @pytest.mark.asyncio
     async def test_returns_false_when_project_is_missing(self, base_mocks):
@@ -327,7 +331,7 @@ class TestRunCommentsWorkflow:
             )
             is False
         )
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
     @pytest.mark.asyncio
     async def test_releases_batch_when_pr_info_or_task_is_missing(self, base_mocks):
@@ -336,7 +340,7 @@ class TestRunCommentsWorkflow:
             await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
             is False
         )
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
         base_mocks["mock_clear"].reset_mock()
         base_mocks["mock_get_pr_info"].return_value = ("feature/branch", "master")
@@ -345,16 +349,48 @@ class TestRunCommentsWorkflow:
             await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
             is False
         )
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
 
     @pytest.mark.asyncio
-    async def test_releases_batch_when_resolution_fails(self, base_mocks):
-        base_mocks["mock_resolve"].return_value = False
+    async def test_retains_batch_for_retry_when_resolution_fails(self, base_mocks):
+        base_mocks["mock_resolve"].return_value = ["THREAD_1", "THREAD_2"]
+
+        result = await run_comments_workflow(
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+        )
+
+        assert result is False
+        base_mocks["mock_push"].assert_awaited_once()
+        base_mocks["mock_step"].assert_awaited_with(task_id="TASK-123", step="failed")
+        assert any(
+            "Unresolved CodeRabbit threads" in call.kwargs.get("message", "")
+            for call in base_mocks["mock_record"].await_args_list
+        )
+        base_mocks["mock_update"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD, updates={"attempt": 1})
+        base_mocks["mock_clear"].assert_not_called()
+        base_mocks["mock_comment"].assert_not_awaited()
+        base_mocks["mock_remove"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_releases_batch_when_initialization_fails(self, base_mocks):
+        base_mocks["mock_setup_session_logging"].side_effect = RuntimeError("logging failed")
+
+        result = await run_comments_workflow(
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+        )
+
+        assert result is False
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
+        base_mocks["mock_reset_attempts"].assert_awaited_once_with(task_id="TASK-123")
+
+    @pytest.mark.asyncio
+    async def test_removes_worktree_when_attempt_reset_fails(self, base_mocks):
+        base_mocks["mock_reset_attempts"].side_effect = RuntimeError("database failed")
 
         result = await run_comments_workflow(
             task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
         )
 
         assert result is True
-        base_mocks["mock_push"].assert_awaited_once()
-        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123")
+        base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
+        base_mocks["mock_remove"].assert_awaited_once()

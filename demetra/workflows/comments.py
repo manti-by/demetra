@@ -15,7 +15,7 @@ from demetra.services.persistence.database import (
     reset_listener_attempts,
     update_session_step,
 )
-from demetra.services.persistence.queue import clear_pending_comments, load_pending_comments
+from demetra.services.persistence.queue import clear_pending_comments, load_pending_comments, update_pending_comments
 from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import setup_session_logging
@@ -65,14 +65,19 @@ def _format_comments_for_summary(comments: Sequence[object]) -> str:
     return "\n".join(lines).strip()
 
 
-async def _release_batch(task_id: str) -> None:
+async def _release_batch(task_id: str, comments: dict | None) -> None:
     """Release the pending batch and the listener retry budget for a task.
 
     Args:
         task_id: The task identifier.
+        comments: The batch this run loaded, or None when none was loaded.
     """
-    clear_pending_comments(task_id=task_id)
-    await reset_listener_attempts(task_id=task_id)
+    if comments:
+        clear_pending_comments(task_id=task_id, comments=comments)
+    try:
+        await reset_listener_attempts(task_id=task_id)
+    except (OSError, RuntimeError) as e:
+        logger.warning(f"Failed to reset listener attempts for {task_id}: {e}")
 
 
 async def _record_failure(task_id: str, message: str) -> None:
@@ -92,9 +97,9 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
     Summarizes the batch with the review step's summarizer, runs the build
     pipeline (which records build, validate, review, lint and test steps),
     force-pushes the result to the PR head branch and resolves the saved
-    review threads. The Redis batch is released on every exit, so a later
-    CodeRabbit notification can enqueue a fresh workflow instead of being
-    skipped by the listener's ``SET NX`` gate.
+    review threads. The Redis batch is released on every exit, except when
+    threads stay unresolved and the batch is kept with a new attempt counter
+    for a later workflow to retry.
 
     Args:
         task_id: The task identifier.
@@ -105,36 +110,36 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
     Returns:
         bool: True when the workflow completed, False on failure.
     """
-    session = await get_session(task_id=task_id)
-    if not session:
-        logger.error(f"Session not found for task_id: {task_id}")
-        await _release_batch(task_id=task_id)
-        return False
-
-    await setup_session_logging(task_id=session.task_id)
-
-    payload = load_pending_comments(task_id=task_id)
-    if not payload:
-        logger.info(f"No pending CodeRabbit comments for task {task_id}")
-        await _release_batch(task_id=task_id)
-        return False
-    logger.info(f"Starting comments workflow for PR #{pr_number} in {full_name}")
-
-    project_data = await get_project_by_id_system(project_id=project_id)
-    if not project_data:
-        logger.error(f"Project not found for project_id: {project_id}")
-        await _release_batch(task_id=task_id)
-        return False
-
-    project = Project(**project_data)
-    project.local_path = Path(project.local_path)
-    project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
-    if project.user_id:
-        project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
-
-    worktree_path = None
-    environment = None
+    project: Project | None = None
+    environment: SessionEnvironment | None = None
+    worktree_path: Path | None = None
+    batch: dict | None = None
+    retain_batch = False
     try:
+        batch = load_pending_comments(task_id=task_id)
+        if not batch:
+            logger.info(f"No pending CodeRabbit comments for task {task_id}")
+            return False
+
+        session = await get_session(task_id=task_id)
+        if not session:
+            logger.error(f"Session not found for task_id: {task_id}")
+            return False
+
+        await setup_session_logging(task_id=session.task_id)
+        logger.info(f"Starting comments workflow for PR #{pr_number} in {full_name}")
+
+        project_data = await get_project_by_id_system(project_id=project_id)
+        if not project_data:
+            logger.error(f"Project not found for project_id: {project_id}")
+            return False
+
+        project = Project(**project_data)
+        project.local_path = Path(project.local_path)
+        project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
+        if project.user_id:
+            project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
+
         await setup_project_venv(project=project)
         environment = SessionEnvironment(
             project_environment=project.environment, user_environment=project.user_environment
@@ -159,7 +164,7 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
             project=project, branch_name=head_branch, environment=environment, create_branch=False
         )
 
-        comments = payload.get("comments", [])
+        comments = batch.get("comments", [])
         summary = await summarize_findings(
             review_output=_format_comments_for_summary(comments), task_id=task_id, environment=environment
         )
@@ -213,10 +218,19 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
             target_path=worktree_path, branch_name=head_branch, environment=environment, project_id=project.id
         )
 
-        if not await resolve_pending_comments(
-            task_id=task_id, target_path=worktree_path, environment=environment, project_id=project.id
-        ):
-            logger.warning(f"Failed to resolve saved CodeRabbit threads for PR #{pr_number}")
+        unresolved = await resolve_pending_comments(
+            comments=batch, target_path=worktree_path, environment=environment, project_id=project.id
+        )
+        if unresolved:
+            logger.warning(f"Failed to resolve saved CodeRabbit threads for PR #{pr_number}: {unresolved}")
+            await _record_failure(task_id=task_id, message=f"Unresolved CodeRabbit threads: {', '.join(unresolved)}")
+            retry_batch = update_pending_comments(
+                task_id=task_id, comments=batch, updates={"attempt": batch.get("attempt", 0) + 1}
+            )
+            retain_batch = True
+            if retry_batch is None:
+                logger.warning(f"Could not prepare a retry for unresolved CodeRabbit threads on {task_id}")
+            return False
 
         await pr_comment(
             pr_number=pr_number,
@@ -244,15 +258,18 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
         await _record_failure(task_id=task_id, message=str(e))
         return False
     finally:
-        await _release_batch(task_id=task_id)
-        if worktree_path:
-            try:
-                await git_worktree_remove(
-                    target_path=project.local_path,
-                    worktree_path=worktree_path,
-                    environment=environment,
-                    force=True,
-                    project_id=project.id,
-                )
-            except (OSError, RuntimeError):
-                logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
+        try:
+            if not retain_batch:
+                await _release_batch(task_id=task_id, comments=batch)
+        finally:
+            if worktree_path and project:
+                try:
+                    await git_worktree_remove(
+                        target_path=project.local_path,
+                        worktree_path=worktree_path,
+                        environment=environment,
+                        force=True,
+                        project_id=project.id,
+                    )
+                except (OSError, RuntimeError):
+                    logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")

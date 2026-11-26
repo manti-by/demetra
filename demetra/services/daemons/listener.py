@@ -1,6 +1,10 @@
 import json
 import logging
 from datetime import UTC, datetime
+from uuid import uuid4
+
+from redis.exceptions import RedisError
+from rq.exceptions import DuplicateJobError
 
 from demetra.library import FIX_REVIEW_FINDINGS_COMMAND_PATTERN, MERGE_COMMAND_PATTERN, REBASE_COMMAND_PATTERN
 from demetra.library.constants import CODERABBIT_AUTHOR_LOGINS
@@ -226,6 +230,43 @@ def is_coderabbit_author(author: str | None) -> bool:
     return author.removeprefix("@").casefold() in CODERABBIT_AUTHOR_LOGINS
 
 
+def _submit_comments_workflow(batch: dict) -> bool:
+    """Submit the workflow for one batch, at most once per submission attempt.
+
+    The job id is derived from the batch and its attempt counter, and RQ's
+    unique enqueue performs the check atomically. A job submitted before a
+    failed enqueue call is therefore never submitted a second time, while a
+    batch whose submission never reached Redis is picked up on a later poll.
+
+    Args:
+        batch: The pending batch payload.
+
+    Returns:
+        bool: True when this call submitted a new job.
+    """
+    batch_id = batch.get("batch_id")
+    if not batch_id:
+        logger.warning(f"Pending comments for {batch.get('task_id', '')} have no batch id")
+        return False
+    job_id = f"demetra:comments:{batch_id}:{batch.get('attempt', 0)}"
+    try:
+        queue.enqueue(
+            run_comments_workflow,
+            job_id=job_id,
+            unique=True,
+            task_id=batch["task_id"],
+            project_id=batch["project_id"],
+            pr_number=batch["pr_number"],
+            full_name=batch["full_name"],
+        )
+        return True
+    except DuplicateJobError:
+        return False
+    except (RedisError, OSError) as e:
+        logger.warning(f"Failed to enqueue comments workflow {job_id}: {e}")
+        return False
+
+
 async def process_coderabbit_comments_notification(pr_info: dict) -> bool:
     """Collect all CodeRabbit comments on a PR and enqueue one workflow.
 
@@ -249,7 +290,8 @@ async def process_coderabbit_comments_notification(pr_info: dict) -> bool:
         logger.info(f"No session found for PR link: {pr_link}")
         return False
 
-    if load_pending_comments(task_id=session.task_id):
+    if pending := load_pending_comments(task_id=session.task_id):
+        _submit_comments_workflow(batch=pending)
         logger.info(f"CodeRabbit comments already pending for session {session.task_id}, leaving notification unread")
         return False
 
@@ -276,15 +318,17 @@ async def process_coderabbit_comments_notification(pr_info: dict) -> bool:
         await reset_listener_attempts(session.task_id)
         return True
 
-    saved = save_pending_comments(
-        task_id=session.task_id,
-        comments={
-            "pr_number": pr_number,
-            "full_name": full_name,
-            "comments": comments,
-            "created_at": datetime.now(UTC).isoformat(),
-        },
-    )
+    batch = {
+        "batch_id": uuid4().hex,
+        "task_id": session.task_id,
+        "project_id": session.project_id,
+        "pr_number": pr_number,
+        "full_name": full_name,
+        "comments": comments,
+        "created_at": datetime.now(UTC).isoformat(),
+        "attempt": 0,
+    }
+    saved = save_pending_comments(task_id=session.task_id, comments=batch)
     if saved is None:
         return False
     if not saved:
@@ -294,13 +338,11 @@ async def process_coderabbit_comments_notification(pr_info: dict) -> bool:
     logger.info(
         f"Enqueuing comments workflow for {len(comments)} CodeRabbit comments on PR #{pr_number} in {full_name}"
     )
-    queue.enqueue(
-        run_comments_workflow,
-        task_id=session.task_id,
-        project_id=session.project_id,
-        pr_number=pr_number,
-        full_name=full_name,
-    )
+    if not _submit_comments_workflow(batch=batch):
+        logger.warning(
+            f"Comments workflow for session {session.task_id} was not submitted, leaving notification unread"
+        )
+        return False
     await reset_listener_attempts(session.task_id)
     return True
 

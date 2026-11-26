@@ -13,6 +13,8 @@ from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
+from redis.exceptions import RedisError
+from rq.exceptions import DuplicateJobError
 
 from demetra.library.models import Session
 from demetra.services.daemons.listener import (
@@ -67,6 +69,7 @@ def _start_gh_api_stub(tmp_path: Path) -> tuple[HTTPServer, threading.Thread, Pa
     )
     server = HTTPServer(("127.0.0.1", 0), _CommentHandler)
     context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     context.load_cert_chain(certfile=cert_path, keyfile=key_path)
     server.socket = context.wrap_socket(server.socket, server_side=True)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -650,8 +653,14 @@ class TestProcessCoderabbitCommentsNotification:
             assert batch["pr_number"] == 42
             assert batch["full_name"] == "owner/repo"
             assert batch["comments"] == self.COMMENTS
+            assert batch["task_id"] == "TASK-123"
+            assert batch["project_id"] == "proj-123"
+            assert batch["attempt"] == 0
+            assert batch["batch_id"]
             mock_queue.enqueue.assert_called_once_with(
                 mock_queue.enqueue.call_args[0][0],
+                job_id=f"demetra:comments:{batch['batch_id']}:0",
+                unique=True,
                 task_id="TASK-123",
                 project_id="proj-123",
                 pr_number=42,
@@ -661,6 +670,62 @@ class TestProcessCoderabbitCommentsNotification:
 
             assert mock_queue.enqueue.call_args[0][0] is run_comments_workflow
             mock_reset.assert_awaited_once_with("TASK-123")
+
+    @pytest.mark.asyncio
+    async def test_pending_batch_resumes_submission_without_spending_attempt_budget(self):
+        pending = {
+            "batch_id": "batch-1",
+            "task_id": "TASK-123",
+            "project_id": "proj-123",
+            "pr_number": 42,
+            "full_name": "owner/repo",
+            "comments": self.COMMENTS,
+            "attempt": 1,
+        }
+        with (
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.load_pending_comments", return_value=pending),
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.get_coderabbit_comments", new_callable=AsyncMock) as mock_comments,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
+        ):
+            mock_db.return_value = self._session()
+
+            assert await process_coderabbit_comments_notification(self.PR_INFO) is False
+
+            mock_queue.enqueue.assert_called_once_with(
+                mock_queue.enqueue.call_args[0][0],
+                job_id="demetra:comments:batch-1:1",
+                unique=True,
+                task_id="TASK-123",
+                project_id="proj-123",
+                pr_number=42,
+                full_name="owner/repo",
+            )
+            mock_inc.assert_not_awaited()
+            mock_reset.assert_not_awaited()
+            mock_comments.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize("error", [RedisError("connection refused"), DuplicateJobError("already submitted")])
+    async def test_failed_or_duplicate_enqueue_leaves_notification_unread(self, error):
+        with (
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch(
+                "demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock, return_value=1
+            ),
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock) as mock_reset,
+            patch("demetra.services.daemons.listener.get_coderabbit_comments", new_callable=AsyncMock) as mock_comments,
+            patch("demetra.services.daemons.listener.save_pending_comments", return_value=True),
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
+        ):
+            mock_db.return_value = self._session()
+            mock_comments.return_value = self.COMMENTS
+            mock_queue.enqueue.side_effect = error
+
+            assert await process_coderabbit_comments_notification(self.PR_INFO) is False
+            mock_reset.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_pending_batch_skips_attempt_budget_without_enqueue(self):
