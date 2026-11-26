@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps react docker-test docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
+.PHONY: deploy deploy-steps deploy-ui deploy-ui-steps worker-swap worker-swap-steps worker-bootstrap worker-bootstrap-steps react docker-test docker-up docker-down docker-logs docker-ps docker-migrate docker-clean docker-deploy docker-build docs check check-compose check-migrations
 
 run-demetra:
 	uv run main.py --project-name demetra --no-auto
@@ -31,8 +31,29 @@ deploy-steps:
 	docker build --platform linux/amd64 --tag mantiby/demetra:latest .
 	docker compose --env-file .env.docker pull postgres redis react-build || true
 	docker compose --env-file .env.docker up --abort-on-container-failure migrate react-build
-	docker compose --env-file .env.docker up --detach --force-recreate --scale worker=4 api worker watcher listener rq-dashboard deployer
+	docker compose --env-file .env.docker up --detach --force-recreate --no-deps api watcher listener rq-dashboard deployer
+	$(MAKE) worker-swap-steps
 	sudo service nginx reload
+
+
+# Start the staging generation on the image just built and signal the live one
+# exactly once. Callers must hold the deploy lock; deploy-steps does.
+worker-swap-steps:
+	docker compose --env-file .env.docker run --rm worker-swap
+
+# Standalone swap: take the same deploy lock as make deploy, so an overlapping
+# manual run cannot send a second TERM to a container still draining.
+worker-swap:
+	uv run python -m demetra.deploy_lock -- $(MAKE) worker-swap-steps
+
+
+# Scale the generations to the slot in the deploy state (blue on a fresh stack).
+# Callers must hold the deploy lock, so docker-up and a swap cannot race.
+worker-bootstrap-steps:
+	docker compose --env-file .env.docker run --rm worker-bootstrap
+
+worker-bootstrap:
+	uv run python -m demetra.deploy_lock -- $(MAKE) worker-bootstrap-steps
 
 
 # Frontend-only deploy: rebuild the React bundle and reload nginx. The image,
@@ -126,7 +147,8 @@ docker-test:
 	exit $$status
 
 docker-up:
-	docker compose --env-file .env.docker up -d --scale worker=4 api worker watcher listener rq-dashboard deployer
+	docker compose --env-file .env.docker up -d api watcher listener rq-dashboard deployer
+	$(MAKE) worker-bootstrap
 
 docker-down:
 	docker compose --env-file .env.docker down

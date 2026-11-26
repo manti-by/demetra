@@ -43,6 +43,41 @@ x-demetra-app: &demetra-app
     redis:
       condition: service_healthy
 
+x-demetra-worker: &demetra-worker
+  <<: *demetra-app
+  command: ["python", "-m", "demetra.worker"]
+  # A workflow job runs for up to the queue default_timeout (SUBPROCESS_TIMEOUT,
+  # four hours by default). RQ drains the current job on the first SIGTERM sent
+  # by the worker swap, so the grace only has to cover a workflow that is still
+  # running when the slot is retired; a workflow that outlives it is escalated
+  # by the deployer's watchdog instead.
+  stop_grace_period: ${WORKER_STOP_GRACE_PERIOD:-14460s}
+  environment:
+    <<: *demetra-env
+    LOG_PATH: /var/log/demetra/worker.log
+  deploy:
+    replicas: 4
+
+x-demetra-worker-one-shot: &demetra-worker-one-shot
+  <<: *demetra-base
+  entrypoint: ""
+  user: root
+  restart: "no"
+  working_dir: /opt/demetra/src
+  environment:
+    <<: *demetra-env
+    LOG_PATH: /var/log/demetra/worker-swap.log
+    DEPLOY_STATE_PATH: ${DEPLOY_STATE_PATH:-/var/lib/demetra/deployer-state.json}
+    DOCKER_PATH: /usr/local/bin/docker
+  volumes:
+    - demetra_deployer_data:/var/lib/demetra/
+    - /var/run/docker.sock:/var/run/docker.sock
+    - /var/log/demetra/:/var/log/demetra/
+    - ${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}:${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}
+  depends_on:
+    redis:
+      condition: service_healthy
+
 services:
   postgres:
     image: postgres:18
@@ -107,22 +142,11 @@ services:
     ports:
       - "8001:8001"
 
-  worker:
-    <<: *demetra-app
-    command: ["python", "-m", "demetra.worker"]
-    # A workflow job runs for up to the queue default_timeout
-    # (SUBPROCESS_TIMEOUT, four hours by default). Compose's 10s default would
-    # SIGKILL an in-flight job when the deployer force-recreates the workers
-    # right after a drain, so the grace covers the default SUBPROCESS_TIMEOUT
-    # plus a minute of shutdown. Raise it together with that value, and keep
-    # DEPLOY_STEP_TIMEOUT above the grace or the `up` step is killed while the
-    # old workers are still stopping.
-    stop_grace_period: ${WORKER_STOP_GRACE_PERIOD:-14460s}
-    environment:
-      <<: *demetra-env
-      LOG_PATH: /var/log/demetra/worker.log
-    deploy:
-      replicas: 4
+  worker-blue:
+    <<: *demetra-worker
+
+  worker-green:
+    <<: *demetra-worker
 
   watcher:
     <<: *demetra-app
@@ -166,6 +190,22 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
+  worker-swap:
+    <<: *demetra-worker-one-shot
+    command: ["python", "-m", "demetra.worker_swap", "--checkout", "${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}"]
+
+  worker-bootstrap:
+    <<: *demetra-worker-one-shot
+    command:
+      [
+        "python",
+        "-m",
+        "demetra.worker_swap",
+        "--checkout",
+        "${DEPLOY_HOST_CHECKOUT:-/home/manti/www/demetra}",
+        "--bootstrap",
+      ]
 
   rq-dashboard:
     <<: *demetra-base

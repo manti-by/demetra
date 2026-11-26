@@ -219,7 +219,6 @@ GITHUB: GitHubConfig = {
 DEPLOY: DeployConfig = {
     "poll_interval": env_get_int("DEPLOYER_POLL_INTERVAL", 60),
     "min_interval": env_get_int("DEPLOY_MIN_INTERVAL", 300),
-    "drain_timeout": env_get_int("DEPLOY_DRAIN_TIMEOUT", 3600),
     "step_timeout": env_get_int("DEPLOY_STEP_TIMEOUT", 15000),
     "host_checkout": env_get_path("DEPLOY_HOST_CHECKOUT", Path("/home/manti/www/demetra")),
     "repository": env_get_str("DEPLOY_REPOSITORY", None),
@@ -228,7 +227,7 @@ DEPLOY: DeployConfig = {
     "git_path": GIT["path"],
     "github_path": GITHUB["path"],
     "nginx_reload_command": env_get_str("DEPLOY_NGINX_RELOAD_COMMAND", "nsenter -t 1 -m -p -- service nginx reload"),
-    "compose_services": ("api", "worker", "watcher", "listener", "rq-dashboard"),
+    "compose_services": ("api", "watcher", "listener", "rq-dashboard"),
 }
 
 JWT: JWTConfig = {

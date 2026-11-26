@@ -66,10 +66,12 @@ class GitConfig(PathConfig):
     worktree_path: Path
 
 
+WorkerSlot = Literal["blue", "green"]
+
+
 class DeployConfig(TypedDict):
     poll_interval: int
     min_interval: int
-    drain_timeout: int
     step_timeout: int
     host_checkout: Path
     repository: str | None

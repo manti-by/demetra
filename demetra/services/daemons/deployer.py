@@ -1,22 +1,32 @@
-"""Deploy daemon — deploy origin/master once its CI passed and the queue drained.
+"""Deploy daemon — deploy origin/master once its CI passed, swapping worker generations.
 
 Follow-up: MNT-316 — merge the watcher, the listener and the deploy daemon into
 one universal watcher.
 """
 
-import asyncio
 import json
 import logging
 import os
 import shlex
 import time
-from dataclasses import asdict
+from collections.abc import Callable
+from functools import partial
 from pathlib import Path
 
 from redis.lock import Lock
 
 from demetra.library.models import DeployState
-from demetra.services.persistence.queue import connection, queue
+from demetra.services.daemons.deploy_support import compose_command, default_state_path, load_state, save_state
+from demetra.services.daemons.worker_swap import (
+    SWAP_STEP_BUDGET,
+    list_container_ids,
+    maintain_workers,
+    run_swap_command,
+    staging_slot_is_available,
+    swap_workers,
+    worker_service,
+)
+from demetra.services.persistence.queue import connection
 from demetra.services.runtime.subprocess import run_command
 from demetra.settings import DEPLOY
 
@@ -34,7 +44,9 @@ OPTIONAL_STEPS = ("pull_images", "nginx_reload")
 
 PULL_STEP = "pull"
 
-RECREATE_STEP = "up"
+MIGRATE_STEP = "migrate"
+
+UP_STEP = "up"
 
 SETPRIV_COMMAND = "setpriv"
 
@@ -47,8 +59,6 @@ NO_LABEL_VALUE = "<no value>"
 DEPLOY_SERVICE = "deployer"
 
 DOCKER_SOCKET = "/var/run/docker.sock"
-
-DRAIN_POLL_INTERVAL = 15
 
 DEPLOY_LOCK_NAME = "demetra:deployer"
 
@@ -151,17 +161,6 @@ def should_deploy(state: DeployState, sha: str, now: float) -> bool:
     return now - state.last_deploy_at >= DEPLOY["min_interval"]
 
 
-def is_queue_drained() -> bool:
-    """Return whether the default job queue has neither a waiting nor a running job.
-
-    Returns:
-        bool: True when the queue is empty and no job is in progress.
-    """
-    if queue.count > 0:
-        return False
-    return not queue.started_job_registry.get_job_ids()
-
-
 def checkout_owner_prefix(checkout_path: Path) -> list[str]:
     """Return the ``setpriv`` prefix that runs a git command as the checkout owner.
 
@@ -191,90 +190,16 @@ def checkout_owner_prefix(checkout_path: Path) -> list[str]:
     ]
 
 
-def default_state_path() -> Path:
-    """Resolve the deploy state file path.
-
-    The default lives in the deployer's own volume, never in the app home
-    volume: the daemon runs as root, so a state directory created there would
-    be root-owned and would block the ``demetra`` user's own ``~/.demetra``
-    tree (worktrees, venvs) in the shared ``demetra_app_data`` volume.
-
-    Returns:
-        Path: The configured path, defaulting to the deployer state volume.
-    """
-    if state_path := DEPLOY["state_path"]:
-        return state_path
-    return Path("/var/lib/demetra/deployer-state.json")
-
-
-def load_state(path: Path) -> DeployState:
-    """Load the persisted deploy state.
-
-    A missing file is a fresh daemon; an unreadable file or a decoded value that
-    is not a JSON object is logged and treated as an empty state so a corrupt
-    state never stops the daemon. A ``null`` or list payload would otherwise
-    escape the recovery handler as an ``AttributeError`` on every poll.
-
-    Args:
-        path: The JSON state file path.
-
-    Returns:
-        DeployState: The persisted state, or an empty state.
-    """
-    if not path.exists():
-        return DeployState()
-    try:
-        payload = json.loads(path.read_text())
-    except (OSError, TypeError, ValueError):
-        logger.exception(f"Failed to read the deploy state from {path}")
-        return DeployState()
-    if not isinstance(payload, dict):
-        logger.error(f"Ignoring the deploy state in {path}: the payload is not a JSON object")
-        return DeployState()
-    return DeployState.from_payload(payload=payload)
-
-
-def save_state(path: Path, state: DeployState) -> None:
-    """Persist the deploy state, logging instead of failing the cycle.
-
-    Args:
-        path: The JSON state file path.
-        state: The state to write.
-    """
-    try:
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps(asdict(state), indent=2))
-    except OSError:
-        logger.exception(f"Failed to write the deploy state to {path}")
-
-
-def compose_command(checkout_path: Path) -> list[str]:
-    """Build a ``docker compose`` prefix pinned to the host checkout.
-
-    Args:
-        checkout_path: The host checkout that holds the compose file and env.
-
-    Returns:
-        list[str]: The ``docker compose`` command prefix.
-    """
-    checkout = str(checkout_path)
-    return [
-        str(DEPLOY["docker_path"]),
-        "compose",
-        "--project-directory",
-        checkout,
-        "--env-file",
-        str(checkout_path / ".env.docker"),
-    ]
-
-
 def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tuple[str, list[str]]]:
     """Build the ordered deploy commands for the host checkout.
 
-    Mirrors the ``deploy`` target in the Makefile. The ``deployer`` service is
-    deliberately absent from the ``up`` list: the daemon must not recreate
-    itself while it runs the deploy. The pull runs as the checkout owner so the
-    new objects and files keep the host user's ownership. Every command names
+    Mirrors the ``deploy`` target in the Makefile. The ``up`` step recreates
+    only the non-worker services: the workers are swapped separately by
+    :func:`swap_workers`, which starts the new generation before signalling the
+    old one. The ``deployer`` service is deliberately absent from the ``up``
+    list: the daemon must not recreate itself while it runs the deploy. The
+    pull runs as the checkout owner so the new objects and files keep the host
+    user's ownership. Every command names
     the checkout explicitly (``--project-directory`` for compose, an absolute
     build context) so the daemon never depends on its own working directory,
     which is the image-owned module root rather than the writable checkout.
@@ -303,11 +228,8 @@ def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tupl
         (PULL_STEP, [*owner, git, "-c", f"safe.directory={checkout_path}", "pull", "--ff-only"]),
         ("build", [*build, checkout]),
         ("pull_images", [*compose, "pull", "postgres", "redis", "react-build"]),
-        ("migrate", [*compose, "up", "--abort-on-container-failure", "migrate", "react-build"]),
-        (
-            "up",
-            [*compose, "up", "--detach", "--force-recreate", "--scale", "worker=4", *DEPLOY["compose_services"]],
-        ),
+        (MIGRATE_STEP, [*compose, "up", "--abort-on-container-failure", "migrate", "react-build"]),
+        ("up", [*compose, "up", "--detach", "--force-recreate", "--no-deps", *DEPLOY["compose_services"]]),
     ]
     if reload_command := shlex.split(DEPLOY["nginx_reload_command"]):
         steps.append(("nginx_reload", reload_command))
@@ -317,13 +239,12 @@ def build_deploy_steps(checkout_path: Path, sha: str | None = None) -> list[tupl
 def deploy_lock_timeout(checkout_path: Path) -> int:
     """Return a lock TTL that covers a whole multi-step deploy.
 
-    Every step is bounded by ``step_timeout``, and the recreate step first
-    waits for the queue with ``drain_timeout`` while the lock is already held,
-    so the TTL is the sum of both. The post-pull HEAD read is bounded by
-    ``step_timeout`` too but is not a step, so it is budgeted separately; the
-    resulting slack of one step also covers the state write. A shorter TTL
-    would let the lock expire mid-deploy and allow a second daemon to start a
-    concurrent one.
+    Every step is bounded by ``step_timeout``, and so is every command of the
+    worker swap and maintenance that run under the same lock. ``SWAP_STEP_BUDGET``
+    is the worst-case command count of a swap, including its legacy-listing and
+    partial-failure branches, plus the checkout reads that are not steps; the
+    resulting slack also covers the state writes. A shorter TTL would let the
+    lock expire mid-deploy and allow a second daemon to start a concurrent one.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -332,7 +253,7 @@ def deploy_lock_timeout(checkout_path: Path) -> int:
         int: The lock TTL in seconds.
     """
     steps = len(build_deploy_steps(checkout_path=checkout_path))
-    return (steps + 1) * DEPLOY["step_timeout"] + DEPLOY["drain_timeout"]
+    return (steps + 1 + SWAP_STEP_BUDGET) * DEPLOY["step_timeout"]
 
 
 def acquire_deploy_lock(*, checkout_path: Path, blocking: bool) -> Lock | None:
@@ -353,6 +274,54 @@ def acquire_deploy_lock(*, checkout_path: Path, blocking: bool) -> Lock | None:
     timeout = deploy_lock_timeout(checkout_path=checkout_path)
     lock = connection.lock(DEPLOY_LOCK_NAME, timeout=timeout, blocking_timeout=timeout if blocking else 0)
     return lock if lock.acquire(blocking=blocking) else None
+
+
+def update_deploy_state(*, checkout_path: Path, state_path: Path, update: Callable[[DeployState], None]) -> None:
+    """Reload, mutate and save the shared deploy state under the deploy lock.
+
+    The deploy cycle reads the state before its CI gate, which is not covered by
+    any lock. Saving that retained snapshot later could undo a swap another
+    daemon completed while the gate was awaited. Taking the lease around the
+    whole read-modify-write and reloading inside it keeps the live slot, the
+    drain markers and the deployed sha intact whichever daemon writes first. A
+    cycle that cannot take the lease skips the update and re-evaluates on its
+    next poll.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+        state_path: The JSON deploy state file path.
+        update: The mutation applied to the freshly loaded state.
+    """
+    lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if lock is None:
+        logger.warning("Another deploy holds the lock, deferring the state update to the next cycle")
+        return
+    try:
+        state = load_state(path=state_path)
+        update(state)
+        save_state(path=state_path, state=state)
+    finally:
+        lock.release()
+
+
+def seed_last_deployed_sha(state: DeployState, *, sha: str) -> None:
+    """Record a deployed revision recovered from the running image, once."""
+    if not state.last_deployed_sha:
+        state.last_deployed_sha = sha
+
+
+def record_ci_failure(state: DeployState, *, sha: str, failure: str) -> None:
+    """Record a failed CI gate for a commit, replacing any previous error."""
+    if state.last_failed_sha != sha or state.last_error != failure:
+        state.last_failed_sha = sha
+        state.last_error = failure
+
+
+def clear_ci_failure(state: DeployState, *, sha: str) -> None:
+    """Drop the failure marker of a commit whose checks turned green."""
+    if state.last_failed_sha == sha:
+        state.last_failed_sha = None
+        state.last_error = None
 
 
 async def get_remote_master_sha(checkout_path: Path) -> str | None:
@@ -538,24 +507,6 @@ async def get_ci_status(sha: str, repository: str) -> str:
     return summarize_check_runs(payload=payload)
 
 
-async def wait_for_queue_drain(timeout: int) -> bool:
-    """Wait until the default job queue drains or the timeout expires.
-
-    Args:
-        timeout: Maximum seconds to wait for the running jobs.
-
-    Returns:
-        bool: True when the queue drained, False on timeout.
-    """
-    deadline = time.monotonic() + timeout
-    while not is_queue_drained():
-        if time.monotonic() >= deadline:
-            logger.warning(f"Job queue still busy after {timeout} seconds, skipping this deploy")
-            return False
-        await asyncio.sleep(DRAIN_POLL_INTERVAL)
-    return True
-
-
 async def run_deploy_step(name: str, command: list[str], checkout_path: Path) -> bool:
     """Run one deploy command and log its outcome.
 
@@ -686,30 +637,78 @@ async def recreate_deployer(checkout_path: Path) -> bool:
     return True
 
 
-async def request_deployer_recreate(state: DeployState, state_path: Path, checkout_path: Path) -> None:
-    """Recreate the deployer container, keeping the request pending until it is dispatched.
+async def request_deployer_recreate(*, state_path: Path, checkout_path: Path) -> None:
+    """Recreate the deployer, keeping the request pending until it is dispatched.
 
     The flag is cleared before the helper starts because a successful dispatch
     kills this process, so a flag cleared afterwards would be persisted only
     sometimes and the next daemon would recreate itself again, forever. A
     helper that cannot be started restores the flag, and the next poll retries
-    the recreate on its own instead of waiting for another commit.
+    the recreate on its own instead of waiting for another commit. The whole
+    read-modify-write runs under the deploy lock, so a concurrent swap's state
+    is never overwritten by this flag update.
 
     Args:
-        state: The deploy state to update.
         state_path: The JSON state file path.
         checkout_path: The host checkout the daemon deploys.
     """
-    state.pending_recreate = False
-    save_state(path=state_path, state=state)
-    if await recreate_deployer(checkout_path=checkout_path):
+    lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if lock is None:
+        logger.warning("Another deploy holds the lock, deferring the deployer recreate to the next cycle")
         return
-    state.pending_recreate = True
-    save_state(path=state_path, state=state)
-    logger.error("Deployer container recreate failed, retrying on the next poll")
+    try:
+        state = load_state(path=state_path)
+        state.pending_recreate = False
+        save_state(path=state_path, state=state)
+        if await recreate_deployer(checkout_path=checkout_path):
+            return
+        state.pending_recreate = True
+        save_state(path=state_path, state=state)
+        logger.error("Deployer container recreate failed, retrying on the next poll")
+    finally:
+        lock.release()
 
 
-async def run_deploy(checkout_path: Path, sha: str) -> bool:
+async def worker_generation_matches_sha(checkout_path: Path, state: DeployState, sha: str) -> bool:
+    """Confirm the live worker generation actually runs the gated image.
+
+    A half-finished swap can be reconciled by flipping the slot to containers
+    started for an earlier commit. The other services may already have moved to
+    ``sha``, but recording it as deployed would hide that its workers never
+    started.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+        state: The deploy state holding the newly live generation.
+        sha: The commit stamped on the image built for this deploy.
+
+    Returns:
+        bool: True when every container of the live generation carries ``sha``.
+    """
+    container_ids = await list_container_ids(
+        checkout_path=checkout_path, service=worker_service(slot=state.worker_slot)
+    )
+    if not container_ids:
+        logger.warning("No live worker container was found to verify the deployed image")
+        return False
+    command = [
+        str(DEPLOY["docker_path"]),
+        "inspect",
+        "--format",
+        f'{{{{index .Config.Labels "{IMAGE_REVISION_LABEL}"}}}}',
+        *container_ids,
+    ]
+    succeeded, output = await run_swap_command(checkout_path=checkout_path, command=command)
+    if not succeeded:
+        return False
+    revisions = output.split()
+    if len(revisions) != len(container_ids) or any(revision != sha for revision in revisions):
+        logger.error(f"Live workers do not run the image built for {sha}")
+        return False
+    return True
+
+
+async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: DeployState) -> bool:
     """Run the deploy steps in order, stopping at the first required failure.
 
     The image pull and the nginx reload are optional: the Makefile tolerates a
@@ -718,22 +717,27 @@ async def run_deploy(checkout_path: Path, sha: str) -> bool:
     recreated. Treating the reload as required would retry the whole
     destructive sequence, migrations included, every minimum interval.
 
-    The default queue is drained again immediately before the containers are
-    recreated: the gate the cycle ran can be an hour stale by then, because the
-    build and the migration sit in between, and a job that started meanwhile
-    would be killed by ``--force-recreate``.
+    After the non-worker services are recreated, the worker generations are
+    swapped, matching the manual deploy sequence: staging starts on the new
+    image, and the live generation is signalled once to drain the workflow it
+    holds. Swapping before ``up`` could leave the api on the old image while
+    the new workers already run the new one, with no later step to retry a
+    failed ``up`` once the old live slot is draining. A pending swap reconciled
+    instead of a fresh one is not accepted as this commit's deploy: the live
+    workers must carry its revision label. No deploy waits for a queue to
+    empty, so a job that started after the CI gate is finished on the old
+    image instead of killed.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
         sha: The gated commit the deploy is allowed to build.
+        state_path: The JSON deploy state file path.
+        state: The deploy state, updated with the new worker generation.
 
     Returns:
         bool: True when every required step succeeded.
     """
     for name, command in build_deploy_steps(checkout_path=checkout_path, sha=sha):
-        if name == RECREATE_STEP and not await wait_for_queue_drain(timeout=DEPLOY["drain_timeout"]):
-            logger.error("Job queue busy again while preparing the deploy, deferring the container recreate")
-            return False
         succeeded = await run_deploy_step(name=name, command=command, checkout_path=checkout_path)
         if not succeeded:
             if name in OPTIONAL_STEPS:
@@ -743,16 +747,25 @@ async def run_deploy(checkout_path: Path, sha: str) -> bool:
             return False
         if name == PULL_STEP and not await checkout_matches_sha(checkout_path=checkout_path, sha=sha):
             return False
+        if name == UP_STEP:
+            if not await swap_workers(checkout_path=checkout_path, state_path=state_path, state=state):
+                logger.error("Deploy aborted at the worker swap")
+                return False
+            if not await worker_generation_matches_sha(checkout_path=checkout_path, state=state, sha=sha):
+                logger.error("Deploy aborted because the live workers do not run this commit")
+                return False
     return True
 
 
 async def run_deploy_cycle() -> None:
-    """Run one deploy poll: detect a new commit, gate on CI, drain and deploy.
+    """Run one deploy poll: reap workers, gate on CI and swap the live generation.
 
-    The remote commit is re-read after the queue drains so a push that landed
-    during the drain is left to the next cycle instead of deploying stale code.
-    A single Redis lock, kept for the length of the whole deploy, keeps one
-    deploy at a time even if two daemon containers overlap. The deployer is
+    Drained workers are reaped and hung ones escalated at the start of every
+    cycle, under the same Redis lock the deploy takes. The remote commit is
+    re-read after the CI gate so a push that landed while checking is left to
+    the next cycle instead of deploying stale code. A single Redis lock, kept
+    for the length of the whole deploy, keeps one deploy at a time even if two
+    daemon containers overlap. The deployer is
     recreated from the new image only after a successful deploy, once the state
     is persisted and the lock is released, so the replacement daemon does not
     start deployed-blind or blocked by its own lock.
@@ -762,14 +775,28 @@ async def run_deploy_cycle() -> None:
     containers were never recreated, and seeding that commit would skip it
     forever. A deferred recreate is retried at the start of every cycle, so a
     failed self-recreate is not lost once the deploy is recorded as successful.
+    Every state write made before the deploy gate takes the deploy lock and
+    reloads the state inside it, so a swap completed by another daemon while
+    this cycle waited on CI is never overwritten by a retained snapshot. The
+    staging slot is checked under the deploy lease before the first step: a
+    slot still draining defers the cycle without recording a failed deploy, so
+    no image is built or migration run until the swap can actually proceed.
     """
     checkout_path = DEPLOY["host_checkout"]
     state_path = default_state_path()
+    maintenance_lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
+    if maintenance_lock is None:
+        logger.debug("Another deploy holds the lock, skipping worker maintenance")
+    else:
+        try:
+            await maintain_workers(checkout_path=checkout_path, state_path=state_path)
+        finally:
+            maintenance_lock.release()
     state = load_state(path=state_path)
 
     if state.pending_recreate:
         logger.info("Retrying the deferred deployer container recreate")
-        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)
+        await request_deployer_recreate(state_path=state_path, checkout_path=checkout_path)
 
     sha = await get_remote_master_sha(checkout_path=checkout_path)
     if not sha:
@@ -778,8 +805,11 @@ async def run_deploy_cycle() -> None:
     if not state.last_deployed_sha:
         running_sha = await get_running_revision(checkout_path=checkout_path)
         if running_sha:
-            state.last_deployed_sha = running_sha
-            save_state(path=state_path, state=state)
+            update_deploy_state(
+                checkout_path=checkout_path,
+                state_path=state_path,
+                update=partial(seed_last_deployed_sha, sha=running_sha),
+            )
             logger.info(f"Seeded the deploy state from the running api image revision {running_sha}")
         else:
             logger.info("No deployed revision found, leaving origin/master eligible for a deploy")
@@ -804,9 +834,11 @@ async def run_deploy_cycle() -> None:
         failure = f"CI checks {ci_status}"
         if state.last_failed_sha != sha or state.last_error != failure:
             logger.error(f"CI checks for {sha} failed, not deploying")
-            state.last_failed_sha = sha
-            state.last_error = failure
-            save_state(path=state_path, state=state)
+        update_deploy_state(
+            checkout_path=checkout_path,
+            state_path=state_path,
+            update=partial(record_ci_failure, sha=sha, failure=failure),
+        )
         return
     if ci_status != CI_STATUS_PASSED:
         logger.info(f"CI checks for {sha} are {ci_status}, not deploying yet")
@@ -814,16 +846,15 @@ async def run_deploy_cycle() -> None:
     if state.last_failed_sha == sha:
         # A re-run turned this commit green: drop the stale failure marker so
         # the deduplication above cannot swallow a later, different failure.
-        state.last_failed_sha = None
-        state.last_error = None
-        save_state(path=state_path, state=state)
-
-    if not await wait_for_queue_drain(timeout=DEPLOY["drain_timeout"]):
-        return
+        update_deploy_state(
+            checkout_path=checkout_path,
+            state_path=state_path,
+            update=partial(clear_ci_failure, sha=sha),
+        )
 
     current_sha = await get_remote_master_sha(checkout_path=checkout_path)
     if current_sha != sha:
-        logger.info(f"origin/master moved to {current_sha} while draining, deferring the deploy")
+        logger.info(f"origin/master moved to {current_sha} while checking CI, deferring the deploy")
         return
 
     lock = acquire_deploy_lock(checkout_path=checkout_path, blocking=False)
@@ -839,8 +870,11 @@ async def run_deploy_cycle() -> None:
         if not should_deploy(state=state, sha=sha, now=time.time()):
             logger.info(f"Deploy of {sha} is already recorded, skipping this cycle")
             return
+        if not await staging_slot_is_available(checkout_path=checkout_path, state=state):
+            logger.info(f"Staging slot is still draining, deferring the deploy of {sha}")
+            return
         logger.info(f"Deploying origin/master {sha}")
-        succeeded = await run_deploy(checkout_path=checkout_path, sha=sha)
+        succeeded = await run_deploy(checkout_path=checkout_path, sha=sha, state_path=state_path, state=state)
         state.last_deploy_at = time.time()
         if succeeded:
             state.last_deployed_sha = sha
@@ -857,4 +891,4 @@ async def run_deploy_cycle() -> None:
         lock.release()
 
     if state.pending_recreate:
-        await request_deployer_recreate(state=state, state_path=state_path, checkout_path=checkout_path)
+        await request_deployer_recreate(state_path=state_path, checkout_path=checkout_path)

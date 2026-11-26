@@ -162,3 +162,7 @@ class WaitlistedError(AuthError):
     def __init__(self, message: str = "Added to waitlist", *, entry_id: str | None = None) -> None:
         super().__init__(message)
         self.entry_id = entry_id
+
+
+class DeployStateError(DemetraError):
+    """The deploy state could not be persisted, so its lifecycle checkpoint is lost."""
