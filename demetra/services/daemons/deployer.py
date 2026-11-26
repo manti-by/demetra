@@ -19,9 +19,12 @@ from demetra.library.models import DeployState
 from demetra.services.daemons.deploy_support import compose_command, default_state_path, load_state, save_state
 from demetra.services.daemons.worker_swap import (
     SWAP_STEP_BUDGET,
+    list_container_ids,
     maintain_workers,
+    run_swap_command,
     staging_slot_is_available,
     swap_workers,
+    worker_service,
 )
 from demetra.services.persistence.queue import connection
 from demetra.services.runtime.subprocess import run_command
@@ -664,6 +667,45 @@ async def request_deployer_recreate(*, state_path: Path, checkout_path: Path) ->
         lock.release()
 
 
+async def worker_generation_matches_sha(checkout_path: Path, state: DeployState, sha: str) -> bool:
+    """Confirm the live worker generation actually runs the gated image.
+
+    A half-finished swap can be reconciled by flipping the slot to containers
+    started for an earlier commit. The other services may already have moved to
+    ``sha``, but recording it as deployed would hide that its workers never
+    started.
+
+    Args:
+        checkout_path: The host checkout the daemon deploys.
+        state: The deploy state holding the newly live generation.
+        sha: The commit stamped on the image built for this deploy.
+
+    Returns:
+        bool: True when every container of the live generation carries ``sha``.
+    """
+    container_ids = await list_container_ids(
+        checkout_path=checkout_path, service=worker_service(slot=state.worker_slot)
+    )
+    if not container_ids:
+        logger.warning("No live worker container was found to verify the deployed image")
+        return False
+    command = [
+        str(DEPLOY["docker_path"]),
+        "inspect",
+        "--format",
+        f'{{{{index .Config.Labels "{IMAGE_REVISION_LABEL}"}}}}',
+        *container_ids,
+    ]
+    succeeded, output = await run_swap_command(checkout_path=checkout_path, command=command)
+    if not succeeded:
+        return False
+    revisions = output.split()
+    if len(revisions) != len(container_ids) or any(revision != sha for revision in revisions):
+        logger.error(f"Live workers do not run the image built for {sha}")
+        return False
+    return True
+
+
 async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: DeployState) -> bool:
     """Run the deploy steps in order, stopping at the first required failure.
 
@@ -675,8 +717,10 @@ async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: Dep
 
     After the migration the worker generations are swapped: staging starts on
     the new image, and the live generation is signalled once to drain the
-    workflow it holds. No deploy waits for a queue to empty, so a job that
-    started after the CI gate is finished on the old image instead of killed.
+    workflow it holds. A pending swap reconciled instead of a fresh one is not
+    accepted as this commit's deploy: the live workers must carry its revision
+    label. No deploy waits for a queue to empty, so a job that started after the
+    CI gate is finished on the old image instead of killed.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -697,11 +741,13 @@ async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: Dep
             return False
         if name == PULL_STEP and not await checkout_matches_sha(checkout_path=checkout_path, sha=sha):
             return False
-        if name == MIGRATE_STEP and not await swap_workers(
-            checkout_path=checkout_path, state_path=state_path, state=state
-        ):
-            logger.error("Deploy aborted at the worker swap")
-            return False
+        if name == MIGRATE_STEP:
+            if not await swap_workers(checkout_path=checkout_path, state_path=state_path, state=state):
+                logger.error("Deploy aborted at the worker swap")
+                return False
+            if not await worker_generation_matches_sha(checkout_path=checkout_path, state=state, sha=sha):
+                logger.error("Deploy aborted because the live workers do not run this commit")
+                return False
     return True
 
 

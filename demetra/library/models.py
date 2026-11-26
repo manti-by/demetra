@@ -361,7 +361,8 @@ class DeployState:
     signalled twice and a hung one can be escalated to a forced kill.
     ``staging_image_ids`` records the images started in the staging slot by the
     last swap attempt, so a retry keeps those containers instead of mistaking
-    them for an older, never-signalled generation.
+    them for an older, never-signalled generation and maintenance can flip the
+    slot to them instead of rebuilding over a half-finished swap.
     """
 
     last_deployed_sha: str | None = None

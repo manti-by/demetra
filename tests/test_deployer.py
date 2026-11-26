@@ -44,6 +44,7 @@ from demetra.services.daemons.deployer import (
     should_deploy,
     summarize_check_runs,
     update_deploy_state,
+    worker_generation_matches_sha,
 )
 from demetra.services.daemons.worker_swap import SWAP_STEP_BUDGET
 from demetra.settings import DEPLOY
@@ -149,6 +150,87 @@ class TestGetRunningRevision:
         with patch("demetra.services.daemons.deployer.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "Cannot connect to the Docker daemon")
             assert await get_running_revision(checkout_path=Path("/tmp/checkout")) is None
+
+
+class TestWorkerGenerationMatchesSha:
+    @pytest.mark.asyncio
+    async def test_true_when_every_live_worker_carries_the_gated_revision(self):
+        with (
+            patch(
+                "demetra.services.daemons.deployer.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1", "c2"],
+            ) as mock_ids,
+            patch(
+                "demetra.services.daemons.deployer.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, f"{SHA}\n{SHA}\n"),
+            ) as mock_run,
+        ):
+            assert (
+                await worker_generation_matches_sha(
+                    checkout_path=Path("/srv/checkout"), state=DeployState(worker_slot="green"), sha=SHA
+                )
+                is True
+            )
+
+        mock_ids.assert_awaited_once_with(checkout_path=Path("/srv/checkout"), service="worker-green")
+        assert mock_run.await_args is not None
+        command = mock_run.await_args.kwargs["command"]
+        assert IMAGE_REVISION_LABEL in command[command.index("--format") + 1]
+        assert command[-2:] == ["c1", "c2"]
+
+    @pytest.mark.asyncio
+    async def test_false_when_a_live_worker_runs_an_earlier_commit(self):
+        with (
+            patch(
+                "demetra.services.daemons.deployer.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1", "c2"],
+            ),
+            patch(
+                "demetra.services.daemons.deployer.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, f"{SHA}\n{OTHER_SHA}\n"),
+            ),
+        ):
+            assert (
+                await worker_generation_matches_sha(
+                    checkout_path=Path("/srv/checkout"), state=DeployState(worker_slot="green"), sha=SHA
+                )
+                is False
+            )
+
+    @pytest.mark.asyncio
+    async def test_false_without_a_live_worker_container(self):
+        with patch(
+            "demetra.services.daemons.deployer.list_container_ids",
+            new_callable=AsyncMock,
+            return_value=[],
+        ):
+            assert (
+                await worker_generation_matches_sha(checkout_path=Path("/srv/checkout"), state=DeployState(), sha=SHA)
+                is False
+            )
+
+    @pytest.mark.asyncio
+    async def test_false_when_the_label_cannot_be_read(self):
+        with (
+            patch(
+                "demetra.services.daemons.deployer.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1"],
+            ),
+            patch(
+                "demetra.services.daemons.deployer.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(False, ""),
+            ),
+        ):
+            assert (
+                await worker_generation_matches_sha(checkout_path=Path("/srv/checkout"), state=DeployState(), sha=SHA)
+                is False
+            )
 
 
 class TestCheckoutHasNoLocalChanges:
@@ -589,6 +671,11 @@ class TestRunDeploy:
             patch("demetra.services.daemons.deployer.run_deploy_step", new_callable=AsyncMock) as mock_step,
             patch("demetra.services.daemons.deployer.checkout_matches_sha", new_callable=AsyncMock) as mock_match,
             patch("demetra.services.daemons.deployer.swap_workers", new_callable=AsyncMock) as mock_swap,
+            patch(
+                "demetra.services.daemons.deployer.worker_generation_matches_sha",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_revision,
         ):
             mock_step.return_value = True
             mock_match.return_value = True
@@ -597,6 +684,7 @@ class TestRunDeploy:
                 "step": mock_step,
                 "match": mock_match,
                 "swap": mock_swap,
+                "revision": mock_revision,
                 "state_path": tmp_path / "state.json",
                 "state": DeployState(),
             }
@@ -686,6 +774,23 @@ class TestRunDeploy:
             "pull_images",
             "migrate",
         ]
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_the_live_workers_still_run_an_earlier_commit(self, deploy_mocks):
+        deploy_mocks["revision"].return_value = False
+
+        result = await self._run(mocks=deploy_mocks)
+
+        assert result is False
+        assert [call.kwargs["name"] for call in deploy_mocks["step"].await_args_list] == [
+            "pull",
+            "build",
+            "pull_images",
+            "migrate",
+        ]
+        deploy_mocks["revision"].assert_awaited_once_with(
+            checkout_path=Path("/srv/checkout"), state=deploy_mocks["state"], sha=SHA
+        )
 
 
 class TestCheckoutMatchesSha:
