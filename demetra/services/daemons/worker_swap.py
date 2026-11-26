@@ -296,12 +296,15 @@ async def pending_swap_containers(checkout_path: Path, service: str, state: Depl
 
     A recorded image alone is not enough: the containers must still run that
     image and none of them may be draining, otherwise they are an older
-    generation or a live workflow and must not be treated as pending.
+    generation or a live workflow and must not be treated as pending. Replicas
+    recorded individually by a failed scale-up stay pending even if the mutable
+    tag has since moved to another image, so a retry never force-stops them.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
         service: The staging Compose service.
-        state: The deploy state recording the image of the pending swap.
+        state: The deploy state recording the image and containers of the
+            pending swap.
 
     Returns:
         list[str] | None: The pending container ids, None when Docker could not
@@ -317,7 +320,36 @@ async def pending_swap_containers(checkout_path: Path, service: str, state: Depl
     image_ids = await list_service_image_ids(checkout_path=checkout_path, service=service)
     if image_ids is None:
         return None
-    return running_ids if set(image_ids) == set(state.staging_image_ids) else []
+    if set(image_ids) == set(state.staging_image_ids):
+        return running_ids
+    recorded_ids = [container_id for container_id in running_ids if container_id in state.staging_worker_ids]
+    return recorded_ids if recorded_ids else []
+
+
+async def _checkpoint_partial_start(checkout_path: Path, state_path: Path, state: DeployState, *, service: str) -> None:
+    """Record the replicas a failed scale-up already started, if any.
+
+    ``docker compose up --scale`` can exit nonzero after starting some replicas.
+    Their ids and image are checkpointed so the next cycle reconciles them as
+    the pending generation instead of treating them as an older, never-signalled
+    one and force-stopping the workflows they hold. No marker is recorded when
+    no replica started, leaving the slot free for a fresh generation.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+        state_path: The JSON deploy state file path.
+        state: The deploy state to record the started replicas on.
+        service: The staging Compose service.
+    """
+    running_ids = await list_container_ids(checkout_path=checkout_path, service=service)
+    if running_ids is None or not running_ids:
+        return
+    image_ids = await list_service_image_ids(checkout_path=checkout_path, service=service)
+    if image_ids is None or not image_ids:
+        return
+    state.staging_worker_ids = running_ids
+    state.staging_image_ids = image_ids
+    _persist_checkpoint(path=state_path, state=state)
 
 
 async def retire_staging_workers(checkout_path: Path, service: str, state: DeployState) -> bool:
@@ -411,6 +443,10 @@ async def _signal_live_workers(
 ) -> int | None:
     """Signal the live generation once, marking each container as it is sent TERM.
 
+    Legacy ``worker`` containers are listed and signalled alongside the live
+    generation even when it is populated: an upgraded stack can keep both, and
+    Compose does not remove orphaned containers unless asked to.
+
     Args:
         checkout_path: The host checkout that holds the compose file and env.
         state_path: The JSON deploy state file path.
@@ -423,12 +459,9 @@ async def _signal_live_workers(
     live_ids = await list_container_ids(checkout_path=checkout_path, service=live_service)
     if live_ids is None:
         return None
-    legacy_ids: list[str] = []
-    if not live_ids:
-        listed_legacy = await list_container_ids(checkout_path=checkout_path, service=LEGACY_WORKER_SERVICE)
-        if listed_legacy is None:
-            return None
-        legacy_ids = listed_legacy
+    legacy_ids = await list_container_ids(checkout_path=checkout_path, service=LEGACY_WORKER_SERVICE)
+    if legacy_ids is None:
+        return None
     container_ids = [
         container_id for container_id in (*live_ids, *legacy_ids) if container_id not in state.draining_workers
     ]
@@ -451,15 +484,18 @@ async def _signal_live_workers(
     return len(container_ids)
 
 
-async def reconcile_pending_swap(checkout_path: Path, state_path: Path, state: DeployState) -> bool:
+async def reconcile_pending_swap(checkout_path: Path, state_path: Path, state: DeployState) -> bool | None:
     """Finish a swap whose staging generation started before an earlier failure.
 
     Those containers are never restarted or recreated: the mutable image tag
     may now resolve to a newer image, and `up` would stop them for the whole
     stop grace period while they drain a workflow. Their slot is simply flipped
     to live, so the generation that actually runs is the one whose image was
-    recorded by that attempt. The caller must not record a later commit as
-    deployed on the strength of this reconciliation alone.
+    recorded by that attempt. A generation left partial by a failed scale-up
+    may be promoted as-is: every replica it did start carries the recorded
+    image, and stopping them to reach ``WORKER_REPLICAS`` would lose their
+    workflows. The caller must not record a later commit as deployed on the
+    strength of this reconciliation alone.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -467,14 +503,19 @@ async def reconcile_pending_swap(checkout_path: Path, state_path: Path, state: D
         state: The deploy state whose live slot is flipped when a swap is pending.
 
     Returns:
-        bool: True when a pending swap was reconciled.
+        bool | None: True when a pending swap was reconciled, False when one
+            was pending but could not be reconciled, and None when none was
+            pending. A failed checkpoint leaves the recorded state, including
+            any drain markers, on ``state`` for the caller's later save.
     """
     staging_slot = other_slot(slot=state.worker_slot)
     pending_ids = await pending_swap_containers(
         checkout_path=checkout_path, service=worker_service(slot=staging_slot), state=state
     )
-    if not pending_ids:
+    if pending_ids is None:
         return False
+    if not pending_ids:
+        return None
     signalled = await _signal_live_workers(
         checkout_path=checkout_path,
         state_path=state_path,
@@ -485,6 +526,7 @@ async def reconcile_pending_swap(checkout_path: Path, state_path: Path, state: D
         return False
     state.worker_slot = staging_slot
     state.staging_image_ids = []
+    state.staging_worker_ids = []
     if not _persist_checkpoint(path=state_path, state=state):
         return False
     logger.info(f"Worker generation {staging_slot} is live; {signalled} container(s) are draining")
@@ -496,11 +538,15 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
 
     A pending swap is reconciled first, before any new generation is started:
     its containers are kept and the slot is flipped to them instead of asking
-    Compose to recreate them on a newer image. A staging slot holding an older
-    generation is otherwise force-stopped and emptied, so Compose really
-    creates containers from the new image; containers from this swap attempt's
-    own start are preserved through the start step with ``--no-recreate``.
-    Exited containers are reaped next. Only containers that are not already
+    Compose to recreate them on a newer image, even when only some replicas
+    started. A failed reconciliation is not retried in the same call: the slot
+    was already mutated by it and starting a generation here would signal the
+    wrong side. A staging slot holding an older generation is otherwise
+    force-stopped and emptied, so Compose really creates containers from the
+    new image; containers from this swap attempt's own start are preserved
+    through the start step with ``--no-recreate``, and a failed scale-up
+    records the replicas that did start before returning. Exited containers
+    are reaped next. Only containers that are not already
     recorded as draining have their restart policy disabled and are signalled,
     so they stay retired after the workflow finishes and a container already
     draining never receives RQ's second, cold-shutdown signal. Each id is
@@ -509,8 +555,8 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
     A failed checkpoint aborts the swap rather than reporting success with an
     obsolete state, and the marker it recorded stays on the state for the deploy
     cycle's final save, so a retry reconciles the containers already signalled.
-    On a stack that still runs the legacy single ``worker`` service, those are
-    the live generation and are signalled once as well.
+    Legacy ``worker`` containers are discovered and signalled on every swap, so
+    orphans left by an upgrade cannot keep taking jobs on the old image.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -521,8 +567,9 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
         bool: True when a pending swap was reconciled or staging started and
             the live generation was signalled.
     """
-    if await reconcile_pending_swap(checkout_path=checkout_path, state_path=state_path, state=state):
-        return True
+    outcome = await reconcile_pending_swap(checkout_path=checkout_path, state_path=state_path, state=state)
+    if outcome is not None:
+        return outcome
     staging_slot = other_slot(slot=state.worker_slot)
     staging_service = worker_service(slot=staging_slot)
     live_service = worker_service(slot=state.worker_slot)
@@ -540,10 +587,14 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
         ),
     )
     if not succeeded:
+        await _checkpoint_partial_start(
+            checkout_path=checkout_path, state_path=state_path, state=state, service=staging_service
+        )
         return False
     image_ids = await list_service_image_ids(checkout_path=checkout_path, service=staging_service)
     if image_ids is None or not image_ids:
         return False
+    state.staging_worker_ids = []
     state.staging_image_ids = image_ids
 
     signalled = await _signal_live_workers(
@@ -554,6 +605,7 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
 
     state.worker_slot = staging_slot
     state.staging_image_ids = []
+    state.staging_worker_ids = []
     if not _persist_checkpoint(path=state_path, state=state):
         return False
     logger.info(f"Worker generation {staging_slot} is live; {signalled} container(s) are draining")
@@ -653,14 +705,17 @@ async def maintain_workers(checkout_path: Path, state_path: Path) -> None:
         state_path: The JSON deploy state file path.
     """
     state = load_state(path=state_path)
-    if await reconcile_pending_swap(checkout_path=checkout_path, state_path=state_path, state=state):
+    outcome = await reconcile_pending_swap(checkout_path=checkout_path, state_path=state_path, state=state)
+    if outcome is True:
         logger.info("Finished the pending worker swap before the next deploy")
+    elif outcome is False:
+        logger.warning("Failed to reconcile the pending worker swap, retrying on the next cycle")
     live_service = worker_service(slot=state.worker_slot)
     for service in (*(worker_service(slot=slot) for slot in WORKER_SLOTS), LEGACY_WORKER_SERVICE):
         if not await reap_service(checkout_path=checkout_path, service=service, state=state, live_service=live_service):
             logger.warning(f"Failed to reap the drained containers of {service}, retrying on the next cycle")
     await escalate_draining_workers(checkout_path=checkout_path, state=state)
-    requeued = requeue_abandoned_jobs()
-    if requeued:
-        logger.warning(f"Requeued abandoned workflow jobs {requeued}")
+    recovered = requeue_abandoned_jobs()
+    if recovered:
+        logger.warning(f"Recovered abandoned workflow jobs {recovered}")
     save_state(path=state_path, state=state)

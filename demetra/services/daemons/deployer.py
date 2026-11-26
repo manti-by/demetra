@@ -46,6 +46,8 @@ PULL_STEP = "pull"
 
 MIGRATE_STEP = "migrate"
 
+UP_STEP = "up"
+
 SETPRIV_COMMAND = "setpriv"
 
 DEPLOY_IMAGE = "mantiby/demetra:latest"
@@ -715,12 +717,16 @@ async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: Dep
     recreated. Treating the reload as required would retry the whole
     destructive sequence, migrations included, every minimum interval.
 
-    After the migration the worker generations are swapped: staging starts on
-    the new image, and the live generation is signalled once to drain the
-    workflow it holds. A pending swap reconciled instead of a fresh one is not
-    accepted as this commit's deploy: the live workers must carry its revision
-    label. No deploy waits for a queue to empty, so a job that started after the
-    CI gate is finished on the old image instead of killed.
+    After the non-worker services are recreated, the worker generations are
+    swapped, matching the manual deploy sequence: staging starts on the new
+    image, and the live generation is signalled once to drain the workflow it
+    holds. Swapping before ``up`` could leave the api on the old image while
+    the new workers already run the new one, with no later step to retry a
+    failed ``up`` once the old live slot is draining. A pending swap reconciled
+    instead of a fresh one is not accepted as this commit's deploy: the live
+    workers must carry its revision label. No deploy waits for a queue to
+    empty, so a job that started after the CI gate is finished on the old
+    image instead of killed.
 
     Args:
         checkout_path: The host checkout the daemon deploys.
@@ -741,7 +747,7 @@ async def run_deploy(checkout_path: Path, sha: str, state_path: Path, state: Dep
             return False
         if name == PULL_STEP and not await checkout_matches_sha(checkout_path=checkout_path, sha=sha):
             return False
-        if name == MIGRATE_STEP:
+        if name == UP_STEP:
             if not await swap_workers(checkout_path=checkout_path, state_path=state_path, state=state):
                 logger.error("Deploy aborted at the worker swap")
                 return False

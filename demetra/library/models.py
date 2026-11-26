@@ -360,9 +360,11 @@ class DeployState:
     signalled container id to the time of its signal, so a container is never
     signalled twice and a hung one can be escalated to a forced kill.
     ``staging_image_ids`` records the images started in the staging slot by the
-    last swap attempt, so a retry keeps those containers instead of mistaking
-    them for an older, never-signalled generation and maintenance can flip the
-    slot to them instead of rebuilding over a half-finished swap.
+    last swap attempt, and ``staging_worker_ids`` the containers themselves, so
+    a retry keeps those containers instead of mistaking them for an older,
+    never-signalled generation and maintenance can flip the slot to them
+    instead of rebuilding over a half-finished swap. A scale-up that failed
+    after starting only some replicas is recorded the same way.
     """
 
     last_deployed_sha: str | None = None
@@ -373,6 +375,7 @@ class DeployState:
     worker_slot: WorkerSlot = "blue"
     draining_workers: dict[str, float] = field(default_factory=dict)
     staging_image_ids: list[str] = field(default_factory=list)
+    staging_worker_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_payload(cls, payload: dict) -> Self:
@@ -406,6 +409,12 @@ class DeployState:
             if isinstance(raw_images, list)
             else []
         )
+        raw_workers = payload.get("staging_worker_ids")
+        staging_worker_ids = (
+            [container_id for container_id in raw_workers if isinstance(container_id, str) and container_id]
+            if isinstance(raw_workers, list)
+            else []
+        )
         return cls(
             last_deployed_sha=payload.get("last_deployed_sha"),
             last_deploy_at=last_deploy_at,
@@ -415,6 +424,7 @@ class DeployState:
             worker_slot=worker_slot if worker_slot in ("blue", "green") else "blue",
             draining_workers=draining,
             staging_image_ids=staging_image_ids,
+            staging_worker_ids=staging_worker_ids,
         )
 
 

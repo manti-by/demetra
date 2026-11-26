@@ -484,6 +484,19 @@ class TestDeployState:
 
         assert state.staging_image_ids == ["sha256:a"]
 
+    def test_round_trips_the_staging_worker_ids(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        state = DeployState(staging_worker_ids=["c1", "c2"])
+
+        save_state(path=state_path, state=state)
+
+        assert load_state(path=state_path).staging_worker_ids == ["c1", "c2"]
+
+    def test_rejects_malformed_staging_worker_ids(self):
+        state = DeployState.from_payload({"staging_worker_ids": ["c1", 1, None, ""]})
+
+        assert state.staging_worker_ids == ["c1"]
+
     def test_a_non_object_payload_is_an_empty_state(self, tmp_path: Path):
         state_path = tmp_path / "deployer-state.json"
         state_path.write_text("null")
@@ -703,7 +716,7 @@ class TestRunDeploy:
         assert names == [name for name, _ in build_deploy_steps(checkout_path=Path("/srv/checkout"))]
 
     @pytest.mark.asyncio
-    async def test_swaps_workers_after_the_migration_and_before_the_other_services(self, deploy_mocks):
+    async def test_swaps_workers_after_the_non_worker_services_are_recreated(self, deploy_mocks):
         events: list[str] = []
 
         async def _step(*, name, command, checkout_path):
@@ -719,10 +732,19 @@ class TestRunDeploy:
 
         await self._run(mocks=deploy_mocks)
 
-        assert events == ["pull", "build", "pull_images", "migrate", "swap", "up", "nginx_reload"]
+        assert events == ["pull", "build", "pull_images", "migrate", "up", "swap", "nginx_reload"]
         deploy_mocks["swap"].assert_awaited_once_with(
             checkout_path=Path("/srv/checkout"), state_path=deploy_mocks["state_path"], state=deploy_mocks["state"]
         )
+
+    @pytest.mark.asyncio
+    async def test_does_not_swap_workers_when_the_other_services_fail_to_recreate(self, deploy_mocks):
+        deploy_mocks["step"].side_effect = [True, True, True, True, False]
+
+        assert await self._run(mocks=deploy_mocks) is False
+
+        deploy_mocks["swap"].assert_not_awaited()
+        deploy_mocks["revision"].assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_stops_at_the_first_required_failure(self, deploy_mocks):
@@ -773,6 +795,7 @@ class TestRunDeploy:
             "build",
             "pull_images",
             "migrate",
+            "up",
         ]
 
     @pytest.mark.asyncio
@@ -787,6 +810,7 @@ class TestRunDeploy:
             "build",
             "pull_images",
             "migrate",
+            "up",
         ]
         deploy_mocks["revision"].assert_awaited_once_with(
             checkout_path=Path("/srv/checkout"), state=deploy_mocks["state"], sha=SHA
