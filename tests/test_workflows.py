@@ -12,6 +12,7 @@ from demetra.library.exceptions import (
     AgentRateLimitError,
     AutoCancelledError,
     AwaitingInputError,
+    BuildError,
     EnvironmentConfigError,
     InfiniteLoopError,
     LinearConfigError,
@@ -46,7 +47,7 @@ from demetra.workflows.cleanup import (
     cleanup_workflow,
     commit_and_push,
 )
-from demetra.workflows.lint import run_lint_and_test
+from demetra.workflows.lint import run_ci_loop, run_lint_and_test
 from demetra.workflows.plan import run_plan_step
 from demetra.workflows.research import is_research_ticket, run_research_step
 from demetra.workflows.resolve import run_resolve_step
@@ -2424,6 +2425,29 @@ class TestWorkflowLint:
         assert result == (False, None)
 
     @pytest.mark.asyncio
+    async def test_full_suite_mode_is_forwarded_to_pytest(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (0, "", None)
+
+        await run_lint_and_test(target_path, full_suite=True)
+
+        mock_run_pytests.assert_awaited_once_with(
+            target_path=target_path,
+            session_id=None,
+            environment=None,
+            full_suite=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_ruff_skipped_when_feature_disabled(
         self,
         faker,
@@ -2533,6 +2557,173 @@ class TestWorkflowLint:
 
         assert result == (False, None)
         mock_record_step.assert_not_awaited()
+
+
+class TestRunCiLoop:
+    @pytest.fixture
+    def mocks(self):
+        with (
+            patch("demetra.workflows.lint.run_lint_and_test", new_callable=AsyncMock) as mock_lint,
+            patch("demetra.workflows.lint.update_session_step", new_callable=AsyncMock) as mock_update_step,
+            patch("demetra.workflows.lint.record_session_step", new_callable=AsyncMock) as mock_record_step,
+            patch("demetra.workflows.lint.opencode_build_agent", new_callable=AsyncMock) as mock_agent,
+            patch("demetra.workflows.lint.capture_agent_session", new_callable=AsyncMock) as mock_capture,
+            patch("demetra.workflows.lint.git_add_all", new_callable=AsyncMock) as mock_add_all,
+            patch("demetra.workflows.lint.git_commit", new_callable=AsyncMock) as mock_commit,
+            patch("demetra.workflows.lint.git_force_push", new_callable=AsyncMock) as mock_push,
+            patch("demetra.workflows.lint.MAX_ATTEMPTS", {"ci": 5}),
+        ):
+            mock_agent.return_value = (0, "", "benign stderr")
+            mock_add_all.return_value = True
+            yield {
+                "lint": mock_lint,
+                "update_step": mock_update_step,
+                "record_step": mock_record_step,
+                "agent": mock_agent,
+                "capture": mock_capture,
+                "add_all": mock_add_all,
+                "commit": mock_commit,
+                "push": mock_push,
+            }
+
+    @staticmethod
+    async def _call(target_path: Path, *, environment=None, session_id=None) -> bool:
+        return await run_ci_loop(
+            target_path=target_path,
+            task_id="TASK-123",
+            project_id="proj-1",
+            branch_name="feature/branch",
+            task_title="owner/repo #42 - merge",
+            session_id=session_id,
+            environment=environment,
+        )
+
+    @pytest.mark.asyncio
+    async def test_clean_run_commits_formatted_changes_and_skips_agent(self, mocks):
+        mocks["lint"].return_value = (False, None)
+
+        result = await self._call(target_path=Path("/worktree"), session_id="ses-123")
+
+        assert result is True
+        mocks["lint"].assert_awaited_once_with(
+            target_path=Path("/worktree"),
+            session_id="ses-123",
+            task_id="TASK-123",
+            environment=None,
+            full_suite=True,
+        )
+        assert [call.kwargs["step"] for call in mocks["update_step"].await_args_list] == ["build", "build"]
+        mocks["agent"].assert_not_awaited()
+        mocks["add_all"].assert_awaited_once()
+        mocks["commit"].assert_awaited_once_with(
+            target_path=Path("/worktree"),
+            message="fix: resolve CI failures for owner/repo #42 - merge",
+            environment=None,
+            project_id="proj-1",
+        )
+        mocks["push"].assert_awaited_once_with(
+            target_path=Path("/worktree"),
+            branch_name="feature/branch",
+            environment=None,
+            project_id="proj-1",
+        )
+
+    @pytest.mark.asyncio
+    async def test_failure_is_repaired_committed_and_rechecked(self, mocks):
+        environment = SessionEnvironment(project_environment={}, user_environment={})
+        mocks["lint"].side_effect = [(True, "1. app/main.py:10:5: F401"), (False, None)]
+
+        result = await self._call(target_path=Path("/worktree"), environment=environment, session_id="ses-123")
+
+        assert result is True
+        assert mocks["lint"].await_count == 2
+        mocks["agent"].assert_awaited_once_with(
+            target_path=Path("/worktree"),
+            task="1. app/main.py:10:5: F401",
+            session_id="ses-123",
+            task_title="owner/repo #42 - merge",
+            project_id="proj-1",
+            environment=environment,
+        )
+        mocks["record_step"].assert_awaited_once_with(task_id="TASK-123", step="build", repeat=True)
+        mocks["capture"].assert_awaited_once()
+        assert mocks["commit"].await_count == 2
+        mocks["commit"].assert_any_await(
+            target_path=Path("/worktree"),
+            message="fix: resolve CI failures for owner/repo #42 - merge",
+            environment=environment,
+            project_id="proj-1",
+        )
+        assert mocks["push"].await_count == 2
+        mocks["push"].assert_any_await(
+            target_path=Path("/worktree"),
+            branch_name="feature/branch",
+            environment=environment,
+            project_id="proj-1",
+        )
+
+    @pytest.mark.asyncio
+    async def test_persistent_failure_exhausts_budget(self, mocks):
+        mocks["lint"].return_value = (True, "1. still failing")
+
+        result = await self._call(target_path=Path("/worktree"))
+
+        assert result is False
+        assert mocks["lint"].await_count == 6
+        assert mocks["agent"].await_count == 5
+        assert mocks["record_step"].await_count == 5
+
+    @pytest.mark.asyncio
+    async def test_last_repair_is_rechecked_before_exhaustion(self, mocks):
+        mocks["lint"].side_effect = [(True, "1. failing")] * 5 + [(False, None)]
+
+        result = await self._call(target_path=Path("/worktree"))
+
+        assert result is True
+        assert mocks["lint"].await_count == 6
+        assert mocks["agent"].await_count == 5
+
+    @pytest.mark.asyncio
+    async def test_failure_without_output_is_repaired_with_generic_prompt(self, mocks):
+        mocks["lint"].side_effect = [(True, ""), (False, None)]
+
+        result = await self._call(target_path=Path("/worktree"))
+
+        assert result is True
+        mocks["agent"].assert_awaited_once()
+        assert "no captured output" in mocks["agent"].await_args.kwargs["task"]
+
+    @pytest.mark.asyncio
+    async def test_failure_without_output_exhausts_budget(self, mocks):
+        mocks["lint"].return_value = (True, "")
+
+        result = await self._call(target_path=Path("/worktree"))
+
+        assert result is False
+        assert mocks["lint"].await_count == 6
+        assert mocks["agent"].await_count == 5
+
+    @pytest.mark.asyncio
+    async def test_nonzero_agent_exit_raises_build_error(self, mocks):
+        mocks["lint"].return_value = (True, "1. failing")
+        mocks["agent"].return_value = (1, "", "agent failed")
+
+        with pytest.raises(BuildError, match="exit 1"):
+            await self._call(target_path=Path("/worktree"))
+
+        mocks["commit"].assert_not_awaited()
+        mocks["push"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_staged_changes_skips_commit_but_still_pushes(self, mocks):
+        mocks["lint"].side_effect = [(True, "1. failing"), (False, None)]
+        mocks["add_all"].return_value = False
+
+        result = await self._call(target_path=Path("/worktree"))
+
+        assert result is True
+        mocks["commit"].assert_not_awaited()
+        assert mocks["push"].await_count == 2
 
 
 class TestWorkflowCleanup:
