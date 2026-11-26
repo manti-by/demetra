@@ -2,7 +2,7 @@ import logging
 
 from redis import Redis
 from redis.exceptions import RedisError
-from rq import Queue
+from rq import Queue, Retry
 from rq.job import Job
 from rq.registry import StartedJobRegistry
 from rq.utils import current_timestamp
@@ -17,6 +17,8 @@ queue = Queue(connection=connection, default_timeout=SUBPROCESS_TIMEOUT)
 
 WORKFLOW_JOB_PATH = "demetra.services.daemons.watcher.run_workflow"
 
+WORKFLOW_RETRIES = 1
+
 
 def enqueue_workflow(*, project_name: str, task_id: str) -> Job:
     """Enqueue a workflow run for a task.
@@ -25,6 +27,12 @@ def enqueue_workflow(*, project_name: str, task_id: str) -> Job:
     daemon module (and its logging configuration) at request time. Both the
     Linear watcher and chat-mode creation go through this single entry point.
 
+    A workflow gets one RQ retry so registry cleanup requeues a job abandoned
+    by a killed worker instead of moving it to the failed registry first.
+    Genuine failures still end up failed after that retry;
+    :func:`requeue_abandoned_jobs` runs that same cleanup when no worker has
+    done so yet.
+
     Args:
         project_name: The name of the project the task belongs to.
         task_id: The task identifier.
@@ -32,7 +40,9 @@ def enqueue_workflow(*, project_name: str, task_id: str) -> Job:
     Returns:
         Job: The enqueued RQ job.
     """
-    return queue.enqueue(WORKFLOW_JOB_PATH, project_name=project_name, task_id=task_id)
+    return queue.enqueue(
+        WORKFLOW_JOB_PATH, project_name=project_name, task_id=task_id, retry=Retry(max=WORKFLOW_RETRIES)
+    )
 
 
 def get_live_task_ids() -> list[str]:
@@ -68,3 +78,36 @@ def get_live_task_ids() -> list[str]:
         if isinstance(task_id, str) and task_id:
             task_ids.append(task_id)
     return task_ids
+
+
+def requeue_abandoned_jobs() -> list[str]:
+    """Recover started jobs whose worker heartbeat has expired.
+
+    A worker killed by the deploy watchdog leaves its job in the started-job
+    registry with a stale expiry. Recovery goes through RQ's own
+    ``StartedJobRegistry.cleanup()``, the same path a worker's registry cleanup
+    takes, instead of a second claim-and-enqueue implementation. Both paths
+    then check and spend the remaining retry inside the pipeline that enqueues
+    the job, so a retry already prepared by one cleanup cannot be duplicated by
+    a separate enqueue here. Jobs with no retry left are failed by RQ rather
+    than admitted again, and jobs enqueued before retries were configured have
+    no budget to reset and are failed the same way.
+
+    The registry entry and the retry are committed in one pipeline, so a
+    heartbeat renewed between reading the expired ids and cleaning up keeps
+    its entry and the job keeps running. Broker failures are contained here so
+    maintenance still saves the rest of its state on this poll.
+
+    Returns:
+        list[str]: The ids whose registry entries had expired when this ran.
+    """
+    try:
+        registry = StartedJobRegistry(queue=queue, connection=connection)
+        now = current_timestamp()
+        expired_job_ids = registry.get_expired_job_ids(timestamp=now)
+        if expired_job_ids:
+            registry.cleanup(timestamp=now)
+    except (RedisError, OSError, ValueError) as e:
+        logger.warning(f"Failed to recover the abandoned jobs: {e}")
+        return []
+    return expired_job_ids

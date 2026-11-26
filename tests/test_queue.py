@@ -3,7 +3,21 @@ from unittest.mock import ANY, patch
 
 from redis.exceptions import RedisError
 
-from demetra.services.persistence.queue import get_live_task_ids
+from demetra.services.persistence.queue import (
+    WORKFLOW_JOB_PATH,
+    enqueue_workflow,
+    get_live_task_ids,
+    requeue_abandoned_jobs,
+)
+
+
+class TestEnqueueWorkflow:
+    def test_enqueues_a_workflow_with_one_rq_retry(self):
+        with patch("demetra.services.persistence.queue.queue.enqueue") as mock_enqueue:
+            enqueue_workflow(project_name="demetra", task_id="CH-1")
+
+        mock_enqueue.assert_called_once_with(WORKFLOW_JOB_PATH, project_name="demetra", task_id="CH-1", retry=ANY)
+        assert mock_enqueue.call_args.kwargs["retry"].max == 1
 
 
 class TestGetLiveTaskIds:
@@ -21,7 +35,7 @@ class TestGetLiveTaskIds:
                 "demetra.services.persistence.queue.Job.fetch_many",
                 return_value=[
                     SimpleNamespace(kwargs={"project_name": "demetra", "task_id": "CH-1"}),
-                    SimpleNamespace(kwargs={"project_name": "demetra", "task_id": "6b0b0f6e-1a2b-4c3d-8e9f"}),
+                    SimpleNamespace(kwargs={"task_id": "6b0b0f6e-1a2b-4c3d-8e9f"}),
                 ],
             ) as fetch,
         ):
@@ -106,3 +120,63 @@ class TestGetLiveTaskIds:
             side_effect=RedisError("connection refused"),
         ):
             assert get_live_task_ids() == []
+
+
+class TestRequeueAbandonedJobs:
+    def test_delegates_expired_entries_to_the_standard_rq_cleanup(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.current_timestamp", return_value=1000.0),
+            patch("demetra.services.persistence.queue.queue.enqueue_job") as mock_enqueue,
+        ):
+            registry = registry_class.return_value
+            registry.get_expired_job_ids.return_value = ["job-1", "job-2"]
+
+            assert requeue_abandoned_jobs() == ["job-1", "job-2"]
+
+        registry_class.assert_called_once_with(queue=ANY, connection=ANY)
+        registry.get_expired_job_ids.assert_called_once_with(timestamp=1000.0)
+        registry.cleanup.assert_called_once_with(timestamp=1000.0)
+        mock_enqueue.assert_not_called()
+
+    def test_skips_cleanup_when_nothing_expired(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.current_timestamp", return_value=1000.0),
+        ):
+            registry = registry_class.return_value
+            registry.get_expired_job_ids.return_value = []
+
+            assert requeue_abandoned_jobs() == []
+
+        registry.cleanup.assert_not_called()
+
+    def test_returns_an_empty_list_when_the_expired_ids_cannot_be_read(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.current_timestamp", return_value=1000.0),
+        ):
+            registry = registry_class.return_value
+            registry.get_expired_job_ids.side_effect = RedisError("connection refused")
+
+            assert requeue_abandoned_jobs() == []
+
+        registry.cleanup.assert_not_called()
+
+    def test_returns_an_empty_list_when_cleanup_fails(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.current_timestamp", return_value=1000.0),
+        ):
+            registry = registry_class.return_value
+            registry.get_expired_job_ids.return_value = ["job-1"]
+            registry.cleanup.side_effect = RedisError("connection lost")
+
+            assert requeue_abandoned_jobs() == []
+
+    def test_returns_an_empty_list_when_the_registry_cannot_be_resolved(self):
+        with patch(
+            "demetra.services.persistence.queue.StartedJobRegistry",
+            side_effect=OSError("connection refused"),
+        ):
+            assert requeue_abandoned_jobs() == []

@@ -8,7 +8,7 @@ from typing import Literal, Self
 from slugify import slugify
 
 from demetra.library.exceptions import AgentFailureError, EnvironmentConfigError
-from demetra.library.types import FeedbackLoops, OpenRouterConfig, WaitlistStatus
+from demetra.library.types import FeedbackLoops, OpenRouterConfig, WaitlistStatus, WorkerSlot
 
 
 StepType = Literal[
@@ -327,6 +327,24 @@ class Session:
     research_report: str | None = None
 
 
+def finite_timestamp(value: object) -> float:
+    """Coerce a persisted value to a finite timestamp.
+
+    Args:
+        value: The value read from a state file.
+
+    Returns:
+        float: The timestamp, or zero when it is missing or malformed.
+    """
+    if not isinstance(value, (int, float, str)):
+        return 0.0
+    try:
+        timestamp = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+    return timestamp if math.isfinite(timestamp) else 0.0
+
+
 @dataclass
 class DeployState:
     """Deploy daemon state persisted between poll cycles.
@@ -338,6 +356,15 @@ class DeployState:
     commit instead of on every poll. ``pending_recreate`` records a deploy
     whose image was built but whose deployer container is still running the
     previous one, so the self-recreate is retried independently of a deploy.
+    ``worker_slot`` is the live worker generation; ``draining_workers`` maps a
+    signalled container id to the time of its signal, so a container is never
+    signalled twice and a hung one can be escalated to a forced kill.
+    ``staging_image_ids`` records the images started in the staging slot by the
+    last swap attempt, and ``staging_worker_ids`` the containers themselves, so
+    a retry keeps those containers instead of mistaking them for an older,
+    never-signalled generation and maintenance can flip the slot to them
+    instead of rebuilding over a half-finished swap. A scale-up that failed
+    after starting only some replicas is recorded the same way.
     """
 
     last_deployed_sha: str | None = None
@@ -345,6 +372,10 @@ class DeployState:
     last_failed_sha: str | None = None
     last_error: str | None = None
     pending_recreate: bool = False
+    worker_slot: WorkerSlot = "blue"
+    draining_workers: dict[str, float] = field(default_factory=dict)
+    staging_image_ids: list[str] = field(default_factory=list)
+    staging_worker_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_payload(cls, payload: dict) -> Self:
@@ -362,18 +393,38 @@ class DeployState:
         Returns:
             DeployState: The state described by the payload.
         """
-        try:
-            last_deploy_at = float(payload.get("last_deploy_at") or 0.0)
-        except (TypeError, ValueError):
-            last_deploy_at = 0.0
-        if not math.isfinite(last_deploy_at):
-            last_deploy_at = 0.0
+        last_deploy_at = finite_timestamp(value=payload.get("last_deploy_at"))
+        worker_slot = payload.get("worker_slot")
+        draining: dict[str, float] = {}
+        raw_draining = payload.get("draining_workers")
+        if isinstance(raw_draining, dict):
+            for container_id, signalled_at in raw_draining.items():
+                if isinstance(container_id, str):
+                    timestamp = finite_timestamp(value=signalled_at)
+                    if timestamp > 0.0:
+                        draining[container_id] = timestamp
+        raw_images = payload.get("staging_image_ids")
+        staging_image_ids = (
+            [image_id for image_id in raw_images if isinstance(image_id, str) and image_id]
+            if isinstance(raw_images, list)
+            else []
+        )
+        raw_workers = payload.get("staging_worker_ids")
+        staging_worker_ids = (
+            [container_id for container_id in raw_workers if isinstance(container_id, str) and container_id]
+            if isinstance(raw_workers, list)
+            else []
+        )
         return cls(
             last_deployed_sha=payload.get("last_deployed_sha"),
             last_deploy_at=last_deploy_at,
             last_failed_sha=payload.get("last_failed_sha"),
             last_error=payload.get("last_error"),
             pending_recreate=bool(payload.get("pending_recreate")),
+            worker_slot=worker_slot if worker_slot in ("blue", "green") else "blue",
+            draining_workers=draining,
+            staging_image_ids=staging_image_ids,
+            staging_worker_ids=staging_worker_ids,
         )
 
 

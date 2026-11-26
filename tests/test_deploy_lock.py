@@ -110,26 +110,27 @@ class TestReleaseManualDeployLock:
 
 
 class TestManualDeployTimeout:
-    def test_stops_the_wrapped_command_before_the_lease_expires(self):
-        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) < deploy_lock_timeout(
+    def test_matches_the_daemon_lease_that_covers_the_swap(self):
+        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) == deploy_lock_timeout(
             checkout_path=Path("/srv/checkout")
         )
 
-    def test_leaves_the_manual_recipes_unused_drain_budget_as_slack(self):
-        expected = deploy_lock_timeout(checkout_path=Path("/srv/checkout")) - DEPLOY["drain_timeout"]
-        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) == expected
+    def test_budget_includes_the_worker_swap_commands(self):
+        assert manual_deploy_timeout(checkout_path=Path("/srv/checkout")) > DEPLOY["step_timeout"]
 
 
 class TestWorkerStopGracePeriod:
-    def test_covers_the_queue_job_timeout(self):
+    def test_both_generations_cover_the_queue_job_timeout(self):
         compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "docker-compose.yaml").read_text())
-        grace = str(compose["services"]["worker"]["stop_grace_period"]).split(":-")[-1].rstrip("}")
 
-        assert grace.endswith("s")
-        assert int(grace.removesuffix("s")) >= SUBPROCESS_TIMEOUT + 60
+        for service in ("worker-blue", "worker-green"):
+            grace = str(compose["services"][service]["stop_grace_period"]).split(":-")[-1].rstrip("}")
+            assert grace.endswith("s")
+            assert int(grace.removesuffix("s")) >= SUBPROCESS_TIMEOUT + 60
 
-    def test_the_up_step_outlives_the_grace_period(self):
+    def test_the_swap_step_budget_outlives_the_grace_period(self):
         compose = yaml.safe_load((Path(__file__).resolve().parents[1] / "docker-compose.yaml").read_text())
-        grace = str(compose["services"]["worker"]["stop_grace_period"]).split(":-")[-1].rstrip("}")
 
-        assert DEPLOY["step_timeout"] > int(grace.removesuffix("s"))
+        for service in ("worker-blue", "worker-green"):
+            grace = str(compose["services"][service]["stop_grace_period"]).split(":-")[-1].rstrip("}")
+            assert DEPLOY["step_timeout"] > int(grace.removesuffix("s"))
