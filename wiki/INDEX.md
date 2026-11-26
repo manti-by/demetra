@@ -8,9 +8,9 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-blue-green-worker-deploy-research.md) — Implementation of MNT-323: Swap RQ workers between two generations on deploy (2026-11-25)
-- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Deploys now start the staging worker generation on the new image and signal the live one once so RQ finishes its workflow, instead of waiting for the queue to drain; drained containers are reaped on a later cycle, a watchdog requeues jobs whose workflow outlived the timeout, and the manual deploy path runs the same swap through a one-shot Compose service. (2026-11-25)
-- [Blue-green worker deployment research for the home Ubuntu server](pages/2026-11-25-blue-green-worker-deploy-research.md) — Compares a two-slot Compose blue/green worker swap inside the existing deploy daemon, Docker Swarm mode and third-party rolling-deploy helpers against the current drain-the-queue-then-force-recreate path, and recommends the two-slot swap because RQ already drains the running job on the first SIGTERM, so the deploy no longer has to wait for a workflow to finish. (2026-11-25)
+- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Deploys now start the staging worker generation on the new image and signal the live one once so RQ finishes its workflow, instead of waiting for the queue to drain; drained containers are reaped on a later cycle, a watchdog requeues jobs whose workflow outlived the timeout, and the manual deploy path runs the same swap through a one-shot Compose service. The preceding research compared this two-slot swap with Docker Swarm mode and third-party rolling-deploy helpers and chose it because RQ already drains the running job on the first SIGTERM. (2026-11-25)
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — Implementation of MNT-318: Classify agent failures into typed Demetra errors (2026-11-25)
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — Implementation of MNT-321: External providers prices (2026-11-24)
 - [Deploy deadlock from an interrupted recreate and a misconfigured deployer](pages/2026-11-25-deploy-deadlock-container-cleanup.md) — A fully down Demetra stack was repaired: an interrupted `compose up --force-recreate` left nine `Created` orphans while Redis was stopped, deadlocking the manual deploy lock, and the containerized deployer looked for Docker at `/usr/bin/docker` instead of the image's `/usr/local/bin/docker`; `DOCKER_PATH` is now pinned in compose and the deployer rebuilt and recreated the stack. (2026-11-25)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — MNT-320 fixed builds forking an empty session id, which the OpenCode CLI rejected with "--fork requires --continue or --session" — empty ids are now normalised to NULL across the model, workflow, agent and database layers, with a migration backfilling existing rows. (2026-11-24)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — mantiby/demetra:latest shrank from 1.01 GB to 708 MB by replacing a recursive chown that duplicated /opt/venv and the Rust toolchain with COPY --chown, slimming the C toolchain and switching to vim-tiny, keeping Rust, C and bun for target builds; the container suite passed 1556 tests. (2026-11-23)
@@ -205,8 +205,9 @@ _Newest first._
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — 2026-11-25
 - [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
-- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-blue-green-worker-deploy-research.md) — 2026-11-25
+- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — 2026-11-25
 
 ### Deploy & infrastructure (11 pages)
 

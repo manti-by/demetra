@@ -5,11 +5,11 @@ description: Implements a blue/green worker swap in the deploy daemon and manual
 type: implementation
 status: stable
 session_id: ses_dec5c8c34ffeC0aGwaqNcUVfpE
-services: [docker-compose, deploy, daemons/deployer, daemons/worker_swap, daemons/deploy_support, daemons/deploy_lock, persistence/queue, library, Makefile, AGENTS]
+services: [.env.docker, AGENTS, Makefile, README, library, daemons/deploy_lock, daemons/deploy_support, daemons/deployer, daemons/worker_swap, persistence/queue, settings, worker_swap.py, docker-compose, pyproject, test_deploy_lock, test_deployer, test_docker_compose, test_entrypoints, test_queue, test_worker_swap, uv, .sessions, INDEX]
 branch: mnt-323-swap-rq-workers-between-two-generations-on-deploy
 tickets: [MNT-323]
-tags: [wiki, infrastructure, deploy, docker, compose, workers, rq, blue-green, watchdog]
-related: [2026-11-25-blue-green-worker-deploy-research.md, 2026-11-25-deploy-deadlock-container-cleanup.md, 2026-11-12-scale-workers-without-recreate.md, 2026-11-14-mnt-315-auto-deploy-on-master-commits.md]
+tags: [wiki, infrastructure, feature, deploy, docker, compose, workers, rq, blue-green, watchdog]
+related: [2026-11-25-deploy-deadlock-container-cleanup.md, 2026-11-12-scale-workers-without-recreate.md, 2026-11-14-mnt-315-auto-deploy-on-master-commits.md, 2026-08-10-docker-compose-deploy.md]
 ---
 
 # MNT-323: Swap RQ workers between two generations on deploy
@@ -20,7 +20,7 @@ Deploys no longer wait for the RQ queue to drain. Workers now run as two Compose
 
 ## Overview
 
-The old sequence drained the whole queue (waiting up to `DEPLOY_DRAIN_TIMEOUT`, one hour) before `--force-recreate` stopped every container. A queued workflow could abort a deploy, and a running workflow could block it for the length of a job. The design chosen is Solution A from [the blue-green worker deploy research](/pages/2026-11-25-blue-green-worker-deploy-research.md): hand-roll the swap inside the existing deployer and reuse the deploy lock, the state file and RQ's warm shutdown. The CI gate, the lock and the migration are unchanged.
+The old sequence drained the whole queue (waiting up to `DEPLOY_DRAIN_TIMEOUT`, one hour) before `--force-recreate` stopped every container. A queued workflow could abort a deploy, and a running workflow could block it for the length of a job. The research that preceded this change compared three options — a two-slot Compose blue/green swap inside the existing deploy daemon, Docker Swarm mode, and third-party rolling-deploy helpers — and chose the two-slot swap: RQ already drains the running job on the first SIGTERM, so the deploy no longer has to wait for a workflow to finish. The design is Solution A from that research: hand-roll the swap inside the existing deployer and reuse the deploy lock, the state file and RQ's warm shutdown. The CI gate, the lock and the migration are unchanged.
 
 ## Step 1 — Two worker slots and a one-shot swap service
 
@@ -99,13 +99,15 @@ A review found three overlap/failure holes in the first implementation, all fixe
 
 ## Follow-ups
 
+- Monitor worker swap performance in production.
 - A host-side nginx reload hook is still needed before nginx config changes can ship from the daemon; the in-container `nsenter` reload remains optional and currently fails (see [the deploy deadlock page](/pages/2026-11-25-deploy-deadlock-container-cleanup.md)).
 - Two worker generations run at once during a swap, so future migrations must stay expand/contract until the old generation has drained.
 - Consider making `make docker-up` read the live slot from the state file instead of defaulting to blue.
 
 ## References
 
-- Related: [Blue-green worker deployment research](/pages/2026-11-25-blue-green-worker-deploy-research.md)
+- External: [MNT-323: Swap RQ workers between two generations on deploy](https://linear.app/mnt/issue/MNT-323/swap-rq-workers-between-two-generations-on-deploy)
 - Related: [Deploy deadlock from an interrupted recreate](/pages/2026-11-25-deploy-deadlock-container-cleanup.md)
 - Related: [Scaling RQ workers without recreating running containers](/pages/2026-11-12-scale-workers-without-recreate.md)
 - Related: [MNT-315: Auto deploy on master commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
+- Related: [Docker Compose deploy](/pages/2026-08-10-docker-compose-deploy.md)
