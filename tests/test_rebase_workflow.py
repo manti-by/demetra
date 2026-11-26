@@ -199,6 +199,41 @@ class TestRunRebaseWorkflow:
         ]
 
     @pytest.mark.asyncio
+    async def test_project_lookup_failure_persists_failed_step(self, base_mocks):
+        base_mocks["mock_get_project"].side_effect = RuntimeError("database down")
+
+        result = await run_rebase_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
+
+        assert result is False
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
+        base_mocks["mock_wt_remove"].assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_project_setup_failure_persists_failed_step_before_raising(self, base_mocks):
+        base_mocks["mock_get_env"].side_effect = ValueError("bad environment")
+
+        with pytest.raises(ValueError, match="bad environment"):
+            await run_rebase_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+            )
+
+        assert [call.kwargs["step"] for call in base_mocks["mock_update_step"].await_args_list] == [
+            "build",
+            "failed",
+        ]
+
+    @pytest.mark.asyncio
     async def test_rebase_perform_rebase_fails(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
         base_mocks["mock_perform_rebase"].return_value = False

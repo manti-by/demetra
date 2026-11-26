@@ -54,6 +54,7 @@ async def run_lint_and_test(
     session_id: str | None = None,
     task_id: str | None = None,
     environment: SessionEnvironment | None = None,
+    full_suite: bool = False,
 ) -> tuple[bool, str | None]:
     """Run the optional ruff and pytest steps over a project directory.
 
@@ -68,6 +69,7 @@ async def run_lint_and_test(
             lint/test history rows and record the error-extraction LLM call.
         environment: The resolved session environment forwarded to the subprocess
             and to the error-extraction LLM call.
+        full_suite: Run the whole pytest suite instead of only the last failures.
 
     Returns:
         tuple[bool, str | None]: Whether a step failed, and the failure
@@ -102,7 +104,7 @@ async def run_lint_and_test(
             await record_session_step(task_id=task_id, step="test", repeat=True)
 
         pytest_exit_code, pytest_result, _ = await run_pytests(
-            target_path=target_path, session_id=session_id, environment=environment
+            target_path=target_path, session_id=session_id, environment=environment, full_suite=full_suite
         )
         if pytest_exit_code:
             print_message("Processing PYTEST errors", style="result")
@@ -155,9 +157,11 @@ async def run_ci_loop(
 
     Tickets and chats share the session step as their status, so a repair round
     marks the session ``build``. At most ``MAX_ATTEMPTS["ci"]`` repair rounds run,
-    and the last repair is rechecked before the budget is declared exhausted. A
-    failed check with no captured output is still a failure: the build agent gets
-    a generic prompt instead of an empty task.
+    and the last repair is rechecked before the budget is declared exhausted. The
+    whole pytest suite runs on every check, so a repair that breaks a previously
+    passing test is caught instead of being hidden by last-failed mode. A failed
+    check with no captured output is still a failure: the build agent gets a
+    generic prompt instead of an empty task.
 
     Args:
         target_path: Directory to lint, test and repair.
@@ -179,6 +183,7 @@ async def run_ci_loop(
             session_id=session_id,
             task_id=task_id,
             environment=environment,
+            full_suite=True,
         )
         if not has_errors:
             await update_session_step(task_id=task_id, step="build")

@@ -49,22 +49,23 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
 
     logger.info(f"Starting rebase workflow for PR #{pr_number} in {full_name}")
 
-    project_data = await get_project_by_id_system(project_id=project_id)
-    if not project_data:
-        logger.error(f"Project not found for project_id: {project_id}")
-        await update_session_step(task_id=task_id, step=final_step)
-        return False
-
-    project = Project(**project_data)
-    project.local_path = Path(project.local_path)
-    project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
-    if project.user_id:
-        project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
-
+    project: Project | None = None
     worktree_path = None
     rebase_succeeded = False
     environment = None
+    head_branch = ""
     try:
+        project_data = await get_project_by_id_system(project_id=project_id)
+        if not project_data:
+            logger.error(f"Project not found for project_id: {project_id}")
+            return False
+
+        project = Project(**project_data)
+        project.local_path = Path(project.local_path)
+        project.environment = await get_project_environments(project_id=project.id, user_id=project.user_id)
+        if project.user_id:
+            project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
+
         await setup_project_venv(project=project)
         environment = SessionEnvironment(
             project_environment=project.environment, user_environment=project.user_environment
@@ -120,7 +121,7 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
         return False
 
     finally:
-        if worktree_path:
+        if worktree_path and project is not None:
             if rebase_succeeded:
                 try:
                     task = await resolve_task_by_id(task_id=task_id)

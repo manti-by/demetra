@@ -4,6 +4,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from demetra.services.quality.test import run_pytests
+from demetra.settings import UV
 
 
 class TestTestService:
@@ -33,3 +34,34 @@ class TestTestService:
         result = await run_pytests(target_path=self.target_path, session_id=None)
         assert mock_run.call_count == 1
         assert result == (0, "pytest output", "")
+
+    @pytest.mark.asyncio
+    async def test_defaults_to_last_failed_mode(self, mock_run):
+        mock_run.return_value = (0, "", "")
+
+        await run_pytests(target_path=self.target_path)
+
+        assert mock_run.await_args.kwargs["command"] == [
+            str(UV["path"]),
+            "run",
+            "--active",
+            "pytest",
+            "--lf",
+            "--quiet",
+            "--color=no",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_full_suite_omits_last_failed_flag(self, mock_run):
+        mock_run.return_value = (0, "", "")
+
+        await run_pytests(target_path=self.target_path, full_suite=True)
+
+        assert mock_run.await_args.kwargs["command"] == [
+            str(UV["path"]),
+            "run",
+            "--active",
+            "pytest",
+            "--quiet",
+            "--color=no",
+        ]

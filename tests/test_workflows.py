@@ -2425,6 +2425,29 @@ class TestWorkflowLint:
         assert result == (False, None)
 
     @pytest.mark.asyncio
+    async def test_full_suite_mode_is_forwarded_to_pytest(
+        self,
+        faker,
+        mock_is_package_installed,
+        mock_run_ruff_format,
+        mock_run_ruff_checks,
+        mock_run_pytests,
+    ):
+        target_path = Path(f"/tmp/{faker.slug()}")
+        mock_is_package_installed.return_value = True
+        mock_run_ruff_checks.return_value = (0, "", None)
+        mock_run_pytests.return_value = (0, "", None)
+
+        await run_lint_and_test(target_path, full_suite=True)
+
+        mock_run_pytests.assert_awaited_once_with(
+            target_path=target_path,
+            session_id=None,
+            environment=None,
+            full_suite=True,
+        )
+
+    @pytest.mark.asyncio
     async def test_ruff_skipped_when_feature_disabled(
         self,
         faker,
@@ -2587,6 +2610,7 @@ class TestRunCiLoop:
             session_id="ses-123",
             task_id="TASK-123",
             environment=None,
+            full_suite=True,
         )
         assert [call.kwargs["step"] for call in mocks["update_step"].await_args_list] == ["build", "build"]
         mocks["agent"].assert_not_awaited()
