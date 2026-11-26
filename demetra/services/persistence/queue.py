@@ -93,7 +93,9 @@ def requeue_abandoned_jobs() -> list[str]:
     member is removed without queueing the workflow a second time. That makes a
     recovery whose registry removal failed safe to retry. A failed enqueue
     leaves its own member in place so it can be retried, and does not abort the
-    members processed before it.
+    members processed before it. The expired range ends at ``now`` and the
+    active range starts just above it, so a member expiring at exactly ``now``
+    is requeued rather than mistaken for a freshly picked-up job.
 
     Returns:
         list[str]: The ids that were requeued.
@@ -102,7 +104,7 @@ def requeue_abandoned_jobs() -> list[str]:
         registry = StartedJobRegistry(queue=queue, connection=connection)
         now = current_timestamp()
         raw_members = connection.zrangebyscore(registry.key, 0, now)
-        active_members = connection.zrangebyscore(registry.key, now, "+inf")
+        active_members = connection.zrangebyscore(registry.key, f"({now}", "+inf")
     except (RedisError, OSError, ValueError) as e:
         logger.warning(f"Failed to read the abandoned jobs: {e}")
         return []

@@ -33,10 +33,11 @@ WORKER_REPLICAS = 4
 KILL_GRACE = 60
 
 # Worst-case timeout-bounded commands under one deploy lease: retirement
-# (2N+2), reaping (4), staging start (1), live and legacy lists (2), one batch
-# restart disable (1), N signals, and two checkout reads. Every other branch
-# that holds the lease, including maintenance, issues fewer commands.
-SWAP_STEP_BUDGET = 3 * WORKER_REPLICAS + 12
+# (2N+3), reaping (4), staging start and image read (2), live and legacy lists
+# (2), one batch restart disable (1), N signals, the pre-flight slot check (1),
+# and two checkout reads. Every other branch that holds the lease, including
+# maintenance, issues fewer commands.
+SWAP_STEP_BUDGET = 3 * WORKER_REPLICAS + 15
 
 LOG_TAIL_CHARS = 2000
 
@@ -205,6 +206,23 @@ async def list_container_ids(checkout_path: Path, service: str, *, exited: bool 
     return output.split() if succeeded else None
 
 
+async def list_service_image_ids(checkout_path: Path, service: str) -> list[str] | None:
+    """List the image ids backing a Compose service's containers.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+        service: The Compose service to inspect.
+
+    Returns:
+        list[str] | None: The sorted, unique image ids, or None on failure.
+    """
+    succeeded, output = await run_swap_command(
+        checkout_path=checkout_path,
+        command=[*compose_command(checkout_path=checkout_path), "images", "--quiet", service],
+    )
+    return sorted(set(output.split())) if succeeded else None
+
+
 def _persist_checkpoint(path: Path, state: DeployState) -> bool:
     """Persist a worker lifecycle checkpoint, reporting a failed state write.
 
@@ -276,10 +294,12 @@ async def retire_staging_workers(checkout_path: Path, service: str, state: Deplo
     they are draining the workflow they held before the swap, and a second TERM
     would trigger RQ's cold shutdown and lose that work. The slot stays occupied
     until they exit or the watchdog escalates them, so the swap is deferred.
-    Other running containers come from an older generation that was never
-    signalled; they are force stopped and removed so Compose creates the new
-    image instead of reusing them, and their jobs are requeued later by
-    :func:`maintain_workers`.
+    Containers still running the image recorded by the last swap attempt are
+    also kept: that attempt started them but failed before flipping the slot,
+    so their workflows must not be force stopped. :func:`swap_workers` finishes
+    that flip on the retry instead. Only containers on an older image are force
+    stopped and removed so Compose creates the new image instead of reusing
+    them; their jobs are requeued later by :func:`maintain_workers`.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -298,6 +318,13 @@ async def retire_staging_workers(checkout_path: Path, service: str, state: Deplo
     if draining_ids:
         logger.info(f"Keeping draining workers {draining_ids} in {service}, deferring the slot reuse")
         return False
+    if state.staging_image_ids:
+        image_ids = await list_service_image_ids(checkout_path=checkout_path, service=service)
+        if image_ids is None:
+            return False
+        if set(image_ids) == set(state.staging_image_ids):
+            logger.info(f"Keeping current-image workers {running_ids} in {service} for the pending swap")
+            return True
     now = time.time()
     for container_id in running_ids:
         succeeded, _ = await run_swap_command(
@@ -318,14 +345,41 @@ async def retire_staging_workers(checkout_path: Path, service: str, state: Deplo
         return False
     for container_id in running_ids:
         state.draining_workers.pop(container_id, None)
+    state.staging_image_ids = []
+    return True
+
+
+async def staging_slot_is_available(checkout_path: Path, state: DeployState) -> bool:
+    """Check read-only whether the staging slot can take a new generation.
+
+    A slot still holding draining workers is busy: another TERM would start
+    RQ's cold shutdown and lose the workflow. Containers that are not draining
+    are either empty of work or belong to a swap that failed before its slot
+    flip, and :func:`swap_workers` reconciles them safely on the retry.
+
+    Args:
+        checkout_path: The host checkout that holds the compose file and env.
+        state: The deploy state whose drain bookkeeping is consulted.
+
+    Returns:
+        bool: True when the slot is empty or holds no draining worker.
+    """
+    staging_service = worker_service(slot=other_slot(slot=state.worker_slot))
+    running_ids = await list_container_ids(checkout_path=checkout_path, service=staging_service)
+    if running_ids is None:
+        return False
+    if any(container_id in state.draining_workers for container_id in running_ids):
+        logger.info(f"Staging slot {staging_service} still holds draining workers, deferring the deploy")
+        return False
     return True
 
 
 async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState) -> bool:
     """Start the staging generation and signal the live one exactly once.
 
-    A staging slot still holding an earlier generation is force-stopped and
-    emptied first, so Compose really creates containers from the new image.
+    A staging slot holding an older-image generation is force-stopped and
+    emptied first, so Compose really creates containers from the new image;
+    containers from this swap attempt's own start are kept for the slot flip.
     Exited containers are reaped next. Only containers that are not already recorded as
     draining have their restart policy disabled and are signalled, so they stay
     retired after the workflow finishes and a container already draining never
@@ -334,7 +388,9 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
     container that already switched RQ to the cold-shutdown handler. A failed
     checkpoint aborts the swap rather than reporting success with an obsolete
     state, and the marker it recorded stays on the state for the deploy cycle's
-    final save, so a retry reconciles the containers already signalled. On a
+    final save, so a retry reconciles the containers already signalled. The
+    staging image is recorded as soon as that slot starts, so a retry keeps
+    those containers instead of force stopping workflows they may hold. On a
     stack that still runs the legacy single ``worker`` service, those are the
     live generation and are signalled once as well.
 
@@ -362,6 +418,10 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
     )
     if not succeeded:
         return False
+    image_ids = await list_service_image_ids(checkout_path=checkout_path, service=staging_service)
+    if image_ids is None or not image_ids:
+        return False
+    state.staging_image_ids = image_ids
 
     live_ids = await list_container_ids(checkout_path=checkout_path, service=live_service)
     if live_ids is None:
@@ -392,6 +452,7 @@ async def swap_workers(checkout_path: Path, state_path: Path, state: DeployState
                 return False
 
     state.worker_slot = staging_slot
+    state.staging_image_ids = []
     if not _persist_checkpoint(path=state_path, state=state):
         return False
     logger.info(f"Worker generation {staging_slot} is live; {len(container_ids)} container(s) are draining")
@@ -404,8 +465,10 @@ async def bootstrap_workers(checkout_path: Path, state_path: Path, state: Deploy
     A fresh stack has no state file and uses the default blue slot; an existing
     state keeps whichever generation a previous swap made live. The caller holds
     the deploy lock, just as it does for a swap, so `docker-up` cannot change a
-    slot while a swap is in flight. The checkpoint records the slot even on a
-    fresh stack, so later swaps start from the same generation.
+    slot while a swap is in flight. A non-live slot that still runs containers
+    is left alone: scaling it down would send a second TERM to a worker already
+    draining. The checkpoint records the slot even on a fresh stack, so later
+    swaps start from the same generation.
 
     Args:
         checkout_path: The host checkout that holds the compose file and env.
@@ -416,12 +479,18 @@ async def bootstrap_workers(checkout_path: Path, state_path: Path, state: Deploy
         bool: True when both generations were scaled and the state was saved.
     """
     for slot in WORKER_SLOTS:
+        service = worker_service(slot=slot)
         replicas = WORKER_REPLICAS if slot == state.worker_slot else 0
+        if replicas == 0:
+            running_ids = await list_container_ids(checkout_path=checkout_path, service=service)
+            if running_ids is None:
+                return False
+            if running_ids:
+                logger.info(f"Keeping running workers {running_ids} in {service}, not scaling the slot down")
+                continue
         succeeded, _ = await run_swap_command(
             checkout_path=checkout_path,
-            command=start_service_command(
-                checkout_path=checkout_path, service=worker_service(slot=slot), replicas=replicas
-            ),
+            command=start_service_command(checkout_path=checkout_path, service=service, replicas=replicas),
         )
         if not succeeded:
             return False

@@ -278,6 +278,22 @@ class TestRequeueAbandonedJobs:
         connection.zrem.assert_not_called()
         mock_enqueue.assert_not_called()
 
+    def test_treats_a_member_expiring_exactly_now_as_expired_not_active(self):
+        with (
+            patch("demetra.services.persistence.queue.StartedJobRegistry") as registry_class,
+            patch("demetra.services.persistence.queue.connection") as connection_mock,
+            patch("demetra.services.persistence.queue.current_timestamp", return_value=1000),
+            patch("demetra.services.persistence.queue.Job.fetch", side_effect=NoSuchJobError("gone")),
+        ):
+            registry, connection = self._registry_and_connection(registry_class, connection_mock, ["job-1:exec-1"])
+
+            assert requeue_abandoned_jobs() == []
+
+        assert [call.args for call in connection.zrangebyscore.call_args_list] == [
+            (registry.key, 0, 1000),
+            (registry.key, "(1000", "+inf"),
+        ]
+
     def test_returns_an_empty_list_when_the_broker_is_unreachable(self):
         with patch(
             "demetra.services.persistence.queue.StartedJobRegistry",

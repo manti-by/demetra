@@ -2,7 +2,7 @@ import json
 import time
 from functools import partial
 from pathlib import Path
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import ANY, AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -388,6 +388,19 @@ class TestDeployState:
 
         assert state.worker_slot == "blue"
         assert state.draining_workers == {"container-1": 123.5}
+
+    def test_round_trips_the_staging_image_ids(self, tmp_path: Path):
+        state_path = tmp_path / "state.json"
+        state = DeployState(staging_image_ids=["sha256:a", "sha256:b"])
+
+        save_state(path=state_path, state=state)
+
+        assert load_state(path=state_path).staging_image_ids == ["sha256:a", "sha256:b"]
+
+    def test_rejects_malformed_staging_image_ids(self):
+        state = DeployState.from_payload({"staging_image_ids": ["sha256:a", 1, None, ""]})
+
+        assert state.staging_image_ids == ["sha256:a"]
 
     def test_a_non_object_payload_is_an_empty_state(self, tmp_path: Path):
         state_path = tmp_path / "deployer-state.json"
@@ -862,6 +875,11 @@ class TestRunDeployCycle:
             patch("demetra.services.daemons.deployer.get_origin_repository", new_callable=AsyncMock) as mock_repo,
             patch("demetra.services.daemons.deployer.get_ci_status", new_callable=AsyncMock) as mock_ci,
             patch("demetra.services.daemons.deployer.maintain_workers", new_callable=AsyncMock) as mock_maintain,
+            patch(
+                "demetra.services.daemons.deployer.staging_slot_is_available",
+                new_callable=AsyncMock,
+                return_value=True,
+            ) as mock_available,
             patch("demetra.services.daemons.deployer.run_deploy", new_callable=AsyncMock) as mock_deploy,
             patch("demetra.services.daemons.deployer.recreate_deployer", new_callable=AsyncMock) as mock_recreate,
             patch("demetra.services.daemons.deployer.connection") as mock_connection,
@@ -878,6 +896,7 @@ class TestRunDeployCycle:
                 "revision": mock_revision,
                 "ci": mock_ci,
                 "maintain": mock_maintain,
+                "available": mock_available,
                 "deploy": mock_deploy,
                 "recreate": mock_recreate,
                 "lock": lock,
@@ -1058,6 +1077,18 @@ class TestRunDeployCycle:
         await run_deploy_cycle()
 
         assert cycle_mocks["deploy"].await_count == 0
+
+    @pytest.mark.asyncio
+    async def test_skips_the_deploy_without_recording_a_failure_when_the_staging_slot_is_draining(self, cycle_mocks):
+        cycle_mocks["available"].return_value = False
+
+        await run_deploy_cycle()
+
+        cycle_mocks["available"].assert_awaited_once_with(checkout_path=DEPLOY["host_checkout"], state=ANY)
+        assert cycle_mocks["deploy"].await_count == 0
+        state = load_state(path=cycle_mocks["state_path"])
+        assert state.last_failed_sha is None
+        assert state.last_error is None
 
     @pytest.mark.asyncio
     async def test_failed_deploy_is_retried_on_the_next_cycle(self, cycle_mocks):

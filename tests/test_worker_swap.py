@@ -15,6 +15,7 @@ from demetra.services.daemons.worker_swap import (
     escalate_draining_workers,
     list_container_ids,
     list_containers_command,
+    list_service_image_ids,
     maintain_workers,
     other_slot,
     reap_service,
@@ -22,6 +23,7 @@ from demetra.services.daemons.worker_swap import (
     retire_staging_workers,
     run_swap_command,
     signal_command,
+    staging_slot_is_available,
     start_service_command,
     swap_workers,
     worker_service,
@@ -44,15 +46,25 @@ class TestSlotHelpers:
 
 class TestStepBudget:
     def test_covers_every_command_of_the_longest_swap_path(self):
-        retirement = 2 * WORKER_REPLICAS + 2
+        retirement = 2 * WORKER_REPLICAS + 3
         reaping = 4
-        staging_start = 1
+        staging_start_and_images = 2
         container_lists = 2
         restart_disable = 1
         signals = WORKER_REPLICAS
+        preflight_check = 1
         checkout_reads = 2
 
-        worst_case = retirement + reaping + staging_start + container_lists + restart_disable + signals + checkout_reads
+        worst_case = (
+            retirement
+            + reaping
+            + staging_start_and_images
+            + container_lists
+            + restart_disable
+            + signals
+            + preflight_check
+            + checkout_reads
+        )
 
         maintenance = 3 * reaping + 2 * WORKER_REPLICAS
         assert SWAP_STEP_BUDGET >= worst_case
@@ -168,6 +180,32 @@ class TestListContainerIds:
             "demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock, return_value=(False, "")
         ):
             assert await list_container_ids(checkout_path=CHECKOUT, service="worker-blue") is None
+
+
+class TestListServiceImageIds:
+    @pytest.mark.asyncio
+    async def test_reads_the_image_ids_of_the_service_from_compose(self):
+        with patch(
+            "demetra.services.daemons.worker_swap.run_swap_command",
+            new_callable=AsyncMock,
+            return_value=(True, "sha256:b\nsha256:a\nsha256:a"),
+        ) as mock_run:
+            assert await list_service_image_ids(checkout_path=CHECKOUT, service="worker-green") == [
+                "sha256:a",
+                "sha256:b",
+            ]
+
+        assert mock_run.await_args is not None
+        assert mock_run.await_args.kwargs["command"][-3:] == ["images", "--quiet", "worker-green"]
+
+    @pytest.mark.asyncio
+    async def test_returns_none_when_the_query_fails(self):
+        with patch(
+            "demetra.services.daemons.worker_swap.run_swap_command",
+            new_callable=AsyncMock,
+            return_value=(False, ""),
+        ):
+            assert await list_service_image_ids(checkout_path=CHECKOUT, service="worker-green") is None
 
 
 class TestReapService:
@@ -343,6 +381,111 @@ class TestRetireStagingWorkers:
                 is False
             )
 
+    @pytest.mark.asyncio
+    async def test_keeps_workers_still_running_the_image_of_a_failed_swap(self):
+        state = DeployState(staging_image_ids=["sha256:new"])
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1", "c2"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.list_service_image_ids",
+                new_callable=AsyncMock,
+                return_value=["sha256:new"],
+            ) as mock_images,
+            patch("demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock) as mock_run,
+        ):
+            assert await retire_staging_workers(checkout_path=CHECKOUT, service="worker-green", state=state) is True
+
+        mock_images.assert_awaited_once_with(checkout_path=CHECKOUT, service="worker-green")
+        mock_run.assert_not_awaited()
+        assert state.staging_image_ids == ["sha256:new"]
+
+    @pytest.mark.asyncio
+    async def test_force_stops_a_staging_generation_running_an_older_image(self):
+        state = DeployState(staging_image_ids=["sha256:new"])
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.list_service_image_ids",
+                new_callable=AsyncMock,
+                return_value=["sha256:old"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock, return_value=(True, "")
+            ) as mock_run,
+        ):
+            assert await retire_staging_workers(checkout_path=CHECKOUT, service="worker-green", state=state) is True
+
+        commands = [call.kwargs["command"] for call in mock_run.await_args_list]
+        assert remove_command(container_ids=["c1"], force=True) in commands
+        assert state.staging_image_ids == []
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_the_staging_image_cannot_be_read(self):
+        state = DeployState(staging_image_ids=["sha256:new"])
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.list_service_image_ids",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock) as mock_run,
+        ):
+            assert await retire_staging_workers(checkout_path=CHECKOUT, service="worker-green", state=state) is False
+
+        mock_run.assert_not_awaited()
+
+
+class TestStagingSlotIsAvailable:
+    @pytest.mark.asyncio
+    async def test_true_for_an_empty_slot(self):
+        with patch(
+            "demetra.services.daemons.worker_swap.list_container_ids", new_callable=AsyncMock, return_value=[]
+        ) as mock_ids:
+            assert await staging_slot_is_available(checkout_path=CHECKOUT, state=DeployState()) is True
+
+        mock_ids.assert_awaited_once_with(checkout_path=CHECKOUT, service="worker-green")
+
+    @pytest.mark.asyncio
+    async def test_true_for_workers_from_a_failed_swap_that_are_not_draining(self):
+        state = DeployState(staging_image_ids=["sha256:new"])
+
+        with patch(
+            "demetra.services.daemons.worker_swap.list_container_ids", new_callable=AsyncMock, return_value=["c1"]
+        ):
+            assert await staging_slot_is_available(checkout_path=CHECKOUT, state=state) is True
+
+    @pytest.mark.asyncio
+    async def test_false_while_a_worker_in_the_slot_is_draining(self):
+        state = DeployState(draining_workers={"c1": 10.0})
+
+        with patch(
+            "demetra.services.daemons.worker_swap.list_container_ids", new_callable=AsyncMock, return_value=["c1"]
+        ):
+            assert await staging_slot_is_available(checkout_path=CHECKOUT, state=state) is False
+
+    @pytest.mark.asyncio
+    async def test_false_when_the_slot_cannot_be_listed(self):
+        with patch(
+            "demetra.services.daemons.worker_swap.list_container_ids", new_callable=AsyncMock, return_value=None
+        ):
+            assert await staging_slot_is_available(checkout_path=CHECKOUT, state=DeployState()) is False
+
 
 class TestSwapWorkers:
     @pytest.fixture
@@ -352,6 +495,11 @@ class TestSwapWorkers:
             patch("demetra.services.daemons.worker_swap.reap_service", new_callable=AsyncMock) as mock_reap,
             patch("demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock) as mock_run,
             patch("demetra.services.daemons.worker_swap.list_container_ids", new_callable=AsyncMock) as mock_ids,
+            patch(
+                "demetra.services.daemons.worker_swap.list_service_image_ids",
+                new_callable=AsyncMock,
+                return_value=["sha256:new"],
+            ) as mock_images,
             patch("demetra.services.daemons.worker_swap.save_state") as mock_save,
             patch("demetra.services.daemons.worker_swap.time.time", return_value=1000.0),
         ):
@@ -364,6 +512,7 @@ class TestSwapWorkers:
                 "reap": mock_reap,
                 "run": mock_run,
                 "ids": mock_ids,
+                "images": mock_images,
                 "save": mock_save,
             }
 
@@ -537,6 +686,39 @@ class TestSwapWorkers:
         assert state.worker_slot == "blue"
         swap_mocks["save"].assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_checkpoints_the_staging_image_before_signalling_the_live_generation(self, swap_mocks):
+        state = DeployState(worker_slot="blue")
+        self._set_running(mocks=swap_mocks, containers={"worker-blue": ["c1"]})
+        swap_mocks["run"].side_effect = [(True, ""), (False, "")]
+
+        assert await swap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is False
+
+        swap_mocks["images"].assert_awaited_once_with(checkout_path=CHECKOUT, service="worker-green")
+        assert state.staging_image_ids == ["sha256:new"]
+        assert state.worker_slot == "blue"
+        swap_mocks["save"].assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_the_staging_image_cannot_be_read(self, swap_mocks):
+        state = DeployState(worker_slot="blue")
+        swap_mocks["images"].return_value = None
+
+        assert await swap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is False
+
+        swap_mocks["ids"].assert_not_awaited()
+        assert state.staging_image_ids == []
+        swap_mocks["save"].assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_clears_the_staging_image_once_the_slot_flips(self, swap_mocks):
+        state = DeployState(worker_slot="blue")
+
+        assert await swap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is True
+
+        assert state.worker_slot == "green"
+        assert state.staging_image_ids == []
+
 
 class TestBootstrapWorkers:
     @pytest.mark.asyncio
@@ -544,6 +726,11 @@ class TestBootstrapWorkers:
         state = DeployState(worker_slot="green")
 
         with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ) as mock_ids,
             patch(
                 "demetra.services.daemons.worker_swap.run_swap_command",
                 new_callable=AsyncMock,
@@ -556,11 +743,17 @@ class TestBootstrapWorkers:
         commands = [call.kwargs["command"] for call in mock_run.await_args_list]
         assert "worker-blue=0" in commands[0]
         assert "worker-green=4" in commands[1]
+        mock_ids.assert_awaited_once_with(checkout_path=CHECKOUT, service="worker-blue")
         mock_save.assert_called_once_with(path=STATE_PATH, state=state)
 
     @pytest.mark.asyncio
     async def test_a_fresh_state_boots_blue(self):
         with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "demetra.services.daemons.worker_swap.run_swap_command",
                 new_callable=AsyncMock,
@@ -575,8 +768,54 @@ class TestBootstrapWorkers:
         assert "worker-green=0" in commands[1]
 
     @pytest.mark.asyncio
+    async def test_keeps_a_non_live_slot_that_still_runs_workers(self):
+        state = DeployState(worker_slot="green")
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=["c1"],
+            ),
+            patch(
+                "demetra.services.daemons.worker_swap.run_swap_command",
+                new_callable=AsyncMock,
+                return_value=(True, ""),
+            ) as mock_run,
+            patch("demetra.services.daemons.worker_swap.save_state") as mock_save,
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is True
+
+        commands = [call.kwargs["command"] for call in mock_run.await_args_list]
+        assert commands == [start_service_command(checkout_path=CHECKOUT, service="worker-green", replicas=4)]
+        mock_save.assert_called_once_with(path=STATE_PATH, state=state)
+
+    @pytest.mark.asyncio
+    async def test_aborts_when_the_non_live_slot_cannot_be_listed(self):
+        state = DeployState(worker_slot="green")
+
+        with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=None,
+            ),
+            patch("demetra.services.daemons.worker_swap.run_swap_command", new_callable=AsyncMock) as mock_run,
+            patch("demetra.services.daemons.worker_swap.save_state") as mock_save,
+        ):
+            assert await bootstrap_workers(checkout_path=CHECKOUT, state_path=STATE_PATH, state=state) is False
+
+        mock_run.assert_not_awaited()
+        mock_save.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_aborts_when_a_slot_cannot_be_scaled(self):
         with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "demetra.services.daemons.worker_swap.run_swap_command",
                 new_callable=AsyncMock,
@@ -591,6 +830,11 @@ class TestBootstrapWorkers:
     @pytest.mark.asyncio
     async def test_reports_a_failed_state_checkpoint(self):
         with (
+            patch(
+                "demetra.services.daemons.worker_swap.list_container_ids",
+                new_callable=AsyncMock,
+                return_value=[],
+            ),
             patch(
                 "demetra.services.daemons.worker_swap.run_swap_command",
                 new_callable=AsyncMock,

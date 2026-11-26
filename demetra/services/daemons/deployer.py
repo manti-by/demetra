@@ -17,7 +17,12 @@ from redis.lock import Lock
 
 from demetra.library.models import DeployState
 from demetra.services.daemons.deploy_support import compose_command, default_state_path, load_state, save_state
-from demetra.services.daemons.worker_swap import SWAP_STEP_BUDGET, maintain_workers, swap_workers
+from demetra.services.daemons.worker_swap import (
+    SWAP_STEP_BUDGET,
+    maintain_workers,
+    staging_slot_is_available,
+    swap_workers,
+)
 from demetra.services.persistence.queue import connection
 from demetra.services.runtime.subprocess import run_command
 from demetra.settings import DEPLOY
@@ -720,7 +725,10 @@ async def run_deploy_cycle() -> None:
     failed self-recreate is not lost once the deploy is recorded as successful.
     Every state write made before the deploy gate takes the deploy lock and
     reloads the state inside it, so a swap completed by another daemon while
-    this cycle waited on CI is never overwritten by a retained snapshot.
+    this cycle waited on CI is never overwritten by a retained snapshot. The
+    staging slot is checked under the deploy lease before the first step: a
+    slot still draining defers the cycle without recording a failed deploy, so
+    no image is built or migration run until the swap can actually proceed.
     """
     checkout_path = DEPLOY["host_checkout"]
     state_path = default_state_path()
@@ -809,6 +817,9 @@ async def run_deploy_cycle() -> None:
         state = load_state(path=state_path)
         if not should_deploy(state=state, sha=sha, now=time.time()):
             logger.info(f"Deploy of {sha} is already recorded, skipping this cycle")
+            return
+        if not await staging_slot_is_available(checkout_path=checkout_path, state=state):
+            logger.info(f"Staging slot is still draining, deferring the deploy of {sha}")
             return
         logger.info(f"Deploying origin/master {sha}")
         succeeded = await run_deploy(checkout_path=checkout_path, sha=sha, state_path=state_path, state=state)

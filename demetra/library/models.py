@@ -359,6 +359,9 @@ class DeployState:
     ``worker_slot`` is the live worker generation; ``draining_workers`` maps a
     signalled container id to the time of its signal, so a container is never
     signalled twice and a hung one can be escalated to a forced kill.
+    ``staging_image_ids`` records the images started in the staging slot by the
+    last swap attempt, so a retry keeps those containers instead of mistaking
+    them for an older, never-signalled generation.
     """
 
     last_deployed_sha: str | None = None
@@ -368,6 +371,7 @@ class DeployState:
     pending_recreate: bool = False
     worker_slot: WorkerSlot = "blue"
     draining_workers: dict[str, float] = field(default_factory=dict)
+    staging_image_ids: list[str] = field(default_factory=list)
 
     @classmethod
     def from_payload(cls, payload: dict) -> Self:
@@ -395,6 +399,12 @@ class DeployState:
                     timestamp = finite_timestamp(value=signalled_at)
                     if timestamp > 0.0:
                         draining[container_id] = timestamp
+        raw_images = payload.get("staging_image_ids")
+        staging_image_ids = (
+            [image_id for image_id in raw_images if isinstance(image_id, str) and image_id]
+            if isinstance(raw_images, list)
+            else []
+        )
         return cls(
             last_deployed_sha=payload.get("last_deployed_sha"),
             last_deploy_at=last_deploy_at,
@@ -403,6 +413,7 @@ class DeployState:
             pending_recreate=bool(payload.get("pending_recreate")),
             worker_slot=worker_slot if worker_slot in ("blue", "green") else "blue",
             draining_workers=draining,
+            staging_image_ids=staging_image_ids,
         )
 
 
