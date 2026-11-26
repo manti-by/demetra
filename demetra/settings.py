@@ -55,6 +55,7 @@ MAX_ATTEMPTS: dict = {
     "rebase": env_get_int("MAX_REBASE_ATTEMPTS", 5),
     "listener": env_get_int("MAX_LISTENER_ATTEMPTS", 5),
     "research": env_get_int("MAX_RESEARCH_ATTEMPTS", 5),
+    "ci": env_get_int("MAX_CI_ATTEMPTS", 5),
 }
 
 SUBPROCESS_TIMEOUT = env_get_int("SUBPROCESS_TIMEOUT", 4 * 60 * 60)

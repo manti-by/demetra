@@ -1,14 +1,17 @@
+import time
 from pathlib import Path
 
-from demetra.library.exceptions import LintError
+from demetra.library.exceptions import BuildError, LintError
 from demetra.library.models import SessionEnvironment
+from demetra.services.agents.opencode import agent_failure_error, capture_agent_session, opencode_build_agent
 from demetra.services.llm.openrouter import ErrorSource, extract_errors
 from demetra.services.persistence.database import record_session_step, update_session_step
 from demetra.services.quality.lint import run_ruff_checks, run_ruff_format
 from demetra.services.quality.test import run_pytests
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import is_package_installed
-from demetra.settings import FEATURES
+from demetra.services.vcs.git import git_add_all, git_commit, git_force_push
+from demetra.settings import FEATURES, MAX_ATTEMPTS
 
 
 async def _extract_errors(
@@ -112,3 +115,126 @@ async def run_lint_and_test(
     if task_id:
         await update_session_step(task_id=task_id, step="lint")
     return False, None
+
+
+async def _commit_and_push_ci_fixes(
+    target_path: Path,
+    *,
+    branch_name: str,
+    task_title: str,
+    environment: SessionEnvironment | None,
+    project_id: str,
+) -> None:
+    """Commit any staged CI fixes, including ruff formatting, and push them."""
+    if await git_add_all(target_path=target_path, environment=environment, project_id=project_id):
+        await git_commit(
+            target_path=target_path,
+            message=f"fix: resolve CI failures for {task_title}",
+            environment=environment,
+            project_id=project_id,
+        )
+    await git_force_push(
+        target_path=target_path,
+        branch_name=branch_name,
+        environment=environment,
+        project_id=project_id,
+    )
+
+
+async def run_ci_loop(
+    target_path: Path,
+    *,
+    task_id: str,
+    project_id: str,
+    branch_name: str,
+    task_title: str,
+    session_id: str | None = None,
+    environment: SessionEnvironment | None = None,
+) -> bool:
+    """Run lint and tests, feeding failures back to the build agent.
+
+    Tickets and chats share the session step as their status, so a repair round
+    marks the session ``build``. At most ``MAX_ATTEMPTS["ci"]`` repair rounds run,
+    and the last repair is rechecked before the budget is declared exhausted. A
+    failed check with no captured output is still a failure: the build agent gets
+    a generic prompt instead of an empty task.
+
+    Args:
+        target_path: Directory to lint, test and repair.
+        task_id: Task identifier used for session steps and history rows.
+        project_id: Project id forwarded to the agent and the git helpers.
+        branch_name: Branch that receives the committed fixes.
+        task_title: Unique session title used for the agent invocation.
+        session_id: Optional opencode session id to resume.
+        environment: The resolved session environment.
+
+    Returns:
+        bool: True when lint and tests pass, False when the budget is exhausted.
+    """
+    await update_session_step(task_id=task_id, step="build")
+
+    for attempt in range(MAX_ATTEMPTS["ci"] + 1):
+        has_errors, errors = await run_lint_and_test(
+            target_path=target_path,
+            session_id=session_id,
+            task_id=task_id,
+            environment=environment,
+        )
+        if not has_errors:
+            await update_session_step(task_id=task_id, step="build")
+            await _commit_and_push_ci_fixes(
+                target_path=target_path,
+                branch_name=branch_name,
+                task_title=task_title,
+                environment=environment,
+                project_id=project_id,
+            )
+            return True
+        if not errors:
+            errors = "Lint or tests failed with no captured output; inspect the worktree and rerun the checks."
+        if attempt == MAX_ATTEMPTS["ci"]:
+            break
+
+        await update_session_step(task_id=task_id, step="build")
+        await record_session_step(task_id=task_id, step="build", repeat=True)
+
+        print_message("Running BUILD agent", style="heading")
+        invoked_at = int(time.time() * 1000)
+        exit_code, stdout, stderr = await opencode_build_agent(
+            target_path=target_path,
+            task=errors,
+            session_id=session_id,
+            task_title=task_title,
+            project_id=project_id,
+            environment=environment,
+        )
+        if exit_code != 0:
+            raise agent_failure_error(
+                agent="build-agent",
+                exit_code=exit_code,
+                stdout=stdout,
+                stderr=stderr,
+                fallback=BuildError,
+            )
+
+        await capture_agent_session(
+            task_id=task_id,
+            step="build",
+            target_path=target_path,
+            task_title=task_title,
+            session_id=session_id,
+            environment=environment,
+            invoked_at=invoked_at,
+        )
+
+        await _commit_and_push_ci_fixes(
+            target_path=target_path,
+            branch_name=branch_name,
+            task_title=task_title,
+            environment=environment,
+            project_id=project_id,
+        )
+
+    await update_session_step(task_id=task_id, step="build")
+    print_message(f"CI budget exhausted after {MAX_ATTEMPTS['ci']} repair attempts.", style="warning")
+    return False

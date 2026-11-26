@@ -68,6 +68,7 @@ class TestSettings:
             "MAX_REBASE_ATTEMPTS",
             "MAX_LISTENER_ATTEMPTS",
             "MAX_RESEARCH_ATTEMPTS",
+            "MAX_CI_ATTEMPTS",
         ):
             monkeypatch.delenv(name, raising=False)
         import importlib
@@ -86,6 +87,7 @@ class TestSettings:
                 "rebase": 5,
                 "listener": 5,
                 "research": 5,
+                "ci": 5,
             }
         finally:
             importlib.reload(settings_module)
@@ -93,6 +95,7 @@ class TestSettings:
     def test_attempts_env_override(self, monkeypatch):
         monkeypatch.setenv("MAX_RUN_ATTEMPTS", "7")
         monkeypatch.setenv("MAX_PLAN_ATTEMPTS", "5")
+        monkeypatch.setenv("MAX_CI_ATTEMPTS", "2")
         import importlib
 
         import demetra.settings as settings_module
@@ -102,9 +105,11 @@ class TestSettings:
         try:
             assert settings_module.MAX_ATTEMPTS["run"] == 7
             assert settings_module.MAX_ATTEMPTS["plan"] == 5
+            assert settings_module.MAX_ATTEMPTS["ci"] == 2
         finally:
             monkeypatch.delenv("MAX_RUN_ATTEMPTS", raising=False)
             monkeypatch.delenv("MAX_PLAN_ATTEMPTS", raising=False)
+            monkeypatch.delenv("MAX_CI_ATTEMPTS", raising=False)
             importlib.reload(settings_module)
 
     def test_git_worktree_path_default(self):

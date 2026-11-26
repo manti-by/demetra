@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from demetra.library.exceptions import DemetraError
 from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.chat import resolve_task_by_id
 from demetra.services.persistence.database import (
@@ -8,6 +9,7 @@ from demetra.services.persistence.database import (
     get_project_environments,
     get_session,
     get_user_environments_decrypted,
+    update_session_step,
 )
 from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.utils import setup_session_logging
@@ -15,6 +17,7 @@ from demetra.services.vcs.git import git_fetch, git_worktree_create, git_worktre
 from demetra.services.vcs.github import get_pr_info
 from demetra.services.vcs.rebase import perform_git_rebase
 from demetra.services.wiki import write_session_wiki_page
+from demetra.workflows.lint import run_ci_loop
 
 
 logger = logging.getLogger(__name__)
@@ -41,12 +44,15 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
         return False
 
     await setup_session_logging(task_id=session.task_id)
+    await update_session_step(task_id=task_id, step="build")
+    final_step: str = "failed"
 
     logger.info(f"Starting rebase workflow for PR #{pr_number} in {full_name}")
 
     project_data = await get_project_by_id_system(project_id=project_id)
     if not project_data:
         logger.error(f"Project not found for project_id: {project_id}")
+        await update_session_step(task_id=task_id, step=final_step)
         return False
 
     project = Project(**project_data)
@@ -97,9 +103,19 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
         )
         if rebase_succeeded:
             logger.info(f"Successfully rebased and resolved conflicts for PR #{pr_number}")
-            return True
+            ci_succeeded = await run_ci_loop(
+                target_path=worktree_path,
+                task_id=task_id,
+                project_id=project.id,
+                branch_name=head_branch,
+                task_title=f"{full_name} #{pr_number} - rebase",
+                session_id=session.session_id,
+                environment=environment,
+            )
+            final_step = "completed" if ci_succeeded else "failed"
+            return ci_succeeded
 
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, DemetraError) as e:
         logger.error(f"Failed to process rebase for PR #{pr_number}: {e}")
         return False
 
@@ -130,5 +146,6 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
                 )
             except (OSError, RuntimeError):
                 logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
+        await update_session_step(task_id=task_id, step=final_step)
 
     return False

@@ -1,6 +1,7 @@
 import logging
 from pathlib import Path
 
+from demetra.library.exceptions import DemetraError
 from demetra.library.models import Context, Project, SessionEnvironment
 from demetra.services.chat import resolve_task_by_id
 from demetra.services.persistence.database import (
@@ -8,6 +9,7 @@ from demetra.services.persistence.database import (
     get_project_environments,
     get_session,
     get_user_environments_decrypted,
+    update_session_step,
 )
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.project import setup_project_venv
@@ -17,6 +19,7 @@ from demetra.services.vcs.github import get_pr_info
 from demetra.services.vcs.merge import perform_git_merge
 from demetra.services.wiki import run_wiki_revalidation, write_session_wiki_page
 from demetra.settings import WIKI
+from demetra.workflows.lint import run_ci_loop
 
 
 logger = logging.getLogger(__name__)
@@ -43,12 +46,15 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
         return False
 
     await setup_session_logging(task_id=session.task_id)
+    await update_session_step(task_id=task_id, step="build")
+    final_step: str = "failed"
 
     logger.info(f"Starting merge workflow for PR #{pr_number} in {full_name}")
 
     project_data = await get_project_by_id_system(project_id=project_id)
     if not project_data:
         logger.error(f"Project not found for project_id: {project_id}")
+        await update_session_step(task_id=task_id, step=final_step)
         return False
 
     project = Project(**project_data)
@@ -99,9 +105,19 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
         )
         if merge_succeeded:
             logger.info(f"Successfully merged and resolved conflicts for PR #{pr_number}")
-            return True
+            ci_succeeded = await run_ci_loop(
+                target_path=worktree_path,
+                task_id=task_id,
+                project_id=project.id,
+                branch_name=head_branch,
+                task_title=f"{full_name} #{pr_number} - merge",
+                session_id=session.session_id,
+                environment=environment,
+            )
+            final_step = "completed" if ci_succeeded else "failed"
+            return ci_succeeded
 
-    except (OSError, RuntimeError) as e:
+    except (OSError, RuntimeError, DemetraError) as e:
         logger.error(f"Failed to process merge for PR #{pr_number}: {e}")
         return False
 
@@ -137,5 +153,6 @@ async def run_merge_workflow(task_id: str, project_id: str, pr_number: int, full
                 )
             except (OSError, RuntimeError):
                 logger.warning(msg=f"Failed to clean up worktree at {worktree_path}")
+        await update_session_step(task_id=task_id, step=final_step)
 
     return False

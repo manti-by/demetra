@@ -8,6 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
+- [MNT-322: Run CI after merge](pages/2026-11-26-mnt-322-run-ci-after-merge.md) — Implementation of MNT-322: Run CI after merge (2026-11-26)
 - [Blue-green worker deployment research for the home Ubuntu server](pages/2026-11-25-blue-green-worker-deploy-research.md) — Compares a two-slot Compose blue/green worker swap inside the existing deploy daemon, Docker Swarm mode and third-party rolling-deploy helpers against the current drain-the-queue-then-force-recreate path, and recommends the two-slot swap because RQ already drains the running job on the first SIGTERM, so the deploy no longer has to wait for a workflow to finish. (2026-11-25)
 - [Deploy deadlock from an interrupted recreate and a misconfigured deployer](pages/2026-11-25-deploy-deadlock-container-cleanup.md) — A fully down Demetra stack was repaired: an interrupted `compose up --force-recreate` left nine `Created` orphans while Redis was stopped, deadlocking the manual deploy lock, and the containerized deployer looked for Docker at `/usr/bin/docker` instead of the image's `/usr/local/bin/docker`; `DOCKER_PATH` is now pinned in compose and the deployer rebuilt and recreated the stack. (2026-11-25)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — MNT-320 fixed builds forking an empty session id, which the OpenCode CLI rejected with "--fork requires --continue or --session" — empty ids are now normalised to NULL across the model, workflow, agent and database layers, with a migration backfilling existing rows. (2026-11-24)
@@ -120,8 +121,9 @@ _Newest first._
 
 ## By topic
 
-### Workflow orchestration & agents (23 pages)
+### Workflow orchestration & agents (24 pages)
 
+- [MNT-322: Run CI after merge and rebase](pages/2026-11-26-mnt-322-run-ci-after-merge.md)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md)
 - [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md)
 - [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
@@ -203,6 +205,7 @@ _Newest first._
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
 - [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
+- [MNT-322: Run CI after merge](pages/2026-11-26-mnt-322-run-ci-after-merge.md) — 2026-11-26
 
 ### Deploy & infrastructure (11 pages)
 
