@@ -26,6 +26,7 @@ FULL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 RESOLVE_REVIEW_THREAD_QUERY = (
     "mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id isResolved}}}"
 )
+REACTION_TIMEOUT = 30
 
 
 def _thread_comments(thread: dict) -> list[dict]:
@@ -487,6 +488,7 @@ async def react_to_comment(
             environment=environment,
             project_id=project_id,
             disable_stdio=True,
+            timeout=REACTION_TIMEOUT,
         )
     except (OSError, RuntimeError) as e:
         logger.warning(f"Failed to react to GitHub comment {comment_id}: {e}")

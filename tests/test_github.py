@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from demetra.services.vcs.github import (
+    REACTION_TIMEOUT,
     _is_pr_authorization,
     clone_repo,
     create_pull_request,
@@ -589,9 +590,27 @@ class TestReactToComment:
         assert mock_run.await_args.kwargs["disable_stdio"] is True
 
     @pytest.mark.asyncio
+    async def test_uses_short_timeout(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "", "")
+            await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert mock_run.await_args is not None
+        assert mock_run.await_args.kwargs["timeout"] == REACTION_TIMEOUT
+        assert REACTION_TIMEOUT < 60
+
+    @pytest.mark.asyncio
     async def test_returns_false_on_api_failure(self):
         with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
             mock_run.return_value = (1, "", "API error")
+            result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_timeout(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (-1, "", "Command timed out\n")
             result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
 
         assert result is False
