@@ -22,6 +22,7 @@ from demetra.library.exceptions import (
 )
 from demetra.library.models import (
     Chat,
+    ChatMessage,
     Context,
     LinearTask,
     Project,
@@ -396,6 +397,147 @@ class TestWorkflowPlan:
     def mock_save_session(self):
         with patch("demetra.workflows.plan.save_session", new_callable=AsyncMock) as m:
             yield m
+
+    @pytest.mark.asyncio
+    async def test_run_plan_step_compiles_answers_and_resumes_the_plan_session(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+        mock_extract_questions,
+        mock_save_session,
+    ):
+        question = ChatMessage(
+            id="q1",
+            task_id="CH-1",
+            body="## Question:\nWhich database?",
+            created_at=datetime.now().isoformat(),
+            is_system=True,
+            kind="question",
+        )
+        answer = ChatMessage(
+            id="a1",
+            task_id="CH-1",
+            body="Postgres",
+            created_at=datetime.now().isoformat(),
+            related_id="q1",
+            kind="answer",
+        )
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            task=Chat(id="CH-1", identifier="CH-1", title="Test chat", description="Build it"),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="CH-1",
+                session_id="ses-1",
+                build_plan="",
+                posted_to_linear=False,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+        mock_plan_agent.return_value = (0, "## Implementation Plan\nsteps", "")
+        mock_extract_plan.return_value = "build plan"
+        mock_extract_questions.return_value = []
+
+        with (
+            patch(
+                "demetra.workflows.plan.list_chat_messages",
+                new_callable=AsyncMock,
+                return_value=[question, answer],
+            ),
+            patch("demetra.workflows.plan.mark_messages_added_to_context", new_callable=AsyncMock) as mock_mark,
+        ):
+            result = await run_plan_step(context)
+
+        assert result == "build plan"
+        prompt = mock_plan_agent.call_args.kwargs["task"]
+        assert "Answers to your questions:" in prompt
+        assert "1. Question: Which database?\n   Answer: Postgres" in prompt
+        assert mock_plan_agent.call_args.kwargs["session_id"] == "ses-1"
+        mock_mark.assert_awaited_once_with(message_ids=["q1", "a1"])
+
+    @pytest.mark.asyncio
+    async def test_run_plan_step_keeps_answers_when_the_plan_output_is_invalid(
+        self,
+        faker,
+        mock_plan_agent,
+        mock_extract_plan,
+        mock_extract_questions,
+        mock_save_session,
+    ):
+        question = ChatMessage(
+            id="q1",
+            task_id="CH-1",
+            body="## Question:\nWhich database?",
+            created_at=datetime.now().isoformat(),
+            is_system=True,
+            kind="question",
+        )
+        answer = ChatMessage(
+            id="a1",
+            task_id="CH-1",
+            body="Postgres",
+            created_at=datetime.now().isoformat(),
+            related_id="q1",
+            kind="answer",
+        )
+        context = Context(
+            project=Project(
+                id=str(uuid4()),
+                user_id=str(uuid4()),
+                linear_project_id=str(uuid4()),
+                name="demetra",
+                state="active",
+                repository_url="https://github.com/test/demetra",
+                repository_name="demetra",
+                repository_owner="test",
+                local_path=Path(f"/tmp/{faker.slug()}"),
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+            auto_mode=False,
+            task=Chat(id="CH-1", identifier="CH-1", title="Test chat", description="Build it"),
+            branch_name="feature/test",
+            worktree_path=Path(f"/tmp/{faker.slug()}"),
+            session=Session(
+                task_id="CH-1",
+                session_id="ses-1",
+                build_plan="",
+                posted_to_linear=False,
+                created_at=datetime.now().isoformat(),
+                updated_at=datetime.now().isoformat(),
+            ),
+        )
+        mock_plan_agent.return_value = (0, "no plan header", "")
+
+        with (
+            patch(
+                "demetra.workflows.plan.list_chat_messages",
+                new_callable=AsyncMock,
+                return_value=[question, answer],
+            ),
+            patch("demetra.workflows.plan.mark_messages_added_to_context", new_callable=AsyncMock) as mock_mark,
+            patch("demetra.workflows.plan.notify_message", new_callable=AsyncMock),
+            pytest.raises(AutoCancelledError),
+        ):
+            await run_plan_step(context)
+
+        mock_mark.assert_not_awaited()
 
     @pytest.mark.asyncio
     async def test_run_plan_step_returns_build_plan(

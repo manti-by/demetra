@@ -6,6 +6,7 @@ import { SessionStateFlow } from "./SessionStateFlow";
 import {
   getChat,
   postChatMessage,
+  postQuestionAnswer,
   rerunChat,
   type ChatDetail,
   type ChatMessage,
@@ -16,6 +17,7 @@ const POLL_INTERVAL = 5000;
 
 const MESSAGE_LABELS: Record<string, string> = {
   question: "Question",
+  answer: "Answer",
   plan: "Build plan",
   failure: "Failure",
   research: "Research report",
@@ -113,12 +115,16 @@ export function ChatPanel({
   const [actionError, setActionError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [answerDrafts, setAnswerDrafts] = useState<Record<string, string>>({});
+  const [answering, setAnswering] = useState<Record<string, boolean>>({});
   const requestIdRef = useRef(0);
   const deletingTaskIdsRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     requestIdRef.current += 1;
     setDraft("");
+    setAnswerDrafts({});
+    setAnswering({});
     setLoadError(null);
     setActionError(null);
   }, [taskId]);
@@ -161,6 +167,25 @@ export function ChatPanel({
     }
   }, [taskId, draft, load]);
 
+  const handleAnswer = useCallback(
+    async (questionId: string) => {
+      const body = answerDrafts[questionId]?.trim();
+      if (!body) return;
+      setActionError(null);
+      setAnswering((previous) => ({ ...previous, [questionId]: true }));
+      try {
+        await postQuestionAnswer(taskId, questionId, body);
+        setAnswerDrafts((previous) => ({ ...previous, [questionId]: "" }));
+        await load();
+      } catch (e) {
+        setActionError(e instanceof Error ? e.message : "Failed to send answer");
+      } finally {
+        setAnswering((previous) => ({ ...previous, [questionId]: false }));
+      }
+    },
+    [answerDrafts, load, taskId],
+  );
+
   const handleRerun = useCallback(async () => {
     setActionError(null);
     try {
@@ -188,6 +213,11 @@ export function ChatPanel({
   const isResearch = detail?.session?.is_research ?? false;
   const feedbackLoops = detail?.session?.feedback_loops ?? null;
   const canRerun = RERUN_STEPS.includes(step);
+  const questionIds = new Set(
+    (detail?.messages ?? [])
+      .filter((message) => message.kind === "question")
+      .map((message) => message.id),
+  );
 
   return (
     <div className="chat-panel">
@@ -259,9 +289,59 @@ export function ChatPanel({
               {detail.messages.length === 0 ? (
                 <div className="chat-empty">No messages yet.</div>
               ) : (
-                detail.messages.map((message) => (
-                  <MessageBubble key={message.id} message={message} />
-                ))
+                detail.messages.map((message) => {
+                  if (
+                    message.kind === "answer" &&
+                    message.related_id &&
+                    questionIds.has(message.related_id)
+                  ) {
+                    return null;
+                  }
+                  if (message.kind !== "question") {
+                    return <MessageBubble key={message.id} message={message} />;
+                  }
+                  const answers = detail.messages.filter(
+                    (candidate) =>
+                      candidate.kind === "answer" && candidate.related_id === message.id,
+                  );
+                  const draftValue = answerDrafts[message.id] ?? "";
+                  const pending = answering[message.id] ?? false;
+                  return (
+                    <div className="chat-question-row" key={message.id}>
+                      <div className="chat-question-content">
+                        <MessageBubble message={message} />
+                      </div>
+                      <div className="chat-answer-form">
+                        <input
+                          className="form-input chat-answer-input"
+                          placeholder="Your answer..."
+                          value={draftValue}
+                          onChange={(e) =>
+                            setAnswerDrafts((previous) => ({
+                              ...previous,
+                              [message.id]: e.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="btn-primary chat-answer-submit"
+                          onClick={() => handleAnswer(message.id)}
+                          disabled={pending || !draftValue.trim()}
+                        >
+                          {pending ? "Sending..." : "Answer"}
+                        </button>
+                      </div>
+                      {answers.length > 0 && (
+                        <div className="chat-answer-list">
+                          {answers.map((answer) => (
+                            <MessageBubble key={answer.id} message={answer} />
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
               )}
             </div>
 

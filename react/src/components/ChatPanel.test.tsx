@@ -1,10 +1,11 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom/vitest';
 import { ChatPanel } from './ChatPanel';
 import {
   getChat,
   postChatMessage,
+  postQuestionAnswer,
   rerunChat,
   type ChatDetail,
   type ChatMessage,
@@ -14,6 +15,7 @@ import {
 vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getChat: vi.fn(),
   postChatMessage: vi.fn(),
+  postQuestionAnswer: vi.fn(),
   rerunChat: vi.fn(),
 }));
 
@@ -41,6 +43,7 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
         id: 'm1',
         task_id: 'CH-1',
         parent_id: null,
+        related_id: null,
         source: 'chat',
         external_id: null,
         body: 'Started working on it',
@@ -48,6 +51,7 @@ function makeDetail(overrides: Partial<ChatDetail> = {}): ChatDetail {
         author_id: null,
         author_name: null,
         is_system: true,
+        is_added_to_context: false,
         kind: 'status',
       },
     ],
@@ -61,6 +65,7 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     id: 'm-md',
     task_id: 'CH-1',
     parent_id: null,
+    related_id: null,
     source: 'chat',
     external_id: null,
     body: '## Heading\n\nSome **bold** text',
@@ -68,12 +73,17 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     author_id: null,
     author_name: null,
     is_system: true,
+    is_added_to_context: false,
     kind: 'message',
     ...overrides,
   };
 }
 
 describe('ChatPanel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders the chat title with its task id and messages', async () => {
     vi.mocked(getChat).mockResolvedValue(makeDetail());
 
@@ -376,5 +386,61 @@ describe('ChatPanel', () => {
     await waitFor(() => {
       expect(screen.queryByText('send failed')).not.toBeInTheDocument();
     });
+  });
+
+  it('renders one answer input per question', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        messages: [
+          makeMessage({ id: 'q1', kind: 'question', body: '## Question:\nFirst?' }),
+          makeMessage({ id: 'q2', kind: 'question', body: '## Question:\nSecond?' }),
+        ],
+      }),
+    );
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    await screen.findByText('First?');
+    expect(screen.getByText('Second?')).toBeInTheDocument();
+    expect(screen.getAllByPlaceholderText('Your answer...')).toHaveLength(2);
+    expect(screen.getAllByText('Answer')).toHaveLength(2);
+  });
+
+  it('posts an answer to its question without rerunning the workflow', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        messages: [makeMessage({ id: 'q1', kind: 'question', body: '## Question:\nWhich database?' })],
+      }),
+    );
+    vi.mocked(postQuestionAnswer).mockResolvedValue({
+      message: makeMessage({ id: 'a1', kind: 'answer', body: 'Postgres', related_id: 'q1' }),
+    });
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    const input = await screen.findByPlaceholderText('Your answer...');
+    fireEvent.change(input, { target: { value: 'Postgres' } });
+    fireEvent.click(screen.getByText('Answer'));
+
+    await waitFor(() => {
+      expect(postQuestionAnswer).toHaveBeenCalledWith('CH-1', 'q1', 'Postgres');
+    });
+    expect(rerunChat).not.toHaveBeenCalled();
+  });
+
+  it('renders stored answers under their question', async () => {
+    vi.mocked(getChat).mockResolvedValue(
+      makeDetail({
+        messages: [
+          makeMessage({ id: 'q1', kind: 'question', body: '## Question:\nWhich database?' }),
+          makeMessage({ id: 'a1', kind: 'answer', body: 'Postgres', related_id: 'q1', is_system: false }),
+        ],
+      }),
+    );
+
+    render(<ChatPanel taskId="CH-1" />);
+
+    expect(await screen.findByText('Postgres')).toBeInTheDocument();
+    expect(screen.getAllByText('Answer').length).toBeGreaterThan(0);
   });
 });

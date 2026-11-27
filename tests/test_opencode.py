@@ -159,6 +159,7 @@ class TestOpencodeService:
             target_path=Path("/test/path"),
             task=expected_task,
             task_title="do something",
+            session_id=None,
             model=OPENCODE["plan_model"],
             agent="plan-agent",
             project_id=None,
@@ -166,6 +167,14 @@ class TestOpencodeService:
             retry_on_classified_failure=True,
         )
         assert result == "plan result"
+
+    @pytest.mark.asyncio
+    async def test_plan_agent_forwards_a_stored_session(self, mock_run_opencode_agent):
+        mock_run_opencode_agent.return_value = (0, "plan result", "")
+
+        await opencode_plan_agent(Path("/test/path"), "answers", session_id="session-123")
+
+        assert mock_run_opencode_agent.call_args.kwargs["session_id"] == "session-123"
 
     @pytest.mark.asyncio
     async def test_build_agent_modifies_task_with_instructions(self, mock_run_opencode_agent):

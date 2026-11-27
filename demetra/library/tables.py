@@ -59,16 +59,19 @@ messages = Table(
     Column("id", String(), primary_key=True),
     Column("task_id", String(), ForeignKey("tasks.id", ondelete="CASCADE"), nullable=False),
     Column("parent_id", String(), ForeignKey("messages.id", ondelete="CASCADE"), nullable=True),
+    Column("related_id", String(), ForeignKey("messages.id", ondelete="CASCADE"), nullable=True),
     Column("source", String(), nullable=False, server_default="chat"),
     Column("external_id", String(), nullable=True),
     Column("author_id", String(), ForeignKey("users.id", ondelete="SET NULL"), nullable=True),
     Column("author_name", String(), nullable=True),
     Column("is_system", Boolean(), nullable=False, server_default="false"),
+    Column("is_added_to_context", Boolean(), nullable=False, server_default="false"),
     Column("kind", String(), nullable=False, server_default="message"),
     Column("body", Text(), nullable=False),
     Column("created_at", DateTime(timezone=True), nullable=False),
     Index("ix_messages_task_id", "task_id"),
     Index("ix_messages_parent_id", "parent_id"),
+    Index("ix_messages_related_id", "related_id"),
     Index(
         "uq_messages_external_id",
         "external_id",
@@ -77,7 +80,7 @@ messages = Table(
     ),
     CheckConstraint("source IN ('chat', 'linear')", name="ck_messages_source"),
     CheckConstraint(
-        "kind IN ('message', 'question', 'plan', 'failure', 'research', 'status', 'comment')",
+        "kind IN ('message', 'question', 'answer', 'plan', 'failure', 'research', 'status', 'comment')",
         name="ck_messages_kind",
     ),
 )

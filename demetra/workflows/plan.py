@@ -16,8 +16,15 @@ from demetra.services.agents.opencode import (
     capture_agent_session,
     opencode_plan_agent,
 )
+from demetra.services.chat.tasks import QUESTION_HEADER, compile_question_answers
 from demetra.services.llm.openrouter import extract_plan, extract_questions
-from demetra.services.persistence.database import clear_session_build_plan, save_session, update_session_step
+from demetra.services.persistence.database import (
+    clear_session_build_plan,
+    list_chat_messages,
+    mark_messages_added_to_context,
+    save_session,
+    update_session_step,
+)
 from demetra.services.runtime.flow import user_input
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import NO_ISSUE_TOKENS
@@ -117,6 +124,14 @@ async def run_plan_step(context: Context) -> str | None:
         InfiniteLoopError: When the plan loop attempt budget is exhausted.
     """
     current_task: str = context.task.text
+    answer_ids: list[str] = []
+    if context.is_chat:
+        question_block, answer_ids = compile_question_answers(
+            messages=await list_chat_messages(task_id=context.task.id)
+        )
+        if question_block:
+            current_task = f"{current_task}\n\nAnswers to your questions:\n{question_block}"
+
     plan_attempts = MAX_ATTEMPTS["plan"] if context.plan_loop else 1
     while plan_attempts > 0:
         print_message("Running PLAN agent", style="heading")
@@ -129,6 +144,7 @@ async def run_plan_step(context: Context) -> str | None:
             task_title=context.task.full_title,
             project_id=context.project.id,
             environment=context.environment,
+            session_id=context.session_id if answer_ids else None,
         )
         if exit_code != 0:
             raise agent_failure_error(
@@ -184,6 +200,8 @@ async def run_plan_step(context: Context) -> str | None:
             linear_link=context.task.url,
             kind=context.task.kind,
         )
+        if answer_ids:
+            await mark_messages_added_to_context(message_ids=answer_ids)
         if context.session_id:
             print_message(f"Saved session {context.session_id}.", style="result")
         else:
@@ -229,7 +247,7 @@ async def run_plan_step(context: Context) -> str | None:
             destination = "the chat thread" if context.is_chat else "Linear"
             print_message(f"Auto mode: posting questions to {destination} and exiting.", style="heading")
             for question in questions:
-                if not await notify_message(context=context, body=f"## Question:\n{question}", kind="question"):
+                if not await notify_message(context=context, body=f"{QUESTION_HEADER}\n{question}", kind="question"):
                     print_message(f"Failed to post question to {destination}", style="error")
 
             await move_to_awaiting_input(
