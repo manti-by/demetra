@@ -11,6 +11,9 @@ from demetra.library.exceptions import (
 )
 
 
+CODERABBIT_AUTHOR_LOGINS: tuple[str, ...] = ("coderabbitai[bot]", "coderabbitai")
+
+
 SEARCH_STOP_WORDS: frozenset[str] = frozenset(
     {
         "a",

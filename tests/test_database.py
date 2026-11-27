@@ -1,3 +1,5 @@
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
@@ -6,6 +8,7 @@ from sqlalchemy import text
 from demetra.library.models import ModelPrice, TokenUsage, ToolUsage
 from demetra.services.persistence.database import (
     _get_feedback_loops,
+    create_project,
     create_session,
     delete_session,
     get_connection,
@@ -1099,6 +1102,120 @@ class TestDeleteSessionCascade:
 
         assert deleted is True
         assert await get_session_history(task_id=task_id) == []
+        assert await get_session(task_id) is None
+
+
+class TestDeleteSessionWorktree:
+    @pytest.mark.asyncio
+    async def test_removes_existing_worktree_with_force(self, tmp_path: Path):
+        user_id = str(uuid4())
+        task_id = _unique_task_id()
+        project = await create_project(
+            user_id=user_id,
+            name="demo",
+            repository_url="https://github.com/acme/demo.git",
+            repository_owner="acme",
+            repository_name="demo",
+            local_path=str(tmp_path / "checkout"),
+        )
+        await upsert_pending_session(
+            task_id=task_id,
+            session_id=_unique_session_id(),
+            project_id=project["id"],
+            user_id=user_id,
+            name="MNT-326: Drop worktree",
+            kind="chat",
+        )
+        worktree_path = tmp_path / "worktrees" / "acme" / "demo" / "mnt-326-drop-worktree"
+
+        with (
+            patch("demetra.services.vcs.git.git_worktree_exists", return_value=True) as mock_exists,
+            patch("demetra.services.vcs.git.get_worktree_path", return_value=worktree_path) as mock_path,
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+        ):
+            assert await delete_session(task_id=task_id, user_id=user_id) is True
+
+        assert await get_session(task_id) is None
+        mock_exists.assert_called_once()
+        mock_path.assert_called_once()
+        assert mock_path.call_args.kwargs["branch_name"] == "mnt-326-drop-worktree"
+        mock_remove.assert_awaited_once_with(
+            target_path=tmp_path / "checkout",
+            worktree_path=worktree_path,
+            force=True,
+            project_id=project["id"],
+        )
+
+    @pytest.mark.asyncio
+    async def test_skips_removal_when_worktree_is_absent(self, tmp_path: Path):
+        user_id = str(uuid4())
+        task_id = _unique_task_id()
+        project = await create_project(
+            user_id=user_id,
+            name="demo",
+            repository_url="https://github.com/acme/demo.git",
+            repository_owner="acme",
+            repository_name="demo",
+            local_path=str(tmp_path / "checkout"),
+        )
+        await upsert_pending_session(
+            task_id=task_id,
+            session_id=_unique_session_id(),
+            project_id=project["id"],
+            user_id=user_id,
+            name="MNT-326: Drop worktree",
+        )
+
+        with (
+            patch("demetra.services.vcs.git.git_worktree_exists", return_value=False),
+            patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove,
+        ):
+            assert await delete_session(task_id=task_id, user_id=user_id) is True
+
+        mock_remove.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_skips_removal_without_a_project(self):
+        user_id = str(uuid4())
+        task_id = _unique_task_id()
+        await upsert_pending_session(task_id=task_id, session_id=_unique_session_id(), user_id=user_id)
+
+        with patch("demetra.services.vcs.git.git_worktree_remove", new_callable=AsyncMock) as mock_remove:
+            assert await delete_session(task_id=task_id, user_id=user_id) is True
+
+        mock_remove.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_removal_failure_does_not_fail_deletion(self, tmp_path: Path):
+        user_id = str(uuid4())
+        task_id = _unique_task_id()
+        project = await create_project(
+            user_id=user_id,
+            name="demo",
+            repository_url="https://github.com/acme/demo.git",
+            repository_owner="acme",
+            repository_name="demo",
+            local_path=str(tmp_path / "checkout"),
+        )
+        await upsert_pending_session(
+            task_id=task_id,
+            session_id=_unique_session_id(),
+            project_id=project["id"],
+            user_id=user_id,
+            name="MNT-326: Drop worktree",
+        )
+
+        with (
+            patch("demetra.services.vcs.git.git_worktree_exists", return_value=True),
+            patch("demetra.services.vcs.git.get_worktree_path", return_value=tmp_path / "worktree"),
+            patch(
+                "demetra.services.vcs.git.git_worktree_remove",
+                new_callable=AsyncMock,
+                side_effect=RuntimeError("worktree busy"),
+            ),
+        ):
+            assert await delete_session(task_id=task_id, user_id=user_id) is True
+
         assert await get_session(task_id) is None
 
 

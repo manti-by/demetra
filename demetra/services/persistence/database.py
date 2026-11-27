@@ -6,6 +6,7 @@ import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy import Column, Insert, and_, case, create_engine, delete, func, insert, select, text, update
@@ -20,6 +21,7 @@ from demetra.library.models import (
     Message,
     MessageSource,
     ModelPrice,
+    Project,
     Session,
     SessionHistory,
     SessionState,
@@ -3894,12 +3896,37 @@ async def claim_session_for_resume(task_id: str, allowed_steps: tuple[str, ...] 
     return getattr(result, "rowcount", 0) > 0
 
 
+async def _remove_session_worktree(project: Project, branch_name: str) -> None:
+    """Force-remove the worktree a session used, when one is still present.
+
+    The VCS helpers are imported here because the vcs package facade imports
+    github, which in turn imports this module.
+
+    Args:
+        project: The project that owns the worktree.
+        branch_name: The branch the worktree was created for.
+    """
+    from demetra.services.vcs.git import get_worktree_path, git_worktree_exists, git_worktree_remove
+
+    if not git_worktree_exists(project=project, branch_name=branch_name):
+        return
+
+    await git_worktree_remove(
+        target_path=project.local_path,
+        worktree_path=get_worktree_path(project=project, branch_name=branch_name),
+        force=True,
+        project_id=project.id,
+    )
+
+
 async def delete_session(task_id: str, user_id: str) -> bool:
-    """Delete a user-scoped session and its log file.
+    """Delete a user-scoped session, its log file and its worktree.
 
     The session, its history, its agent sessions and the chat task are
     deleted in one transaction, so a failure never leaves a chat task, a chat
-    row and its messages behind without a session.
+    row and its messages behind without a session. Worktree removal is
+    best-effort after the commit, so a worktree that cannot be removed does
+    not fail an otherwise successful deletion.
 
     Args:
         task_id: The Linear task identifier.
@@ -3912,6 +3939,9 @@ async def delete_session(task_id: str, user_id: str) -> bool:
 
     if not SAFE_TASK_ID_PATTERN.fullmatch(task_id):
         return False
+
+    task = await get_task(task_id=task_id)
+    project_row = await get_project_by_id_system(project_id=task.project_id) if task and task.project_id else None
 
     async with get_transaction() as connection:
         result = await connection.execute(
@@ -3928,6 +3958,14 @@ async def delete_session(task_id: str, user_id: str) -> bool:
         kind_row = kind.fetchone()
         if kind_row is not None and kind_row.kind == "chat":
             await connection.execute(delete(tasks).where(tasks.c.id == task_id))
+
+    if task is not None and project_row is not None and project_row.get("local_path"):
+        project = Project(**project_row)
+        project.local_path = Path(project.local_path)
+        try:
+            await _remove_session_worktree(project=project, branch_name=task.slug)
+        except (OSError, RuntimeError):
+            logger.warning(f"Failed to remove worktree for deleted session {task_id}")
 
     sessions_log_dir = (LOG_DIR / "sessions").resolve()
     log_path = (sessions_log_dir / f"{task_id}.log").resolve()

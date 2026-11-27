@@ -8,7 +8,7 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [MNT-325: Questions UI and context](pages/2026-11-27-mnt-325-questions-ui-and-context.md) — Implementation of MNT-325: Questions UI and context (2026-11-27)
+- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) — Implementation of MNT-326: Drop worktree and a session delete (2026-11-27)
 - [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Deploys now start the staging worker generation on the new image and signal the live one once so RQ finishes its workflow, instead of waiting for the queue to drain; drained containers are reaped on a later cycle, a watchdog requeues jobs whose workflow outlived the timeout, and the manual deploy path runs the same swap through a one-shot Compose service. The preceding research compared this two-slot swap with Docker Swarm mode and third-party rolling-deploy helpers and chose it because RQ already drains the running job on the first SIGTERM. (2026-11-25)
 - [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — Implementation of MNT-318: Classify agent failures into typed Demetra errors (2026-11-25)
 - [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — Implementation of MNT-321: External providers prices (2026-11-24)
@@ -123,8 +123,9 @@ _Newest first._
 
 ## By topic
 
-### Workflow orchestration & agents (24 pages)
+### Workflow orchestration & agents (25 pages)
 
+- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md)
 - [MNT-322: Run CI after merge and rebase](pages/2026-11-26-mnt-322-run-ci-after-merge.md)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md)
 - [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md)
@@ -209,7 +210,7 @@ _Newest first._
 - [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — 2026-11-25
 - [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
 - [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — 2026-11-25
-- [MNT-325: Questions UI and context](pages/2026-11-27-mnt-325-questions-ui-and-context.md) — 2026-11-27
+- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) — 2026-11-27
 
 ### Deploy & infrastructure (11 pages)
 
@@ -253,8 +254,9 @@ _Newest first._
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 
-### Linear, GitHub & task intake (4 pages)
+### Linear, GitHub & task intake (5 pages)
 
+- [MNT-324: CodeRabbit comments listener and one-batch comments workflow](pages/2026-11-26-mnt-324-comments-listener.md)
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
