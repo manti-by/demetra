@@ -11,7 +11,6 @@ from demetra.services.persistence.database import (
     get_session,
     get_user_environments_decrypted,
 )
-from demetra.services.persistence.queue import queue
 from demetra.services.runtime.project import setup_project_venv
 from demetra.services.runtime.tui import print_message
 from demetra.services.runtime.utils import setup_session_logging
@@ -26,8 +25,7 @@ from demetra.services.vcs.git import (
     validate_ref,
 )
 from demetra.services.vcs.github import get_pr_info, get_unresolved_review_threads, pr_comment
-from demetra.services.wiki import run_wiki_revalidation, write_session_wiki_page
-from demetra.settings import WIKI
+from demetra.services.wiki import write_session_wiki_page
 
 
 logger = logging.getLogger(__name__)
@@ -120,12 +118,16 @@ def _format_threads_for_comment(threads: list[dict]) -> str:
 
 
 async def _record_review_fixes_wiki(
-    task_id: str, project: Project, session: Session, head_branch: str, worktree_path: Path
-) -> None:
-    """Write the wiki page for a successful review-fixes run and enqueue revalidation.
+    *,
+    task_id: str,
+    project: Project,
+    session: Session,
+    head_branch: str,
+    worktree_path: Path,
+) -> bool:
+    """Write the wiki page for a review-fixes run into the PR worktree.
 
-    Both steps are best-effort: failures are logged and never affect the
-    review-fixes result.
+    Best-effort: failures are logged and never affect the review-fixes result.
 
     Args:
         task_id: The Linear task identifier.
@@ -133,26 +135,27 @@ async def _record_review_fixes_wiki(
         session: The session record for the task.
         head_branch: The PR head branch the fixes were pushed to.
         worktree_path: The worktree the fixes were made in.
+
+    Returns:
+        bool: True when the wiki page was written to the worktree.
     """
     try:
         task = await resolve_task_by_id(task_id=task_id)
-        if task is not None:
-            context = Context(
-                project=project,
-                auto_mode=True,
-                task=task,
-                branch_name=head_branch,
-                worktree_path=worktree_path,
-                session=session,
-            )
-            await write_session_wiki_page(context=context)
+        if task is None:
+            return False
+        context = Context(
+            project=project,
+            auto_mode=True,
+            task=task,
+            branch_name=head_branch,
+            worktree_path=worktree_path,
+            session=session,
+        )
+        await write_session_wiki_page(context=context, wiki_root=worktree_path / "wiki")
+        return True
     except Exception:  # noqa: BLE001
         logger.warning(msg="Failed to write wiki page for review fixes session, continuing")
-    if WIKI["revalidation_enabled"]:
-        try:
-            queue.enqueue(f=run_wiki_revalidation)
-        except Exception:  # noqa: BLE001
-            logger.warning(msg="Failed to enqueue wiki revalidation, review fixes result unaffected")
+        return False
 
 
 async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
@@ -192,8 +195,6 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
         project.user_environment = await get_user_environments_decrypted(user_id=project.user_id)
 
     worktree_path = None
-    fix_succeeded = False
-    head_branch = ""
     environment = None
     try:
         await setup_project_venv(project=project)
@@ -291,6 +292,15 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
                 )
                 return True
 
+        if await _record_review_fixes_wiki(
+            task_id=task_id,
+            project=project,
+            session=session,
+            head_branch=head_branch,
+            worktree_path=worktree_path,
+        ):
+            has_staged = await git_add_all(target_path=worktree_path, environment=environment, project_id=project.id)
+
         if has_staged:
             await git_commit(
                 target_path=worktree_path,
@@ -316,7 +326,6 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
             project_id=project.id,
         )
 
-        fix_succeeded = True
         logger.info(f"Successfully fixed review findings for PR #{pr_number}")
         return True
 
@@ -326,14 +335,6 @@ async def run_review_fixes_workflow(task_id: str, project_id: str, pr_number: in
 
     finally:
         if worktree_path:
-            if fix_succeeded:
-                await _record_review_fixes_wiki(
-                    task_id=task_id,
-                    project=project,
-                    session=session,
-                    head_branch=head_branch,
-                    worktree_path=worktree_path,
-                )
             try:
                 await git_worktree_remove(
                     target_path=project.local_path,

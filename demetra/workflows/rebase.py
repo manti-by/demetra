@@ -2,8 +2,7 @@ import logging
 from pathlib import Path
 
 from demetra.library.exceptions import DemetraError
-from demetra.library.models import Context, Project, SessionEnvironment
-from demetra.services.chat import resolve_task_by_id
+from demetra.library.models import Project, SessionEnvironment
 from demetra.services.persistence.database import (
     get_project_by_id_system,
     get_project_environments,
@@ -16,7 +15,6 @@ from demetra.services.runtime.utils import setup_session_logging
 from demetra.services.vcs.git import git_fetch, git_worktree_create, git_worktree_remove, validate_ref
 from demetra.services.vcs.github import get_pr_info
 from demetra.services.vcs.rebase import perform_git_rebase
-from demetra.services.wiki import write_session_wiki_page
 from demetra.workflows.lint import run_ci_loop
 
 
@@ -51,9 +49,7 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
 
     project: Project | None = None
     worktree_path = None
-    rebase_succeeded = False
     environment = None
-    head_branch = ""
     try:
         project_data = await get_project_by_id_system(project_id=project_id)
         if not project_data:
@@ -122,21 +118,6 @@ async def run_rebase_workflow(task_id: str, project_id: str, pr_number: int, ful
 
     finally:
         if worktree_path and project is not None:
-            if rebase_succeeded:
-                try:
-                    task = await resolve_task_by_id(task_id=task_id)
-                    if task is not None:
-                        context = Context(
-                            project=project,
-                            auto_mode=True,
-                            task=task,
-                            branch_name=head_branch,
-                            worktree_path=worktree_path,
-                            session=session,
-                        )
-                        await write_session_wiki_page(context=context)
-                except Exception:  # noqa: BLE001
-                    logger.warning(msg="Failed to write wiki page for rebase session, continuing")
             try:
                 await git_worktree_remove(
                     target_path=project.local_path,

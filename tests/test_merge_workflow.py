@@ -5,6 +5,7 @@ import pytest
 
 from demetra.library.exceptions import BuildError
 from demetra.library.models import Session, SessionEnvironment
+from demetra.services import wiki as wiki_service
 from demetra.workflows.merge import run_merge_workflow
 
 
@@ -48,8 +49,6 @@ def base_mocks():
         patch("demetra.workflows.merge.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
         patch("demetra.workflows.merge.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.merge.perform_git_merge", new_callable=AsyncMock) as mock_perform_merge,
-        patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
-        patch("demetra.workflows.merge.resolve_task_by_id", new_callable=AsyncMock) as mock_get_task,
         patch("demetra.workflows.merge.run_ci_loop", new_callable=AsyncMock) as mock_ci_loop,
         patch("demetra.workflows.merge.update_session_step", new_callable=AsyncMock) as mock_update_step,
     ):
@@ -59,7 +58,6 @@ def base_mocks():
         mock_get_user_env.return_value = {}
         mock_fetch.return_value = None
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
-        mock_get_task.return_value = None
         mock_ci_loop.return_value = True
         yield {
             "mock_get_session": mock_get_session,
@@ -72,8 +70,6 @@ def base_mocks():
             "mock_wt_remove": mock_wt_remove,
             "mock_pr_info": mock_pr_info,
             "mock_perform_merge": mock_perform_merge,
-            "mock_write_page": mock_write_page,
-            "mock_get_task": mock_get_task,
             "mock_ci_loop": mock_ci_loop,
             "mock_update_step": mock_update_step,
         }
@@ -111,11 +107,10 @@ class TestRunMergeWorkflow:
         assert isinstance(call["environment"], SessionEnvironment)
 
     @pytest.mark.asyncio
-    async def test_merge_returns_ci_failure_after_wiki_page_write(self, base_mocks):
+    async def test_merge_returns_ci_failure(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
         base_mocks["mock_perform_merge"].return_value = True
         base_mocks["mock_ci_loop"].return_value = False
-        base_mocks["mock_get_task"].return_value = "task"
 
         result = await run_merge_workflow(
             task_id="TASK-123",
@@ -129,7 +124,6 @@ class TestRunMergeWorkflow:
             "build",
             "failed",
         ]
-        base_mocks["mock_write_page"].assert_awaited_once()
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -254,59 +248,17 @@ class TestRunMergeWorkflow:
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
-    async def test_merge_succeeds_when_revalidation_enqueue_fails(self, base_mocks):
+    async def test_merge_does_not_write_wiki_to_default_root(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
         base_mocks["mock_perform_merge"].return_value = True
 
-        with (
-            patch("demetra.workflows.merge.WIKI", {"revalidation_enabled": True}),
-            patch(
-                "demetra.workflows.merge.queue.enqueue",
-                side_effect=ConnectionError("Redis down"),
-            ) as mock_enqueue,
-            patch("demetra.workflows.merge.resolve_task_by_id", new_callable=AsyncMock) as mock_get_task,
-        ):
-            mock_get_task.return_value = None
-
-            result = await run_merge_workflow(
-                task_id="TASK-123",
-                project_id="proj-1",
-                pr_number=42,
-                full_name="owner/repo",
-            )
+        result = await run_merge_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
 
         assert result is True
-        mock_enqueue.assert_called_once()
-
-    @pytest.mark.asyncio
-    async def test_merge_enqueues_revalidation_after_wiki_page_write(self, base_mocks):
-        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
-        base_mocks["mock_perform_merge"].return_value = True
-        calls: list[str] = []
-
-        with (
-            patch("demetra.workflows.merge.WIKI", {"revalidation_enabled": True}),
-            patch("demetra.workflows.merge.queue.enqueue") as mock_enqueue,
-            patch("demetra.workflows.merge.resolve_task_by_id", new_callable=AsyncMock) as mock_get_task,
-            patch("demetra.workflows.merge.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
-        ):
-
-            async def fake_write(context):
-                calls.append("write")
-
-            def fake_enqueue(f):
-                calls.append("enqueue")
-
-            mock_get_task.return_value = "task"
-            mock_write_page.side_effect = fake_write
-            mock_enqueue.side_effect = fake_enqueue
-
-            result = await run_merge_workflow(
-                task_id="TASK-123",
-                project_id="proj-1",
-                pr_number=42,
-                full_name="owner/repo",
-            )
-
-        assert result is True
-        assert calls == ["write", "enqueue"]
+        assert list(wiki_service.PAGES_ROOT.glob("*.md")) == []
+        assert not wiki_service.INDEX_PATH.exists()

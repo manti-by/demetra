@@ -5,6 +5,7 @@ import pytest
 
 from demetra.library.exceptions import BuildError
 from demetra.library.models import Session, SessionEnvironment
+from demetra.services import wiki as wiki_service
 from demetra.workflows.rebase import run_rebase_workflow
 
 
@@ -48,8 +49,6 @@ def base_mocks():
         patch("demetra.workflows.rebase.git_worktree_remove", new_callable=AsyncMock) as mock_wt_remove,
         patch("demetra.workflows.rebase.get_pr_info", new_callable=AsyncMock) as mock_pr_info,
         patch("demetra.workflows.rebase.perform_git_rebase", new_callable=AsyncMock) as mock_perform_rebase,
-        patch("demetra.workflows.rebase.write_session_wiki_page", new_callable=AsyncMock) as mock_write_page,
-        patch("demetra.workflows.rebase.resolve_task_by_id", new_callable=AsyncMock) as mock_get_task,
         patch("demetra.workflows.rebase.run_ci_loop", new_callable=AsyncMock) as mock_ci_loop,
         patch("demetra.workflows.rebase.update_session_step", new_callable=AsyncMock) as mock_update_step,
     ):
@@ -58,7 +57,6 @@ def base_mocks():
         mock_get_env.return_value = {}
         mock_get_user_env.return_value = {}
         mock_wt_create.return_value = Path("/worktree/owner/repo/feature-branch")
-        mock_get_task.return_value = None
         mock_ci_loop.return_value = True
         yield {
             "mock_get_session": mock_get_session,
@@ -71,8 +69,6 @@ def base_mocks():
             "mock_wt_remove": mock_wt_remove,
             "mock_pr_info": mock_pr_info,
             "mock_perform_rebase": mock_perform_rebase,
-            "mock_write_page": mock_write_page,
-            "mock_get_task": mock_get_task,
             "mock_ci_loop": mock_ci_loop,
             "mock_update_step": mock_update_step,
         }
@@ -110,11 +106,10 @@ class TestRunRebaseWorkflow:
         assert isinstance(call["environment"], SessionEnvironment)
 
     @pytest.mark.asyncio
-    async def test_rebase_returns_ci_failure_after_wiki_page_write(self, base_mocks):
+    async def test_rebase_returns_ci_failure(self, base_mocks):
         base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
         base_mocks["mock_perform_rebase"].return_value = True
         base_mocks["mock_ci_loop"].return_value = False
-        base_mocks["mock_get_task"].return_value = "task"
 
         result = await run_rebase_workflow(
             task_id="TASK-123",
@@ -128,7 +123,6 @@ class TestRunRebaseWorkflow:
             "build",
             "failed",
         ]
-        base_mocks["mock_write_page"].assert_awaited_once()
         base_mocks["mock_wt_remove"].assert_awaited_once()
 
     @pytest.mark.asyncio
@@ -251,3 +245,19 @@ class TestRunRebaseWorkflow:
             "failed",
         ]
         base_mocks["mock_wt_remove"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    async def test_rebase_does_not_write_wiki_to_default_root(self, base_mocks):
+        base_mocks["mock_pr_info"].return_value = ("feature/branch", "main")
+        base_mocks["mock_perform_rebase"].return_value = True
+
+        result = await run_rebase_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+        )
+
+        assert result is True
+        assert list(wiki_service.PAGES_ROOT.glob("*.md")) == []
+        assert not wiki_service.INDEX_PATH.exists()
