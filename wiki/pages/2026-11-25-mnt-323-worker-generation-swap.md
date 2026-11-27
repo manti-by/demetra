@@ -111,3 +111,5 @@ A review found three overlap/failure holes in the first implementation, all fixe
 - Related: [Scaling RQ workers without recreating running containers](/pages/2026-11-12-scale-workers-without-recreate.md)
 - Related: [MNT-315: Auto deploy on master commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
 - Related: [Docker Compose deploy](/pages/2026-08-10-docker-compose-deploy.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Two Makefile details in Step 4 and Follow-ups evolved before merge: `deploy-steps` invokes `$(MAKE) worker-swap-steps` (`Makefile:35`, since `make deploy` already holds `demetra.deploy_lock`), and `make docker-up` already reads the live slot from the deploy state file via `$(MAKE) worker-bootstrap` (`Makefile:50-56, 151`, `python -m demetra.worker_swap --checkout ... --bootstrap`, defaulting to `blue` on a fresh stack), closing the fourth follow-up above.

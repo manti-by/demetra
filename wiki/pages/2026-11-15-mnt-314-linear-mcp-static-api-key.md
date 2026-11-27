@@ -9,7 +9,7 @@ services: [agents, library, settings, tools, docker]
 branch: opencode/feature/mnt-314-authenticate-linear-mcp-with-a-static-api-key
 tickets: [MNT-314]
 tags: [mcp, linear, oauth, api-key, environment, docker, opencode, secrets]
-related: [2026-10-25-mcp-db-tools-env-sql.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-09-28-compose-langsmith-host-env.md]
+related: [2026-10-25-mcp-db-tools-env-sql.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-09-28-compose-langsmith-host-env.md, 2026-11-18-ch-14-langsmitherror.md]
 ---
 
 # MNT-314 — Linear MCP static API key
@@ -185,5 +185,6 @@ project config. Now:
 - Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - Related: [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
 - Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)
+- Related: [CH-14: LangSmithError](/pages/2026-11-18-ch-14-langsmitherror.md) — decoupled LangSmith keys from the project/user layer lookups mentioned in the TL;DR above into platform-only `SessionEnvironment.tracing_env`
 - External: https://linear.app/mnt/issue/MNT-314/authenticate-linear-mcp-with-a-static-api-key
 - External: https://opencode.ai/docs/mcp-servers/

@@ -9,7 +9,7 @@ services: [api, library, persistence, workflows, react, settings]
 branch: mnt-204-research-result-modal
 tickets: [MNT-204, MNT-114, MNT-108]
 tags: [wiki, feature, frontend, linear-link, artifacts, pr-link, react]
-related: [2026-06-22-linear-link-artifact.md, 2026-06-09-build-artifacts.md, 2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-research-loop.md]
+related: [2026-06-22-linear-link-artifact.md, 2026-06-09-build-artifacts.md, 2026-09-01-mnt-177-research-loop.md, 2026-09-10-mnt-200-update-research-loop.md, 2026-09-11-mnt-203-create-related-ticket-for-research.md]
 ---
 
 # MNT-204: Research result modal
@@ -49,7 +49,7 @@ Session artifacts are persisted as `sessions` columns rendered in the React top 
 
 ## References
 
-- Related: [2026-06-22-linear-link-artifact](/archive/2026-06-22-linear-link-artifact.md), [2026-06-09-build-artifacts](/archive/2026-06-09-build-artifacts.md), [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md)
+- Related: [2026-06-22-linear-link-artifact](/archive/2026-06-22-linear-link-artifact.md), [2026-06-09-build-artifacts](/archive/2026-06-09-build-artifacts.md), [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [MNT-203: Create related ticket for research](/pages/2026-09-11-mnt-203-create-related-ticket-for-research.md)
 - External: https://linear.app/mnt/issue/MNT-204/research-result-modal
 
 > **Consistency note (2026-11-11, Consistency Agent):** The work described in this page was **reverted**: the `sessions.research_plan` column and its migration `8023ece006bc` no longer exist — HEAD keeps `sessions.research_report` (`demetra/library/tables.py:35`, migration `a3b4c5d6e7f8`), written by `update_session_research_report` (`demetra/services/persistence/database.py:596`). The `research_plan` rename landed as `7a5ee99` and was backed out the next day by `af8970e` (“MNT-204: Fix tests”). The page title (“Research result modal”) also does not match its TL;DR (“View Research Plan”).

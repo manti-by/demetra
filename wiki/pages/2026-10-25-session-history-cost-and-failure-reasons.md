@@ -9,7 +9,7 @@ services: [main, api, library, persistence, workflows, migrations, react, tests]
 branch: '-'
 tickets: []
 tags: [session-history, token-accounting, frontend, cost, failure-reasons]
-related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-mcp-tool-usage.md]
+related: [2026-10-16-mnt-251-session-attribution-accounting.md, 2026-10-16-mnt-245-empty-session-history.md, 2026-10-27-mnt-260-openrouter-call-history.md, 2026-08-05-pr-creation-failure-handler.md, 2026-08-25-mnt-181-total-tokens-counter.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-mcp-tool-usage.md, 2026-11-24-mnt-321-external-providers-prices.md]
 ---
 
 # Session history — session cost total and failure reasons
@@ -146,7 +146,9 @@ StyleGuide before `tsc` recognized the widened `SessionTokenTotals`.
 - Related: [2026-08-25-mnt-181-total-tokens-counter](/pages/2026-08-25-mnt-181-total-tokens-counter.md) — the `total` block this
   page extends with `cost`; its "fallback to row.length for all-NULL rows"
   clause was already dropped by MNT-251.
-- See also: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md) and [2026-10-25-session-history-mcp-tool-usage](/pages/2026-10-25-session-history-mcp-tool-usage.md) — sibling session-history extensions from the same day.
+- See also: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md), [2026-10-25-session-history-mcp-tool-usage](/pages/2026-10-25-session-history-mcp-tool-usage.md), and [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md) — sibling session-history extensions and external-provider cost pricing.
 - External: no Linear ticket (user-reported inline).
 
 > **Consistency note (2026-11-11, Consistency Agent):** The migration parent quoted above is wrong: `e0f1a2b3c4d5_add_session_history_message_column` chains on `f0a1b2c3d4e5` (which itself chains on `d9e0f1a2b3c4`), not directly on `d9e0f1a2b3c4`. `record_session_step` is now at `demetra/services/persistence/database.py:1580` and `_compute_total_tokens` at `demetra/api/sessions.py:122` (line refs updated 2026-11-15, Consistency Agent).
+
+> **Consistency note (2026-11-27, Consistency Agent):** `cost` is no longer restricted to vendor-reported OpenCode export figures: [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md) (`demetra/services/pricing.py` + `session_history.price` JSONB) computes USD cost from OpenRouter, MiniMax and DeepSeek rate cards for both `kind='invocation'` (when vendor cost is absent or 0) and `kind='llm_call'` rows, and `_compute_total_tokens` sums all of them into `total.cost`.

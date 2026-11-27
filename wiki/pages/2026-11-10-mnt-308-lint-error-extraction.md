@@ -9,7 +9,7 @@ services: [llm, workflows, quality, library, settings]
 branch: mnt-308-lint-and-test-erorrs
 tickets: [MNT-308, MNT-21]
 tags: [wiki, feature, backend, feature-flags, testing, ruff, pytest]
-related: [2026-10-27-mnt-260-openrouter-call-history.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-05-post-build-validation.md]
+related: [2026-10-27-mnt-260-openrouter-call-history.md, 2026-07-22-feature-flag-settings-and-tests.md, 2026-08-05-post-build-validation.md, 2026-11-26-mnt-322-run-ci-after-merge.md]
 ---
 
 # MNT-308: Lint and test erorrs
@@ -104,3 +104,4 @@ Lint/tests are opt-in feature flags (MNT-21, 2026-07-22): `FEATURES` in `demetra
 - Related: [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - Related: [2026-07-22-feature-flag-settings-and-tests](/archive/2026-07-22-feature-flag-settings-and-tests.md)
 - Related: [2026-08-05-post-build-validation](/pages/2026-08-05-post-build-validation.md)
+- Related: [MNT-322: Run CI after merge](/pages/2026-11-26-mnt-322-run-ci-after-merge.md)

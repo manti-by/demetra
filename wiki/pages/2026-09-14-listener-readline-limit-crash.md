@@ -9,7 +9,7 @@ services: [listener, daemons, runtime, github]
 branch: '-'
 tickets: []
 tags: [listener, github, notifications, asyncio, readline, limit, gh, merge, rebase, infinite-loop, listener-attempts]
-related: [2026-07-16-fix-notification-mark-read.md]
+related: [2026-07-16-fix-notification-mark-read.md, 2026-11-26-mnt-322-run-ci-after-merge.md, 2026-11-26-mnt-324-comments-listener.md, 2026-11-27-mnt-327-github-comments-reply.md]
 ---
 
 # Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications
@@ -96,5 +96,7 @@ Listener loop-protection decisions (2026-07-16): `mark_notification_read` is gat
 
 ## References
 
-- Related: [2026-07-16-fix-notification-mark-read](/archive/2026-07-16-fix-notification-mark-read.md)
+- Related: [2026-07-16-fix-notification-mark-read](/archive/2026-07-16-fix-notification-mark-read.md), [2026-11-26-mnt-322-run-ci-after-merge](/pages/2026-11-26-mnt-322-run-ci-after-merge.md), [2026-11-26-mnt-324-comments-listener](/pages/2026-11-26-mnt-324-comments-listener.md), [2026-11-27-mnt-327-github-comments-reply](/pages/2026-11-27-mnt-327-github-comments-reply.md)
 - External: `demetra/listener.py`, `demetra/services/daemons/listener.py`, `demetra/services/runtime/utils.py`, `demetra/services/runtime/subprocess.py`
+
+> **Consistency note (2026-11-27, Consistency Agent):** The listener has since grown three paths on top of `get_notifications` / `fetch_subject_comment` (renamed from `fetch_subject_body` to return `{"id", "body", "author"}`): [2026-11-26-mnt-322-run-ci-after-merge](/pages/2026-11-26-mnt-322-run-ci-after-merge.md) runs `run_ci_loop` after merge/rebase before marking a session `completed`, [2026-11-26-mnt-324-comments-listener](/pages/2026-11-26-mnt-324-comments-listener.md) routes `coderabbitai[bot]` review comments through Redis-batched `run_comments_workflow`, and [2026-11-27-mnt-327-github-comments-reply](/pages/2026-11-27-mnt-327-github-comments-reply.md) adds an `eyes` reaction (`react_to_comment`) when merge, rebase, or fix-review-findings notifications are enqueued.

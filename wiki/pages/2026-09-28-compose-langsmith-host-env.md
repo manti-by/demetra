@@ -9,7 +9,7 @@ services: [deploy]
 branch: master
 tickets: []
 tags: [docker, compose, langsmith, opencode, env, tests]
-related: [2026-08-18-compose-anchors-refactor.md, 2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-20-fix-allowlist-tests.md, 2026-08-06-allowlist-review-fixes.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-11-17-langsmith-403-multipart-ingest.md, 2026-11-18-ch-14-langsmitherror.md]
+related: [2026-08-18-compose-anchors-refactor.md, 2026-08-10-docker-compose-deploy.md, 2026-08-17-docker-setup-review.md, 2026-08-20-fix-allowlist-tests.md, 2026-08-06-allowlist-review-fixes.md, 2026-07-23-agents-md-revalidation-and-docs-removal.md, 2026-10-06-unify-subprocess-env-on-session-environment.md, 2026-11-18-ch-14-langsmitherror.md]
 ---
 
 # Forward LangSmith env vars from host to containers
@@ -243,8 +243,7 @@ change plus a matching test default.
 - Related: [2026-08-06-allowlist-review-fixes](/pages/2026-08-06-allowlist-review-fixes.md)
 - Related: [2026-07-23-agents-md-revalidation-and-docs-removal](/pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
 - Related: [2026-10-06-unify-subprocess-env-on-session-environment](/pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
-- Related: [2026-11-17-langsmith-403-multipart-ingest](/pages/2026-11-17-langsmith-403-multipart-ingest.md) — traced the 403 these forwarded vars produced and made tracing opt-in
-- Related: [2026-11-18-ch-14-langsmitherror](/pages/2026-11-18-ch-14-langsmitherror.md) — the implementation of that opt-in gate
+- Related: [2026-11-18-ch-14-langsmitherror](/pages/2026-11-18-ch-14-langsmitherror.md) — traced the 403 these forwarded vars produced and made tracing opt-in behind `tracing_env`
 - External: [@langchain/langsmith-opencode](https://github.com/langchain-ai/langsmith-opencode)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The compose defaults quoted above (`LANGSMITH_TRACING` true, `LANGSMITH_PROJECT` `Demetra`) differ from what the application now derives in-process: `SessionEnvironment.system_env` (`demetra/library/models.py:633-641`) forces tracing **off** unless `LANGSMITH_TRACING` is configured and defaults `LANGSMITH_PROJECT` to the empty string. The compose interpolation only pre-seeds the container environment; the in-process derivation wins for subprocesses. The plugin this page analyses is gone (`opencode.json` has `"plugins": []` since `67d106c`).

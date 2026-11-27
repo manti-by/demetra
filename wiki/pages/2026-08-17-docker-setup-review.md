@@ -157,7 +157,7 @@ Most fixed in anchor refactor — see [2026-08-18-compose-anchors-refactor](/pag
 
 ## References
 
-- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-08-19-worker-opencode-home-permissions](/pages/2026-08-19-worker-opencode-home-permissions.md)
 - External: [MNT-164](https://linear.app/mnt/issue/MNT-164)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The open follow-up “re-run `make docker-deploy` end-to-end” should read `make deploy` — `docker-deploy` is a `.PHONY` entry with no recipe. The compose file also changed since this review: healthchecks and `DB_HOST: postgres` were added, the image is `mantiby/demetra:latest` (`:12`) and the ports are published on all interfaces (`:108`).

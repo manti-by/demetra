@@ -9,7 +9,7 @@ services: [library, agents/opencode, persistence/database, workflows, b0c1d2e3f4
 branch: mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session
 tickets: [MNT-320]
 tags: [wiki, backend, bug]
-related: []
+related: [2026-10-16-mnt-234-isolate-session-context.md, 2026-10-16-mnt-251-session-attribution-accounting.md]
 ---
 
 # MNT-320: Build forks an empty session id — "--fork requires --continue or --session"
@@ -94,3 +94,5 @@ All 1570 tests passed, including new tests covering:
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-320/build-forks-an-empty-session-id-fork-requires-continue-or-session
+- Related: [2026-10-16-mnt-234-isolate-session-context](/pages/2026-10-16-mnt-234-isolate-session-context.md)
+- Related: [2026-10-16-mnt-251-session-attribution-accounting](/pages/2026-10-16-mnt-251-session-attribution-accounting.md)

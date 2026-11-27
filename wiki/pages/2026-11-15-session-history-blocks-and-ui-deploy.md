@@ -9,7 +9,7 @@ services: [SessionHistory, App.css, StyleGuide, Makefile, deployer]
 branch: master
 tickets: []
 tags: [frontend, ui, session-history, deploy, makefile]
-related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-11-14-mnt-315-auto-deploy-on-master-commits.md]
+related: [2026-10-25-session-history-cost-and-failure-reasons.md, 2026-10-25-session-history-per-invocation-rows.md, 2026-11-14-mnt-315-auto-deploy-on-master-commits.md, 2026-11-24-mnt-321-external-providers-prices.md, 2026-11-25-mnt-323-worker-generation-swap.md]
 ---
 
 # Collapsible session history blocks and a frontend-only deploy target
@@ -263,3 +263,7 @@ toolchain has to be driven through `bun` directly
 - Related: [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md)
 - Related: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md)
 - Related: [2026-11-14-mnt-315-auto-deploy-on-master-commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
+- Related: [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md)
+- Related: [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Three items noted above have since settled: (1) `src/pages/ChatPage.test.tsx` was fixed and passes on `master`; (2) `DOCKER_PATH` stays `/usr/bin/docker` in `demetra/settings.py` while `docker-compose.yaml:71, 179` pins `/usr/local/bin/docker` for the containerised `deployer` and worker one-shots, and `Makefile` `deploy-steps` now swaps workers via `$(MAKE) worker-swap-steps` ([2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)); (3) `entry.cost` on timeline headers now also populates for external providers and `kind='llm_call'` rows via [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md).

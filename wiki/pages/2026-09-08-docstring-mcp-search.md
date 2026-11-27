@@ -75,7 +75,7 @@ Two consumers **not** updated:
 
 ## References
 
-- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md)
+- Related: [2026-08-03-wiki-mcp-tools](/pages/2026-08-03-wiki-mcp-tools.md), [2026-08-21-mnt-176-bump-version-error](/pages/2026-08-21-mnt-176-bump-version-error.md)
 - External: [PR #120](https://github.com/manti-by/demetra/pull/120)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The 2026-10-08 note above says the `SEARCH` dict “holds only the `docstring_*` boosts” — it also carries the shared search limits (`default_limit` 5, `max_results` 20, `max_query_length` 500, `max_snippets` 3, `snippet_length` 200, `bm25_k1` 1.2) at `demetra/settings.py:69-84`. The bump-axis follow-up is closed (**Q-001**): the default axis is patch, and `demetra/services/runtime/project.py:335-338` still carries the stale “bumps the minor version” docstring.

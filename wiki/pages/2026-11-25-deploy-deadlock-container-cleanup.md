@@ -1,6 +1,6 @@
 ---
 title: Deploy deadlock from an interrupted recreate and a misconfigured deployer
-generated: {by: demetra, at: '2026-11-24T21:50:00Z'}
+generated: {by: demetra, at: '2026-11-25T00:00:00Z'}
 description: Records repairing a fully down Demetra deployment where an interrupted `docker compose up --force-recreate` left nine containers stuck in `Created` while Redis was stopped, deadlocking the manual deploy lock, and where the containerized deployer could not find the Docker CLI.
 type: debug
 status: stable
@@ -9,7 +9,7 @@ services: [docker-compose, deployer, deploy_lock, settings, Dockerfile]
 branch: master
 tickets: []
 tags: [deploy, docker, deadlock, infrastructure]
-related: [2026-11-14-mnt-315-auto-deploy-on-master-commits.md, 2026-11-12-scale-workers-without-recreate.md]
+related: [2026-11-14-mnt-315-auto-deploy-on-master-commits.md, 2026-11-12-scale-workers-without-recreate.md, 2026-11-25-mnt-323-worker-generation-swap.md]
 ---
 
 # Deploy deadlock from an interrupted recreate and a misconfigured deployer
@@ -174,3 +174,6 @@ changes can be rolled out by the daemon.
 
 - Related: [2026-11-14-mnt-315-auto-deploy-on-master-commits](/pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
 - Related: [2026-11-12-scale-workers-without-recreate](/pages/2026-11-12-scale-workers-without-recreate.md)
+- Related: [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Aligned `generated.at` from `2026-11-24T21:50:00Z` (00:50 local on 2026-11-25) to `2026-11-25T00:00:00Z` to match the filename date. The single `worker` service and `--scale worker=4` command in Resolution #3 were superseded later on 2026-11-25 by [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md), which split workers into `worker-blue` / `worker-green` swapped via `make worker-swap`.

@@ -9,7 +9,7 @@ services: [.env.docker, library, listener.py, comments, daemons/listener, persis
 branch: mnt-324-comments-listener
 tickets: [MNT-324]
 tags: [wiki, feature, backend]
-related: []
+related: [2026-09-14-listener-readline-limit-crash.md, 2026-09-02-review-findings-cleanup.md, 2026-11-27-mnt-327-github-comments-reply.md]
 ---
 
 # MNT-324: Comments listener
@@ -91,3 +91,8 @@ All 1861 tests passed successfully.
 
 ## References
 - External: https://linear.app/mnt/issue/MNT-324/comments-listener
+- Related: [2026-09-14-listener-readline-limit-crash](/pages/2026-09-14-listener-readline-limit-crash.md)
+- Related: [2026-09-02-review-findings-cleanup](/pages/2026-09-02-review-findings-cleanup.md)
+- Related: [2026-11-27-mnt-327-github-comments-reply](/pages/2026-11-27-mnt-327-github-comments-reply.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** In the shipped code (`demetra/services/comments.py:12`), `resolve_pending_comments(comments: dict, target_path: Path, ...) -> list[str]` accepts the already-loaded `comments` batch payload from `demetra/workflows/comments.py` rather than `task_id: str` (so an older run cannot resolve or clear a newer batch) and returns the list of still-unresolved thread IDs (`[]` when all resolved).

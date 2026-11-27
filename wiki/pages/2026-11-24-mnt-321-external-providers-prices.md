@@ -100,3 +100,5 @@ All 1627 tests passed successfully. The new pricing functionality was verified t
 - Related: [2026-10-27-mnt-260-openrouter-call-history](/pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - Related: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md)
 - Related: [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Two code details differ from Steps 3–4 above: (1) `MINIMAX_PRICES` and `DEEPSEEK_PRICES` live in `demetra/services/pricing.py:26-44` (not `demetra/settings.py`), and `get_price` takes a keyword-only `*, default_provider: Provider | None = None` backed by the 1-hour `_openrouter_cache`; (2) `capture_agent_session` (`demetra/services/agents/opencode.py:1130-1145`) passes `rate_card=price` into `record_agent_invocation` rather than billing cumulative `export.tokens` directly, so external-provider cost is computed on the per-invocation token delta when vendor cost is absent or zero.

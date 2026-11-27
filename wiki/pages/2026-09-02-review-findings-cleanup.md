@@ -9,7 +9,7 @@ services: [auth, api, persistence, workflows, listener, watcher, react]
 branch: review-finding
 tickets: [MNT-177, MNT-188, MNT-190, MNT-192, MNT-193]
 tags: [code-review, dedup, waitlist, review-fixes, frontend]
-related: [2026-09-01-mnt-177-research-loop.md, 2026-08-28-mnt-188-waitlist.md, 2026-08-31-mnt-192-env-edit-button.md, 2026-09-02-mobile-template-react-frontend.md]
+related: [2026-09-01-mnt-177-research-loop.md, 2026-08-28-mnt-188-waitlist.md, 2026-08-31-mnt-192-env-edit-button.md, 2026-09-02-mobile-template-react-frontend.md, 2026-11-27-fix-followup-workflow-wiki-writes.md]
 ---
 
 # Review findings cleanup — v1.16.7..HEAD two-axis review
@@ -81,8 +81,10 @@ Waitlist "notification" remains pluggable log-only `send_approval_email` per [20
 
 ## References
 
-- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-08-28-mnt-188-waitlist](/pages/2026-08-28-mnt-188-waitlist.md), [2026-08-31-mnt-192-env-edit-button](/pages/2026-08-31-mnt-192-env-edit-button.md), [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md)
+- Related: [2026-09-01-mnt-177-research-loop](/pages/2026-09-01-mnt-177-research-loop.md), [2026-08-28-mnt-188-waitlist](/pages/2026-08-28-mnt-188-waitlist.md), [2026-08-31-mnt-192-env-edit-button](/pages/2026-08-31-mnt-192-env-edit-button.md), [2026-09-02-mobile-template-react-frontend](/pages/2026-09-02-mobile-template-react-frontend.md), [2026-11-27-fix-followup-workflow-wiki-writes](/pages/2026-11-27-fix-followup-workflow-wiki-writes.md)
 
 > **Consistency fix (2026-09-02):** fixed `session_id:` empty YAML → `"-"`.
 
 > **Consistency note (2026-11-11, Consistency Agent):** the `_resolve_encrypted_env_value` helper extracted above coexists with `_fetch_stored_encrypted_value` (`demetra/services/persistence/database.py:2351`), which only reads the stored ciphertext — the two names are not a rename pair (see [2026-08-31-mnt-192-env-edit-button](/pages/2026-08-31-mnt-192-env-edit-button.md)). The waitlist-notification follow-up below is still open: `send_approval_email` remains a log-only stub with no SMTP provider.
+
+> **Consistency note (2026-11-27, Consistency Agent):** In `demetra/workflows/review_fixes.py`, `_record_review_fixes_wiki` was moved out of `finally:` in `7bc1327` ([2026-11-27-fix-followup-workflow-wiki-writes](/pages/2026-11-27-fix-followup-workflow-wiki-writes.md)): it now runs before `git_commit` / `git_force_push` targeting `wiki_root=worktree_path / "wiki"`, and no longer enqueues `run_wiki_revalidation`.

@@ -9,7 +9,7 @@ services: [deploy, configs, runtime, daemons]
 branch: '-'
 tickets: []
 tags: [docker, compose, workers, scale, no-recreate, operations, rq]
-related: [2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md]
+related: [2026-08-10-docker-compose-deploy.md, 2026-08-18-compose-anchors-refactor.md, 2026-11-25-mnt-323-worker-generation-swap.md]
 ---
 
 # Scaling RQ workers without recreating running containers
@@ -206,4 +206,6 @@ wrapped in a Make target.
 
 ## References
 
-- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md)
+- Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md), [2026-08-18-compose-anchors-refactor](/pages/2026-08-18-compose-anchors-refactor.md), [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** The single `worker` service inspected above no longer exists: [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md) split workers into `worker-blue` and `worker-green` (`x-demetra-worker`, each `deploy.replicas: 4`), swapped on deploy via `make worker-swap` and bootstrapped via `make worker-bootstrap`. Non-disruptive live scaling now targets whichever slot (`worker-blue` or `worker-green`) is recorded as live in `deployer-state.json`.

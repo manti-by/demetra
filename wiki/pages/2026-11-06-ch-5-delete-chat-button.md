@@ -9,7 +9,7 @@ services: [react]
 branch: ch-5-delete-chat-button
 tickets: [CH-5]
 tags: [wiki, frontend, feature]
-related: [2026-11-03-ch-2-single-unified-session-view.md, 2026-11-04-chat-session-list-and-rerun.md]
+related: [2026-11-03-ch-2-single-unified-session-view.md, 2026-11-04-chat-session-list-and-rerun.md, 2026-11-27-mnt-326-drop-worktree-and-session-delete.md]
 ---
 
 # CH-5: Delete chat button
@@ -94,5 +94,8 @@ All 1203 tests passed successfully, including the new frontend tests for the del
 - External: CH-5 (chat request; no Linear ticket URL recorded)
 - Related: [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)
 - Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
+- Related: [2026-11-27-mnt-326-drop-worktree-and-session-delete](/pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** The button snippet above is stale in two details: the container class is now `chat-topbar-actions` (not `topbar-actions`) and the click handler is `handleDeleteSession(taskId)` with in-flight de-duplication (`react/src/components/ChatPanel.tsx:174-184`, button block `:198-216`).
+
+> **Consistency note (2026-11-27, Consistency Agent):** On the backend, `deleteSession(taskId)` (`delete_session` in `demetra/services/persistence/database.py:3922`) now also deletes the chat row in `tasks` within the same transaction and best-effort force-removes any surviving session worktree (`_remove_session_worktree`, added in [2026-11-27-mnt-326-drop-worktree-and-session-delete](/pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md)).

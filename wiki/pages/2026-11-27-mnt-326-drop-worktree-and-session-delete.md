@@ -9,7 +9,7 @@ services: [persistence/database, pyproject, test_database, uv, .sessions, INDEX,
 branch: mnt-326-drop-worktree-and-a-session-delete
 tickets: [MNT-326]
 tags: [wiki, bug, backend]
-related: [2026-11-19-ch-15-worktree-management.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-04-chat-session-list-and-rerun.md]
+related: [2026-11-19-ch-15-worktree-management.md, 2026-11-06-ch-5-delete-chat-button.md, 2026-11-04-chat-session-list-and-rerun.md, 2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md]
 ---
 
 # MNT-326: Drop worktree and a session delete
@@ -102,3 +102,4 @@ All tests passed successfully, including the new worktree removal tests:
 - Related: [2026-11-19-ch-15-worktree-management](/pages/2026-11-19-ch-15-worktree-management.md)
 - Related: [2026-11-06-ch-5-delete-chat-button](/pages/2026-11-06-ch-5-delete-chat-button.md)
 - Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md)
+- Related: [MNT-277: Do not remove git worktree for sessions](/pages/2026-11-06-mnt-277-do-not-remove-git-worktree-for-chat-sessions.md)

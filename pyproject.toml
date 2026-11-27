@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.20.9"
+version = "1.20.10"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.14.10,<3.15.0"
@@ -45,7 +45,7 @@ dev = [
     "pytest>=9.2.0",
     "pytest-asyncio>=1.5.0",
     "pytest-cov>=7.1.0",
-    "ty>=0.0.108",
+    "ty>=0.0.112",
     "pre-commit>=4.7.0",
     "pdoc>=16.0.0",
 ]

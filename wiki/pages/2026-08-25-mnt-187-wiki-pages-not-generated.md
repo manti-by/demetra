@@ -9,7 +9,7 @@ services: [main, workflows, wiki, cleanup]
 branch: mnt-187-wiki-pages-not-generated
 tickets: [MNT-187]
 tags: [wiki, commit, push, workflow, error-handling, awaiting-input, git]
-related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-07-split-wiki-service-into-subpackage.md]
+related: [2026-08-05-pr-creation-failure-handler.md, 2026-08-19-split-auth-linear-services-and-review-failure-handling.md, 2026-08-07-split-wiki-service-into-subpackage.md, 2026-11-27-fix-followup-workflow-wiki-writes.md]
 ---
 
 # Wiki pages not generated — move wiki step before commit
@@ -68,5 +68,7 @@ Helpers now accept optional target so main flow writes to worktree while merge/r
 
 ## References
 
-- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md)
+- Related: [2026-08-05-pr-creation-failure-handler](/pages/2026-08-05-pr-creation-failure-handler.md), [2026-08-19-split-auth-linear-services-and-review-failure-handling](/pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md), [2026-08-07-split-wiki-service-into-subpackage](/pages/2026-08-07-split-wiki-service-into-subpackage.md), [2026-11-27-fix-followup-workflow-wiki-writes](/pages/2026-11-27-fix-followup-workflow-wiki-writes.md)
 - External: [MNT-187](https://linear.app/mnt/issue/MNT-187/wiki-pages-not-generated)
+
+> **Consistency note (2026-11-27, Consistency Agent):** The first follow-up above ("Merge/rebase still use legacy default root …") was resolved in `7bc1327` ([2026-11-27-fix-followup-workflow-wiki-writes](/pages/2026-11-27-fix-followup-workflow-wiki-writes.md)): `merge.py` and `rebase.py` dropped post-push wiki writes and `run_wiki_revalidation` enqueues altogether, and `review_fixes.py` moved its wiki write into `worktree_path / "wiki"` before `git_commit` / `git_force_push`.

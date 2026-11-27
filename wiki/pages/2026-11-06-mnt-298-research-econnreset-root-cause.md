@@ -9,7 +9,7 @@ services: [agents, linear, llm]
 branch: master
 tickets: [MNT-298]
 tags: [network, econnreset, opencode, deepseek, research-agent, managed-service, service.json, debugging]
-related: [2026-11-06-agent-econnreset-network-investigation.md, 2026-11-03-mnt-276-econnreset-retry-for-agents.md]
+related: [2026-11-06-agent-econnreset-network-investigation.md, 2026-11-03-mnt-276-econnreset-retry-for-agents.md, 2026-11-25-mnt-323-worker-generation-swap.md]
 ---
 
 # MNT-298 research agent ECONNRESET — local opencode server thrash
@@ -201,7 +201,10 @@ Implemented the fix and verified it.
 
 - Related: [2026-11-06-agent-econnreset-network-investigation](/pages/2026-11-06-agent-econnreset-network-investigation.md)
 - Related: [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md)
+- Related: [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** Update to the 2026-11-09 consistency note above: the “10-attempt budget vs shipped default of 5” discrepancy (**Q-003**) is **resolved** — production carried an environment-level override (`MAX_AGENT_NETWORK_ATTEMPTS=10`, `AGENT_NETWORK_BACKOFF_BASE=2`, `.env.docker:17-18`), confirmed by `wiki/postmortems/2026-11-09-econnreset-incident-postmortem.md`. The repository default stays 5 (`demetra/settings.py:61`); the `attempt N/10` logs and the shipped default were never in conflict. The second item in the 2026-11-09 note (the `--standalone` probe) still holds.
 
 > **Consistency note (2026-11-24, Consistency Agent):** the worker counts in the Step 1 bullet are time-bound and now stale. Commit `1a53faf` (2026-11-14) aligned the replica default and both make targets to 4: `worker.deploy.replicas: 4` (`docker-compose.yaml:125`), `make deploy` `--scale worker=4` (`Makefile:34`), `make docker-up` `--scale worker=4` (`Makefile:129`). The root cause — every replica shares `demetra_app_data`, so they all contend for one `service.json` — is unchanged, and with 4 workers the contention is only wider.
+
+> **Consistency note (2026-11-27, Consistency Agent):** [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md) replaced the single `worker` service and `--scale worker=4` targets with `worker-blue` / `worker-green` (each `deploy.replicas: 4` via `x-demetra-worker`), swapped by `make worker-swap` and bootstrapped by `make worker-bootstrap`. All active and draining worker containers still share `demetra_app_data`, so `--standalone` remains load-bearing.

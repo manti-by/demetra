@@ -8,18 +8,21 @@ by the plugin.
 ## Pages
 _Newest first._
 
-- [MNT-327: GitHub comments reply](pages/2026-11-27-mnt-327-github-comments-reply.md) — Implementation of MNT-327: GitHub comments reply (2026-11-27)
-- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) — Implementation of MNT-326: Drop worktree and a session delete (2026-11-27)
-- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Deploys now start the staging worker generation on the new image and signal the live one once so RQ finishes its workflow, instead of waiting for the queue to drain; drained containers are reaped on a later cycle, a watchdog requeues jobs whose workflow outlived the timeout, and the manual deploy path runs the same swap through a one-shot Compose service. The preceding research compared this two-slot swap with Docker Swarm mode and third-party rolling-deploy helpers and chose it because RQ already drains the running job on the first SIGTERM. (2026-11-25)
-- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — Implementation of MNT-318: Classify agent failures into typed Demetra errors (2026-11-25)
-- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — Implementation of MNT-321: External providers prices (2026-11-24)
-- [Deploy deadlock from an interrupted recreate and a misconfigured deployer](pages/2026-11-25-deploy-deadlock-container-cleanup.md) — A fully down Demetra stack was repaired: an interrupted `compose up --force-recreate` left nine `Created` orphans while Redis was stopped, deadlocking the manual deploy lock, and the containerized deployer looked for Docker at `/usr/bin/docker` instead of the image's `/usr/local/bin/docker`; `DOCKER_PATH` is now pinned in compose and the deployer rebuilt and recreated the stack. (2026-11-25)
+- [MNT-327: GitHub comments reply](pages/2026-11-27-mnt-327-github-comments-reply.md) — Implemented a GitHub comment reaction service using the GitHub CLI to post "eyes" reactions on merge/rebase/fix review comments, integrated with the listener daemon's notification processing flow, and added comprehensive tests for various scenarios. (2026-11-27)
+- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) — The `delete_session` service in the persistence subsystem was updated to remove associated worktrees using `git_worktree_remove` with `force=True`, and tests were added to verify this behavior, all of which passed successfully. (2026-11-27)
+- [MNT-325: Questions UI and context](pages/2026-11-27-mnt-325-questions-ui-and-context.md) — The chat UI was updated to support independent question-answer pairs, enabling users to answer each plan agent question separately, with database storage linking answers to questions and a new API endpoint for submitting answers without triggering workflow reruns. (2026-11-27)
+- [Fix uncommitted wiki writes in merge, rebase and review-fixes workflows](pages/2026-11-27-fix-followup-workflow-wiki-writes.md) — Stops merge and rebase workflows from writing uncommitted wiki files and revalidation runs into BASE_PATH, and moves review-fixes wiki generation into the PR worktree before commit and push so auto-deploys are no longer blocked. (2026-11-27)
+- [MNT-324: Comments listener](pages/2026-11-26-mnt-324-comments-listener.md) — The CodeRabbit comments listener subsystem was implemented to extract, store, and process CodeRabbit comments from GitHub review threads using Redis and a single workflow, with all 1861 tests passing successfully. (2026-11-26)
+- [MNT-322: Run CI after merge](pages/2026-11-26-mnt-322-run-ci-after-merge.md) — Implemented a configurable CI loop for merge/rebase workflows that automatically fixes and retries lint/test failures up to 5 times, maintaining build status while committing fixes, with full test coverage meeting MNT-322 requirements. (2026-11-26)
+- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — Implements a blue/green worker swap in the deploy daemon and manual deploy path, with exactly-once drain signals, later-cycle reaping and a hung-workflow watchdog that requeues abandoned jobs. (2026-11-25)
+- [Deploy deadlock from an interrupted recreate and a misconfigured deployer](pages/2026-11-25-deploy-deadlock-container-cleanup.md) — Records repairing a fully down Demetra deployment where an interrupted `docker compose up --force-recreate` left nine containers stuck in `Created` while Redis was stopped, deadlocking the manual deploy lock, and where the containerized deployer could not find the Docker CLI. (2026-11-25)
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — This session implemented a unified pricing service for external LLM providers (OpenRouter, MiniMax, DeepSeek) that fetches rates, calculates costs per invocation, and stores pricing snapshots in the session history table alongside computed costs. (2026-11-24)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md) — MNT-320 fixed builds forking an empty session id, which the OpenCode CLI rejected with "--fork requires --continue or --session" — empty ids are now normalised to NULL across the model, workflow, agent and database layers, with a migration backfilling existing rows. (2026-11-24)
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — Implemented a classifier for OpenCode agent failures that maps them to typed Demetra errors with dedicated handlers, templates and workflow states, properly handling quota exhaustion, rate limits and permission errors while redacting sensitive information. (2026-11-24)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md) — mantiby/demetra:latest shrank from 1.01 GB to 708 MB by replacing a recursive chown that duplicated /opt/venv and the Rust toolchain with COPY --chown, slimming the C toolchain and switching to vim-tiny, keeping Rust, C and bun for target builds; the container suite passed 1556 tests. (2026-11-23)
 - [CH-13: Wiki OKF validation](pages/2026-11-23-ch-13-wiki-okf-validation.md) — CH-13 added an Open Knowledge Format validator/migrator for the wiki bundle — it converts wikilinks to bundle-relative markdown links, replaces date with generated.at, maps status onto draft/stable/deprecated and LLM-authors descriptions, run as a one-time script in demetra/services/wiki/okf.py. (2026-11-23)
 - [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md) — CH-15 replaced the chat-only GIT_DISABLE_WORKTREE_REMOVAL switch with one WORKTREE_CLEANUP feature flag for chat and Linear sessions alike — enabled drops the worktree, pulls master and starts fresh, research always pulls master, and setup otherwise reuses the existing path. (2026-11-19)
-- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — CH-14 standardised LangSmith tracing end to end — configuration now comes only from settings.py, tracing is off by default and needs both an API key and LANGSMITH_TRACING=true, and every container and subprocess traces into the single shared Demetra project. (2026-11-18)
-- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md) — The LangSmithError multipart-ingest flood was a 403 on /runs/multipart because compose forced LANGSMITH_TRACING=true while the forwarded key is unauthorized; tracing is now one opt-in platform-wide config gated on a configured key and read only from settings.py. (2026-11-17)
+- [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md) — CH-14 diagnosed the worker.log 403 /runs/multipart flood from compose forcing LANGSMITH_TRACING=true with an unauthorized key and standardised LangSmith tracing end to end — configuration comes only from settings.py, tracing is opt-in and requires a valid key, and LANGSMITH_API_KEY is isolated to SessionEnvironment.tracing_env. (2026-11-18)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md) — Records the React `SessionList` sidebar being split from two blocks into Active, Completed and Backlog sections via a shared `sectionOf` classifier using last activity from `updated_at` and a live-task override; Active always renders, others when non-empty, with 181 tests and tsc passing. (2026-11-15)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md) — Records finishing a half-applied React `SessionHistory` change that made timeline blocks collapsible by default with name, cost and time headers, fixing undeclared `isOpen` state and a non-async test; it also added a `make deploy-ui` target rebuilding only the React bundle and reloading nginx, with 29 tests and tsc passing. (2026-11-15)
 - [MNT-314 — Linear MCP static API key](pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md) — Records the MNT-314 switch of the Linear MCP server from interactive OAuth to a static `Authorization: Bearer` header with `oauth: false`, resolving `LINEAR_API_KEY` through the session environment layers, removing the cwd-relative `--env-file`, adding DB_PASSWORD fail-fast and provider-only config derivation; 1391 tests passed and Linear connected in both root and worktree. (2026-11-15)
@@ -124,11 +127,13 @@ _Newest first._
 
 ## By topic
 
-### Workflow orchestration & agents (25 pages)
+### Workflow orchestration & agents (27 pages)
 
 - [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md)
-- [MNT-322: Run CI after merge and rebase](pages/2026-11-26-mnt-322-run-ci-after-merge.md)
+- [Fix uncommitted wiki writes in merge, rebase and review-fixes workflows](pages/2026-11-27-fix-followup-workflow-wiki-writes.md)
+- [MNT-322: Run CI after merge](pages/2026-11-26-mnt-322-run-ci-after-merge.md)
 - [MNT-320: Build forks an empty session id — "--fork requires --continue or --session"](pages/2026-11-24-mnt-320-build-forks-an-empty-session-id-fork-requires-continue-or-session.md)
+- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md)
 - [CH-15: Worktree management](pages/2026-11-19-ch-15-worktree-management.md)
 - [CH-11: Failed status for Awaiting Input tickets](pages/2026-11-12-ch-11-failed-status-for-awaiting-input-tickets.md)
 - [Unified Task model with Linear and Chat subtypes](pages/2026-11-11-mnt-312-unified-task-model.md)
@@ -152,8 +157,9 @@ _Newest first._
 - [Plan loop resolve agent received truncated context](pages/2026-08-04-fix-resolve-agent-truncated-context.md)
 - [Rich MarkupError kills workflow subprocess and run_attempts counter overcounts](pages/2026-07-21-rich-markuperror-and-run-attempts.md)
 
-### React frontend / UI (19 pages)
+### React frontend / UI (20 pages)
 
+- [MNT-325: Questions UI and context](pages/2026-11-27-mnt-325-questions-ui-and-context.md)
 - [Session list split into active, completed and backlog sections](pages/2026-11-15-session-list-three-sections.md)
 - [CH-12: Session list order](pages/2026-11-12-ch-12-session-list-order.md)
 - [MNT-309: Chat Template](pages/2026-11-10-mnt-309-chat-template.md)
@@ -176,7 +182,7 @@ _Newest first._
 
 ### Session history, tokens & costs (16 pages)
 
-- [MNT-321: External provider prices](pages/2026-11-24-mnt-321-external-providers-prices.md)
+- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md)
 - [Collapsible session history blocks and a frontend-only deploy target](pages/2026-11-15-session-history-blocks-and-ui-deploy.md)
 - [MNT-260: Session calls to openrouter](pages/2026-10-27-mnt-260-openrouter-call-history.md)
 - [Session history — one row per agent invocation](pages/2026-10-25-session-history-per-invocation-rows.md)
@@ -208,14 +214,11 @@ _Newest first._
 - [Wiki MCP Tools — Search, Read, and List Pages](pages/2026-08-03-wiki-mcp-tools.md)
 - [AGENTS.md Revalidation and Wiki Consistency Audit](pages/2026-08-03-agents-md-and-wiki-consistency.md)
 - [AGENTS.md Revalidation, DOCS.md Removal, and OpenCode Command](pages/2026-07-23-agents-md-revalidation-and-docs-removal.md)
-- [MNT-318: Classify agent failures into typed Demetra errors](pages/2026-11-24-mnt-318-classify-agent-failures-into-typed-demetra-errors.md) — 2026-11-25
-- [MNT-321: External providers prices](pages/2026-11-24-mnt-321-external-providers-prices.md) — 2026-11-24
-- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md) — 2026-11-25
-- [MNT-326: Drop worktree and a session delete](pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) — 2026-11-27
-- [MNT-327: GitHub comments reply](pages/2026-11-27-mnt-327-github-comments-reply.md) — 2026-11-27
 
-### Deploy & infrastructure (11 pages)
+### Deploy & infrastructure (13 pages)
 
+- [MNT-323: Swap RQ workers between two generations on deploy](pages/2026-11-25-mnt-323-worker-generation-swap.md)
+- [Deploy deadlock from an interrupted recreate and a misconfigured deployer](pages/2026-11-25-deploy-deadlock-container-cleanup.md)
 - [Docker image size optimization](pages/2026-11-23-docker-image-size-optimization.md)
 - [MNT-315: Auto deploy on master commits](pages/2026-11-14-mnt-315-auto-deploy-on-master-commits.md)
 - [Scaling RQ workers without recreating running containers](pages/2026-11-12-scale-workers-without-recreate.md)
@@ -238,15 +241,23 @@ _Newest first._
 - [Password Hashing, Cookie & CORS Hardening, and Dependency Bump](pages/2026-08-03-auth-hardening-and-deps-bump.md)
 - [Linear Ticket for Email/Password Authentication](pages/2026-07-23-linear-ticket-email-password-auth.md)
 
-### Environment & settings (7 pages)
+### Environment & settings (6 pages)
 
 - [CH-14: LangSmithError](pages/2026-11-18-ch-14-langsmitherror.md)
-- [LangSmith 403 multipart ingest — root cause and fix](pages/2026-11-17-langsmith-403-multipart-ingest.md)
 - [Review agent models bypass the environment layers](pages/2026-10-12-review-models-env-resolution.md)
 - [Unify subprocess env on SessionEnvironment](pages/2026-10-06-unify-subprocess-env-on-session-environment.md)
 - [MNT-205 — Revise merged environment: context.environment resolver](pages/2026-09-16-mnt-205-revise-merged-environment.md)
 - [Categorize settings env vars by layer](pages/2026-08-18-categorize-settings-env-vars-by-layer.md)
 - [Process environment — 3 layers, encryption, UV venv, env file upload](pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
+
+### Linear, GitHub & task intake (6 pages)
+
+- [MNT-327: GitHub comments reply](pages/2026-11-27-mnt-327-github-comments-reply.md)
+- [MNT-324: Comments listener](pages/2026-11-26-mnt-324-comments-listener.md)
+- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
+- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
+- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
+- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md)
 
 ### MCP, LLM & external tools (5 pages)
 
@@ -255,15 +266,6 @@ _Newest first._
 - [Fix the MCP database tools — missing env and broken SQL](pages/2026-10-25-mcp-db-tools-env-sql.md)
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
-
-### Linear, GitHub & task intake (6 pages)
-
-- [MNT-327: GitHub comments reply](pages/2026-11-27-mnt-327-github-comments-reply.md)
-- [MNT-324: CodeRabbit comments listener and one-batch comments workflow](pages/2026-11-26-mnt-324-comments-listener.md)
-- [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
-- [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
-- [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
-- [PR creation failure moves ticket to Awaiting Input](pages/2026-08-05-pr-creation-failure-handler.md)
 
 ### Testing, docs & release tooling (3 pages)
 

@@ -9,7 +9,7 @@ services: [mcp, tools, database, deploy, tests]
 branch: '-'
 tickets: [MNT-90]
 tags: [mcp, database, asyncpg, environment, docker, uv-env-file, sql-injection, bandit, tooling, upgrade, streamable-http]
-related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-06-01-add-mcp-server.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md]
+related: [2026-10-15-replace-wiki-mcp-tool-with-wi.md, 2026-08-03-fix-mcp-server-2.0-api.md, 2026-06-01-add-mcp-server.md, 2026-08-10-process-environment-3-layers-encryption-uv-venv.md, 2026-11-15-mnt-314-linear-mcp-static-api-key.md]
 ---
 
 # Fix the MCP database tools — missing env and broken SQL
@@ -97,5 +97,7 @@ The MCP server targets the mcp 2.0 low-level API (MNT-90, 2026-08-03): construct
 
 ## References
 
-- Related: [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md), [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md), [2026-06-01-add-mcp-server](/archive/2026-06-01-add-mcp-server.md), [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md)
+- Related: [2026-10-15-replace-wiki-mcp-tool-with-wi](/pages/2026-10-15-replace-wiki-mcp-tool-with-wi.md), [2026-08-03-fix-mcp-server-2.0-api](/archive/2026-08-03-fix-mcp-server-2.0-api.md), [2026-06-01-add-mcp-server](/archive/2026-06-01-add-mcp-server.md), [2026-08-10-process-environment-3-layers-encryption-uv-venv](/pages/2026-08-10-process-environment-3-layers-encryption-uv-venv.md), [2026-11-15-mnt-314-linear-mcp-static-api-key](/pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md)
 - Source paths: `opencode.json`, `demetra/tools/database.py`, `demetra/settings.py`, `tests/test_tools_database.py`, `pyproject.toml`
+
+> **Consistency note (2026-11-27, Consistency Agent):** The `--env-file .env.docker` flag added to `opencode.json` above (and the spawn-time `.env.docker` dependency follow-up) was superseded by [2026-11-15-mnt-314-linear-mcp-static-api-key](/pages/2026-11-15-mnt-314-linear-mcp-static-api-key.md): `opencode.json` now launches `["uv", "run", "python", "-m", "demetra.mcp_server"]`, receiving `DB_HOST`/`DB_PORT`/`DB_USER`/`DB_NAME` via `SessionEnvironment.system_env` and resolving `DB_PASSWORD` from encrypted project/user environment rows.

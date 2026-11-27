@@ -99,3 +99,5 @@ All 1923 existing tests passed. New tests were added for the reaction service co
 - External: https://linear.app/mnt/issue/MNT-327/github-comments-reply
 - Related: [2026-11-26-mnt-324-comments-listener](/pages/2026-11-26-mnt-324-comments-listener.md)
 - Related: [2026-09-14-listener-readline-limit-crash](/pages/2026-09-14-listener-readline-limit-crash.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Step 3 cites `demetra/listener.py:60` (`pr_info["comment_id"] = comment["id"]`), which is the GitHub **notifications polling daemon** (`fetch_subject_comment`), not a webhook handler. Webhook `issue_comment` events are handled separately in `demetra/services/vcs/github.py:609-640` (`webhook_rebase_handler`), which also extracts `comment_id` from `payload["comment"]` and calls `react_to_comment` before enqueueing merge/rebase.

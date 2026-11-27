@@ -9,7 +9,7 @@ services: [api, llm, persistence, wiki, workflows]
 branch: mnt-260-session-calls-to-openrouter
 tickets: [MNT-260]
 tags: [wiki, feature, backend]
-related: [2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-cost-and-failure-reasons.md, 2026-08-18-migrate-llm-groq-to-openrouter.md]
+related: [2026-10-25-session-history-per-invocation-rows.md, 2026-10-25-session-history-cost-and-failure-reasons.md, 2026-08-18-migrate-llm-groq-to-openrouter.md, 2026-11-24-mnt-321-external-providers-prices.md]
 ---
 
 # MNT-260: Session calls to openrouter
@@ -59,5 +59,8 @@ All tests have passed, indicating that the implementation was successful.
 - Related: [2026-10-25-session-history-per-invocation-rows](/pages/2026-10-25-session-history-per-invocation-rows.md)
 - Related: [2026-10-25-session-history-cost-and-failure-reasons](/pages/2026-10-25-session-history-cost-and-failure-reasons.md)
 - Related: [2026-08-18-migrate-llm-groq-to-openrouter](/pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
+- Related: [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md)
 
 > **Consistency note (2026-11-11, Consistency Agent):** “Six functions were updated to accept a `task_id` parameter and call `_record_llm_call`” undercounts: there are now nine or more call sites in `demetra/services/llm/openrouter.py` (including `extract_errors` and `compose_wiki_page`).
+
+> **Consistency note (2026-11-27, Consistency Agent):** OpenRouter `kind='llm_call'` rows now also carry USD `cost` and a `price` rate-card snapshot (`demetra/services/llm/openrouter.py:131`, `demetra/services/pricing.py`), added by [2026-11-24-mnt-321-external-providers-prices](/pages/2026-11-24-mnt-321-external-providers-prices.md).

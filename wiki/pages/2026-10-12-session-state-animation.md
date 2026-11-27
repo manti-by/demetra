@@ -42,8 +42,6 @@ replacing `get_session_step_name`, and `update_session_is_research`, with `main.
 
 ## References
 
-- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md) — the follow-up session on the same component
-- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md) — the websocket feed the component renders
+- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md) — the follow-up session on the same component, websocket feed and step/status vocabulary
 - Related: [2026-07-23-session-history-modal](/pages/2026-07-23-session-history-modal.md) — the history view over the same step data
-- Related: [2026-10-12-session-state-flow-feedback-loops](/pages/2026-10-12-session-state-flow-feedback-loops.md) — the step/status vocabulary the component branches on
 - External: https://linear.app/mnt/issue/MNT-244

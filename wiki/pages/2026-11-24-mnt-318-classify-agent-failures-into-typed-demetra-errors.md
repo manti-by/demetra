@@ -1,6 +1,6 @@
 ---
 title: 'MNT-318: Classify agent failures into typed Demetra errors'
-generated: {by: demetra, at: '2026-11-25T00:00:00Z'}
+generated: {by: demetra, at: '2026-11-24T00:00:00Z'}
 description: Implemented a classifier for OpenCode agent failures that maps them to typed Demetra errors with dedicated handlers, templates and workflow states, properly handling quota exhaustion, rate limits and permission errors while redacting sensitive information.
 type: implementation
 status: stable
@@ -154,3 +154,5 @@ raise agent_failure_error(
 - Related: [2026-11-03-mnt-276-econnreset-retry-for-agents](/pages/2026-11-03-mnt-276-econnreset-retry-for-agents.md)
 - Related: [2026-08-19-build-agent-server-error-handler](/pages/2026-08-19-build-agent-server-error-handler.md)
 - Related: [2026-11-06-mnt-298-research-econnreset-root-cause](/pages/2026-11-06-mnt-298-research-econnreset-root-cause.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Aligned `generated.at` from `2026-11-25T00:00:00Z` to `2026-11-24T00:00:00Z` to match the filename date. Three code details differ from the simplified snippets above: (1) `AgentFailureError` has **8** subclasses in `demetra/library/exceptions.py:111-155` (7 new classes plus `AgentNetworkError`, re-parented from `DemetraError`); (2) `classify_agent_error` (`demetra/services/agents/opencode.py:342-380`) scans redacted `stderr` plus `_extract_ndjson_error(stdout)` and structured `error.type` / `error.metadata.limit_source`, while `run_opencode_agent` retries retryable non-network classes under a separate `MAX_AGENT_FAILURE_ATTEMPTS = 5` budget; (3) `process_agent_failure` (`demetra/workflows/failure.py:123`) is `async` and uses `get_template(..., retry_hint=..., recovery=...)`, and `main.py:238-249` keeps `except AgentNetworkError` ahead of `except AgentFailureError`.

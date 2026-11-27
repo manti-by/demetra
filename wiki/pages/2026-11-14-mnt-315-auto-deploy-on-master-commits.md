@@ -9,7 +9,7 @@ services: [.env.docker, AGENTS, Dockerfile, Makefile, README, deployer.py, libra
 branch: mnt-315-auto-deploy-on-master-commits
 tickets: [MNT-315, MNT-316]
 tags: [wiki, infrastructure, feature]
-related: [2026-08-10-docker-compose-deploy.md, 2026-09-28-compose-langsmith-host-env.md]
+related: [2026-08-10-docker-compose-deploy.md, 2026-09-28-compose-langsmith-host-env.md, 2026-11-25-deploy-deadlock-container-cleanup.md, 2026-11-25-mnt-323-worker-generation-swap.md]
 ---
 
 # MNT-315: Auto deploy on master commits
@@ -114,3 +114,7 @@ Manual verification confirmed:
 - External: https://linear.app/mnt/issue/MNT-315/auto-deploy-on-master-commits
 - Related: [2026-08-10-docker-compose-deploy](/pages/2026-08-10-docker-compose-deploy.md)
 - Related: [2026-09-28-compose-langsmith-host-env](/pages/2026-09-28-compose-langsmith-host-env.md)
+- Related: [2026-11-25-deploy-deadlock-container-cleanup](/pages/2026-11-25-deploy-deadlock-container-cleanup.md)
+- Related: [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Two parts of the deploy design above were superseded on 2026-11-25: (1) [2026-11-25-mnt-323-worker-generation-swap](/pages/2026-11-25-mnt-323-worker-generation-swap.md) removed `wait_for_queue_drain` and `DEPLOY_DRAIN_TIMEOUT=3600` in favour of swapping two Compose worker generations (`worker-blue` / `worker-green`) via `swap_workers` (`demetra/services/daemons/worker_swap.py`); (2) [2026-11-25-deploy-deadlock-container-cleanup](/pages/2026-11-25-deploy-deadlock-container-cleanup.md) pinned `DOCKER_PATH: /usr/local/bin/docker` on the `deployer` container (`docker-compose.yaml:179`) so it finds the baked Docker CLI instead of `/usr/bin/docker`.

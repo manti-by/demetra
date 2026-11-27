@@ -9,7 +9,7 @@ services: [persistence, linear, chat, workflows, api, react]
 branch: opencode/feature/MNT-312-unified-task-model
 tickets: [MNT-312, MNT-311]
 tags: [data-model, task, message, linear, chat, migration, backfill]
-related: [2026-11-04-chat-session-list-and-rerun.md, 2026-11-03-ch-2-single-unified-session-view.md]
+related: [2026-11-04-chat-session-list-and-rerun.md, 2026-11-03-ch-2-single-unified-session-view.md, 2026-11-27-mnt-325-questions-ui-and-context.md, 2026-11-27-mnt-326-drop-worktree-and-session-delete.md]
 ---
 
 # Unified Task model with Linear and Chat subtypes
@@ -388,5 +388,7 @@ uv run ty check                   All checks passed!
 
 ## References
 
-- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md), [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md)
+- Related: [2026-11-04-chat-session-list-and-rerun](/pages/2026-11-04-chat-session-list-and-rerun.md), [2026-11-03-ch-2-single-unified-session-view](/pages/2026-11-03-ch-2-single-unified-session-view.md), [2026-11-27-mnt-325-questions-ui-and-context](/pages/2026-11-27-mnt-325-questions-ui-and-context.md), [2026-11-27-mnt-326-drop-worktree-and-session-delete](/pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md)
 - External: MNT-312 (research), MNT-311 (original ticket)
+
+> **Consistency note (2026-11-27, Consistency Agent):** Two extensions landed on top of this schema: [2026-11-27-mnt-325-questions-ui-and-context](/pages/2026-11-27-mnt-325-questions-ui-and-context.md) added `messages.related_id`, `messages.is_added_to_context` and the `'answer'` `ChatMessageKind` value (migration `d5e6f7a8b9c0`), and [2026-11-27-mnt-326-drop-worktree-and-session-delete](/pages/2026-11-27-mnt-326-drop-worktree-and-session-delete.md) extended `delete_session` to force-remove the session's git worktree after committing the transaction.
