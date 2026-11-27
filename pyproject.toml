@@ -1,6 +1,6 @@
 [project]
 name = "demetra"
-version = "1.20.8"
+version = "1.20.9"
 readme = "README.md"
 description = "Autonomous coding platform"
 requires-python = ">=3.14.10,<3.15.0"

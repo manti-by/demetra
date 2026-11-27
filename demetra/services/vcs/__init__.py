@@ -23,6 +23,7 @@ from demetra.services.vcs.github import (
     extract_pr_link,
     get_pr_info,
     pr_comment,
+    react_to_comment,
     verify_signature,
     webhook_rebase_handler,
 )
@@ -54,6 +55,7 @@ __all__ = [
     "perform_git_merge",
     "perform_git_rebase",
     "pr_comment",
+    "react_to_comment",
     "validate_ref",
     "verify_signature",
     "webhook_rebase_handler",
