@@ -7,11 +7,12 @@ import { ChatPage, MessageBubble, splitFailureBody } from './ChatPage';
 import { AuthProvider } from '../contexts/AuthContext';
 import { deleteSession, getChat, type ChatDetail, type ChatMessage } from '../services/api';
 
-vi.mock('../services/api', () => ({
+vi.mock(new URL('../services/api.ts', import.meta.url).pathname, () => ({
   getCurrentUser: vi.fn().mockResolvedValue({ id: 'u1', email: 'user@example.com' }),
   logout: vi.fn(),
   getChat: vi.fn(),
   postChatMessage: vi.fn(),
+  postQuestionAnswer: vi.fn(),
   rerunChat: vi.fn(),
   deleteSession: vi.fn(),
 }));
@@ -21,6 +22,7 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     id: '1',
     task_id: 'CH-1',
     parent_id: null,
+    related_id: null,
     source: 'chat',
     external_id: null,
     body: '',
@@ -28,6 +30,7 @@ function makeMessage(overrides: Partial<ChatMessage> = {}): ChatMessage {
     author_id: null,
     author_name: null,
     is_system: true,
+    is_added_to_context: false,
     kind: 'message',
     ...overrides,
   };

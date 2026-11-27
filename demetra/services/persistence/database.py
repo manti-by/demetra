@@ -244,11 +244,13 @@ def _message_from_row(row) -> Message:
         id=row.id,
         task_id=row.task_id,
         parent_id=row.parent_id,
+        related_id=row.related_id,
         source=row.source or "chat",
         external_id=row.external_id,
         author_id=row.author_id,
         author_name=row.author_name,
         is_system=bool(row.is_system),
+        is_added_to_context=bool(row.is_added_to_context),
         kind=row.kind or "message",
         body=row.body,
         created_at=row.created_at.isoformat(),
@@ -548,6 +550,7 @@ async def _insert_message(
     author_name: str | None = None,
     is_system: bool = False,
     parent_id: str | None = None,
+    related_id: str | None = None,
     external_id: str | None = None,
 ) -> Message:
     """Insert a message row on an open connection.
@@ -566,6 +569,7 @@ async def _insert_message(
         author_name: Optional display name of the author.
         is_system: Whether the message was produced by the system.
         parent_id: Optional parent message id for threaded replies.
+        related_id: Optional id of the question an answer replies to.
         external_id: Optional external identifier, e.g. a Linear comment id.
 
     Returns:
@@ -578,6 +582,7 @@ async def _insert_message(
             id=message_id,
             task_id=task_id,
             parent_id=parent_id,
+            related_id=related_id,
             source=source,
             external_id=external_id,
             author_id=author_id,
@@ -592,6 +597,7 @@ async def _insert_message(
         id=message_id,
         task_id=task_id,
         parent_id=parent_id,
+        related_id=related_id,
         source=source,
         external_id=external_id,
         author_id=author_id,
@@ -613,6 +619,7 @@ async def post_message(
     author_name: str | None = None,
     is_system: bool = False,
     parent_id: str | None = None,
+    related_id: str | None = None,
     external_id: str | None = None,
     create_task: bool = True,
 ) -> Message:
@@ -627,6 +634,7 @@ async def post_message(
         author_name: Optional display name of the author.
         is_system: Whether the message was produced by the system.
         parent_id: Optional parent message id for threaded replies.
+        related_id: Optional id of the question an answer replies to.
         external_id: Optional external identifier, e.g. a Linear comment id.
         create_task: Whether a missing task is created before the message is
             stored. Callers that append to an existing task pass False, so a
@@ -648,6 +656,7 @@ async def post_message(
             author_name=author_name,
             is_system=is_system,
             parent_id=parent_id,
+            related_id=related_id,
             external_id=external_id,
         )
         await connection.commit()
@@ -3520,11 +3529,13 @@ def _chat_message_from_row(message: Message) -> ChatMessage:
         id=message.id,
         task_id=message.task_id,
         parent_id=message.parent_id,
+        related_id=message.related_id,
         source=message.source,
         external_id=message.external_id,
         author_id=message.author_id,
         author_name=message.author_name,
         is_system=message.is_system,
+        is_added_to_context=message.is_added_to_context,
         kind=message.kind,
         body=message.body,
         created_at=message.created_at,
@@ -3719,6 +3730,70 @@ async def post_chat_message(
             is_system=is_system,
         )
     return _chat_message_from_row(message)
+
+
+async def post_chat_answer(
+    *,
+    task_id: str,
+    question_id: str,
+    body: str,
+    author_id: str | None = None,
+) -> ChatMessage | None:
+    """Store a user answer linked to a plan question in a chat thread.
+
+    The task row is locked and the question is validated in the same
+    transaction as the insert, so an answer cannot be attached to a deleted
+    chat or to a message of another task.
+
+    Args:
+        task_id: The ``CH-<id>`` task id.
+        question_id: The id of the question message being answered.
+        body: The answer body.
+        author_id: The id of the user who wrote the answer.
+
+    Returns:
+        ChatMessage | None: The stored answer, or None when the chat is gone
+            or the question does not belong to it.
+    """
+    async with get_transaction() as connection:
+        task = await connection.execute(select(tasks.c.id).where(tasks.c.id == task_id).with_for_update())
+        if task.fetchone() is None:
+            return None
+        chat = await connection.execute(select(chats.c.id).where(chats.c.task_id == task_id))
+        if chat.fetchone() is None:
+            return None
+        question = await connection.execute(
+            select(messages.c.id).where(
+                (messages.c.id == question_id) & (messages.c.task_id == task_id) & (messages.c.kind == "question")
+            )
+        )
+        if question.fetchone() is None:
+            return None
+        message = await _insert_message(
+            connection,
+            task_id=task_id,
+            body=body,
+            kind="answer",
+            source="chat",
+            author_id=author_id,
+            related_id=question_id,
+        )
+    return _chat_message_from_row(message)
+
+
+async def mark_messages_added_to_context(*, message_ids: list[str]) -> None:
+    """Flag messages that have been compiled into the plan agent's input.
+
+    Args:
+        message_ids: The ids of the question and answer rows that were used.
+    """
+    if not message_ids:
+        return
+    async with get_connection() as connection:
+        await connection.execute(
+            update(messages).where(messages.c.id.in_(message_ids)).values(is_added_to_context=True)
+        )
+        await connection.commit()
 
 
 async def list_chat_messages(task_id: str) -> list[ChatMessage]:

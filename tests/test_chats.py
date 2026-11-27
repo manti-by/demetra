@@ -47,7 +47,9 @@ from demetra.services.persistence.database import (
     increment_run_attempts,
     list_chat_messages,
     list_chats,
+    mark_messages_added_to_context,
     mark_session_posted,
+    post_chat_answer,
     post_chat_message,
     save_session,
     update_session_step,
@@ -1197,6 +1199,105 @@ class TestChatCleanup:
             await cleanup_workflow(context=context, is_success=True, should_update_linear_status=False)
 
         assert (await _session_for(task_id=chat.id)).step == "failed"
+
+
+class TestChatAnswers:
+    @pytest.mark.asyncio
+    async def test_answer_is_linked_to_its_question(self, chat: Chat):
+        question = await post_chat_message(
+            task_id=chat.id,
+            body="## Question:\nWhich database?",
+            is_system=True,
+            kind="question",
+        )
+        assert question is not None
+
+        answer = await post_chat_answer(
+            task_id=chat.id,
+            question_id=question.id,
+            body="Postgres",
+            author_id=TEST_USER_ID,
+        )
+
+        assert answer is not None
+        assert answer.kind == "answer"
+        assert answer.related_id == question.id
+        assert answer.author_id == TEST_USER_ID
+        assert answer.is_system is False
+        assert answer.is_added_to_context is False
+        assert [message.id for message in await list_chat_messages(task_id=chat.id)] == [question.id, answer.id]
+
+    @pytest.mark.asyncio
+    async def test_answer_rejects_non_question_and_unknown_ids(self, chat: Chat):
+        plain = await post_chat_message(task_id=chat.id, body="ordinary reply")
+
+        assert plain is not None
+        assert await post_chat_answer(task_id=chat.id, question_id=plain.id, body="no") is None
+        assert await post_chat_answer(task_id=chat.id, question_id=str(uuid4()), body="no") is None
+
+    @pytest.mark.asyncio
+    async def test_marking_consumed_messages_persists_the_flag(self, chat: Chat):
+        question = await post_chat_message(task_id=chat.id, body="## Question:\nPort?", kind="question")
+        assert question is not None
+        answer = await post_chat_answer(task_id=chat.id, question_id=question.id, body="5432")
+        assert answer is not None
+
+        await mark_messages_added_to_context(message_ids=[question.id, answer.id])
+
+        messages = await list_chat_messages(task_id=chat.id)
+        assert all(message.is_added_to_context for message in messages)
+
+    @pytest.mark.asyncio
+    async def test_answer_endpoint_does_not_enqueue_or_change_the_step(
+        self, authenticated_client: TestClient, chat: Chat
+    ):
+        await update_session_step(task_id=chat.id, step="awaiting_input")
+        question = await post_chat_message(task_id=chat.id, body="## Question:\nWhich database?", kind="question")
+        assert question is not None
+
+        with patch("demetra.api.chats.enqueue_workflow") as mock_enqueue:
+            response = authenticated_client.post(
+                f"/api/v1/chats/{chat.id}/questions/{question.id}/answer",
+                json={"body": "Postgres"},
+            )
+
+        assert response.status_code == 201
+        payload = response.json()["message"]
+        assert payload["kind"] == "answer"
+        assert payload["related_id"] == question.id
+        assert payload["body"] == "Postgres"
+        assert (await _session_for(task_id=chat.id)).step == "awaiting_input"
+        mock_enqueue.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_answer_endpoint_rejects_empty_body(self, authenticated_client: TestClient, chat: Chat):
+        response = authenticated_client.post(
+            f"/api/v1/chats/{chat.id}/questions/{uuid4()}/answer",
+            json={"body": "  "},
+        )
+
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_answer_endpoint_rejects_unknown_question(self, authenticated_client: TestClient, chat: Chat):
+        response = authenticated_client.post(
+            f"/api/v1/chats/{chat.id}/questions/{uuid4()}/answer",
+            json={"body": "Postgres"},
+        )
+
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_answer_endpoint_is_user_scoped(self, cross_user_client: TestClient, chat: Chat):
+        question = await post_chat_message(task_id=chat.id, body="## Question:\nWhich database?", kind="question")
+        assert question is not None
+
+        response = cross_user_client.post(
+            f"/api/v1/chats/{chat.id}/questions/{question.id}/answer",
+            json={"body": "Postgres"},
+        )
+
+        assert response.status_code == 404
 
 
 def _message(*, kind: ChatMessageKind, body: str) -> ChatMessage:

@@ -503,6 +503,7 @@ async def opencode_plan_agent(
     task_title: str | None = None,
     project_id: str | None = None,
     environment: SessionEnvironment | None = None,
+    session_id: str | None = None,
 ) -> tuple[int, str, str]:
     """Run the opencode plan agent with plan-output formatting rules.
 
@@ -515,6 +516,8 @@ async def opencode_plan_agent(
         task_title: Optional session title.
         project_id: Optional project id used for OS env opt-in tokens.
         environment: Optional resolved env layer overriding the model.
+        session_id: Optional stored plan session to continue instead of
+            starting a fresh one.
 
     Returns:
         tuple[int, str, str]: Exit code, stdout and stderr of the run.
@@ -530,6 +533,7 @@ async def opencode_plan_agent(
         target_path=target_path,
         task=task,
         task_title=task_title,
+        session_id=session_id,
         model=environment.opencode_plan_model if environment is not None else OPENCODE["plan_model"],
         agent="plan-agent",
         project_id=project_id,

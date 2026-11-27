@@ -8,6 +8,7 @@ from redis.exceptions import RedisError
 from demetra.library.models import (
     Chat,
     CreateChat,
+    CreateChatAnswer,
     CreateChatMessage,
     UserResponse,
 )
@@ -22,6 +23,7 @@ from demetra.services.persistence.database import (
     is_project_ready,
     list_chat_messages,
     list_chats,
+    post_chat_answer,
     post_chat_message,
     search_projects_by_name,
     update_session_step,
@@ -307,3 +309,50 @@ async def create_chat_message_endpoint(
         await _enqueue(project_name=project["name"], task_id=task_id)
 
     return {"message": message, "resumed": resumed}
+
+
+@router.post("/{task_id}/questions/{question_id}/answer", response_model=dict, status_code=201)
+async def create_chat_answer_endpoint(
+    task_id: Annotated[str, PathParam(pattern=TASK_ID_PATTERN)],
+    question_id: str,
+    request: CreateChatAnswer,
+    user: UserResponse = Depends(get_current_user_dep),
+) -> dict:
+    """Answer one plan question without starting a workflow run.
+
+    The answer is stored as a message linked to the question so the plan step
+    can compile the pairs in their original order when the user explicitly
+    re-runs the chat. Saving an answer never claims the session or enqueues a
+    job.
+
+    Args:
+        task_id: The chat task id.
+        question_id: The id of the question message being answered.
+        request: The answer body.
+        user: The authenticated user.
+
+    Returns:
+        dict: The stored answer under ``message``.
+
+    Raises:
+        HTTPException: 400 for an empty body, 404 when the chat is absent, not
+            owned, or the question is not on that chat.
+    """
+    chat = await get_chat(task_id=task_id, user_id=user.id)
+    if chat is None:
+        raise HTTPException(status_code=404, detail="Chat not found")
+
+    body = request.body.strip()
+    if not body:
+        raise HTTPException(status_code=400, detail="Answer cannot be empty")
+
+    message = await post_chat_answer(
+        task_id=task_id,
+        question_id=question_id,
+        body=body,
+        author_id=user.id,
+    )
+    if message is None:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    return {"message": message}

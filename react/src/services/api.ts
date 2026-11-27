@@ -235,6 +235,7 @@ export interface Chat {
 export type ChatMessageKind =
   | "message"
   | "question"
+  | "answer"
   | "plan"
   | "failure"
   | "research"
@@ -245,11 +246,13 @@ export interface ChatMessage {
   id: string;
   task_id: string;
   parent_id: string | null;
+  related_id: string | null;
   source: string;
   external_id: string | null;
   author_id: string | null;
   author_name: string | null;
   is_system: boolean;
+  is_added_to_context: boolean;
   kind: ChatMessageKind;
   body: string;
   created_at: string;
@@ -344,6 +347,26 @@ export async function postChatMessage(
   if (!response.ok) {
     const error = await response.json();
     throw new Error(error.detail || "Failed to send message");
+  }
+  return response.json();
+}
+
+export async function postQuestionAnswer(
+  taskId: string,
+  questionId: string,
+  body: string,
+): Promise<{ message: ChatMessage }> {
+  const response = await authenticatedFetch(
+    `${API_URL}/api/v1/chats/${taskId}/questions/${questionId}/answer`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ body }),
+    },
+  );
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.detail || "Failed to send answer");
   }
   return response.json();
 }

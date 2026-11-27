@@ -33,7 +33,7 @@ TaskKind = Literal["linear", "chat"]
 
 MessageSource = Literal["chat", "linear"]
 
-ChatMessageKind = Literal["message", "question", "plan", "failure", "research", "status", "comment"]
+ChatMessageKind = Literal["message", "question", "answer", "plan", "failure", "research", "status", "comment"]
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -59,11 +59,13 @@ class Message:
     body: str
     created_at: str
     parent_id: str | None = None
+    related_id: str | None = None
     source: MessageSource = "chat"
     external_id: str | None = None
     author_id: str | None = None
     author_name: str | None = None
     is_system: bool = False
+    is_added_to_context: bool = False
     kind: ChatMessageKind = "message"
 
 
@@ -186,6 +188,11 @@ class CreateChat:
 
 @dataclass
 class CreateChatMessage:
+    body: str
+
+
+@dataclass
+class CreateChatAnswer:
     body: str
 
 
