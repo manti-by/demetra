@@ -210,7 +210,7 @@ class TestRunCommentsWorkflow:
     @pytest.mark.asyncio
     async def test_applies_comments_and_resolves_threads(self, base_mocks):
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is True
@@ -234,7 +234,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_summarize"].return_value = None
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is True
@@ -248,7 +248,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_unpushed"].return_value = False
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is True
@@ -261,7 +261,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_build"].side_effect = RuntimeError("agent failed")
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is False
@@ -284,7 +284,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_build"].side_effect = error
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is False
@@ -298,7 +298,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_summarize"].side_effect = ReviewError("Failed to summarize the review")
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is False
@@ -310,14 +310,28 @@ class TestRunCommentsWorkflow:
     async def test_returns_false_when_session_or_batch_is_missing(self, base_mocks):
         base_mocks["mock_get_session"].return_value = None
         assert (
-            await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
+            await run_comments_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=0,
+            )
             is False
         )
 
         base_mocks["mock_get_session"].return_value = SESSION
         base_mocks["mock_load"].return_value = None
         assert (
-            await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
+            await run_comments_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=0,
+            )
             is False
         )
         assert base_mocks["mock_clear"].call_count == 1
@@ -327,7 +341,12 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_get_project"].return_value = None
         assert (
             await run_comments_workflow(
-                task_id="TASK-123", project_id="proj-missing", pr_number=42, full_name="owner/repo"
+                task_id="TASK-123",
+                project_id="proj-missing",
+                pr_number=42,
+                full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=0,
             )
             is False
         )
@@ -337,7 +356,14 @@ class TestRunCommentsWorkflow:
     async def test_releases_batch_when_pr_info_or_task_is_missing(self, base_mocks):
         base_mocks["mock_get_pr_info"].return_value = None
         assert (
-            await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
+            await run_comments_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=0,
+            )
             is False
         )
         base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
@@ -346,7 +372,14 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_get_pr_info"].return_value = ("feature/branch", "master")
         base_mocks["mock_resolve_task_by_id"].return_value = None
         assert (
-            await run_comments_workflow(task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo")
+            await run_comments_workflow(
+                task_id="TASK-123",
+                project_id="proj-1",
+                pr_number=42,
+                full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=0,
+            )
             is False
         )
         base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
@@ -356,7 +389,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_resolve"].return_value = ["THREAD_1", "THREAD_2"]
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is False
@@ -376,7 +409,7 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_setup_session_logging"].side_effect = RuntimeError("logging failed")
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is False
@@ -388,9 +421,28 @@ class TestRunCommentsWorkflow:
         base_mocks["mock_reset_attempts"].side_effect = RuntimeError("database failed")
 
         result = await run_comments_workflow(
-            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo"
+            task_id="TASK-123", project_id="proj-1", pr_number=42, full_name="owner/repo", batch_id="batch-1", attempt=0
         )
 
         assert result is True
         base_mocks["mock_clear"].assert_called_once_with(task_id="TASK-123", comments=PAYLOAD)
         base_mocks["mock_remove"].assert_awaited_once()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(("batch_id", "attempt"), [("batch-2", 0), ("batch-1", 1)])
+    async def test_skips_batch_that_changed_after_submission(self, base_mocks, batch_id, attempt):
+        result = await run_comments_workflow(
+            task_id="TASK-123",
+            project_id="proj-1",
+            pr_number=42,
+            full_name="owner/repo",
+            batch_id=batch_id,
+            attempt=attempt,
+        )
+
+        assert result is False
+        base_mocks["mock_get_session"].assert_not_awaited()
+        base_mocks["mock_create"].assert_not_awaited()
+        base_mocks["mock_clear"].assert_not_called()
+        base_mocks["mock_reset_attempts"].assert_not_awaited()
+        base_mocks["mock_step"].assert_not_awaited()

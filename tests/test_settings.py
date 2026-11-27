@@ -112,6 +112,51 @@ class TestSettings:
             monkeypatch.delenv("MAX_CI_ATTEMPTS", raising=False)
             importlib.reload(settings_module)
 
+    def test_pending_comments_ttl_default(self, monkeypatch):
+        monkeypatch.delenv("PENDING_COMMENTS_TTL", raising=False)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.PENDING_COMMENTS_TTL == 24 * 60 * 60
+        finally:
+            importlib.reload(settings_module)
+
+    def test_pending_comments_ttl_positive_override(self, monkeypatch):
+        monkeypatch.setenv("PENDING_COMMENTS_TTL", "3600")
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.PENDING_COMMENTS_TTL == 3600
+        finally:
+            monkeypatch.delenv("PENDING_COMMENTS_TTL", raising=False)
+            importlib.reload(settings_module)
+
+    @pytest.mark.parametrize("value", ["0", "-5", "not-an-int"])
+    def test_pending_comments_ttl_rejects_nonpositive_values(self, monkeypatch, value):
+        monkeypatch.setenv("PENDING_COMMENTS_TTL", value)
+
+        import importlib
+
+        import demetra.settings as settings_module
+
+        importlib.reload(settings_module)
+
+        try:
+            assert settings_module.PENDING_COMMENTS_TTL == 24 * 60 * 60
+        finally:
+            monkeypatch.delenv("PENDING_COMMENTS_TTL", raising=False)
+            importlib.reload(settings_module)
+
     def test_git_worktree_path_default(self):
         assert ".demetra/worktrees" in str(settings.GIT["worktree_path"])
 

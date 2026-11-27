@@ -15,9 +15,11 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.x509.oid import NameOID
 from redis.exceptions import RedisError
 from rq.exceptions import DuplicateJobError
+from rq.job import validate_job_id
 
 from demetra.library.models import Session
 from demetra.services.daemons.listener import (
+    _submit_comments_workflow,
     extract_pr_info,
     fetch_subject_body,
     fetch_subject_comment,
@@ -585,6 +587,26 @@ class TestIsCoderabbitAuthor:
         assert is_coderabbit_author("") is False
 
 
+class TestSubmitCommentsWorkflow:
+    def test_job_id_is_accepted_by_rq(self):
+        batch = {
+            "batch_id": "batch-1",
+            "task_id": "TASK-123",
+            "project_id": "proj-123",
+            "pr_number": 42,
+            "full_name": "owner/repo",
+            "attempt": 2,
+        }
+        with patch("demetra.services.daemons.listener.queue") as mock_queue:
+            assert _submit_comments_workflow(batch=batch) is True
+
+        enqueue_kwargs = mock_queue.enqueue.call_args.kwargs
+        assert enqueue_kwargs["job_id"] == "demetra-comments-batch-1-2"
+        validate_job_id(enqueue_kwargs["job_id"])
+        assert enqueue_kwargs["batch_id"] == "batch-1"
+        assert enqueue_kwargs["attempt"] == 2
+
+
 class TestProcessCoderabbitCommentsNotification:
     PR_INFO = {"pr_number": 42, "full_name": "owner/repo", "title": "Fix the thing"}
 
@@ -659,12 +681,14 @@ class TestProcessCoderabbitCommentsNotification:
             assert batch["batch_id"]
             mock_queue.enqueue.assert_called_once_with(
                 mock_queue.enqueue.call_args[0][0],
-                job_id=f"demetra:comments:{batch['batch_id']}:0",
+                job_id=f"demetra-comments-{batch['batch_id']}-0",
                 unique=True,
                 task_id="TASK-123",
                 project_id="proj-123",
                 pr_number=42,
                 full_name="owner/repo",
+                batch_id=batch["batch_id"],
+                attempt=0,
             )
             from demetra.workflows.comments import run_comments_workflow
 
@@ -696,12 +720,14 @@ class TestProcessCoderabbitCommentsNotification:
 
             mock_queue.enqueue.assert_called_once_with(
                 mock_queue.enqueue.call_args[0][0],
-                job_id="demetra:comments:batch-1:1",
+                job_id="demetra-comments-batch-1-1",
                 unique=True,
                 task_id="TASK-123",
                 project_id="proj-123",
                 pr_number=42,
                 full_name="owner/repo",
+                batch_id="batch-1",
+                attempt=1,
             )
             mock_inc.assert_not_awaited()
             mock_reset.assert_not_awaited()

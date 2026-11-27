@@ -248,7 +248,8 @@ def _submit_comments_workflow(batch: dict) -> bool:
     if not batch_id:
         logger.warning(f"Pending comments for {batch.get('task_id', '')} have no batch id")
         return False
-    job_id = f"demetra:comments:{batch_id}:{batch.get('attempt', 0)}"
+    attempt = batch.get("attempt", 0)
+    job_id = f"demetra-comments-{batch_id}-{attempt}"
     try:
         queue.enqueue(
             run_comments_workflow,
@@ -258,6 +259,8 @@ def _submit_comments_workflow(batch: dict) -> bool:
             project_id=batch["project_id"],
             pr_number=batch["pr_number"],
             full_name=batch["full_name"],
+            batch_id=batch_id,
+            attempt=attempt,
         )
         return True
     except DuplicateJobError:

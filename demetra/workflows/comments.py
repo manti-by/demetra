@@ -91,7 +91,9 @@ async def _record_failure(task_id: str, message: str) -> None:
     await record_session_step(task_id=task_id, step="failed", message=message)
 
 
-async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, full_name: str) -> bool:
+async def run_comments_workflow(
+    task_id: str, project_id: str, pr_number: int, full_name: str, batch_id: str, attempt: int
+) -> bool:
     """Apply a saved batch of CodeRabbit comments to an existing pull request.
 
     Summarizes the batch with the review step's summarizer, runs the build
@@ -99,28 +101,36 @@ async def run_comments_workflow(task_id: str, project_id: str, pr_number: int, f
     force-pushes the result to the PR head branch and resolves the saved
     review threads. The Redis batch is released on every exit, except when
     threads stay unresolved and the batch is kept with a new attempt counter
-    for a later workflow to retry.
+    for a later workflow to retry. A batch that changed after submission is
+    left untouched for its own workflow.
 
     Args:
         task_id: The task identifier.
         project_id: The project id the PR belongs to.
         pr_number: The pull request number.
         full_name: The repository full name, e.g. ``"owner/repo"``.
+        batch_id: The id of the batch submitted by the listener.
+        attempt: The submission attempt counter of that batch.
 
     Returns:
         bool: True when the workflow completed, False on failure.
     """
+    batch = load_pending_comments(task_id=task_id)
+    if not batch:
+        logger.info(f"No pending CodeRabbit comments for task {task_id}")
+        return False
+    if batch.get("batch_id") != batch_id or batch.get("attempt") != attempt:
+        logger.warning(
+            f"Pending comments for task {task_id} no longer match submitted batch {batch_id}/{attempt}; "
+            f"found {batch.get('batch_id')}/{batch.get('attempt')}"
+        )
+        return False
+
     project: Project | None = None
     environment: SessionEnvironment | None = None
     worktree_path: Path | None = None
-    batch: dict | None = None
     retain_batch = False
     try:
-        batch = load_pending_comments(task_id=task_id)
-        if not batch:
-            logger.info(f"No pending CodeRabbit comments for task {task_id}")
-            return False
-
         session = await get_session(task_id=task_id)
         if not session:
             logger.error(f"Session not found for task_id: {task_id}")
