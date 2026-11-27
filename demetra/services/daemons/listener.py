@@ -15,7 +15,7 @@ from demetra.services.persistence.database import (
 )
 from demetra.services.persistence.queue import load_pending_comments, queue, save_pending_comments
 from demetra.services.runtime.subprocess import run_command, run_command_to_file
-from demetra.services.vcs.github import get_coderabbit_comments
+from demetra.services.vcs.github import get_coderabbit_comments, react_to_comment
 from demetra.settings import BASE_PATH, GITHUB, MAX_ATTEMPTS
 from demetra.workflows.comments import run_comments_workflow
 from demetra.workflows.merge import run_merge_workflow
@@ -418,6 +418,15 @@ async def process_notification(pr_info: dict, action: str) -> bool:
         case _:
             logger.info(f"Unknown action: {pr_link}")
             return False
+
+    try:
+        await react_to_comment(
+            comment_id=pr_info.get("comment_id", ""),
+            full_name=full_name,
+            target_path=BASE_PATH,
+        )
+    except (OSError, RuntimeError) as e:
+        logger.warning(f"Failed to react to the triggering comment for PR #{pr_number}: {e}")
 
     logger.info(f"Enqueuing {action} workflow for PR #{pr_number} in {full_name}")
     queue.enqueue(

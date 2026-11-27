@@ -14,16 +14,19 @@ from demetra.library.models import SessionEnvironment
 from demetra.services.persistence.database import get_session_by_pr_link
 from demetra.services.persistence.queue import queue
 from demetra.services.runtime.subprocess import run_command
-from demetra.settings import GITHUB
+from demetra.settings import BASE_PATH, GITHUB
 
 
 logger = logging.getLogger(__name__)
 
 REVIEW_THREAD_ID_PATTERN = re.compile(r"^[A-Za-z0-9_=-]+$")
+COMMENT_ID_PATTERN = re.compile(r"^\d+$")
+FULL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
 RESOLVE_REVIEW_THREAD_QUERY = (
     "mutation($threadId:ID!){resolveReviewThread(input:{threadId:$threadId}){thread{id isResolved}}}"
 )
+REACTION_TIMEOUT = 30
 
 
 def _thread_comments(thread: dict) -> list[dict]:
@@ -444,6 +447,58 @@ async def pr_comment(
     return True
 
 
+async def react_to_comment(
+    comment_id: str,
+    full_name: str,
+    target_path: Path,
+    environment: SessionEnvironment | None = None,
+    project_id: str | None = None,
+) -> bool:
+    """Add an eyes reaction to a GitHub comment using the GitHub CLI.
+
+    Args:
+        comment_id: The numeric id of the comment to react to.
+        full_name: The repository full name, e.g. ``"owner/repo"``.
+        target_path: Directory to run the GitHub CLI in.
+        environment: The resolved session environment forwarded to the subprocess.
+        project_id: Optional project id used for OS env opt-in tokens.
+
+    Returns:
+        bool: True when the reaction was added successfully.
+    """
+    if not COMMENT_ID_PATTERN.fullmatch(comment_id):
+        logger.warning(f"Skipping reaction for invalid GitHub comment id: {comment_id!r}")
+        return False
+    if not FULL_NAME_PATTERN.fullmatch(full_name):
+        logger.warning(f"Skipping reaction for invalid repository name: {full_name!r}")
+        return False
+    command = [
+        str(GITHUB["path"]),
+        "api",
+        "--method",
+        "POST",
+        "-f",
+        "content=eyes",
+        f"repos/{full_name}/issues/comments/{comment_id}/reactions",
+    ]
+    try:
+        exit_code, _, stderr = await run_command(
+            command=command,
+            target_path=target_path,
+            environment=environment,
+            project_id=project_id,
+            disable_stdio=True,
+            timeout=REACTION_TIMEOUT,
+        )
+    except (OSError, RuntimeError) as e:
+        logger.warning(f"Failed to react to GitHub comment {comment_id}: {e}")
+        return False
+    if exit_code != 0:
+        logger.warning(f"Failed to react to GitHub comment {comment_id}: {stderr.strip()[:500]}")
+        return False
+    return True
+
+
 async def clone_repo(repo_url: str, parent_path: Path, target_path: Path) -> dict:
     """Clone a repository into the target path if it does not exist yet.
 
@@ -551,6 +606,7 @@ async def webhook_rebase_handler(payload: dict) -> dict:
         return {"action": "ignored", "reason": "missing repo info or PR number"}
 
     pr_link = f"https://github.com/{full_name}/pull/{pr_number}"
+    comment_id = str(comment.get("id") or "")
 
     if MERGE_COMMAND_PATTERN.search(body):
         from demetra.workflows.merge import run_merge_workflow  # noqa: PLC0415
@@ -558,6 +614,10 @@ async def webhook_rebase_handler(payload: dict) -> dict:
         session = await get_session_by_pr_link(pr_link=pr_link)
         if not session or not session.project_id:
             return {"action": "ignored", "reason": "no session found"}
+        try:
+            await react_to_comment(comment_id=comment_id, full_name=full_name, target_path=BASE_PATH)
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"Failed to react to the triggering comment for PR #{pr_number}: {e}")
         queue.enqueue(
             run_merge_workflow,
             task_id=session.task_id,
@@ -573,6 +633,10 @@ async def webhook_rebase_handler(payload: dict) -> dict:
         session = await get_session_by_pr_link(pr_link=pr_link)
         if not session or not session.project_id:
             return {"action": "ignored", "reason": "no session found"}
+        try:
+            await react_to_comment(comment_id=comment_id, full_name=full_name, target_path=BASE_PATH)
+        except (OSError, RuntimeError) as e:
+            logger.warning(f"Failed to react to the triggering comment for PR #{pr_number}: {e}")
         queue.enqueue(
             run_rebase_workflow,
             task_id=session.task_id,

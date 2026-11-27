@@ -32,7 +32,7 @@ from demetra.services.daemons.listener import (
     process_rebase_notification,
     should_process_notification,
 )
-from demetra.settings import GITHUB
+from demetra.settings import BASE_PATH, GITHUB
 
 
 class _CommentHandler(BaseHTTPRequestHandler):
@@ -449,6 +449,39 @@ class TestProcessMergeNotification:
                 full_name="owner/repo",
             )
             mock_reset.assert_awaited_once_with(session.task_id)
+
+    @pytest.mark.asyncio
+    async def test_reacts_to_comment_before_enqueue_even_when_reaction_fails(self):
+        session = Session(
+            task_id="TASK-123",
+            build_plan="Implement feature X",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        pr_info = {**self.PR_INFO, "comment_id": "123"}
+        with (
+            patch("demetra.services.daemons.listener.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.daemons.listener.increment_listener_attempts", new_callable=AsyncMock) as mock_inc,
+            patch("demetra.services.daemons.listener.reset_listener_attempts", new_callable=AsyncMock),
+            patch("demetra.services.daemons.listener.react_to_comment", new_callable=AsyncMock) as mock_react,
+            patch("demetra.services.daemons.listener.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
+            mock_inc.return_value = 1
+            mock_react.return_value = False
+
+            result = await process_merge_notification(pr_info)
+
+            assert result is True
+            mock_react.assert_awaited_once()
+            assert mock_react.await_args is not None
+            assert mock_react.await_args.kwargs["comment_id"] == "123"
+            assert mock_react.await_args.kwargs["full_name"] == "owner/repo"
+            assert mock_react.await_args.kwargs["target_path"] == BASE_PATH
+            mock_queue.enqueue.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_marks_read_when_max_listener_attempts_exceeded(self):
@@ -1048,7 +1081,7 @@ class TestListenerEntrypoint:
                 await main()
 
             mock_process.assert_awaited_once_with(
-                pr_info={"pr_number": 42, "full_name": "owner/repo", "title": "PR Title"}
+                pr_info={"pr_number": 42, "full_name": "owner/repo", "title": "PR Title", "comment_id": "1"}
             )
             mock_mark_read.assert_awaited_once()
 

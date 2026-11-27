@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from demetra.services.vcs.github import (
+    REACTION_TIMEOUT,
     _is_pr_authorization,
     clone_repo,
     create_pull_request,
@@ -12,6 +13,7 @@ from demetra.services.vcs.github import (
     get_coderabbit_comments,
     get_pr_info,
     get_unresolved_review_threads,
+    react_to_comment,
     resolve_review_threads,
     verify_signature,
     webhook_rebase_handler,
@@ -36,6 +38,9 @@ class TestGitHubModuleImports:
 
     def test_webhook_rebase_handler_import(self):
         assert callable(webhook_rebase_handler)
+
+    def test_react_to_comment_import(self):
+        assert callable(react_to_comment)
 
     def test_is_pr_authorization_import(self):
         assert callable(_is_pr_authorization)
@@ -421,6 +426,36 @@ class TestWebhookRebaseHandler:
             mock_queue.enqueue.assert_called_once()
 
     @pytest.mark.asyncio
+    async def test_reacts_to_triggering_comment_before_enqueue(self):
+        payload = self._authorized_comment_payload("@demetra-ai rebase")
+        payload["comment"]["id"] = 99
+        from demetra.library.models import Session
+
+        session = Session(
+            task_id="TASK-123",
+            build_plan="plan",
+            posted_to_linear=True,
+            created_at="2026-01-01T00:00:00Z",
+            updated_at="2026-01-01T00:00:00Z",
+            pr_link="https://github.com/owner/repo/pull/42",
+            project_id="proj-123",
+        )
+        with (
+            self._mock_github_api("write"),
+            patch("demetra.services.vcs.github.get_session_by_pr_link", new_callable=AsyncMock) as mock_db,
+            patch("demetra.services.vcs.github.react_to_comment", new_callable=AsyncMock) as mock_react,
+            patch("demetra.services.vcs.github.queue") as mock_queue,
+        ):
+            mock_db.return_value = session
+            result = await webhook_rebase_handler(payload)
+            assert result == {"action": "enqueued_rebase", "pr_number": 42, "repository": "owner/repo"}
+            mock_react.assert_awaited_once()
+            assert mock_react.await_args is not None
+            assert mock_react.await_args.kwargs["comment_id"] == "99"
+            assert mock_react.await_args.kwargs["full_name"] == "owner/repo"
+            mock_queue.enqueue.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_rejects_unprivileged_user(self):
         payload = {
             "comment": {"body": "please rebase", "author_association": "CONTRIBUTOR", "user": {"login": "contributor"}},
@@ -531,6 +566,86 @@ class TestGetPrInfo:
             mock_run.return_value = (1, "", "PR not found")
             result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"))
             assert result is None
+
+
+class TestReactToComment:
+    @pytest.mark.asyncio
+    async def test_posts_eyes_reaction_to_issue_comment(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "", "")
+            result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert result is True
+        mock_run.assert_awaited_once()
+        assert mock_run.await_args is not None
+        command = mock_run.await_args.kwargs["command"]
+        assert command[1:] == [
+            "api",
+            "--method",
+            "POST",
+            "-f",
+            "content=eyes",
+            "repos/owner/repo/issues/comments/42/reactions",
+        ]
+        assert mock_run.await_args.kwargs["disable_stdio"] is True
+
+    @pytest.mark.asyncio
+    async def test_uses_short_timeout(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (0, "", "")
+            await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert mock_run.await_args is not None
+        assert mock_run.await_args.kwargs["timeout"] == REACTION_TIMEOUT
+        assert REACTION_TIMEOUT < 60
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_api_failure(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (1, "", "API error")
+            result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_returns_false_on_timeout(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (-1, "", "Command timed out\n")
+            result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_invalid_comment_id_skips_run_command(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            result = await react_to_comment(comment_id="not-a-number", full_name="owner/repo", target_path=Path("/tmp"))
+
+        assert result is False
+        mock_run.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_empty_comment_id_skips_run_command(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            result = await react_to_comment(comment_id="", full_name="owner/repo", target_path=Path("/tmp"))
+
+        assert result is False
+        mock_run.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_invalid_full_name_skips_run_command(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            result = await react_to_comment(comment_id="42", full_name="owner/repo;bad", target_path=Path("/tmp"))
+
+        assert result is False
+        mock_run.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_run_command_error_returns_false(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = OSError("gh not found")
+            result = await react_to_comment(comment_id="42", full_name="owner/repo", target_path=Path("/tmp"))
+
+        assert result is False
 
 
 class TestGetCoderabbitComments:

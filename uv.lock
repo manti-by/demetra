@@ -549,7 +549,7 @@ wheels = [
 
 [[package]]
 name = "demetra"
-version = "1.20.8"
+version = "1.20.9"
 source = { virtual = "." }
 dependencies = [
     { name = "aiofiles" },

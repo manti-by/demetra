@@ -57,6 +57,7 @@ async def main() -> None:
                     continue
                 if not (pr_info := extract_pr_info(notification=notification)):
                     continue
+                pr_info["comment_id"] = comment["id"]
 
                 message = f"requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}"
 
