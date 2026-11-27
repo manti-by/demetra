@@ -9,7 +9,10 @@ from demetra.services.vcs.github import (
     clone_repo,
     create_pull_request,
     extract_pr_link,
+    get_coderabbit_comments,
     get_pr_info,
+    get_unresolved_review_threads,
+    resolve_review_threads,
     verify_signature,
     webhook_rebase_handler,
 )
@@ -528,6 +531,112 @@ class TestGetPrInfo:
             mock_run.return_value = (1, "", "PR not found")
             result = await get_pr_info(pr_number=999, full_name="owner/repo", target_path=Path("/tmp/repo"))
             assert result is None
+
+
+class TestGetCoderabbitComments:
+    THREADS = [
+        {
+            "id": "THREAD_1",
+            "path": "a.py",
+            "line": 12,
+            "comments": {
+                "nodes": [
+                    {
+                        "id": "COMMENT_1",
+                        "body": "  first finding  ",
+                        "diffHunk": "@@ -1 +1 @@",
+                        "author": {"login": "coderabbitai[bot]"},
+                        "line": 12,
+                    },
+                    {"id": "COMMENT_2", "body": "human reply", "author": {"login": "manti-by"}},
+                ]
+            },
+        },
+        {
+            "id": "THREAD_2",
+            "comments": {"nodes": [{"body": "second finding", "author": {"login": "CodeRabbitAI"}}]},
+        },
+    ]
+
+    @pytest.mark.asyncio
+    async def test_keeps_only_coderabbit_comments_with_thread_ids(self):
+        with patch(
+            "demetra.services.vcs.github.get_unresolved_review_threads",
+            new_callable=AsyncMock,
+            return_value=self.THREADS,
+        ) as mock_threads:
+            result = await get_coderabbit_comments(pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"))
+
+        mock_threads.assert_awaited_once_with(
+            pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"), environment=None, project_id=None
+        )
+        assert [comment["thread_id"] for comment in result] == ["THREAD_1", "THREAD_2"]
+        assert result[0] == {
+            "thread_id": "THREAD_1",
+            "comment_id": "COMMENT_1",
+            "body": "first finding",
+            "path": "a.py",
+            "line": 12,
+            "diff_hunk": "@@ -1 +1 @@",
+            "author": "coderabbitai[bot]",
+        }
+        assert result[1]["thread_id"] == "THREAD_2"
+
+    @pytest.mark.asyncio
+    async def test_returns_empty_list_when_no_coderabbit_comments(self):
+        with patch(
+            "demetra.services.vcs.github.get_unresolved_review_threads", new_callable=AsyncMock, return_value=[]
+        ):
+            assert await get_coderabbit_comments(42, "owner/repo", Path("/tmp/repo")) == []
+
+    @pytest.mark.asyncio
+    async def test_review_thread_query_includes_node_ids(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.return_value = (
+                1,
+                "",
+                "boom",
+            )
+            with pytest.raises(RuntimeError):
+                await get_unresolved_review_threads(pr_number=42, full_name="owner/repo", target_path=Path("/tmp/repo"))
+            assert mock_run.await_args is not None
+            query = mock_run.await_args.kwargs["command"][4]
+            assert "nodes{id isResolved" in query
+            assert "nodes{id body path diffHunk" in query
+
+
+class TestResolveReviewThreads:
+    @pytest.mark.asyncio
+    async def test_resolves_each_thread_and_counts_confirmations(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = [
+                (0, '{"data":{"resolveReviewThread":{"thread":{"id":"T1","isResolved":true}}}}', ""),
+                (0, '{"data":{"resolveReviewThread":{"thread":{"id":"T2","isResolved":true}}}}', ""),
+            ]
+            assert await resolve_review_threads(["T1", "T2"], Path("/tmp/repo")) == 2
+
+        assert mock_run.await_count == 2
+        assert mock_run.await_args is not None
+        command = mock_run.await_args.kwargs["command"]
+        assert "mutation($threadId:ID!)" in command[4]
+        assert command[-1] == "threadId=T2"
+
+    @pytest.mark.asyncio
+    async def test_skips_invalid_ids_and_counts_only_successes(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            mock_run.side_effect = [
+                (1, "", "not found"),
+                (0, '{"data":{"resolveReviewThread":{"thread":{"isResolved":false}}}}', ""),
+                (0, "invalid json", ""),
+            ]
+            assert await resolve_review_threads(["bad id", "T1", "T2", "T3"], Path("/tmp/repo")) == 0
+        assert mock_run.await_count == 3
+
+    @pytest.mark.asyncio
+    async def test_no_threads_resolves_nothing(self):
+        with patch("demetra.services.vcs.github.run_command", new_callable=AsyncMock) as mock_run:
+            assert await resolve_review_threads([], Path("/tmp/repo")) == 0
+        mock_run.assert_not_awaited()
 
 
 class TestCloneRepo:

@@ -24,6 +24,40 @@ def filter_meaningful_reviews(findings: list[str]) -> list[str]:
     return [f for f in findings if len(f) >= 10 and f.casefold() not in NO_ISSUE_TOKENS_CASE]
 
 
+async def summarize_findings(
+    review_output: str,
+    *,
+    task_id: str | None = None,
+    environment: SessionEnvironment | None = None,
+) -> str | None:
+    """Summarize raw review output into actionable, numbered findings.
+
+    Shared by the review agents and the CodeRabbit comments workflow so both
+    use the same LLM summarizer and meaningfulness filter.
+
+    Args:
+        review_output: The raw review text.
+        task_id: Optional task id used to record the LLM call in session history.
+        environment: The resolved session environment configuring the LLM.
+
+    Returns:
+        str | None: Numbered findings, or None when there are none.
+
+    Raises:
+        ReviewError: When the LLM summarization fails.
+    """
+    findings = await summarize_review(review_output=review_output, task_id=task_id, environment=environment)
+    meaningful = filter_meaningful_reviews(findings)
+    if not meaningful:
+        print_message("No actionable comments found, continuing the workflow.", style="result")
+        return None
+
+    print_message("Review agents returned comments", style="result")
+    findings_text = "\n".join(f"{i + 1}. {finding}" for i, finding in enumerate(meaningful))
+    print_message(findings_text, style="result")
+    return findings_text
+
+
 async def run_review_agents(
     target_path: Path,
     *,
@@ -117,14 +151,4 @@ async def run_review_agents(
             parts.append(stripped)
     review_output = "\n\n".join(parts)
 
-    findings = await summarize_review(review_output=review_output, task_id=task_id, environment=environment)
-    if findings:
-        meaningful = filter_meaningful_reviews(findings)
-        if meaningful:
-            print_message("Review agents returned comments", style="result")
-            findings_text = "\n".join(f"{i + 1}. {finding}" for i, finding in enumerate(meaningful))
-            print_message(findings_text, style="result")
-            return findings_text
-
-    print_message("No comments from any review agent, continuing the workflow.", style="result")
-    return None
+    return await summarize_findings(review_output=review_output, task_id=task_id, environment=environment)

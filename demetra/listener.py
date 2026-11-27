@@ -3,12 +3,14 @@ import logging.config
 
 from demetra.services.daemons.listener import (
     extract_pr_info,
-    fetch_subject_body,
+    fetch_subject_comment,
     get_notifications,
+    is_coderabbit_author,
     mark_notification_read,
     mentions_demetra_ai_and_fix_review_findings,
     mentions_demetra_ai_and_merge,
     mentions_demetra_ai_and_rebase,
+    process_coderabbit_comments_notification,
     process_fix_review_findings_notification,
     process_merge_notification,
     process_rebase_notification,
@@ -26,8 +28,9 @@ async def main() -> None:
     """Poll GitHub notifications and process merge/rebase command mentions.
 
     Runs an infinite loop that fetches notifications, extracts PR info,
-    matches merge/rebase commands in the comment bodies, enqueues the
-    corresponding workflows and marks processed notifications as read.
+    matches CodeRabbit comments and merge/rebase commands in the comment
+    bodies, enqueues the corresponding workflows and marks processed
+    notifications as read.
     """
     await init_db()
     logger.info(f"GitHub notification listener started, polling every {LISTENER_POLL_INTERVAL} seconds")
@@ -48,14 +51,20 @@ async def main() -> None:
                 subject = notification.get("subject", {})
                 logger.info(f"Processing notification: {subject}")
 
-                if not (body := await fetch_subject_body(subject=subject)):
+                comment = await fetch_subject_comment(subject=subject)
+                body = comment["body"]
+                if not body:
                     continue
                 if not (pr_info := extract_pr_info(notification=notification)):
                     continue
 
                 message = f"requested on {pr_info['full_name']}#{pr_info['pr_number']}: {pr_info['title']}"
 
-                if mentions_demetra_ai_and_merge(body=body):
+                if is_coderabbit_author(author=comment["author"]):
+                    logger.info(f"CodeRabbit comments {message}")
+                    processed = await process_coderabbit_comments_notification(pr_info=pr_info)
+
+                elif mentions_demetra_ai_and_merge(body=body):
                     logger.info(f"Merge {message}")
                     processed = await process_merge_notification(pr_info=pr_info)
 

@@ -251,8 +251,9 @@ _Newest first._
 - [MNT-171: Docstring MCP search](pages/2026-09-08-docstring-mcp-search.md)
 - [Migrate LLM summarization from Groq to OpenRouter](pages/2026-08-18-migrate-llm-groq-to-openrouter.md)
 
-### Linear, GitHub & task intake (4 pages)
+### Linear, GitHub & task intake (5 pages)
 
+- [MNT-324: CodeRabbit comments listener and one-batch comments workflow](pages/2026-11-26-mnt-324-comments-listener.md)
 - [Listener fails to pick up comments — asyncio readline 64KB limit on gh notifications](pages/2026-09-14-listener-readline-limit-crash.md)
 - [Ticket status isn't changed when watcher picks it up](pages/2026-08-28-mnt-191-ticket-status-not-changed.md)
 - [Split auth/linear services into subpackages + review-failure handling](pages/2026-08-19-split-auth-linear-services-and-review-failure-handling.md)
